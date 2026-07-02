@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.84",
     "@pixiv/three-vrm": "^3.5.4",
     "@pixiv/three-vrm-animation": "^3.5.4",
     "react": "^19.2.7",

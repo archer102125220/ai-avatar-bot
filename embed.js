@@ -11,7 +11,7 @@
   'use strict';
 
   // 注入收合泡泡的 hover / 注意力 pulse 動畫
-  var awStyle = document.createElement('style');
+  const awStyle = document.createElement('style');
   awStyle.textContent =
     '#avatar-widget-root .aw-bubble{transition:transform .15s, box-shadow .15s;}'
     + '#avatar-widget-root .aw-bubble:hover{transform:scale(1.07);}'
@@ -22,31 +22,31 @@
   (document.head || document.documentElement).appendChild(awStyle);
 
   // 1) 找出自己的位置，推算 widget.html 的網址（可用 data-widget 覆蓋）
-  var me = document.currentScript || (function () {
-    var ss = document.getElementsByTagName('script');
-    for (var i = ss.length - 1; i >= 0; i--) { if (/embed\.js(\?|$)/.test(ss[i].src || '')) return ss[i]; }
+  const me = document.currentScript || (function () {
+    const ss = document.getElementsByTagName('script');
+    for (let i = ss.length - 1; i >= 0; i--) { if (/embed\.js(\?|$)/.test(ss[i].src || '')) return ss[i]; }
     return null;
   })();
-  var base = me ? me.src.replace(/[^/]*$/, '') : '';
-  var widgetUrl = (me && me.getAttribute('data-widget')) || (base + 'widget.html');
-  var startOpen = (me && me.getAttribute('data-open') !== 'false'); // 預設一進來就展開
-  var widgetOrigin = (function () { try { return new URL(widgetUrl, location.href).origin; } catch (e) { return '*'; } })();
+  const base = me ? me.src.replace(/[^/]*$/, '') : '';
+  const widgetUrl = (me && me.getAttribute('data-widget')) || (base + 'widget.html');
+  const startOpen = (me && me.getAttribute('data-open') !== 'false'); // 預設一進來就展開
+  const widgetOrigin = (function () { try { return new URL(widgetUrl, location.href).origin; } catch (e) { return '*'; } })();
 
   // 把可設定項帶進 widget：皮=model / 肉的語音後端=api / 內容=knowledge / 聲線=voice
-  var cfg = new URLSearchParams();
+  const cfg = new URLSearchParams();
   ['model', 'vrm', 'api', 'knowledge', 'voice', 'ollama', 'llmmodel', 'fit'].forEach(function (k) {
-    var v = me && me.getAttribute('data-' + k);
+    const v = me && me.getAttribute('data-' + k);
     if (v) cfg.set(k, v);
   });
-  var cfgQs = cfg.toString();
-  var iframeSrc = widgetUrl + (cfgQs ? (widgetUrl.indexOf('?') < 0 ? '?' : '&') + cfgQs : '');
+  const cfgQs = cfg.toString();
+  const iframeSrc = widgetUrl + (cfgQs ? (widgetUrl.indexOf('?') < 0 ? '?' : '&') + cfgQs : '');
 
-  var EXPANDED = { w: 340, h: 480 };
-  var NS_OUT = 'avatar-widget-host'; // 父 → 子
-  var NS_IN  = 'avatar-widget';      // 子 → 父
+  const EXPANDED = { w: 340, h: 480 };
+  const NS_OUT = 'avatar-widget-host'; // 父 → 子
+  const NS_IN = 'avatar-widget';      // 子 → 父
 
   // 2) 建外層容器
-  var root = document.createElement('div');
+  const root = document.createElement('div');
   root.id = 'avatar-widget-root';
   root.style.cssText = [
     'position:fixed', 'right:16px', 'bottom:16px',
@@ -54,7 +54,7 @@
   ].join(';');
 
   // 3) iframe（虛擬人本體）
-  var iframe = document.createElement('iframe');
+  const iframe = document.createElement('iframe');
   iframe.src = iframeSrc;
   iframe.title = 'AI 虛擬人助理';                 // 無障礙：給 iframe 一個名字
   iframe.setAttribute('allow', 'microphone; autoplay'); // 語音輸入 + 音訊播放
@@ -62,7 +62,7 @@
   iframe.style.cssText = 'width:100%;height:100%;border:0;background:transparent;color-scheme:normal;';
 
   // 4) 收合後的小泡泡（iframe 收起時顯示，點它再展開）
-  var bubble = document.createElement('button');
+  const bubble = document.createElement('button');
   bubble.type = 'button';
   bubble.className = 'aw-bubble';
   bubble.setAttribute('aria-label', '開啟 AI 虛擬人助理');
@@ -99,7 +99,7 @@
   // 6) 接收 iframe 的訊息（驗證來源 origin）
   window.addEventListener('message', function (e) {
     if (widgetOrigin !== '*' && e.origin !== widgetOrigin) return; // 只收來自自己 widget 的訊息
-    var d = e.data || {};
+    const d = e.data || {};
     if (d.ns !== NS_IN) return;
     if (d.type === 'close') setOpen(false);                 // 使用者按 ✕ → 收成泡泡
     if (d.type === 'ready') { /* 之後可在這觸發歡迎語 */ }

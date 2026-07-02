@@ -27,6 +27,7 @@
     "vite-plugin-dts": "^4.5.0"
   },
   "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.84",
     "@pixiv/three-vrm": "^3.5.4",
     "@pixiv/three-vrm-animation": "^3.5.4",
     "three": "^0.180.0"
