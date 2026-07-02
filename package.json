@@ -4,7 +4,16 @@
   "private": true,
   "description": "Web 右下角 Live2D 語音 AI 虛擬人 demo",
   "scripts": {
-    "dev": "vercel dev"
+    "dev": "vercel dev",
+    "dev:js": "npm run dev -w vanilla-js",
+    "dev:ts": "npm run dev -w typescript",
+    "dev:vue": "npm run dev -w vue",
+    "dev:react": "npm run dev -w react",
+    "build:js": "npm run build -w vanilla-js",
+    "build:ts": "npm run build -w typescript",
+    "build:vue": "npm run build -w vue",
+    "build:react": "npm run build -w react",
+    "build": "npm run build --workspaces"
   },
   "workspaces": [
     "vanilla-js",
