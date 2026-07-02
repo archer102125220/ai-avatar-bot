@@ -1,76 +1,190 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-Hant">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>AI 虛擬人 · Demo</title>
-<meta name="description" content="網頁右下角的語音 AI 虛擬人助理 — 自建 Demo（Live2D + 瀏覽器語音 + 本機 LLM）" />
-<style>
-  :root { --ink:#1f3a5f; --teal:#5b54e8; }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family:"Noto Sans TC",system-ui,sans-serif; color:#243; background:#eef3f6; }
-  header { background:linear-gradient(120deg,#1f3a5f,#2f6d8f); color:#fff; padding:54px 24px 60px; text-align:center; }
-  header h1 { margin:0 0 10px; font-size:30px; letter-spacing:.5px; }
-  header p { margin:0 auto; max-width:560px; opacity:.9; line-height:1.7; }
-  .wrap { max-width:760px; margin:-32px auto 60px; padding:0 20px; }
-  .card { background:#fff; border-radius:16px; padding:24px 26px; box-shadow:0 10px 30px rgba(20,40,70,.08); margin-bottom:18px; }
-  .card h2 { color:var(--ink); margin:0 0 14px; font-size:19px; }
-  .steps { list-style:none; padding:0; margin:0; counter-reset:s; }
-  .steps li { position:relative; padding:10px 0 10px 44px; line-height:1.6; border-bottom:1px dashed #e3e9ee; }
-  .steps li:last-child { border-bottom:0; }
-  .steps li::before { counter-increment:s; content:counter(s); position:absolute; left:0; top:8px;
-    width:28px; height:28px; border-radius:50%; background:var(--teal); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; }
-  .pill { display:inline-block; background:#eef2f6; border-radius:999px; padding:3px 10px; font-size:13px; color:#456; margin:2px 3px; }
-  .note { font-size:13px; color:#6a7b8b; line-height:1.7; }
-  kbd { background:#f1f4f7; border:1px solid #dde3e9; border-radius:5px; padding:1px 7px; font-size:13px; }
-  a { color:#2f6d8f; }
-</style>
-</head>
-<body>
-  <header>
-    <h1>🗣️ AI 虛擬人 · Demo</h1>
-    <p>網頁右下角會出現一位語音 AI 助理 —— 你可以「跟她說話」，她會聽懂、回答、開口說話並對嘴。<br/>大腦（LLM／檢索）在你的瀏覽器本機運行；語音輸入會經瀏覽器雲端辨識、語音合成經一支輕量 proxy。零金鑰。</p>
-  </header>
-
-  <div class="wrap">
-    <div class="card">
-      <h2>怎麼玩（請用 Chrome 開啟）</h2>
-      <ol class="steps">
-        <li>看右下角那位虛擬人 —— 點她一下，她會打招呼、開口說話。</li>
-        <li>點 <b>🎤 說話</b> → 准許麥克風 → 直接問她；不方便開麥也可以<b>直接打字</b>，例如「<b>怎麼裝到我的網站</b>」「<b>怎麼換成我的角色</b>」。</li>
-        <li>想讓她更聰明、能自然閒聊：點 <b>🧠</b> 啟用「AI 大腦」（首次會下載約 1GB 模型，之後就快了）。</li>
-      </ol>
-    </div>
-
-    <div class="card">
-      <h2>這是什麼</h2>
-      <p class="note">一個可以<b>一行嵌進任何網站</b>、右下角的語音 AI 虛擬人元件。她會聽你說話、回答、開口講話還會對嘴 —— 大腦和語音都在你的瀏覽器裡跑。技術組成：</p>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI 虛擬人 · Demo</title>
+    <meta
+      name="description"
+      content="網頁右下角的語音 AI 虛擬人助理 — 自建 Demo（Live2D + 瀏覽器語音 + 本機 LLM）"
+    />
+    <style>
+      :root {
+        --ink: #1f3a5f;
+        --teal: #5b54e8;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: "Noto Sans TC", system-ui, sans-serif;
+        color: #243;
+        background: #eef3f6;
+      }
+      header {
+        background: linear-gradient(120deg, #1f3a5f, #2f6d8f);
+        color: #fff;
+        padding: 54px 24px 60px;
+        text-align: center;
+      }
+      header h1 {
+        margin: 0 0 10px;
+        font-size: 30px;
+        letter-spacing: 0.5px;
+      }
+      header p {
+        margin: 0 auto;
+        max-width: 560px;
+        opacity: 0.9;
+        line-height: 1.7;
+      }
+      .wrap {
+        max-width: 760px;
+        margin: -32px auto 60px;
+        padding: 0 20px;
+      }
+      .card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 24px 26px;
+        box-shadow: 0 10px 30px rgba(20, 40, 70, 0.08);
+        margin-bottom: 18px;
+      }
+      .card h2 {
+        color: var(--ink);
+        margin: 0 0 14px;
+        font-size: 19px;
+      }
+      .steps {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        counter-reset: s;
+      }
+      .steps li {
+        position: relative;
+        padding: 10px 0 10px 44px;
+        line-height: 1.6;
+        border-bottom: 1px dashed #e3e9ee;
+      }
+      .steps li:last-child {
+        border-bottom: 0;
+      }
+      .steps li::before {
+        counter-increment: s;
+        content: counter(s);
+        position: absolute;
+        left: 0;
+        top: 8px;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--teal);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+      }
+      .pill {
+        display: inline-block;
+        background: #eef2f6;
+        border-radius: 999px;
+        padding: 3px 10px;
+        font-size: 13px;
+        color: #456;
+        margin: 2px 3px;
+      }
+      .note {
+        font-size: 13px;
+        color: #6a7b8b;
+        line-height: 1.7;
+      }
+      kbd {
+        background: #f1f4f7;
+        border: 1px solid #dde3e9;
+        border-radius: 5px;
+        padding: 1px 7px;
+        font-size: 13px;
+      }
+      a {
+        color: #2f6d8f;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>🗣️ AI 虛擬人 · Demo</h1>
       <p>
-        <span class="pill">Live2D 動畫角色</span>
-        <span class="pill">瀏覽器語音 STT / TTS</span>
-        <span class="pill">即時對嘴</span>
-        <span class="pill">知識庫檢索</span>
-        <span class="pill">WebLLM 本機大腦</span>
-        <span class="pill">一行 &lt;script&gt; 可嵌入任何網站</span>
+        網頁右下角會出現一位語音 AI 助理 ——
+        你可以「跟她說話」，她會聽懂、回答、開口說話並對嘴。<br />大腦（LLM／檢索）在你的瀏覽器本機運行；語音輸入會經瀏覽器雲端辨識、語音合成經一支輕量
+        proxy。零金鑰。
       </p>
-      <p class="note">這隻角色只是<b>暫用的免費佔位模型</b>，用來示範引擎。沒有「官方正式版」—— 要上線就<b>自己準備角色</b>（做一個 Live2D 模型、用 <code>data-model</code> 指上去就換好了），皮是你自己造的。</p>
+    </header>
+
+    <div class="wrap">
+      <div class="card">
+        <h2>怎麼玩（請用 Chrome 開啟）</h2>
+        <ol class="steps">
+          <li>看右下角那位虛擬人 —— 點她一下，她會打招呼、開口說話。</li>
+          <li>
+            點 <b>🎤 說話</b> → 准許麥克風 →
+            直接問她；不方便開麥也可以<b>直接打字</b>，例如「<b>怎麼裝到我的網站</b>」「<b>怎麼換成我的角色</b>」。
+          </li>
+          <li>
+            想讓她更聰明、能自然閒聊：點 <b>🧠</b> 啟用「AI 大腦」（首次會下載約
+            1GB 模型，之後就快了）。
+          </li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <h2>這是什麼</h2>
+        <p class="note">
+          一個可以<b>一行嵌進任何網站</b>、右下角的語音 AI
+          虛擬人元件。她會聽你說話、回答、開口講話還會對嘴 ——
+          大腦和語音都在你的瀏覽器裡跑。技術組成：
+        </p>
+        <p>
+          <span class="pill">Live2D 動畫角色</span>
+          <span class="pill">瀏覽器語音 STT / TTS</span>
+          <span class="pill">即時對嘴</span>
+          <span class="pill">知識庫檢索</span>
+          <span class="pill">WebLLM 本機大腦</span>
+          <span class="pill">一行 &lt;script&gt; 可嵌入任何網站</span>
+        </p>
+        <p class="note">
+          這隻角色只是<b>暫用的免費佔位模型</b>，用來示範引擎。沒有「官方正式版」——
+          要上線就<b>自己準備角色</b>（做一個 Live2D 模型、用
+          <code>data-model</code> 指上去就換好了），皮是你自己造的。
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>給夥伴的小提醒</h2>
+        <p class="note">
+          • 請用 <kbd>Chrome</kbd> 桌機瀏覽器（語音與 AI 大腦需要 WebGPU）。<br />
+          • 麥克風會跳出權限請求，按「允許」才能語音對話；<b
+            >語音辨識在 Chrome 下會把音訊送到雲端（Google）處理</b
+          >，並非本機。<br />
+          • 不按 🧠 也能用 —— 會走「知識庫檢索」模式回答。
+        </p>
+      </div>
+
+      <div
+        class="card"
+        style="border-left: 4px solid #2f6d8f; background: #eef6fb"
+      >
+        <p class="note" style="margin: 0">
+          💡 這隻虛擬人的「腦袋」裝的就是<b>它自己的使用教學</b> ——
+          直接問她「怎麼安裝」「怎麼換角色」，她會回答你。換成你自己的內容只要改
+          <code>knowledge.js</code> 或設 <code>data-knowledge</code>。
+        </p>
+      </div>
     </div>
 
-    <div class="card">
-      <h2>給夥伴的小提醒</h2>
-      <p class="note">
-        • 請用 <kbd>Chrome</kbd> 桌機瀏覽器（語音與 AI 大腦需要 WebGPU）。<br/>
-        • 麥克風會跳出權限請求，按「允許」才能語音對話；<b>語音辨識在 Chrome 下會把音訊送到雲端（Google）處理</b>，並非本機。<br/>
-        • 不按 🧠 也能用 —— 會走「知識庫檢索」模式回答。
-      </p>
-    </div>
-
-    <div class="card" style="border-left:4px solid #2f6d8f; background:#eef6fb;">
-      <p class="note" style="margin:0;">💡 這隻虛擬人的「腦袋」裝的就是<b>它自己的使用教學</b> —— 直接問她「怎麼安裝」「怎麼換角色」，她會回答你。換成你自己的內容只要改 <code>knowledge.js</code> 或設 <code>data-knowledge</code>。</p>
-    </div>
-  </div>
-
-  <!-- ★ 一行嵌入虛擬人 ★ -->
-  <script src="embed.js" data-widget="widget.html"></script>
-</body>
+    <!-- ★ 一行嵌入虛擬人 ★ -->
+    <script src="embed.js" data-widget="widget.html"></script>
+  </body>
 </html>
