@@ -7,10 +7,10 @@
     "dev": "vercel dev"
   },
   "workspaces": [
-    "./vanilla-js",
-    "./typescript",
-    "./vue",
-    ".react"
+    "vanilla-js",
+    "typescript",
+    "vue",
+    "react"
   ],
   "dependencies": {
     "msedge-tts": "^2.0.5"
