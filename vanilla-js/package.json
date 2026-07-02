@@ -1,0 +1,21 @@
+{
+  "name": "ai-avatar-bot-vanilla-js",
+  "version": "1.0.0",
+  "type": "module",
+  "files": ["dist"],
+  "main": "./dist/ai-avatar-bot.umd.cjs",
+  "module": "./dist/ai-avatar-bot.js",
+  "exports": {
+    ".": {
+      "import": "./dist/ai-avatar-bot.js",
+      "require": "./dist/ai-avatar-bot.umd.cjs"
+    }
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}

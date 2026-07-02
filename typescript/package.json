@@ -1,0 +1,25 @@
+{
+  "name": "ai-avatar-bot-typescript",
+  "version": "1.0.0",
+  "type": "module",
+  "files": ["dist"],
+  "main": "./dist/ai-avatar-bot.umd.cjs",
+  "module": "./dist/ai-avatar-bot.js",
+  "types": "./dist/main.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/ai-avatar-bot.js",
+      "require": "./dist/ai-avatar-bot.umd.cjs",
+      "types": "./dist/main.d.ts"
+    }
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0",
+    "vite-plugin-dts": "^3.7.0"
+  }
+}
