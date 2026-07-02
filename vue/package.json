@@ -16,6 +16,9 @@
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
+    "@pixiv/three-vrm": "^3.5.4",
+    "@pixiv/three-vrm-animation": "^3.5.4",
+    "three": "^0.180.0",
     "vue": "^3.5.38"
   },
   "devDependencies": {

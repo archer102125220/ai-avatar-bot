@@ -2,7 +2,9 @@
   "name": "ai-avatar-bot-typescript",
   "version": "1.0.0",
   "type": "module",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "main": "./dist/ai-avatar-bot.umd.cjs",
   "module": "./dist/ai-avatar-bot.js",
   "types": "./dist/main.d.ts",
@@ -22,5 +24,10 @@
     "typescript": "~6.0.2",
     "vite": "^8.1.1",
     "vite-plugin-dts": "^4.5.0"
+  },
+  "dependencies": {
+    "@pixiv/three-vrm": "^3.5.4",
+    "@pixiv/three-vrm-animation": "^3.5.4",
+    "three": "^0.180.0"
   }
 }
