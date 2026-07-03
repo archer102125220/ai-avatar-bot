@@ -1,17 +1,6 @@
 // M4b：WebLLM（瀏覽器內跑小模型，零金鑰）。函式庫改成「按下🧠才動態 import」，
 //    一般訪客（不啟用大腦）不會下載這包 JS。控制權掛到 window.LLM。
 
-// const LLM_MODEL = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC"; // 中文不錯、約 1.1GB、首次下載後會被快取
-const LLM_MODEL = "gemma-2-2b-it-q4f32_1-MLC"; // Google 公開模型
-const STATE_MAP = {
-  IDLE: "idle",
-  LOADING: "loading",
-  READY: "ready",
-  ERROR: "error",
-};
-
-const routeQuery = new URLSearchParams(location.search);
-
 function initLLM(llmModel = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC") {
   let engine = null;
   let loadingPromise = null;
@@ -58,7 +47,91 @@ function initLLM(llmModel = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC") {
 
   return LLM;
 }
+function initOLLAMA(ollamaBase = "", ollamaModel = "") {
+  const OLLAMA = {
+    base: ollamaBase,
+    model: ollamaModel,
+    enabled: !!ollamaBase,
+    ready: false,
+    async ping() {
+      if (!this.enabled) return false;
+      try {
+        const r = await fetch(this.base.replace(/\/v1$/, "") + "/api/tags");
+        this.ready = r.ok;
+        return r.ok;
+      } catch (e) {
+        this.ready = false;
+        return false;
+      }
+    },
+    async chat(messages) {
+      const r = await fetch(this.base + "/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: this.model,
+          messages,
+          temperature: 0.4,
+          max_tokens: 220,
+          stream: false,
+        }),
+      });
+      if (!r.ok) throw new Error("http " + r.status);
+      const j = await r.json();
+      return (
+        j &&
+        j.choices &&
+        j.choices[0] &&
+        j.choices[0].message &&
+        j.choices[0].message.content
+      );
+    },
+  };
+  return OLLAMA;
+}
+// 共用：檢索到的資料 + 問題 → 給 LLM 的訊息（Ollama 與 WebLLM 共用同一套 RAG 提示）
+function buildLLMMessages(q) {
+  const ctx = topK(q, 3)
+    .map((e) => "Q：" + e.q + "\nA：" + e.a)
+    .join("\n---\n");
+  return [
+    {
+      role: "system",
+      content:
+        "你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請用繁體中文、口語、最多兩三句話簡短回答。優先依據【參考資料】回答；資料沒有的就用常識簡短回應，不確定就老實說不知道。\n\n【參考資料】\n" +
+        (ctx || "（無）"),
+    },
+    { role: "user", content: q },
+  ];
+}
+// ===== 跟父頁溝通 =====
+// 父頁 origin（用 referrer 推；推不到才退回 '*'）——postMessage 盡量指定目標而非對全網廣播
+const PARENT_ORIGIN = (function () {
+  try {
+    return new URL(document.referrer).origin;
+  } catch (e) {
+    return "*";
+  }
+})();
+function postToParent(type, payload) {
+  try {
+    window.parent.postMessage(
+      Object.assign({ ns: "avatar-widget", type }, payload || {}),
+      PARENT_ORIGIN,
+    );
+  } catch (e) {}
+}
 
+const routeQuery = new URLSearchParams(location.search);
+
+// const LLM_MODEL = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC"; // 中文不錯、約 1.1GB、首次下載後會被快取
+const LLM_MODEL = "gemma-2-2b-it-q4f32_1-MLC"; // Google 公開模型
+const STATE_MAP = {
+  IDLE: "idle",
+  LOADING: "loading",
+  READY: "ready",
+  ERROR: "error",
+};
 window.LLM = initLLM(LLM_MODEL);
 
 // ===== 可設定（由 embed.js 透過 query 帶入）：皮=模型 / 肉的語音=後端 / 內容=知識庫 =====
@@ -96,60 +169,7 @@ let _switching = false;
 // data-ollama 指向 OpenAI 相容端點（如 http://localhost:11434/v1）；data-llmmodel 指定模型名
 const OLLAMA_BASE = (routeQuery.get("ollama") || "").replace(/\/+$/, "");
 const OLLAMA_MODEL = routeQuery.get("llmmodel") || "qwen2.5:latest";
-window.OLLAMA = {
-  base: OLLAMA_BASE,
-  model: OLLAMA_MODEL,
-  enabled: !!OLLAMA_BASE,
-  ready: false,
-  async ping() {
-    if (!this.enabled) return false;
-    try {
-      const r = await fetch(this.base.replace(/\/v1$/, "") + "/api/tags");
-      this.ready = r.ok;
-      return r.ok;
-    } catch (e) {
-      this.ready = false;
-      return false;
-    }
-  },
-  async chat(messages) {
-    const r = await fetch(this.base + "/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: this.model,
-        messages,
-        temperature: 0.4,
-        max_tokens: 220,
-        stream: false,
-      }),
-    });
-    if (!r.ok) throw new Error("http " + r.status);
-    const j = await r.json();
-    return (
-      j &&
-      j.choices &&
-      j.choices[0] &&
-      j.choices[0].message &&
-      j.choices[0].message.content
-    );
-  },
-};
-// 共用：檢索到的資料 + 問題 → 給 LLM 的訊息（Ollama 與 WebLLM 共用同一套 RAG 提示）
-function buildLLMMessages(q) {
-  const ctx = topK(q, 3)
-    .map((e) => "Q：" + e.q + "\nA：" + e.a)
-    .join("\n---\n");
-  return [
-    {
-      role: "system",
-      content:
-        "你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請用繁體中文、口語、最多兩三句話簡短回答。優先依據【參考資料】回答；資料沒有的就用常識簡短回應，不確定就老實說不知道。\n\n【參考資料】\n" +
-        (ctx || "（無）"),
-    },
-    { role: "user", content: q },
-  ];
-}
+window.OLLAMA = initOLLAMA(OLLAMA_BASE, OLLAMA_MODEL);
 
 // ===== 模組層狀態 =====
 const NEURAL_VOICE = routeQuery.get("voice") || "zh-TW-HsiaoChenNeural"; // 微軟神經語音「曉臻」（可用 data-voice 覆蓋）
@@ -168,39 +188,25 @@ let useAudioMouth = false;
 let audioCtx = null;
 let speakSeq = 0;
 let currentSource = null;
-let currentRaf = 0; // 控制「點第二下打斷第一下」
+let currentFps = 0; // 控制「點第二下打斷第一下」
 let neuralDisabled = false; // 抓不到神經語音後端就鎖定瀏覽器語音，避免每句都打 404
 let recognition = null;
 let listening = false;
 let gesture3D = null; // 3D 手勢觸發 hook（bootVRM 設定；2D 模式為 null → 自動 no-op）
 
 // ===== 防止被直接開（常見網站 widget 的「禁止直接訪問」提示；純 UX，非安全控制），留 ?dev=1 給開發 =====
-const isEmbedded = window.self !== window.top;
-const devBypass = new URLSearchParams(location.search).has("dev");
-if (!isEmbedded && !devBypass) {
-  document.getElementById("stage").style.display = "none";
-  document.getElementById("direct-warn").style.display = "flex";
-} else {
-  initEngines();
-}
-
-// ===== 跟父頁溝通 =====
-// 父頁 origin（用 referrer 推；推不到才退回 '*'）——postMessage 盡量指定目標而非對全網廣播
-const PARENT_ORIGIN = (function () {
-  try {
-    return new URL(document.referrer).origin;
-  } catch (e) {
-    return "*";
+function main() {
+  const isEmbedded = window.self !== window.top;
+  const devBypass = routeQuery.has("dev");
+  if (!isEmbedded && !devBypass) {
+    document.getElementById("stage").style.display = "none";
+    document.getElementById("direct-warn").style.display = "flex";
+  } else {
+    initEngines();
   }
-})();
-function postToParent(type, payload) {
-  try {
-    window.parent.postMessage(
-      Object.assign({ ns: "avatar-widget", type }, payload || {}),
-      PARENT_ORIGIN,
-    );
-  } catch (e) {}
 }
+main();
+
 window.addEventListener("message", (e) => {
   const d = e.data || {};
   if (d.ns !== "avatar-widget-host") return;
@@ -238,14 +244,16 @@ if ("speechSynthesis" in window) {
 // 中止目前正在講的（神經語音音檔 + 瀏覽器 TTS + 對嘴），給「點第二下打斷第一下」用
 function stopSpeaking() {
   try {
-    if ("speechSynthesis" in window) speechSynthesis.cancel();
+    if ("speechSynthesis" in window) {
+      speechSynthesis.cancel();
+    }
   } catch (e) {}
   try {
     clearTimeout(speakBrowser._t);
   } catch (e) {}
-  if (currentRaf) {
-    cancelAnimationFrame(currentRaf);
-    currentRaf = 0;
+  if (currentFps) {
+    cancelAnimationFrame(currentFps);
+    currentFps = 0;
   }
   if (currentSource) {
     try {
@@ -330,15 +338,15 @@ async function speakNeural(text, seq) {
       sum += v * v;
     }
     audioMouth = Math.min(1, Math.sqrt(sum / data.length) * 3.4); // RMS 音量 → 開口
-    currentRaf = requestAnimationFrame(loop);
+    currentFps = requestAnimationFrame(loop);
   };
-  currentRaf = requestAnimationFrame(loop);
+  currentFps = requestAnimationFrame(loop);
   src.onended = () => {
     // 自然播完才收尾；被打斷時 onended 已被清掉
     if (currentSource !== src) return;
-    if (currentRaf) {
-      cancelAnimationFrame(currentRaf);
-      currentRaf = 0;
+    if (currentFps) {
+      cancelAnimationFrame(currentFps);
+      currentFps = 0;
     }
     isSpeaking = false;
     useAudioMouth = false;
