@@ -19,17 +19,19 @@
     "dev": "vite",
     "build": "tsc && vite build"
   },
+  "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.84",
+    "@pixiv/three-vrm": "^3.5.4",
+    "@pixiv/three-vrm-animation": "^3.5.4",
+    "pixi-live2d-display": "^0.4.0",
+    "pixi.js": "^6.5.10",
+    "three": "^0.180.0"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "sass": "^1.101.0",
     "typescript": "~6.0.2",
     "vite": "^8.1.1",
     "vite-plugin-dts": "^4.5.0"
-  },
-  "dependencies": {
-    "@mlc-ai/web-llm": "^0.2.84",
-    "@pixiv/three-vrm": "^3.5.4",
-    "@pixiv/three-vrm-animation": "^3.5.4",
-    "three": "^0.180.0"
   }
 }
