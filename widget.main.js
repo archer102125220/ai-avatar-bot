@@ -140,14 +140,17 @@ const MODEL_URL =
   "https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json";
 const TTS_ENDPOINT = routeQuery.get("api") || "api/tts"; // 沒設→試同站相對路徑；抓不到→自動退回瀏覽器語音（純前端可用）
 const KNOWLEDGE_URL = routeQuery.get("knowledge") || "";
-if (KNOWLEDGE_URL) {
-  fetch(KNOWLEDGE_URL)
-    .then((r) => r.json())
-    .then((kb) => {
-      if (Array.isArray(kb)) window.KB = kb;
-    })
-    .catch(() => {});
+async function handleGetKnowledge(knowledgeUrl = "") {
+  if (knowledgeUrl) {
+    const knowledge = await fetch(knowledgeUrl).then((r) => r.json());
+    return knowledge;
+  }
+  return [];
 }
+
+(async () => {
+  window.KNOWLEDGE = await handleGetKnowledge(KNOWLEDGE_URL);
+})();
 
 // 皮的引擎判斷：data-vrm 指向 .vrm → 走 3D(VRM)；否則 data-model(.model3.json) → 走 2D(Live2D)
 let VRM_URL =
@@ -215,18 +218,21 @@ window.addEventListener("message", (e) => {
 });
 
 function showBubble(text) {
-  const b = document.getElementById("bubble");
-  b.textContent = text;
-  b.classList.add("show");
+  const bubble = document.getElementById("bubble");
+  bubble.textContent = text;
+  bubble.classList.add("show");
   clearTimeout(showBubble._t);
-  showBubble._t = setTimeout(() => b.classList.remove("show"), 6000);
+  showBubble._t = setTimeout(() => bubble.classList.remove("show"), 6000);
 }
 
 // ===== TTS：開口說話 + 對嘴 =====
 function loadVoice() {
   const vs = speechSynthesis.getVoices();
-  const pick = (re) =>
-    vs.find((v) => re.test(v.name + " " + v.lang) && !/Google/i.test(v.name)); // 避開 Chrome 會靜默失敗的 Google 遠端語音
+  const pick = (re) => {
+    return vs.find(
+      (v) => re.test(v.name + " " + v.lang) && !/Google/i.test(v.name),
+    ); // 避開 Chrome 會靜默失敗的 Google 遠端語音
+  };
   ttVoice =
     pick(/(HsiaoChen|HsiaoYu|曉臻|曉雨).*zh/i) || // 微軟神經女聲（最自然，若有安裝）
     pick(/(Yating|Zhiwei).*zh[-_]TW/i) || // 較新、較不機械的微軟 zh-TW 女聲
@@ -236,6 +242,7 @@ function loadVoice() {
     vs.find((v) => /zh/i.test(v.lang)) ||
     null;
 }
+
 if ("speechSynthesis" in window) {
   speechSynthesis.onvoiceschanged = loadVoice;
   loadVoice();
@@ -308,13 +315,23 @@ async function speakNeural(text, seq) {
       "&text=" +
       encodeURIComponent(text),
   );
-  if (seq !== speakSeq) return; // 抓回來時已被新點擊取代 → 放棄（避免重疊）
-  if (!resp.ok) throw new Error("http " + resp.status);
+  if (seq !== speakSeq) {
+    return; // 抓回來時已被新點擊取代 → 放棄（避免重疊）
+  }
+  if (!resp.ok) {
+    throw new Error("http " + resp.status);
+  }
   const arr = await resp.arrayBuffer();
-  if (seq !== speakSeq) return;
-  if (arr.byteLength < 800) throw new Error("audio too small");
+  if (seq !== speakSeq) {
+    return;
+  }
+  if (arr.byteLength < 800) {
+    throw new Error("audio too small");
+  }
   const audioBuf = await audioCtx.decodeAudioData(arr);
-  if (seq !== speakSeq) return; // 解碼後最後確認，舊音檔不搶播
+  if (seq !== speakSeq) {
+    return; // 解碼後最後確認，舊音檔不搶播
+  }
   const src = audioCtx.createBufferSource();
   src.buffer = audioBuf;
   const analyser = audioCtx.createAnalyser();
@@ -325,12 +342,15 @@ async function speakNeural(text, seq) {
   currentSource = src;
   useAudioMouth = true;
   isSpeaking = true;
-  if (model)
+  if (model) {
     try {
       model.motion("Tap");
     } catch (e) {}
+  }
   const loop = () => {
-    if (currentSource !== src) return; // 不是我在播了就停
+    if (currentSource !== src) {
+      return; // 不是我在播了就停
+    }
     analyser.getByteTimeDomainData(data);
     let sum = 0;
     for (let i = 0; i < data.length; i++) {
@@ -343,7 +363,9 @@ async function speakNeural(text, seq) {
   currentFps = requestAnimationFrame(loop);
   src.onended = () => {
     // 自然播完才收尾；被打斷時 onended 已被清掉
-    if (currentSource !== src) return;
+    if (currentSource !== src) {
+      return;
+    }
     if (currentFps) {
       cancelAnimationFrame(currentFps);
       currentFps = 0;
@@ -385,17 +407,20 @@ function speakBrowser(text) {
     speechSynthesis.speak(u);
     isSpeaking = true;
     mouthTarget = 0.7;
-    if (model)
+    if (model) {
       try {
         model.motion("Tap");
       } catch (e) {}
+    }
     clearTimeout(speakBrowser._t);
     speakBrowser._t = setTimeout(stopLip, estMs); // 保底：時間到閉嘴，不依賴事件
   };
   if (speechSynthesis.speaking || speechSynthesis.pending) {
     speechSynthesis.cancel();
     setTimeout(fire, 120);
-  } else fire();
+  } else {
+    fire();
+  }
 }
 
 // ===== 大腦：M4 檢索 + M4b（WebLLM）生成 =====
@@ -403,29 +428,42 @@ function speakBrowser(text) {
 function bigrams(s) {
   s = (s || "").toLowerCase().replace(/[\s，。、？！,.?!~～]/g, "");
   const g = [];
-  for (let i = 0; i < s.length - 1; i++) g.push(s.slice(i, i + 2));
-  if (s.length === 1) g.push(s);
+  for (let i = 0; i < s.length - 1; i++) {
+    g.push(s.slice(i, i + 2));
+  }
+  if (s.length === 1) {
+    g.push(s);
+  }
   return g;
 }
 function similarity(query, text) {
-  const A = bigrams(query),
-    B = new Set(bigrams(text));
-  if (!A.length || !B.size) return 0;
+  const A = bigrams(query);
+  const B = new Set(bigrams(text));
+  if (!A.length || !B.size) {
+    return 0;
+  }
   let hit = 0;
-  for (const x of A) if (B.has(x)) hit++;
+  for (const x of A) {
+    if (B.has(x)) {
+      hit++;
+    }
+  }
   return hit / Math.sqrt(A.length * B.size);
 }
 function scoreEntry(q, e) {
   let score = Math.max(similarity(q, e.q), similarity(q, e.kw || ""));
   const terms = (e.kw || "").split(/\s+/).filter(Boolean);
   for (const t of terms) {
-    if (t.length >= 2 && q.includes(t))
+    if (t.length >= 2 && q.includes(t)) {
       score = Math.max(score, 0.5 + t.length * 0.04);
+    }
   }
   return score;
 }
 function topK(q, k) {
-  return (window.KB || [])
+  const knowledge = window.KNOWLEDGE || [];
+
+  return knowledge
     .map((e) => ({ e, s: scoreEntry(q, e) }))
     .sort((a, b) => b.s - a.s)
     .slice(0, k)
@@ -433,60 +471,100 @@ function topK(q, k) {
     .map((x) => x.e);
 }
 // 檢索式回答（零金鑰、即時、永遠可用的後備）
-function brain(qRaw) {
-  const q = (qRaw || "").trim();
-  if (!q) return "我好像沒聽清楚，可以再說一次嗎？";
-  let best = null,
-    bestScore = 0;
-  for (const e of window.KB || []) {
-    const s = scoreEntry(q, e);
-    if (s > bestScore) {
-      bestScore = s;
-      best = e;
+function brain(rawQuestion) {
+  const question = (rawQuestion || "").trim?.();
+  if (typeof question !== "string" || question === "") {
+    return "我好像沒聽清楚，可以再說一次嗎？";
+  }
+
+  const knowledge = window.KNOWLEDGE || [];
+  let best = null;
+  let bestScore = 0;
+  for (const qaPair of knowledge) {
+    const score = scoreEntry(question, qaPair);
+    if (score > bestScore) {
+      bestScore = score;
+      best = qaPair;
     }
   }
-  if (best && bestScore >= 0.16) return best.a;
+
+  if (best && bestScore >= 0.16) {
+    return best.a;
+  }
+
   return (
     "你問的是「" +
-    q +
+    question +
     "」對吧？這題我的知識庫還沒收錄～你可以問我「怎麼安裝」「怎麼換成我的角色」「要不要錢」「麥克風怎麼用」這些喔。"
   );
 }
-// 有啟用 WebLLM 時，用「檢索到的資料 + LLM」生成更自然的回答；否則退回檢索式
-async function handleAnswer(q) {
-  q = (q || "").trim();
-  if (!q) return "我好像沒聽清楚，可以再說一次嗎？";
-  // 1) 本機 Ollama 大腦（最聰明，優先）
-  if (window.OLLAMA && window.OLLAMA.enabled && window.OLLAMA.ready) {
-    try {
-      showBubble("讓我想想…");
-      if (gesture3D) gesture3D("thinking");
-      const out = await window.OLLAMA.chat(buildLLMMessages(q));
-      if (out && out.trim()) return out.trim();
-    } catch (e) {
-      console.warn("Ollama error", e);
-      window.OLLAMA.ready = false;
+
+async function ollamaLLMBrain(question) {
+  try {
+    showBubble("讓我想想…");
+    if (typeof gesture3D === "function") {
+      gesture3D("thinking");
     }
-  }
-  // 2) 瀏覽器內 WebLLM（與 Ollama 共用 buildLLMMessages，prompt 只有一份）
-  if (window.LLM && window.LLM.state === STATE_MAP.READY) {
-    try {
-      showBubble("讓我想想…");
-      if (gesture3D) gesture3D("thinking");
-      const out = await window.LLM.chat(buildLLMMessages(q));
-      if (out && out.trim()) return out.trim();
-    } catch (e) {
-      console.warn("LLM error", e);
+    const out = (
+      (await window.OLLAMA.chat(buildLLMMessages(question))) || ""
+    ).trim();
+    if (typeof out === "string" && out.length !== 0) {
+      return out;
     }
+  } catch (e) {
+    console.warn("Ollama error", e);
+    window.OLLAMA.ready = false;
   }
-  return brain(q);
+  throw new Error(
+    `Ollama did not return a string or returned an empty string: ${out}`,
+  );
 }
 
-function handleUser(text) {
+async function webLLMBrain(question) {
+  try {
+    showBubble("讓我想想…");
+    if (typeof gesture3D === "function") {
+      gesture3D("thinking");
+    }
+    const out = (
+      (await window.LLM.chat(buildLLMMessages(question))) || ""
+    ).trim();
+    if (typeof out === "string" && out.length !== 0) {
+      return out;
+    }
+  } catch (error) {
+    console.warn("WebLLM error", error);
+    window.LLM.state = STATE_MAP.ERROR;
+  }
+  throw new Error(
+    `WebLLM did not return a string or returned an empty string: ${out}`,
+  );
+}
+
+// 有啟用 WebLLM 時，用「檢索到的資料 + LLM」生成更自然的回答；否則退回檢索式
+async function handleAnswer(rawQuestion = "") {
+  const question = (rawQuestion || "")?.trim?.();
+  if (typeof question !== "string" || question === "") {
+    return "我好像沒聽清楚，可以再說一次嗎？";
+  }
+
+  try {
+    // 1) 本機 Ollama 大腦（最聰明，優先）
+    if (window.OLLAMA?.enabled && window.OLLAMA?.ready) {
+      return await ollamaLLMBrain(question);
+    }
+    // 2) 瀏覽器內 WebLLM（與 Ollama 共用 buildLLMMessages，prompt 只有一份）
+    if (window.LLM?.state === STATE_MAP.READY) {
+      return await webLLMBrain(question);
+    }
+  } catch (_error) {}
+
+  return brain(question);
+}
+
+async function handleUser(text) {
   if (text) showBubble("你：" + text);
-  Promise.resolve().then(async () => {
-    speak(await handleAnswer(text));
-  });
+  speak(await handleAnswer(text));
 }
 
 // ===== STT：聽你說話 =====
@@ -1075,17 +1153,17 @@ document.getElementById("btn-close").onclick = () => postToParent("close");
     "麥克風怎麼用？",
     "我可以說什麼？",
   ];
-  const label = document.createElement("div");
+  const label = document.createElement("p");
   label.className = "sg-label";
   label.textContent = "💬 你可以問我：";
   box.appendChild(label);
-  SUGGESTIONS.forEach((s) => {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "sugg";
-    b.textContent = s;
-    b.onclick = () => handleUser(s.replace(/？$/, ""));
-    box.appendChild(b);
+  SUGGESTIONS.forEach((suggestion) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "sugg";
+    button.textContent = suggestion;
+    button.onclick = () => handleUser(suggestion.replace(/？$/, ""));
+    box.appendChild(button);
   });
 })();
 // 打字輸入：Enter 或 ➤ 送出。組字中（注音/拼音選字）按的 Enter 不送，避免誤發半成品
