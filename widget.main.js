@@ -1,6 +1,51 @@
 // M4b：WebLLM（瀏覽器內跑小模型，零金鑰）。函式庫改成「按下🧠才動態 import」，
 //    一般訪客（不啟用大腦）不會下載這包 JS。控制權掛到 window.LLM。
 
+const routeQuery = new URLSearchParams(location.search);
+
+// const LLM_MODEL = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC"; // 中文不錯、約 1.1GB、首次下載後會被快取
+const LLM_MODEL = "gemma-2-2b-it-q4f32_1-MLC"; // Google 公開模型
+const STATE_MAP = {
+  IDLE: "idle",
+  LOADING: "loading",
+  READY: "ready",
+  ERROR: "error",
+};
+
+// ===== 跟父頁溝通 =====
+// 父頁 origin（用 referrer 推；推不到才退回 '*'）——postMessage 盡量指定目標而非對全網廣播
+const PARENT_ORIGIN = (function () {
+  try {
+    return new URL(document.referrer).origin;
+  } catch (e) {
+    return "*";
+  }
+})();
+
+// ===== 可設定（由 embed.js 透過 query 帶入）：皮=模型 / 肉的語音=後端 / 內容=知識庫 =====
+const MODEL_URL =
+  routeQuery.get("model") ||
+  "https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json";
+const TTS_ENDPOINT = routeQuery.get("api") || "api/tts"; // 沒設→試同站相對路徑；抓不到→自動退回瀏覽器語音（純前端可用）
+const KNOWLEDGE_URL = routeQuery.get("knowledge") || "";
+async function handleGetKnowledge(knowledgeUrl = "") {
+  try {
+    if (typeof knowledgeUrl === "string" && knowledgeUrl !== "") {
+      const knowledge = await fetch(knowledgeUrl).then((response) => {
+        if (typeof response?.json === "function") {
+          return response.json();
+        }
+        return [];
+      });
+      if (Array.isArray(knowledge) === false) {
+        throw new Error("[AiAvatarWidget] Knowledge is not an array");
+      }
+      return knowledge;
+    }
+  } catch (_error) {}
+  return [];
+}
+
 function initLLM(llmModel = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC") {
   let engine = null;
   let loadingPromise = null;
@@ -104,15 +149,7 @@ function buildLLMMessages(q) {
     { role: "user", content: q },
   ];
 }
-// ===== 跟父頁溝通 =====
-// 父頁 origin（用 referrer 推；推不到才退回 '*'）——postMessage 盡量指定目標而非對全網廣播
-const PARENT_ORIGIN = (function () {
-  try {
-    return new URL(document.referrer).origin;
-  } catch (e) {
-    return "*";
-  }
-})();
+
 function postToParent(type, payload) {
   try {
     window.parent.postMessage(
@@ -122,44 +159,59 @@ function postToParent(type, payload) {
   } catch (e) {}
 }
 
-const routeQuery = new URLSearchParams(location.search);
-
-// const LLM_MODEL = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC"; // 中文不錯、約 1.1GB、首次下載後會被快取
-const LLM_MODEL = "gemma-2-2b-it-q4f32_1-MLC"; // Google 公開模型
-const STATE_MAP = {
-  IDLE: "idle",
-  LOADING: "loading",
-  READY: "ready",
-  ERROR: "error",
-};
-window.LLM = initLLM(LLM_MODEL);
-
-// ===== 可設定（由 embed.js 透過 query 帶入）：皮=模型 / 肉的語音=後端 / 內容=知識庫 =====
-const MODEL_URL =
-  routeQuery.get("model") ||
-  "https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json";
-const TTS_ENDPOINT = routeQuery.get("api") || "api/tts"; // 沒設→試同站相對路徑；抓不到→自動退回瀏覽器語音（純前端可用）
-const KNOWLEDGE_URL = routeQuery.get("knowledge") || "";
-async function handleGetKnowledge(knowledgeUrl = "") {
-  if (knowledgeUrl) {
-    const knowledge = await fetch(knowledgeUrl).then((r) => r.json());
-    return knowledge;
-  }
-  return [];
+function showBubble(text) {
+  const bubble = document.getElementById("bubble");
+  bubble.textContent = text;
+  bubble.classList.add("show");
+  clearTimeout(showBubble._t);
+  showBubble._t = setTimeout(() => bubble.classList.remove("show"), 6000);
 }
 
-(async () => {
-  window.KNOWLEDGE = await handleGetKnowledge(KNOWLEDGE_URL);
-})();
+// ===== TTS：開口說話 + 對嘴 =====
+function loadVoice() {
+  const vs = speechSynthesis.getVoices();
+  const pick = (re) =>
+    vs.find((v) => re.test(v.name + " " + v.lang) && !/Google/i.test(v.name)); // 避開 Chrome 會靜默失敗的 Google 遠端語音
+
+  ttVoice =
+    pick(/(HsiaoChen|HsiaoYu|曉臻|曉雨).*zh/i) || // 微軟神經女聲（最自然，若有安裝）
+    pick(/(Yating|Zhiwei).*zh[-_]TW/i) || // 較新、較不機械的微軟 zh-TW 女聲
+    pick(/Microsoft.*zh[-_]TW/i) || // 任何微軟 zh-TW（本地、可靠）
+    pick(/zh[-_]TW/i) ||
+    pick(/^zh/i) ||
+    vs.find((v) => /zh/i.test(v.lang)) ||
+    null;
+}
+
+// ===== 拖放自己的 VRM：把 .vrm 拖到角色上就直接換成你的 3D 角色（零改 code）=====
+function loadVRMFile(file) {
+  if (!file || !/\.vrm$/i.test(file.name)) {
+    showBubble("請拖一個 .vrm 檔喔");
+    return;
+  }
+  try {
+    if (vrmUrl && vrmUrl.indexOf("blob:") === 0) URL.revokeObjectURL(vrmUrl);
+  } catch (e) {}
+  vrmUrl = URL.createObjectURL(file);
+  const eb = document.getElementById("btn-engine"); // 換上後也顯示 2D/3D 切換鈕
+  if (eb) {
+    eb.style.display = "";
+    if (!eb.onclick)
+      eb.onclick = () => setEngine(_engineMode === "3d" ? "2d" : "3d");
+  }
+  _engineMode = null; // 強制重 boot（即使已在 3D）
+  setEngine("3d");
+  showBubble("換上你的角色了！🎭");
+}
 
 // 皮的引擎判斷：data-vrm 指向 .vrm → 走 3D(VRM)；否則 data-model(.model3.json) → 走 2D(Live2D)
-let VRM_URL =
+let vrmUrl =
   routeQuery.get("vrm") || (/\.vrm($|\?)/i.test(MODEL_URL) ? MODEL_URL : ""); // let：拖放自己的 VRM 時可換
-const ENGINE = VRM_URL ? "3d" : "2d";
+const ENGINE = vrmUrl ? "3d" : "2d";
 // 切換用：embedder 兩個皮都給(data-model + data-vrm) → 長出 2D/3D 切換鈕。
 // 預設引擎：data-engine 優先；否則有明確 2D 皮就 2D、只有 3D 就 3D。
 const has2D = !!routeQuery.get("model");
-const has3D = !!VRM_URL;
+const has3D = !!vrmUrl;
 const startMode =
   routeQuery.get("engine") || (has2D ? "2d" : has3D ? "3d" : "2d");
 
@@ -172,7 +224,6 @@ let _switching = false;
 // data-ollama 指向 OpenAI 相容端點（如 http://localhost:11434/v1）；data-llmmodel 指定模型名
 const OLLAMA_BASE = (routeQuery.get("ollama") || "").replace(/\/+$/, "");
 const OLLAMA_MODEL = routeQuery.get("llmmodel") || "qwen2.5:latest";
-window.OLLAMA = initOLLAMA(OLLAMA_BASE, OLLAMA_MODEL);
 
 // ===== 模組層狀態 =====
 const NEURAL_VOICE = routeQuery.get("voice") || "zh-TW-HsiaoChenNeural"; // 微軟神經語音「曉臻」（可用 data-voice 覆蓋）
@@ -196,57 +247,6 @@ let neuralDisabled = false; // 抓不到神經語音後端就鎖定瀏覽器語�
 let recognition = null;
 let listening = false;
 let gesture3D = null; // 3D 手勢觸發 hook（bootVRM 設定；2D 模式為 null → 自動 no-op）
-
-// ===== 防止被直接開（常見網站 widget 的「禁止直接訪問」提示；純 UX，非安全控制），留 ?dev=1 給開發 =====
-function main() {
-  const isEmbedded = window.self !== window.top;
-  const devBypass = routeQuery.has("dev");
-  if (!isEmbedded && !devBypass) {
-    document.getElementById("stage").style.display = "none";
-    document.getElementById("direct-warn").style.display = "flex";
-  } else {
-    initEngines();
-  }
-}
-main();
-
-window.addEventListener("message", (e) => {
-  const d = e.data || {};
-  if (d.ns !== "avatar-widget-host") return;
-  if (d.type === "say") speak(String(d.text || "").slice(0, 600));
-  // 注意：不接受用 postMessage 遠端啟動麥克風（listen），避免惡意父頁偷開麥；麥克風只由使用者點擊觸發
-});
-
-function showBubble(text) {
-  const bubble = document.getElementById("bubble");
-  bubble.textContent = text;
-  bubble.classList.add("show");
-  clearTimeout(showBubble._t);
-  showBubble._t = setTimeout(() => bubble.classList.remove("show"), 6000);
-}
-
-// ===== TTS：開口說話 + 對嘴 =====
-function loadVoice() {
-  const vs = speechSynthesis.getVoices();
-  const pick = (re) => {
-    return vs.find(
-      (v) => re.test(v.name + " " + v.lang) && !/Google/i.test(v.name),
-    ); // 避開 Chrome 會靜默失敗的 Google 遠端語音
-  };
-  ttVoice =
-    pick(/(HsiaoChen|HsiaoYu|曉臻|曉雨).*zh/i) || // 微軟神經女聲（最自然，若有安裝）
-    pick(/(Yating|Zhiwei).*zh[-_]TW/i) || // 較新、較不機械的微軟 zh-TW 女聲
-    pick(/Microsoft.*zh[-_]TW/i) || // 任何微軟 zh-TW（本地、可靠）
-    pick(/zh[-_]TW/i) ||
-    pick(/^zh/i) ||
-    vs.find((v) => /zh/i.test(v.lang)) ||
-    null;
-}
-
-if ("speechSynthesis" in window) {
-  speechSynthesis.onvoiceschanged = loadVoice;
-  loadVoice();
-}
 
 // 中止目前正在講的（神經語音音檔 + 瀏覽器 TTS + 對嘴），給「點第二下打斷第一下」用
 function stopSpeaking() {
@@ -703,37 +703,6 @@ function initEngines() {
   }
 }
 
-// ===== 拖放自己的 VRM：把 .vrm 拖到角色上就直接換成你的 3D 角色（零改 code）=====
-function loadVRMFile(file) {
-  if (!file || !/\.vrm$/i.test(file.name)) {
-    showBubble("請拖一個 .vrm 檔喔");
-    return;
-  }
-  try {
-    if (VRM_URL && VRM_URL.indexOf("blob:") === 0) URL.revokeObjectURL(VRM_URL);
-  } catch (e) {}
-  VRM_URL = URL.createObjectURL(file);
-  const eb = document.getElementById("btn-engine"); // 換上後也顯示 2D/3D 切換鈕
-  if (eb) {
-    eb.style.display = "";
-    if (!eb.onclick)
-      eb.onclick = () => setEngine(_engineMode === "3d" ? "2d" : "3d");
-  }
-  _engineMode = null; // 強制重 boot（即使已在 3D）
-  setEngine("3d");
-  showBubble("換上你的角色了！🎭");
-}
-["dragenter", "dragover"].forEach((ev) =>
-  document.addEventListener(ev, (e) => {
-    e.preventDefault();
-  }),
-);
-document.addEventListener("drop", (e) => {
-  e.preventDefault();
-  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-  if (f) loadVRMFile(f);
-});
-
 // ===== 3D 皮：VRM（three + three-vrm，ESM 動態 import）=====
 async function bootVRM() {
   try {
@@ -767,10 +736,10 @@ async function bootVRM() {
     camera.position.set(0, 1.4, 1.6);
     camera.lookAt(0, 1.3, 0);
     const resize = () => {
-      const w = stage.clientWidth,
-        h = stage.clientHeight;
-      r3.setSize(w, h, false);
-      camera.aspect = w / h;
+      const clientWidth = stage.clientWidth;
+      const clientHeight = stage.clientHeight;
+      r3.setSize(clientWidth, clientHeight, false);
+      camera.aspect = clientWidth / clientHeight;
       camera.updateProjectionMatrix();
     };
     resize();
@@ -795,22 +764,22 @@ async function bootVRM() {
     };
     window.addEventListener("pointermove", onMove);
 
-    let vrm = null,
-      armSign = 1,
-      nextBlink = 2 + Math.random() * 3,
-      blinkT = -1,
-      mixer = null,
-      waving = false;
+    let vrm = null;
+    let armSign = 1;
+    let nextBlink = 2 + Math.random() * 3;
+    let blinkT = -1;
+    let mixer = null;
+    let waving = false;
     const BLINK = 0.12;
     const gestureActions = {};
-    let currentGesture = null,
-      idleBreak = 0;
+    let currentGesture = null;
+    let idleBreak = 0;
     const clock = new THREE.Clock();
     const loader = new GLTFLoader();
     loader.register((p) => new VRMLoaderPlugin(p));
     loader.register((p) => new VRMAnimationLoaderPlugin(p)); // 同一個 loader 也能讀 .vrma
     loader.load(
-      VRM_URL,
+      vrmUrl,
       (gltf) => {
         vrm = gltf.userData.vrm;
         VRMUtils.removeUnnecessaryVertices(gltf.scene);
@@ -825,8 +794,11 @@ async function bootVRM() {
         scene.add(vrm.scene);
         window.__avatarVrm = vrm;
         try {
-          if (vrm.lookAt) vrm.lookAt.target = lookTarget;
-        } catch (e) {} // 眼睛跟著滑鼠
+          if (vrm.lookAt) {
+            vrm.lookAt.target = lookTarget;
+          }
+        } catch (_e) {} // 眼睛跟著滑鼠
+
         // VRMA 情境手勢庫（body-only，不碰嘴）：點擊/出場揮手、思考托腮、待機變化(環顧/放鬆)
         (async () => {
           const bodyOnly = (cl) => {
@@ -840,7 +812,9 @@ async function bootVRM() {
                 const gg = await loader.loadAsync(file);
                 const a =
                   gg.userData.vrmAnimations && gg.userData.vrmAnimations[0];
-                if (!a) continue;
+                if (!a) {
+                  continue;
+                }
                 const act = mixer.clipAction(
                   bodyOnly(createVRMAnimationClip(a, vrm)),
                 );
@@ -856,7 +830,7 @@ async function bootVRM() {
               if (e.action === currentGesture) {
                 try {
                   e.action.stop();
-                } catch (er) {}
+                } catch (_error) {}
                 currentGesture = null;
                 waving = false;
               }
@@ -909,10 +883,12 @@ async function bootVRM() {
     (function loop() {
       if (!alive) return;
       requestAnimationFrame(loop);
-      const dt = clock.getDelta(),
-        t = clock.elapsedTime;
+      const dt = clock.getDelta();
+      const t = clock.elapsedTime;
       if (vrm) {
-        if (mixer) mixer.update(dt); // 揮手時 mixer 控身體
+        if (mixer) {
+          mixer.update(dt); // 揮手時 mixer 控身體
+        }
         const em = vrm.expressionManager;
         // 對嘴 + 眨眼（永遠歸我們，mixer 之後 vrm.update 之前）
         const mv = computeMouth();
@@ -934,17 +910,17 @@ async function bootVRM() {
         lookTarget.position.set(mx * 0.9, 1.42 - my * 0.55, 1.6); // 眼睛 lookAt 目標跟游標（永遠更新）
         if (!waving) {
           // 待機：直立、手放下、輕呼吸、頭跟游標
-          const h = vrm.humanoid;
-          const lUA = h.getNormalizedBoneNode("leftUpperArm"),
-            rUA = h.getNormalizedBoneNode("rightUpperArm"),
-            sp = h.getNormalizedBoneNode("spine"),
-            hd = h.getNormalizedBoneNode("head");
-          let armL = 1.15 * armSign,
-            armR = -1.15 * armSign;
-          let spX = Math.sin(t * 0.9) * 0.018,
-            spY = Math.sin(t * 0.5) * 0.012;
-          let hdY = mx * 0.3,
-            hdX = my * 0.12 + Math.sin(t * 0.5) * 0.01;
+          const humanoid = vrm.humanoid;
+          const lUA = humanoid.getNormalizedBoneNode("leftUpperArm");
+          const rUA = humanoid.getNormalizedBoneNode("rightUpperArm");
+          const sp = humanoid.getNormalizedBoneNode("spine");
+          const hd = humanoid.getNormalizedBoneNode("head");
+          let armL = 1.15 * armSign;
+          let armR = -1.15 * armSign;
+          let spX = Math.sin(t * 0.9) * 0.018;
+          let spY = Math.sin(t * 0.5) * 0.012;
+          let hdY = mx * 0.3;
+          let hdX = my * 0.12 + Math.sin(t * 0.5) * 0.01;
           if (isSpeaking) {
             // 講話時：身體/頭/手持續小動作（疊在站姿上）
             const ts = t * 3.0;
@@ -1042,20 +1018,19 @@ async function bootAvatar() {
     // 取景：'half'=近距離半身（頭+上半身，腿裁掉，聊天頭像感）；'full'=全身。可用 ?fit=full / data-fit 切回
     const FIT_MODE = routeQuery.get("fit") || "half";
     function fit() {
-      const w = app.renderer.width,
-        h = app.renderer.height;
-      const nativeH =
-        (model.internalModel && model.internalModel.height) || 1000;
+      const width = app.renderer.width;
+      const height = app.renderer.height;
+      const nativeH = model?.internalModel?.height || 1000;
       if (FIT_MODE === "half") {
         const ZOOM = 1.9; // 放大倍率：越大越近（半身越緊）
-        const s = (h / nativeH) * 0.95 * ZOOM;
+        const s = (height / nativeH) * 0.95 * ZOOM;
         model.scale.set(s);
-        model.x = w / 2;
-        model.y = nativeH * s + h * 0.04; // 腳推到畫面外、頭留 4% 上緣
+        model.x = width / 2;
+        model.y = nativeH * s + height * 0.04; // 腳推到畫面外、頭留 4% 上緣
       } else {
-        model.scale.set((h / nativeH) * 0.95);
-        model.x = w / 2;
-        model.y = h;
+        model.scale.set((height / nativeH) * 0.95);
+        model.x = width / 2;
+        model.y = height;
       }
     }
     fit();
@@ -1115,10 +1090,13 @@ async function bootAvatar() {
     };
   } catch (err) {
     console.error(err);
-    const w = document.getElementById("direct-warn");
-    if (w) {
-      w.textContent = "2D 啟動失敗：" + ((err && err.message) || err);
-      w.style.display = "flex";
+    const directWarn = document.getElementById("direct-warn");
+    if (
+      directWarn instanceof HTMLParagraphElement ||
+      directWarn instanceof HTMLDivElement
+    ) {
+      directWarn.textContent = "2D 啟動失敗：" + ((err && err.message) || err);
+      directWarn.style.display = "flex";
     }
     postToParent("error", { message: err.message });
   }
@@ -1139,11 +1117,8 @@ function onTap() {
   );
 }
 
-// ===== 控制列 =====
-document.getElementById("btn-close").onclick = () => postToParent("close");
-
 // 範例提示清單：一進站就告訴使用者「可以說什麼」，點任一項＝直接問（語音/打字都不用先猜）
-(function renderSuggestions() {
+function renderSuggestions() {
   const box = document.getElementById("suggestions");
   if (!box) return;
   const SUGGESTIONS = [
@@ -1165,9 +1140,10 @@ document.getElementById("btn-close").onclick = () => postToParent("close");
     button.onclick = () => handleUser(suggestion.replace(/？$/, ""));
     box.appendChild(button);
   });
-})();
+}
+
 // 打字輸入：Enter 或 ➤ 送出。組字中（注音/拼音選字）按的 Enter 不送，避免誤發半成品
-(function bindTyping() {
+function bindTyping() {
   const ti = document.getElementById("type-input");
   const send = () => {
     const t = ti.value.trim();
@@ -1182,65 +1158,10 @@ document.getElementById("btn-close").onclick = () => postToParent("close");
       send();
     }
   });
-})();
-document.getElementById("btn-mic").onclick = () => startListening();
-document.getElementById("btn-mute").onclick = () => {
-  ttsMuted = !ttsMuted;
-  const mb = document.getElementById("btn-mute");
-  mb.textContent = ttsMuted ? "🔇" : "🔊";
-  mb.setAttribute("aria-pressed", String(ttsMuted));
-  if (ttsMuted) stopSpeaking(); // 立刻停掉正在播的（神經語音 + 瀏覽器語音）
-  showBubble(ttsMuted ? "已靜音" : "已開啟語音");
-};
-document.getElementById("btn-speed").onclick = () => {
-  const steps = [0.9, 1.0, 1.2, 1.4];
-  ttsRate = steps[(steps.indexOf(ttsRate) + 1) % steps.length] || 1.0;
-  document.getElementById("btn-speed").textContent = ttsRate.toFixed(1) + "×";
-  showBubble("語速：" + ttsRate.toFixed(1) + "×");
-};
-document.getElementById("btn-llm").onclick = async () => {
-  const btn = document.getElementById("btn-llm");
-  // 啟用本機 Ollama 模式時：🧠 用來顯示狀態 / 重新連線，不下載 WebLLM
-  if (window.OLLAMA && window.OLLAMA.enabled) {
-    const ok = window.OLLAMA.ready || (await window.OLLAMA.ping());
-    btn.textContent = ok ? "🧠本機" : "🧠✗";
-    btn.classList.toggle("llm-on", ok);
-    btn.setAttribute("aria-pressed", String(ok));
-    showBubble(
-      ok
-        ? "本機 AI 大腦運作中（" + window.OLLAMA.model + "）🧠"
-        : "本機 Ollama 連不上：確認 Ollama 在跑、且 OLLAMA_ORIGINS 已允許這個網站。",
-    );
-    return;
-  }
-  if (!window.LLM || !window.LLM.supported) {
-    showBubble("這個裝置不支援 WebGPU，先用知識庫模式就好（功能一樣可用）。");
-    return;
-  }
-  if (window.LLM.state === STATE_MAP.READY) {
-    showBubble("AI 大腦已啟用，問我問題吧 🧠");
-    return;
-  }
-  if (window.LLM.state === STATE_MAP.LOADING) {
-    showBubble("AI 大腦載入中… " + Math.round(window.LLM.progress * 100) + "%");
-    return;
-  }
-  showBubble("開始下載 AI 大腦（約 1GB，只需第一次）…");
-  try {
-    await window.LLM.load((p) => {
-      btn.textContent = "🧠 " + Math.round((p.progress || 0) * 100) + "%";
-    });
-    btn.textContent = "🧠✓";
-    btn.classList.add("llm-on");
-    speak("AI 大腦啟用完成，現在我可以聊得更自然囉！");
-  } catch (e) {
-    btn.textContent = "🧠✗";
-    showBubble("AI 大腦載入失敗：" + ((e && e.message) || e));
-  }
-};
+}
 
 // 啟用本機 Ollama 時：開機 ping 一下，連上就把 🧠 切成「本機大腦」狀態
-(async function initOllama() {
+async function initOllama() {
   if (!window.OLLAMA || !window.OLLAMA.enabled) return;
   const btn = document.getElementById("btn-llm");
   if (btn) {
@@ -1264,4 +1185,113 @@ document.getElementById("btn-llm").onclick = async () => {
         ),
       1300,
     );
-})();
+}
+
+async function main() {
+  // ===== 防止被直接開（常見網站 widget 的「禁止直接訪問」提示；純 UX，非安全控制），留 ?dev=1 給開發 =====
+  const isEmbedded = window.self !== window.top;
+  const devBypass = routeQuery.has("dev");
+  if (!isEmbedded && !devBypass) {
+    document.getElementById("stage").style.display = "none";
+    document.getElementById("direct-warn").style.display = "flex";
+  } else {
+    initEngines();
+  }
+
+  window.LLM = initLLM(LLM_MODEL);
+  window.KNOWLEDGE = await handleGetKnowledge(KNOWLEDGE_URL);
+  window.OLLAMA = initOLLAMA(OLLAMA_BASE, OLLAMA_MODEL);
+
+  window.addEventListener("message", (e) => {
+    const d = e.data || {};
+    if (d.ns !== "avatar-widget-host") return;
+    if (d.type === "say") speak(String(d.text || "").slice(0, 600));
+    // 注意：不接受用 postMessage 遠端啟動麥克風（listen），避免惡意父頁偷開麥；麥克風只由使用者點擊觸發
+  });
+
+  if ("speechSynthesis" in window) {
+    speechSynthesis.onvoiceschanged = loadVoice;
+    loadVoice();
+  }
+
+  ["dragenter", "dragover"].forEach((ev) =>
+    document.addEventListener(ev, (e) => {
+      e.preventDefault();
+    }),
+  );
+  document.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const file =
+      e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) {
+      loadVRMFile(file);
+    }
+  });
+
+  // ===== 控制列 =====
+  document.getElementById("btn-close").onclick = () => postToParent("close");
+
+  renderSuggestions();
+  bindTyping();
+
+  document.getElementById("btn-mic").onclick = () => startListening();
+  document.getElementById("btn-mute").onclick = () => {
+    ttsMuted = !ttsMuted;
+    const mb = document.getElementById("btn-mute");
+    mb.textContent = ttsMuted ? "🔇" : "🔊";
+    mb.setAttribute("aria-pressed", String(ttsMuted));
+    if (ttsMuted) stopSpeaking(); // 立刻停掉正在播的（神經語音 + 瀏覽器語音）
+    showBubble(ttsMuted ? "已靜音" : "已開啟語音");
+  };
+  document.getElementById("btn-speed").onclick = () => {
+    const steps = [0.9, 1.0, 1.2, 1.4];
+    ttsRate = steps[(steps.indexOf(ttsRate) + 1) % steps.length] || 1.0;
+    document.getElementById("btn-speed").textContent = ttsRate.toFixed(1) + "×";
+    showBubble("語速：" + ttsRate.toFixed(1) + "×");
+  };
+  document.getElementById("btn-llm").onclick = async () => {
+    const btn = document.getElementById("btn-llm");
+    // 啟用本機 Ollama 模式時：🧠 用來顯示狀態 / 重新連線，不下載 WebLLM
+    if (window.OLLAMA && window.OLLAMA.enabled) {
+      const ok = window.OLLAMA.ready || (await window.OLLAMA.ping());
+      btn.textContent = ok ? "🧠本機" : "🧠✗";
+      btn.classList.toggle("llm-on", ok);
+      btn.setAttribute("aria-pressed", String(ok));
+      showBubble(
+        ok
+          ? "本機 AI 大腦運作中（" + window.OLLAMA.model + "）🧠"
+          : "本機 Ollama 連不上：確認 Ollama 在跑、且 OLLAMA_ORIGINS 已允許這個網站。",
+      );
+      return;
+    }
+    if (!window.LLM || !window.LLM.supported) {
+      showBubble("這個裝置不支援 WebGPU，先用知識庫模式就好（功能一樣可用）。");
+      return;
+    }
+    if (window.LLM.state === STATE_MAP.READY) {
+      showBubble("AI 大腦已啟用，問我問題吧 🧠");
+      return;
+    }
+    if (window.LLM.state === STATE_MAP.LOADING) {
+      showBubble(
+        "AI 大腦載入中… " + Math.round(window.LLM.progress * 100) + "%",
+      );
+      return;
+    }
+    showBubble("開始下載 AI 大腦（約 1GB，只需第一次）…");
+    try {
+      await window.LLM.load((p) => {
+        btn.textContent = "🧠 " + Math.round((p.progress || 0) * 100) + "%";
+      });
+      btn.textContent = "🧠✓";
+      btn.classList.add("llm-on");
+      speak("AI 大腦啟用完成，現在我可以聊得更自然囉！");
+    } catch (e) {
+      btn.textContent = "🧠✗";
+      showBubble("AI 大腦載入失敗：" + ((e && e.message) || e));
+    }
+  };
+
+  initOllama();
+}
+main();
