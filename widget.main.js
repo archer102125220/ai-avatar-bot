@@ -3,8 +3,7 @@
 
 const routeQuery = new URLSearchParams(location.search);
 
-// const LLM_MODEL = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC"; // 中文不錯、約 1.1GB、首次下載後會被快取
-const LLM_MODEL = "gemma-2-2b-it-q4f32_1-MLC"; // Google 公開模型
+const DEFAULT_LLM_MODEL = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC";
 const STATE_MAP = {
   IDLE: "idle",
   LOADING: "loading",
@@ -17,7 +16,7 @@ const STATE_MAP = {
 const PARENT_ORIGIN = (function () {
   try {
     return new URL(document.referrer).origin;
-  } catch (e) {
+  } catch (_error) {
     return "*";
   }
 })();
@@ -46,190 +45,30 @@ async function handleGetKnowledge(knowledgeUrl = "") {
   return [];
 }
 
-function initLLM(llmModel = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC") {
-  let engine = null;
-  let loadingPromise = null;
-  const LLM = {
-    supported: "gpu" in navigator,
-    state: STATE_MAP.IDLE, // idle | loading | ready | error
-    progress: 0,
-    model: llmModel,
-    async load(onProgress) {
-      if (engine) return engine;
-      if (loadingPromise) return loadingPromise;
-      window.LLM.state = STATE_MAP.LOADING;
-      loadingPromise = import("https://esm.run/@mlc-ai/web-llm") // 動態載入：只有按下🧠才抓這包函式庫
-        .then((webllm) =>
-          webllm.CreateMLCEngine(LLM_MODEL, {
-            initProgressCallback: (p) => {
-              window.LLM.progress = p.progress || 0;
-              if (onProgress) onProgress(p);
-            },
-          }),
-        )
-        .then((e) => {
-          engine = e;
-          window.LLM.state = STATE_MAP.READY;
-          return e;
-        })
-        .catch((err) => {
-          window.LLM.state = STATE_MAP.ERROR;
-          window.LLM.error = String(err);
-          throw err;
-        });
-      return loadingPromise;
-    },
-    async chat(messages) {
-      if (!engine) return null;
-      const r = await engine.chat.completions.create({
-        messages,
-        temperature: 0.4,
-        max_tokens: 220,
-      });
-      return r && r.choices && r.choices[0] && r.choices[0].message.content;
-    },
-  };
-
-  return LLM;
-}
-function initOLLAMA(ollamaBase = "", ollamaModel = "") {
-  const OLLAMA = {
-    base: ollamaBase,
-    model: ollamaModel,
-    enabled: !!ollamaBase,
-    ready: false,
-    async ping() {
-      if (!this.enabled) return false;
-      try {
-        const r = await fetch(this.base.replace(/\/v1$/, "") + "/api/tags");
-        this.ready = r.ok;
-        return r.ok;
-      } catch (e) {
-        this.ready = false;
-        return false;
-      }
-    },
-    async chat(messages) {
-      const r = await fetch(this.base + "/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: this.model,
-          messages,
-          temperature: 0.4,
-          max_tokens: 220,
-          stream: false,
-        }),
-      });
-      if (!r.ok) throw new Error("http " + r.status);
-      const j = await r.json();
-      return (
-        j &&
-        j.choices &&
-        j.choices[0] &&
-        j.choices[0].message &&
-        j.choices[0].message.content
-      );
-    },
-  };
-  return OLLAMA;
-}
-// 共用：檢索到的資料 + 問題 → 給 LLM 的訊息（Ollama 與 WebLLM 共用同一套 RAG 提示）
-function buildLLMMessages(q) {
-  const ctx = topK(q, 3)
-    .map((e) => "Q：" + e.q + "\nA：" + e.a)
-    .join("\n---\n");
-  return [
-    {
-      role: "system",
-      content:
-        "你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請用繁體中文、口語、最多兩三句話簡短回答。優先依據【參考資料】回答；資料沒有的就用常識簡短回應，不確定就老實說不知道。\n\n【參考資料】\n" +
-        (ctx || "（無）"),
-    },
-    { role: "user", content: q },
-  ];
-}
-
-function postToParent(type, payload) {
-  try {
-    window.parent.postMessage(
-      Object.assign({ ns: "avatar-widget", type }, payload || {}),
-      PARENT_ORIGIN,
-    );
-  } catch (e) {}
-}
-
-function showBubble(text) {
-  const bubble = document.getElementById("bubble");
-  bubble.textContent = text;
-  bubble.classList.add("show");
-  clearTimeout(showBubble._t);
-  showBubble._t = setTimeout(() => bubble.classList.remove("show"), 6000);
-}
-
-// ===== TTS：開口說話 + 對嘴 =====
-function loadVoice() {
-  const vs = speechSynthesis.getVoices();
-  const pick = (re) =>
-    vs.find((v) => re.test(v.name + " " + v.lang) && !/Google/i.test(v.name)); // 避開 Chrome 會靜默失敗的 Google 遠端語音
-
-  ttVoice =
-    pick(/(HsiaoChen|HsiaoYu|曉臻|曉雨).*zh/i) || // 微軟神經女聲（最自然，若有安裝）
-    pick(/(Yating|Zhiwei).*zh[-_]TW/i) || // 較新、較不機械的微軟 zh-TW 女聲
-    pick(/Microsoft.*zh[-_]TW/i) || // 任何微軟 zh-TW（本地、可靠）
-    pick(/zh[-_]TW/i) ||
-    pick(/^zh/i) ||
-    vs.find((v) => /zh/i.test(v.lang)) ||
-    null;
-}
-
-// ===== 拖放自己的 VRM：把 .vrm 拖到角色上就直接換成你的 3D 角色（零改 code）=====
-function loadVRMFile(file) {
-  if (!file || !/\.vrm$/i.test(file.name)) {
-    showBubble("請拖一個 .vrm 檔喔");
-    return;
-  }
-  try {
-    if (vrmUrl && vrmUrl.indexOf("blob:") === 0) URL.revokeObjectURL(vrmUrl);
-  } catch (e) {}
-  vrmUrl = URL.createObjectURL(file);
-  const eb = document.getElementById("btn-engine"); // 換上後也顯示 2D/3D 切換鈕
-  if (eb) {
-    eb.style.display = "";
-    if (!eb.onclick)
-      eb.onclick = () => setEngine(_engineMode === "3d" ? "2d" : "3d");
-  }
-  _engineMode = null; // 強制重 boot（即使已在 3D）
-  setEngine("3d");
-  showBubble("換上你的角色了！🎭");
-}
-
-// 皮的引擎判斷：data-vrm 指向 .vrm → 走 3D(VRM)；否則 data-model(.model3.json) → 走 2D(Live2D)
-let vrmUrl =
-  routeQuery.get("vrm") || (/\.vrm($|\?)/i.test(MODEL_URL) ? MODEL_URL : ""); // let：拖放自己的 VRM 時可換
-const ENGINE = vrmUrl ? "3d" : "2d";
-// 切換用：embedder 兩個皮都給(data-model + data-vrm) → 長出 2D/3D 切換鈕。
-// 預設引擎：data-engine 優先；否則有明確 2D 皮就 2D、只有 3D 就 3D。
-const has2D = !!routeQuery.get("model");
-const has3D = !!vrmUrl;
-const startMode =
-  routeQuery.get("engine") || (has2D ? "2d" : has3D ? "3d" : "2d");
-
-let _umd = null;
-let _renderer = null;
-let _engineMode = null;
-let _switching = false;
-
 // ===== 本機 Ollama 大腦（試玩用；只在本機 / localhost 通）=====
 // data-ollama 指向 OpenAI 相容端點（如 http://localhost:11434/v1）；data-llmmodel 指定模型名
 const OLLAMA_BASE = (routeQuery.get("ollama") || "").replace(/\/+$/, "");
 const OLLAMA_MODEL = routeQuery.get("llmmodel") || "qwen2.5:latest";
 
+// 狀態
+// 皮的引擎判斷：data-vrm 指向 .vrm → 走 3D(VRM)；否則 data-model(.model3.json) → 走 2D(Live2D)
+let vrmUrl =
+  routeQuery.get("vrm") || (/\.vrm($|\?)/i.test(MODEL_URL) ? MODEL_URL : ""); // let：拖放自己的 VRM 時可換
+// const ENGINE = vrmUrl ? "3d" : "2d";
+// const has2D = !!routeQuery.get("model");
+// const has3D = !!vrmUrl;
+// const startMode =
+//   routeQuery.get("engine") || (has2D ? "2d" : has3D ? "3d" : "2d");
+
+let _renderer = null;
+let _engineMode = null;
+let _switching = false;
+
 // ===== 模組層狀態 =====
 const NEURAL_VOICE = routeQuery.get("voice") || "zh-TW-HsiaoChenNeural"; // 微軟神經語音「曉臻」（可用 data-voice 覆蓋）
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
 let model = null;
-let app = null;
 let isSpeaking = false;
 let mouthValue = 0;
 let mouthTarget = 0.7;
@@ -248,17 +87,196 @@ let recognition = null;
 let listening = false;
 let gesture3D = null; // 3D 手勢觸發 hook（bootVRM 設定；2D 模式為 null → 自動 no-op）
 
+function initLLM(llmModel = DEFAULT_LLM_MODEL) {
+  let engine = null;
+  let loadingPromise = null;
+
+  const LLM = {
+    supported: "gpu" in navigator,
+    state: STATE_MAP.IDLE, // idle | loading | ready | error
+    progress: 0,
+    model: llmModel,
+    async load(onProgress) {
+      if (engine) return engine;
+      if (loadingPromise) return loadingPromise;
+      window.LLM.state = STATE_MAP.LOADING;
+      loadingPromise = import("https://esm.run/@mlc-ai/web-llm") // 動態載入：只有按下🧠才抓這包函式庫
+        .then((webllm) =>
+          webllm.CreateMLCEngine(llmModel, {
+            initProgressCallback: (p) => {
+              window.LLM.progress = p.progress || 0;
+              if (typeof onProgress === "function") {
+                onProgress(p);
+              }
+            },
+          }),
+        )
+        .then((mlcEngine) => {
+          engine = mlcEngine;
+          window.LLM.state = STATE_MAP.READY;
+          return mlcEngine;
+        })
+        .catch((error) => {
+          window.LLM.state = STATE_MAP.ERROR;
+          window.LLM.error = String(error);
+          throw error;
+        });
+      return loadingPromise;
+    },
+    async chat(messages) {
+      if (!engine) {
+        return null;
+      }
+      const result = await engine.chat.completions.create({
+        messages,
+        temperature: 0.4,
+        max_tokens: 220,
+      });
+      return result?.choices?.[0]?.message?.content;
+    },
+  };
+
+  return LLM;
+}
+function initOLLAMA(ollamaBase = "", ollamaModel = "") {
+  const OLLAMA = {
+    base: ollamaBase,
+    model: ollamaModel,
+    enabled: !!ollamaBase,
+    ready: false,
+    async ping() {
+      if (!this.enabled) {
+        return false;
+      }
+      try {
+        const response = await fetch(
+          this.base.replace(/\/v1$/, "") + "/api/tags",
+        );
+        this.ready = response.ok;
+        return response.ok;
+      } catch (_error) {
+        this.ready = false;
+        return false;
+      }
+    },
+    async chat(messages) {
+      const response = await fetch(this.base + "/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: this.model,
+          messages,
+          temperature: 0.4,
+          max_tokens: 220,
+          stream: false,
+        }),
+      });
+      if (response.ok !== true) {
+        throw new Error("http " + response.status);
+      }
+      const result = await response.json();
+      return result?.choices?.[0]?.message?.content;
+    },
+  };
+  return OLLAMA;
+}
+// 共用：檢索到的資料 + 問題 → 給 LLM 的訊息（Ollama 與 WebLLM 共用同一套 RAG 提示）
+function buildLLMMessages(question) {
+  const ctx = topK(question, 3)
+    .map((e) => "Q：" + e.q + "\nA：" + e.a)
+    .join("\n---\n");
+  return [
+    {
+      role: "system",
+      content:
+        "你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請用繁體中文、口語、最多兩三句話簡短回答。優先依據【參考資料】回答；資料沒有的就用常識簡短回應，不確定就老實說不知道。\n\n【參考資料】\n" +
+        (ctx || "（無）"),
+    },
+    { role: "user", content: question },
+  ];
+}
+
+function postToParent(type, payload) {
+  try {
+    window.parent.postMessage(
+      Object.assign({ ns: "avatar-widget", type }, payload || {}),
+      PARENT_ORIGIN,
+    );
+  } catch (_error) {}
+}
+
+function showBubble(rootContainer = null, text) {
+  const bubble = rootContainer.querySelector("#bubble");
+  bubble.textContent = text;
+  bubble.classList.add("show");
+  clearTimeout(showBubble._t);
+  showBubble._t = setTimeout(() => bubble.classList.remove("show"), 6000);
+}
+
+// ===== TTS：開口說話 + 對嘴 =====
+function loadVoice() {
+  const voices = speechSynthesis.getVoices();
+  const pick = (targetVoice) =>
+    voices.find(
+      (voice) =>
+        targetVoice.test(`${voice.name} ${voice.lang}`) &&
+        !/Google/i.test(voice.name),
+    ); // 避開 Chrome 會靜默失敗的 Google 遠端語音
+
+  ttVoice =
+    pick(/(HsiaoChen|HsiaoYu|曉臻|曉雨).*zh/i) || // 微軟神經女聲（最自然，若有安裝）
+    pick(/(Yating|Zhiwei).*zh[-_]TW/i) || // 較新、較不機械的微軟 zh-TW 女聲
+    pick(/Microsoft.*zh[-_]TW/i) || // 任何微軟 zh-TW（本地、可靠）
+    pick(/zh[-_]TW/i) ||
+    pick(/^zh/i) ||
+    voices.find((voice) => /zh/i.test(voice.lang)) ||
+    null;
+}
+
+// ===== 拖放自己的 VRM：把 .vrm 拖到角色上就直接換成你的 3D 角色（零改 code）=====
+function loadVRMFile(rootContainer, file) {
+  if (rootContainer instanceof HTMLElement === false) {
+    console.error("[aiAvatar loadVRMFile] rootContainer is not an HTMLElement");
+    return;
+  }
+
+  if (
+    file instanceof window.File === false ||
+    /\.vrm$/i.test(file?.name || "") === false
+  ) {
+    showBubble(rootContainer, "請拖一個 .vrm 檔喔");
+    return;
+  }
+  try {
+    if (typeof vrmUrl === "string" && vrmUrl.indexOf("blob:") === 0) {
+      URL.revokeObjectURL(vrmUrl);
+    }
+  } catch (_error) {}
+  vrmUrl = URL.createObjectURL(file);
+  const btnEngine = rootContainer.querySelector("#btn-engine"); // 換上後也顯示 2D/3D 切換鈕
+  if (btnEngine instanceof HTMLElement) {
+    btnEngine.style.display = "";
+    if (typeof btnEngine.onclick !== "function") {
+      btnEngine.onclick = () =>
+        setEngine(rootContainer, _engineMode === "3d" ? "2d" : "3d");
+    }
+  }
+  _engineMode = null; // 強制重 boot（即使已在 3D）
+  setEngine(rootContainer, "3d");
+  showBubble(rootContainer, "換上你的角色了！🎭");
+}
+
 // 中止目前正在講的（神經語音音檔 + 瀏覽器 TTS + 對嘴），給「點第二下打斷第一下」用
 function stopSpeaking() {
   try {
     if ("speechSynthesis" in window) {
       speechSynthesis.cancel();
     }
-  } catch (e) {}
+  } catch (_error) {}
   try {
     clearTimeout(speakBrowser._t);
-  } catch (e) {}
-  if (currentFps) {
+  } catch (_error) {}
+  if (typeof currentFps === "number" && currentFps > 0) {
     cancelAnimationFrame(currentFps);
     currentFps = 0;
   }
@@ -266,7 +284,7 @@ function stopSpeaking() {
     try {
       currentSource.onended = null;
       currentSource.stop();
-    } catch (e) {}
+    } catch (_error) {}
     currentSource = null;
   }
   isSpeaking = false;
@@ -275,21 +293,29 @@ function stopSpeaking() {
 }
 
 // 對外入口：先試 edge-tts 神經語音(真人感 + 精準對嘴)，失敗自動退回瀏覽器語音
-function speak(text) {
+function speak(rootContainer = null, text) {
+  if (rootContainer instanceof HTMLElement === false) {
+    console.error("[aiAvatar speak] rootContainer is not an HTMLElement");
+    return;
+  }
+
   const myseq = ++speakSeq; // 每次說話一個序號，用來判斷是否已被新點擊取代
-  showBubble(text);
+  showBubble(rootContainer, text);
   postToParent("speaking", { text });
-  if (ttsMuted) return;
+  if (ttsMuted === true) {
+    return;
+  }
   stopSpeaking(); // 立刻打斷上一段
-  if (neuralDisabled) {
+  if (neuralDisabled === true) {
     speakBrowser(text);
     return;
   } // 沒有神經語音後端 → 直接用瀏覽器語音
-  speakNeural(text, myseq).catch((e) => {
+  speakNeural(text, myseq).catch((error) => {
     if (myseq !== speakSeq) return; // 已被更新的點擊取代 → 不要退回播放
-    const msg = (e && e.message) || "";
-    if (/http 4\d\d|Failed to fetch|NetworkError|Load failed/i.test(msg))
+    const msg = error?.message || "";
+    if (/http 4\d\d|Failed to fetch|NetworkError|Load failed/i.test(msg)) {
       neuralDisabled = true; // 結構性失敗(無後端/CORS/被擋)→不再試神經語音
+    }
     console.warn("神經語音失敗，退回瀏覽器語音：", msg);
     useAudioMouth = false;
     speakBrowser(text);
@@ -304,10 +330,10 @@ async function speakNeural(text, seq) {
   if (audioCtx.state === "suspended") {
     try {
       await audioCtx.resume();
-    } catch (e) {}
+    } catch (_error) {}
   }
   const sep = TTS_ENDPOINT.indexOf("?") < 0 ? "?" : "&";
-  const resp = await fetch(
+  const response = await fetch(
     TTS_ENDPOINT +
       sep +
       "voice=" +
@@ -318,17 +344,17 @@ async function speakNeural(text, seq) {
   if (seq !== speakSeq) {
     return; // 抓回來時已被新點擊取代 → 放棄（避免重疊）
   }
-  if (!resp.ok) {
-    throw new Error("http " + resp.status);
+  if (!response.ok) {
+    throw new Error("http " + response.status);
   }
-  const arr = await resp.arrayBuffer();
+  const respArrayBuffer = await response.arrayBuffer();
   if (seq !== speakSeq) {
     return;
   }
-  if (arr.byteLength < 800) {
+  if (respArrayBuffer.byteLength < 800) {
     throw new Error("audio too small");
   }
-  const audioBuf = await audioCtx.decodeAudioData(arr);
+  const audioBuf = await audioCtx.decodeAudioData(respArrayBuffer);
   if (seq !== speakSeq) {
     return; // 解碼後最後確認，舊音檔不搶播
   }
@@ -345,7 +371,7 @@ async function speakNeural(text, seq) {
   if (model) {
     try {
       model.motion("Tap");
-    } catch (e) {}
+    } catch (_error) {}
   }
   const loop = () => {
     if (currentSource !== src) {
@@ -380,20 +406,26 @@ async function speakNeural(text, seq) {
 
 // 後備：瀏覽器內建語音(Yating)。對嘴綁「實際是否在發聲」，不依賴各語音不一致的事件
 function speakBrowser(text) {
-  if (ttsMuted || !("speechSynthesis" in window)) return;
-  const u = new SpeechSynthesisUtterance(text);
-  if (!ttVoice) loadVoice();
-  if (ttVoice) u.voice = ttVoice;
-  u.lang = (ttVoice && ttVoice.lang) || "zh-TW";
-  u.rate = ttsRate;
-  u.pitch = 1.0;
-  u.onboundary = () => {
+  if (ttsMuted === true || "speechSynthesis" in window === false) {
+    return;
+  }
+  const utterance = new SpeechSynthesisUtterance(text);
+  if (typeof ttVoice !== "object" || ttVoice === null) {
+    loadVoice();
+  }
+  if (typeof ttVoice === "object" && ttVoice !== null) {
+    utterance.voice = ttVoice;
+  }
+  utterance.lang = ttVoice?.lang || "zh-TW";
+  utterance.rate = ttsRate;
+  utterance.pitch = 1.0;
+  utterance.onboundary = () => {
     mouthTarget = 0.5 + Math.random() * 0.5;
   };
   const stopLip = () => {
     isSpeaking = false;
   };
-  u.onend = stopLip;
+  utterance.onend = stopLip;
   // 嘴型用「估時長」驅動，不靠 speechSynthesis.speaking 輪詢
   // （Chrome 在 cancel 後常回報失準 → 第二次說話嘴巴就不動了）
   const estMs = Math.min(
@@ -403,14 +435,14 @@ function speakBrowser(text) {
   const fire = () => {
     try {
       speechSynthesis.resume();
-    } catch (e) {} // 解 Chrome cancel 後卡住的 bug
-    speechSynthesis.speak(u);
+    } catch (_error) {} // 解 Chrome cancel 後卡住的 bug
+    speechSynthesis.speak(utterance);
     isSpeaking = true;
     mouthTarget = 0.7;
     if (model) {
       try {
         model.motion("Tap");
-      } catch (e) {}
+      } catch (_error) {}
     }
     clearTimeout(speakBrowser._t);
     speakBrowser._t = setTimeout(stopLip, estMs); // 保底：時間到閉嘴，不依賴事件
@@ -450,21 +482,25 @@ function similarity(query, text) {
   }
   return hit / Math.sqrt(A.length * B.size);
 }
-function scoreEntry(q, e) {
-  let score = Math.max(similarity(q, e.q), similarity(q, e.kw || ""));
+function scoreEntry(question, e) {
+  let score = Math.max(
+    similarity(question, e.q),
+    similarity(question, e.kw || ""),
+  );
   const terms = (e.kw || "").split(/\s+/).filter(Boolean);
   for (const t of terms) {
-    if (t.length >= 2 && q.includes(t)) {
+    if (t.length >= 2 && question.includes(t)) {
       score = Math.max(score, 0.5 + t.length * 0.04);
     }
   }
   return score;
 }
-function topK(q, k) {
+function topK(question, k) {
   const knowledge = window.KNOWLEDGE || [];
+  console.log(knowledge);
 
   return knowledge
-    .map((e) => ({ e, s: scoreEntry(q, e) }))
+    .map((e) => ({ e, s: scoreEntry(question, e) }))
     .sort((a, b) => b.s - a.s)
     .slice(0, k)
     .filter((x) => x.s > 0.05)
@@ -501,18 +537,18 @@ function brain(rawQuestion) {
 
 async function ollamaLLMBrain(question) {
   try {
-    showBubble("讓我想想…");
+    showBubble(null, "讓我想想…");
     if (typeof gesture3D === "function") {
       gesture3D("thinking");
     }
     const out = (
       (await window.OLLAMA.chat(buildLLMMessages(question))) || ""
     ).trim();
-    if (typeof out === "string" && out.length !== 0) {
+    if (typeof out === "string" && out !== "") {
       return out;
     }
-  } catch (e) {
-    console.warn("Ollama error", e);
+  } catch (error) {
+    console.warn("Ollama error", error);
     window.OLLAMA.ready = false;
   }
   throw new Error(
@@ -522,14 +558,14 @@ async function ollamaLLMBrain(question) {
 
 async function webLLMBrain(question) {
   try {
-    showBubble("讓我想想…");
+    showBubble(null, "讓我想想…");
     if (typeof gesture3D === "function") {
       gesture3D("thinking");
     }
     const out = (
       (await window.LLM.chat(buildLLMMessages(question))) || ""
     ).trim();
-    if (typeof out === "string" && out.length !== 0) {
+    if (typeof out === "string" && out !== "") {
       return out;
     }
   } catch (error) {
@@ -562,22 +598,43 @@ async function handleAnswer(rawQuestion = "") {
   return brain(question);
 }
 
-async function handleUser(text) {
-  if (text) showBubble("你：" + text);
-  speak(await handleAnswer(text));
+async function handleUser(rootContainer, text) {
+  if (rootContainer instanceof HTMLElement === false) {
+    console.error("[aiAvatar handleUser] rootContainer is not an HTMLElement");
+    return;
+  }
+
+  if (typeof text === "string" && text !== "") {
+    showBubble(rootContainer, "你：" + text);
+    speak(rootContainer, await handleAnswer(text));
+  }
 }
 
 // ===== STT：聽你說話 =====
-function setMic(on) {
-  const b = document.getElementById("btn-mic");
-  b.classList.toggle("listening", on);
-  b.textContent = on ? "● 聆聽中" : "🎤 說話";
-  const sg = document.getElementById("suggestions");
-  if (sg) sg.style.display = on ? "none" : "flex"; // 聆聽中收起清單
+function setMic(rootContainer = null, on) {
+  if (rootContainer instanceof HTMLElement === false) {
+    console.error("[aiAvatar setMic] rootContainer is not an HTMLElement");
+    return;
+  }
+
+  const btnMic = rootContainer.querySelector("#btn-mic");
+  btnMic.classList.toggle("listening", on);
+  btnMic.textContent = on ? "● 聆聽中" : "🎤 說話";
+
+  const suggestions = rootContainer.querySelector("#suggestions");
+  if (suggestions instanceof HTMLElement) {
+    suggestions.style.display = on ? "none" : "flex";
+  } // 聆聽中收起清單
 }
-function startListening() {
+function startListening(rootContainer = null) {
+  if (rootContainer instanceof HTMLElement === false) {
+    console.error(
+      "[aiAvatar startListening] rootContainer is not an HTMLElement",
+    );
+    return;
+  }
   if (!SR) {
-    speak("你的瀏覽器不支援語音辨識，建議用 Chrome 開喔。");
+    speak(rootContainer, "你的瀏覽器不支援語音辨識，建議用 Chrome 開喔。");
     return;
   }
   if (listening && recognition) {
@@ -586,8 +643,8 @@ function startListening() {
   }
   try {
     recognition = new SR();
-  } catch (e) {
-    speak("語音辨識啟動失敗：" + e.message);
+  } catch (error) {
+    speak(rootContainer, "語音辨識啟動失敗：" + error.message);
     return;
   }
   recognition.lang = "zh-TW";
@@ -596,32 +653,38 @@ function startListening() {
   recognition.maxAlternatives = 1;
   recognition.onstart = () => {
     listening = true;
-    setMic(true);
-    showBubble("聆聽中…請說話 🎙️");
+    setMic(rootContainer, true);
+    showBubble(rootContainer, "聆聽中…請說話 🎙️");
   };
-  recognition.onresult = (e) => {
+  recognition.onresult = (event) => {
     let txt = "";
-    for (const r of e.results) txt += r[0].transcript;
-    const last = e.results[e.results.length - 1];
-    if (last.isFinal) handleUser(txt.trim());
-    else showBubble("「" + txt + "」…");
+    for (const r of event.results) {
+      txt += r[0].transcript;
+    }
+    const last = event.results[event.results.length - 1];
+    if (last.isFinal) {
+      handleUser(rootContainer, txt.trim());
+    } else {
+      showBubble(rootContainer, "「" + txt + "」…");
+    }
   };
-  recognition.onerror = (e) => {
+  recognition.onerror = (error) => {
     listening = false;
-    setMic(false);
+    setMic(rootContainer, false);
     showBubble(
-      e.error === "not-allowed"
+      rootContainer,
+      error.error === "not-allowed"
         ? "我需要麥克風權限才能聽你說話喔。"
-        : "沒聽清楚（" + e.error + "），再試一次。",
+        : "沒聽清楚（" + error.error + "），再試一次。",
     );
   };
   recognition.onend = () => {
     listening = false;
-    setMic(false);
+    setMic(rootContainer, false);
   };
   try {
     recognition.start();
-  } catch (e) {}
+  } catch (_error) {}
 }
 
 // ===== 共用：每幀算出嘴巴開合 0..1（2D 寫 ParamMouthOpenY、3D 寫 aa 表情，共用同一套計算）=====
@@ -639,91 +702,153 @@ function computeMouth() {
 
 // 2D 引擎相依（pixi + live2d）改成「用到才載」，3D 模式就不會下載 Live2D
 function loadUMD() {
-  if (_umd) return _umd;
-  const urls = [
-    "https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js",
-    "https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js",
-    "https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js",
+  const cdnDependencieUrlArray = [
+    {
+      id: "live2dcubismcore",
+      src: "https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js",
+    },
+    {
+      id: "pixi.js@6.5.10",
+      src: "https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js",
+    },
+    {
+      id: "pixi-live2d-display@0.4.0",
+      src: "https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js",
+    },
   ];
-  _umd = urls.reduce(
-    (p, u) =>
-      p.then(
+
+  if (window.__cdnDependenciePromise__ instanceof Promise === true) {
+    return window.__cdnDependenciePromise__;
+  }
+
+  window.__cdnDependenciePromise__ = cdnDependencieUrlArray.reduce(
+    (cdnDependenciePromise, cdnDependencie) =>
+      cdnDependenciePromise.then(
         () =>
-          new Promise((res, rej) => {
-            const s = document.createElement("script");
-            s.src = u;
-            s.onload = res;
-            s.onerror = rej;
-            document.head.appendChild(s);
+          new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = cdnDependencie.src;
+            if (cdnDependencie.id) {
+              script.id = cdnDependencie.id;
+            }
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
           }),
       ),
     Promise.resolve(),
   );
-  return _umd;
+
+  return window.__cdnDependenciePromise__;
 }
 
 // ===== 引擎切換外殼：每個引擎建自己的 canvas、回傳 dispose；切換＝dispose 舊的再 boot 新的 =====
-function newCanvas() {
-  const st = document.getElementById("stage");
-  st.querySelectorAll("canvas.avatar-canvas").forEach((old) => old.remove()); // 切換時保證不留舊 canvas（殘骸）
-  const c = document.createElement("canvas");
-  c.className = "avatar-canvas";
-  st.insertBefore(c, st.firstChild); // 放最底層，UI 疊在上面
-  return c;
+function createCanvas(rootContainer = null) {
+  if (rootContainer instanceof HTMLElement === false) {
+    throw new Error(
+      "[aiAvatar createCanvas] rootContainer is not an HTMLElement",
+    );
+  }
+
+  const stage = rootContainer.querySelector("#stage");
+  stage.querySelectorAll("canvas.avatar-canvas").forEach((old) => old.remove()); // 切換時保證不留舊 canvas（殘骸）
+  const newCanvas = document.createElement("canvas");
+  newCanvas.className = "avatar-canvas";
+  stage.insertBefore(newCanvas, stage.firstChild); // 放最底層，UI 疊在上面
+  return newCanvas;
 }
 
-async function setEngine(mode) {
-  if (_switching || mode === _engineMode) return;
+async function setEngine(rootContainer, mode = "") {
+  if (rootContainer instanceof HTMLElement === false) {
+    console.error("[aiAvatar setEngine] rootContainer is not an HTMLElement");
+    return;
+  }
+  if (_switching === true || mode === _engineMode) {
+    return;
+  }
   _switching = true;
-  if (_renderer) {
+  if (typeof _renderer?.dispose === "function") {
     try {
       _renderer.dispose();
-    } catch (e) {}
+    } catch (_error) {}
     _renderer = null;
   }
   _engineMode = mode;
-  const eb = document.getElementById("btn-engine");
-  if (eb) eb.textContent = mode === "3d" ? "3D" : "2D";
+  const btnEngine = rootContainer.querySelector("#btn-engine");
+  if (btnEngine) {
+    btnEngine.textContent = mode === "3d" ? "3D" : "2D";
+  }
   try {
-    _renderer = mode === "3d" ? await bootVRM() : await bootAvatar();
-  } catch (e) {
-    console.error(e);
+    _renderer =
+      mode === "3d"
+        ? await bootVRM(rootContainer)
+        : await bootAvatar(rootContainer);
+  } catch (error) {
+    console.error(error);
   }
   _switching = false;
 }
-function initEngines() {
-  setEngine(startMode);
-  if (has2D && has3D) {
+// 切換用：embedder 兩個皮都給(data-model + data-vrm) → 長出 2D/3D 切換鈕。
+// 預設引擎：data-engine 優先；否則有明確 2D 皮就 2D、只有 3D 就 3D。
+function initEngines(rootContainer = null, has2D, has3D) {
+  if (rootContainer instanceof HTMLElement === false) {
+    console.error("[aiAvatar initEngines] rootContainer is not an HTMLElement");
+    return;
+  }
+
+  const startMode =
+    routeQuery.get("engine") || (has2D ? "2d" : has3D ? "3d" : "2d");
+
+  setEngine(rootContainer, startMode);
+  if (
+    typeof has2D === "string" &&
+    has2D !== "" &&
+    typeof has3D === "string" &&
+    has3D !== ""
+  ) {
     // 兩個皮都給 → 顯示切換鈕，讓使用者即時切
-    const eb = document.getElementById("btn-engine");
-    if (eb) {
-      eb.style.display = "";
-      eb.onclick = () => setEngine(_engineMode === "3d" ? "2d" : "3d");
+    const btnEngine = rootContainer.querySelector("#btn-engine");
+    if (btnEngine instanceof HTMLElement) {
+      btnEngine.style.display = "";
+      btnEngine.onclick = () =>
+        setEngine(rootContainer, _engineMode === "3d" ? "2d" : "3d");
     }
   }
 }
 
 // ===== 3D 皮：VRM（three + three-vrm，ESM 動態 import）=====
-async function bootVRM() {
+async function bootVRM({
+  rootContainer = null,
+  bow = "",
+  wave = "",
+  thinking = "",
+  look = "",
+  relax = "",
+} = {}) {
   try {
+    if (rootContainer instanceof HTMLElement === false) {
+      throw new Error("[aiAvatar bootVRM] rootContainer is not an HTMLElement");
+    }
     const THREE = await import("three");
     const { GLTFLoader } = await import("three/addons/loaders/GLTFLoader.js");
     const { VRMLoaderPlugin, VRMUtils } = await import("@pixiv/three-vrm");
     const { VRMAnimationLoaderPlugin, createVRMAnimationClip } =
       await import("@pixiv/three-vrm-animation");
-    const TK = "https://cdn.jsdelivr.net/gh/tk256ailab/vrm-viewer@main/VRMA/";
+    const tk = "https://cdn.jsdelivr.net/gh/tk256ailab/vrm-viewer@main/VRMA/";
     const GESTURES = {
       // 情境手勢 + 待機變化（body-only，不碰嘴）
-      wave: TK + "Goodbye.vrma",
-      bow: "https://cdn.jsdelivr.net/gh/hirokazuniimoto/virtual-avatar-sdk@main/assets/animations/quick_formal_bow.vrma",
-      thinking: TK + "Thinking.vrma",
-      look: TK + "LookAround.vrma",
-      relax: TK + "Relax.vrma",
+      wave: wave || tk + "Goodbye.vrma",
+      bow:
+        bow ||
+        "https://cdn.jsdelivr.net/gh/hirokazuniimoto/virtual-avatar-sdk@main/assets/animations/quick_formal_bow.vrma",
+      thinking: thinking || tk + "Thinking.vrma",
+      look: look || tk + "LookAround.vrma",
+      relax: relax || tk + "Relax.vrma",
     };
     const TAP_GESTURES = ["wave", "bow"]; // 點一下隨機：揮手/鞠躬問候（歡迎感）
 
-    const stage = document.getElementById("stage");
-    const canvas = newCanvas();
+    const stage = rootContainer.querySelector("#stage");
+    const canvas = createCanvas(rootContainer);
     const r3 = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
@@ -743,7 +868,7 @@ async function bootVRM() {
       camera.updateProjectionMatrix();
     };
     resize();
-    window.addEventListener("resize", resize);
+    rootContainer.addEventListener("resize", resize);
 
     const scene = new THREE.Scene();
     // 調暗：原本 key=π / fill=π*0.35 / ambient=0.6 太亮（MToon 易過曝），整體降約 4 成
@@ -754,15 +879,21 @@ async function bootVRM() {
     scene.add(key, fill, new THREE.AmbientLight(0xffffff, 0.38));
     const lookTarget = new THREE.Object3D();
     scene.add(lookTarget); // lookAt 目標：跟著滑鼠
-    let mx = 0,
-      my = 0; // 游標相對位置 -1..1
-    const onMove = (ev) => {
+    let mx = 0;
+    let my = 0; // 游標相對位置 -1..1
+    const onMove = (event) => {
       const r = stage.getBoundingClientRect();
       if (!r.width) return;
-      mx = Math.max(-1, Math.min(1, ((ev.clientX - r.left) / r.width) * 2 - 1));
-      my = Math.max(-1, Math.min(1, ((ev.clientY - r.top) / r.height) * 2 - 1));
+      mx = Math.max(
+        -1,
+        Math.min(1, ((event.clientX - r.left) / r.width) * 2 - 1),
+      );
+      my = Math.max(
+        -1,
+        Math.min(1, ((event.clientY - r.top) / r.height) * 2 - 1),
+      );
     };
-    window.addEventListener("pointermove", onMove);
+    rootContainer.addEventListener("pointermove", onMove);
 
     let vrm = null;
     let armSign = 1;
@@ -821,34 +952,38 @@ async function bootVRM() {
                 act.setLoop(THREE.LoopOnce, 1);
                 act.clampWhenFinished = true;
                 gestureActions[name] = act;
-              } catch (e) {
-                console.warn("VRMA " + name + " 載入失敗：", e && e.message);
+              } catch (error) {
+                console.warn("VRMA " + name + " 載入失敗：", error?.message);
               }
             }
-            mixer.addEventListener("finished", (e) => {
+            mixer.addEventListener("finished", (event) => {
               // 手勢播完 → 立刻停、交回程序化站姿（不 fadeOut，避免露出 bind T-pose）
-              if (e.action === currentGesture) {
+              if (event.action === currentGesture) {
                 try {
-                  e.action.stop();
+                  event.action.stop();
                 } catch (_error) {}
                 currentGesture = null;
                 waving = false;
               }
             });
             gesture3D = playGesture; // 對外 hook：思考等時機可從對話流程觸發
-            if (gestureActions.wave) setTimeout(() => playGesture("wave"), 800); // 出場招呼
+            if (gestureActions.wave) {
+              setTimeout(() => playGesture("wave"), 800); // 出場招呼
+            }
             idleBreak = setInterval(() => {
               // 待機變化：偶爾環顧/放鬆，不死板
-              if (!waving && !isSpeaking && Math.random() < 0.65)
+              if (!waving && !isSpeaking && Math.random() < 0.65) {
                 playGesture(Math.random() < 0.5 ? "look" : "relax");
+              }
             }, 15000);
-          } catch (e) {
-            console.warn("VRMA 手勢庫載入失敗：", e && e.message);
+          } catch (error) {
+            console.warn("VRMA 手勢庫載入失敗：", error?.message);
           }
         })();
         setTimeout(
           () =>
             showBubble(
+              rootContainer,
               "點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋",
             ),
           700,
@@ -856,9 +991,9 @@ async function bootVRM() {
         postToParent("ready");
       },
       undefined,
-      (e) => {
-        console.error(e);
-        postToParent("error", { message: String(e) });
+      (error) => {
+        console.error(error);
+        postToParent("error", { message: String(error) });
       },
     );
 
@@ -876,7 +1011,7 @@ async function bootVRM() {
       playGesture(
         TAP_GESTURES[Math.floor(Math.random() * TAP_GESTURES.length)],
       );
-      onTap();
+      onTap(rootContainer);
     });
 
     let alive = true;
@@ -952,74 +1087,81 @@ async function bootVRM() {
         gesture3D = null;
         try {
           clearInterval(idleBreak);
-        } catch (e) {}
-        window.removeEventListener("resize", resize);
-        window.removeEventListener("pointermove", onMove);
+        } catch (_error) {}
+        rootContainer.removeEventListener("resize", resize);
+        rootContainer.removeEventListener("pointermove", onMove);
         try {
           mixer && mixer.stopAllAction();
-        } catch (e) {}
+        } catch (_error) {}
         try {
           if (vrm) VRMUtils.deepDispose(vrm.scene);
-        } catch (e) {} // 釋放 3D 幾何/材質，避免殘骸與 WebGL context 累積
+        } catch (_error) {} // 釋放 3D 幾何/材質，避免殘骸與 WebGL context 累積
         try {
           r3.dispose();
-        } catch (e) {}
+        } catch (_error) {}
         try {
           r3.forceContextLoss();
-        } catch (e) {}
+        } catch (_error) {}
         canvas.remove();
         window.__avatarVrm = null;
       },
     };
-  } catch (err) {
-    console.error(err);
-    postToParent("error", { message: err.message });
+  } catch (error) {
+    console.error(error);
+    postToParent("error", { message: error.message });
   }
 }
 
 // ===== 2D 皮：Live2D 載入 + 對嘴 =====
-async function bootAvatar() {
+async function bootAvatar(rootContainer = null) {
+  if (rootContainer instanceof HTMLElement === false) {
+    console.error("[aiAvatar bootAvatar] rootContainer is not an HTMLElement");
+    return;
+  }
   try {
     await loadUMD(); // 用到才載 pixi + live2d
     const Live2DModel = PIXI.live2d.Live2DModel;
     try {
       Live2DModel.registerTicker(PIXI.Ticker);
-    } catch (e) {}
+    } catch (_error) {}
 
-    const canvas = newCanvas();
-    app = new PIXI.Application({
+    const canvas = createCanvas(rootContainer);
+    let pixiApp = new PIXI.Application({
       view: canvas,
       autoStart: true,
       backgroundAlpha: 0,
       antialias: true,
-      resizeTo: document.getElementById("stage"),
+      resizeTo: rootContainer.querySelector("#stage"),
     });
 
     model = await Live2DModel.from(MODEL_URL);
-    app.stage.addChild(model);
+    pixiApp.stage.addChild(model);
     model.anchor.set(0.5, 1.0);
 
     // 關掉 Live2D 模型自帶的（日文）動作語音 — 只保留我們自己的 TTS（兩者來源不同，互不影響）
     try {
-      if (PIXI.live2d.SoundManager) PIXI.live2d.SoundManager.volume = 0;
-    } catch (e) {}
+      if (PIXI.live2d.SoundManager) {
+        PIXI.live2d.SoundManager.volume = 0;
+      }
+    } catch (_error) {}
     try {
       const ms =
         (model.internalModel.settings &&
           model.internalModel.settings.motions) ||
         {};
-      for (const g of Object.keys(ms))
+      for (const g of Object.keys(ms)) {
         (ms[g] || []).forEach((d) => {
           delete d.Sound;
           delete d.sound;
         });
-    } catch (e) {}
+      }
+    } catch (_error) {}
 
     // 取景：'half'=近距離半身（頭+上半身，腿裁掉，聊天頭像感）；'full'=全身。可用 ?fit=full / data-fit 切回
     const FIT_MODE = routeQuery.get("fit") || "half";
     function fit() {
-      const width = app.renderer.width;
-      const height = app.renderer.height;
+      const width = pixiApp.renderer.width;
+      const height = pixiApp.renderer.height;
       const nativeH = model?.internalModel?.height || 1000;
       if (FIT_MODE === "half") {
         const ZOOM = 1.9; // 放大倍率：越大越近（半身越緊）
@@ -1034,93 +1176,106 @@ async function bootAvatar() {
       }
     }
     fit();
-    window.addEventListener("resize", fit);
+    rootContainer.addEventListener("resize", fit);
 
     try {
       const groups = model.internalModel.settings.groups || [];
       const g = groups.find((x) => (x.Name || "").toLowerCase() === "lipsync");
-      if (g && g.Ids && g.Ids.length) lipIds = g.Ids;
-    } catch (e) {}
+      if (g?.Ids?.length) lipIds = g.Ids;
+    } catch (_error) {}
 
     // 對嘴：攔截 coreModel.update（計算頂點前的最後一刻寫入嘴巴，保證不被 motion/loadParameters 洗掉）
     try {
       const core = model.internalModel.coreModel;
       const origUpdate = core.update.bind(core);
       core.update = function () {
-        const m = computeMouth(); // 共用嘴型計算（與 3D 同一套）
+        const mouth = computeMouth(); // 共用嘴型計算（與 3D 同一套）
         for (const id of lipIds) {
           try {
-            core.setParameterValueById(id, m);
-          } catch (e) {}
+            core.setParameterValueById(id, mouth);
+          } catch (_error) {}
         }
         return origUpdate();
       };
-    } catch (e) {}
+    } catch (_error) {}
 
-    model.on("hit", () => onTap());
-    canvas.addEventListener("pointerdown", onTap);
+    model.on("hit", () => onTap(rootContainer));
+    canvas.addEventListener("pointerdown", () => onTap(rootContainer));
 
     setTimeout(
       () =>
         showBubble(
+          rootContainer,
           "點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋",
         ),
       700,
     );
     postToParent("ready");
-    window.__avatarModel = model;
+    window.__aiAvatarModel = model;
 
     return {
       dispose() {
         try {
-          window.removeEventListener("resize", fit);
-        } catch (e) {}
+          rootContainer.removeEventListener("resize", fit);
+        } catch (_error) {}
         try {
-          app &&
-            app.destroy(true, {
+          if (typeof pixiApp?.destroy === "function") {
+            pixiApp.destroy(true, {
               children: true,
               texture: true,
               baseTexture: true,
             });
-        } catch (e) {}
-        app = null;
+          }
+        } catch (_error) {}
+        pixiApp = null;
         model = null;
         canvas.remove();
       },
     };
-  } catch (err) {
-    console.error(err);
-    const directWarn = document.getElementById("direct-warn");
+  } catch (error) {
+    console.error(error);
+    const directWarnEl = rootContainer.querySelector("#direct-warn");
     if (
-      directWarn instanceof HTMLParagraphElement ||
-      directWarn instanceof HTMLDivElement
+      directWarnEl instanceof HTMLParagraphElement ||
+      directWarnEl instanceof HTMLDivElement
     ) {
-      directWarn.textContent = "2D 啟動失敗：" + ((err && err.message) || err);
-      directWarn.style.display = "flex";
+      directWarnEl.textContent = "2D 啟動失敗：" + (error?.message || error);
+      directWarnEl.style.display = "flex";
     }
-    postToParent("error", { message: err.message });
+    postToParent("error", { message: error?.message || error });
   }
 }
 
-function onTap() {
+function onTap(rootContainer = null) {
   if (onTap._lock) return; // 去抖：hit 事件與 pointerdown 可能同時觸發
   onTap._lock = true;
   setTimeout(() => {
     onTap._lock = false;
   }, 400);
-  if (model)
+  if (model) {
     try {
       model.motion("Tap");
-    } catch (e) {}
+    } catch (_error) {}
+  }
   speak(
+    rootContainer,
     "你好～我是可以嵌入任何網站的語音虛擬人，問我怎麼安裝、怎麼換成你的角色都行！",
   );
 }
 
 // 範例提示清單：一進站就告訴使用者「可以說什麼」，點任一項＝直接問（語音/打字都不用先猜）
-function renderSuggestions() {
-  const box = document.getElementById("suggestions");
-  if (!box) return;
+function renderSuggestions(rootContainer = null) {
+  if (rootContainer instanceof HTMLElement === false) {
+    console.error(
+      "[aiAvatar renderSuggestions] rootContainer is not an HTMLElement",
+    );
+    return;
+  }
+
+  const suggestions = rootContainer.querySelector("#suggestions");
+  if (suggestions instanceof HTMLElement !== true) {
+    return;
+  }
   const SUGGESTIONS = [
     "怎麼安裝？",
     "怎麼換成我的角色？",
@@ -1131,167 +1286,317 @@ function renderSuggestions() {
   const label = document.createElement("p");
   label.className = "sg-label";
   label.textContent = "💬 你可以問我：";
-  box.appendChild(label);
+  suggestions.appendChild(label);
   SUGGESTIONS.forEach((suggestion) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "sugg";
     button.textContent = suggestion;
-    button.onclick = () => handleUser(suggestion.replace(/？$/, ""));
-    box.appendChild(button);
+    button.onclick = () =>
+      handleUser(rootContainer, suggestion.replace(/？$/, ""));
+    suggestions.appendChild(button);
   });
 }
 
 // 打字輸入：Enter 或 ➤ 送出。組字中（注音/拼音選字）按的 Enter 不送，避免誤發半成品
-function bindTyping() {
-  const ti = document.getElementById("type-input");
+function bindTyping(rootContainer = null) {
+  if (rootContainer instanceof HTMLElement === false) {
+    console.error("[aiAvatar bindTyping] rootContainer is not an HTMLElement");
+    return;
+  }
+
+  const typeInput = rootContainer.querySelector("#type-input");
   const send = () => {
-    const t = ti.value.trim();
-    if (!t) return;
-    ti.value = "";
-    handleUser(t);
+    const text = typeInput.value.trim();
+    if (typeof text !== "string" || text === "") {
+      return;
+    }
+    typeInput.value = "";
+    handleUser(rootContainer, text);
   };
-  document.getElementById("btn-send").onclick = send;
-  ti.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) {
-      e.preventDefault();
+  rootContainer.querySelector("#btn-send").onclick = send;
+  typeInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.isComposing && event.keyCode !== 229) {
+      event.preventDefault();
       send();
     }
   });
 }
 
 // 啟用本機 Ollama 時：開機 ping 一下，連上就把 🧠 切成「本機大腦」狀態
-async function initOllama() {
-  if (!window.OLLAMA || !window.OLLAMA.enabled) return;
-  const btn = document.getElementById("btn-llm");
-  if (btn) {
-    btn.textContent = "🧠…";
-    btn.title = "本機 Ollama 大腦（連線中）";
+async function initOllama(aiAvatarWidget = null) {
+  console.log("initOllama", window.OLLAMA?.enabled);
+  if (typeof aiAvatarWidget?.container?.querySelector !== "function") {
+    console.error(
+      "[aiAvatar initOllama] aiAvatarWidget.container is not an HTMLElement",
+    );
+    return;
+  }
+
+  if (aiAvatarWidget.OLLAMA?.enabled !== true) {
+    return;
+  }
+
+  const btnLlm = aiAvatarWidget.container.querySelector("#btn-llm");
+  if (btnLlm instanceof HTMLElement) {
+    btnLlm.textContent = "🧠…";
+    btnLlm.title = "本機 Ollama 大腦（連線中）";
   }
   const ok = await window.OLLAMA.ping();
-  if (btn) {
-    btn.textContent = ok ? "🧠本機" : "🧠✗";
-    btn.classList.toggle("llm-on", ok);
-    btn.setAttribute("aria-pressed", String(ok));
-    btn.title = ok
+  if (btnLlm instanceof HTMLElement) {
+    btnLlm.textContent = ok ? "🧠本機" : "🧠✗";
+    btnLlm.classList.toggle("llm-on", ok);
+    btnLlm.setAttribute("aria-pressed", String(ok));
+    btnLlm.title = ok
       ? "本機 Ollama：已連線 " + window.OLLAMA.model
       : "本機 Ollama 連不上（檢查 Ollama 是否在跑 / CORS）";
   }
-  if (ok)
+  if (ok === true) {
     setTimeout(
       () =>
         showBubble(
+          rootContainer,
           "已接上本機 AI 大腦（" + window.OLLAMA.model + "）🧠 問我問題吧！",
         ),
       1300,
     );
+  }
 }
 
-async function main() {
+async function initAiAvatarWidget({
+  container = null,
+  llmModel = DEFAULT_LLM_MODEL,
+  knowledge,
+} = {}) {
+  if (container instanceof HTMLElement === false) {
+    throw new Error("container must be an HTMLElement");
+  }
+
+  const stageEl = document.createElement("div");
+  stageEl.setAttribute("id", "stage");
+  const bubbleEl = document.createElement("p");
+  bubbleEl.setAttribute("id", "bubble");
+  const suggestionsEl = document.createElement("div");
+  suggestionsEl.setAttribute("id", "suggestions");
+  const controlBarEl = document.createElement("div");
+  controlBarEl.setAttribute("id", "control-bar");
+  const dockRow1El = document.createElement("div");
+  dockRow1El.classList.add("dock-row");
+  const questionInputEl = document.createElement("input");
+  questionInputEl.setAttribute("id", "type-input");
+  questionInputEl.setAttribute("type", "text");
+  questionInputEl.setAttribute(
+    "placeholder",
+    "請輸入文字，或點下方按鈕開始語音",
+  );
+  const sendButtonEl = document.createElement("button");
+  sendButtonEl.setAttribute("id", "btn-send");
+  sendButtonEl.classList.add("ctrl");
+  sendButtonEl.classList.add("primary");
+  sendButtonEl.textContent = "➤";
+  const dockRow2El = document.createElement("div");
+  dockRow2El.classList.add("dock-row");
+  const micButtonEl = document.createElement("button");
+  micButtonEl.setAttribute("id", "btn-mic");
+  micButtonEl.classList.add("ctrl");
+  micButtonEl.classList.add("primary");
+  micButtonEl.textContent = "🎤 說話";
+  const muteButtonEl = document.createElement("button");
+  muteButtonEl.setAttribute("id", "btn-mute");
+  muteButtonEl.classList.add("ctrl");
+  muteButtonEl.textContent = "🔊";
+  const btnLlmEl = document.createElement("button");
+  btnLlmEl.setAttribute("id", "btn-llm");
+  btnLlmEl.classList.add("ctrl");
+  const btnLlmSpanEl = document.createElement("span");
+  btnLlmSpanEl.setAttribute("aria-hidden", "true");
+  btnLlmSpanEl.textContent = "🧠";
+  btnLlmEl.appendChild(btnLlmSpanEl);
+  const speedButtonEl = document.createElement("button");
+  speedButtonEl.setAttribute("id", "btn-speed");
+  speedButtonEl.classList.add("ctrl");
+  speedButtonEl.textContent = "1.0×";
+  const closeButtonEl = document.createElement("button");
+  closeButtonEl.setAttribute("id", "btn-close");
+  closeButtonEl.classList.add("ctrl");
+  closeButtonEl.textContent = "✕";
+
+  const directWarnEl = document.createElement("p");
+  directWarnEl.setAttribute("id", "direct-warn");
+  directWarnEl.textContent = "請透過 <code>embed.js</code> 載入此元件。";
+
+  stageEl.appendChild(bubbleEl);
+  stageEl.appendChild(suggestionsEl);
+  stageEl.appendChild(controlBarEl);
+  controlBarEl.appendChild(dockRow1El);
+  controlBarEl.appendChild(dockRow2El);
+  dockRow1El.appendChild(questionInputEl);
+  dockRow1El.appendChild(sendButtonEl);
+  dockRow2El.appendChild(micButtonEl);
+  dockRow2El.appendChild(btnLlmEl);
+  dockRow2El.appendChild(muteButtonEl);
+  dockRow2El.appendChild(speedButtonEl);
+  dockRow2El.appendChild(closeButtonEl);
+  container.appendChild(stageEl);
+  container.appendChild(directWarnEl);
+
+  const aiAvatarWidget = {
+    container,
+
+    stageEl,
+    bubbleEl,
+    suggestionsEl,
+    controlBarEl,
+    dockRow1El,
+    dockRow2El,
+    questionInputEl,
+    sendButtonEl,
+    micButtonEl,
+    muteButtonEl,
+    btnLlmEl,
+    speedButtonEl,
+    closeButtonEl,
+    directWarnEl,
+
+    llmModel,
+    knowledge,
+    LLM: null,
+    KNOWLEDGE: null,
+    OLLAMA: null,
+  };
+
   // ===== 防止被直接開（常見網站 widget 的「禁止直接訪問」提示；純 UX，非安全控制），留 ?dev=1 給開發 =====
   const isEmbedded = window.self !== window.top;
   const devBypass = routeQuery.has("dev");
   if (!isEmbedded && !devBypass) {
-    document.getElementById("stage").style.display = "none";
-    document.getElementById("direct-warn").style.display = "flex";
+    stageEl.style.display = "none";
+    directWarnEl.style.display = "flex";
   } else {
-    initEngines();
+    const has2D = !!routeQuery.get("model");
+    const has3D = !!vrmUrl;
+    initEngines(container, has2D, has3D);
   }
 
-  window.LLM = initLLM(LLM_MODEL);
-  window.KNOWLEDGE = await handleGetKnowledge(KNOWLEDGE_URL);
-  window.OLLAMA = initOLLAMA(OLLAMA_BASE, OLLAMA_MODEL);
-
-  window.addEventListener("message", (e) => {
-    const d = e.data || {};
-    if (d.ns !== "avatar-widget-host") return;
-    if (d.type === "say") speak(String(d.text || "").slice(0, 600));
-    // 注意：不接受用 postMessage 遠端啟動麥克風（listen），避免惡意父頁偷開麥；麥克風只由使用者點擊觸發
-  });
+  aiAvatarWidget.LLM = initLLM(llmModel);
+  aiAvatarWidget.KNOWLEDGE =
+    Array.isArray(knowledge) && knowledge.length > 0
+      ? knowledge
+      : await handleGetKnowledge(KNOWLEDGE_URL);
+  aiAvatarWidget.OLLAMA = initOLLAMA(OLLAMA_BASE, OLLAMA_MODEL);
 
   if ("speechSynthesis" in window) {
     speechSynthesis.onvoiceschanged = loadVoice;
     loadVoice();
   }
 
-  ["dragenter", "dragover"].forEach((ev) =>
-    document.addEventListener(ev, (e) => {
-      e.preventDefault();
+  ["dragenter", "dragover"].forEach((eventName) =>
+    container.addEventListener(eventName, (event) => {
+      event.preventDefault();
     }),
   );
-  document.addEventListener("drop", (e) => {
-    e.preventDefault();
-    const file =
-      e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if (file) {
-      loadVRMFile(file);
+  container.addEventListener("drop", (event) => {
+    event.preventDefault();
+    const file = event?.dataTransfer?.files?.[0];
+    if (file instanceof window.File) {
+      loadVRMFile(container, file);
     }
   });
 
   // ===== 控制列 =====
-  document.getElementById("btn-close").onclick = () => postToParent("close");
+  container.querySelector("#btn-close").onclick = () => postToParent("close");
 
-  renderSuggestions();
-  bindTyping();
+  renderSuggestions(container);
+  bindTyping(container);
 
-  document.getElementById("btn-mic").onclick = () => startListening();
-  document.getElementById("btn-mute").onclick = () => {
+  container.querySelector("#btn-mic").onclick = () => startListening(container);
+  container.querySelector("#btn-mute").onclick = () => {
     ttsMuted = !ttsMuted;
-    const mb = document.getElementById("btn-mute");
+    const mb = container.querySelector("#btn-mute");
     mb.textContent = ttsMuted ? "🔇" : "🔊";
     mb.setAttribute("aria-pressed", String(ttsMuted));
-    if (ttsMuted) stopSpeaking(); // 立刻停掉正在播的（神經語音 + 瀏覽器語音）
-    showBubble(ttsMuted ? "已靜音" : "已開啟語音");
+    if (ttsMuted) {
+      stopSpeaking(); // 立刻停掉正在播的（神經語音 + 瀏覽器語音）
+    }
+    showBubble(container, ttsMuted ? "已靜音" : "已開啟語音");
   };
-  document.getElementById("btn-speed").onclick = () => {
+  container.querySelector("#btn-speed").onclick = () => {
     const steps = [0.9, 1.0, 1.2, 1.4];
     ttsRate = steps[(steps.indexOf(ttsRate) + 1) % steps.length] || 1.0;
-    document.getElementById("btn-speed").textContent = ttsRate.toFixed(1) + "×";
-    showBubble("語速：" + ttsRate.toFixed(1) + "×");
+    container.querySelector("#btn-speed").textContent =
+      ttsRate.toFixed(1) + "×";
+    showBubble(container, "語速：" + ttsRate.toFixed(1) + "×");
   };
-  document.getElementById("btn-llm").onclick = async () => {
-    const btn = document.getElementById("btn-llm");
+  container.querySelector("#btn-llm").onclick = async () => {
+    const btnLlm = container.querySelector("#btn-llm");
     // 啟用本機 Ollama 模式時：🧠 用來顯示狀態 / 重新連線，不下載 WebLLM
-    if (window.OLLAMA && window.OLLAMA.enabled) {
-      const ok = window.OLLAMA.ready || (await window.OLLAMA.ping());
-      btn.textContent = ok ? "🧠本機" : "🧠✗";
-      btn.classList.toggle("llm-on", ok);
-      btn.setAttribute("aria-pressed", String(ok));
+    if (aiAvatarWidget.OLLAMA?.enabled === true) {
+      const ok =
+        aiAvatarWidget.OLLAMA.ready || (await aiAvatarWidget.OLLAMA.ping());
+      btnLlm.textContent = ok ? "🧠本機" : "🧠✗";
+      btnLlm.classList.toggle("llm-on", ok);
+      btnLlm.setAttribute("aria-pressed", String(ok));
       showBubble(
+        container,
         ok
-          ? "本機 AI 大腦運作中（" + window.OLLAMA.model + "）🧠"
+          ? "本機 AI 大腦運作中（" + aiAvatarWidget.OLLAMA.model + "）🧠"
           : "本機 Ollama 連不上：確認 Ollama 在跑、且 OLLAMA_ORIGINS 已允許這個網站。",
       );
       return;
     }
-    if (!window.LLM || !window.LLM.supported) {
-      showBubble("這個裝置不支援 WebGPU，先用知識庫模式就好（功能一樣可用）。");
-      return;
-    }
-    if (window.LLM.state === STATE_MAP.READY) {
-      showBubble("AI 大腦已啟用，問我問題吧 🧠");
-      return;
-    }
-    if (window.LLM.state === STATE_MAP.LOADING) {
+    if (aiAvatarWidget.LLM?.supported !== true) {
       showBubble(
-        "AI 大腦載入中… " + Math.round(window.LLM.progress * 100) + "%",
+        container,
+        "這個裝置不支援 WebGPU，先用知識庫模式就好（功能一樣可用）。",
       );
       return;
     }
-    showBubble("開始下載 AI 大腦（約 1GB，只需第一次）…");
+    if (aiAvatarWidget.LLM?.state === STATE_MAP.READY) {
+      showBubble(container, "AI 大腦已啟用，問我問題吧 🧠");
+      return;
+    } else if (aiAvatarWidget.LLM?.state === STATE_MAP.LOADING) {
+      showBubble(
+        container,
+        "AI 大腦載入中… " + Math.round(aiAvatarWidget.LLM.progress * 100) + "%",
+      );
+      return;
+    }
+
+    showBubble(container, "開始下載 AI 大腦（約 1GB，只需第一次）…");
     try {
-      await window.LLM.load((p) => {
-        btn.textContent = "🧠 " + Math.round((p.progress || 0) * 100) + "%";
+      await aiAvatarWidget.LLM.load((p) => {
+        btnLlm.textContent = "🧠 " + Math.round((p.progress || 0) * 100) + "%";
       });
-      btn.textContent = "🧠✓";
-      btn.classList.add("llm-on");
-      speak("AI 大腦啟用完成，現在我可以聊得更自然囉！");
+      btnLlm.textContent = "🧠✓";
+      btnLlm.classList.add("llm-on");
+      speak(container, "AI 大腦啟用完成，現在我可以聊得更自然囉！");
     } catch (e) {
-      btn.textContent = "🧠✗";
-      showBubble("AI 大腦載入失敗：" + ((e && e.message) || e));
+      btnLlm.textContent = "🧠✗";
+      showBubble(container, "AI 大腦載入失敗：" + ((e && e.message) || e));
     }
   };
 
-  initOllama();
+  window.LLM = aiAvatarWidget.LLM;
+  window.KNOWLEDGE = aiAvatarWidget.KNOWLEDGE;
+  window.OLLAMA = aiAvatarWidget.OLLAMA;
+  window.addEventListener("message", (event) => {
+    const data = event.data || {};
+    if (data.ns !== "avatar-widget-host") {
+      return;
+    }
+    if (data.type === "say") {
+      speak(container, String(data.text || "").slice(0, 600));
+    }
+    // 注意：不接受用 postMessage 遠端啟動麥克風（listen），避免惡意父頁偷開麥；麥克風只由使用者點擊觸發
+  });
+  await initOllama(aiAvatarWidget);
+
+  return aiAvatarWidget;
 }
-main();
+
+// const LLM_MODEL = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC"; // 中文不錯、約 1.1GB、首次下載後會被快取
+const LLM_MODEL = "gemma-2-2b-it-q4f32_1-MLC"; // Google 公開模型
+initAiAvatarWidget({
+  container: document.querySelector("#ai-avatar-widget"),
+  llmModel: LLM_MODEL,
+  knowledge: window.KNOWLEDGE,
+});

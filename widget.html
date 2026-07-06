@@ -21,6 +21,14 @@
         font-family: "Noto Sans TC", system-ui, sans-serif;
         -webkit-font-smoothing: antialiased;
       }
+      #ai-avatar-widget {
+        margin: 0;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        font-family: "Noto Sans TC", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
       #stage {
         position: absolute;
         inset: 0;
@@ -242,60 +250,66 @@
     </style>
   </head>
   <body>
-    <div id="stage">
-      <div id="bubble"></div>
-      <div id="suggestions"></div>
-      <div id="control-bar">
-        <div class="dock-row">
-          <input
-            id="type-input"
-            type="text"
-            maxlength="200"
-            placeholder="打字問我也可以…"
-            aria-label="輸入文字問題"
-          />
-          <button class="ctrl primary" id="btn-send" aria-label="送出文字問題">
-            <span aria-hidden="true">➤</span>
-          </button>
+    <div id="ai-avatar-widget">
+      <!-- <div id="stage">
+        <p id="bubble"></p>
+        <div id="suggestions"></div>
+        <div id="control-bar">
+          <div class="dock-row">
+            <input
+              id="type-input"
+              type="text"
+              maxlength="200"
+              placeholder="打字問我也可以…"
+              aria-label="輸入文字問題"
+            />
+            <button
+              class="ctrl primary"
+              id="btn-send"
+              aria-label="送出文字問題"
+            >
+              <span aria-hidden="true">➤</span>
+            </button>
+          </div>
+          <div class="dock-row" role="toolbar" aria-label="虛擬人控制列">
+            <button class="ctrl primary" id="btn-mic" aria-label="開始語音對話">
+              <span aria-hidden="true">🎤</span> 說話
+            </button>
+            <button
+              class="ctrl"
+              id="btn-engine"
+              aria-label="切換 2D / 3D 角色"
+              style="display: none"
+            >
+              2D／3D
+            </button>
+            <button
+              class="ctrl"
+              id="btn-llm"
+              aria-label="啟用瀏覽器內 AI 大腦（首次需下載模型）"
+              aria-pressed="false"
+            >
+              <span aria-hidden="true">🧠</span>
+            </button>
+            <button
+              class="ctrl"
+              id="btn-mute"
+              aria-label="靜音"
+              aria-pressed="false"
+            >
+              <span aria-hidden="true">🔊</span>
+            </button>
+            <button class="ctrl" id="btn-speed" aria-label="調整語速">
+              1.0×
+            </button>
+            <button class="ctrl" id="btn-close" aria-label="收起助理">
+              <span aria-hidden="true">✕</span>
+            </button>
+          </div>
         </div>
-        <div class="dock-row" role="toolbar" aria-label="虛擬人控制列">
-          <button class="ctrl primary" id="btn-mic" aria-label="開始語音對話">
-            <span aria-hidden="true">🎤</span> 說話
-          </button>
-          <button
-            class="ctrl"
-            id="btn-engine"
-            aria-label="切換 2D / 3D 角色"
-            style="display: none"
-          >
-            2D／3D
-          </button>
-          <button
-            class="ctrl"
-            id="btn-llm"
-            aria-label="啟用瀏覽器內 AI 大腦（首次需下載模型）"
-            aria-pressed="false"
-          >
-            <span aria-hidden="true">🧠</span>
-          </button>
-          <button
-            class="ctrl"
-            id="btn-mute"
-            aria-label="靜音"
-            aria-pressed="false"
-          >
-            <span aria-hidden="true">🔊</span>
-          </button>
-          <button class="ctrl" id="btn-speed" aria-label="調整語速">
-            1.0×
-          </button>
-          <button class="ctrl" id="btn-close" aria-label="收起助理">
-            <span aria-hidden="true">✕</span>
-          </button>
-        </div>
-      </div>
+      </div> -->
+      <!-- <p id="direct-warn">請透過 <code>embed.js</code> 載入此元件。</p> -->
     </div>
-    <p id="direct-warn">請透過 <code>embed.js</code> 載入此元件。</p>
 
     <!-- 3D(VRM) 引擎用的 importmap：宣告在這「不會」下載，等真的 import('three') 才抓 → lazy。
        2D(Live2D) 的 pixi/live2d 改成 bootAvatar() 裡用到才動態載入。 -->
