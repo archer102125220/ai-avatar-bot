@@ -2098,20 +2098,3 @@ async function initAiAvatarWidget({
 
   return aiAvatarWidget;
 }
-
-const routeQuery = new URLSearchParams(location.search);
-initAiAvatarWidget({
-  container: document.querySelector("#ai-avatar-widget"),
-  modelUrl: routeQuery.get("model") || DEFAULT_MODEL_URL,
-  ttsEndpoint: routeQuery.get("api") || DEFAULT_TTS_ENDPOINT,
-  // llmModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 中文不錯、約 1.1GB、首次下載後會被快取
-  llmModel: "gemma-2-2b-it-q4f32_1-MLC", // Google 公開模型
-  knowledge: window.KNOWLEDGE,
-  knowledgeUrl: routeQuery.get("knowledge") || "",
-  ollamaBase: (routeQuery.get("ollama") || "").replace(/\/+$/, ""),
-  ollamaModel: routeQuery.get("llmmodel") || DEFAULT_OLLAMA_MODEL,
-  neuralVoice: routeQuery.get("voice") || DEFAULT_NEURAL_VOICE,
-  startMode: routeQuery.get("engine") || DEFALUT_START_MODE,
-  fitMode: routeQuery.get("fit") || DEFALUT_FIT_MODE,
-  vrmUrl: routeQuery.get("vrm"),
-});
