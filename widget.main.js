@@ -658,8 +658,8 @@ function startListening(rootContainer = null) {
   };
   recognition.onresult = (event) => {
     let txt = "";
-    for (const r of event.results) {
-      txt += r[0].transcript;
+    for (const result of event.results) {
+      txt += result[0].transcript;
     }
     const last = event.results[event.results.length - 1];
     if (last.isFinal) {
@@ -775,13 +775,13 @@ async function setEngine(rootContainer, mode = "") {
   }
   _engineMode = mode;
   const btnEngine = rootContainer.querySelector("#btn-engine");
-  if (btnEngine) {
+  if (btnEngine instanceof HTMLElement) {
     btnEngine.textContent = mode === "3d" ? "3D" : "2D";
   }
   try {
     _renderer =
       mode === "3d"
-        ? await bootVRM(rootContainer)
+        ? await bootVRM({ rootContainer })
         : await bootAvatar(rootContainer);
   } catch (error) {
     console.error(error);
@@ -817,14 +817,15 @@ function initEngines(rootContainer = null, has2D, has3D) {
 }
 
 // ===== 3D 皮：VRM（three + three-vrm，ESM 動態 import）=====
-async function bootVRM({
-  rootContainer = null,
-  bow = "",
-  wave = "",
-  thinking = "",
-  look = "",
-  relax = "",
-} = {}) {
+async function bootVRM(setting = {}) {
+  const {
+    rootContainer = null,
+    bow = "",
+    wave = "",
+    thinking = "",
+    look = "",
+    relax = "",
+  } = setting;
   try {
     if (rootContainer instanceof HTMLElement === false) {
       throw new Error("[aiAvatar bootVRM] rootContainer is not an HTMLElement");
@@ -849,13 +850,13 @@ async function bootVRM({
 
     const stage = rootContainer.querySelector("#stage");
     const canvas = createCanvas(rootContainer);
-    const r3 = new THREE.WebGLRenderer({
+    const webGLRenderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
       alpha: true,
     });
-    r3.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    r3.setClearColor(0x000000, 0);
+    webGLRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    webGLRenderer.setClearColor(0x000000, 0);
 
     const camera = new THREE.PerspectiveCamera(26, 1, 0.1, 20);
     camera.position.set(0, 1.4, 1.6);
@@ -863,7 +864,7 @@ async function bootVRM({
     const resize = () => {
       const clientWidth = stage.clientWidth;
       const clientHeight = stage.clientHeight;
-      r3.setSize(clientWidth, clientHeight, false);
+      webGLRenderer.setSize(clientWidth, clientHeight, false);
       camera.aspect = clientWidth / clientHeight;
       camera.updateProjectionMatrix();
     };
@@ -882,21 +883,25 @@ async function bootVRM({
     let mx = 0;
     let my = 0; // 游標相對位置 -1..1
     const onMove = (event) => {
-      const r = stage.getBoundingClientRect();
-      if (!r.width) return;
+      const clientRect = stage.getBoundingClientRect();
+      if (!clientRect.width) return;
       mx = Math.max(
         -1,
-        Math.min(1, ((event.clientX - r.left) / r.width) * 2 - 1),
+        Math.min(
+          1,
+          ((event.clientX - clientRect.left) / clientRect.width) * 2 - 1,
+        ),
       );
       my = Math.max(
         -1,
-        Math.min(1, ((event.clientY - r.top) / r.height) * 2 - 1),
+        Math.min(
+          1,
+          ((event.clientY - clientRect.top) / clientRect.height) * 2 - 1,
+        ),
       );
     };
     rootContainer.addEventListener("pointermove", onMove);
 
-    let vrm = null;
-    let armSign = 1;
     let nextBlink = 2 + Math.random() * 3;
     let blinkT = -1;
     let mixer = null;
@@ -909,93 +914,101 @@ async function bootVRM({
     const loader = new GLTFLoader();
     loader.register((p) => new VRMLoaderPlugin(p));
     loader.register((p) => new VRMAnimationLoaderPlugin(p)); // 同一個 loader 也能讀 .vrma
-    loader.load(
-      vrmUrl,
-      (gltf) => {
-        vrm = gltf.userData.vrm;
-        VRMUtils.removeUnnecessaryVertices(gltf.scene);
-        VRMUtils.combineSkeletons(gltf.scene);
-        VRMUtils.combineMorphs(vrm);
-        VRMUtils.rotateVRM0(vrm); // VRM0.x 轉正；VRM1 為安全 no-op
-        // VRM0 被 rotateVRM0 轉 180°，手臂 z 旋轉方向會相反；VRM1 不轉 → 用版本決定正負號
-        armSign = String(vrm.meta && vrm.meta.metaVersion) === "1" ? -1 : 1;
-        vrm.scene.traverse((o) => {
-          o.frustumCulled = false;
-        });
-        scene.add(vrm.scene);
-        window.__avatarVrm = vrm;
-        try {
-          if (vrm.lookAt) {
-            vrm.lookAt.target = lookTarget;
-          }
-        } catch (_e) {} // 眼睛跟著滑鼠
+    const gltf = await new Promise((resolve, reject) =>
+      loader.load(
+        vrmUrl,
+        (gltf) => {
+          resolve(gltf);
+        },
+        undefined,
+        (error) => {
+          reject(error);
+        },
+      ),
+    ).catch((error) => {
+      console.error(error);
+      postToParent("error", { message: String(error) });
+    });
 
-        // VRMA 情境手勢庫（body-only，不碰嘴）：點擊/出場揮手、思考托腮、待機變化(環顧/放鬆)
-        (async () => {
-          const bodyOnly = (cl) => {
-            cl.tracks = cl.tracks.filter((tr) => /\.quaternion$/.test(tr.name));
-            return cl;
-          }; // 只留骨架旋轉、剝臉部表情與位移
+    VRMUtils.removeUnnecessaryVertices(gltf.scene);
+    VRMUtils.combineSkeletons(gltf.scene);
+
+    const vrm = gltf.userData.vrm;
+
+    VRMUtils.combineMorphs(vrm);
+    VRMUtils.rotateVRM0(vrm); // VRM0.x 轉正；VRM1 為安全 no-op
+
+    // VRM0 被 rotateVRM0 轉 180°，手臂 z 旋轉方向會相反；VRM1 不轉 → 用版本決定正負號
+    const armSign = String(vrm.meta && vrm.meta.metaVersion) === "1" ? -1 : 1;
+    vrm.scene.traverse((o) => {
+      o.frustumCulled = false;
+    });
+    scene.add(vrm.scene);
+
+    try {
+      if (vrm.lookAt) {
+        vrm.lookAt.target = lookTarget;
+      }
+    } catch (_e) {} // 眼睛跟著滑鼠
+
+    // VRMA 情境手勢庫（body-only，不碰嘴）：點擊/出場揮手、思考托腮、待機變化(環顧/放鬆)
+    (async () => {
+      const bodyOnly = (cl) => {
+        cl.tracks = cl.tracks.filter((tr) => /\.quaternion$/.test(tr.name));
+        return cl;
+      }; // 只留骨架旋轉、剝臉部表情與位移
+      try {
+        mixer = new THREE.AnimationMixer(vrm.scene);
+        for (const [name, file] of Object.entries(GESTURES)) {
           try {
-            mixer = new THREE.AnimationMixer(vrm.scene);
-            for (const [name, file] of Object.entries(GESTURES)) {
-              try {
-                const gg = await loader.loadAsync(file);
-                const a =
-                  gg.userData.vrmAnimations && gg.userData.vrmAnimations[0];
-                if (!a) {
-                  continue;
-                }
-                const act = mixer.clipAction(
-                  bodyOnly(createVRMAnimationClip(a, vrm)),
-                );
-                act.setLoop(THREE.LoopOnce, 1);
-                act.clampWhenFinished = true;
-                gestureActions[name] = act;
-              } catch (error) {
-                console.warn("VRMA " + name + " 載入失敗：", error?.message);
-              }
+            const gg = await loader.loadAsync(file);
+            const a = gg.userData.vrmAnimations && gg.userData.vrmAnimations[0];
+            if (!a) {
+              continue;
             }
-            mixer.addEventListener("finished", (event) => {
-              // 手勢播完 → 立刻停、交回程序化站姿（不 fadeOut，避免露出 bind T-pose）
-              if (event.action === currentGesture) {
-                try {
-                  event.action.stop();
-                } catch (_error) {}
-                currentGesture = null;
-                waving = false;
-              }
-            });
-            gesture3D = playGesture; // 對外 hook：思考等時機可從對話流程觸發
-            if (gestureActions.wave) {
-              setTimeout(() => playGesture("wave"), 800); // 出場招呼
-            }
-            idleBreak = setInterval(() => {
-              // 待機變化：偶爾環顧/放鬆，不死板
-              if (!waving && !isSpeaking && Math.random() < 0.65) {
-                playGesture(Math.random() < 0.5 ? "look" : "relax");
-              }
-            }, 15000);
+            const act = mixer.clipAction(
+              bodyOnly(createVRMAnimationClip(a, vrm)),
+            );
+            act.setLoop(THREE.LoopOnce, 1);
+            act.clampWhenFinished = true;
+            gestureActions[name] = act;
           } catch (error) {
-            console.warn("VRMA 手勢庫載入失敗：", error?.message);
+            console.warn("VRMA " + name + " 載入失敗：", error?.message);
           }
-        })();
-        setTimeout(
-          () =>
-            showBubble(
-              rootContainer,
-              "點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋",
-            ),
-          700,
-        );
-        postToParent("ready");
-      },
-      undefined,
-      (error) => {
-        console.error(error);
-        postToParent("error", { message: String(error) });
-      },
+        }
+        mixer.addEventListener("finished", (event) => {
+          // 手勢播完 → 立刻停、交回程序化站姿（不 fadeOut，避免露出 bind T-pose）
+          if (event.action === currentGesture) {
+            try {
+              event.action.stop();
+            } catch (_error) {}
+            currentGesture = null;
+            waving = false;
+          }
+        });
+        gesture3D = playGesture; // 對外 hook：思考等時機可從對話流程觸發
+        if (gestureActions.wave) {
+          setTimeout(() => playGesture("wave"), 800); // 出場招呼
+        }
+        idleBreak = setInterval(() => {
+          // 待機變化：偶爾環顧/放鬆，不死板
+          if (!waving && !isSpeaking && Math.random() < 0.65) {
+            playGesture(Math.random() < 0.5 ? "look" : "relax");
+          }
+        }, 15000);
+      } catch (error) {
+        console.warn("VRMA 手勢庫載入失敗：", error?.message);
+      }
+    })();
+    setTimeout(
+      () =>
+        showBubble(
+          rootContainer,
+          "點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋",
+        ),
+      700,
     );
+    postToParent("ready");
 
     function playGesture(name) {
       // 播一個手勢（期間 mixer 控身體），平時用程序化站姿
@@ -1078,10 +1091,13 @@ async function bootVRM({
         }
         vrm.update(dt); // 套用骨架/表情/springbone
       }
-      r3.render(scene, camera);
+      webGLRenderer.render(scene, camera);
     })();
 
     return {
+      rootContainer,
+      gltf,
+      vrm,
       dispose() {
         alive = false;
         gesture3D = null;
@@ -1091,16 +1107,20 @@ async function bootVRM({
         rootContainer.removeEventListener("resize", resize);
         rootContainer.removeEventListener("pointermove", onMove);
         try {
-          mixer && mixer.stopAllAction();
+          if (typeof mixer?.stopAllAction === "function") {
+            mixer.stopAllAction();
+          }
         } catch (_error) {}
         try {
-          if (vrm) VRMUtils.deepDispose(vrm.scene);
+          if (vrm) {
+            VRMUtils.deepDispose(vrm.scene);
+          }
         } catch (_error) {} // 釋放 3D 幾何/材質，避免殘骸與 WebGL context 累積
         try {
-          r3.dispose();
+          webGLRenderer.dispose();
         } catch (_error) {}
         try {
-          r3.forceContextLoss();
+          webGLRenderer.forceContextLoss();
         } catch (_error) {}
         canvas.remove();
         window.__avatarVrm = null;
@@ -1211,9 +1231,10 @@ async function bootAvatar(rootContainer = null) {
       700,
     );
     postToParent("ready");
-    window.__aiAvatarModel = model;
 
     return {
+      rootContainer,
+      model,
       dispose() {
         try {
           rootContainer.removeEventListener("resize", fit);
@@ -1325,7 +1346,6 @@ function bindTyping(rootContainer = null) {
 
 // 啟用本機 Ollama 時：開機 ping 一下，連上就把 🧠 切成「本機大腦」狀態
 async function initOllama(aiAvatarWidget = null) {
-  console.log("initOllama", window.OLLAMA?.enabled);
   if (typeof aiAvatarWidget?.container?.querySelector !== "function") {
     console.error(
       "[aiAvatar initOllama] aiAvatarWidget.container is not an HTMLElement",
