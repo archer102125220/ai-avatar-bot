@@ -1,6 +1,14 @@
 # dependencies (install from package.json / package-lock.json instead)
 node_modules/
 
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+
 # vercel
 .vercel
 
