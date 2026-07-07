@@ -8,6 +8,7 @@
       name="description"
       content="網頁右下角的語音 AI 虛擬人助理 — 自建 Demo（Live2D + 瀏覽器語音 + 本機 LLM）"
     />
+    <link rel="stylesheet" href="ai-avatar-bot.css" />
     <style>
       :root {
         --ink: #1f3a5f;
@@ -185,6 +186,41 @@
     </div>
 
     <!-- ★ 一行嵌入虛擬人 ★ -->
-    <script src="embed.js" data-widget="widget.html"></script>
+    <!-- <script src="embed.js" data-widget="widget.html"></script> -->
+
+    <div
+      id="app"
+      style="position: fixed; right: 0; bottom: 0; width: 340px; height: 480px"
+    ></div>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+          "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.4/lib/three-vrm.module.min.js",
+          "@pixiv/three-vrm-animation": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm-animation@3.5.4/lib/three-vrm-animation.module.min.js"
+        }
+      }
+    </script>
+    <script src="knowledge.js"></script>
+    <script src="ai-avatar-bot.main.js"></script>
+    <script>
+      const routeQuery = new URLSearchParams(window.location.search);
+      initAiAvatarWidget({
+        container: document.getElementById("app"),
+        modelUrl: routeQuery.get("model") || DEFAULT_MODEL_URL,
+        ttsEndpoint: routeQuery.get("api") || DEFAULT_TTS_ENDPOINT,
+        // llmModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 中文不錯、約 1.1GB、首次下載後會被快取
+        llmModel: "gemma-2-2b-it-q4f32_1-MLC", // Google 公開模型
+        knowledge: window.KNOWLEDGE,
+        knowledgeUrl: routeQuery.get("knowledge") || "",
+        ollamaBase: (routeQuery.get("ollama") || "").replace(/\/+$/, ""),
+        ollamaModel: routeQuery.get("llmmodel") || DEFAULT_OLLAMA_MODEL,
+        neuralVoice: routeQuery.get("voice") || DEFAULT_NEURAL_VOICE,
+        startMode: routeQuery.get("engine") || DEFALUT_START_MODE,
+        fitMode: routeQuery.get("fit") || DEFALUT_FIT_MODE,
+        vrmUrl: routeQuery.get("vrm"),
+      });
+    </script>
   </body>
 </html>

@@ -152,15 +152,6 @@ function buildLLMMessages(question) {
   ];
 }
 
-function postToParent(aiAvatarWidget = null, type, payload) {
-  try {
-    window.parent.postMessage(
-      Object.assign({ ns: "avatar-widget", type }, payload || {}),
-      aiAvatarWidget?.PARENT_ORIGIN,
-    );
-  } catch (_error) {}
-}
-
 function showBubble(aiAvatarWidget = null, text) {
   const bubbleEl = aiAvatarWidget?.bubbleEl;
   if (bubbleEl instanceof HTMLElement === false) {
@@ -283,7 +274,9 @@ function speak(aiAvatarWidget = null, text) {
 
   const myseq = ++aiAvatarWidget.speakSeq; // 每次說話一個序號，用來判斷是否已被新點擊取代
   showBubble(aiAvatarWidget, text);
-  postToParent(aiAvatarWidget, "speaking", { text });
+  if (typeof aiAvatarWidget.onSpeaking === "function") {
+    aiAvatarWidget.onSpeaking(text);
+  }
   if (aiAvatarWidget.ttsMuted === true) {
     return;
   }
@@ -943,7 +936,9 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
       ),
     ).catch((error) => {
       console.error(error);
-      postToParent(aiAvatarWidget, "error", { message: String(error) });
+      if (typeof aiAvatarWidget.onError === "function") {
+        aiAvatarWidget.onError(error);
+      }
     });
 
     VRMUtils.removeUnnecessaryVertices(gltf.scene);
@@ -1024,7 +1019,9 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
         ),
       700,
     );
-    postToParent(aiAvatarWidget, "ready");
+    if (typeof aiAvatarWidget.onReady === "function") {
+      aiAvatarWidget.onReady();
+    }
 
     function playGesture(name) {
       // 播一個手勢（期間 mixer 控身體），平時用程序化站姿
@@ -1147,7 +1144,9 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
     };
   } catch (error) {
     console.error(error);
-    postToParent(aiAvatarWidget, "error", { message: error.message });
+    if (typeof aiAvatarWidget.onError === "function") {
+      aiAvatarWidget.onError(error);
+    }
   }
 }
 
@@ -1253,7 +1252,9 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
         ),
       700,
     );
-    postToParent(aiAvatarWidget, "ready");
+    if (typeof aiAvatarWidget.onReady === "function") {
+      aiAvatarWidget.onReady();
+    }
 
     return {
       aiAvatarWidget,
@@ -1295,7 +1296,9 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
       directWarnEl.textContent = "2D 啟動失敗：" + (error?.message || error);
       directWarnEl.style.display = "flex";
     }
-    postToParent(aiAvatarWidget, "error", { message: error?.message || error });
+    if (typeof aiAvatarWidget.onError === "function") {
+      aiAvatarWidget.onError(error);
+    }
   }
 }
 
@@ -1423,20 +1426,22 @@ async function initOllama(aiAvatarWidget = null) {
   }
 }
 
-async function initAiAvatarWidget({
-  container = null,
-  ollamaBase = "",
-  ollamaModel = DEFAULT_OLLAMA_MODEL,
-  neuralVoice = DEFAULT_NEURAL_VOICE,
-  knowledgeUrl = "",
-  modelUrl = DEFAULT_MODEL_URL,
-  ttsEndpoint = DEFAULT_TTS_ENDPOINT, // 沒設→試同站相對路徑；抓不到→自動退回瀏覽器語音（純前端可用）
-  llmModel = DEFAULT_LLM_MODEL,
-  knowledge = null,
-  startMode = DEFALUT_START_MODE,
-  fitMode = DEFALUT_FIT_MODE,
-  vrmUrl = "",
-} = {}) {
+async function initAiAvatarWidget(optiopns = {}) {
+  const {
+    container = null,
+    ollamaBase = "",
+    ollamaModel = DEFAULT_OLLAMA_MODEL,
+    neuralVoice = DEFAULT_NEURAL_VOICE,
+    knowledgeUrl = "",
+    modelUrl = DEFAULT_MODEL_URL,
+    ttsEndpoint = DEFAULT_TTS_ENDPOINT, // 沒設→試同站相對路徑；抓不到→自動退回瀏覽器語音（純前端可用）
+    llmModel = DEFAULT_LLM_MODEL,
+    knowledge = null,
+    startMode = DEFALUT_START_MODE,
+    fitMode = DEFALUT_FIT_MODE,
+    vrmUrl = "",
+  } = optiopns;
+
   if (container instanceof HTMLElement === false) {
     throw new Error("container must be an HTMLElement");
   }
@@ -1556,6 +1561,10 @@ async function initAiAvatarWidget({
   container.appendChild(directWarnEl);
 
   const aiAvatarWidget = {
+    get optiopns() {
+      return optiopns;
+    },
+
     get DEFAULT_LLM_MODEL() {
       return DEFAULT_LLM_MODEL;
     },
@@ -1967,6 +1976,19 @@ async function initAiAvatarWidget({
         ? MODE_MAP.threeDimensional
         : MODE_MAP.twoDimensional);
 
+  if (typeof optiopns.onClose === "function") {
+    aiAvatarWidget.onClose = optiopns.onClose.bind(aiAvatarWidget);
+  }
+  if (typeof optiopns.onError === "function") {
+    aiAvatarWidget.onError = optiopns.onError.bind(aiAvatarWidget);
+  }
+  if (typeof optiopns.onReady === "function") {
+    aiAvatarWidget.onReady = optiopns.onReady.bind(aiAvatarWidget);
+  }
+  if (typeof optiopns.onSpeaking === "function") {
+    aiAvatarWidget.onSpeaking = optiopns.onSpeaking.bind(aiAvatarWidget);
+  }
+
   initEngines(aiAvatarWidget, aiAvatarWidget.has2D, aiAvatarWidget.has3D);
 
   aiAvatarWidget.LLM = initLLM(llmModel);
@@ -2001,8 +2023,11 @@ async function initAiAvatarWidget({
   bindTyping(aiAvatarWidget);
 
   // ===== 控制列 =====
-  container.querySelector("#btn-close").onclick = () =>
-    postToParent(aiAvatarWidget, "close");
+  closeButtonEl.onclick = () => {
+    if (typeof aiAvatarWidget.onClose === "function") {
+      aiAvatarWidget.onClose();
+    }
+  };
 
   micButtonEl.onclick = () => startListening(aiAvatarWidget);
 
