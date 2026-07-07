@@ -119,6 +119,33 @@
         } catch (_error) {}
       }
 
+      function topK(question, k) {
+        const knowledge = window.KNOWLEDGE || [];
+
+        return knowledge
+          .map((e) => ({ e, s: scoreEntry(question, e) }))
+          .sort((a, b) => b.s - a.s)
+          .slice(0, k)
+          .filter((x) => x.s > 0.05)
+          .map((x) => x.e);
+      }
+
+      // 共用：檢索到的資料 + 問題 → 給 LLM 的訊息（Ollama 與 WebLLM 共用同一套 RAG 提示）
+      function defaultBuildLLMMessages(question) {
+        const ctx = topK(question, 3)
+          .map((e) => "Q：" + e.q + "\nA：" + e.a)
+          .join("\n---\n");
+        return [
+          {
+            role: "system",
+            content:
+              "你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請用繁體中文、口語、最多兩三句話簡短回答。優先依據【參考資料】回答；資料沒有的就用常識簡短回應，不確定就老實說不知道。\n\n【參考資料】\n" +
+              (ctx || "（無）"),
+          },
+          { role: "user", content: question },
+        ];
+      }
+
       // ===== 防止被直接開（常見網站 widget 的「禁止直接訪問」提示；純 UX，非安全控制），留 ?dev=1 給開發 =====
       const isEmbedded = window.self !== window.top;
       const devBypass = routeQuery.has("dev");
@@ -161,6 +188,17 @@
             // });
             postToParent(aiAvatar, "error", error);
           },
+        });
+
+        window.addEventListener("message", (event) => {
+          const data = event.data || {};
+          if (data.ns !== "avatar-widget-host") {
+            return;
+          }
+          if (data.type === "say") {
+            aiAvatarWidget.speak(String(data.text || "").slice(0, 600));
+          }
+          // 注意：不接受用 postMessage 遠端啟動麥克風（listen），避免惡意父頁偷開麥；麥克風只由使用者點擊觸發
         });
       }
     </script>

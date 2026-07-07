@@ -136,9 +136,10 @@ function initOLLAMA(ollamaBase = "", ollamaModel = DEFAULT_OLLAMA_MODEL) {
   };
   return OLLAMA;
 }
+
 // 共用：檢索到的資料 + 問題 → 給 LLM 的訊息（Ollama 與 WebLLM 共用同一套 RAG 提示）
-function buildLLMMessages(question) {
-  const ctx = topK(question, 3)
+function defaultBuildLLMMessages(aiAvatarWidget = null, question) {
+  const ctx = topK(aiAvatarWidget, question, 3)
     .map((e) => "Q：" + e.q + "\nA：" + e.a)
     .join("\n---\n");
   return [
@@ -150,22 +151,6 @@ function buildLLMMessages(question) {
     },
     { role: "user", content: question },
   ];
-}
-
-function showBubble(aiAvatarWidget = null, text) {
-  const bubbleEl = aiAvatarWidget?.bubbleEl;
-  if (bubbleEl instanceof HTMLElement === false) {
-    console.error("[aiAvatar showBubble] bubbleEl is not an HTMLElement");
-    return;
-  }
-  bubbleEl.textContent = text;
-  bubbleEl.classList.add("show");
-
-  clearTimeout(aiAvatarWidget.showBubbleTimer);
-  aiAvatarWidget.showBubbleTimer = setTimeout(
-    () => bubbleEl.classList.remove("show"),
-    6000,
-  );
 }
 
 // ===== TTS：開口說話 + 對嘴 =====
@@ -202,7 +187,7 @@ function loadVRMFile(aiAvatarWidget = null, file) {
     file instanceof window.File === false ||
     /\.vrm$/i.test(file?.name || "") === false
   ) {
-    showBubble(aiAvatarWidget, "請拖一個 .vrm 檔喔");
+    aiAvatarWidget.speakingLabel = "請拖一個 .vrm 檔喔";
     return;
   }
   try {
@@ -227,7 +212,7 @@ function loadVRMFile(aiAvatarWidget = null, file) {
   }
   aiAvatarWidget.engineMode = null; // 強制重 boot（即使已在 3D）
   aiAvatarWidget.engineMode = MODE_MAP.threeDimensional;
-  showBubble(aiAvatarWidget, "換上你的角色了！🎭");
+  aiAvatarWidget.speakingLabel = "換上你的角色了！🎭";
 }
 
 // 中止目前正在講的（神經語音音檔 + 瀏覽器 TTS + 對嘴），給「點第二下打斷第一下」用
@@ -270,7 +255,7 @@ function speak(aiAvatarWidget = null, text) {
   }
 
   const myseq = ++aiAvatarWidget.speakSeq; // 每次說話一個序號，用來判斷是否已被新點擊取代
-  showBubble(aiAvatarWidget, text);
+  aiAvatarWidget.speakingLabel = text;
   if (typeof aiAvatarWidget.onSpeaking === "function") {
     aiAvatarWidget.onSpeaking(text, aiAvatarWidget);
   }
@@ -484,8 +469,8 @@ function scoreEntry(question, e) {
   }
   return score;
 }
-function topK(question, k) {
-  const knowledge = window.KNOWLEDGE || [];
+function topK(aiAvatarWidget = null, question, k) {
+  const knowledge = aiAvatarWidget?.KNOWLEDGE || [];
 
   return knowledge
     .map((e) => ({ e, s: scoreEntry(question, e) }))
@@ -523,14 +508,16 @@ function brain(rawQuestion) {
   );
 }
 
-async function ollamaLLMBrain(aiAvatarWidget, question) {
+async function ollamaLLMBrain(aiAvatarWidget = null, question) {
   try {
-    showBubble(aiAvatarWidget, "讓我想想…");
+    aiAvatarWidget.speakingLabel = "讓我想想…";
     if (typeof aiAvatarWidget.gesture3D === "function") {
       aiAvatarWidget.gesture3D("thinking");
     }
     const out = (
-      (await aiAvatarWidget.OLLAMA.chat(buildLLMMessages(question))) || ""
+      (await aiAvatarWidget.OLLAMA.chat(
+        defaultBuildLLMMessages(aiAvatarWidget, question),
+      )) || ""
     ).trim();
     if (typeof out === "string" && out !== "") {
       return out;
@@ -544,14 +531,16 @@ async function ollamaLLMBrain(aiAvatarWidget, question) {
   );
 }
 
-async function webLLMBrain(aiAvatarWidget, question) {
+async function webLLMBrain(aiAvatarWidget = null, question) {
   try {
-    showBubble(aiAvatarWidget, "讓我想想…");
+    aiAvatarWidget.speakingLabel = "讓我想想…";
     if (typeof aiAvatarWidget.gesture3D === "function") {
       aiAvatarWidget.gesture3D("thinking");
     }
     const out = (
-      (await aiAvatarWidget.LLM.chat(buildLLMMessages(question))) || ""
+      (await aiAvatarWidget.LLM.chat(
+        defaultBuildLLMMessages(aiAvatarWidget, question),
+      )) || ""
     ).trim();
     if (typeof out === "string" && out !== "") {
       return out;
@@ -594,7 +583,7 @@ async function handleUser(aiAvatarWidget = null, text) {
   }
 
   if (typeof text === "string" && text !== "") {
-    showBubble(aiAvatarWidget, "你：" + text);
+    aiAvatarWidget.speakingLabel = "你：" + text;
     speak(aiAvatarWidget, await handleAnswer(aiAvatarWidget, text));
   }
 }
@@ -648,7 +637,7 @@ function startListening(aiAvatarWidget = null) {
   aiAvatarWidget.recognition.onstart = () => {
     aiAvatarWidget.listening = true;
     setMic(aiAvatarWidget, true);
-    showBubble(aiAvatarWidget, "聆聽中…請說話 🎙️");
+    aiAvatarWidget.speakingLabel = "聆聽中…請說話 🎙️";
   };
   aiAvatarWidget.recognition.onresult = (event) => {
     let txt = "";
@@ -659,18 +648,16 @@ function startListening(aiAvatarWidget = null) {
     if (last.isFinal) {
       handleUser(aiAvatarWidget, txt.trim());
     } else {
-      showBubble(aiAvatarWidget, "「" + txt + "」…");
+      aiAvatarWidget.speakingLabel = "「" + txt + "」…";
     }
   };
   aiAvatarWidget.recognition.onerror = (error) => {
     aiAvatarWidget.listening = false;
     setMic(aiAvatarWidget, false);
-    showBubble(
-      aiAvatarWidget,
+    aiAvatarWidget.speakingLabel =
       error.error === "not-allowed"
         ? "我需要麥克風權限才能聽你說話喔。"
-        : "沒聽清楚（" + error.error + "），再試一次。",
-    );
+        : "沒聽清楚（" + error.error + "），再試一次。";
   };
   aiAvatarWidget.recognition.onend = () => {
     aiAvatarWidget.listening = false;
@@ -832,10 +819,10 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
     camera.position.set(0, 1.4, 1.6);
     camera.lookAt(0, 1.3, 0);
     const resize = () => {
-      const clientWidth = stageEl.clientWidth;
-      const clientHeight = stageEl.clientHeight;
-      webGLRenderer.setSize(clientWidth, clientHeight, false);
-      camera.aspect = clientWidth / clientHeight;
+      const stageElClientWidth = stageEl.clientWidth;
+      const stageElClientHeight = stageEl.clientHeight;
+      webGLRenderer.setSize(stageElClientWidth, stageElClientHeight, false);
+      camera.aspect = stageElClientWidth / stageElClientHeight;
       camera.updateProjectionMatrix();
     };
     resize();
@@ -928,7 +915,7 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
     } catch (_e) {} // 眼睛跟著滑鼠
 
     // VRMA 情境手勢庫（body-only，不碰嘴）：點擊/出場揮手、思考托腮、待機變化(環顧/放鬆)
-    (async () => {
+    await (async () => {
       const bodyOnly = (cl) => {
         cl.tracks = cl.tracks.filter((tr) => /\.quaternion$/.test(tr.name));
         return cl;
@@ -976,14 +963,9 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
         console.warn("VRMA 手勢庫載入失敗：", error?.message);
       }
     })();
-    setTimeout(
-      () =>
-        showBubble(
-          aiAvatarWidget,
-          "點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋",
-        ),
-      700,
-    );
+
+    aiAvatarWidget.speakingLabel =
+      "點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋";
     if (typeof aiAvatarWidget.onReady === "function") {
       aiAvatarWidget.onReady(aiAvatarWidget);
     }
@@ -1214,14 +1196,8 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
     aiAvatarWidget.model.on("hit", () => onTap(aiAvatarWidget));
     canvas.addEventListener("pointerdown", () => onTap(aiAvatarWidget));
 
-    setTimeout(
-      () =>
-        showBubble(
-          aiAvatarWidget,
-          "點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋",
-        ),
-      700,
-    );
+    aiAvatarWidget.speakingLabel =
+      "點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋";
     if (typeof aiAvatarWidget.onReady === "function") {
       aiAvatarWidget.onReady(aiAvatarWidget);
     }
@@ -1384,16 +1360,12 @@ async function initOllama(aiAvatarWidget = null) {
       : "本機 Ollama 連不上（檢查 Ollama 是否在跑 / CORS）";
   }
   if (ok === true) {
-    setTimeout(
-      () =>
-        showBubble(
-          aiAvatarWidget,
-          "已接上本機 AI 大腦（" +
-            aiAvatarWidget.OLLAMA.model +
-            "）🧠 問我問題吧！",
-        ),
-      1300,
-    );
+    setTimeout(() => {
+      aiAvatarWidget.speakingLabel =
+        "已接上本機 AI 大腦（" +
+        aiAvatarWidget.OLLAMA.model +
+        "）🧠 問我問題吧！";
+    }, 1300);
   }
 }
 
@@ -1963,7 +1935,25 @@ async function initAiAvatarWidget(optiopns = {}) {
     KNOWLEDGE: null,
     OLLAMA: null,
 
-    showBubbleTimer: 0,
+    _speakingLabel: "",
+    get speakingLabel() {
+      return this._speakingLabel;
+    },
+    set speakingLabel(newSpeakingLabel) {
+      if (typeof newSpeakingLabel === "string" || newSpeakingLabel === null) {
+        this._speakingLabel = newSpeakingLabel;
+
+        bubbleEl.textContent = newSpeakingLabel;
+        bubbleEl.classList.add("show");
+        clearTimeout(this.speakingLabelTimer);
+        this.speakingLabelTimer = setTimeout(
+          () => bubbleEl.classList.remove("show"),
+          6000,
+        );
+      }
+    },
+
+    speakingLabelTimer: 0,
     speakBrowserTimer: 0,
     onTapTimer: false,
   };
@@ -1978,6 +1968,14 @@ async function initAiAvatarWidget(optiopns = {}) {
 
   if (typeof optiopns.onReady === "function") {
     aiAvatarWidget.onReady = optiopns.onReady.bind(aiAvatarWidget);
+  }
+
+  if (typeof optiopns.buildLLMMessages === "function") {
+    aiAvatarWidget.buildLLMMessages =
+      optiopns.buildLLMMessages.bind(aiAvatarWidget);
+  } else {
+    aiAvatarWidget.buildLLMMessages =
+      defaultBuildLLMMessages.bind(aiAvatarWidget);
   }
 
   aiAvatarWidget.speak = function (text) {
@@ -2044,10 +2042,9 @@ async function initAiAvatarWidget(optiopns = {}) {
     if (aiAvatarWidget.ttsMuted === true) {
       stopSpeaking(aiAvatarWidget); // 立刻停掉正在播的（神經語音 + 瀏覽器語音）
     }
-    showBubble(
-      aiAvatarWidget,
-      aiAvatarWidget.ttsMuted ? "已靜音" : "已開啟語音",
-    );
+    aiAvatarWidget.speakingLabel = aiAvatarWidget.ttsMuted
+      ? "已靜音"
+      : "已開啟語音";
   };
   speedButtonEl.onclick = (event) => {
     const el = event.target;
@@ -2055,10 +2052,8 @@ async function initAiAvatarWidget(optiopns = {}) {
     aiAvatarWidget.ttsRate =
       steps[(steps.indexOf(aiAvatarWidget.ttsRate) + 1) % steps.length] || 1.0;
     el.textContent = aiAvatarWidget.ttsRate.toFixed(1) + "×";
-    showBubble(
-      aiAvatarWidget,
-      "語速：" + aiAvatarWidget.ttsRate.toFixed(1) + "×",
-    );
+    aiAvatarWidget.speakingLabel =
+      "語速：" + aiAvatarWidget.ttsRate.toFixed(1) + "×";
   };
   btnLlmEl.onclick = async (event) => {
     const el = event.target;
@@ -2070,34 +2065,27 @@ async function initAiAvatarWidget(optiopns = {}) {
       el.textContent = ok ? "🧠本機" : "🧠✗";
       el.classList.toggle("llm-on", ok);
       el.setAttribute("aria-pressed", String(ok));
-      showBubble(
-        aiAvatarWidget,
-        ok
-          ? "本機 AI 大腦運作中（" + aiAvatarWidget.OLLAMA.model + "）🧠"
-          : "本機 Ollama 連不上：確認 Ollama 在跑、且 OLLAMA_ORIGINS 已允許這個網站。",
-      );
+      aiAvatarWidget.speakingLabel = ok
+        ? "本機 AI 大腦運作中（" + aiAvatarWidget.OLLAMA.model + "）🧠"
+        : "本機 Ollama 連不上：確認 Ollama 在跑、且 OLLAMA_ORIGINS 已允許這個網站。";
 
       return;
     }
     if (aiAvatarWidget.LLM?.supported !== true) {
-      showBubble(
-        aiAvatarWidget,
-        "這個裝置不支援 WebGPU，先用知識庫模式就好（功能一樣可用）。",
-      );
+      aiAvatarWidget.speakingLabel =
+        "這個裝置不支援 WebGPU，先用知識庫模式就好（功能一樣可用）。";
       return;
     }
     if (aiAvatarWidget.LLM?.state === STATE_MAP.READY) {
-      showBubble(aiAvatarWidget, "AI 大腦已啟用，問我問題吧 🧠");
+      aiAvatarWidget.speakingLabel = "AI 大腦已啟用，問我問題吧 🧠";
       return;
     } else if (aiAvatarWidget.LLM?.state === STATE_MAP.LOADING) {
-      showBubble(
-        aiAvatarWidget,
-        "AI 大腦載入中… " + Math.round(aiAvatarWidget.LLM.progress * 100) + "%",
-      );
+      aiAvatarWidget.speakingLabel =
+        "AI 大腦載入中… " + Math.round(aiAvatarWidget.LLM.progress * 100) + "%";
       return;
     }
 
-    showBubble(aiAvatarWidget, "開始下載 AI 大腦（約 1GB，只需第一次）…");
+    aiAvatarWidget.speakingLabel = "開始下載 AI 大腦（約 1GB，只需第一次）…";
     try {
       await aiAvatarWidget.LLM.load((p) => {
         el.textContent = "🧠 " + Math.round((p.progress || 0) * 100) + "%";
@@ -2105,22 +2093,15 @@ async function initAiAvatarWidget(optiopns = {}) {
       el.textContent = "🧠✓";
       el.classList.add("llm-on");
       speak(aiAvatarWidget, "AI 大腦啟用完成，現在我可以聊得更自然囉！");
+      aiAvatarWidget.speakingLabel =
+        "AI 大腦啟用完成，現在我可以聊得更自然囉！";
     } catch (e) {
       el.textContent = "🧠✗";
-      showBubble(aiAvatarWidget, "AI 大腦載入失敗：" + ((e && e.message) || e));
+      aiAvatarWidget.speakingLabel =
+        "AI 大腦載入失敗：" + ((e && e.message) || e);
     }
   };
 
-  window.addEventListener("message", (event) => {
-    const data = event.data || {};
-    if (data.ns !== "avatar-widget-host") {
-      return;
-    }
-    if (data.type === "say") {
-      speak(aiAvatarWidget, String(data.text || "").slice(0, 600));
-    }
-    // 注意：不接受用 postMessage 遠端啟動麥克風（listen），避免惡意父頁偷開麥；麥克風只由使用者點擊觸發
-  });
   await initOllama(aiAvatarWidget);
 
   return aiAvatarWidget;
