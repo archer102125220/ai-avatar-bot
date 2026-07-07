@@ -10,7 +10,7 @@ const STATE_MAP = {
   ERROR: "error",
 };
 
-const routeQuery = new URLSearchParams(location.search);
+const routeQuery = new URLSearchParams(window.location.search);
 
 function initLLM(llmModel = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC") {
   let engine = null;

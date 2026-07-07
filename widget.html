@@ -107,7 +107,7 @@
        一般訪客（不啟用大腦）不會下載這包 JS。控制權掛到 window.LLM。 -->
     <script src="ai-avatar-bot.main.js"></script>
     <script>
-      const routeQuery = new URLSearchParams(location.search);
+      const routeQuery = new URLSearchParams(window.location.search);
       const container = document.querySelector("#ai-avatar-widget");
 
       function postToParent(aiAvatarWidget, type, payload) {
