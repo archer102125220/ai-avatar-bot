@@ -108,21 +108,34 @@
     <script src="ai-avatar-bot.main.js"></script>
     <script>
       const routeQuery = new URLSearchParams(location.search);
-      initAiAvatarWidget({
-        container: document.querySelector("#ai-avatar-widget"),
-        modelUrl: routeQuery.get("model") || DEFAULT_MODEL_URL,
-        ttsEndpoint: routeQuery.get("api") || DEFAULT_TTS_ENDPOINT,
-        // llmModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 中文不錯、約 1.1GB、首次下載後會被快取
-        llmModel: "gemma-2-2b-it-q4f32_1-MLC", // Google 公開模型
-        knowledge: window.KNOWLEDGE,
-        knowledgeUrl: routeQuery.get("knowledge") || "",
-        ollamaBase: (routeQuery.get("ollama") || "").replace(/\/+$/, ""),
-        ollamaModel: routeQuery.get("llmmodel") || DEFAULT_OLLAMA_MODEL,
-        neuralVoice: routeQuery.get("voice") || DEFAULT_NEURAL_VOICE,
-        startMode: routeQuery.get("engine") || DEFALUT_START_MODE,
-        fitMode: routeQuery.get("fit") || DEFALUT_FIT_MODE,
-        vrmUrl: routeQuery.get("vrm"),
-      });
+      const container = document.querySelector("#ai-avatar-widget");
+
+      // ===== 防止被直接開（常見網站 widget 的「禁止直接訪問」提示；純 UX，非安全控制），留 ?dev=1 給開發 =====
+      const isEmbedded = window.self !== window.top;
+      const devBypass = routeQuery.has("dev");
+      if (!isEmbedded && !devBypass) {
+        const directWarnEl = document.createElement("p");
+        directWarnEl.setAttribute("id", "direct-warn");
+        directWarnEl.textContent = "請透過 <code>embed.js</code> 載入此元件。";
+        directWarnEl.style.display = "flex";
+        container.appendChild(directWarnEl);
+      } else {
+        initAiAvatarWidget({
+          container,
+          modelUrl: routeQuery.get("model") || DEFAULT_MODEL_URL,
+          ttsEndpoint: routeQuery.get("api") || DEFAULT_TTS_ENDPOINT,
+          // llmModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 中文不錯、約 1.1GB、首次下載後會被快取
+          llmModel: "gemma-2-2b-it-q4f32_1-MLC", // Google 公開模型
+          knowledge: window.KNOWLEDGE,
+          knowledgeUrl: routeQuery.get("knowledge") || "",
+          ollamaBase: (routeQuery.get("ollama") || "").replace(/\/+$/, ""),
+          ollamaModel: routeQuery.get("llmmodel") || DEFAULT_OLLAMA_MODEL,
+          neuralVoice: routeQuery.get("voice") || DEFAULT_NEURAL_VOICE,
+          startMode: routeQuery.get("engine") || DEFALUT_START_MODE,
+          fitMode: routeQuery.get("fit") || DEFALUT_FIT_MODE,
+          vrmUrl: routeQuery.get("vrm"),
+        });
+      }
     </script>
   </body>
 </html>
