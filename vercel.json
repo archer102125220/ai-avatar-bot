@@ -18,7 +18,11 @@
       "use": "@vercel/static"
     },
     {
-      "src": "widget.main.js",
+      "src": "ai-avatar-bot.main.js",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "ai-avatar-bot.css",
       "use": "@vercel/static"
     }
   ],

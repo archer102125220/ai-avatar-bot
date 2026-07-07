@@ -757,7 +757,7 @@ function createCanvas(aiAvatarWidget = null) {
   const stage = rootContainer.querySelector("#stage");
   stage.querySelectorAll("canvas.avatar-canvas").forEach((old) => old.remove()); // 切換時保證不留舊 canvas（殘骸）
   const newCanvas = document.createElement("canvas");
-  newCanvas.className = "avatar-canvas";
+  newCanvas.classList.add("avatar-canvas");
   stage.insertBefore(newCanvas, stage.firstChild); // 放最底層，UI 疊在上面
   return newCanvas;
 }
@@ -1340,13 +1340,13 @@ function renderSuggestions(aiAvatarWidget = null) {
     "我可以說什麼？",
   ];
   const label = document.createElement("p");
-  label.className = "sg-label";
+  label.classList.add("sg-label");
   label.textContent = "💬 你可以問我：";
   suggestions.appendChild(label);
   SUGGESTIONS.forEach((suggestion) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "sugg";
+    button.classList.add("sugg");
     button.textContent = suggestion;
     button.onclick = () => {
       handleUser(aiAvatarWidget, suggestion.replace(/？$/, ""));
