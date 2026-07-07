@@ -110,6 +110,15 @@
       const routeQuery = new URLSearchParams(location.search);
       const container = document.querySelector("#ai-avatar-widget");
 
+      function postToParent(aiAvatarWidget, type, payload) {
+        try {
+          window.parent.postMessage(
+            Object.assign({ ns: "avatar-widget", type }, payload || {}),
+            aiAvatarWidget?.PARENT_ORIGIN,
+          );
+        } catch (_error) {}
+      }
+
       // ===== 防止被直接開（常見網站 widget 的「禁止直接訪問」提示；純 UX，非安全控制），留 ?dev=1 給開發 =====
       const isEmbedded = window.self !== window.top;
       const devBypass = routeQuery.has("dev");
@@ -120,15 +129,6 @@
         directWarnEl.style.display = "flex";
         container.appendChild(directWarnEl);
       } else {
-        function postToParent(aiAvatarWidget, type, payload) {
-          try {
-            window.parent.postMessage(
-              Object.assign({ ns: "avatar-widget", type }, payload || {}),
-              aiAvatarWidget?.PARENT_ORIGIN,
-            );
-          } catch (_error) {}
-        }
-
         const aiAvatarWidget = initAiAvatarWidget({
           container,
           modelUrl: routeQuery.get("model") || DEFAULT_MODEL_URL,
@@ -144,21 +144,22 @@
           fitMode: routeQuery.get("fit") || DEFALUT_FIT_MODE,
           vrmUrl: routeQuery.get("vrm"),
 
-          onReady() {
-            postToParent(this, "ready");
+          onReady(aiAvatar) {
+            postToParent(aiAvatar, "ready");
           },
-          onSpeaking(text) {
-            postToParent(this, "speaking", { text });
+          onSpeaking(text, aiAvatar) {
+            postToParent(aiAvatar, "speaking", { text });
           },
-          onClose() {
-            postToParent(this, "close");
+          onClose(aiAvatar) {
+            postToParent(aiAvatar, "close");
           },
-          onError(error) {
-            // postToParent(this, "error", { message: String(error) });
-            // postToParent(this, "error", { message: error.message });
-            postToParent(this, "error", {
-              message: error?.message || error,
-            });
+          onError(error, aiAvatar) {
+            // postToParent(aiAvatar, "error", { message: String(error) });
+            // postToParent(aiAvatar, "error", { message: error.message });
+            // postToParent(aiAvatar, "error", {
+            //   message: error?.message || error,
+            // });
+            postToParent(aiAvatar, "error", error);
           },
         });
       }

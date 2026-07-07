@@ -220,6 +220,20 @@
         startMode: routeQuery.get("engine") || DEFALUT_START_MODE,
         fitMode: routeQuery.get("fit") || DEFALUT_FIT_MODE,
         vrmUrl: routeQuery.get("vrm"),
+
+        onReady(aiAvatar) {
+          /* 之後可在這觸發歡迎語 */
+          aiAvatar.speak("hello");
+        },
+        onSpeaking(text, aiAvatar) {
+          // postToParent(aiAvatar, "speaking", { text });
+        },
+        onClose(aiAvatar) {
+          // postToParent(aiAvatar, "close");
+        },
+        onError(error) {
+          console.warn("[avatar] widget error:", error);
+        },
       });
     </script>
   </body>

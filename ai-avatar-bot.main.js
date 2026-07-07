@@ -275,7 +275,7 @@ function speak(aiAvatarWidget = null, text) {
   const myseq = ++aiAvatarWidget.speakSeq; // 每次說話一個序號，用來判斷是否已被新點擊取代
   showBubble(aiAvatarWidget, text);
   if (typeof aiAvatarWidget.onSpeaking === "function") {
-    aiAvatarWidget.onSpeaking(text);
+    aiAvatarWidget.onSpeaking(text, aiAvatarWidget);
   }
   if (aiAvatarWidget.ttsMuted === true) {
     return;
@@ -937,7 +937,7 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
     ).catch((error) => {
       console.error(error);
       if (typeof aiAvatarWidget.onError === "function") {
-        aiAvatarWidget.onError(error);
+        aiAvatarWidget.onError(error, aiAvatarWidget);
       }
     });
 
@@ -1020,7 +1020,7 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
       700,
     );
     if (typeof aiAvatarWidget.onReady === "function") {
-      aiAvatarWidget.onReady();
+      aiAvatarWidget.onReady(aiAvatarWidget);
     }
 
     function playGesture(name) {
@@ -1145,7 +1145,7 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
   } catch (error) {
     console.error(error);
     if (typeof aiAvatarWidget.onError === "function") {
-      aiAvatarWidget.onError(error);
+      aiAvatarWidget.onError(error, aiAvatarWidget);
     }
   }
 }
@@ -1253,7 +1253,7 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
       700,
     );
     if (typeof aiAvatarWidget.onReady === "function") {
-      aiAvatarWidget.onReady();
+      aiAvatarWidget.onReady(aiAvatarWidget);
     }
 
     return {
@@ -1297,7 +1297,7 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
       directWarnEl.style.display = "flex";
     }
     if (typeof aiAvatarWidget.onError === "function") {
-      aiAvatarWidget.onError(error);
+      aiAvatarWidget.onError(error, aiAvatarWidget);
     }
   }
 }
@@ -1445,7 +1445,6 @@ async function initAiAvatarWidget(optiopns = {}) {
   if (container instanceof HTMLElement === false) {
     throw new Error("container must be an HTMLElement");
   }
-  const routeQuery = new URLSearchParams(location.search);
 
   const safeModelUrl = modelUrl || DEFAULT_MODEL_URL;
   const safeVrmUrl =
@@ -1599,10 +1598,6 @@ async function initAiAvatarWidget(optiopns = {}) {
       if (typeof newOllamaModel === "string" || newOllamaModel === null) {
         this._ollamaModel = newOllamaModel;
       }
-    },
-
-    get routeQuery() {
-      return routeQuery;
     },
 
     get container() {
@@ -1976,17 +1971,22 @@ async function initAiAvatarWidget(optiopns = {}) {
         ? MODE_MAP.threeDimensional
         : MODE_MAP.twoDimensional);
 
+  if (typeof optiopns.onReady === "function") {
+    aiAvatarWidget.onReady = optiopns.onReady.bind(aiAvatarWidget);
+  }
+
+  aiAvatarWidget.speak = function (text) {
+    speak(this, String(text || "").slice(0, 600));
+  }.bind(aiAvatarWidget);
+
+  if (typeof optiopns.onSpeaking === "function") {
+    aiAvatarWidget.onSpeaking = optiopns.onSpeaking.bind(aiAvatarWidget);
+  }
   if (typeof optiopns.onClose === "function") {
     aiAvatarWidget.onClose = optiopns.onClose.bind(aiAvatarWidget);
   }
   if (typeof optiopns.onError === "function") {
     aiAvatarWidget.onError = optiopns.onError.bind(aiAvatarWidget);
-  }
-  if (typeof optiopns.onReady === "function") {
-    aiAvatarWidget.onReady = optiopns.onReady.bind(aiAvatarWidget);
-  }
-  if (typeof optiopns.onSpeaking === "function") {
-    aiAvatarWidget.onSpeaking = optiopns.onSpeaking.bind(aiAvatarWidget);
   }
 
   initEngines(aiAvatarWidget, aiAvatarWidget.has2D, aiAvatarWidget.has3D);
@@ -2025,7 +2025,7 @@ async function initAiAvatarWidget(optiopns = {}) {
   // ===== 控制列 =====
   closeButtonEl.onclick = () => {
     if (typeof aiAvatarWidget.onClose === "function") {
-      aiAvatarWidget.onClose();
+      aiAvatarWidget.onClose(aiAvatarWidget);
     }
   };
 
@@ -2106,16 +2106,13 @@ async function initAiAvatarWidget(optiopns = {}) {
     }
   };
 
-  window.LLM = aiAvatarWidget.LLM;
-  window.KNOWLEDGE = aiAvatarWidget.KNOWLEDGE;
-  window.OLLAMA = aiAvatarWidget.OLLAMA;
   window.addEventListener("message", (event) => {
     const data = event.data || {};
     if (data.ns !== "avatar-widget-host") {
       return;
     }
     if (data.type === "say") {
-      speak(container, String(data.text || "").slice(0, 600));
+      speak(aiAvatarWidget, String(data.text || "").slice(0, 600));
     }
     // 注意：不接受用 postMessage 遠端啟動麥克風（listen），避免惡意父頁偷開麥；麥克風只由使用者點擊觸發
   });
