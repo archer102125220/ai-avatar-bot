@@ -219,17 +219,14 @@ function loadVRMFile(aiAvatarWidget = null, file) {
     btnEngine.style.display = "";
     if (typeof btnEngine.onclick !== "function") {
       btnEngine.onclick = () => {
-        setEngine(
-          aiAvatarWidget,
-          aiAvatarWidget.engineMode === MODE_MAP.threeDimensional
-            ? MODE_MAP.twoDimensional
-            : MODE_MAP.threeDimensional,
-        );
+        aiAvatarWidget.engineMode = MODE_MAP.threeDimensional
+          ? MODE_MAP.twoDimensional
+          : MODE_MAP.threeDimensional;
       };
     }
   }
   aiAvatarWidget.engineMode = null; // 強制重 boot（即使已在 3D）
-  setEngine(aiAvatarWidget, MODE_MAP.threeDimensional);
+  aiAvatarWidget.engineMode = MODE_MAP.threeDimensional;
   showBubble(aiAvatarWidget, "換上你的角色了！🎭");
 }
 
@@ -603,7 +600,7 @@ async function handleUser(aiAvatarWidget = null, text) {
 }
 
 // ===== STT：聽你說話 =====
-function setMic(aiAvatarWidget = null, on) {
+function setMic(aiAvatarWidget = null, isListening = false) {
   const rootContainer = aiAvatarWidget?.container;
   if (rootContainer instanceof HTMLElement === false) {
     console.error("[aiAvatar setMic] rootContainer is not an HTMLElement");
@@ -611,12 +608,12 @@ function setMic(aiAvatarWidget = null, on) {
   }
 
   const btnMic = aiAvatarWidget.micButtonEl;
-  btnMic.classList.toggle("listening", on);
-  btnMic.textContent = on ? "● 聆聽中" : "🎤 說話";
+  btnMic.classList.toggle("listening", isListening);
+  btnMic.textContent = isListening ? "● 聆聽中" : "🎤 說話";
 
   const suggestions = aiAvatarWidget.suggestionsEl;
   if (suggestions instanceof HTMLElement) {
-    suggestions.style.display = on ? "none" : "flex";
+    suggestions.style.display = isListening ? "none" : "flex";
   } // 聆聽中收起清單
 }
 function startListening(aiAvatarWidget = null) {
@@ -627,6 +624,9 @@ function startListening(aiAvatarWidget = null) {
     );
     return;
   }
+
+  const SafeSpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SafeSpeechRecognition) {
     speak(aiAvatarWidget, "你的瀏覽器不支援語音辨識，建議用 Chrome 開喔。");
     return;
@@ -740,56 +740,20 @@ function loadUMD() {
 
 // ===== 引擎切換外殼：每個引擎建自己的 canvas、回傳 dispose；切換＝dispose 舊的再 boot 新的 =====
 function createCanvas(aiAvatarWidget = null) {
-  const rootContainer = aiAvatarWidget?.container;
-  if (rootContainer instanceof HTMLElement === false) {
-    throw new Error(
-      "[aiAvatar createCanvas] rootContainer is not an HTMLElement",
-    );
+  const stageEl = aiAvatarWidget?.stageEl;
+  if (stageEl instanceof HTMLElement === false) {
+    throw new Error("[aiAvatar createCanvas] stageEl is not an HTMLElement");
   }
 
-  const stage = rootContainer.querySelector("#stage");
-  stage.querySelectorAll("canvas.avatar-canvas").forEach((old) => old.remove()); // 切換時保證不留舊 canvas（殘骸）
+  stageEl
+    .querySelectorAll("canvas.avatar-canvas")
+    .forEach((old) => old.remove()); // 切換時保證不留舊 canvas（殘骸）
   const newCanvas = document.createElement("canvas");
   newCanvas.classList.add("avatar-canvas");
-  stage.insertBefore(newCanvas, stage.firstChild); // 放最底層，UI 疊在上面
+  stageEl.insertBefore(newCanvas, stageEl.firstChild); // 放最底層，UI 疊在上面
   return newCanvas;
 }
 
-async function setEngine(aiAvatarWidget = null, engineMode = "") {
-  const rootContainer = aiAvatarWidget?.container;
-  if (rootContainer instanceof HTMLElement === false) {
-    console.error("[aiAvatar setEngine] rootContainer is not an HTMLElement");
-    return;
-  }
-  if (
-    aiAvatarWidget.switching === true ||
-    engineMode === aiAvatarWidget.engineMode
-  ) {
-    return;
-  }
-  aiAvatarWidget.switching = true;
-  if (typeof aiAvatarWidget?.renderer?.dispose === "function") {
-    try {
-      aiAvatarWidget.renderer.dispose();
-    } catch (_error) {}
-    aiAvatarWidget.renderer = null;
-  }
-  aiAvatarWidget.engineMode = engineMode;
-  const btnEngine = rootContainer.querySelector("#btn-engine");
-  if (btnEngine instanceof HTMLElement) {
-    btnEngine.textContent =
-      engineMode === MODE_MAP.threeDimensional ? "3D" : "2D";
-  }
-  try {
-    aiAvatarWidget.renderer =
-      engineMode === MODE_MAP.threeDimensional
-        ? await bootVRM(aiAvatarWidget)
-        : await bootAvatar(aiAvatarWidget);
-  } catch (error) {
-    console.error(error);
-  }
-  aiAvatarWidget.switching = false;
-}
 // 切換用：embedder 兩個皮都給(data-model + data-vrm) → 長出 2D/3D 切換鈕。
 // 預設引擎：data-engine 優先；否則有明確 2D 皮就 2D、只有 3D 就 3D。
 function initEngines(aiAvatarWidget = null, has2D, has3D) {
@@ -808,8 +772,7 @@ function initEngines(aiAvatarWidget = null, has2D, has3D) {
         : MODE_MAP.twoDimensional);
 
   aiAvatarWidget.startMode = startMode;
-
-  setEngine(aiAvatarWidget, startMode);
+  aiAvatarWidget.engineMode = startMode;
   if (
     typeof has2D === "string" &&
     has2D !== "" &&
@@ -820,24 +783,22 @@ function initEngines(aiAvatarWidget = null, has2D, has3D) {
     const btnEngine = rootContainer.querySelector("#btn-engine");
     if (btnEngine instanceof HTMLElement) {
       btnEngine.style.display = "";
-      btnEngine.onclick = () =>
-        setEngine(
-          aiAvatarWidget,
-          aiAvatarWidget.engineMode === MODE_MAP.threeDimensional
-            ? MODE_MAP.twoDimensional
-            : MODE_MAP.threeDimensional,
-        );
+      btnEngine.onclick = () => {
+        aiAvatarWidget.engineMode = MODE_MAP.threeDimensional
+          ? MODE_MAP.twoDimensional
+          : MODE_MAP.threeDimensional;
+      };
     }
   }
 }
 
 // ===== 3D 皮：VRM（three + three-vrm，ESM 動態 import）=====
 async function bootVRM(aiAvatarWidget = null, setting = {}) {
-  const rootContainer = aiAvatarWidget?.container;
+  const stageEl = aiAvatarWidget?.stageEl;
   const { bow = "", wave = "", thinking = "", look = "", relax = "" } = setting;
   try {
-    if (rootContainer instanceof HTMLElement === false) {
-      throw new Error("[aiAvatar bootVRM] rootContainer is not an HTMLElement");
+    if (stageEl instanceof HTMLElement === false) {
+      throw new Error("[aiAvatar bootVRM] stageEl is not an HTMLElement");
     }
     const THREE = await import("three");
     const { GLTFLoader } = await import("three/addons/loaders/GLTFLoader.js");
@@ -857,7 +818,6 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
     };
     const TAP_GESTURES = ["wave", "bow"]; // 點一下隨機：揮手/鞠躬問候（歡迎感）
 
-    const stage = rootContainer.querySelector("#stage");
     const canvas = createCanvas(aiAvatarWidget);
     const webGLRenderer = new THREE.WebGLRenderer({
       canvas,
@@ -871,8 +831,8 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
     camera.position.set(0, 1.4, 1.6);
     camera.lookAt(0, 1.3, 0);
     const resize = () => {
-      const clientWidth = stage.clientWidth;
-      const clientHeight = stage.clientHeight;
+      const clientWidth = stageEl.clientWidth;
+      const clientHeight = stageEl.clientHeight;
       webGLRenderer.setSize(clientWidth, clientHeight, false);
       camera.aspect = clientWidth / clientHeight;
       camera.updateProjectionMatrix();
@@ -892,7 +852,7 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
     let mx = 0;
     let my = 0; // 游標相對位置 -1..1
     const onMove = (event) => {
-      const clientRect = stage.getBoundingClientRect();
+      const clientRect = stageEl.getBoundingClientRect();
       if (!clientRect.width) return;
       mx = Math.max(
         -1,
@@ -1152,9 +1112,14 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
 
 // ===== 2D 皮：Live2D 載入 + 對嘴 =====
 async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
-  const rootContainer = aiAvatarWidget?.container;
+  const rootContainer = aiAvatarWidget?.stageEl;
   if (rootContainer instanceof HTMLElement === false) {
     console.error("[aiAvatar bootAvatar] rootContainer is not an HTMLElement");
+    return;
+  }
+  const stageEl = aiAvatarWidget?.stageEl;
+  if (stageEl instanceof HTMLElement === false) {
+    console.error("[aiAvatar bootAvatar] stageEl is not an HTMLElement");
     return;
   }
   try {
@@ -1170,7 +1135,7 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
       autoStart: true,
       backgroundAlpha: 0,
       antialias: true,
-      resizeTo: rootContainer.querySelector("#stage"),
+      resizeTo: stageEl,
     });
 
     aiAvatarWidget.model = await Live2DModel.from(
@@ -1570,6 +1535,9 @@ async function initAiAvatarWidget(optiopns = {}) {
     get STATE_MAP() {
       return STATE_MAP;
     },
+    get MODE_MAP() {
+      return MODE_MAP;
+    },
     get DEFAULT_MODEL_URL() {
       return DEFAULT_MODEL_URL;
     },
@@ -1588,16 +1556,6 @@ async function initAiAvatarWidget(optiopns = {}) {
     // data-ollama 指向 OpenAI 相容端點（如 http://localhost:11434/v1）；data-llmmodel 指定模型名
     get ollamaBase() {
       return ollamaBase;
-    },
-
-    _ollamaModel: ollamaModel || DEFAULT_OLLAMA_MODEL,
-    get ollamaModel() {
-      return ollamaModel;
-    },
-    set ollamaModel(newOllamaModel) {
-      if (typeof newOllamaModel === "string" || newOllamaModel === null) {
-        this._ollamaModel = newOllamaModel;
-      }
     },
 
     get container() {
@@ -1648,6 +1606,16 @@ async function initAiAvatarWidget(optiopns = {}) {
     },
     get directWarnEl() {
       return directWarnEl;
+    },
+
+    _ollamaModel: ollamaModel || DEFAULT_OLLAMA_MODEL,
+    get ollamaModel() {
+      return this._ollamaModel;
+    },
+    set ollamaModel(newOllamaModel) {
+      if (typeof newOllamaModel === "string" || newOllamaModel === null) {
+        this._ollamaModel = newOllamaModel;
+      }
     },
 
     // 狀態
@@ -1725,8 +1693,39 @@ async function initAiAvatarWidget(optiopns = {}) {
       return this._engineMode;
     },
     set engineMode(newEngineMode = "") {
-      if (typeof newEngineMode === "string" && newEngineMode !== "") {
+      if (this.switching === true || newEngineMode === this.engineMode) {
+        return;
+      }
+
+      if (
+        (typeof newEngineMode === "string" && newEngineMode !== "") ||
+        newEngineMode === null
+      ) {
         this._engineMode = newEngineMode;
+
+        this.engineButtonEl.textContent =
+          newEngineMode === this.MODE_MAP.threeDimensional ? "3D" : "2D";
+
+        (async () => {
+          this.switching = true;
+
+          if (typeof this?.renderer?.dispose === "function") {
+            try {
+              this.renderer.dispose();
+            } catch (_error) {}
+            this.renderer = null;
+          }
+          try {
+            this.renderer =
+              newEngineMode === this.MODE_MAP.threeDimensional
+                ? await bootVRM(this)
+                : await bootAvatar(this);
+          } catch (error) {
+            console.error(error);
+          }
+
+          this.switching = false;
+        })();
       }
     },
 
