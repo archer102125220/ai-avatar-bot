@@ -190,10 +190,10 @@ function loadVoice(aiAvatarWidget = null) {
 
 // ===== 拖放自己的 VRM：把 .vrm 拖到角色上就直接換成你的 3D 角色（零改 code）=====
 function loadVRMFile(aiAvatarWidget = null, file) {
-  const rootContainer = aiAvatarWidget?.container;
-  if (rootContainer instanceof HTMLElement === false) {
+  const engineButtonEl = aiAvatarWidget?.engineButtonEl;
+  if (engineButtonEl instanceof HTMLElement === false) {
     console.error(
-      "[aiAvatar loadVRMFile] aiAvatarWidget.container is not an HTMLElement",
+      "[aiAvatar loadVRMFile] aiAvatarWidget.engineButtonEl is not an HTMLElement",
     );
     return;
   }
@@ -214,11 +214,11 @@ function loadVRMFile(aiAvatarWidget = null, file) {
     }
   } catch (_error) {}
   aiAvatarWidget.vrmUrl = URL.createObjectURL(file);
-  const btnEngine = rootContainer.querySelector("#btn-engine"); // 換上後也顯示 2D/3D 切換鈕
-  if (btnEngine instanceof HTMLElement) {
-    btnEngine.style.display = "";
-    if (typeof btnEngine.onclick !== "function") {
-      btnEngine.onclick = () => {
+  // 換上後也顯示 2D/3D 切換鈕
+  if (engineButtonEl instanceof HTMLElement) {
+    engineButtonEl.style.display = "";
+    if (typeof engineButtonEl.onclick !== "function") {
+      engineButtonEl.onclick = () => {
         aiAvatarWidget.engineMode = MODE_MAP.threeDimensional
           ? MODE_MAP.twoDimensional
           : MODE_MAP.threeDimensional;
@@ -757,9 +757,11 @@ function createCanvas(aiAvatarWidget = null) {
 // 切換用：embedder 兩個皮都給(data-model + data-vrm) → 長出 2D/3D 切換鈕。
 // 預設引擎：data-engine 優先；否則有明確 2D 皮就 2D、只有 3D 就 3D。
 function initEngines(aiAvatarWidget = null, has2D, has3D) {
-  const rootContainer = aiAvatarWidget?.container;
-  if (rootContainer instanceof HTMLElement === false) {
-    console.error("[aiAvatar initEngines] rootContainer is not an HTMLElement");
+  const engineButtonEl = aiAvatarWidget?.engineButtonEl;
+  if (engineButtonEl instanceof HTMLElement === false) {
+    console.error(
+      "[aiAvatar initEngines] engineButtonEl is not an HTMLElement",
+    );
     return;
   }
 
@@ -780,10 +782,9 @@ function initEngines(aiAvatarWidget = null, has2D, has3D) {
     has3D !== ""
   ) {
     // 兩個皮都給 → 顯示切換鈕，讓使用者即時切
-    const btnEngine = rootContainer.querySelector("#btn-engine");
-    if (btnEngine instanceof HTMLElement) {
-      btnEngine.style.display = "";
-      btnEngine.onclick = () => {
+    if (engineButtonEl instanceof HTMLElement) {
+      engineButtonEl.style.display = "";
+      engineButtonEl.onclick = () => {
         aiAvatarWidget.engineMode = MODE_MAP.threeDimensional
           ? MODE_MAP.twoDimensional
           : MODE_MAP.threeDimensional;
@@ -852,20 +853,24 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
     let mx = 0;
     let my = 0; // 游標相對位置 -1..1
     const onMove = (event) => {
-      const clientRect = stageEl.getBoundingClientRect();
-      if (!clientRect.width) return;
+      const stageElClientRect = stageEl.getBoundingClientRect();
+      if (!stageElClientRect.width) return;
       mx = Math.max(
         -1,
         Math.min(
           1,
-          ((event.clientX - clientRect.left) / clientRect.width) * 2 - 1,
+          ((event.clientX - stageElClientRect.left) / stageElClientRect.width) *
+            2 -
+            1,
         ),
       );
       my = Math.max(
         -1,
         Math.min(
           1,
-          ((event.clientY - clientRect.top) / clientRect.height) * 2 - 1,
+          ((event.clientY - stageElClientRect.top) / stageElClientRect.height) *
+            2 -
+            1,
         ),
       );
     };
@@ -1253,7 +1258,8 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
     };
   } catch (error) {
     console.error(error);
-    const directWarnEl = rootContainer.querySelector("#direct-warn");
+
+    const directWarnEl = aiAvatarWidget?.directWarnEl;
     if (
       directWarnEl instanceof HTMLParagraphElement ||
       directWarnEl instanceof HTMLDivElement
@@ -1352,7 +1358,7 @@ function bindTyping(aiAvatarWidget = null) {
 
 // 啟用本機 Ollama 時：開機 ping 一下，連上就把 🧠 切成「本機大腦」狀態
 async function initOllama(aiAvatarWidget = null) {
-  if (typeof aiAvatarWidget?.container?.querySelector !== "function") {
+  if (aiAvatarWidget?.container instanceof HTMLElement === false) {
     console.error(
       "[aiAvatar initOllama] aiAvatarWidget.container is not an HTMLElement",
     );
