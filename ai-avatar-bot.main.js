@@ -513,6 +513,8 @@ function pushSpeech(aiAvatarWidget = null, sid, text) {
 function endSpeech(aiAvatarWidget = null, sid) {
   if (sid === aiAvatarWidget.speakSeq) {
     aiAvatarWidget.speechEnded = true;
+    // aiAvatarWidget.speakingLabel = "";
+    aiAvatarWidget.emo.target = 0;
     pumpSpeech(aiAvatarWidget, sid);
   }
 }
@@ -651,7 +653,7 @@ function playBuffer(aiAvatarWidget = null, audioBuf, done) {
       } catch (_error) {}
     }
   } // Tap 動作一段話只做一次
-  const loop = () => {
+  function audioLoop() {
     if (aiAvatarWidget.currentSource !== src) {
       return; // 不是我在播了就停
     }
@@ -662,9 +664,9 @@ function playBuffer(aiAvatarWidget = null, audioBuf, done) {
       sum += v * v;
     }
     aiAvatarWidget.audioMouth = Math.min(1, Math.sqrt(sum / data.length) * 3.4); // RMS 音量 → 開口
-    aiAvatarWidget.currentFps = requestAnimationFrame(loop);
-  };
-  aiAvatarWidget.currentFps = requestAnimationFrame(loop);
+    aiAvatarWidget.currentFps = requestAnimationFrame(audioLoop);
+  }
+  aiAvatarWidget.currentFps = requestAnimationFrame(audioLoop);
   src.onended = () => {
     // 自然播完才收尾；被打斷時 onended 已被清掉
     if (aiAvatarWidget.currentSource !== src) {
@@ -1499,32 +1501,31 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
     let alive = true;
     (function loop() {
       if (!alive) return;
-      requestAnimationFrame(loop);
-      const dt = clock.getDelta();
-      const t = clock.elapsedTime;
+      const delta = clock.getDelta();
+      const elapsedTime = clock.elapsedTime;
       if (vrm) {
         if (mixer) {
-          mixer.update(dt); // 揮手時 mixer 控身體
+          mixer.update(delta); // 揮手時 mixer 控身體
         }
         const expressionManager = vrm.expressionManager;
         // 對嘴 + 眨眼（永遠歸我們，mixer 之後 vrm.update 之前）
         const mv = computeMouth(aiAvatarWidget);
-        expressionManager?.setValue?.("aa", mv);
+        expressionManager.setValue("aa", mv);
         if (blinkT < 0) {
-          nextBlink -= dt;
+          nextBlink -= delta;
           if (nextBlink <= 0) {
             blinkT = 0;
             nextBlink = 2 + Math.random() * 4;
           }
         } else {
-          blinkT += dt / BLINK;
-          expressionManager?.setValue?.(
+          blinkT += delta / BLINK;
+          expressionManager.setValue(
             "blink",
             Math.sin(Math.min(blinkT, 1) * Math.PI),
           );
           if (blinkT >= 1) {
             blinkT = -1;
-            expressionManager?.setValue?.("blink", 0);
+            expressionManager.setValue("blink", 0);
           }
         }
 
@@ -1546,7 +1547,7 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
           }
           aiAvatarWidget.emo.weight +=
             (aiAvatarWidget.emo.target - aiAvatarWidget.emo.weight) *
-            Math.min(1, dt * 4);
+            Math.min(1, delta * 4);
           if (
             aiAvatarWidget.emo.weight <= 0.005 &&
             aiAvatarWidget.emo.target === 0
@@ -1563,11 +1564,11 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
               const ex = expressionManager.getExpression
                 ? expressionManager.getExpression(aiAvatarWidget.emo.name)
                 : null;
-              const w =
-                ex && ex.overrideMouth && String(ex.overrideMouth) !== "none"
+              const weight =
+                ex?.overrideMouth && String(ex.overrideMouth) !== "none"
                   ? Math.min(aiAvatarWidget.emo.weight, 0.4)
                   : aiAvatarWidget.emo.weight; // 別把對嘴蓋死
-              expressionManager.setValue(aiAvatarWidget.emo.name, w);
+              expressionManager.setValue(aiAvatarWidget.emo.name, weight);
               aiAvatarWidget.emo.applied = aiAvatarWidget.emo.name;
             } catch (_error) {}
           }
@@ -1583,13 +1584,13 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
           const hd = humanoid.getNormalizedBoneNode("head");
           let armL = 1.15 * armSign;
           let armR = -1.15 * armSign;
-          let spX = Math.sin(t * 0.9) * 0.018;
-          let spY = Math.sin(t * 0.5) * 0.012;
+          let spX = Math.sin(elapsedTime * 0.9) * 0.018;
+          let spY = Math.sin(elapsedTime * 0.5) * 0.012;
           let hdY = mx * 0.3;
-          let hdX = my * 0.12 + Math.sin(t * 0.5) * 0.01;
+          let hdX = my * 0.12 + Math.sin(elapsedTime * 0.5) * 0.01;
           if (aiAvatarWidget.isSpeaking) {
             // 講話時：身體/頭/手持續小動作（疊在站姿上）
-            const ts = t * 3.0;
+            const ts = elapsedTime * 3.0;
             spY += Math.sin(ts) * 0.03;
             hdX += Math.abs(Math.sin(ts * 0.9)) * 0.045; // 點頭
             hdY += Math.sin(ts * 0.55) * 0.05; // 轉頭
@@ -1607,9 +1608,11 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
             hd.rotation.x = hdX;
           }
         }
-        vrm.update(dt); // 套用骨架/表情/springbone
+        vrm.update(delta); // 套用骨架/表情/springbone
       }
       webGLRenderer.render(scene, camera);
+
+      requestAnimationFrame(loop);
     })();
 
     return {
