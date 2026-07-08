@@ -54,6 +54,7 @@
     "ollama",
     "llmmodel",
     "fit",
+    "mode",
   ].forEach(function (k) {
     const v = me && me.getAttribute("data-" + k);
     if (v) cfg.set(k, v);

@@ -206,35 +206,42 @@
     <script src="ai-avatar-bot.main.js"></script>
     <script>
       const routeQuery = new URLSearchParams(window.location.search);
-      initAiAvatarWidget({
-        container: document.getElementById("app"),
-        modelUrl: routeQuery.get("model") || DEFAULT_MODEL_URL,
-        ttsEndpoint: routeQuery.get("api") || DEFAULT_TTS_ENDPOINT,
-        // llmModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 中文不錯、約 1.1GB、首次下載後會被快取
-        llmModel: "gemma-2-2b-it-q4f32_1-MLC", // Google 公開模型
-        knowledge: window.KNOWLEDGE,
-        knowledgeUrl: routeQuery.get("knowledge") || "",
-        ollamaBase: (routeQuery.get("ollama") || "").replace(/\/+$/, ""),
-        ollamaModel: routeQuery.get("llmmodel") || DEFAULT_OLLAMA_MODEL,
-        neuralVoice: routeQuery.get("voice") || DEFAULT_NEURAL_VOICE,
-        startMode: routeQuery.get("engine") || DEFALUT_START_MODE,
-        fitMode: routeQuery.get("fit") || DEFALUT_FIT_MODE,
-        vrmUrl: routeQuery.get("vrm"),
+      (async () => {
+        window.aiAvatarWidget = await initAiAvatarWidget({
+          container: document.getElementById("app"),
+          modelUrl: routeQuery.get("model") || DEFAULT_MODEL_URL,
+          ttsEndpoint: routeQuery.get("api") || DEFAULT_TTS_ENDPOINT,
+          // llmModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 中文不錯、約 1.1GB、首次下載後會被快取
+          llmModel: "gemma-2-2b-it-q4f32_1-MLC", // Google 公開模型
+          knowledge: window.KNOWLEDGE,
+          companionKnowledge: window.COMPANION_KNOWLEDGE,
+          knowledgeUrl: routeQuery.get("knowledge") || "",
+          ollamaBase: (routeQuery.get("ollama") || "").replace(/\/+$/, ""),
+          ollamaModel: routeQuery.get("llmmodel") || DEFAULT_OLLAMA_MODEL,
+          neuralVoice: routeQuery.get("voice") || DEFAULT_NEURAL_VOICE,
+          startMode: routeQuery.get("engine") || DEFALUT_START_MODE,
+          fitMode: routeQuery.get("fit") || DEFALUT_FIT_MODE,
+          avatarMode: routeQuery.get("mode") || DEFALUT_AVATAR_MODE,
+          // avatarMode: "companion",
+          // avatarMode: "assistant",
+          vrmUrl: routeQuery.get("vrm"),
 
-        onReady(aiAvatar) {
-          /* 之後可在這觸發歡迎語 */
-          aiAvatar.speak("hello");
-        },
-        onSpeaking(text, aiAvatar) {
-          // postToParent(aiAvatar, "speaking", { text });
-        },
-        onClose(aiAvatar) {
-          // postToParent(aiAvatar, "close");
-        },
-        onError(error) {
-          console.warn("[avatar] widget error:", error);
-        },
-      });
+          onReady(aiAvatar) {
+            // 應在優化，作為參數的一部分傳遞歡迎詞
+            /* 之後可在這觸發歡迎語 */
+            // aiAvatar.speak("hello");
+          },
+          onSpeaking(text, aiAvatar) {
+            // postToParent(aiAvatar, "speaking", { text });
+          },
+          onClose(aiAvatar) {
+            // postToParent(aiAvatar, "close");
+          },
+          onError(error) {
+            console.warn("[avatar] widget error:", error);
+          },
+        });
+      })();
     </script>
   </body>
 </html>

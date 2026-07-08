@@ -119,8 +119,8 @@
         } catch (_error) {}
       }
 
-      function topK(question, k) {
-        const knowledge = window.KNOWLEDGE || [];
+      function topK(aiAvatarWidget = null, question, k) {
+        const knowledge = aiAvatarWidget?.KNOWLEDGE || [];
 
         return knowledge
           .map((e) => ({ e, s: scoreEntry(question, e) }))
@@ -131,19 +131,32 @@
       }
 
       // 共用：檢索到的資料 + 問題 → 給 LLM 的訊息（Ollama 與 WebLLM 共用同一套 RAG 提示）
-      function defaultBuildLLMMessages(question) {
-        const ctx = topK(question, 3)
+      function buildLLMMessages(aiAvatarWidget, question) {
+        const context = topK(aiAvatarWidget, question, 3)
           .map((e) => "Q：" + e.q + "\nA：" + e.a)
           .join("\n---\n");
-        return [
-          {
-            role: "system",
-            content:
-              "你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請用繁體中文、口語、最多兩三句話簡短回答。優先依據【參考資料】回答；資料沒有的就用常識簡短回應，不確定就老實說不知道。\n\n【參考資料】\n" +
-              (ctx || "（無）"),
-          },
-          { role: "user", content: question },
-        ];
+        const RAG =
+          "優先依據【參考資料】回答；資料沒有的就用常識簡短回應，不確定就老實說不知道。\n\n【參考資料】\n" +
+          (context || "（無）");
+        const systemContext =
+          aiAvatarWidget?.avatarMode ===
+          aiAvatarWidget.AVATAR_MODE_MAP.companion
+            ? "你是這個網站的陪伴型語音虛擬人，親切、口語、繁體中文、每次最多兩三句。你記得訪客先前的對話" +
+              (aiAvatarWidget?.MEM?.data?.name
+                ? "，訪客叫「" + aiAvatarWidget.MEM.data.name + "」，可自然稱呼"
+                : "") +
+              "。" +
+              RAG
+            : "你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請用繁體中文、口語、最多兩三句話簡短回答。" +
+              RAG;
+        const msgs = [{ role: "system", content: systemContext }];
+        if (aiAvatarWidget?.MEM?.on === true) {
+          for (const h of aiAvatarWidget.MEM.data.history) {
+            msgs.push({ role: h.role, content: h.content });
+          }
+        }
+        msgs.push({ role: "user", content: question });
+        return msgs;
       }
 
       // ===== 防止被直接開（常見網站 widget 的「禁止直接訪問」提示；純 UX，非安全控制），留 ?dev=1 給開發 =====
@@ -163,13 +176,17 @@
           // llmModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 中文不錯、約 1.1GB、首次下載後會被快取
           llmModel: "gemma-2-2b-it-q4f32_1-MLC", // Google 公開模型
           knowledge: window.KNOWLEDGE,
+          companionKnowledge: window.COMPANION_KNOWLEDGE,
           knowledgeUrl: routeQuery.get("knowledge") || "",
           ollamaBase: (routeQuery.get("ollama") || "").replace(/\/+$/, ""),
           ollamaModel: routeQuery.get("llmmodel") || DEFAULT_OLLAMA_MODEL,
           neuralVoice: routeQuery.get("voice") || DEFAULT_NEURAL_VOICE,
           startMode: routeQuery.get("engine") || DEFALUT_START_MODE,
           fitMode: routeQuery.get("fit") || DEFALUT_FIT_MODE,
+          avatarMode: routeQuery.get("mode") || DEFALUT_AVATAR_MODE,
           vrmUrl: routeQuery.get("vrm"),
+
+          buildLLMMessages,
 
           onReady(aiAvatar) {
             postToParent(aiAvatar, "ready");
