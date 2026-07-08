@@ -1,5 +1,7 @@
 # AI 虛擬人 Widget（Live2D 語音助理）
 
+**繁體中文** | [English](README.en.md)
+
 > 一個「一行 `<script>` 嵌入任何網站」的右下角 Live2D 語音 AI 虛擬人元件。
 > 你可以對她說話，她會聽懂、回答、開口說話並即時對嘴。
 >
@@ -8,11 +10,16 @@
 
 🔗 線上 Demo：<https://ai-avatar-bot-two.vercel.app>（請用 **Chrome 桌機**開啟）
 
+![Demo：landing 頁右下角的 Live2D 語音虛擬人](docs/demo-landing.jpg)
+
 ---
 
 ## ✨ 功能
 
 - **Live2D 動畫角色**＋即時**對嘴**（依實際音量驅動嘴型）
+- **逐句開講**：長回答切句、講第一句時預抓下一句；開了 🧠 大腦更是**邊生成邊講**，不用等整段
+- **情緒表情（3D）**：依回答內容自動變臉（開心／驚訝／抱歉），講完慢慢回中性
+- **兩種人格模式**：預設「導覽助理」；`data-mode="companion"` 變**陪伴模式**＝連續對話（講完自動再聽）＋記憶（記得名字與聊過的話；只存訪客瀏覽器、說「忘記我」即清除）
 - **語音輸入（STT）**：瀏覽器內建語音辨識；也可**直接打字**（Enter／➤ 送出，IME 組字不誤送），回答一樣走語音＋對嘴
 - **語音輸出（TTS）**：神經語音（自然女聲），失敗自動退回瀏覽器內建語音
 - **大腦**：知識庫檢索（即時、零金鑰）＋可選的瀏覽器內 LLM（WebLLM，零金鑰）
@@ -59,6 +66,8 @@ vercel --prod          # 本機開發：vercel dev
 
 ## 🎭 換成你自己的 3D 角色（VRM）
 
+<img src="docs/demo-3d-vrm.jpg" alt="3D VRM 角色（VRoid 捏的角色拖進網頁即可換）" width="380" align="right">
+
 這個元件**不夾帶任何 3D 角色**（避開授權與檔案大小問題）——3D 皮是「你自己的」。三種導入方式：
 
 **① 拖放試玩（最快，零改 code）**
@@ -71,9 +80,18 @@ vercel --prod          # 本機開發：vercel dev
 **③ 哪裡拿 VRM？**
 - **[VRoid Studio](https://vroid.com/studio)**（免費）→ 自己捏一個動漫角色、匯出 `.vrm`
 - **[VRoid Hub](https://hub.vroid.com)** / **[Booth](https://booth.pm)** → 別人做好的模型
+- **懶得捏？拿官方免費範例立刻試**（網址直接填給 `data-vrm`／`?vrm=`，皆已實測可跑）：
+  - `Alicia`（ニコニ立体ちゃん，7.8MB，[使用條款](https://3d.nicovideo.jp/alicia/rule.html)）
+    `https://cdn.jsdelivr.net/gh/vrm-c/UniVRM@master/Tests/Models/Alicia_vrm-0.51/AliciaSolid_vrm-0.51.vrm`
+  - `Seed-san`（VirtualCast，[VRM Public License 1.0](https://vrm.dev/en/licenses/1.0/index)）
+    `https://cdn.jsdelivr.net/gh/vrm-c/vrm-specification@master/samples/Seed-san/vrm/Seed-san.vrm`
+  - `Sample`（pixiv three-vrm 官方範例）
+    `https://cdn.jsdelivr.net/gh/pixiv/three-vrm@dev/packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm`
 
 > ⚠ **授權**：每個 `.vrm` 內嵌作者設定的使用條款（可否商用／修改）——商用前務必確認；自己用 VRoid Studio 捏的最單純。
 > 📦 **檔案大小**：VRM 通常 10–30MB，**別塞進 git**；放 CDN／GitHub Release／自己的網站，用 `data-vrm` 指過去。
+
+<br clear="all">
 
 ## 🌐 瀏覽器需求
 
@@ -88,6 +106,7 @@ vercel --prod          # 本機開發：vercel dev
 | `data-model` | **皮（2D）**：Live2D `.model3.json` 網址 | 內建 Haru 範例 |
 | `data-vrm` | **皮（3D）**：VRM `.vrm` 網址；設了就改走 3D（three-vrm）引擎，可拖放／換成自製 VRoid 角色 | 無（不設＝走 2D Live2D） |
 | `data-engine` | 預設引擎 `2d`／`3d`；**同時給 `data-model` ＋ `data-vrm` 時，widget 會長出 2D/3D 即時切換鈕** | 有 2D 皮→`2d`，否則 `3d` |
+| `data-mode` | **人格**：`assistant` 導覽助理／`companion` **陪伴模式**（💬 一鍵連續對話＋本機記憶） | `assistant` |
 | `data-knowledge` | **內容**：知識庫 JSON 網址（陣列 `[{q,kw,a}]`） | 內建 `knowledge.js` |
 | `data-api` | **肉**：神經語音後端端點；不設＝純瀏覽器語音 | 試同站 `api/tts` |
 | `data-voice` | 神經語音聲線（需後端支援） | `zh-TW-HsiaoChenNeural` |
@@ -109,6 +128,7 @@ vercel --prod          # 本機開發：vercel dev
 | **Live2D Cubism Core**（CDN `cubism.live2d.com`） | **專有授權**（Live2D Proprietary Software License）。非開源，商用/再散佈須自行確認 Live2D 條款。 |
 | **Haru 範例模型**（CDN，pixi-live2d-display 測試資產） | Live2D **Free Material License**，**僅供範例**。正式上線請換成你自有合法授權的模型。本 repo 不夾帶模型檔，採 CDN 引用。 |
 | **pixi.js / pixi-live2d-display** | MIT |
+| **three.js / @pixiv/three-vrm** | MIT |
 | **@mlc-ai/web-llm**（WebLLM） | Apache-2.0；下載的模型權重各有授權（Qwen2.5 為其自身條款） |
 | **msedge-tts**（`api/tts.js` 用） | 套件本身開源，但它連線的是**微軟 Edge 朗讀的「非官方」語音端點**（見下方風險） |
 
@@ -126,6 +146,7 @@ vercel --prod          # 本機開發：vercel dev
 | 語音輸入（STT） | 麥克風音訊 → 瀏覽器廠商雲端（Chrome 為 Google） |
 | 語音輸出（TTS） | 要朗讀的文字 → 你的 `/api/tts` → 微軟非官方 TTS 端點 |
 | 大腦（LLM／檢索） | **本機**，不外傳 |
+| 記憶（陪伴模式） | **本機**：訪客瀏覽器 localStorage，不上傳；說「忘記我」即清除 |
 
 本專案不自行儲存使用者資料；但部署平台（如 Vercel）預設可能保留 function 的請求日誌。
 
