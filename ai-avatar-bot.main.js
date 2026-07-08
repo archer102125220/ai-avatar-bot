@@ -1957,6 +1957,7 @@ async function initAiAvatarWidget(optiopns = {}) {
     startMode = DEFALUT_START_MODE,
     fitMode = DEFALUT_FIT_MODE,
     vrmUrl = "",
+    gesture2D = null,
   } = optiopns;
 
   if (container instanceof HTMLElement === false) {
@@ -2487,9 +2488,28 @@ async function initAiAvatarWidget(optiopns = {}) {
       return this._gesture3D;
     },
     set gesture3D(newGesture3D) {
-      if (typeof newGesture3D === "object") {
+      if (typeof newGesture3D === "function" || newGesture3D === null) {
         this._gesture3D = newGesture3D;
       }
+    },
+
+    _gesture2D: gesture2D,
+    get gesture2D() {
+      return this._gesture2D;
+    },
+    set gesture2D(newGesture2D) {
+      if (typeof newGesture2D === "function" || newGesture2D === null) {
+        this._gesture2D = newGesture2D;
+      }
+    },
+
+    get gesture() {
+      if (this.avatarMode === AVATAR_MODE_MAP.threeDimensional) {
+        return this.gesture3D;
+      } else if (this.avatarMode === AVATAR_MODE_MAP.twoDimensional) {
+        return this.gesture2D;
+      }
+      return null;
     },
 
     _modelUrl: safeModelUrl,
