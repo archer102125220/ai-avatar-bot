@@ -39,10 +39,8 @@ async function handleGetKnowledge(knowledgeUrl = "") {
       const knowledge = await fetch(knowledgeUrl).then((response) => {
         if (typeof response?.json === "function") {
           return response.json();
-        } else if (typeof response === "object") {
-          return response;
         }
-        return [];
+        return response || [];
       });
       if (Array.isArray(knowledge) === false) {
         throw new Error(
@@ -240,6 +238,21 @@ function getWelcomeText(aiAvatarWidget = null) {
     : "點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋";
 }
 
+async function handleGesture(aiAvatarWidget = null, emotionName) {
+  if (typeof aiAvatarWidget?.gesture !== "function") {
+    console.warn(
+      "[aiAvatar handleGesture]  aiAvatarWidget.gesture is not a function",
+      aiAvatarWidget,
+    );
+    return;
+  }
+
+  if (typeof aiAvatarWidget.onGesture === "function") {
+    aiAvatarWidget.onGesture(emotionName, aiAvatarWidget);
+  }
+  await aiAvatarWidget.gesture(emotionName);
+}
+
 // 從回答文字粗判情緒（規則式、零成本；驚訝 > 難過 > 開心 > 中性）
 function classifyEmotion(text) {
   const safeText = String(text || "");
@@ -270,9 +283,7 @@ function setEmotion(aiAvatarWidget = null, name) {
   aiAvatarWidget.emo.target =
     { happy: 0.65, surprised: 0.6, sad: 0.5 }[name] || 0;
 
-  if (name === "surprised" && aiAvatarWidget.gesture3D) {
-    aiAvatarWidget.gesture3D("surprised");
-  } // 驚訝時順帶一個小反應動作
+  handleGesture(aiAvatarWidget, name);
 }
 function setEmotionFromText(aiAvatarWidget, text) {
   setEmotion(aiAvatarWidget, classifyEmotion(text));
@@ -365,6 +376,33 @@ function defaultBuildLLMMessages(aiAvatarWidget = null, question) {
   }
   msgs.push({ role: "user", content: question });
   return msgs;
+}
+
+async function defaultGesture2D(aiAvatarWidget = null, emotionName) {
+  // f00 微笑眨眼
+  // f01 （與f00很像）
+  // f02 困惑
+  // f03 難過
+  // f04 開心
+  // f05 驚訝
+  // f06 害羞
+  // f07 傻眼
+  const emotionNameMap = {
+    neutral: "f00",
+    happy: "f04",
+    sad: "f03",
+    surprised: "f05",
+  };
+  const emotionCode = emotionNameMap[emotionName];
+
+  if (
+    Object.values(emotionNameMap).includes(emotionCode) &&
+    typeof aiAvatarWidget.avatarModel?.expression === "function"
+  ) {
+    try {
+      await aiAvatarWidget.avatarModel.expression(emotionCode);
+    } catch (_error) {}
+  }
 }
 
 // ===== TTS：開口說話 + 對嘴 =====
@@ -647,9 +685,9 @@ function playBuffer(aiAvatarWidget = null, audioBuf, done) {
   aiAvatarWidget.isSpeaking = true;
   if (!aiAvatarWidget.tapDone) {
     aiAvatarWidget.tapDone = true;
-    if (aiAvatarWidget.model) {
+    if (aiAvatarWidget.avatarModel) {
       try {
-        aiAvatarWidget.model.motion("Tap");
+        aiAvatarWidget.avatarModel.motion("Tap");
       } catch (_error) {}
     }
   } // Tap 動作一段話只做一次
@@ -739,9 +777,9 @@ function speakBrowserChunk(aiAvatarWidget = null, text, sid, done) {
     aiAvatarWidget.mouthTarget = 0.7;
     if (!aiAvatarWidget.tapDone) {
       aiAvatarWidget.tapDone = true;
-      if (aiAvatarWidget.model) {
+      if (aiAvatarWidget.avatarModel) {
         try {
-          aiAvatarWidget.model.motion("Tap");
+          aiAvatarWidget.avatarModel.motion("Tap");
         } catch (_error) {}
       }
     }
@@ -861,9 +899,7 @@ function brain(aiAvatarWidget = null, rawQuestion) {
 async function ollamaLLMBrain(aiAvatarWidget = null, question) {
   try {
     aiAvatarWidget.speakingLabel = "讓我想想…";
-    if (typeof aiAvatarWidget.gesture3D === "function") {
-      aiAvatarWidget.gesture3D("thinking");
-    }
+    handleGesture(aiAvatarWidget, "thinking");
     const out = (
       (await aiAvatarWidget.OLLAMA.chat(
         defaultBuildLLMMessages(aiAvatarWidget, question),
@@ -884,9 +920,7 @@ async function ollamaLLMBrain(aiAvatarWidget = null, question) {
 async function webLLMBrain(aiAvatarWidget = null, question) {
   try {
     aiAvatarWidget.speakingLabel = "讓我想想…";
-    if (typeof aiAvatarWidget.gesture3D === "function") {
-      aiAvatarWidget.gesture3D("thinking");
-    }
+    handleGesture(aiAvatarWidget, "thinking");
     const out = (
       (await aiAvatarWidget.LLM.chat(
         defaultBuildLLMMessages(aiAvatarWidget, question),
@@ -945,9 +979,7 @@ async function respond(aiAvatarWidget = null, question) {
     try {
       aiAvatarWidget.speakingLabel = "讓我想想…";
 
-      if (typeof aiAvatarWidget.gesture3D === "function") {
-        aiAvatarWidget.gesture3D("thinking");
-      }
+      handleGesture(aiAvatarWidget, "thinking");
 
       const out = await aiAvatarWidget.OLLAMA.chat(
         aiAvatarWidget.buildLLMMessages(aiAvatarWidget, safeQuestion),
@@ -966,9 +998,7 @@ async function respond(aiAvatarWidget = null, question) {
     try {
       aiAvatarWidget.speakingLabel = "讓我想想…";
 
-      if (typeof aiAvatarWidget.gesture3D === "function") {
-        aiAvatarWidget.gesture3D("thinking");
-      }
+      handleGesture(aiAvatarWidget, "thinking");
 
       const sid = aiAvatarWidget.ttsMuted ? 0 : beginSpeech(aiAvatarWidget); // 靜音時只更新字幕、不進語音佇列
       const st = { buf: "" };
@@ -1625,6 +1655,7 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
       dispose() {
         alive = false;
         aiAvatarWidget.gesture3D = null;
+        aiAvatarWidget.gesture2D = null;
         try {
           clearInterval(idleBreak);
         } catch (_error) {}
@@ -1672,13 +1703,13 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
   }
   try {
     await loadUMD(); // 用到才載 pixi + live2d
-    const Live2DModel = PIXI.live2d.Live2DModel;
+    const Live2DModel = window.PIXI.live2d.Live2DModel;
     try {
-      Live2DModel.registerTicker(PIXI.Ticker);
+      Live2DModel.registerTicker(window.PIXI.Ticker);
     } catch (_error) {}
 
     const canvas = createCanvas(aiAvatarWidget);
-    let pixiApp = new PIXI.Application({
+    let pixiApp = new window.PIXI.Application({
       view: canvas,
       autoStart: true,
       backgroundAlpha: 0,
@@ -1686,22 +1717,22 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
       resizeTo: stageEl,
     });
 
-    aiAvatarWidget.model = await Live2DModel.from(
+    aiAvatarWidget.avatarModel = await Live2DModel.from(
       modelUrl || DEFAULT_MODEL_URL,
     );
-    pixiApp.stage.addChild(aiAvatarWidget.model);
-    aiAvatarWidget.model.anchor.set(0.5, 1.0);
+    pixiApp.stage.addChild(aiAvatarWidget.avatarModel);
+    aiAvatarWidget.avatarModel.anchor.set(0.5, 1.0);
 
     // 關掉 Live2D 模型自帶的（日文）動作語音 — 只保留我們自己的 TTS（兩者來源不同，互不影響）
     try {
-      if (PIXI.live2d.SoundManager) {
-        PIXI.live2d.SoundManager.volume = 0;
+      if (window.PIXI.live2d.SoundManager) {
+        window.PIXI.live2d.SoundManager.volume = 0;
       }
     } catch (_error) {}
     try {
       const ms =
-        (aiAvatarWidget.model.internalModel.settings &&
-          aiAvatarWidget.model.internalModel.settings.motions) ||
+        (aiAvatarWidget.avatarModel.internalModel.settings &&
+          aiAvatarWidget.avatarModel.internalModel.settings.motions) ||
         {};
       for (const g of Object.keys(ms)) {
         (ms[g] || []).forEach((d) => {
@@ -1715,24 +1746,25 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
     function fit() {
       const width = pixiApp.renderer.width;
       const height = pixiApp.renderer.height;
-      const nativeH = aiAvatarWidget.model?.internalModel?.height || 1000;
+      const nativeH = aiAvatarWidget.avatarModel?.internalModel?.height || 1000;
       if (safeFitMode === FIT_MODE_MAP.HALF) {
         const ZOOM = 1.9; // 放大倍率：越大越近（半身越緊）
         const s = (height / nativeH) * 0.95 * ZOOM;
-        aiAvatarWidget.model.scale.set(s);
-        aiAvatarWidget.model.x = width / 2;
-        aiAvatarWidget.model.y = nativeH * s + height * 0.04; // 腳推到畫面外、頭留 4% 上緣
+        aiAvatarWidget.avatarModel.scale.set(s);
+        aiAvatarWidget.avatarModel.x = width / 2;
+        aiAvatarWidget.avatarModel.y = nativeH * s + height * 0.04; // 腳推到畫面外、頭留 4% 上緣
       } else {
-        aiAvatarWidget.model.scale.set((height / nativeH) * 0.95);
-        aiAvatarWidget.model.x = width / 2;
-        aiAvatarWidget.model.y = height;
+        aiAvatarWidget.avatarModel.scale.set((height / nativeH) * 0.95);
+        aiAvatarWidget.avatarModel.x = width / 2;
+        aiAvatarWidget.avatarModel.y = height;
       }
     }
     fit();
     rootContainer.addEventListener("resize", fit);
 
     try {
-      const groups = aiAvatarWidget.model.internalModel.settings.groups || [];
+      const groups =
+        aiAvatarWidget.avatarModel.internalModel.settings.groups || [];
       const g = groups.find((x) => (x.Name || "").toLowerCase() === "lipsync");
       if (g?.Ids?.length) {
         aiAvatarWidget.lipIds = g.Ids;
@@ -1741,7 +1773,7 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
 
     // 對嘴：攔截 coreModel.update（計算頂點前的最後一刻寫入嘴巴，保證不被 motion/loadParameters 洗掉）
     try {
-      const core = aiAvatarWidget.model.internalModel.coreModel;
+      const core = aiAvatarWidget.avatarModel.internalModel.coreModel;
       const origUpdate = core.update.bind(core);
       core.update = function () {
         const mouth = computeMouth(aiAvatarWidget); // 共用嘴型計算（與 3D 同一套）
@@ -1754,7 +1786,7 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
       };
     } catch (_error) {}
 
-    aiAvatarWidget.model.on("hit", () => onTap(aiAvatarWidget));
+    aiAvatarWidget.avatarModel.on("hit", () => onTap(aiAvatarWidget));
     canvas.addEventListener("pointerdown", () => onTap(aiAvatarWidget));
 
     aiAvatarWidget.speakingLabel = getWelcomeText(aiAvatarWidget);
@@ -1768,8 +1800,8 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
       get canvas() {
         return canvas;
       },
-      get model() {
-        return aiAvatarWidget.model;
+      get avatarModel() {
+        return aiAvatarWidget.avatarModel;
       },
       get pixiApp() {
         return pixiApp;
@@ -1788,7 +1820,7 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
           }
         } catch (_error) {}
         pixiApp = null;
-        aiAvatarWidget.model = null;
+        aiAvatarWidget.avatarModel = null;
         canvas.remove();
       },
     };
@@ -1821,9 +1853,9 @@ function onTap(aiAvatarWidget = null) {
   setTimeout(() => {
     aiAvatarWidget.onTapTimer = false;
   }, 400);
-  if (aiAvatarWidget.model) {
+  if (aiAvatarWidget.avatarModel) {
     try {
-      aiAvatarWidget.model.motion("Tap");
+      aiAvatarWidget.avatarModel.motion("Tap");
     } catch (_error) {}
   }
   speak(
@@ -1967,6 +1999,8 @@ async function initAiAvatarWidget(optiopns = {}) {
   const safeModelUrl = modelUrl || DEFAULT_MODEL_URL;
   const safeVrmUrl =
     vrmUrl || (/\.vrm($|\?)/i.test(safeModelUrl) ? safeModelUrl : "");
+  const safeGesture2D =
+    gesture2D || (modelUrl === DEFAULT_MODEL_URL ? defaultGesture2D : null);
 
   const stageEl = document.createElement("div");
   stageEl.setAttribute("id", "stage");
@@ -2493,7 +2527,7 @@ async function initAiAvatarWidget(optiopns = {}) {
       }
     },
 
-    _gesture2D: gesture2D,
+    _gesture2D: null,
     get gesture2D() {
       return this._gesture2D;
     },
@@ -2504,9 +2538,9 @@ async function initAiAvatarWidget(optiopns = {}) {
     },
 
     get gesture() {
-      if (this.avatarMode === AVATAR_MODE_MAP.threeDimensional) {
+      if (this.engineMode === ENGINE_MODE_MAP.threeDimensional) {
         return this.gesture3D;
-      } else if (this.avatarMode === AVATAR_MODE_MAP.twoDimensional) {
+      } else if (this.engineMode === ENGINE_MODE_MAP.twoDimensional) {
         return this.gesture2D;
       }
       return null;
@@ -2655,8 +2689,14 @@ async function initAiAvatarWidget(optiopns = {}) {
   if (typeof optiopns.onClose === "function") {
     aiAvatarWidget.onClose = optiopns.onClose.bind(aiAvatarWidget);
   }
-  if (typeof optiopns.onError === "function") {
-    aiAvatarWidget.onError = optiopns.onError.bind(aiAvatarWidget);
+
+  if (typeof safeGesture2D === "function") {
+    aiAvatarWidget.gesture2D = async function gesture2D(emotionName) {
+      await safeGesture2D.call(this, this, emotionName);
+    }.bind(aiAvatarWidget);
+  }
+  if (typeof optiopns.onGesture === "function") {
+    aiAvatarWidget.onGesture = optiopns.onGesture.bind(aiAvatarWidget);
   }
 
   initEngines(aiAvatarWidget, aiAvatarWidget.has2D, aiAvatarWidget.has3D);
