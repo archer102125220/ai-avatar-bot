@@ -2164,6 +2164,17 @@ async function initAiAvatarWidget(optiopns = {}) {
       return directWarnEl;
     },
 
+    get classifyEmotion() {
+      return classifyEmotion;
+    },
+    get setEmotion() {
+      return setEmotion;
+    },
+
+    get setEmotionFromText() {
+      return setEmotionFromText;
+    },
+
     // ②逐句開講的佇列狀態（var：這檔案有「宣告前就被呼叫」的前例，避 TDZ）
     speechQ: [],
     speechEnded: true,
