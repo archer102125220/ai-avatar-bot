@@ -1,5 +1,8 @@
 # AI Avatar Widget (Live2D / VRM Voice Assistant)
 
+> **⚠️ Note: This is a modified version**  
+> This project is a modularized and refactored version of the original repository. As a preparatory step for an upcoming NPM package release, the logic originally scattered within `<script>` tags has been extracted into separate files for easier development and testing. For the original version, please visit: [YuriCrystal/ai-avatar-bot](https://github.com/YuriCrystal/ai-avatar-bot)
+
 [繁體中文](README.md) | **English**
 
 > A bottom-right-corner voice AI avatar you can embed into **any website with one `<script>` line**.

@@ -1,5 +1,8 @@
 # AI 虛擬人 Widget（Live2D 語音助理）
 
+> **⚠️ 注意：這是一份經過改寫的版本 (Modified Version)**  
+> 此專案為原版專案的模組化重構版本。為了後續發布至 NPM 做準備，此處將原版零散於 `<script>` 內的邏輯抽取成獨立的檔案以利開發與測試。原版專案請參考：[YuriCrystal/ai-avatar-bot](https://github.com/YuriCrystal/ai-avatar-bot)
+
 **繁體中文** | [English](README.en.md)
 
 > 一個「一行 `<script>` 嵌入任何網站」的右下角 Live2D 語音 AI 虛擬人元件。
