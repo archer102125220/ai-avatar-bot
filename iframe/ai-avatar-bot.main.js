@@ -2268,7 +2268,6 @@ async function initAiAvatarWidget(optiopns = {}) {
     speechQ: [],
     speechEnded: true,
     speechPlaying: false,
-    _browserChunkT: 0,
     tapDone: false,
     // ①情緒表情狀態：speak 時從文字判斷 → 3D 表情 preset 慢慢 ease 進、講完 ease 回中性（2D 模型表情規格不一，先不套）
     emo: { name: 'neutral', target: 0, weight: 0, applied: '' },
