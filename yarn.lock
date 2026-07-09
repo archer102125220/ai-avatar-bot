@@ -4007,6 +4007,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"ai-avatar-bot-iframe@workspace:iframe":
+  version: 0.0.0-use.local
+  resolution: "ai-avatar-bot-iframe@workspace:iframe"
+  dependencies:
+    msedge-tts: "npm:^2.0.5"
+    vercel: "npm:^54.20.0"
+  languageName: unknown
+  linkType: soft
+
 "ai-avatar-bot-react@workspace:react":
   version: 0.0.0-use.local
   resolution: "ai-avatar-bot-react@workspace:react"

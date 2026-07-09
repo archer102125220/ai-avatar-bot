@@ -4,7 +4,7 @@
   "private": true,
   "description": "Web 右下角 Live2D 語音 AI 虛擬人 demo",
   "scripts": {
-    "dev": "vercel dev",
+    "dev:iframe": "npm run dev -w iframe",
     "dev:js": "npm run dev -w vanilla-js",
     "dev:ts": "npm run dev -w typescript",
     "dev:vue": "npm run dev -w vue",
@@ -19,7 +19,8 @@
     "vanilla-js",
     "typescript",
     "vue",
-    "react"
+    "react",
+    "iframe"
   ],
   "dependencies": {
     "msedge-tts": "^2.0.5",
