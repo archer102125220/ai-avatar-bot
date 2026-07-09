@@ -12,7 +12,8 @@
     ],
     "skipLibCheck": true,
     /* Bundler mode */
-    "module": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",

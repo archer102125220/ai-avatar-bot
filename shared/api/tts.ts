@@ -10,28 +10,47 @@
  *    避免被當免費 TTS proxy 灌爆帳單。
  * ===================================================================== */
 let _mod: typeof import('msedge-tts') | undefined;
-async function lib() { if (!_mod) _mod = await import('msedge-tts'); return _mod; }
+async function lib() {
+  if (!_mod) _mod = await import('msedge-tts');
+  return _mod;
+}
 
 // 允許的聲線白名單（避免被拿去合成任意語言/聲音）
 const VOICES = new Set([
-  'zh-TW-HsiaoChenNeural', 'zh-TW-HsiaoYuNeural', 'zh-TW-YunJheNeural',
-  'zh-CN-XiaoxiaoNeural', 'en-US-AriaNeural',
+  'zh-TW-HsiaoChenNeural',
+  'zh-TW-HsiaoYuNeural',
+  'zh-TW-YunJheNeural',
+  'zh-CN-XiaoxiaoNeural',
+  'en-US-AriaNeural'
 ]);
 
 function escapeXml(s: string) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
-function hostOf(u: string) { try { return new URL(u).host.toLowerCase(); } catch (_e) { return ''; } }
+function hostOf(u: string) {
+  try {
+    return new URL(u).host.toLowerCase();
+  } catch (_e) {
+    return '';
+  }
+}
 
 // 來源檢查：只允許「與本服務同網域」或環境變數 TTS_ALLOWED_HOSTS 指定的來源；localhost 放行供開發
 function isAllowed(req: IncomingMessage) {
   const self = (req.headers.host || '').toLowerCase();
-  const extra = (String(process.env.TTS_ALLOWED_HOSTS || '')).split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  const extra = String(process.env.TTS_ALLOWED_HOSTS || '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
   const allow = new Set([self, ...extra]);
   const ref = req.headers.referer || req.headers.origin || '';
   const h = hostOf(ref);
-  if (!h) return false;                                   // 沒有來源（curl/腳本）→ 擋
+  if (!h) return false; // 沒有來源（curl/腳本）→ 擋
   if (allow.has(h)) return true;
   if (/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(h)) return true;
   return false;
@@ -39,18 +58,30 @@ function isAllowed(req: IncomingMessage) {
 
 // 簡易 in-memory 限流：best-effort（Vercel 每個實例各自計數、冷啟動會重置），擋單一 IP 明顯灌爆。
 // 要跨實例的「硬」限流請接 Upstash / Vercel KV；此處不依賴任何外部服務、零設定。
-const RL_WINDOW_MS = 60 * 1000, RL_MAX = 30;
-const _hits = new Map<string, { n: number, reset: number }>();                                  // ip -> { n, reset }
+const RL_WINDOW_MS = 60 * 1000,
+  RL_MAX = 30;
+const _hits = new Map<string, { n: number; reset: number }>(); // ip -> { n, reset }
 function clientIp(req: IncomingMessage) {
-  return (String(req.headers['x-forwarded-for'] || '')).split(',')[0].trim()
-    || (req.socket && req.socket.remoteAddress) || 'unknown';
+  return (
+    String(req.headers['x-forwarded-for'] || '')
+      .split(',')[0]
+      .trim() ||
+    (req.socket && req.socket.remoteAddress) ||
+    'unknown'
+  );
 }
 function rateLimited(req: IncomingMessage) {
-  const ip = clientIp(req), now = Date.now();
+  const ip = clientIp(req),
+    now = Date.now();
   let e = _hits.get(ip);
-  if (!e || now > e.reset) { e = { n: 0, reset: now + RL_WINDOW_MS }; _hits.set(ip, e); }
+  if (!e || now > e.reset) {
+    e = { n: 0, reset: now + RL_WINDOW_MS };
+    _hits.set(ip, e);
+  }
   e.n++;
-  if (_hits.size > 5000) { for (const [k, v] of _hits) if (now > v.reset) _hits.delete(k); } // 防 Map 無限長
+  if (_hits.size > 5000) {
+    for (const [k, v] of _hits) if (now > v.reset) _hits.delete(k);
+  } // 防 Map 無限長
   return e.n > RL_MAX;
 }
 
@@ -61,17 +92,34 @@ export default async (req: IncomingMessage, res: ServerResponse) => {
   res.setHeader('Access-Control-Allow-Origin', origin || '*');
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    res.end();
+    return;
+  }
 
   try {
-    if (!isAllowed(req)) { res.statusCode = 403; res.end('forbidden: bad origin'); return; }
-    if (rateLimited(req)) { res.statusCode = 429; res.setHeader('Retry-After', '60'); res.end('rate limited'); return; }
+    if (!isAllowed(req)) {
+      res.statusCode = 403;
+      res.end('forbidden: bad origin');
+      return;
+    }
+    if (rateLimited(req)) {
+      res.statusCode = 429;
+      res.setHeader('Retry-After', '60');
+      res.end('rate limited');
+      return;
+    }
 
     const u = new URL(req.url || '', 'http://localhost');
     const text = (u.searchParams.get('text') || '').slice(0, 600).trim();
     let voice = u.searchParams.get('voice') || 'zh-TW-HsiaoChenNeural';
     if (!VOICES.has(voice)) voice = 'zh-TW-HsiaoChenNeural';
-    if (!text) { res.statusCode = 400; res.end('missing text'); return; }
+    if (!text) {
+      res.statusCode = 400;
+      res.end('missing text');
+      return;
+    }
 
     const { MsEdgeTTS, OUTPUT_FORMAT } = await lib();
     const tts = new MsEdgeTTS();
@@ -80,10 +128,21 @@ export default async (req: IncomingMessage, res: ServerResponse) => {
 
     const buf = await new Promise((resolve, reject) => {
       const chunks: Uint8Array[] = [];
-      const timer = setTimeout(() => { try { audioStream.destroy?.(); } catch (_e) {} reject(new Error('tts timeout')); }, 20000);
+      const timer = setTimeout(() => {
+        try {
+          audioStream.destroy?.();
+        } catch (_e) {}
+        reject(new Error('tts timeout'));
+      }, 20000);
       audioStream.on('data', (c: Buffer) => chunks.push(c));
-      audioStream.on('end', () => { clearTimeout(timer); resolve(Buffer.concat(chunks)); });
-      audioStream.on('error', (e: Error) => { clearTimeout(timer); reject(e); });
+      audioStream.on('end', () => {
+        clearTimeout(timer);
+        resolve(Buffer.concat(chunks));
+      });
+      audioStream.on('error', (e: Error) => {
+        clearTimeout(timer);
+        reject(e);
+      });
     });
 
     res.statusCode = 200;

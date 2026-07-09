@@ -4191,7 +4191,6 @@ __metadata:
     eslint-config-prettier: "npm:^10.1.8"
     eslint-plugin-unicorn: "npm:^71.1.0"
     globals: "npm:^17.7.0"
-    msedge-tts: "npm:^2.0.6"
     pixi-live2d-display: "npm:^0.4.0"
     pixi.js: "npm:^6.5.10"
     prettier: "npm:^3.9.4"
@@ -4215,7 +4214,6 @@ __metadata:
     eslint-config-prettier: "npm:^10.1.8"
     eslint-plugin-unicorn: "npm:^71.1.0"
     globals: "npm:^17.7.0"
-    msedge-tts: "npm:^2.0.6"
     pixi-live2d-display: "npm:^0.4.0"
     pixi.js: "npm:^6.5.10"
     prettier: "npm:^3.9.4"
@@ -4268,6 +4266,8 @@ __metadata:
 "ai-avatar-bot@workspace:.":
   version: 0.0.0-use.local
   resolution: "ai-avatar-bot@workspace:."
+  dependencies:
+    msedge-tts: "npm:^2.0.6"
   languageName: unknown
   linkType: soft
 

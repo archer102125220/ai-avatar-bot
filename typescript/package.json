@@ -33,7 +33,6 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-unicorn": "^71.1.0",
     "globals": "^17.7.0",
-    "msedge-tts": "^2.0.6",
     "prettier": "^3.9.4",
     "sass": "^1.101.0",
     "typescript": "~6.0.2",
