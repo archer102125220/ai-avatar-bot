@@ -12,7 +12,7 @@
         height: 100%;
         background: transparent;
         overflow: hidden;
-        font-family: "Noto Sans TC", system-ui, sans-serif;
+        font-family: 'Noto Sans TC', system-ui, sans-serif;
         -webkit-font-smoothing: antialiased;
       }
       #ai-avatar-widget {
@@ -108,13 +108,13 @@
     <script src="ai-avatar-bot.main.js"></script>
     <script>
       const routeQuery = new URLSearchParams(window.location.search);
-      const container = document.querySelector("#ai-avatar-widget");
+      const container = document.querySelector('#ai-avatar-widget');
 
       function postToParent(aiAvatarWidget, type, payload) {
         try {
           window.parent.postMessage(
-            Object.assign({ ns: "avatar-widget", type }, payload || {}),
-            aiAvatarWidget?.PARENT_ORIGIN,
+            Object.assign({ ns: 'avatar-widget', type }, payload || {}),
+            aiAvatarWidget?.PARENT_ORIGIN
           );
         } catch (_error) {}
       }
@@ -133,73 +133,73 @@
       // 共用：檢索到的資料 + 問題 → 給 LLM 的訊息（Ollama 與 WebLLM 共用同一套 RAG 提示）
       function buildLLMMessages(aiAvatarWidget, question) {
         const context = topK(aiAvatarWidget, question, 3)
-          .map((e) => "Q：" + e.q + "\nA：" + e.a)
-          .join("\n---\n");
+          .map((e) => 'Q：' + e.q + '\nA：' + e.a)
+          .join('\n---\n');
         const RAG =
-          "優先依據【參考資料】回答；資料沒有的就用常識簡短回應，不確定就老實說不知道。\n\n【參考資料】\n" +
-          (context || "（無）");
+          '優先依據【參考資料】回答；資料沒有的就用常識簡短回應，不確定就老實說不知道。\n\n【參考資料】\n' +
+          (context || '（無）');
         const systemContext =
           aiAvatarWidget?.avatarMode ===
           aiAvatarWidget.AVATAR_MODE_MAP.companion
-            ? "你是這個網站的陪伴型語音虛擬人，親切、口語、繁體中文、每次最多兩三句。你記得訪客先前的對話" +
+            ? '你是這個網站的陪伴型語音虛擬人，親切、口語、繁體中文、每次最多兩三句。你記得訪客先前的對話' +
               (aiAvatarWidget?.MEM?.data?.name
-                ? "，訪客叫「" + aiAvatarWidget.MEM.data.name + "」，可自然稱呼"
-                : "") +
-              "。" +
+                ? '，訪客叫「' + aiAvatarWidget.MEM.data.name + '」，可自然稱呼'
+                : '') +
+              '。' +
               RAG
-            : "你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請用繁體中文、口語、最多兩三句話簡短回答。" +
+            : '你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請用繁體中文、口語、最多兩三句話簡短回答。' +
               RAG;
-        const msgs = [{ role: "system", content: systemContext }];
+        const msgs = [{ role: 'system', content: systemContext }];
         if (aiAvatarWidget?.MEM?.on === true) {
           for (const h of aiAvatarWidget.MEM.data.history) {
             msgs.push({ role: h.role, content: h.content });
           }
         }
-        msgs.push({ role: "user", content: question });
+        msgs.push({ role: 'user', content: question });
         return msgs;
       }
 
       // ===== 防止被直接開（常見網站 widget 的「禁止直接訪問」提示；純 UX，非安全控制），留 ?dev=1 給開發 =====
       const isEmbedded = window.self !== window.top;
-      const devBypass = routeQuery.has("dev");
+      const devBypass = routeQuery.has('dev');
       if (!isEmbedded && !devBypass) {
-        const directWarnEl = document.createElement("p");
-        directWarnEl.setAttribute("id", "direct-warn");
-        directWarnEl.textContent = "請透過 <code>embed.js</code> 載入此元件。";
-        directWarnEl.style.display = "flex";
+        const directWarnEl = document.createElement('p');
+        directWarnEl.setAttribute('id', 'direct-warn');
+        directWarnEl.textContent = '請透過 <code>embed.js</code> 載入此元件。';
+        directWarnEl.style.display = 'flex';
         container.appendChild(directWarnEl);
       } else {
         const aiAvatarWidget = initAiAvatarWidget({
           container,
-          modelUrl: routeQuery.get("model") || DEFAULT_MODEL_URL,
-          ttsEndpoint: routeQuery.get("api") || DEFAULT_TTS_ENDPOINT,
+          modelUrl: routeQuery.get('model') || DEFAULT_MODEL_URL,
+          ttsEndpoint: routeQuery.get('api') || DEFAULT_TTS_ENDPOINT,
           // llmModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 中文不錯、約 1.1GB、首次下載後會被快取
-          llmModel: "gemma-2-2b-it-q4f32_1-MLC", // Google 公開模型
+          llmModel: 'gemma-2-2b-it-q4f32_1-MLC', // Google 公開模型
           knowledge: window.KNOWLEDGE,
           companionKnowledge: window.COMPANION_KNOWLEDGE,
-          knowledgeUrl: routeQuery.get("knowledge") || "",
-          ollamaBase: (routeQuery.get("ollama") || "").replace(/\/+$/, ""),
-          ollamaModel: routeQuery.get("llmmodel") || DEFAULT_OLLAMA_MODEL,
-          neuralVoice: routeQuery.get("voice") || DEFAULT_NEURAL_VOICE,
-          startMode: routeQuery.get("engine") || DEFALUT_START_MODE,
-          fitMode: routeQuery.get("fit") || DEFALUT_FIT_MODE,
-          avatarMode: routeQuery.get("mode") || DEFALUT_AVATAR_MODE,
+          knowledgeUrl: routeQuery.get('knowledge') || '',
+          ollamaBase: (routeQuery.get('ollama') || '').replace(/\/+$/, ''),
+          ollamaModel: routeQuery.get('llmmodel') || DEFAULT_OLLAMA_MODEL,
+          neuralVoice: routeQuery.get('voice') || DEFAULT_NEURAL_VOICE,
+          startMode: routeQuery.get('engine') || DEFALUT_START_MODE,
+          fitMode: routeQuery.get('fit') || DEFALUT_FIT_MODE,
+          avatarMode: routeQuery.get('mode') || DEFALUT_AVATAR_MODE,
           // avatarMode: "companion",
           // avatarMode: "assistant",
-          vrmUrl: routeQuery.get("vrm"),
+          vrmUrl: routeQuery.get('vrm'),
           isIframe: true,
 
           buildLLMMessages,
 
           onReady(aiAvatar) {
-            postToParent(aiAvatar, "ready");
+            postToParent(aiAvatar, 'ready');
           },
           onSpeaking(text, aiAvatar) {
-            postToParent(aiAvatar, "speaking", { text });
+            postToParent(aiAvatar, 'speaking', { text });
           },
           onMinimalTrigger(newIsMinimal, aiAvatar) {
             if (newIsMinimal === true) {
-              postToParent(aiAvatar, "close");
+              postToParent(aiAvatar, 'close');
             }
           },
           onError(error, aiAvatar) {
@@ -208,20 +208,20 @@
             // postToParent(aiAvatar, "error", {
             //   message: error?.message || error,
             // });
-            postToParent(aiAvatar, "error", error);
-          },
+            postToParent(aiAvatar, 'error', error);
+          }
         });
 
-        window.addEventListener("message", (event) => {
+        window.addEventListener('message', (event) => {
           const data = event.data || {};
-          if (data.ns !== "avatar-widget-host") {
+          if (data.ns !== 'avatar-widget-host') {
             return;
           }
-          if (data.type === "say") {
-            aiAvatarWidget.speak(String(data.text || "").slice(0, 600));
+          if (data.type === 'say') {
+            aiAvatarWidget.speak(String(data.text || '').slice(0, 600));
           }
-          if (data.type === "ask") {
-            aiAvatarWidget.speak(String(data.text || "").slice(0, 200)); // 父頁代問（例：landing 點卡片 → 小修回答）
+          if (data.type === 'ask') {
+            aiAvatarWidget.speak(String(data.text || '').slice(0, 200)); // 父頁代問（例：landing 點卡片 → 小修回答）
           }
           // 注意：不接受用 postMessage 遠端啟動麥克風（listen），避免惡意父頁偷開麥；麥克風只由使用者點擊觸發
         });
