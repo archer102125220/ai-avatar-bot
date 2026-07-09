@@ -1,9 +1,12 @@
-import { globalIgnores } from 'eslint/config'
-import { defineConfigWithVueTs, vueTsConfigs } from '@vue/eslint-config-typescript'
-import pluginVue from 'eslint-plugin-vue'
-import pluginVitest from '@vitest/eslint-plugin'
-import pluginOxlint from 'eslint-plugin-oxlint'
-import skipFormatting from 'eslint-config-prettier/flat'
+import { globalIgnores } from 'eslint/config';
+import {
+  defineConfigWithVueTs,
+  vueTsConfigs
+} from '@vue/eslint-config-typescript';
+import pluginVue from 'eslint-plugin-vue';
+import pluginVitest from '@vitest/eslint-plugin';
+import pluginOxlint from 'eslint-plugin-oxlint';
+import skipFormatting from 'eslint-config-prettier/flat';
 
 // To allow more languages other than `ts` in `.vue` files, uncomment the following lines:
 // import { configureVueProject } from '@vue/eslint-config-typescript'
@@ -13,7 +16,7 @@ import skipFormatting from 'eslint-config-prettier/flat'
 export default defineConfigWithVueTs(
   {
     name: 'app/files-to-lint',
-    files: ['**/*.{vue,ts,mts,tsx}'],
+    files: ['**/*.{vue,ts,mts,tsx}']
   },
 
   globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**']),
@@ -23,7 +26,7 @@ export default defineConfigWithVueTs(
 
   {
     ...pluginVitest.configs.recommended,
-    files: ['src/**/__tests__/*'],
+    files: ['src/**/__tests__/*']
   },
 
   ...pluginOxlint.buildFromOxlintConfigFile('.oxlintrc.json'),
@@ -70,7 +73,7 @@ export default defineConfigWithVueTs(
           argsIgnorePattern: '^_',
           caughtErrorsIgnorePattern: '^_'
         }
-      ],
+      ]
 
       // ⚠️ 潛在衝突規則 (已暫時註解)：
       // 這些是 ESLint 的排版規則，因為設定檔最後使用了 `skipFormatting` 交給 Prettier，
@@ -83,5 +86,5 @@ export default defineConfigWithVueTs(
     }
   },
 
-  skipFormatting,
-)
+  skipFormatting
+);

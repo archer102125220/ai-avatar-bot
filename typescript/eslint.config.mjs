@@ -44,7 +44,7 @@ export default tseslint.config(
           caughtErrorsIgnorePattern: '^_'
         }
       ]
-    },
+    }
   },
   {
     // Ignore test files from ESLint

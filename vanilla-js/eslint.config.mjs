@@ -38,7 +38,7 @@ export default [
           caughtErrorsIgnorePattern: '^_'
         }
       ]
-    },
+    }
   },
   {
     // Ignore test files from ESLint

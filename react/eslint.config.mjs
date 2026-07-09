@@ -25,19 +25,19 @@ export default tseslint.config(
       globals: {
         ...globals.browser,
         ...globals.node
-      },
+      }
     },
     plugins: {
       'react-hooks': reactHooks,
-      'react-refresh': reactRefresh,
+      'react-refresh': reactRefresh
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': [
         'warn',
-        { allowConstantExport: true },
-      ],
-    },
+        { allowConstantExport: true }
+      ]
+    }
   },
-  ...compat.extends("prettier")
+  ...compat.extends('prettier')
 );
