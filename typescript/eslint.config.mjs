@@ -10,6 +10,9 @@ export default tseslint.config(
       unicorn
     },
     languageOptions: {
+      parserOptions: {
+        tsconfigRootDir: import.meta.dirname
+      },
       globals: {
         ...globals.browser,
         ...globals.node

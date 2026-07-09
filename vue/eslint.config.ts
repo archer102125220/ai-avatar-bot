@@ -7,6 +7,7 @@ import pluginVue from 'eslint-plugin-vue';
 import pluginVitest from '@vitest/eslint-plugin';
 import pluginOxlint from 'eslint-plugin-oxlint';
 import skipFormatting from 'eslint-config-prettier/flat';
+import pluginUnicorn from 'eslint-plugin-unicorn';
 
 // To allow more languages other than `ts` in `.vue` files, uncomment the following lines:
 // import { configureVueProject } from '@vue/eslint-config-typescript'
@@ -16,7 +17,12 @@ import skipFormatting from 'eslint-config-prettier/flat';
 export default defineConfigWithVueTs(
   {
     name: 'app/files-to-lint',
-    files: ['**/*.{vue,ts,mts,tsx}']
+    files: ['**/*.{vue,ts,mts,tsx}'],
+    languageOptions: {
+      parserOptions: {
+        tsconfigRootDir: import.meta.dirname
+      }
+    }
   },
 
   globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**']),
@@ -33,7 +39,7 @@ export default defineConfigWithVueTs(
 
   {
     plugins: {
-      unicorn: (await import('eslint-plugin-unicorn')).default
+      unicorn: pluginUnicorn
     },
     rules: {
       // Vue 相關自訂規則
