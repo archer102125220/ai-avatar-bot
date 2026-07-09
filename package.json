@@ -13,7 +13,7 @@
     "build:ts": "npm run build -w typescript",
     "build:vue": "npm run build -w vue",
     "build:react": "npm run build -w react",
-    "build": "npm run build --workspaces"
+    "build": "npm run build --workspaces --if-present"
   },
   "workspaces": [
     "vanilla-js",
