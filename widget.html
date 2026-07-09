@@ -187,6 +187,7 @@
           // avatarMode: "companion",
           // avatarMode: "assistant",
           vrmUrl: routeQuery.get("vrm"),
+          isIframe: true,
 
           buildLLMMessages,
 
@@ -196,8 +197,10 @@
           onSpeaking(text, aiAvatar) {
             postToParent(aiAvatar, "speaking", { text });
           },
-          onClose(aiAvatar) {
-            postToParent(aiAvatar, "close");
+          onMinimalTrigger(newIsMinimal, aiAvatar) {
+            if (newIsMinimal === true) {
+              postToParent(aiAvatar, "close");
+            }
           },
           onError(error, aiAvatar) {
             // postToParent(aiAvatar, "error", { message: String(error) });

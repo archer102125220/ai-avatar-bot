@@ -34,7 +34,9 @@
   const base = me ? me.src.replace(/[^/]*$/, "") : "";
   const widgetUrl =
     (me && me.getAttribute("data-widget")) || base + "widget.html";
-  const startOpen = me && me.getAttribute("data-open") !== "false"; // 預設一進來就展開
+  const width = (me && me.getAttribute("data-width")) || 340;
+  const height = (me && me.getAttribute("data-height")) || 480;
+  const initOpen = me && me.getAttribute("data-open") !== "false"; // 預設一進來就展開
   const widgetOrigin = (function () {
     try {
       return new URL(widgetUrl, location.href).origin;
@@ -63,7 +65,7 @@
   const iframeSrc =
     widgetUrl + (cfgQs ? (widgetUrl.indexOf("?") < 0 ? "?" : "&") + cfgQs : "");
 
-  const EXPANDED = { w: 340, h: 480 };
+  const EXPANDED = { w: Number(width), h: Number(height) };
   const NS_OUT = "avatar-widget-host"; // 父 → 子
   const NS_IN = "avatar-widget"; // 子 → 父
 
@@ -79,6 +81,14 @@
     "height:" + EXPANDED.h + "px",
   ].join(";");
 
+  console.log({
+    root,
+    EXPANDED,
+    width,
+    height,
+    ["root.style.cssText"]: root.style.cssText,
+  });
+
   // 3) iframe（虛擬人本體）
   const iframe = document.createElement("iframe");
   iframe.src = iframeSrc;
@@ -89,12 +99,12 @@
     "width:100%;height:100%;border:0;background:transparent;color-scheme:normal;";
 
   // 4) 收合後的小泡泡（iframe 收起時顯示，點它再展開）
-  const bubble = document.createElement("button");
-  bubble.type = "button";
-  bubble.className = "aw-bubble";
-  bubble.setAttribute("aria-label", "開啟 AI 虛擬人助理");
-  bubble.textContent = "💬";
-  bubble.style.cssText = [
+  const minimal = document.createElement("button");
+  minimal.type = "button";
+  minimal.className = "aw-bubble";
+  minimal.setAttribute("aria-label", "開啟 AI 虛擬人助理");
+  minimal.textContent = "💬";
+  minimal.style.cssText = [
     "position:absolute",
     "right:2px",
     "bottom:2px",
@@ -113,27 +123,26 @@
   ].join(";");
 
   root.appendChild(iframe);
-  root.appendChild(bubble);
+  root.appendChild(minimal);
   (document.body || document.documentElement).appendChild(root);
 
   // 5) 展開 / 收合
-  function setOpen(open) {
-    if (open) {
+  function setIsMinimal(newIsMinimal) {
+    if (newIsMinimal === false) {
       root.style.width = EXPANDED.w + "px";
       root.style.height = EXPANDED.h + "px";
       iframe.style.display = "block";
-      bubble.style.display = "none";
+      minimal.style.display = "none";
     } else {
       root.style.width = "60px";
       root.style.height = "60px";
       iframe.style.display = "none";
-      bubble.style.display = "flex";
+      minimal.style.display = "flex";
     }
   }
-  bubble.onclick = function () {
-    setOpen(true);
+  minimal.onclick = function () {
+    setIsMinimal(false);
   };
-  setOpen(startOpen);
 
   // 6) 接收 iframe 的訊息（驗證來源 origin）
   window.addEventListener("message", function (event) {
@@ -142,7 +151,7 @@
     if (data.ns !== NS_IN) return;
 
     if (data.type === "close") {
-      setOpen(false); // 使用者按 ✕ → 收成泡泡
+      setIsMinimal(true); // 使用者按 ✕ → 收成泡泡
     } else if (data.type === "ready") {
       /* 之後可在這觸發歡迎語 */
     } else if (data.type === "error") {
@@ -152,19 +161,21 @@
 
   // 7) 對外 API：別的程式可以叫她說話 / 開關 / 代問一個問題（走大腦回答）
   function postMsg(type, text) {
-    setOpen(true);
-    iframe.contentWindow &&
+    setIsMinimal(false);
+    if (typeof iframe.contentWindow?.postMessage === "function") {
       iframe.contentWindow.postMessage(
         { ns: NS_OUT, type: type, text: String(text || "").slice(0, 600) },
         widgetOrigin,
       );
+    }
   }
   window.AvatarWidget = {
     open: function () {
-      setOpen(true);
+      setIsMinimal(false);
     },
     close: function () {
-      setOpen(false);
+      console.log("close");
+      setIsMinimal(true);
     },
     say: function (text) {
       postMsg("say", text);
@@ -173,4 +184,5 @@
       postMsg("ask", text);
     }, // 幫使用者問一個問題（跑檢索/大腦、像使用者自己問）
   };
+  setIsMinimal(initOpen === false);
 })();

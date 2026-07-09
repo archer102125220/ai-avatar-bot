@@ -2075,6 +2075,8 @@ async function initAiAvatarWidget(optiopns = {}) {
     fitMode = DEFALUT_FIT_MODE,
     vrmUrl = "",
     gesture2D = null,
+    isMinimal = false,
+    isIframe = false,
   } = optiopns;
 
   if (container instanceof HTMLElement === false) {
@@ -2179,6 +2181,14 @@ async function initAiAvatarWidget(optiopns = {}) {
   const directWarnEl = document.createElement("p");
   directWarnEl.setAttribute("id", "direct-warn");
   directWarnEl.textContent = "請透過 <code>embed.js</code> 載入此元件。";
+
+  const minimalEl = document.createElement("button");
+  minimalEl.type = "button";
+  minimalEl.className = "aw-minimal";
+  minimalEl.setAttribute("aria-label", "開啟 AI 虛擬人助理");
+  minimalEl.textContent = "💬";
+
+  container.appendChild(minimalEl);
 
   stageEl.appendChild(bubbleEl);
   stageEl.appendChild(suggestionsEl);
@@ -2286,6 +2296,9 @@ async function initAiAvatarWidget(optiopns = {}) {
     get directWarnEl() {
       return directWarnEl;
     },
+    get minimalEl() {
+      return minimalEl;
+    },
 
     get classifyEmotion() {
       return classifyEmotion;
@@ -2296,6 +2309,10 @@ async function initAiAvatarWidget(optiopns = {}) {
 
     get setEmotionFromText() {
       return setEmotionFromText;
+    },
+
+    get isIframe() {
+      return isIframe;
     },
 
     // ②逐句開講的佇列狀態（var：這檔案有「宣告前就被呼叫」的前例，避 TDZ）
@@ -2315,6 +2332,41 @@ async function initAiAvatarWidget(optiopns = {}) {
       if (typeof newOllamaModel === "string" || newOllamaModel === null) {
         this._ollamaModel = newOllamaModel;
       }
+    },
+
+    _isMinimal: isIframe === true ? false : isMinimal || false,
+    get isMinimal() {
+      return this._isMinimal;
+    },
+    set isMinimal(newIsMinimal) {
+      if (typeof newIsMinimal === "boolean") {
+        this._isMinimal = newIsMinimal;
+
+        if (typeof this.onMinimalTrigger === "function") {
+          this.onMinimalTrigger(newIsMinimal, this);
+        }
+
+        if (newIsMinimal === false) {
+          this.hiddenMinimalEl();
+        } else {
+          this.showMinimalEl();
+        }
+      }
+    },
+    showMinimalEl() {
+      this.stageEl.style.left = "100vw";
+      this.stageEl.style.opacity = 0;
+      this.stageEl.style.userSelect = "none";
+      // this.stageEl.style.display = "none";
+      this.minimalEl.style.display = "flex";
+    },
+    hiddenMinimalEl() {
+      console.log("hiddenMinimalEl");
+      this.stageEl.style.left = "";
+      this.stageEl.style.opacity = 1;
+      this.stageEl.style.userSelect = "auto";
+      // this.stageEl.style.display = "block";
+      this.minimalEl.style.display = "none";
     },
 
     // 連續對話（陪伴模式）：她講完 → 自動重開麥。她講話期間不開麥（會聽到自己的聲音）
@@ -2826,6 +2878,10 @@ async function initAiAvatarWidget(optiopns = {}) {
         ? ENGINE_MODE_MAP.threeDimensional
         : ENGINE_MODE_MAP.twoDimensional);
 
+  minimalEl.onclick = function () {
+    aiAvatarWidget.isMinimal = false;
+  };
+
   if (typeof optiopns.onReady === "function") {
     aiAvatarWidget.onReady = optiopns.onReady.bind(aiAvatarWidget);
   }
@@ -2877,8 +2933,9 @@ async function initAiAvatarWidget(optiopns = {}) {
   if (typeof optiopns.onSpeaking === "function") {
     aiAvatarWidget.onSpeaking = optiopns.onSpeaking.bind(aiAvatarWidget);
   }
-  if (typeof optiopns.onClose === "function") {
-    aiAvatarWidget.onClose = optiopns.onClose.bind(aiAvatarWidget);
+  if (typeof optiopns.onMinimalTrigger === "function") {
+    aiAvatarWidget.onMinimalTrigger =
+      optiopns.onMinimalTrigger.bind(aiAvatarWidget);
   }
 
   if (typeof safeGesture2D === "function") {
@@ -2930,8 +2987,10 @@ async function initAiAvatarWidget(optiopns = {}) {
 
   // ===== 控制列 =====
   closeButtonEl.onclick = () => {
-    if (typeof aiAvatarWidget.onClose === "function") {
-      aiAvatarWidget.onClose(aiAvatarWidget);
+    if (aiAvatarWidget.isIframe === true) {
+      aiAvatarWidget.onMinimalTrigger(true, aiAvatarWidget);
+    } else {
+      aiAvatarWidget.isMinimal = true;
     }
   };
 
@@ -3024,6 +3083,13 @@ async function initAiAvatarWidget(optiopns = {}) {
   };
 
   await initOllama(aiAvatarWidget);
+
+  if (aiAvatarWidget.isIframe === true) {
+    aiAvatarWidget.onMinimalTrigger(isMinimal, aiAvatarWidget);
+    aiAvatarWidget.hiddenMinimalEl();
+  } else {
+    aiAvatarWidget.isMinimal = isMinimal;
+  }
 
   return aiAvatarWidget;
 }

@@ -239,22 +239,43 @@
     box-shadow: 0 0 0 0 rgba(91, 84, 232, 0);
   }
 }
-.aw-bubble {
+.aw-minimal {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  z-index: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 64px;
+  height: 64px;
+  border: 0;
+  border-radius: 50%;
+
+  cursor: pointer;
+  font-size: 28px;
+  color: #fff;
+
+  background: linear-gradient(135deg, #7d78f0, #5b54e8);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3);
+
   transition:
     transform 0.15s,
     box-shadow 0.15s;
 }
-.aw-bubble:hover {
+.aw-minimal:hover {
   transform: scale(1.07);
 }
-.aw-bubble:active {
+.aw-minimal:active {
   transform: scale(0.95);
 }
-.aw-bubble:focus-visible {
+.aw-minimal:focus-visible {
   outline: 3px solid rgba(91, 84, 232, 0.45);
   outline-offset: 3px;
 }
-.aw-bubble::after {
+.aw-minimal::after {
   content: "";
   position: absolute;
   inset: 0;

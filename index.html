@@ -186,9 +186,14 @@
     </div>
 
     <!-- ★ 一行嵌入虛擬人 ★ -->
-    <!-- <script src="embed.js" data-widget="widget.html"></script> -->
+    <script
+      src="embed.js"
+      data-widget="widget.html"
+      data-width="340"
+      data-height="480"
+    ></script>
 
-    <div
+    <!-- <div
       id="app"
       style="position: fixed; right: 0; bottom: 0; width: 340px; height: 480px"
     ></div>
@@ -206,9 +211,10 @@
     <script src="ai-avatar-bot.main.js"></script>
     <script>
       const routeQuery = new URLSearchParams(window.location.search);
+      const container = document.getElementById("app");
       (async () => {
         window.aiAvatarWidget = await initAiAvatarWidget({
-          container: document.getElementById("app"),
+          container,
           modelUrl: routeQuery.get("model") || DEFAULT_MODEL_URL,
           ttsEndpoint: routeQuery.get("api") || DEFAULT_TTS_ENDPOINT,
           // llmModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 中文不錯、約 1.1GB、首次下載後會被快取
@@ -234,7 +240,7 @@
           onSpeaking(text, aiAvatar) {
             // postToParent(aiAvatar, "speaking", { text });
           },
-          onClose(aiAvatar) {
+          onMinimalTrigger(newIsMinimal, aiAvatar) {
             // postToParent(aiAvatar, "close");
           },
           onError(error) {
@@ -242,6 +248,6 @@
           },
         });
       })();
-    </script>
+    </script> -->
   </body>
 </html>
