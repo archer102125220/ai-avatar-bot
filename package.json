@@ -22,9 +22,5 @@
     "react",
     "iframe"
   ],
-  "dependencies": {
-    "msedge-tts": "^2.0.5",
-    "vercel": "^54.20.0"
-  },
   "packageManager": "yarn@4.17.0"
 }
