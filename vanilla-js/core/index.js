@@ -1,4 +1,4 @@
-import './style.scss';
+import '../style/style.scss';
 
 // M4b：WebLLM（瀏覽器內跑小模型，零金鑰）。函式庫改成「按下🧠才動態 import」，
 //    一般訪客（不啟用大腦）不會下載這包 JS。控制權掛到 window.LLM。
@@ -315,6 +315,7 @@ function setEmotionFromText(aiAvatarWidget, text) {
   setEmotion(aiAvatarWidget, classifyEmotion(text));
 }
 
+// voice.js
 // 整段文字 → 句子陣列（TTS 逐句抓、邊講邊抓下一句，長答案不用等整段）
 function splitSentences(text) {
   const out = [];
@@ -431,8 +432,9 @@ async function defaultGesture2D(aiAvatarWidget = null, emotionName) {
   }
 }
 
+// voice.js
 // ===== TTS：開口說話 + 對嘴 =====
-function loadVoice(aiAvatarWidget = null) {
+function loadVoice() {
   const voices = speechSynthesis.getVoices();
   const pick = (targetVoice) =>
     voices.find(
@@ -441,14 +443,15 @@ function loadVoice(aiAvatarWidget = null) {
         !/Google/i.test(voice.name)
     ); // 避開 Chrome 會靜默失敗的 Google 遠端語音
 
-  aiAvatarWidget.ttVoice =
+  return (
     pick(/(HsiaoChen|HsiaoYu|曉臻|曉雨).*zh/i) || // 微軟神經女聲（最自然，若有安裝）
     pick(/(Yating|Zhiwei).*zh[-_]TW/i) || // 較新、較不機械的微軟 zh-TW 女聲
     pick(/Microsoft.*zh[-_]TW/i) || // 任何微軟 zh-TW（本地、可靠）
     pick(/zh[-_]TW/i) ||
     pick(/^zh/i) ||
     voices.find((voice) => /zh/i.test(voice.lang)) ||
-    null;
+    null
+  );
 }
 
 // ===== 拖放自己的 VRM：把 .vrm 拖到角色上就直接換成你的 3D 角色（零改 code）=====
@@ -493,6 +496,7 @@ function loadVRMFile(aiAvatarWidget = null, file) {
   aiAvatarWidget.speakingLabel = '換上你的角色了！🎭';
 }
 
+// voice.js
 // 中止目前正在講的（逐句佇列 + 神經語音音檔 + 瀏覽器 TTS + 對嘴），給「點第二下打斷第一下」用
 function stopSpeaking(aiAvatarWidget = null) {
   aiAvatarWidget.speakSeq++; // 作廢所有在跑的逐句鏈（pump 看序號就會停）
@@ -528,6 +532,7 @@ function stopSpeaking(aiAvatarWidget = null) {
   setEmotion(aiAvatarWidget, 'neutral');
 }
 
+// voice.js
 // 對外入口：整段文字 → 切句進逐句佇列（②講第 1 句時預抓第 2 句 → 長答案幾乎立刻開口）
 function speak(aiAvatarWidget = null, text) {
   const rootContainer = aiAvatarWidget?.container;
@@ -555,6 +560,7 @@ function speak(aiAvatarWidget = null, text) {
   endSpeech(aiAvatarWidget, sid);
 }
 
+// voice.js
 // ===== ②逐句開講引擎：一次一個 session；句子依序講，神經語音在背景先抓下一句 =====
 function beginSpeech(aiAvatarWidget = null) {
   stopSpeaking(aiAvatarWidget); // 打斷上一段（含清佇列、表情回中性）
@@ -564,6 +570,7 @@ function beginSpeech(aiAvatarWidget = null) {
   aiAvatarWidget.tapDone = false;
   return ++aiAvatarWidget.speakSeq;
 }
+// voice.js
 function pushSpeech(aiAvatarWidget = null, sid, text) {
   if (sid !== aiAvatarWidget.speakSeq) return;
   const safeText = String(text || '').trim();
@@ -574,6 +581,7 @@ function pushSpeech(aiAvatarWidget = null, sid, text) {
   prefetchSpeech(aiAvatarWidget, sid);
   pumpSpeech(aiAvatarWidget, sid);
 }
+// voice.js
 function endSpeech(aiAvatarWidget = null, sid) {
   if (sid === aiAvatarWidget.speakSeq) {
     aiAvatarWidget.speechEnded = true;
@@ -583,6 +591,7 @@ function endSpeech(aiAvatarWidget = null, sid) {
   }
 }
 
+// voice.js
 function onUtteranceEnd(aiAvatarWidget = null) {
   handleUser._busy = false;
   if (
@@ -767,7 +776,7 @@ function speakBrowserChunk(aiAvatarWidget = null, text, sid, done) {
     typeof aiAvatarWidget.ttVoice !== 'object' ||
     aiAvatarWidget.ttVoice === null
   ) {
-    loadVoice(aiAvatarWidget);
+    aiAvatarWidget.ttVoice = loadVoice(aiAvatarWidget);
   }
   if (
     typeof aiAvatarWidget.ttVoice === 'object' &&
@@ -1107,6 +1116,8 @@ async function handleUser(aiAvatarWidget = null, text = '') {
     aiAvatarWidget.MEM.captureName(text);
     aiAvatarWidget.MEM.addTurn('user', text);
   }
+
+  // aiAvatarWidget.isSpeaking = true;
   handleUser._busy = true; // 回答完成前不要自動重開麥（onUtteranceEnd 會清）
   respond(aiAvatarWidget, text);
 }
@@ -2966,8 +2977,10 @@ export async function initAvatarBot(optiopns = {}) {
   );
 
   if ('speechSynthesis' in window) {
-    speechSynthesis.onvoiceschanged = () => loadVoice(aiAvatarWidget);
-    loadVoice(aiAvatarWidget);
+    speechSynthesis.onvoiceschanged = () => {
+      aiAvatarWidget.ttVoice = loadVoice(aiAvatarWidget);
+    };
+    aiAvatarWidget.ttVoice = loadVoice(aiAvatarWidget);
   }
 
   ['dragenter', 'dragover'].forEach((eventName) =>
