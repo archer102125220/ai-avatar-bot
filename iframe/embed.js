@@ -81,14 +81,6 @@
     "height:" + EXPANDED.h + "px",
   ].join(";");
 
-  console.log({
-    root,
-    EXPANDED,
-    width,
-    height,
-    ["root.style.cssText"]: root.style.cssText,
-  });
-
   // 3) iframe（虛擬人本體）
   const iframe = document.createElement("iframe");
   iframe.src = iframeSrc;

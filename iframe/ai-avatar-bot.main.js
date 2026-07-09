@@ -2361,7 +2361,6 @@ async function initAiAvatarWidget(optiopns = {}) {
       this.minimalEl.style.display = "flex";
     },
     hiddenMinimalEl() {
-      console.log("hiddenMinimalEl");
       this.stageEl.style.left = "";
       this.stageEl.style.opacity = 1;
       this.stageEl.style.userSelect = "auto";
@@ -2995,7 +2994,6 @@ async function initAiAvatarWidget(optiopns = {}) {
   };
 
   micButtonEl.onclick = () => {
-    console.log({ aiAvatarWidget });
     if (aiAvatarWidget.avatarMode !== "companion") {
       startListening(aiAvatarWidget);
       return;
