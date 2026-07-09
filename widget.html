@@ -184,6 +184,8 @@
           startMode: routeQuery.get("engine") || DEFALUT_START_MODE,
           fitMode: routeQuery.get("fit") || DEFALUT_FIT_MODE,
           avatarMode: routeQuery.get("mode") || DEFALUT_AVATAR_MODE,
+          // avatarMode: "companion",
+          // avatarMode: "assistant",
           vrmUrl: routeQuery.get("vrm"),
 
           buildLLMMessages,
@@ -214,6 +216,9 @@
           }
           if (data.type === "say") {
             aiAvatarWidget.speak(String(data.text || "").slice(0, 600));
+          }
+          if (data.type === "ask") {
+            aiAvatarWidget.speak(String(data.text || "").slice(0, 200)); // 父頁代問（例：landing 點卡片 → 小修回答）
           }
           // 注意：不接受用 postMessage 遠端啟動麥克風（listen），避免惡意父頁偷開麥；麥克風只由使用者點擊觸發
         });

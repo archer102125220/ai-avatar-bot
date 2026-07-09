@@ -168,10 +168,11 @@ function initMEM(avatarMode) {
   // 記憶（陪伴模式限定）：只存訪客自己瀏覽器的 localStorage，零後端、不上傳；說「忘記我」即清除
   const MEM = {
     key: "avatar-widget-mem",
-    on: avatarMode === AVATAR_MODE_MAP.companion,
+    // on: avatarMode === AVATAR_MODE_MAP.companion,
+    isCompanion: avatarMode === AVATAR_MODE_MAP.companion,
     data: { name: "", visits: 0, last: 0, history: [] },
     load() {
-      if (!this.on) return;
+      if (!this.isCompanion) return;
       try {
         const localData = JSON.parse(localStorage.getItem(this.key) || "null");
         if (typeof localData === "object") {
@@ -182,14 +183,14 @@ function initMEM(avatarMode) {
       this.save();
     },
     save() {
-      if (!this.on) return;
+      if (!this.isCompanion) return;
       try {
         this.data.last = Date.now();
         localStorage.setItem(this.key, JSON.stringify(this.data));
       } catch (_error) {}
     },
     addTurn(role, content) {
-      if (!this.on || !content) {
+      if (!this.isCompanion || !content) {
         return;
       }
       this.data.history.push({ role, content: String(content).slice(0, 200) });
@@ -199,7 +200,7 @@ function initMEM(avatarMode) {
       this.save();
     },
     captureName(text) {
-      if (!this.on) {
+      if (!this.isCompanion) {
         return;
       }
       const m = /(?:我叫|我是|叫我)\s*([^\s，。、,.!！?？的]{1,10})/.exec(
@@ -223,19 +224,42 @@ function initMEM(avatarMode) {
 }
 
 function getWelcomeText(aiAvatarWidget = null) {
-  if (aiAvatarWidget.MEM.on && aiAvatarWidget.MEM.data.visits > 1) {
-    return (
-      (aiAvatarWidget.MEM.data.name
-        ? aiAvatarWidget.MEM.data.name + "，"
-        : "") +
-      "歡迎回來～這是我們第 " +
-      aiAvatarWidget.MEM.data.visits +
-      " 次見面！點 💬 繼續聊，我記得我們聊過什麼喔"
+  let welcomeText =
+    "點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋";
+
+  if (typeof aiAvatarWidget?.welcomeText === "function") {
+    welcomeText = aiAvatarWidget.welcomeText(
+      {
+        isCompanion: aiAvatarWidget.MEM.isCompanion,
+        visits: aiAvatarWidget.MEM.data.visits,
+        name: aiAvatarWidget.MEM.data.name,
+      },
+      aiAvatarWidget,
     );
+  } else if (aiAvatarWidget?.avatarMode === AVATAR_MODE_MAP.companion) {
+    if (typeof aiAvatarWidget.companionWelcomeText === "function") {
+      welcomeText = aiAvatarWidget.companionWelcomeText(aiAvatarWidget);
+    } else if (aiAvatarWidget.MEM.data.visits > 1) {
+      welcomeText =
+        (aiAvatarWidget.MEM.data.name
+          ? aiAvatarWidget.MEM.data.name + "，"
+          : "") +
+        "歡迎回來～這是我們第 " +
+        aiAvatarWidget.MEM.data.visits +
+        " 次見面！點 💬 繼續聊，我記得我們聊過什麼喔";
+    } else if (typeof aiAvatarWidget.companionWelcomeText === "string") {
+      welcomeText = aiAvatarWidget.companionWelcomeText;
+    } else {
+      welcomeText =
+        "嗨～我是這裡的陪聊虛擬人！點 💬 就能連續對話，我會記得你說過的話（只存在你這台瀏覽器，說『忘記我』就清掉）";
+    }
+  } else if (typeof aiAvatarWidget.assistantWelcomeText === "function") {
+    welcomeText = aiAvatarWidget.assistantWelcomeText(aiAvatarWidget);
+  } else if (typeof aiAvatarWidget.assistantWelcomeText === "string") {
+    welcomeText = aiAvatarWidget.assistantWelcomeText;
   }
-  return aiAvatarWidget?.avatarMode === AVATAR_MODE_MAP.companion
-    ? "嗨～我是這裡的陪聊虛擬人！點 💬 就能連續對話，我會記得你說過的話（只存在你這台瀏覽器，說『忘記我』就清掉）"
-    : "點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋";
+
+  return welcomeText;
 }
 
 async function handleGesture(aiAvatarWidget = null, emotionName) {
@@ -369,7 +393,7 @@ function defaultBuildLLMMessages(aiAvatarWidget = null, question) {
       : "你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請用繁體中文、口語、最多兩三句話簡短回答。" +
         RAG;
   const msgs = [{ role: "system", content: systemContext }];
-  if (aiAvatarWidget?.MEM?.on === true) {
+  if (aiAvatarWidget?.MEM?.isCompanion === true) {
     for (const h of aiAvatarWidget.MEM.data.history) {
       msgs.push({ role: h.role, content: h.content });
     }
@@ -857,16 +881,29 @@ function bestOf(knowledgeList = [], question) {
   }
   return { e, s };
 }
-function companionFallback(aiAvatarWidget = null) {
+function brainCompanionFallback(aiAvatarWidget = null, question) {
+  if (typeof aiAvatarWidget?.companionFallbackContext === "function") {
+    return aiAvatarWidget.companionFallbackContext(question, aiAvatarWidget);
+  } else if (typeof aiAvatarWidget?.companionFallbackContext === "string") {
+    return aiAvatarWidget.companionFallbackContext;
+  }
+
   // 陪聊版兜底：輪流換句，不推銷產品題
   const name = aiAvatarWidget.MEM.data.name;
-  const fallbackList = [
-    (name ? name + "，" : "") + "這個我還不太會聊，但我想聽你說——多講一點？",
-    "嗯嗯，我在聽。後來呢？",
-    "哈，這題有點考倒我了，你怎麼看？",
-    "我還在學著聊這個～對了，按 🧠 開 AI 大腦，我會聊得更順喔。",
+  const companionFallbackList =
+    Array.isArray(aiAvatarWidget.companionFallback) === true
+      ? aiAvatarWidget.companionFallback
+      : [
+          (name ? name + "，" : "") +
+            "這個我還不太會聊，但我想聽你說——多講一點？",
+          "嗯嗯，我在聽。後來呢？",
+          "哈，這題有點考倒我了，你怎麼看？",
+          "我還在學著聊這個～對了，按 🧠 開 AI 大腦，我會聊得更順喔。",
+        ];
+
+  return companionFallbackList[
+    aiAvatarWidget.companionFallbackIdx++ % companionFallbackList.length
   ];
-  return fb[aiAvatarWidget.companionFallbackIdx++ % fallbackList.length];
 }
 function brain(aiAvatarWidget = null, rawQuestion) {
   const question = (rawQuestion || "").trim();
@@ -883,10 +920,16 @@ function brain(aiAvatarWidget = null, rawQuestion) {
     if (site.e && site.s >= 0.16) {
       return site.e.a;
     }
-    return companionFallback();
+    return brainCompanionFallback(aiAvatarWidget, question);
   }
   if (site.e && site.s >= 0.16) {
     return site.e.a;
+  }
+
+  if (typeof aiAvatarWidget?.assistantFallbackContext === "function") {
+    return aiAvatarWidget.assistantFallbackContext(question, aiAvatarWidget);
+  } else if (typeof aiAvatarWidget?.assistantFallbackContext === "string") {
+    return aiAvatarWidget.assistantFallbackContext;
   }
 
   return (
@@ -1053,7 +1096,7 @@ async function handleUser(aiAvatarWidget = null, text = "") {
     aiAvatarWidget.speakingLabel = "你：" + text;
   }
 
-  if (aiAvatarWidget.MEM.on && text) {
+  if (aiAvatarWidget.MEM.isCompanion && text) {
     if (/忘記我|清除記憶|forget me/i.test(text)) {
       aiAvatarWidget.MEM.wipe();
       speak(aiAvatarWidget, "好，我把記憶都清掉了，我們重新認識吧！");
@@ -1496,17 +1539,7 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
       }
     })();
 
-    if (aiAvatarWidget.MEM.on && aiAvatarWidget.MEM.data.visits > 1) {
-      aiAvatarWidget.speakingLabel =
-        (aiAvatarWidget.MEM.data.name
-          ? aiAvatarWidget.MEM.data.name + "，"
-          : "") +
-        "歡迎回來～這是我們第 " +
-        aiAvatarWidget.MEM.data.visits +
-        " 次見面！點 💬 繼續聊，我記得我們聊過什麼喔";
-    } else {
-      aiAvatarWidget.speakingLabel = getWelcomeText(aiAvatarWidget);
-    }
+    aiAvatarWidget.speakingLabel = getWelcomeText(aiAvatarWidget);
     if (typeof aiAvatarWidget.onReady === "function") {
       aiAvatarWidget.onReady(aiAvatarWidget);
     }
@@ -1858,14 +1891,55 @@ function onTap(aiAvatarWidget = null) {
       aiAvatarWidget.avatarModel.motion("Tap");
     } catch (_error) {}
   }
-  speak(
-    aiAvatarWidget,
-    aiAvatarWidget.avatarMode === AVATAR_MODE_MAP.companion
-      ? (aiAvatarWidget.MEM.data.name
-          ? aiAvatarWidget.MEM.data.name + "～"
-          : "你好～") + "想聊什麼都可以，點 💬 我們就開始！"
-      : "你好～我是可以嵌入任何網站的語音虛擬人，問我怎麼安裝、怎麼換成你的角色都行！",
-  );
+
+  let greeting = "你好～";
+
+  if (typeof aiAvatarWidget.greeting === "function") {
+    greeting = aiAvatarWidget.greeting(
+      {
+        isCompanion: aiAvatarWidget.MEM.isCompanion,
+        visits: aiAvatarWidget.MEM.data.visits,
+        name: aiAvatarWidget.MEM.data.name,
+      },
+      aiAvatarWidget,
+    );
+  } else if (aiAvatarWidget.avatarMode === AVATAR_MODE_MAP.companion) {
+    greeting =
+      (aiAvatarWidget.MEM.data.name
+        ? aiAvatarWidget.MEM.data.name + "～"
+        : "你好～") + "想聊什麼都可以，點 💬 我們就開始！";
+
+    if (typeof aiAvatarWidget.companionGreeting === "function") {
+      greeting = aiAvatarWidget.companionGreeting(
+        {
+          isCompanion: aiAvatarWidget.MEM.isCompanion,
+          visits: aiAvatarWidget.MEM.data.visits,
+          name: aiAvatarWidget.MEM.data.name,
+        },
+        aiAvatarWidget,
+      );
+    } else if (typeof aiAvatarWidget.companionGreeting === "string") {
+      greeting = aiAvatarWidget.companionGreeting;
+    }
+  } else if (aiAvatarWidget.avatarMode === AVATAR_MODE_MAP.assistant) {
+    greeting =
+      "你好～我是可以嵌入任何網站的語音虛擬人，問我怎麼安裝、怎麼換成你的角色都行！";
+
+    if (typeof aiAvatarWidget.assistantGreeting === "function") {
+      greeting = aiAvatarWidget.assistantGreeting(
+        {
+          isCompanion: aiAvatarWidget.MEM.isCompanion,
+          visits: aiAvatarWidget.MEM.data.visits,
+          name: aiAvatarWidget.MEM.data.name,
+        },
+        aiAvatarWidget,
+      );
+    } else if (typeof aiAvatarWidget.assistantGreeting === "string") {
+      greeting = aiAvatarWidget.assistantGreeting;
+    }
+  }
+
+  speak(aiAvatarWidget, greeting);
 }
 
 // 範例提示清單：一進站就告訴使用者「可以說什麼」，點任一項＝直接問（語音/打字都不用先猜）
@@ -1879,21 +1953,32 @@ function renderSuggestions(aiAvatarWidget = null) {
   }
 
   const SUGGESTIONS =
-    aiAvatarWidget.avatarMode === AVATAR_MODE_MAP.companion
-      ? ["今天過得好嗎？", "跟我聊聊天", "說個笑話", "你會記得我嗎？"]
-      : [
-          "怎麼安裝？",
-          "怎麼換成我的角色？",
-          "要不要錢？",
-          "麥克風怎麼用？",
-          "我可以說什麼？",
-        ];
+    Array.isArray(aiAvatarWidget.suggestedQuestions) &&
+    aiAvatarWidget.suggestedQuestions.length > 0
+      ? aiAvatarWidget.suggestedQuestions
+      : aiAvatarWidget.avatarMode === AVATAR_MODE_MAP.companion
+        ? Array.isArray(aiAvatarWidget.companionSuggestedQuestions) &&
+          aiAvatarWidget.companionSuggestedQuestions.length > 0
+          ? aiAvatarWidget.companionSuggestedQuestions
+          : ["今天過得好嗎？", "跟我聊聊天", "說個笑話", "你會記得我嗎？"]
+        : Array.isArray(aiAvatarWidget.assistantSuggestedQuestions) &&
+            aiAvatarWidget.assistantSuggestedQuestions.length > 0
+          ? aiAvatarWidget.assistantSuggestedQuestions
+          : [
+              "怎麼安裝？",
+              "怎麼換成我的角色？",
+              "要不要錢？",
+              "麥克風怎麼用？",
+              "我可以說什麼？",
+            ];
+
   const label = document.createElement("p");
   label.classList.add("sg-label");
   label.textContent =
-    aiAvatarWidget.avatarMode === AVATAR_MODE_MAP.companion
-      ? "💬 可以跟我聊："
-      : "💬 你可以問我：";
+    aiAvatarWidget.suggestedTitle ||
+    (aiAvatarWidget.avatarMode === AVATAR_MODE_MAP.companion
+      ? aiAvatarWidget.companionSuggestedTitle || "💬 可以跟我聊："
+      : aiAvatarWidget.assistantSuggestedTitle || "💬 你可以問我：");
 
   suggestions.appendChild(label);
   SUGGESTIONS.forEach((suggestion) => {
@@ -2245,6 +2330,80 @@ async function initAiAvatarWidget(optiopns = {}) {
     set vrmUrl(newVrmUrl = "") {
       if (typeof newVrmUrl === "string" && newVrmUrl !== "") {
         this._vrmUrl = newVrmUrl;
+      }
+    },
+
+    _welcomeText: null,
+    get welcomeText() {
+      return this._welcomeText;
+    },
+    set welcomeText(newWelcomeText) {
+      if (typeof newWelcomeText === "function" || newWelcomeText === null) {
+        this._welcomeText = newWelcomeText;
+      }
+    },
+    _companionWelcomeText: null,
+    get companionWelcomeText() {
+      return this._companionWelcomeText;
+    },
+    set companionWelcomeText(newCompanionWelcomeText) {
+      if (
+        typeof newCompanionWelcomeText === "function" ||
+        typeof newCompanionWelcomeText === "string" ||
+        newCompanionWelcomeText === null
+      ) {
+        this._companionWelcomeText = newCompanionWelcomeText;
+      }
+    },
+    _assistantWelcomeText: null,
+    get assistantWelcomeText() {
+      return this._assistantWelcomeText;
+    },
+    set assistantWelcomeText(newAssistantWelcomeText) {
+      if (
+        typeof newAssistantWelcomeText === "function" ||
+        typeof newAssistantWelcomeText === "string" ||
+        newAssistantWelcomeText === null
+      ) {
+        this._assistantWelcomeText = newAssistantWelcomeText;
+      }
+    },
+
+    _greeting: null, // function
+    get greeting() {
+      return this._greeting;
+    },
+    set greeting(newGreeting) {
+      if (typeof newGreeting === "function" || newGreeting === null) {
+        this._greeting = newGreeting;
+      }
+    },
+
+    _companionGreeting: null, // function
+    get companionGreeting() {
+      return this._companionGreeting;
+    },
+    set companionGreeting(newCompanionGreeting) {
+      if (
+        typeof newCompanionGreeting === "function" ||
+        typeof newCompanionGreeting === "string" ||
+        newCompanionGreeting === null
+      ) {
+        this._companionGreeting = newCompanionGreeting;
+      }
+    },
+
+    _assistantGreeting: null, // function | string
+    get assistantGreeting() {
+      return this._assistantGreeting;
+    },
+    set assistantGreeting(newAssistantGreeting) {
+      if (
+        typeof newAssistantGreeting === "function" ||
+        typeof newAssistantGreeting === "string" ||
+        newAssistantGreeting === null
+      ) {
+        this._assistantGreeting = newAssistantGreeting;
       }
     },
 
@@ -2669,6 +2828,38 @@ async function initAiAvatarWidget(optiopns = {}) {
 
   if (typeof optiopns.onReady === "function") {
     aiAvatarWidget.onReady = optiopns.onReady.bind(aiAvatarWidget);
+  }
+
+  if (typeof optiopns.welcomeText === "function") {
+    aiAvatarWidget._welcomeText = optiopns.welcomeText.bind(aiAvatarWidget);
+  }
+  if (typeof optiopns.companionWelcomeText === "function") {
+    aiAvatarWidget._companionWelcomeText =
+      optiopns.companionWelcomeText.bind(aiAvatarWidget);
+  } else if (typeof optiopns.companionWelcomeText === "string") {
+    aiAvatarWidget._companionWelcomeText = optiopns.companionWelcomeText;
+  }
+  if (typeof optiopns.assistantWelcomeText === "function") {
+    aiAvatarWidget._assistantWelcomeText =
+      optiopns.assistantWelcomeText.bind(aiAvatarWidget);
+  } else if (typeof optiopns.assistantWelcomeText === "string") {
+    aiAvatarWidget._assistantWelcomeText = optiopns.assistantWelcomeText;
+  }
+
+  if (typeof optiopns.greeting === "function") {
+    aiAvatarWidget._greeting = optiopns.greeting.bind(aiAvatarWidget);
+  }
+  if (typeof optiopns.companionGreeting === "function") {
+    aiAvatarWidget._companionGreeting =
+      optiopns.companionGreeting.bind(aiAvatarWidget);
+  } else if (typeof optiopns.companionGreeting === "string") {
+    aiAvatarWidget._companionGreeting = optiopns.companionGreeting;
+  }
+  if (typeof optiopns.assistantGreeting === "function") {
+    aiAvatarWidget._assistantGreeting =
+      optiopns.assistantGreeting.bind(aiAvatarWidget);
+  } else if (typeof optiopns.assistantGreeting === "string") {
+    aiAvatarWidget._assistantGreeting = optiopns.assistantGreeting;
   }
 
   if (typeof optiopns.buildLLMMessages === "function") {
