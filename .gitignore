@@ -25,7 +25,6 @@ npm-debug.log*
 Thumbs.db
 
 # scratch / generated audio
-*.mp3
 _test_*.js
 _debug_*.js
 
