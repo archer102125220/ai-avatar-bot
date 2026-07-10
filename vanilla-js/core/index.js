@@ -20,28 +20,47 @@ export const AVATAR_MODE_MAP = {
 export const DEFAULT_LLM_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 export const DEFAULT_OLLAMA_MODEL = 'qwen2.5:latest';
 
+// skin.js | voice.js
+export const GENDER_MAP = {
+  female: 'female',
+  male: 'male'
+};
+export const DEFAULT_GENDER = GENDER_MAP.female;
+
 // skin.js
 export const ENGINE_MODE_MAP = {
   twoDimensional: '2d',
   threeDimensional: '3d'
 };
+export const DEFALUT_START_MODE = ENGINE_MODE_MAP.twoDimensional;
+export const DEFALUT_AVATAR_MODE = AVATAR_MODE_MAP.assistant;
 // skin.js
 export const FIT_MODE_MAP = {
   HALF: 'half',
   FULL: 'full'
 };
+// 取景：'half'=近距離半身（頭+上半身，腿裁掉，聊天頭像感）；'full'=全身。可用 ?fit=full / data-fit 切回
+export const DEFALUT_FIT_MODE = FIT_MODE_MAP.HALF;
 // skin.js
 // export const DEFAULT_MODEL_URL =
 //   'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json';
-export const DEFAULT_MODEL_URL = '/avatar-skin/model/haru_greeter_t03.model3.json';
-export const DEFALUT_START_MODE = ENGINE_MODE_MAP.twoDimensional;
-export const DEFALUT_AVATAR_MODE = AVATAR_MODE_MAP.assistant;
-// 取景：'half'=近距離半身（頭+上半身，腿裁掉，聊天頭像感）；'full'=全身。可用 ?fit=full / data-fit 切回
-export const DEFALUT_FIT_MODE = FIT_MODE_MAP.HALF;
+export const DEFAULT_FEMALE_MODEL_URL =
+  '/avatar-skin/model/female/haru_greeter_t03.model3.json';
+export const DEFAULT_MALE_MODEL_URL =
+  '/avatar-skin/model/male/natori_pro_t06.model3.json';
+export const DEFAULT_MODEL_URL =
+  DEFAULT_GENDER === GENDER_MAP.female
+    ? DEFAULT_FEMALE_MODEL_URL
+    : DEFAULT_MALE_MODEL_URL;
 
 // voice.js
 export const DEFAULT_TTS_ENDPOINT = 'api/tts';
-export const DEFAULT_NEURAL_VOICE = 'zh-TW-HsiaoChenNeural'; // 微軟神經語音「曉臻」
+export const DEFAULT_FEMALE_NEURAL_VOICE = 'zh-TW-HsiaoChenNeural'; // 微軟神經語音「曉臻」
+export const DEFAULT_MALE_NEURAL_VOICE = 'zh-TW-YunJheNeural'; // 微軟神經語音「雲哲」
+export const DEFAULT_NEURAL_VOICE =
+  DEFAULT_GENDER === GENDER_MAP.female
+    ? DEFAULT_FEMALE_NEURAL_VOICE
+    : DEFAULT_MALE_NEURAL_VOICE;
 
 // brain.js
 async function handleGetKnowledge(knowledgeUrl = '') {
@@ -452,12 +471,25 @@ async function defaultGesture2D(aiAvatarWidget = null, emotionName) {
   // f05 驚訝
   // f06 害羞
   // f07 傻眼
-  const emotionNameMap = {
+  const emotionFemaleNameMap = {
     neutral: 'f00',
     happy: 'f04',
     sad: 'f03',
     surprised: 'f05'
   };
+
+  const emotionMaleNameMap = {
+    neutral: 'Normal',
+    happy: 'Smile',
+    sad: 'Sad',
+    surprised: 'Surprised'
+  };
+
+  const emotionNameMap =
+    aiAvatarWidget.gender === 'female'
+      ? emotionFemaleNameMap
+      : emotionMaleNameMap;
+
   const emotionCode = emotionNameMap[emotionName];
 
   if (
@@ -2097,18 +2129,34 @@ export async function initAvatarBot(optiopns = {}) {
     vrmUrl = '',
     gesture2D = null,
     isMinimal = false,
-    isIframe = false
+    isIframe = false,
+    gender = DEFAULT_GENDER
   } = optiopns;
 
   if (container instanceof HTMLElement === false) {
     throw new Error('container must be an HTMLElement');
   }
 
-  const safeModelUrl = modelUrl || DEFAULT_MODEL_URL;
-  const safeVrmUrl =
-    vrmUrl || (/\.vrm($|\?)/i.test(safeModelUrl) ? safeModelUrl : '');
   const safeGesture2D =
     gesture2D || (modelUrl === DEFAULT_MODEL_URL ? defaultGesture2D : null);
+  const safeGender =
+    gender === GENDER_MAP.female || gender === GENDER_MAP.male
+      ? gender
+      : DEFAULT_GENDER;
+  const safeNeuralVoice =
+    neuralVoice ||
+    (safeGender === GENDER_MAP.female
+      ? DEFAULT_FEMALE_NEURAL_VOICE
+      : DEFAULT_MALE_NEURAL_VOICE);
+
+  const safeModelUrl =
+    modelUrl ||
+    (safeGender === GENDER_MAP.female
+      ? DEFAULT_FEMALE_MODEL_URL
+      : DEFAULT_MALE_MODEL_URL);
+
+  const safeVrmUrl =
+    vrmUrl || (/\.vrm($|\?)/i.test(safeModelUrl) ? safeModelUrl : '');
 
   const stageEl = document.createElement('div');
   stageEl.setAttribute('id', 'stage');
@@ -2564,8 +2612,8 @@ export async function initAvatarBot(optiopns = {}) {
           try {
             this.renderer =
               newEngineMode === this.ENGINE_MODE_MAP.threeDimensional
-                ? await bootVRM(this)
-                : await bootAvatar(this);
+                ? await bootVRM(this, this.modelSettings)
+                : await bootAvatar(this, this.modelUrl);
           } catch (error) {
             console.error(error);
           }
@@ -2779,6 +2827,34 @@ export async function initAvatarBot(optiopns = {}) {
         this._modelUrl = newModelUrl;
       }
     },
+
+    _gender: safeGender,
+    get gender() {
+      return this._gender;
+    },
+    set gender(newGender = '') {
+      if (Object.values(GENDER_MAP).includes(newGender)) {
+        this._gender = newGender;
+        if (newGender === GENDER_MAP.female) {
+          this.voice = DEFAULT_FEMALE_NEURAL_VOICE;
+          this.modelUrl = DEFAULT_FEMALE_MODEL_URL;
+        } else if (newGender === GENDER_MAP.male) {
+          this.voice = DEFAULT_MALE_NEURAL_VOICE;
+          this.modelUrl = DEFAULT_MALE_MODEL_URL;
+        }
+      }
+    },
+
+    _voice: safeNeuralVoice,
+    get voice() {
+      return this._voice;
+    },
+    set voice(newVoice = '') {
+      if (typeof newVoice === 'string' && newVoice !== '') {
+        this._voice = newVoice;
+      }
+    },
+
     _llmModel: llmModel || DEFAULT_LLM_MODEL,
     get llmModel() {
       return this._llmModel;
