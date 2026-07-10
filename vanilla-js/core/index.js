@@ -43,6 +43,7 @@ export const FIT_MODE_MAP = {
 export const DEFALUT_FIT_MODE = FIT_MODE_MAP.HALF;
 
 // live2d: https://www.live2d.com/zh-CHS/learn/sample/
+// 3D: https://hub.vroid.com/en
 
 // skin.js
 // export const DEFAULT_MODEL_URL =
