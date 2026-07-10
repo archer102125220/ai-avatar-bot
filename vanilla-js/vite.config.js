@@ -4,6 +4,7 @@ import apiPlugin from '../shared/vite-api-plugin';
 
 export default defineConfig({
   plugins: [apiPlugin()],
+  publicDir: 'public',
   build: {
     lib: {
       entry: resolve(__dirname, 'core/index.js'),

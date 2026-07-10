@@ -468,10 +468,10 @@ function loadVoice() {
 // skin.js
 // ===== 拖放自己的 VRM：把 .vrm 拖到角色上就直接換成你的 3D 角色（零改 code）=====
 function loadVRMFile(aiAvatarWidget = null, file) {
-  const engineButtonEl = aiAvatarWidget?.ulDom?.engineButtonEl;
+  const engineButtonEl = aiAvatarWidget?.uiDom?.engineButtonEl;
   if (engineButtonEl instanceof HTMLElement === false) {
     console.error(
-      '[aiAvatar loadVRMFile] aiAvatarWidget.ulDom.engineButtonEl is not an HTMLElement'
+      '[aiAvatar loadVRMFile] aiAvatarWidget.uiDom.engineButtonEl is not an HTMLElement'
     );
     return;
   }
@@ -1102,7 +1102,8 @@ function setMic(aiAvatarWidget = null, isListening = false) {
     return;
   }
 
-  const btnMic = aiAvatarWidget.ulDom.micButtonEl;
+  // ui.js
+  const btnMic = aiAvatarWidget.uiDom.micButtonEl;
   btnMic.classList.toggle('listening', isListening);
   btnMic.textContent = isListening
     ? aiAvatarWidget.avatarMode === aiAvatarWidget.AVATAR_MODE_MAP.companion
@@ -1112,7 +1113,8 @@ function setMic(aiAvatarWidget = null, isListening = false) {
       ? '💬 對話'
       : '🎤 說話';
 
-  const suggestions = aiAvatarWidget.ulDom.suggestionsEl;
+  // ui.js
+  const suggestions = aiAvatarWidget.uiDom.suggestionsEl;
   if (suggestions instanceof HTMLElement) {
     suggestions.style.display = isListening ? 'none' : 'flex';
   } // 聆聽中收起清單
@@ -1278,9 +1280,10 @@ function loadUMD() {
   return window.__cdnDependenciePromise__;
 }
 
+// skin.js
 // ===== 引擎切換外殼：每個引擎建自己的 canvas、回傳 dispose；切換＝dispose 舊的再 boot 新的 =====
 function createCanvas(aiAvatarWidget = null) {
-  const stageEl = aiAvatarWidget?.ulDom?.stageEl;
+  const stageEl = aiAvatarWidget?.uiDom?.stageEl;
   if (stageEl instanceof HTMLElement === false) {
     throw new Error('[aiAvatar createCanvas] stageEl is not an HTMLElement');
   }
@@ -1294,10 +1297,12 @@ function createCanvas(aiAvatarWidget = null) {
   return newCanvas;
 }
 
+// skin.js
 // 切換用：embedder 兩個皮都給(data-model + data-vrm) → 長出 2D/3D 切換鈕。
 // 預設引擎：data-engine 優先；否則有明確 2D 皮就 2D、只有 3D 就 3D。
 function initEngines(aiAvatarWidget = null, has2D, has3D) {
-  const engineButtonEl = aiAvatarWidget?.ulDom?.engineButtonEl;
+  // ui.js
+  const engineButtonEl = aiAvatarWidget?.uiDom?.engineButtonEl;
   if (engineButtonEl instanceof HTMLElement === false) {
     console.error(
       '[aiAvatar initEngines] engineButtonEl is not an HTMLElement'
@@ -1333,9 +1338,11 @@ function initEngines(aiAvatarWidget = null, has2D, has3D) {
   }
 }
 
+
+// skin.js
 // ===== 3D 皮：VRM（three + three-vrm，ESM 動態 import）=====
 async function bootVRM(aiAvatarWidget = null, setting = {}) {
-  const stageEl = aiAvatarWidget?.ulDom?.stageEl;
+  const stageEl = aiAvatarWidget?.uiDom?.stageEl;
   const {
     bow = '',
     wave = '',
@@ -1353,17 +1360,19 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
     const { VRMLoaderPlugin, VRMUtils } = await import('@pixiv/three-vrm');
     const { VRMAnimationLoaderPlugin, createVRMAnimationClip } =
       await import('@pixiv/three-vrm-animation');
-    const tk = 'https://cdn.jsdelivr.net/gh/tk256ailab/vrm-viewer@main/VRMA/';
+    // const vrmaRootPath = 'https://cdn.jsdelivr.net/gh/tk256ailab/vrm-viewer@main/VRMA/';
+    const vrmaRootPath = '/vrma/';
     const GESTURES = {
       // 情境手勢 + 待機變化（body-only，不碰嘴）
-      wave: wave || tk + 'Goodbye.vrma',
-      bow:
-        bow ||
-        'https://cdn.jsdelivr.net/gh/hirokazuniimoto/virtual-avatar-sdk@main/assets/animations/quick_formal_bow.vrma',
-      thinking: thinking || tk + 'Thinking.vrma',
-      look: look || tk + 'LookAround.vrma',
-      relax: relax || tk + 'Relax.vrma',
-      surprised: surprised || tk + 'Surprised.vrma' // ①情緒用：驚訝的小反應（不在點擊問候清單裡）
+      wave: wave || vrmaRootPath + 'Goodbye.vrma',
+      // bow:
+      //   bow ||
+      //   'https://cdn.jsdelivr.net/gh/hirokazuniimoto/virtual-avatar-sdk@main/assets/animations/quick_formal_bow.vrma',
+      bow: bow || vrmaRootPath + 'quick_formal_bow.vrma',
+      thinking: thinking || vrmaRootPath + 'Thinking.vrma',
+      look: look || vrmaRootPath + 'LookAround.vrma',
+      relax: relax || vrmaRootPath + 'Relax.vrma',
+      surprised: surprised || vrmaRootPath + 'Surprised.vrma' // ①情緒用：驚訝的小反應（不在點擊問候清單裡）
     };
     const TAP_GESTURES = ['wave', 'bow']; // 點一下隨機：揮手/鞠躬問候（歡迎感）
 
@@ -1715,7 +1724,7 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
     console.error('[aiAvatar bootAvatar] rootContainer is not an HTMLElement');
     return;
   }
-  const stageEl = aiAvatarWidget?.ulDom?.stageEl;
+  const stageEl = aiAvatarWidget?.uiDom?.stageEl;
   if (stageEl instanceof HTMLElement === false) {
     console.error('[aiAvatar bootAvatar] stageEl is not an HTMLElement');
     return;
@@ -1779,7 +1788,7 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
       }
     }
     fit();
-    rootContainer.addEventListener('resize', fit);
+    window.addEventListener('resize', fit);
 
     try {
       const groups =
@@ -1827,7 +1836,7 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
       },
       dispose() {
         try {
-          rootContainer.removeEventListener('resize', fit);
+          window.removeEventListener('resize', fit);
         } catch (_error) {}
         try {
           if (typeof pixiApp?.destroy === 'function') {
@@ -1846,7 +1855,7 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
   } catch (error) {
     console.error(error);
 
-    const directWarnEl = aiAvatarWidget?.ulDom?.directWarnEl;
+    const directWarnEl = aiAvatarWidget?.uiDom?.directWarnEl;
     if (
       directWarnEl instanceof HTMLParagraphElement ||
       directWarnEl instanceof HTMLDivElement
@@ -1931,7 +1940,7 @@ function onTap(aiAvatarWidget = null) {
 
 // 範例提示清單：一進站就告訴使用者「可以說什麼」，點任一項＝直接問（語音/打字都不用先猜）
 function renderSuggestions(aiAvatarWidget = null) {
-  const suggestions = aiAvatarWidget.ulDom.suggestionsEl;
+  const suggestions = aiAvatarWidget.uiDom.suggestionsEl;
   if (suggestions instanceof HTMLElement === false) {
     console.warn(
       '[aiAvatar renderSuggestions] aiAvatarWidget.suggestionsEl is not an HTMLElement'
@@ -1982,10 +1991,10 @@ function renderSuggestions(aiAvatarWidget = null) {
 
 // 打字輸入：Enter 或 ➤ 送出。組字中（注音/拼音選字）按的 Enter 不送，避免誤發半成品
 function bindTyping(aiAvatarWidget = null) {
-  const typeInput = aiAvatarWidget?.ulDom?.questionInputEl;
+  const typeInput = aiAvatarWidget?.uiDom?.questionInputEl;
   if (typeInput instanceof HTMLElement === false) {
     console.error(
-      '[aiAvatar bindTyping] aiAvatarWidget?.ulDom?.questionInputEl is not an HTMLElement'
+      '[aiAvatar bindTyping] aiAvatarWidget?.uiDom?.questionInputEl is not an HTMLElement'
     );
     return;
   }
@@ -1998,7 +2007,7 @@ function bindTyping(aiAvatarWidget = null) {
     typeInput.value = '';
     handleUser(aiAvatarWidget, text);
   };
-  aiAvatarWidget.ulDom.sendButtonEl.onclick = send;
+  aiAvatarWidget.uiDom.sendButtonEl.onclick = send;
   typeInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && !event.isComposing && event.keyCode !== 229) {
       event.preventDefault();
@@ -2020,7 +2029,7 @@ async function initOllama(aiAvatarWidget = null) {
     return;
   }
 
-  const btnLlm = aiAvatarWidget.ulDom.btnLlmEl;
+  const btnLlm = aiAvatarWidget.uiDom.btnLlmEl;
   if (btnLlm instanceof HTMLElement) {
     btnLlm.textContent = '🧠…';
     btnLlm.title = '本機 Ollama 大腦（連線中）';
@@ -2231,7 +2240,7 @@ export async function initAvatarBot(optiopns = {}) {
       return container;
     },
 
-    get ulDom() {
+    get uiDom() {
       return {
         get stageEl() {
           return stageEl;
@@ -2337,18 +2346,18 @@ export async function initAvatarBot(optiopns = {}) {
       }
     },
     showMinimalEl() {
-      this.ulDom.stageEl.style.left = '100vw';
-      this.ulDom.stageEl.style.opacity = 0;
-      this.ulDom.stageEl.style.userSelect = 'none';
-      // this.ulDom.stageEl.style.display = "none";
-      this.ulDom.minimalEl.style.display = 'flex';
+      this.uiDom.stageEl.style.left = '100vw';
+      this.uiDom.stageEl.style.opacity = 0;
+      this.uiDom.stageEl.style.userSelect = 'none';
+      // this.uiDom.stageEl.style.display = "none";
+      this.uiDom.minimalEl.style.display = 'flex';
     },
     hiddenMinimalEl() {
-      this.ulDom.stageEl.style.left = '';
-      this.ulDom.stageEl.style.opacity = 1;
-      this.ulDom.stageEl.style.userSelect = 'auto';
-      // this.ulDom.stageEl.style.display = "block";
-      this.ulDom.minimalEl.style.display = 'none';
+      this.uiDom.stageEl.style.left = '';
+      this.uiDom.stageEl.style.opacity = 1;
+      this.uiDom.stageEl.style.userSelect = 'auto';
+      // this.uiDom.stageEl.style.display = "block";
+      this.uiDom.minimalEl.style.display = 'none';
     },
 
     // 連續對話（陪伴模式）：她講完 → 自動重開麥。她講話期間不開麥（會聽到自己的聲音）
@@ -2518,7 +2527,7 @@ export async function initAvatarBot(optiopns = {}) {
       ) {
         this._engineMode = newEngineMode;
 
-        this.ulDom.engineButtonEl.textContent =
+        this.uiDom.engineButtonEl.textContent =
           newEngineMode === this.ENGINE_MODE_MAP.threeDimensional ? '3D' : '2D';
 
         (async () => {
