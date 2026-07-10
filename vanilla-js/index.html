@@ -26,7 +26,7 @@
       import { KNOWLEDGE, COMPANION_KNOWLEDGE } from './example/knowledge.js';
 
       const app = document.getElementById('app');
-      initAvatarBot({
+      window.aiAvatarWidget = await initAvatarBot({
         container: app,
         // llmModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 中文不錯、約 1.1GB、首次下載後會被快取
         llmModel: 'gemma-2-2b-it-q4f32_1-MLC', // Google 公開模型
