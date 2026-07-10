@@ -3,38 +3,47 @@ import '../style/style.scss';
 // M4b：WebLLM（瀏覽器內跑小模型，零金鑰）。函式庫改成「按下🧠才動態 import」，
 //    一般訪客（不啟用大腦）不會下載這包 JS。控制權掛到 window.LLM。
 
+// brain.js
 export const STATE_MAP = {
   IDLE: 'idle',
   LOADING: 'loading',
   READY: 'ready',
   ERROR: 'error'
 };
+// skin.js
 export const ENGINE_MODE_MAP = {
   twoDimensional: '2d',
   threeDimensional: '3d'
 };
+// brain.js
 export const AVATAR_MODE_MAP = {
   companion: 'companion',
   assistant: 'assistant'
 };
+// skin.js
 export const FIT_MODE_MAP = {
   HALF: 'half',
   FULL: 'full'
 };
 
+// brain.js
 export const DEFAULT_LLM_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
-
-export const DEFAULT_MODEL_URL =
-  'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json';
-export const DEFAULT_TTS_ENDPOINT = 'api/tts';
 export const DEFAULT_OLLAMA_MODEL = 'qwen2.5:latest';
-export const DEFAULT_NEURAL_VOICE = 'zh-TW-HsiaoChenNeural'; // 微軟神經語音「曉臻」
+
+// skin.js
+// export const DEFAULT_MODEL_URL =
+//   'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json';
+export const DEFAULT_MODEL_URL = '/skin-model/haru_greeter_t03.model3.json';
 export const DEFALUT_START_MODE = ENGINE_MODE_MAP.twoDimensional;
 export const DEFALUT_AVATAR_MODE = AVATAR_MODE_MAP.assistant;
-
 // 取景：'half'=近距離半身（頭+上半身，腿裁掉，聊天頭像感）；'full'=全身。可用 ?fit=full / data-fit 切回
 export const DEFALUT_FIT_MODE = FIT_MODE_MAP.HALF;
 
+// voice.js
+export const DEFAULT_TTS_ENDPOINT = 'api/tts';
+export const DEFAULT_NEURAL_VOICE = 'zh-TW-HsiaoChenNeural'; // 微軟神經語音「曉臻」
+
+// brain.js
 async function handleGetKnowledge(knowledgeUrl = '') {
   try {
     if (typeof knowledgeUrl === 'string' && knowledgeUrl !== '') {
@@ -1337,7 +1346,6 @@ function initEngines(aiAvatarWidget = null, has2D, has3D) {
     }
   }
 }
-
 
 // skin.js
 // ===== 3D 皮：VRM（three + three-vrm，ESM 動態 import）=====
