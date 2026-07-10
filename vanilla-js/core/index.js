@@ -474,7 +474,7 @@ function loadVoice() {
   );
 }
 
-// skin.js
+// skin.js | ui.js
 // ===== 拖放自己的 VRM：把 .vrm 拖到角色上就直接換成你的 3D 角色（零改 code）=====
 function loadVRMFile(aiAvatarWidget = null, file) {
   const engineButtonEl = aiAvatarWidget?.uiDom?.engineButtonEl;
@@ -856,6 +856,7 @@ function speakBrowserChunk(aiAvatarWidget = null, text, sid, done) {
   }
 }
 
+// brain.js
 // ===== 大腦：M4 檢索 + M4b（WebLLM）生成 =====
 // 中文不好斷詞，改用「字元 bigram（相鄰兩字）」相似度，對中文很有效、又不用任何函式庫。
 function bigrams(s) {
@@ -869,6 +870,7 @@ function bigrams(s) {
   }
   return g;
 }
+// brain.js
 function similarity(query, text) {
   const A = bigrams(query);
   const B = new Set(bigrams(text));
@@ -883,6 +885,7 @@ function similarity(query, text) {
   }
   return hit / Math.sqrt(A.length * B.size);
 }
+// brain.js
 function scoreEntry(question, e) {
   let score = Math.max(
     similarity(question, e.q),
@@ -896,6 +899,7 @@ function scoreEntry(question, e) {
   }
   return score;
 }
+// brain.js
 function topK(aiAvatarWidget = null, question, k) {
   const knowledge = aiAvatarWidget?.KNOWLEDGE || [];
 
@@ -906,6 +910,7 @@ function topK(aiAvatarWidget = null, question, k) {
     .filter((x) => x.s > 0.05)
     .map((x) => x.e);
 }
+// brain.js
 // 檢索式回答（零金鑰、即時、永遠可用的後備）
 function bestOf(knowledgeList = [], question) {
   let e = null;
@@ -919,6 +924,7 @@ function bestOf(knowledgeList = [], question) {
   }
   return { e, s };
 }
+// brain.js
 function brainCompanionFallback(aiAvatarWidget = null, question) {
   if (typeof aiAvatarWidget?.companionFallbackContext === 'function') {
     return aiAvatarWidget.companionFallbackContext(question, aiAvatarWidget);
@@ -943,6 +949,7 @@ function brainCompanionFallback(aiAvatarWidget = null, question) {
     aiAvatarWidget.companionFallbackIdx++ % companionFallbackList.length
   ];
 }
+// brain.js
 function brain(aiAvatarWidget = null, rawQuestion) {
   const question = (rawQuestion || '').trim();
   if (!question) {
@@ -977,6 +984,7 @@ function brain(aiAvatarWidget = null, rawQuestion) {
   );
 }
 
+// brain.js
 async function ollamaLLMBrain(aiAvatarWidget = null, question) {
   try {
     aiAvatarWidget.speakingLabel = '讓我想想…';
@@ -998,6 +1006,7 @@ async function ollamaLLMBrain(aiAvatarWidget = null, question) {
   );
 }
 
+// brain.js | voice.js
 async function webLLMBrain(aiAvatarWidget = null, question) {
   try {
     aiAvatarWidget.speakingLabel = '讓我想想…';
@@ -1030,6 +1039,7 @@ async function webLLMBrain(aiAvatarWidget = null, question) {
       } else if (!sid) {
         onUtteranceEnd(aiAvatarWidget); // 靜音：沒有語音收尾 → 手動觸發對話迴圈 hook
       }
+
       if (typeof aiAvatarWidget?.onSpeakingEnd === 'function') {
         aiAvatarWidget.onSpeakingEnd({ text: out.trim() });
       }
@@ -1102,7 +1112,7 @@ async function handleUser(aiAvatarWidget = null, text = '') {
   handleAnswer(aiAvatarWidget, text);
 }
 
-// voice.js | brain.js
+// voice.js | brain.js | ui.js
 // ===== STT：聽你說話 =====
 function setMic(aiAvatarWidget = null, isListening = false) {
   const rootContainer = aiAvatarWidget?.container;
@@ -1111,7 +1121,6 @@ function setMic(aiAvatarWidget = null, isListening = false) {
     return;
   }
 
-  // ui.js
   const btnMic = aiAvatarWidget.uiDom.micButtonEl;
   btnMic.classList.toggle('listening', isListening);
   btnMic.textContent = isListening
@@ -1122,7 +1131,6 @@ function setMic(aiAvatarWidget = null, isListening = false) {
       ? '💬 對話'
       : '🎤 說話';
 
-  // ui.js
   const suggestions = aiAvatarWidget.uiDom.suggestionsEl;
   if (suggestions instanceof HTMLElement) {
     suggestions.style.display = isListening ? 'none' : 'flex';
@@ -1232,6 +1240,7 @@ function startListening(aiAvatarWidget = null) {
   } catch (_error) {}
 }
 
+// skin.js | voice.js
 // ===== 共用：每幀算出嘴巴開合 0..1（2D 寫 ParamMouthOpenY、3D 寫 aa 表情，共用同一套計算）=====
 function computeMouth(aiAvatarWidget = null) {
   if (aiAvatarWidget.isSpeaking && aiAvatarWidget.useAudioMouth) {
@@ -1247,6 +1256,7 @@ function computeMouth(aiAvatarWidget = null) {
   return aiAvatarWidget.mouthValue;
 }
 
+// skin.js
 // 2D 引擎相依（pixi + live2d）改成「用到才載」，3D 模式就不會下載 Live2D
 function loadUMD() {
   const cdnDependencieUrlArray = [
@@ -1306,7 +1316,7 @@ function createCanvas(aiAvatarWidget = null) {
   return newCanvas;
 }
 
-// skin.js
+// skin.js | ui.js
 // 切換用：embedder 兩個皮都給(data-model + data-vrm) → 長出 2D/3D 切換鈕。
 // 預設引擎：data-engine 優先；否則有明確 2D 皮就 2D、只有 3D 就 3D。
 function initEngines(aiAvatarWidget = null, has2D, has3D) {
@@ -1725,6 +1735,7 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
   }
 }
 
+// skin.js
 // ===== 2D 皮：Live2D 載入 + 對嘴 =====
 async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
   const rootContainer = aiAvatarWidget?.container;
@@ -1946,6 +1957,7 @@ function onTap(aiAvatarWidget = null) {
   speak(aiAvatarWidget, greeting);
 }
 
+// ui.js
 // 範例提示清單：一進站就告訴使用者「可以說什麼」，點任一項＝直接問（語音/打字都不用先猜）
 function renderSuggestions(aiAvatarWidget = null) {
   const suggestions = aiAvatarWidget.uiDom.suggestionsEl;
@@ -1997,6 +2009,7 @@ function renderSuggestions(aiAvatarWidget = null) {
   });
 }
 
+// ui.js
 // 打字輸入：Enter 或 ➤ 送出。組字中（注音/拼音選字）按的 Enter 不送，避免誤發半成品
 function bindTyping(aiAvatarWidget = null) {
   const typeInput = aiAvatarWidget?.uiDom?.questionInputEl;
@@ -2024,6 +2037,7 @@ function bindTyping(aiAvatarWidget = null) {
   });
 }
 
+// brain.js | ui.js
 // 啟用本機 Ollama 時：開機 ping 一下，連上就把 🧠 切成「本機大腦」狀態
 async function initOllama(aiAvatarWidget = null) {
   if (aiAvatarWidget?.container instanceof HTMLElement === false) {
