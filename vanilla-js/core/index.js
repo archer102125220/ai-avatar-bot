@@ -41,13 +41,16 @@ export const FIT_MODE_MAP = {
 };
 // 取景：'half'=近距離半身（頭+上半身，腿裁掉，聊天頭像感）；'full'=全身。可用 ?fit=full / data-fit 切回
 export const DEFALUT_FIT_MODE = FIT_MODE_MAP.HALF;
+
+// live2d: https://www.live2d.com/zh-CHS/learn/sample/
+
 // skin.js
 // export const DEFAULT_MODEL_URL =
 //   'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json';
 export const DEFAULT_FEMALE_MODEL_URL =
-  '/avatar-skin/model/female/haru_greeter_t03.model3.json';
+  '/avatar-skin/2d-model/female/haru_greeter_t03.model3.json';
 export const DEFAULT_MALE_MODEL_URL =
-  '/avatar-skin/model/male/natori_pro_t06.model3.json';
+  '/avatar-skin/2d-model/male/natori_pro_t06.model3.json';
 export const DEFAULT_MODEL_URL =
   DEFAULT_GENDER === GENDER_MAP.female
     ? DEFAULT_FEMALE_MODEL_URL
@@ -607,6 +610,7 @@ function initEngines(aiAvatarWidget = null, has2D, has3D) {
 // ===== 3D 皮：VRM（three + three-vrm，ESM 動態 import）=====
 async function bootVRM(aiAvatarWidget = null, setting = {}) {
   const stageEl = aiAvatarWidget?.uiDom?.stageEl;
+  const rootContainer = aiAvatarWidget?.container;
   const {
     bow = '',
     wave = '',
@@ -625,7 +629,7 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
     const { VRMAnimationLoaderPlugin, createVRMAnimationClip } =
       await import('@pixiv/three-vrm-animation');
     // const vrmaRootPath = 'https://cdn.jsdelivr.net/gh/tk256ailab/vrm-viewer@main/VRMA/';
-    const vrmaRootPath = '/avatar-skin/vrma/';
+    const vrmaRootPath = '/avatar-skin/3d-model/vrma/';
     const GESTURES = {
       // 情境手勢 + 待機變化（body-only，不碰嘴）`
       wave: wave || vrmaRootPath + 'Goodbye.vrma',
@@ -660,7 +664,7 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
       camera.updateProjectionMatrix();
     };
     resize();
-    rootContainer.addEventListener('resize', resize);
+    window.addEventListener('resize', resize);
 
     const scene = new THREE.Scene();
     // 調暗：原本 key=π / fill=π*0.35 / ambient=0.6 太亮（MToon 易過曝），整體降約 4 成

@@ -29,9 +29,7 @@ _test_*.js
 _debug_*.js
 
 # local character assets — 別把大型二進位 / Live2D 專有樣本推上公開 repo（改用 CDN 或 Release assets）
-*.vrm
 *.bak
-models/
 
 # Logs
 logs
