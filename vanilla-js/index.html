@@ -22,7 +22,11 @@
   <body>
     <div id="app"></div>
     <script type="module">
-      import { initAvatarBot } from './core/index.js';
+      import {
+        initAvatarBot,
+        GENDER_MAP,
+        AVATAR_MODE_MAP
+      } from './core/index.js';
       import { KNOWLEDGE, COMPANION_KNOWLEDGE } from './example/knowledge.js';
 
       const app = document.getElementById('app');
@@ -35,8 +39,9 @@
         // ollamaBase: 'http://localhost:11434/v1',
         knowledge: KNOWLEDGE,
         companionKnowledge: COMPANION_KNOWLEDGE,
-        // avatarMode: "companion",
-        // avatarMode: "assistant",
+        gender: GENDER_MAP.male,
+        // avatarMode: AVATAR_MODE_MAP.companion,
+        // avatarMode: AVATAR_MODE_MAP.assistant,
 
         onReady(aiAvatar) {
           // 應在優化，作為參數的一部分傳遞歡迎詞

@@ -490,7 +490,7 @@ async function defaultGesture2D(aiAvatarWidget = null, emotionName) {
   };
 
   const emotionNameMap =
-    aiAvatarWidget.gender === 'female'
+    aiAvatarWidget.gender === GENDER_MAP.female
       ? emotionFemaleNameMap
       : emotionMaleNameMap;
 
@@ -2120,10 +2120,10 @@ export async function initAvatarBot(optiopns = {}) {
     container = null,
     ollamaBase = '',
     ollamaModel = DEFAULT_OLLAMA_MODEL,
-    neuralVoice = DEFAULT_NEURAL_VOICE,
+    neuralVoice = '',
     knowledgeUrl = '',
     companionKnowledgeUrl = '',
-    modelUrl = DEFAULT_MODEL_URL,
+    modelUrl = '',
     ttsEndpoint = DEFAULT_TTS_ENDPOINT, // 沒設→試同站相對路徑；抓不到→自動退回瀏覽器語音（純前端可用）
     llmModel = DEFAULT_LLM_MODEL,
     avatarMode = DEFALUT_AVATAR_MODE,
@@ -2135,15 +2135,13 @@ export async function initAvatarBot(optiopns = {}) {
     gesture2D = null,
     isMinimal = false,
     isIframe = false,
-    gender = DEFAULT_GENDER
+    gender = ''
   } = optiopns;
 
   if (container instanceof HTMLElement === false) {
     throw new Error('container must be an HTMLElement');
   }
 
-  const safeGesture2D =
-    gesture2D || (modelUrl === DEFAULT_MODEL_URL ? defaultGesture2D : null);
   const safeGender =
     gender === GENDER_MAP.female || gender === GENDER_MAP.male
       ? gender
@@ -2160,8 +2158,13 @@ export async function initAvatarBot(optiopns = {}) {
       ? DEFAULT_FEMALE_MODEL_URL
       : DEFAULT_MALE_MODEL_URL);
 
+  const safeGesture2D =
+    gesture2D || (safeModelUrl === DEFAULT_MODEL_URL ? defaultGesture2D : null);
+
   const safeVrmUrl =
     vrmUrl || (/\.vrm($|\?)/i.test(safeModelUrl) ? safeModelUrl : '');
+
+  console.log({ gender, safeGender, safeNeuralVoice, safeModelUrl });
 
   const stageEl = document.createElement('div');
   stageEl.setAttribute('id', 'stage');
@@ -2628,7 +2631,7 @@ export async function initAvatarBot(optiopns = {}) {
       }
     },
 
-    _neuralVoice: neuralVoice || DEFAULT_NEURAL_VOICE,
+    _neuralVoice: safeNeuralVoice,
     get neuralVoice() {
       return this._neuralVoice; // 神經語音
     },
@@ -2841,22 +2844,12 @@ export async function initAvatarBot(optiopns = {}) {
       if (Object.values(GENDER_MAP).includes(newGender)) {
         this._gender = newGender;
         if (newGender === GENDER_MAP.female) {
-          this.voice = DEFAULT_FEMALE_NEURAL_VOICE;
+          this.neuralVoice = DEFAULT_FEMALE_NEURAL_VOICE;
           this.modelUrl = DEFAULT_FEMALE_MODEL_URL;
         } else if (newGender === GENDER_MAP.male) {
-          this.voice = DEFAULT_MALE_NEURAL_VOICE;
+          this.neuralVoice = DEFAULT_MALE_NEURAL_VOICE;
           this.modelUrl = DEFAULT_MALE_MODEL_URL;
         }
-      }
-    },
-
-    _voice: safeNeuralVoice,
-    get voice() {
-      return this._voice;
-    },
-    set voice(newVoice = '') {
-      if (typeof newVoice === 'string' && newVoice !== '') {
-        this._voice = newVoice;
       }
     },
 
