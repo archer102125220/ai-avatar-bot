@@ -28,10 +28,10 @@ const DEFAULT_TTS_ENDPOINT = 'api/tts';
 const DEFAULT_OLLAMA_MODEL = 'qwen2.5:latest';
 const DEFAULT_NEURAL_VOICE = 'zh-TW-HsiaoChenNeural'; // 微軟神經語音「曉臻」
 const DEFALUT_START_MODE = ENGINE_MODE_MAP.twoDimensional;
-const DEFALUT_AVATAR_MODE = AVATAR_MODE_MAP.assistant;
+const DEFAULT_AVATAR_MODE = AVATAR_MODE_MAP.assistant;
 
 // 取景：'half'=近距離半身（頭+上半身，腿裁掉，聊天頭像感）；'full'=全身。可用 ?fit=full / data-fit 切回
-const DEFALUT_FIT_MODE = FIT_MODE_MAP.HALF;
+const DEFAULT_FIT_MODE = FIT_MODE_MAP.HALF;
 
 async function handleGetKnowledge(knowledgeUrl = '') {
   try {
@@ -1724,7 +1724,7 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
       }
     } catch (_error) {}
 
-    const safeFitMode = aiAvatarWidget.fitMode || DEFALUT_FIT_MODE;
+    const safeFitMode = aiAvatarWidget.fitMode || DEFAULT_FIT_MODE;
     function fit() {
       const width = pixiApp.renderer.width;
       const height = pixiApp.renderer.height;
@@ -2017,11 +2017,11 @@ async function initAiAvatarWidget(optiopns = {}) {
     modelUrl = DEFAULT_MODEL_URL,
     ttsEndpoint = DEFAULT_TTS_ENDPOINT, // 沒設→試同站相對路徑；抓不到→自動退回瀏覽器語音（純前端可用）
     llmModel = DEFAULT_LLM_MODEL,
-    avatarMode = DEFALUT_AVATAR_MODE,
+    avatarMode = DEFAULT_AVATAR_MODE,
     knowledge = null,
     companionKnowledge = null,
     startMode = DEFALUT_START_MODE,
-    fitMode = DEFALUT_FIT_MODE,
+    fitMode = DEFAULT_FIT_MODE,
     vrmUrl = '',
     gesture2D = null,
     isMinimal = false,
@@ -2436,7 +2436,7 @@ async function initAiAvatarWidget(optiopns = {}) {
       }
     },
 
-    _fitMode: fitMode || DEFALUT_FIT_MODE,
+    _fitMode: fitMode || DEFAULT_FIT_MODE,
     get fitMode() {
       return this._fitMode;
     },
@@ -2445,7 +2445,7 @@ async function initAiAvatarWidget(optiopns = {}) {
         if (Object.values(this.FIT_MODE_MAP).includes(newFitMode)) {
           this._fitMode = newFitMode;
         } else {
-          this._fitMode = DEFALUT_FIT_MODE;
+          this._fitMode = DEFAULT_FIT_MODE;
         }
       }
     },
@@ -2722,7 +2722,7 @@ async function initAiAvatarWidget(optiopns = {}) {
         this._llmModel = newLlmModel;
       }
     },
-    _avatarMode: avatarMode || DEFALUT_AVATAR_MODE,
+    _avatarMode: avatarMode || DEFAULT_AVATAR_MODE,
     get avatarMode() {
       return this._avatarMode;
     },

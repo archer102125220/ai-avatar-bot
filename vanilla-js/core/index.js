@@ -1,24 +1,34 @@
+import {
+  AVATAR_MODE_MAP,
+  DEFAULT_AVATAR_MODE,
+  DEFAULT_LLM_MODEL,
+  DEFAULT_OLLAMA_MODEL,
+  STATE_MAP,
+  handleGetKnowledge,
+  initLLM,
+  initOLLAMA,
+  initMEM
+} from './brain';
+
+import {
+  ENGINE_MODE_MAP,
+  FIT_MODE_MAP,
+  DEFALUT_START_MODE,
+  DEFAULT_FIT_MODE,
+  DEFAULT_FEMALE_MODEL_URL,
+  DEFAULT_MALE_MODEL_URL
+} from './skin';
+
+import {
+  DEFAULT_TTS_ENDPOINT,
+  DEFAULT_FEMALE_NEURAL_VOICE,
+  DEFAULT_MALE_NEURAL_VOICE
+} from './voice';
+
 import '../style/style.scss';
 
 // M4b：WebLLM（瀏覽器內跑小模型，零金鑰）。函式庫改成「按下🧠才動態 import」，
 //    一般訪客（不啟用大腦）不會下載這包 JS。控制權掛到 window.LLM。
-
-// brain.js
-export const STATE_MAP = {
-  IDLE: 'idle',
-  LOADING: 'loading',
-  READY: 'ready',
-  ERROR: 'error'
-};
-// brain.js
-export const AVATAR_MODE_MAP = {
-  companion: 'companion',
-  assistant: 'assistant'
-};
-
-// brain.js
-export const DEFAULT_LLM_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
-export const DEFAULT_OLLAMA_MODEL = 'qwen2.5:latest';
 
 // skin.js | voice.js
 export const GENDER_MAP = {
@@ -27,238 +37,35 @@ export const GENDER_MAP = {
 };
 export const DEFAULT_GENDER = GENDER_MAP.female;
 
-// skin.js
-export const ENGINE_MODE_MAP = {
-  twoDimensional: '2d',
-  threeDimensional: '3d'
-};
-export const DEFALUT_START_MODE = ENGINE_MODE_MAP.twoDimensional;
-export const DEFALUT_AVATAR_MODE = AVATAR_MODE_MAP.assistant;
-// skin.js
-export const FIT_MODE_MAP = {
-  HALF: 'half',
-  FULL: 'full'
-};
-// 取景：'half'=近距離半身（頭+上半身，腿裁掉，聊天頭像感）；'full'=全身。可用 ?fit=full / data-fit 切回
-export const DEFALUT_FIT_MODE = FIT_MODE_MAP.HALF;
-
-// live2d: https://www.live2d.com/zh-CHS/learn/sample/
-// 3D: https://hub.vroid.com/en
-
-// skin.js
-// export const DEFAULT_MODEL_URL =
-//   'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json';
-export const DEFAULT_FEMALE_MODEL_URL =
-  '/avatar-skin/2d-model/female/haru_greeter_t03.model3.json';
-export const DEFAULT_MALE_MODEL_URL =
-  '/avatar-skin/2d-model/male/natori_pro_t06.model3.json';
-export const DEFAULT_MODEL_URL =
+// export
+const DEFAULT_MODEL_URL =
   DEFAULT_GENDER === GENDER_MAP.female
     ? DEFAULT_FEMALE_MODEL_URL
     : DEFAULT_MALE_MODEL_URL;
 
 // voice.js
-export const DEFAULT_TTS_ENDPOINT = 'api/tts';
-export const DEFAULT_FEMALE_NEURAL_VOICE = 'zh-TW-HsiaoChenNeural'; // 微軟神經語音「曉臻」
-export const DEFAULT_MALE_NEURAL_VOICE = 'zh-TW-YunJheNeural'; // 微軟神經語音「雲哲」
 export const DEFAULT_NEURAL_VOICE =
   DEFAULT_GENDER === GENDER_MAP.female
     ? DEFAULT_FEMALE_NEURAL_VOICE
     : DEFAULT_MALE_NEURAL_VOICE;
 
-// brain.js
-async function handleGetKnowledge(knowledgeUrl = '') {
-  try {
-    if (typeof knowledgeUrl === 'string' && knowledgeUrl !== '') {
-      const knowledge = await fetch(knowledgeUrl).then((response) => {
-        if (typeof response?.json === 'function') {
-          return response.json();
-        }
-        return response || [];
-      });
-      if (Array.isArray(knowledge) === false) {
-        throw new Error(
-          '[aiAvatar handleGetKnowledge] Knowledge is not an array'
-        );
-      }
-      return knowledge;
-    }
-  } catch (_error) {}
-  return [];
-}
-
-// brain.js
-function initLLM(llmModel = DEFAULT_LLM_MODEL) {
-  let engine = null;
-  let loadingPromise = null;
-
-  const LLM = {
-    supported: 'gpu' in navigator,
-    state: STATE_MAP.IDLE, // idle | loading | ready | error
-    progress: 0,
-    model: llmModel || DEFAULT_LLM_MODEL,
-    async load(onProgress) {
-      if (engine) return engine;
-      if (loadingPromise) return loadingPromise;
-      this.state = STATE_MAP.LOADING;
-      loadingPromise = import('@mlc-ai/web-llm') // 動態載入：只有按下🧠才抓這包函式庫
-        .then((webllm) =>
-          webllm.CreateMLCEngine(llmModel, {
-            initProgressCallback: (p) => {
-              this.progress = p.progress || 0;
-              if (typeof onProgress === 'function') {
-                onProgress(p);
-              }
-            }
-          })
-        )
-        .then((mlcEngine) => {
-          engine = mlcEngine;
-          this.state = STATE_MAP.READY;
-          return mlcEngine;
-        })
-        .catch((error) => {
-          this.state = STATE_MAP.ERROR;
-          this.error = String(error);
-          throw error;
-        });
-      return loadingPromise;
-    },
-    async chat(messages, onDelta) {
-      if (!engine) {
-        return null;
-      }
-      if (!onDelta) {
-        const result = await engine.chat.completions.create({
-          messages,
-          temperature: 0.4,
-          max_tokens: 220
-        });
-        return result?.choices?.[0]?.message?.content;
-      }
-      // 串流：邊生成邊回吐 token（逐句開講用）——首句不用等整段生成完
-      const stream = await engine.chat.completions.create({
-        messages,
-        temperature: 0.4,
-        max_tokens: 220,
-        stream: true
-      });
-      let fullResponse = '';
-      for await (const chunk of stream) {
-        const content = chunk?.choices?.[0]?.delta?.content;
-        if (content) {
-          fullResponse += content;
-          onDelta(content, fullResponse);
-        }
-      }
-      return fullResponse;
-    }
-  };
-
-  return LLM;
-}
-// brain.js
-function initOLLAMA(ollamaBase = '', ollamaModel = DEFAULT_OLLAMA_MODEL) {
-  const OLLAMA = {
-    base: ollamaBase,
-    model: ollamaModel || DEFAULT_OLLAMA_MODEL,
-    enabled: !!ollamaBase,
-    ready: false,
-    async ping() {
-      if (!this.enabled) {
-        return false;
-      }
-      try {
-        const response = await fetch(
-          this.base.replace(/\/v1$/, '') + '/api/tags'
-        );
-        this.ready = response.ok;
-        return response.ok;
-      } catch (_error) {
-        this.ready = false;
-        return false;
-      }
-    },
-    async chat(messages) {
-      const response = await fetch(this.base + '/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: this.model,
-          messages,
-          temperature: 0.4,
-          max_tokens: 220,
-          stream: false
-        })
-      });
-      if (response.ok !== true) {
-        throw new Error('http ' + response.status);
-      }
-      const result = await response.json();
-      return result?.choices?.[0]?.message?.content;
-    }
-  };
-  return OLLAMA;
-}
-// brain.js
-function initMEM(avatarMode) {
-  // 記憶（陪伴模式限定）：只存訪客自己瀏覽器的 localStorage，零後端、不上傳；說「忘記我」即清除
-  const MEM = {
-    key: 'avatar-widget-mem',
-    // on: avatarMode === AVATAR_MODE_MAP.companion,
-    isCompanion: avatarMode === AVATAR_MODE_MAP.companion,
-    data: { name: '', visits: 0, last: 0, history: [] },
-    load() {
-      if (!this.isCompanion) return;
-      try {
-        const localData = JSON.parse(localStorage.getItem(this.key) || 'null');
-        if (typeof localData === 'object') {
-          this.data = Object.assign(this.data, localData);
-        }
-      } catch (_error) {}
-      this.data.visits = (this.data.visits || 0) + 1;
-      this.save();
-    },
-    save() {
-      if (!this.isCompanion) return;
-      try {
-        this.data.last = Date.now();
-        localStorage.setItem(this.key, JSON.stringify(this.data));
-      } catch (_error) {}
-    },
-    addTurn(role, content) {
-      if (!this.isCompanion || !content) {
-        return;
-      }
-      this.data.history.push({ role, content: String(content).slice(0, 200) });
-      if (this.data.history.length > 12) {
-        this.data.history.splice(0, this.data.history.length - 12); // 只留最近 6 輪
-      }
-      this.save();
-    },
-    captureName(text) {
-      if (!this.isCompanion) {
-        return;
-      }
-      const m = /(?:我叫|我是|叫我)\s*([^\s，。、,.!！?？的]{1,10})/.exec(
-        text || ''
-      );
-      if (m && !/誰|什麼|不知|沒有/.test(m[1])) {
-        this.data.name = m[1];
-        this.save();
-      }
-    },
-    wipe() {
-      this.data = { name: '', visits: 1, last: 0, history: [] };
-      try {
-        localStorage.removeItem(this.key);
-      } catch (_error) {}
-    }
-  };
-  MEM.load();
-
-  return MEM;
-}
+export {
+  STATE_MAP,
+  AVATAR_MODE_MAP,
+  DEFAULT_LLM_MODEL,
+  DEFAULT_OLLAMA_MODEL,
+  ENGINE_MODE_MAP,
+  FIT_MODE_MAP,
+  DEFALUT_START_MODE,
+  DEFAULT_AVATAR_MODE,
+  DEFAULT_FIT_MODE,
+  DEFAULT_MODEL_URL,
+  DEFAULT_FEMALE_MODEL_URL,
+  DEFAULT_MALE_MODEL_URL,
+  DEFAULT_TTS_ENDPOINT,
+  DEFAULT_FEMALE_NEURAL_VOICE,
+  DEFAULT_MALE_NEURAL_VOICE
+};
 
 // brain.js
 // 從回答文字粗判情緒（規則式、零成本；驚訝 > 難過 > 開心 > 中性）
@@ -376,7 +183,7 @@ function brainCompanionFallback(aiAvatarWidget = null, question) {
   }
 
   // 陪聊版兜底：輪流換句，不推銷產品題
-  const name = aiAvatarWidget.MEM.data.name;
+  const name = aiAvatarWidget.brain.MEM.data.name;
   const companionFallbackList =
     Array.isArray(aiAvatarWidget.companionFallback) === true
       ? aiAvatarWidget.companionFallback
@@ -434,7 +241,7 @@ async function ollamaLLMBrain(aiAvatarWidget = null, question) {
 
     handleGesture(aiAvatarWidget, 'thinking');
 
-    const out = await aiAvatarWidget.OLLAMA.chat(
+    const out = await aiAvatarWidget.brain.OLLAMA.chat(
       aiAvatarWidget.buildLLMMessages(aiAvatarWidget, question)
     );
     if (out.trim?.()) {
@@ -442,7 +249,7 @@ async function ollamaLLMBrain(aiAvatarWidget = null, question) {
     }
   } catch (e) {
     console.warn('Ollama error', e);
-    aiAvatarWidget.OLLAMA.ready = false;
+    aiAvatarWidget.brain.OLLAMA.ready = false;
   }
   throw new Error(
     `Ollama did not return a string or returned an empty string: ${out}`
@@ -1040,7 +847,7 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
       }
     } catch (_error) {}
 
-    const safeFitMode = aiAvatarWidget.fitMode || DEFALUT_FIT_MODE;
+    const safeFitMode = aiAvatarWidget.fitMode || DEFAULT_FIT_MODE;
     function fit() {
       const width = pixiApp.renderer.width;
       const height = pixiApp.renderer.height;
@@ -1257,16 +1064,16 @@ function defaultBuildLLMMessages(aiAvatarWidget = null, question) {
   const systemContext =
     aiAvatarWidget?.avatarMode === AVATAR_MODE_MAP.companion
       ? '你是這個網站的陪伴型語音虛擬人，親切、口語、繁體中文、每次最多兩三句。你記得訪客先前的對話' +
-        (aiAvatarWidget?.MEM?.data?.name
-          ? '，訪客叫「' + aiAvatarWidget.MEM.data.name + '」，可自然稱呼'
+        (aiAvatarWidget?.brain?.MEM?.data?.name
+          ? '，訪客叫「' + aiAvatarWidget.brain.MEM.data.name + '」，可自然稱呼'
           : '') +
         '。' +
         RAG
       : '你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請用繁體中文、口語、最多兩三句話簡短回答。' +
         RAG;
   const msgs = [{ role: 'system', content: systemContext }];
-  if (aiAvatarWidget?.MEM?.isCompanion === true) {
-    for (const h of aiAvatarWidget.MEM.data.history) {
+  if (aiAvatarWidget?.brain?.MEM?.isCompanion === true) {
+    for (const h of aiAvatarWidget.brain.MEM.data.history) {
       msgs.push({ role: h.role, content: h.content });
     }
   }
@@ -1723,22 +1530,22 @@ function getWelcomeText(aiAvatarWidget = null) {
   if (typeof aiAvatarWidget?.welcomeText === 'function') {
     welcomeText = aiAvatarWidget.welcomeText(
       {
-        isCompanion: aiAvatarWidget.MEM.isCompanion,
-        visits: aiAvatarWidget.MEM.data.visits,
-        name: aiAvatarWidget.MEM.data.name
+        isCompanion: aiAvatarWidget.brain.MEM.isCompanion,
+        visits: aiAvatarWidget.brain.MEM.data.visits,
+        name: aiAvatarWidget.brain.MEM.data.name
       },
       aiAvatarWidget
     );
   } else if (aiAvatarWidget?.avatarMode === AVATAR_MODE_MAP.companion) {
     if (typeof aiAvatarWidget.companionWelcomeText === 'function') {
       welcomeText = aiAvatarWidget.companionWelcomeText(aiAvatarWidget);
-    } else if (aiAvatarWidget.MEM.data.visits > 1) {
+    } else if (aiAvatarWidget.brain.MEM.data.visits > 1) {
       welcomeText =
-        (aiAvatarWidget.MEM.data.name
-          ? aiAvatarWidget.MEM.data.name + '，'
+        (aiAvatarWidget.brain.MEM.data.name
+          ? aiAvatarWidget.brain.MEM.data.name + '，'
           : '') +
         '歡迎回來～這是我們第 ' +
-        aiAvatarWidget.MEM.data.visits +
+        aiAvatarWidget.brain.MEM.data.visits +
         ' 次見面！點 💬 繼續聊，我記得我們聊過什麼喔';
     } else if (typeof aiAvatarWidget.companionWelcomeText === 'string') {
       welcomeText = aiAvatarWidget.companionWelcomeText;
@@ -1764,7 +1571,7 @@ async function webLLMBrain(aiAvatarWidget = null, question) {
 
     const sid = aiAvatarWidget.ttsMuted ? 0 : beginSpeech(aiAvatarWidget); // 靜音時只更新字幕、不進語音佇列
     const st = { buf: '' };
-    const out = await aiAvatarWidget.LLM.chat(
+    const out = await aiAvatarWidget.brain.LLM.chat(
       aiAvatarWidget.buildLLMMessages(aiAvatarWidget, question),
       (delta, sofar) => {
         aiAvatarWidget.speakingLabel = sofar; // 邊生成邊更新字幕
@@ -1779,7 +1586,7 @@ async function webLLMBrain(aiAvatarWidget = null, question) {
       }
     );
     if (out?.trim?.()) {
-      aiAvatarWidget.MEM.addTurn('assistant', out.trim());
+      aiAvatarWidget.brain.MEM.addTurn('assistant', out.trim());
       if (sid && sid === aiAvatarWidget.speakSeq) {
         for (const s of drainSentences(st, true)) {
           pushSpeech(aiAvatarWidget, sid, s);
@@ -1808,7 +1615,7 @@ async function webLLMBrain(aiAvatarWidget = null, question) {
 // voice.js | brain.js
 // 有大腦時生成更自然的回答；WebLLM 走串流「邊生成邊講」，Ollama／檢索為整段後逐句講
 function sayAnswer(aiAvatarWidget = null, t) {
-  aiAvatarWidget.MEM.addTurn('assistant', t);
+  aiAvatarWidget.brain.MEM.addTurn('assistant', t);
   speak(aiAvatarWidget, t);
 }
 // voice.js | brain.js
@@ -1820,12 +1627,15 @@ async function handleAnswer(aiAvatarWidget = null, question) {
     return;
   }
   try {
-    // 1) 本機 Ollama 大腦（最聰明，優先；整段生成後逐句講）
-    if (aiAvatarWidget.OLLAMA?.enabled && aiAvatarWidget.OLLAMA.ready) {
+    // 1) Ollama 伺服器大腦（最聰明，優先；整段生成後逐句講）
+    if (
+      aiAvatarWidget.brain.OLLAMA?.enabled &&
+      aiAvatarWidget.brain.OLLAMA.ready
+    ) {
       return await ollamaLLMBrain(aiAvatarWidget, question);
     }
     // 2) 瀏覽器內 WebLLM：串流 → 每切出一個完整句就丟進逐句佇列開講（首句延遲大幅縮短）
-    if (aiAvatarWidget.LLM?.state === aiAvatarWidget.STATE_MAP.READY) {
+    if (aiAvatarWidget.brain.LLM?.state === aiAvatarWidget.STATE_MAP.READY) {
       return await webLLMBrain(aiAvatarWidget, question);
     }
   } catch (_error) {}
@@ -1846,14 +1656,14 @@ async function handleUser(aiAvatarWidget = null, text = '') {
     aiAvatarWidget.speakingLabel = '你：' + text;
   }
 
-  if (aiAvatarWidget.MEM.isCompanion && text) {
+  if (aiAvatarWidget.brain.MEM.isCompanion && text) {
     if (/忘記我|清除記憶|forget me/i.test(text)) {
-      aiAvatarWidget.MEM.wipe();
+      aiAvatarWidget.brain.MEM.wipe();
       speak(aiAvatarWidget, '好，我把記憶都清掉了，我們重新認識吧！');
       return;
     }
-    aiAvatarWidget.MEM.captureName(text);
-    aiAvatarWidget.MEM.addTurn('user', text);
+    aiAvatarWidget.brain.MEM.captureName(text);
+    aiAvatarWidget.brain.MEM.addTurn('user', text);
   }
 
   // aiAvatarWidget.isSpeaking = true;
@@ -1979,7 +1789,7 @@ function startListening(aiAvatarWidget = null) {
           !aiAvatarWidget.speechPlaying &&
           !handleUser._busy
         ) {
-          startListening();
+          startListening(aiAvatarWidget);
         }
       }, 350);
     }
@@ -2029,24 +1839,24 @@ function onTap(aiAvatarWidget = null) {
   if (typeof aiAvatarWidget.greeting === 'function') {
     greeting = aiAvatarWidget.greeting(
       {
-        isCompanion: aiAvatarWidget.MEM.isCompanion,
-        visits: aiAvatarWidget.MEM.data.visits,
-        name: aiAvatarWidget.MEM.data.name
+        isCompanion: aiAvatarWidget.brain.MEM.isCompanion,
+        visits: aiAvatarWidget.brain.MEM.data.visits,
+        name: aiAvatarWidget.brain.MEM.data.name
       },
       aiAvatarWidget
     );
   } else if (aiAvatarWidget.avatarMode === AVATAR_MODE_MAP.companion) {
     greeting =
-      (aiAvatarWidget.MEM.data.name
-        ? aiAvatarWidget.MEM.data.name + '～'
+      (aiAvatarWidget.brain.MEM.data.name
+        ? aiAvatarWidget.brain.MEM.data.name + '～'
         : '你好～') + '想聊什麼都可以，點 💬 我們就開始！';
 
     if (typeof aiAvatarWidget.companionGreeting === 'function') {
       greeting = aiAvatarWidget.companionGreeting(
         {
-          isCompanion: aiAvatarWidget.MEM.isCompanion,
-          visits: aiAvatarWidget.MEM.data.visits,
-          name: aiAvatarWidget.MEM.data.name
+          isCompanion: aiAvatarWidget.brain.MEM.isCompanion,
+          visits: aiAvatarWidget.brain.MEM.data.visits,
+          name: aiAvatarWidget.brain.MEM.data.name
         },
         aiAvatarWidget
       );
@@ -2060,9 +1870,9 @@ function onTap(aiAvatarWidget = null) {
     if (typeof aiAvatarWidget.assistantGreeting === 'function') {
       greeting = aiAvatarWidget.assistantGreeting(
         {
-          isCompanion: aiAvatarWidget.MEM.isCompanion,
-          visits: aiAvatarWidget.MEM.data.visits,
-          name: aiAvatarWidget.MEM.data.name
+          isCompanion: aiAvatarWidget.brain.MEM.isCompanion,
+          visits: aiAvatarWidget.brain.MEM.data.visits,
+          name: aiAvatarWidget.brain.MEM.data.name
         },
         aiAvatarWidget
       );
@@ -2084,29 +1894,29 @@ async function initOllama(aiAvatarWidget = null) {
     return;
   }
 
-  if (aiAvatarWidget.OLLAMA?.enabled !== true) {
+  if (aiAvatarWidget.brain.OLLAMA?.enabled !== true) {
     return;
   }
 
   const btnLlm = aiAvatarWidget.uiDom.btnLlmEl;
   if (btnLlm instanceof HTMLElement) {
     btnLlm.textContent = '🧠…';
-    btnLlm.title = '本機 Ollama 大腦（連線中）';
+    btnLlm.title = 'Ollama 伺服器大腦（連線中）';
   }
-  const ok = await aiAvatarWidget.OLLAMA.ping();
+  const ok = await aiAvatarWidget.brain.OLLAMA.ping();
   if (btnLlm instanceof HTMLElement) {
     btnLlm.textContent = ok ? '🧠本機' : '🧠✗';
     btnLlm.classList.toggle('llm-on', ok);
     btnLlm.setAttribute('aria-pressed', String(ok));
     btnLlm.title = ok
-      ? '本機 Ollama：已連線 ' + aiAvatarWidget.OLLAMA.model
-      : '本機 Ollama 連不上（檢查 Ollama 是否在跑 / CORS）';
+      ? 'Ollama 伺服器：已連線 ' + aiAvatarWidget.brain.OLLAMA.model
+      : 'Ollama 伺服器連不上（檢查 Ollama 是否在跑 / CORS）';
   }
   if (ok === true) {
     setTimeout(() => {
       aiAvatarWidget.speakingLabel =
-        '已接上本機 AI 大腦（' +
-        aiAvatarWidget.OLLAMA.model +
+        '已接上 Ollama 伺服器大腦（' +
+        aiAvatarWidget.brain.OLLAMA.model +
         '）🧠 問我問題吧！';
     }, 1300);
   }
@@ -2126,11 +1936,11 @@ export async function initAvatarBot(optiopns = {}) {
     modelUrl = '',
     ttsEndpoint = DEFAULT_TTS_ENDPOINT, // 沒設→試同站相對路徑；抓不到→自動退回瀏覽器語音（純前端可用）
     llmModel = DEFAULT_LLM_MODEL,
-    avatarMode = DEFALUT_AVATAR_MODE,
+    avatarMode = DEFAULT_AVATAR_MODE,
     knowledge = null,
     companionKnowledge = null,
     startMode = DEFALUT_START_MODE,
-    fitMode = DEFALUT_FIT_MODE,
+    fitMode = DEFAULT_FIT_MODE,
     vrmUrl = '',
     gesture2D = null,
     isMinimal = false,
@@ -2159,12 +1969,13 @@ export async function initAvatarBot(optiopns = {}) {
       : DEFAULT_MALE_MODEL_URL);
 
   const safeGesture2D =
-    gesture2D || (safeModelUrl === DEFAULT_MODEL_URL ? defaultGesture2D : null);
+    gesture2D ||
+    ([DEFAULT_FEMALE_MODEL_URL, DEFAULT_MALE_MODEL_URL].includes(safeModelUrl)
+      ? defaultGesture2D
+      : null);
 
   const safeVrmUrl =
     vrmUrl || (/\.vrm($|\?)/i.test(safeModelUrl) ? safeModelUrl : '');
-
-  console.log({ gender, safeGender, safeNeuralVoice, safeModelUrl });
 
   const stageEl = document.createElement('div');
   stageEl.setAttribute('id', 'stage');
@@ -2308,7 +2119,7 @@ export async function initAvatarBot(optiopns = {}) {
       return DEFAULT_MODEL_URL;
     },
 
-    // ===== 本機 Ollama 大腦（試玩用；只在本機 / localhost 通）=====
+    // ===== Ollama 伺服器 大腦 =====
     // data-ollama 指向 OpenAI 相容端點（如 http://localhost:11434/v1）；data-llmmodel 指定模型名
     get ollamaBase() {
       return ollamaBase;
@@ -2558,7 +2369,7 @@ export async function initAvatarBot(optiopns = {}) {
       }
     },
 
-    _fitMode: fitMode || DEFALUT_FIT_MODE,
+    _fitMode: fitMode || DEFAULT_FIT_MODE,
     get fitMode() {
       return this._fitMode;
     },
@@ -2567,7 +2378,7 @@ export async function initAvatarBot(optiopns = {}) {
         if (Object.values(this.FIT_MODE_MAP).includes(newFitMode)) {
           this._fitMode = newFitMode;
         } else {
-          this._fitMode = DEFALUT_FIT_MODE;
+          this._fitMode = DEFAULT_FIT_MODE;
         }
       }
     },
@@ -2862,7 +2673,7 @@ export async function initAvatarBot(optiopns = {}) {
         this._llmModel = newLlmModel;
       }
     },
-    _avatarMode: avatarMode || DEFALUT_AVATAR_MODE,
+    _avatarMode: avatarMode || DEFAULT_AVATAR_MODE,
     get avatarMode() {
       return this._avatarMode;
     },
@@ -3044,12 +2855,11 @@ export async function initAvatarBot(optiopns = {}) {
     Array.isArray(companionKnowledge) && companionKnowledge.length > 0
       ? companionKnowledge
       : await handleGetKnowledge(aiAvatarWidget.companionKnowledgeUrl);
-  aiAvatarWidget.LLM = initLLM(aiAvatarWidget.llmModel);
-  aiAvatarWidget.MEM = initMEM(aiAvatarWidget.avatarMode);
-  aiAvatarWidget.OLLAMA = initOLLAMA(
-    aiAvatarWidget.ollamaBase,
-    aiAvatarWidget.ollamaModel
-  );
+  aiAvatarWidget.brain = {
+    LLM: initLLM(aiAvatarWidget.llmModel),
+    MEM: initMEM(aiAvatarWidget.avatarMode),
+    OLLAMA: initOLLAMA(aiAvatarWidget.ollamaBase, aiAvatarWidget.ollamaModel)
+  };
 
   if ('speechSynthesis' in window) {
     speechSynthesis.onvoiceschanged = () => {
@@ -3127,35 +2937,40 @@ export async function initAvatarBot(optiopns = {}) {
     const el = event.target;
 
     // 啟用本機 Ollama 模式時：🧠 用來顯示狀態 / 重新連線，不下載 WebLLM
-    if (aiAvatarWidget.OLLAMA?.enabled === true) {
+    if (aiAvatarWidget.brain.OLLAMA?.enabled === true) {
       const ok =
-        aiAvatarWidget.OLLAMA.ready || (await aiAvatarWidget.OLLAMA.ping());
+        aiAvatarWidget.brain.OLLAMA.ready ||
+        (await aiAvatarWidget.brain.OLLAMA.ping());
       el.textContent = ok ? '🧠本機' : '🧠✗';
       el.classList.toggle('llm-on', ok);
       el.setAttribute('aria-pressed', String(ok));
       aiAvatarWidget.speakingLabel = ok
-        ? '本機 AI 大腦運作中（' + aiAvatarWidget.OLLAMA.model + '）🧠'
-        : '本機 Ollama 連不上：確認 Ollama 在跑、且 OLLAMA_ORIGINS 已允許這個網站。';
+        ? 'Ollama 伺服器 AI 大腦運作中（' +
+          aiAvatarWidget.brain.OLLAMA.model +
+          '）🧠'
+        : 'Ollama 伺服器連不上：確認 Ollama 在跑、且 OLLAMA_ORIGINS 已允許這個網站。';
 
       return;
     }
-    if (aiAvatarWidget.LLM?.supported !== true) {
+    if (aiAvatarWidget.brain.LLM?.supported !== true) {
       aiAvatarWidget.speakingLabel =
         '這個裝置不支援 WebGPU，先用知識庫模式就好（功能一樣可用）。';
       return;
     }
-    if (aiAvatarWidget.LLM?.state === STATE_MAP.READY) {
+    if (aiAvatarWidget.brain.LLM?.state === STATE_MAP.READY) {
       aiAvatarWidget.speakingLabel = 'AI 大腦已啟用，問我問題吧 🧠';
       return;
-    } else if (aiAvatarWidget.LLM?.state === STATE_MAP.LOADING) {
+    } else if (aiAvatarWidget.brain.LLM?.state === STATE_MAP.LOADING) {
       aiAvatarWidget.speakingLabel =
-        'AI 大腦載入中… ' + Math.round(aiAvatarWidget.LLM.progress * 100) + '%';
+        'AI 大腦載入中… ' +
+        Math.round(aiAvatarWidget.brain.LLM.progress * 100) +
+        '%';
       return;
     }
 
     aiAvatarWidget.speakingLabel = '開始下載 AI 大腦（約 1GB，只需第一次）…';
     try {
-      await aiAvatarWidget.LLM.load((p) => {
+      await aiAvatarWidget.brain.LLM.load((p) => {
         el.textContent = '🧠 ' + Math.round((p.progress || 0) * 100) + '%';
       });
       el.textContent = '🧠✓';
