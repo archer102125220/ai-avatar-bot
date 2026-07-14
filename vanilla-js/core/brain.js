@@ -109,14 +109,11 @@ export function initLLM(llmModel = DEFAULT_LLM_MODEL) {
 }
 
 // brain.js
-export function initOLLAMA(
-  ollamaBase = '',
-  ollamaModel = DEFAULT_OLLAMA_MODEL
-) {
+export function initOLLAMA(ollamaUrl = '', ollamaModel = DEFAULT_OLLAMA_MODEL) {
   const OLLAMA = {
-    base: ollamaBase,
+    base: ollamaUrl,
     model: ollamaModel || DEFAULT_OLLAMA_MODEL,
-    enabled: !!ollamaBase,
+    enabled: !!ollamaUrl,
     ready: false,
     async ping() {
       if (!this.enabled) {
@@ -215,4 +212,11 @@ export function initMEM(avatarMode) {
   return MEM;
 }
 
-export function initBrainEngine() {}
+export function initBrainEngine(seting = {}) {
+  const brain = {
+    LLM: initLLM(seting.llmModel),
+    MEM: initMEM(seting.avatarMode),
+    OLLAMA: initOLLAMA(seting.ollamaUrl, seting.ollamaModel)
+  };
+  return brain;
+}

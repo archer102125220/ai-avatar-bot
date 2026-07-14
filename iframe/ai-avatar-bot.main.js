@@ -122,11 +122,11 @@ function initLLM(llmModel = DEFAULT_LLM_MODEL) {
 
   return LLM;
 }
-function initOLLAMA(ollamaBase = '', ollamaModel = DEFAULT_OLLAMA_MODEL) {
+function initOLLAMA(ollamaUrl = '', ollamaModel = DEFAULT_OLLAMA_MODEL) {
   const OLLAMA = {
-    base: ollamaBase,
+    base: ollamaUrl,
     model: ollamaModel || DEFAULT_OLLAMA_MODEL,
-    enabled: !!ollamaBase,
+    enabled: !!ollamaUrl,
     ready: false,
     async ping() {
       if (!this.enabled) {
@@ -2009,7 +2009,7 @@ async function initOllama(aiAvatarWidget = null) {
 async function initAiAvatarWidget(optiopns = {}) {
   const {
     container = null,
-    ollamaBase = '',
+    ollamaUrl = '',
     ollamaModel = DEFAULT_OLLAMA_MODEL,
     neuralVoice = DEFAULT_NEURAL_VOICE,
     knowledgeUrl = '',
@@ -2192,8 +2192,8 @@ async function initAiAvatarWidget(optiopns = {}) {
 
     // ===== 本機 Ollama 大腦（試玩用；只在本機 / localhost 通）=====
     // data-ollama 指向 OpenAI 相容端點（如 http://localhost:11434/v1）；data-llmmodel 指定模型名
-    get ollamaBase() {
-      return ollamaBase;
+    get ollamaUrl() {
+      return ollamaUrl;
     },
 
     get container() {
@@ -2907,7 +2907,7 @@ async function initAiAvatarWidget(optiopns = {}) {
   aiAvatarWidget.LLM = initLLM(aiAvatarWidget.llmModel);
   aiAvatarWidget.MEM = initMEM(aiAvatarWidget.avatarMode);
   aiAvatarWidget.OLLAMA = initOLLAMA(
-    aiAvatarWidget.ollamaBase,
+    aiAvatarWidget.ollamaUrl,
     aiAvatarWidget.ollamaModel
   );
 

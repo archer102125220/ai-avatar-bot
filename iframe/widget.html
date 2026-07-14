@@ -178,7 +178,7 @@
           knowledge: window.KNOWLEDGE,
           companionKnowledge: window.COMPANION_KNOWLEDGE,
           knowledgeUrl: routeQuery.get('knowledge') || '',
-          ollamaBase: (routeQuery.get('ollama') || '').replace(/\/+$/, ''),
+          ollamaUrl: (routeQuery.get('ollama') || '').replace(/\/+$/, ''),
           ollamaModel: routeQuery.get('llmmodel') || DEFAULT_OLLAMA_MODEL,
           neuralVoice: routeQuery.get('voice') || DEFAULT_NEURAL_VOICE,
           startMode: routeQuery.get('engine') || DEFALUT_START_MODE,
