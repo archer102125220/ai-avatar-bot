@@ -233,7 +233,7 @@ function handleThinking(aiAvatarWidget = null, rawQuestion) {
 }
 
 // brain.js
-async function aIProviderLLMBrain(aiAvatarWidget = null, question) {
+async function aiProviderLLMBrain(aiAvatarWidget = null, question) {
   try {
     aiAvatarWidget.speakingLabel = '讓我想想…';
 
@@ -1643,7 +1643,7 @@ async function handleAnswer(aiAvatarWidget = null, question) {
       aiAvatarWidget.brainEngine.AI_PROVIDER?.enabled &&
       aiAvatarWidget.brainEngine.AI_PROVIDER.ready
     ) {
-      return await aIProviderLLMBrain(aiAvatarWidget, question);
+      return await aiProviderLLMBrain(aiAvatarWidget, question);
     }
     // 2) 瀏覽器內 WebLLM：串流 → 每切出一個完整句就丟進逐句佇列開講（首句延遲大幅縮短）
     if (
@@ -2242,7 +2242,7 @@ export async function initAvatarBot(optiopns = {}) {
 
   const {
     container = null,
-    aIProviderUrl = '',
+    aiProviderUrl = '',
     aiProviderModel = DEFAULT_AI_PROVIDER_MODEL,
     neuralVoice = '',
     knowledgeUrl = '',
@@ -2305,7 +2305,7 @@ export async function initAvatarBot(optiopns = {}) {
   const brainEngine = initBrainEngine({
     llmModel,
     avatarMode,
-    aIProviderUrl,
+    aiProviderUrl,
     aiProviderModel
   });
 
@@ -2335,9 +2335,9 @@ export async function initAvatarBot(optiopns = {}) {
     },
 
     // ===== Ollama 伺服器 大腦 =====
-    // data-aIProvider 指向 OpenAI 相容端點（如 http://localhost:11434/v1）；data-llmmodel 指定模型名
-    get aIProviderUrl() {
-      return aIProviderUrl;
+    // data-ai-provider 指向 OpenAI 相容端點（如 http://localhost:11434/v1）；data-llmmodel 指定模型名
+    get aiProviderUrl() {
+      return aiProviderUrl;
     },
 
     get container() {

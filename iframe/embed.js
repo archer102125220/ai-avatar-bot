@@ -53,7 +53,7 @@
     'api',
     'knowledge',
     'voice',
-    'aIProvider',
+    'ai-provider',
     'llmmodel',
     'fit',
     'mode'

@@ -222,7 +222,7 @@
           knowledge: window.KNOWLEDGE,
           companionKnowledge: window.COMPANION_KNOWLEDGE,
           knowledgeUrl: routeQuery.get("knowledge") || "",
-          aIProviderUrl: (routeQuery.get("aIProvider") || "").replace(/\/+$/, ""),
+          aiProviderUrl: (routeQuery.get("aiProvider") || "").replace(/\/+$/, ""),
           aiProviderModel: routeQuery.get("llmmodel") || DEFAULT_AI_PROVIDER_MODEL,
           neuralVoice: routeQuery.get("voice") || DEFAULT_NEURAL_VOICE,
           startMode: routeQuery.get("engine") || DEFALUT_START_MODE,
