@@ -1,63 +1,66 @@
 <!doctype html>
 <html lang="zh-TW">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Avatar Bot - Vanilla JS Test</title>
-    <style>
-      html,
-      body {
-        width: 100%;
-        height: 100%;
-        margin: 0;
-        overflow: hidden;
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Avatar Bot - Vanilla JS Test</title>
+  <style>
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    #app {
+      width: 50%;
+      height: 60%;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script type="module">
+    import {
+      initAvatarBot,
+      GENDER_MAP,
+      AVATAR_MODE_MAP
+    } from './core/index.js';
+    import { KNOWLEDGE, COMPANION_KNOWLEDGE } from './example/knowledge.js';
+
+    const app = document.getElementById('app');
+    window.aiAvatarWidget = await initAvatarBot({
+      container: app,
+      // llmModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 中文不錯、約 1.1GB、首次下載後會被快取
+      llmModel: 'gemma-2-2b-it-q4f32_1-MLC', // Google 公開模型
+      // aiProviderModel: 'qwen2.5:latest',
+      // aiProviderModel: 'gemma4:latest',
+      // aiProviderBaseUrl: 'http://localhost:11434/v1',
+      knowledge: KNOWLEDGE,
+      companionKnowledge: COMPANION_KNOWLEDGE,
+      gender: GENDER_MAP.male,
+      // avatarMode: AVATAR_MODE_MAP.companion,
+      // avatarMode: AVATAR_MODE_MAP.assistant,
+
+      onReady(aiAvatar) {
+        // 應在優化，作為參數的一部分傳遞歡迎詞
+        /* 之後可在這觸發歡迎語 */
+        // aiAvatar.speak("hello");
+      },
+      onSpeaking(text, aiAvatar) {
+        // postToParent(aiAvatar, "speaking", { text });
+      },
+      onMinimalTrigger(newIsMinimal, aiAvatar) {
+        // postToParent(aiAvatar, "close");
+      },
+      onError(error) {
+        console.warn('[avatar] widget error:', error);
       }
+    });
+  </script>
+</body>
 
-      #app {
-        width: 50%;
-        height: 60%;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module">
-      import {
-        initAvatarBot,
-        GENDER_MAP,
-        AVATAR_MODE_MAP
-      } from './core/index.js';
-      import { KNOWLEDGE, COMPANION_KNOWLEDGE } from './example/knowledge.js';
-
-      const app = document.getElementById('app');
-      window.aiAvatarWidget = await initAvatarBot({
-        container: app,
-        // llmModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 中文不錯、約 1.1GB、首次下載後會被快取
-        llmModel: 'gemma-2-2b-it-q4f32_1-MLC', // Google 公開模型
-        // aiProviderModel: 'qwen2.5:latest',
-        // aiProviderModel: 'gemma4:latest',
-        // aiProviderUrl: 'http://localhost:11434/v1',
-        knowledge: KNOWLEDGE,
-        companionKnowledge: COMPANION_KNOWLEDGE,
-        gender: GENDER_MAP.male,
-        // avatarMode: AVATAR_MODE_MAP.companion,
-        // avatarMode: AVATAR_MODE_MAP.assistant,
-
-        onReady(aiAvatar) {
-          // 應在優化，作為參數的一部分傳遞歡迎詞
-          /* 之後可在這觸發歡迎語 */
-          // aiAvatar.speak("hello");
-        },
-        onSpeaking(text, aiAvatar) {
-          // postToParent(aiAvatar, "speaking", { text });
-        },
-        onMinimalTrigger(newIsMinimal, aiAvatar) {
-          // postToParent(aiAvatar, "close");
-        },
-        onError(error) {
-          console.warn('[avatar] widget error:', error);
-        }
-      });
-    </script>
-  </body>
 </html>

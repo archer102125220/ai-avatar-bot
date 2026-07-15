@@ -42,7 +42,7 @@ export function initLLM(llmModel = DEFAULT_LLM_MODEL) {
   let engine = null;
   let loadingPromise = null;
 
-  const LLM = {
+  const llm = {
     supported: 'gpu' in navigator,
     state: STATE_MAP.IDLE, // idle | loading | ready | error
     progress: 0,
@@ -105,7 +105,7 @@ export function initLLM(llmModel = DEFAULT_LLM_MODEL) {
     }
   };
 
-  return LLM;
+  return llm;
 }
 
 // brain.js
@@ -120,7 +120,7 @@ export function initAIProvider(setting = {}) {
     providerResponesFormat = null
   } = setting;
 
-  const AI_PROVIDER = {
+  const aiProvider = {
     base: providerBaseUrl,
     pingUrl: providerPingUrl,
     chatUrl: providerChatUrl,
@@ -203,23 +203,23 @@ export function initAIProvider(setting = {}) {
     }
   };
   if (typeof providerCreatedFetchSetting === 'function') {
-    AI_PROVIDER.createdFetchSetting =
-      providerCreatedFetchSetting.bind(AI_PROVIDER);
+    aiProvider.createdFetchSetting =
+      providerCreatedFetchSetting.bind(aiProvider);
   }
   if (typeof providerCreatedFetchPayload === 'function') {
-    AI_PROVIDER.createdFetchPayload =
-      providerCreatedFetchPayload.bind(AI_PROVIDER);
+    aiProvider.createdFetchPayload =
+      providerCreatedFetchPayload.bind(aiProvider);
   }
   if (typeof providerResponesFormat === 'function') {
-    AI_PROVIDER.responesFormat = providerResponesFormat.bind(AI_PROVIDER);
+    aiProvider.responesFormat = providerResponesFormat.bind(aiProvider);
   }
-  return AI_PROVIDER;
+  return aiProvider;
 }
 
 // brain.js
 export function initMEM(avatarMode) {
   // 記憶（陪伴模式限定）：只存訪客自己瀏覽器的 localStorage，零後端、不上傳；說「忘記我」即清除
-  const MEM = {
+  const mem = {
     key: 'avatar-widget-mem',
     // on: avatarMode === AVATAR_MODE_MAP.companion,
     isCompanion: avatarMode === AVATAR_MODE_MAP.companion,
@@ -275,9 +275,9 @@ export function initMEM(avatarMode) {
       } catch (_error) {}
     }
   };
-  MEM.load();
+  mem.load();
 
-  return MEM;
+  return mem;
 }
 
 export function initBrainEngine(seting = {}) {
@@ -291,9 +291,9 @@ export function initBrainEngine(seting = {}) {
     aiProviderPingUrl,
     aiProviderChatUrl
   } = seting;
-  const LLM = initLLM(llmModel);
-  const MEM = initMEM(avatarMode);
-  const AI_PROVIDER = initAIProvider({
+  const llm = initLLM(llmModel);
+  const mem = initMEM(avatarMode);
+  const aiProvider = initAIProvider({
     providerModel: aiProviderModel,
     providerCreatedFetchSetting: aiProviderCreatedFetchSetting,
     providerCreatedFetchPayload: aiProviderCreatedFetchPayload,
@@ -303,14 +303,14 @@ export function initBrainEngine(seting = {}) {
   });
 
   const brain = {
-    get LLM() {
-      return LLM;
+    get llm() {
+      return llm;
     },
-    get MEM() {
-      return MEM;
+    get mem() {
+      return mem;
     },
-    get AI_PROVIDER() {
-      return AI_PROVIDER;
+    get aiProvider() {
+      return aiProvider;
     }
   };
 
