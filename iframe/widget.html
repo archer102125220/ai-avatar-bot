@@ -178,8 +178,12 @@
           knowledge: window.KNOWLEDGE,
           companionKnowledge: window.COMPANION_KNOWLEDGE,
           knowledgeUrl: routeQuery.get('knowledge') || '',
-          ollamaUrl: (routeQuery.get('ollama') || '').replace(/\/+$/, ''),
-          ollamaModel: routeQuery.get('llmmodel') || DEFAULT_OLLAMA_MODEL,
+          aIProviderUrl: (routeQuery.get('aIProvider') || '').replace(
+            /\/+$/,
+            ''
+          ),
+          aiProviderModel:
+            routeQuery.get('llmmodel') || DEFAULT_AI_PROVIDER_MODEL,
           neuralVoice: routeQuery.get('voice') || DEFAULT_NEURAL_VOICE,
           startMode: routeQuery.get('engine') || DEFALUT_START_MODE,
           fitMode: routeQuery.get('fit') || DEFAULT_FIT_MODE,

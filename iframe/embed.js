@@ -53,7 +53,7 @@
     'api',
     'knowledge',
     'voice',
-    'ollama',
+    'aIProvider',
     'llmmodel',
     'fit',
     'mode'

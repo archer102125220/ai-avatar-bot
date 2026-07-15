@@ -2,7 +2,7 @@ import {
   AVATAR_MODE_MAP,
   DEFAULT_AVATAR_MODE,
   DEFAULT_LLM_MODEL,
-  DEFAULT_OLLAMA_MODEL,
+  DEFAULT_AI_PROVIDER_MODEL,
   STATE_MAP,
   handleGetKnowledge,
   initBrainEngine
@@ -51,7 +51,7 @@ export {
   STATE_MAP,
   AVATAR_MODE_MAP,
   DEFAULT_LLM_MODEL,
-  DEFAULT_OLLAMA_MODEL,
+  DEFAULT_AI_PROVIDER_MODEL,
   ENGINE_MODE_MAP,
   FIT_MODE_MAP,
   DEFALUT_START_MODE,
@@ -233,13 +233,13 @@ function handleThinking(aiAvatarWidget = null, rawQuestion) {
 }
 
 // brain.js
-async function ollamaLLMBrain(aiAvatarWidget = null, question) {
+async function aIProviderLLMBrain(aiAvatarWidget = null, question) {
   try {
     aiAvatarWidget.speakingLabel = '讓我想想…';
 
     handleGesture(aiAvatarWidget, 'thinking');
 
-    const out = await aiAvatarWidget.brainEngine.OLLAMA.chat(
+    const out = await aiAvatarWidget.brainEngine.AI_PROVIDER.chat(
       aiAvatarWidget.buildLLMMessages(aiAvatarWidget, question)
     );
     if (out.trim?.()) {
@@ -247,7 +247,7 @@ async function ollamaLLMBrain(aiAvatarWidget = null, question) {
     }
   } catch (e) {
     console.warn('Ollama error', e);
-    aiAvatarWidget.brainEngine.OLLAMA.ready = false;
+    aiAvatarWidget.brainEngine.AI_PROVIDER.ready = false;
   }
   throw new Error(
     `Ollama did not return a string or returned an empty string: ${out}`
@@ -1640,10 +1640,10 @@ async function handleAnswer(aiAvatarWidget = null, question) {
   try {
     // 1) Ollama 伺服器大腦（最聰明，優先；整段生成後逐句講）
     if (
-      aiAvatarWidget.brainEngine.OLLAMA?.enabled &&
-      aiAvatarWidget.brainEngine.OLLAMA.ready
+      aiAvatarWidget.brainEngine.AI_PROVIDER?.enabled &&
+      aiAvatarWidget.brainEngine.AI_PROVIDER.ready
     ) {
-      return await ollamaLLMBrain(aiAvatarWidget, question);
+      return await aIProviderLLMBrain(aiAvatarWidget, question);
     }
     // 2) 瀏覽器內 WebLLM：串流 → 每切出一個完整句就丟進逐句佇列開講（首句延遲大幅縮短）
     if (
@@ -1907,7 +1907,7 @@ async function initOllama(aiAvatarWidget = null) {
     return;
   }
 
-  if (aiAvatarWidget.brainEngine.OLLAMA?.enabled !== true) {
+  if (aiAvatarWidget.brainEngine.AI_PROVIDER?.enabled !== true) {
     return;
   }
 
@@ -1916,20 +1916,20 @@ async function initOllama(aiAvatarWidget = null) {
     btnLlm.textContent = '🧠…';
     btnLlm.title = 'Ollama 伺服器大腦（連線中）';
   }
-  const ok = await aiAvatarWidget.brainEngine.OLLAMA.ping();
+  const ok = await aiAvatarWidget.brainEngine.AI_PROVIDER.ping();
   if (btnLlm instanceof HTMLElement) {
     btnLlm.textContent = ok ? '🧠本機' : '🧠✗';
     btnLlm.classList.toggle('llm-on', ok);
     btnLlm.setAttribute('aria-pressed', String(ok));
     btnLlm.title = ok
-      ? 'Ollama 伺服器：已連線 ' + aiAvatarWidget.brainEngine.OLLAMA.model
+      ? 'Ollama 伺服器：已連線 ' + aiAvatarWidget.brainEngine.AI_PROVIDER.model
       : 'Ollama 伺服器連不上（檢查 Ollama 是否在跑 / CORS）';
   }
   if (ok === true) {
     setTimeout(() => {
       aiAvatarWidget.speakingLabel =
         '已接上 Ollama 伺服器大腦（' +
-        aiAvatarWidget.brainEngine.OLLAMA.model +
+        aiAvatarWidget.brainEngine.AI_PROVIDER.model +
         '）🧠 問我問題吧！';
     }, 1300);
   }
@@ -1941,8 +1941,8 @@ export async function initAvatarBot(optiopns = {}) {
 
   const {
     container = null,
-    ollamaUrl = '',
-    ollamaModel = DEFAULT_OLLAMA_MODEL,
+    aIProviderUrl = '',
+    aiProviderModel = DEFAULT_AI_PROVIDER_MODEL,
     neuralVoice = '',
     knowledgeUrl = '',
     companionKnowledgeUrl = '',
@@ -2142,9 +2142,9 @@ export async function initAvatarBot(optiopns = {}) {
     },
 
     // ===== Ollama 伺服器 大腦 =====
-    // data-ollama 指向 OpenAI 相容端點（如 http://localhost:11434/v1）；data-llmmodel 指定模型名
-    get ollamaUrl() {
-      return ollamaUrl;
+    // data-aIProvider 指向 OpenAI 相容端點（如 http://localhost:11434/v1）；data-llmmodel 指定模型名
+    get aIProviderUrl() {
+      return aIProviderUrl;
     },
 
     get container() {
@@ -2227,13 +2227,13 @@ export async function initAvatarBot(optiopns = {}) {
     // ①情緒表情狀態：speak 時從文字判斷 → 3D 表情 preset 慢慢 ease 進、講完 ease 回中性（2D 模型表情規格不一，先不套）
     emo: { name: 'neutral', target: 0, weight: 0, applied: '' },
 
-    _ollamaModel: ollamaModel || DEFAULT_OLLAMA_MODEL,
-    get ollamaModel() {
-      return this._ollamaModel;
+    _aiProviderModel: aiProviderModel || DEFAULT_AI_PROVIDER_MODEL,
+    get aiProviderModel() {
+      return this._aiProviderModel;
     },
-    set ollamaModel(newOllamaModel) {
+    set aiProviderModel(newOllamaModel) {
       if (typeof newOllamaModel === 'string' || newOllamaModel === null) {
-        this._ollamaModel = newOllamaModel;
+        this._aiProviderModel = newOllamaModel;
       }
     },
 
@@ -2736,8 +2736,8 @@ export async function initAvatarBot(optiopns = {}) {
       return initBrainEngine({
         llmModel: this.llmModel,
         avatarMode: this.avatarMode,
-        ollamaUrl: this.ollamaUrl,
-        ollamaModel: this.ollamaModel
+        aIProviderUrl: this.aIProviderUrl,
+        aiProviderModel: this.aiProviderModel
       });
     },
 
@@ -2918,18 +2918,18 @@ export async function initAvatarBot(optiopns = {}) {
     const el = event.target;
 
     // 啟用本機 Ollama 模式時：🧠 用來顯示狀態 / 重新連線，不下載 WebLLM
-    if (aiAvatarWidget.brainEngine.OLLAMA?.enabled === true) {
+    if (aiAvatarWidget.brainEngine.AI_PROVIDER?.enabled === true) {
       const ok =
-        aiAvatarWidget.brainEngine.OLLAMA.ready ||
-        (await aiAvatarWidget.brainEngine.OLLAMA.ping());
+        aiAvatarWidget.brainEngine.AI_PROVIDER.ready ||
+        (await aiAvatarWidget.brainEngine.AI_PROVIDER.ping());
       el.textContent = ok ? '🧠本機' : '🧠✗';
       el.classList.toggle('llm-on', ok);
       el.setAttribute('aria-pressed', String(ok));
       aiAvatarWidget.speakingLabel = ok
         ? 'Ollama 伺服器 AI 大腦運作中（' +
-          aiAvatarWidget.brainEngine.OLLAMA.model +
+          aiAvatarWidget.brainEngine.AI_PROVIDER.model +
           '）🧠'
-        : 'Ollama 伺服器連不上：確認 Ollama 在跑、且 OLLAMA_ORIGINS 已允許這個網站。';
+        : 'Ollama 伺服器連不上：確認 Ollama 在跑、且 AI_PROVIDER_ORIGINS 已允許這個網站。';
 
       return;
     }

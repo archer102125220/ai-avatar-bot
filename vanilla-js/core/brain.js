@@ -14,7 +14,7 @@ export const DEFAULT_AVATAR_MODE = AVATAR_MODE_MAP.assistant;
 
 // brain.js
 export const DEFAULT_LLM_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
-export const DEFAULT_OLLAMA_MODEL = 'qwen2.5:latest';
+export const DEFAULT_AI_PROVIDER_MODEL = 'qwen2.5:latest';
 
 // brain.js
 export async function handleGetKnowledge(knowledgeUrl = '') {
@@ -109,20 +109,31 @@ export function initLLM(llmModel = DEFAULT_LLM_MODEL) {
 }
 
 // brain.js
-export function initOLLAMA(ollamaUrl = '', ollamaModel = DEFAULT_OLLAMA_MODEL) {
-  const OLLAMA = {
-    base: ollamaUrl,
-    model: ollamaModel || DEFAULT_OLLAMA_MODEL,
-    enabled: !!ollamaUrl,
+export function initAIProvider(setting = {}) {
+  const {
+    providerBaseUrl = '',
+    providerPingUrl = '',
+    providerChatUrl = '',
+    providerModel = DEFAULT_AI_PROVIDER_MODEL,
+    providerCreatedFetchSetting = null,
+    providerCreatedFetchPayload = null,
+    providerResponesFormat = null
+  } = setting;
+
+  const AI_PROVIDER = {
+    base: providerBaseUrl,
+    pingUrl: providerPingUrl,
+    chatUrl: providerChatUrl,
+
+    model: providerModel || DEFAULT_AI_PROVIDER_MODEL,
+    enabled: !!providerBaseUrl,
     ready: false,
     async ping() {
       if (!this.enabled) {
         return false;
       }
       try {
-        const response = await fetch(
-          this.base.replace(/\/v1$/, '') + '/api/tags'
-        );
+        const response = await fetch(this.base + (this.pingUrl || '/api/tags'));
         this.ready = response.ok;
         return response.ok;
       } catch (_error) {
@@ -131,25 +142,78 @@ export function initOLLAMA(ollamaUrl = '', ollamaModel = DEFAULT_OLLAMA_MODEL) {
       }
     },
     async chat(messages) {
-      const response = await fetch(this.base + '/chat/completions', {
+      const defaultFetchSetting = {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: this.model,
+        headers: { 'Content-Type': 'application/json' }
+      };
+      const defaultPaylaod = {
+        model: this.model,
+        messages,
+        temperature: 0.4,
+        max_tokens: 220,
+        stream: false
+      };
+
+      let fetchSetting = defaultFetchSetting;
+
+      if (typeof this.createdFetchSetting === 'function') {
+        const currentFetchSetting = this.createdFetchSetting(
           messages,
-          temperature: 0.4,
-          max_tokens: 220,
-          stream: false
-        })
-      });
-      if (response.ok !== true) {
-        throw new Error('http ' + response.status);
+          defaultFetchSetting
+        );
+        if (typeof currentFetchSetting === 'object') {
+          fetchSetting = currentFetchSetting;
+        }
       }
+
+      if (typeof fetchSetting?.body === 'undefined') {
+        if (typeof this.createdFetchPayload === 'function') {
+          const currentPayload = this.createdFetchPayload(
+            messages,
+            defaultPaylaod,
+            fetchSetting
+          );
+          if (typeof currentPayload !== 'undefined') {
+            fetchSetting.body = currentPayload;
+          }
+        } else {
+          fetchSetting.body = JSON.stringify(defaultPaylaod);
+        }
+      }
+
+      const response = await fetch(
+        this.base + (this.chatUrl || '/chat/completions'),
+        fetchSetting
+      );
+      // if (response.ok !== true) {
+      //   throw new Error('http ' + response.status);
+      // }
+
+      if (typeof this.responesFormat === 'function') {
+        return await this.responesFormat(
+          response,
+          fetchSetting,
+          messages,
+          this
+        );
+      }
+
       const result = await response.json();
       return result?.choices?.[0]?.message?.content;
     }
   };
-  return OLLAMA;
+  if (typeof providerCreatedFetchSetting === 'function') {
+    AI_PROVIDER.createdFetchSetting =
+      providerCreatedFetchSetting.bind(AI_PROVIDER);
+  }
+  if (typeof providerCreatedFetchPayload === 'function') {
+    AI_PROVIDER.createdFetchPayload =
+      providerCreatedFetchPayload.bind(AI_PROVIDER);
+  }
+  if (typeof providerResponesFormat === 'function') {
+    AI_PROVIDER.responesFormat = providerResponesFormat.bind(AI_PROVIDER);
+  }
+  return AI_PROVIDER;
 }
 
 // brain.js
@@ -161,7 +225,9 @@ export function initMEM(avatarMode) {
     isCompanion: avatarMode === AVATAR_MODE_MAP.companion,
     data: { name: '', visits: 0, last: 0, history: [] },
     load() {
-      if (!this.isCompanion) return;
+      if (this.isCompanion === false) {
+        return;
+      }
       try {
         const localData = JSON.parse(localStorage.getItem(this.key) || 'null');
         if (typeof localData === 'object') {
@@ -172,14 +238,16 @@ export function initMEM(avatarMode) {
       this.save();
     },
     save() {
-      if (!this.isCompanion) return;
+      if (this.isCompanion === false) {
+        return;
+      }
       try {
         this.data.last = Date.now();
         localStorage.setItem(this.key, JSON.stringify(this.data));
       } catch (_error) {}
     },
     addTurn(role, content) {
-      if (!this.isCompanion || !content) {
+      if (this.isCompanion === false || !content) {
         return;
       }
       this.data.history.push({ role, content: String(content).slice(0, 200) });
@@ -189,7 +257,7 @@ export function initMEM(avatarMode) {
       this.save();
     },
     captureName(text) {
-      if (!this.isCompanion) {
+      if (this.isCompanion === false) {
         return;
       }
       const m = /(?:我叫|我是|叫我)\s*([^\s，。、,.!！?？的]{1,10})/.exec(
@@ -213,10 +281,29 @@ export function initMEM(avatarMode) {
 }
 
 export function initBrainEngine(seting = {}) {
+  const {
+    llmModel,
+    avatarMode,
+    aiProviderModel,
+    aiProviderCreatedFetchSetting,
+    aiProviderCreatedFetchPayload,
+    aiProviderBaseUrl,
+    aiProviderPingUrl,
+    aiProviderChatUrl
+  } = seting;
+
   const brain = {
-    LLM: initLLM(seting.llmModel),
-    MEM: initMEM(seting.avatarMode),
-    OLLAMA: initOLLAMA(seting.ollamaUrl, seting.ollamaModel)
+    LLM: initLLM(llmModel),
+    MEM: initMEM(avatarMode),
+    AI_PROVIDER: initAIProvider({
+      providerModel: aiProviderModel,
+      providerCreatedFetchSetting: aiProviderCreatedFetchSetting,
+      providerCreatedFetchPayload: aiProviderCreatedFetchPayload,
+      providerBaseUrl: aiProviderBaseUrl,
+      providerPingUrl: aiProviderPingUrl,
+      providerChatUrl: aiProviderChatUrl
+    })
   };
+
   return brain;
 }
