@@ -5,6 +5,14 @@ export function initUi(container) {
     return;
   }
 
+  if (
+    ['relative', 'absolute', 'fixed'].includes(
+      getComputedStyle(container).position
+    ) === false
+  ) {
+    container.style.position = 'relative';
+  }
+
   const stageEl = document.createElement('div');
   stageEl.setAttribute('id', 'stage');
   const bubbleEl = document.createElement('p');
