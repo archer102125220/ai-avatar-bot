@@ -291,18 +291,27 @@ export function initBrainEngine(seting = {}) {
     aiProviderPingUrl,
     aiProviderChatUrl
   } = seting;
+  const LLM = initLLM(llmModel);
+  const MEM = initMEM(avatarMode);
+  const AI_PROVIDER = initAIProvider({
+    providerModel: aiProviderModel,
+    providerCreatedFetchSetting: aiProviderCreatedFetchSetting,
+    providerCreatedFetchPayload: aiProviderCreatedFetchPayload,
+    providerBaseUrl: aiProviderBaseUrl,
+    providerPingUrl: aiProviderPingUrl,
+    providerChatUrl: aiProviderChatUrl
+  });
 
   const brain = {
-    LLM: initLLM(llmModel),
-    MEM: initMEM(avatarMode),
-    AI_PROVIDER: initAIProvider({
-      providerModel: aiProviderModel,
-      providerCreatedFetchSetting: aiProviderCreatedFetchSetting,
-      providerCreatedFetchPayload: aiProviderCreatedFetchPayload,
-      providerBaseUrl: aiProviderBaseUrl,
-      providerPingUrl: aiProviderPingUrl,
-      providerChatUrl: aiProviderChatUrl
-    })
+    get LLM() {
+      return LLM;
+    },
+    get MEM() {
+      return MEM;
+    },
+    get AI_PROVIDER() {
+      return AI_PROVIDER;
+    }
   };
 
   return brain;

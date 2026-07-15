@@ -1935,69 +1935,12 @@ async function initOllama(aiAvatarWidget = null) {
   }
 }
 
-// index.js
-export async function initAvatarBot(optiopns = {}) {
-  if (typeof window !== 'object') return;
-
-  const {
-    container = null,
-    aIProviderUrl = '',
-    aiProviderModel = DEFAULT_AI_PROVIDER_MODEL,
-    neuralVoice = '',
-    knowledgeUrl = '',
-    companionKnowledgeUrl = '',
-    modelUrl = '',
-    ttsEndpoint = DEFAULT_TTS_ENDPOINT, // 沒設→試同站相對路徑；抓不到→自動退回瀏覽器語音（純前端可用）
-    llmModel = DEFAULT_LLM_MODEL,
-    avatarMode = DEFAULT_AVATAR_MODE,
-    knowledge = null,
-    companionKnowledge = null,
-    startMode = DEFALUT_START_MODE,
-    fitMode = DEFAULT_FIT_MODE,
-    vrmUrl = '',
-    gesture2D = null,
-    isMinimal = false,
-    isIframe = false,
-    gender = ''
-  } = optiopns;
-
+// ui.js
+function initUi(container) {
   if (container instanceof HTMLElement === false) {
-    throw new Error('container must be an HTMLElement');
+    console.error('[aiAvatar initUi] container is not an HTMLElement');
+    return;
   }
-
-  const safeGender =
-    gender === GENDER_MAP.female || gender === GENDER_MAP.male
-      ? gender
-      : DEFAULT_GENDER;
-  const safeNeuralVoice =
-    neuralVoice ||
-    (safeGender === GENDER_MAP.female
-      ? DEFAULT_FEMALE_NEURAL_VOICE
-      : DEFAULT_MALE_NEURAL_VOICE);
-
-  const safeModelUrl =
-    modelUrl ||
-    (safeGender === GENDER_MAP.female
-      ? DEFAULT_FEMALE_MODEL_URL
-      : DEFAULT_MALE_MODEL_URL);
-
-  const safeGesture2D =
-    gesture2D ||
-    ([DEFAULT_FEMALE_MODEL_URL, DEFAULT_MALE_MODEL_URL].includes(safeModelUrl)
-      ? defaultGesture2D
-      : null);
-
-  const safeVrmUrl =
-    vrmUrl || (/\.vrm($|\?)/i.test(safeModelUrl) ? safeModelUrl : '');
-
-  const safeKnowledge =
-    Array.isArray(knowledge) && knowledge.length > 0
-      ? knowledge
-      : await handleGetKnowledge(knowledgeUrl);
-  const safeCompanionKnowledge =
-    Array.isArray(companionKnowledge) && companionKnowledge.length > 0
-      ? companionKnowledge
-      : await handleGetKnowledge(companionKnowledgeUrl);
 
   const stageEl = document.createElement('div');
   stageEl.setAttribute('id', 'stage');
@@ -2116,6 +2059,256 @@ export async function initAvatarBot(optiopns = {}) {
   container.appendChild(stageEl);
   container.appendChild(directWarnEl);
 
+  const uiDom = {
+    get stageEl() {
+      return stageEl;
+    },
+    get bubbleEl() {
+      return bubbleEl;
+    },
+    get suggestionsEl() {
+      return suggestionsEl;
+    },
+    get controlBarEl() {
+      return controlBarEl;
+    },
+    get dockRow1El() {
+      return dockRow1El;
+    },
+    get dockRow2El() {
+      return dockRow2El;
+    },
+    get questionInputEl() {
+      return questionInputEl;
+    },
+    get sendButtonEl() {
+      return sendButtonEl;
+    },
+    get micButtonEl() {
+      return micButtonEl;
+    },
+    get engineButtonEl() {
+      return engineButtonEl;
+    },
+    get muteButtonEl() {
+      return muteButtonEl;
+    },
+    get btnLlmEl() {
+      return btnLlmEl;
+    },
+    get speedButtonEl() {
+      return speedButtonEl;
+    },
+    get closeButtonEl() {
+      return closeButtonEl;
+    },
+    get directWarnEl() {
+      return directWarnEl;
+    },
+    get minimalEl() {
+      return minimalEl;
+    }
+  };
+
+  return uiDom;
+}
+
+function bindUiEvent(aiAvatarWidget = null) {
+  const uiDom = aiAvatarWidget?.uiDom || {};
+
+  if (uiDom.minimalEl instanceof HTMLElement) {
+    uiDom.minimalEl.onclick = function () {
+      aiAvatarWidget.isMinimal = false;
+    };
+  }
+
+  // ===== 控制列 =====
+  if (uiDom.closeButtonEl instanceof HTMLElement) {
+    uiDom.closeButtonEl.onclick = () => {
+      if (aiAvatarWidget.isIframe === true) {
+        aiAvatarWidget.onMinimalTrigger(true, aiAvatarWidget);
+      } else {
+        aiAvatarWidget.isMinimal = true;
+      }
+    };
+  }
+
+  if (uiDom.micButtonEl instanceof HTMLElement) {
+    uiDom.micButtonEl.onclick = () => {
+      if (aiAvatarWidget.avatarMode !== 'companion') {
+        startListening(aiAvatarWidget);
+        return;
+      }
+      aiAvatarWidget.convoOn = !aiAvatarWidget.convoOn; // 陪伴模式：一鍵開/關「連續對話」
+      if (aiAvatarWidget.convoOn === true) {
+        aiAvatarWidget.noSpeechRuns = 0;
+        startListening(aiAvatarWidget);
+      } else {
+        try {
+          aiAvatarWidget.recognition && aiAvatarWidget.recognition.stop();
+        } catch (_error) {}
+        setMic(aiAvatarWidget, false);
+        aiAvatarWidget.speakingLabel = '對話先到這～要聊再點 💬';
+      }
+    };
+  }
+
+  if (uiDom.muteButtonEl instanceof HTMLElement) {
+    uiDom.muteButtonEl.onclick = (event) => {
+      const el = event.target;
+      aiAvatarWidget.ttsMuted = !aiAvatarWidget.ttsMuted;
+      el.textContent = aiAvatarWidget.ttsMuted ? '🔇' : '🔊';
+      el.setAttribute('aria-pressed', String(aiAvatarWidget.ttsMuted));
+      if (aiAvatarWidget.ttsMuted === true) {
+        stopSpeaking(aiAvatarWidget); // 立刻停掉正在播的（神經語音 + 瀏覽器語音）
+      }
+      aiAvatarWidget.speakingLabel = aiAvatarWidget.ttsMuted
+        ? '已靜音'
+        : '已開啟語音';
+    };
+  }
+
+  if (uiDom.speedButtonEl instanceof HTMLElement) {
+    uiDom.speedButtonEl.onclick = (event) => {
+      const el = event.target;
+      const steps = [0.9, 1.0, 1.2, 1.4];
+      aiAvatarWidget.ttsRate =
+        steps[(steps.indexOf(aiAvatarWidget.ttsRate) + 1) % steps.length] ||
+        1.0;
+      el.textContent = aiAvatarWidget.ttsRate.toFixed(1) + '×';
+      aiAvatarWidget.speakingLabel =
+        '語速：' + aiAvatarWidget.ttsRate.toFixed(1) + '×';
+    };
+  }
+
+  if (uiDom.btnLlmEl instanceof HTMLElement) {
+    uiDom.btnLlmEl.onclick = async (event) => {
+      const el = event.target;
+
+      // 啟用本機 Ollama 模式時：🧠 用來顯示狀態 / 重新連線，不下載 WebLLM
+      if (aiAvatarWidget.brainEngine.AI_PROVIDER?.enabled === true) {
+        const ok =
+          aiAvatarWidget.brainEngine.AI_PROVIDER.ready ||
+          (await aiAvatarWidget.brainEngine.AI_PROVIDER.ping());
+        el.textContent = ok ? '🧠本機' : '🧠✗';
+        el.classList.toggle('llm-on', ok);
+        el.setAttribute('aria-pressed', String(ok));
+        aiAvatarWidget.speakingLabel = ok
+          ? 'Ollama 伺服器 AI 大腦運作中（' +
+            aiAvatarWidget.brainEngine.AI_PROVIDER.model +
+            '）🧠'
+          : 'Ollama 伺服器連不上：確認 Ollama 在跑、且 AI_PROVIDER_ORIGINS 已允許這個網站。';
+
+        return;
+      }
+      if (aiAvatarWidget.brainEngine.LLM?.supported !== true) {
+        aiAvatarWidget.speakingLabel =
+          '這個裝置不支援 WebGPU，先用知識庫模式就好（功能一樣可用）。';
+        return;
+      }
+      if (aiAvatarWidget.brainEngine.LLM?.state === STATE_MAP.READY) {
+        aiAvatarWidget.speakingLabel = 'AI 大腦已啟用，問我問題吧 🧠';
+        return;
+      } else if (aiAvatarWidget.brainEngine.LLM?.state === STATE_MAP.LOADING) {
+        aiAvatarWidget.speakingLabel =
+          'AI 大腦載入中… ' +
+          Math.round(aiAvatarWidget.brainEngine.LLM.progress * 100) +
+          '%';
+        return;
+      }
+
+      aiAvatarWidget.speakingLabel = '開始下載 AI 大腦（約 1GB，只需第一次）…';
+      try {
+        await aiAvatarWidget.brainEngine.LLM.load((p) => {
+          el.textContent = '🧠 ' + Math.round((p.progress || 0) * 100) + '%';
+        });
+        el.textContent = '🧠✓';
+        el.classList.add('llm-on');
+        speak(aiAvatarWidget, 'AI 大腦啟用完成，現在我可以聊得更自然囉！');
+        aiAvatarWidget.speakingLabel =
+          'AI 大腦啟用完成，現在我可以聊得更自然囉！';
+      } catch (e) {
+        el.textContent = '🧠✗';
+        aiAvatarWidget.speakingLabel =
+          'AI 大腦載入失敗：' + ((e && e.message) || e);
+      }
+    };
+  }
+}
+
+// index.js
+export async function initAvatarBot(optiopns = {}) {
+  if (typeof window !== 'object') return;
+
+  const {
+    container = null,
+    aIProviderUrl = '',
+    aiProviderModel = DEFAULT_AI_PROVIDER_MODEL,
+    neuralVoice = '',
+    knowledgeUrl = '',
+    companionKnowledgeUrl = '',
+    modelUrl = '',
+    ttsEndpoint = DEFAULT_TTS_ENDPOINT, // 沒設→試同站相對路徑；抓不到→自動退回瀏覽器語音（純前端可用）
+    llmModel = DEFAULT_LLM_MODEL,
+    avatarMode = DEFAULT_AVATAR_MODE,
+    knowledge = null,
+    companionKnowledge = null,
+    startMode = DEFALUT_START_MODE,
+    fitMode = DEFAULT_FIT_MODE,
+    vrmUrl = '',
+    gesture2D = null,
+    isMinimal = false,
+    isIframe = false,
+    gender = ''
+  } = optiopns;
+
+  if (container instanceof HTMLElement === false) {
+    throw new Error('container must be an HTMLElement');
+  }
+
+  const safeGender =
+    gender === GENDER_MAP.female || gender === GENDER_MAP.male
+      ? gender
+      : DEFAULT_GENDER;
+  const safeNeuralVoice =
+    neuralVoice ||
+    (safeGender === GENDER_MAP.female
+      ? DEFAULT_FEMALE_NEURAL_VOICE
+      : DEFAULT_MALE_NEURAL_VOICE);
+
+  const safeModelUrl =
+    modelUrl ||
+    (safeGender === GENDER_MAP.female
+      ? DEFAULT_FEMALE_MODEL_URL
+      : DEFAULT_MALE_MODEL_URL);
+
+  const safeGesture2D =
+    gesture2D ||
+    ([DEFAULT_FEMALE_MODEL_URL, DEFAULT_MALE_MODEL_URL].includes(safeModelUrl)
+      ? defaultGesture2D
+      : null);
+
+  const safeVrmUrl =
+    vrmUrl || (/\.vrm($|\?)/i.test(safeModelUrl) ? safeModelUrl : '');
+
+  const safeKnowledge =
+    Array.isArray(knowledge) && knowledge.length > 0
+      ? knowledge
+      : await handleGetKnowledge(knowledgeUrl);
+  const safeCompanionKnowledge =
+    Array.isArray(companionKnowledge) && companionKnowledge.length > 0
+      ? companionKnowledge
+      : await handleGetKnowledge(companionKnowledgeUrl);
+
+  const uiDom = initUi(container);
+
+  const brainEngine = initBrainEngine({
+    llmModel,
+    avatarMode,
+    aIProviderUrl,
+    aiProviderModel
+  });
+
   const aiAvatarWidget = {
     get optiopns() {
       return optiopns;
@@ -2152,56 +2345,7 @@ export async function initAvatarBot(optiopns = {}) {
     },
 
     get uiDom() {
-      return {
-        get stageEl() {
-          return stageEl;
-        },
-        get bubbleEl() {
-          return bubbleEl;
-        },
-        get suggestionsEl() {
-          return suggestionsEl;
-        },
-        get controlBarEl() {
-          return controlBarEl;
-        },
-        get dockRow1El() {
-          return dockRow1El;
-        },
-        get dockRow2El() {
-          return dockRow2El;
-        },
-        get questionInputEl() {
-          return questionInputEl;
-        },
-        get sendButtonEl() {
-          return sendButtonEl;
-        },
-        get micButtonEl() {
-          return micButtonEl;
-        },
-        get engineButtonEl() {
-          return engineButtonEl;
-        },
-        get muteButtonEl() {
-          return muteButtonEl;
-        },
-        get btnLlmEl() {
-          return btnLlmEl;
-        },
-        get speedButtonEl() {
-          return speedButtonEl;
-        },
-        get closeButtonEl() {
-          return closeButtonEl;
-        },
-        get directWarnEl() {
-          return directWarnEl;
-        },
-        get minimalEl() {
-          return minimalEl;
-        }
-      };
+      return uiDom;
     },
 
     get classifyEmotion() {
@@ -2733,12 +2877,7 @@ export async function initAvatarBot(optiopns = {}) {
     },
 
     get brainEngine() {
-      return initBrainEngine({
-        llmModel: this.llmModel,
-        avatarMode: this.avatarMode,
-        aIProviderUrl: this.aIProviderUrl,
-        aiProviderModel: this.aiProviderModel
-      });
+      return brainEngine;
     },
 
     companionFallbackIdx: 0,
@@ -2751,11 +2890,11 @@ export async function initAvatarBot(optiopns = {}) {
       if (typeof newSpeakingLabel === 'string' || newSpeakingLabel === null) {
         this._speakingLabel = newSpeakingLabel;
 
-        bubbleEl.textContent = newSpeakingLabel;
-        bubbleEl.classList.add('show');
+        this.uiDom.bubbleEl.textContent = newSpeakingLabel;
+        this.uiDom.bubbleEl.classList.add('show');
         clearTimeout(this.speakingLabelTimer);
         this.speakingLabelTimer = setTimeout(
-          () => bubbleEl.classList.remove('show'),
+          () => this.uiDom.bubbleEl.classList.remove('show'),
           6000
         );
       }
@@ -2838,10 +2977,11 @@ export async function initAvatarBot(optiopns = {}) {
     aiAvatarWidget.has3D
   );
 
-  minimalEl.onclick = function () {
-    aiAvatarWidget.isMinimal = false;
-  };
+  renderSuggestions(aiAvatarWidget);
+  bindTyping(aiAvatarWidget);
+  setMic(aiAvatarWidget, false); // 依模式套按鈕字樣（🎤 說話 / 💬 對話）
 
+  // voice.js
   if ('speechSynthesis' in window) {
     speechSynthesis.onvoiceschanged = () => {
       aiAvatarWidget.ttVoice = loadVoice(aiAvatarWidget);
@@ -2861,110 +3001,7 @@ export async function initAvatarBot(optiopns = {}) {
       loadVRMFile(aiAvatarWidget, file);
     }
   });
-
-  renderSuggestions(aiAvatarWidget);
-  bindTyping(aiAvatarWidget);
-
-  // ===== 控制列 =====
-  closeButtonEl.onclick = () => {
-    if (aiAvatarWidget.isIframe === true) {
-      aiAvatarWidget.onMinimalTrigger(true, aiAvatarWidget);
-    } else {
-      aiAvatarWidget.isMinimal = true;
-    }
-  };
-
-  micButtonEl.onclick = () => {
-    if (aiAvatarWidget.avatarMode !== 'companion') {
-      startListening(aiAvatarWidget);
-      return;
-    }
-    aiAvatarWidget.convoOn = !aiAvatarWidget.convoOn; // 陪伴模式：一鍵開/關「連續對話」
-    if (aiAvatarWidget.convoOn === true) {
-      aiAvatarWidget.noSpeechRuns = 0;
-      startListening(aiAvatarWidget);
-    } else {
-      try {
-        aiAvatarWidget.recognition && aiAvatarWidget.recognition.stop();
-      } catch (_error) {}
-      setMic(aiAvatarWidget, false);
-      aiAvatarWidget.speakingLabel = '對話先到這～要聊再點 💬';
-    }
-  };
-  setMic(aiAvatarWidget, false); // 依模式套按鈕字樣（🎤 說話 / 💬 對話）
-
-  muteButtonEl.onclick = (event) => {
-    const el = event.target;
-    aiAvatarWidget.ttsMuted = !aiAvatarWidget.ttsMuted;
-    el.textContent = aiAvatarWidget.ttsMuted ? '🔇' : '🔊';
-    el.setAttribute('aria-pressed', String(aiAvatarWidget.ttsMuted));
-    if (aiAvatarWidget.ttsMuted === true) {
-      stopSpeaking(aiAvatarWidget); // 立刻停掉正在播的（神經語音 + 瀏覽器語音）
-    }
-    aiAvatarWidget.speakingLabel = aiAvatarWidget.ttsMuted
-      ? '已靜音'
-      : '已開啟語音';
-  };
-  speedButtonEl.onclick = (event) => {
-    const el = event.target;
-    const steps = [0.9, 1.0, 1.2, 1.4];
-    aiAvatarWidget.ttsRate =
-      steps[(steps.indexOf(aiAvatarWidget.ttsRate) + 1) % steps.length] || 1.0;
-    el.textContent = aiAvatarWidget.ttsRate.toFixed(1) + '×';
-    aiAvatarWidget.speakingLabel =
-      '語速：' + aiAvatarWidget.ttsRate.toFixed(1) + '×';
-  };
-  btnLlmEl.onclick = async (event) => {
-    const el = event.target;
-
-    // 啟用本機 Ollama 模式時：🧠 用來顯示狀態 / 重新連線，不下載 WebLLM
-    if (aiAvatarWidget.brainEngine.AI_PROVIDER?.enabled === true) {
-      const ok =
-        aiAvatarWidget.brainEngine.AI_PROVIDER.ready ||
-        (await aiAvatarWidget.brainEngine.AI_PROVIDER.ping());
-      el.textContent = ok ? '🧠本機' : '🧠✗';
-      el.classList.toggle('llm-on', ok);
-      el.setAttribute('aria-pressed', String(ok));
-      aiAvatarWidget.speakingLabel = ok
-        ? 'Ollama 伺服器 AI 大腦運作中（' +
-          aiAvatarWidget.brainEngine.AI_PROVIDER.model +
-          '）🧠'
-        : 'Ollama 伺服器連不上：確認 Ollama 在跑、且 AI_PROVIDER_ORIGINS 已允許這個網站。';
-
-      return;
-    }
-    if (aiAvatarWidget.brainEngine.LLM?.supported !== true) {
-      aiAvatarWidget.speakingLabel =
-        '這個裝置不支援 WebGPU，先用知識庫模式就好（功能一樣可用）。';
-      return;
-    }
-    if (aiAvatarWidget.brainEngine.LLM?.state === STATE_MAP.READY) {
-      aiAvatarWidget.speakingLabel = 'AI 大腦已啟用，問我問題吧 🧠';
-      return;
-    } else if (aiAvatarWidget.brainEngine.LLM?.state === STATE_MAP.LOADING) {
-      aiAvatarWidget.speakingLabel =
-        'AI 大腦載入中… ' +
-        Math.round(aiAvatarWidget.brainEngine.LLM.progress * 100) +
-        '%';
-      return;
-    }
-
-    aiAvatarWidget.speakingLabel = '開始下載 AI 大腦（約 1GB，只需第一次）…';
-    try {
-      await aiAvatarWidget.brainEngine.LLM.load((p) => {
-        el.textContent = '🧠 ' + Math.round((p.progress || 0) * 100) + '%';
-      });
-      el.textContent = '🧠✓';
-      el.classList.add('llm-on');
-      speak(aiAvatarWidget, 'AI 大腦啟用完成，現在我可以聊得更自然囉！');
-      aiAvatarWidget.speakingLabel =
-        'AI 大腦啟用完成，現在我可以聊得更自然囉！';
-    } catch (e) {
-      el.textContent = '🧠✗';
-      aiAvatarWidget.speakingLabel =
-        'AI 大腦載入失敗：' + ((e && e.message) || e);
-    }
-  };
+  bindUiEvent(aiAvatarWidget);
 
   await initOllama(aiAvatarWidget);
 
