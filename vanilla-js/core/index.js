@@ -1913,12 +1913,17 @@ async function initOllama(aiAvatarWidget = null) {
     return;
   }
 
+  // aiAvatarWidget.brainEngine.connecting = true;
   const btnLlm = aiAvatarWidget.uiDom.btnLlmEl;
   if (btnLlm instanceof HTMLElement) {
     btnLlm.textContent = '🧠…';
     btnLlm.title = 'Ollama 伺服器大腦（連線中）';
   }
   const ok = await aiAvatarWidget.brainEngine.aiProvider.ping();
+
+  // aiAvatarWidget.brainEngine.connecting = false;
+  // aiAvatarWidget.brainEngine.connected = ok;
+
   if (btnLlm instanceof HTMLElement) {
     btnLlm.textContent = ok ? '🧠本機' : '🧠✗';
     btnLlm.classList.toggle('llm-on', ok);

@@ -38,7 +38,7 @@ export async function handleGetKnowledge(knowledgeUrl = '') {
 }
 
 // brain.js
-export function initLLM(llmModel = DEFAULT_LLM_MODEL) {
+export function initLLM(llmModel = DEFAULT_LLM_MODEL, brain) {
   let engine = null;
   let loadingPromise = null;
 
@@ -57,7 +57,7 @@ export function initLLM(llmModel = DEFAULT_LLM_MODEL) {
             initProgressCallback: (p) => {
               this.progress = p.progress || 0;
               if (typeof onProgress === 'function') {
-                onProgress(p);
+                onProgress(p, brain);
               }
             }
           })
@@ -98,7 +98,7 @@ export function initLLM(llmModel = DEFAULT_LLM_MODEL) {
         const content = chunk?.choices?.[0]?.delta?.content;
         if (content) {
           fullResponse += content;
-          onDelta(content, fullResponse);
+          onDelta(content, fullResponse, llm, brain);
         }
       }
       return fullResponse;
@@ -109,7 +109,7 @@ export function initLLM(llmModel = DEFAULT_LLM_MODEL) {
 }
 
 // brain.js
-export function initAIProvider(setting = {}) {
+export function initAiProvider(setting = {}, brain) {
   const {
     providerBaseUrl = '',
     providerPingUrl = '',
@@ -128,12 +128,15 @@ export function initAIProvider(setting = {}) {
     model: providerModel || DEFAULT_AI_PROVIDER_MODEL,
     enabled: !!providerBaseUrl,
     ready: false,
-    async ping() {
+    async ping(fetchSetting = null) {
       if (!this.enabled) {
         return false;
       }
       try {
-        const response = await fetch(this.base + (this.pingUrl || '/api/tags'));
+        const response = await fetch(
+          this.base + (this.pingUrl || '/api/tags'),
+          fetchSetting
+        );
         this.ready = response.ok;
         return response.ok;
       } catch (_error) {
@@ -141,7 +144,7 @@ export function initAIProvider(setting = {}) {
         return false;
       }
     },
-    async chat(messages) {
+    async chat(messages, fetchSetting) {
       const defaultFetchSetting = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
@@ -154,8 +157,6 @@ export function initAIProvider(setting = {}) {
         stream: false
       };
 
-      let fetchSetting = defaultFetchSetting;
-
       if (typeof this.createdFetchSetting === 'function') {
         const currentFetchSetting = this.createdFetchSetting(
           messages,
@@ -164,6 +165,10 @@ export function initAIProvider(setting = {}) {
         if (typeof currentFetchSetting === 'object') {
           fetchSetting = currentFetchSetting;
         }
+      }
+
+      if (typeof fetchSetting !== 'object') {
+        fetchSetting = defaultFetchSetting;
       }
 
       if (typeof fetchSetting?.body === 'undefined') {
@@ -202,22 +207,30 @@ export function initAIProvider(setting = {}) {
       return result?.choices?.[0]?.message?.content;
     }
   };
-  if (typeof providerCreatedFetchSetting === 'function') {
-    aiProvider.createdFetchSetting =
-      providerCreatedFetchSetting.bind(aiProvider);
-  }
-  if (typeof providerCreatedFetchPayload === 'function') {
-    aiProvider.createdFetchPayload =
-      providerCreatedFetchPayload.bind(aiProvider);
-  }
-  if (typeof providerResponesFormat === 'function') {
-    aiProvider.responesFormat = providerResponesFormat.bind(aiProvider);
-  }
+
+  aiProvider.createdFetchSetting = function (...arg) {
+    if (typeof providerCreatedFetchSetting === 'function') {
+      providerCreatedFetchSetting.call(this, ...arg, this, brain);
+    }
+  }.bind(aiProvider);
+
+  aiProvider.createdFetchPayload = function (...arg) {
+    if (typeof providerCreatedFetchPayload === 'function') {
+      providerCreatedFetchPayload.call(this, ...arg, this, brain);
+    }
+  }.bind(aiProvider);
+
+  aiProvider.responesFormat = function (...arg) {
+    if (typeof providerResponesFormat === 'function') {
+      providerResponesFormat.call(this, ...arg, this, brain);
+    }
+  }.bind(aiProvider);
+
   return aiProvider;
 }
 
 // brain.js
-export function initMEM(avatarMode) {
+export function initMEM(avatarMode, brain) {
   // 記憶（陪伴模式限定）：只存訪客自己瀏覽器的 localStorage，零後端、不上傳；說「忘記我」即清除
   const mem = {
     key: 'avatar-widget-mem',
@@ -284,6 +297,9 @@ export function initBrainEngine(seting = {}) {
   const {
     llmModel,
     avatarMode,
+    onConnecting,
+    onConnected,
+    onDisconnecting,
     aiProviderModel,
     aiProviderCreatedFetchSetting,
     aiProviderCreatedFetchPayload,
@@ -291,18 +307,78 @@ export function initBrainEngine(seting = {}) {
     aiProviderPingUrl,
     aiProviderChatUrl
   } = seting;
-  const llm = initLLM(llmModel);
-  const mem = initMEM(avatarMode);
-  const aiProvider = initAIProvider({
-    providerModel: aiProviderModel,
-    providerCreatedFetchSetting: aiProviderCreatedFetchSetting,
-    providerCreatedFetchPayload: aiProviderCreatedFetchPayload,
-    providerBaseUrl: aiProviderBaseUrl,
-    providerPingUrl: aiProviderPingUrl,
-    providerChatUrl: aiProviderChatUrl
-  });
 
   const brain = {
+    onConnecting: null,
+    onConnected: null,
+    onDisconnecting: null,
+
+    _connecting: false,
+    get connecting() {
+      return this._connecting;
+    },
+    set connecting(value) {
+      this._connecting = value;
+      if (value === false) return;
+
+      if (typeof this.onConnecting === 'function') {
+        this.onConnecting(this);
+      }
+    },
+    _connected: false,
+    get connected() {
+      return this._connected;
+    },
+    set connected(value) {
+      this._connected = value;
+      if (value === false) return;
+
+      if (typeof this.onConnected === 'function') {
+        this.onConnected(this);
+      }
+    },
+    _disconnecting: false,
+    get disconnecting() {
+      return this._disconnecting;
+    },
+    set disconnecting(value) {
+      this._disconnecting = value;
+      if (value === false) return;
+
+      if (typeof this.onDisconnecting === 'function') {
+        this.onDisconnecting(this);
+      }
+    }
+  };
+
+  const llm = initLLM(llmModel, brain);
+  const mem = initMEM(avatarMode, brain);
+  const aiProvider = initAiProvider(
+    {
+      providerModel: aiProviderModel,
+      providerCreatedFetchSetting: aiProviderCreatedFetchSetting,
+      providerCreatedFetchPayload: aiProviderCreatedFetchPayload,
+      providerBaseUrl: aiProviderBaseUrl,
+      providerPingUrl: aiProviderPingUrl,
+      providerChatUrl: aiProviderChatUrl
+    },
+    brain
+  );
+
+  if (typeof onConnecting === 'function') {
+    brain.onConnecting = onConnecting.bind(brain);
+  }
+
+  if (typeof onConnected === 'function') {
+    brain.onConnected = onConnected.bind(brain);
+  }
+
+  if (typeof onDisconnecting === 'function') {
+    brain.onDisconnecting = onDisconnecting.bind(brain);
+  }
+
+  return {
+    ...brain,
     get llm() {
       return llm;
     },
@@ -313,6 +389,4 @@ export function initBrainEngine(seting = {}) {
       return aiProvider;
     }
   };
-
-  return brain;
 }
