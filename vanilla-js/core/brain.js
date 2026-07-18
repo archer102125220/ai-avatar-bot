@@ -38,38 +38,78 @@ export async function handleGetKnowledge(knowledgeUrl = '') {
 }
 
 // brain.js
-export function initLLM(llmModel = DEFAULT_LLM_MODEL, brain) {
+export function initLLM(setting = {}, brain) {
+  const {
+    llmModel = DEFAULT_LLM_MODEL,
+    onLoading,
+    onLoadProgress,
+    onLoaded,
+    onLoadError
+  } = setting;
+
   let engine = null;
   let loadingPromise = null;
 
   const llm = {
-    supported: 'gpu' in navigator,
+    get supported() {
+      return 'gpu' in navigator;
+    },
     state: STATE_MAP.IDLE, // idle | loading | ready | error
     progress: 0,
     model: llmModel || DEFAULT_LLM_MODEL,
-    async load(onProgress) {
+
+    get onLoading() {
+      return function _onLoading(...arg) {
+        if (typeof onLoading === 'function') {
+          onLoading(...arg);
+        }
+      };
+    },
+    get onLoadProgress() {
+      return function _onLoadProgress(...arg) {
+        if (typeof onLoadProgress === 'function') {
+          onLoadProgress(...arg);
+        }
+      };
+    },
+    get onLoaded() {
+      return function _onLoaded(...arg) {
+        if (typeof onLoaded === 'function') {
+          onLoaded(...arg);
+        }
+      };
+    },
+    get onLoadError() {
+      return function _onLoadError(...arg) {
+        if (typeof onLoadError === 'function') {
+          onLoadError(...arg);
+        }
+      };
+    },
+    async load() {
       if (engine) return engine;
       if (loadingPromise) return loadingPromise;
       this.state = STATE_MAP.LOADING;
+      this.onLoading();
       loadingPromise = import('@mlc-ai/web-llm') // 動態載入：只有按下🧠才抓這包函式庫
-        .then((webllm) =>
-          webllm.CreateMLCEngine(llmModel, {
+        .then((webllm) => {
+          return webllm.CreateMLCEngine(llmModel, {
             initProgressCallback: (p) => {
               this.progress = p.progress || 0;
-              if (typeof onProgress === 'function') {
-                onProgress(p, brain);
-              }
+              this.onLoadProgress(p);
             }
-          })
-        )
+          });
+        })
         .then((mlcEngine) => {
           engine = mlcEngine;
           this.state = STATE_MAP.READY;
+          this.onLoaded(mlcEngine);
           return mlcEngine;
         })
         .catch((error) => {
           this.state = STATE_MAP.ERROR;
           this.error = String(error);
+          this.onLoadError(error, this);
           throw error;
         });
       return loadingPromise;
@@ -109,7 +149,7 @@ export function initLLM(llmModel = DEFAULT_LLM_MODEL, brain) {
 }
 
 // brain.js
-export function initAiProvider(setting = {}, brain) {
+export function initAiProvider(setting = {}) {
   const {
     providerBaseUrl = '',
     providerPingUrl = '',
@@ -117,13 +157,37 @@ export function initAiProvider(setting = {}, brain) {
     providerModel = DEFAULT_AI_PROVIDER_MODEL,
     providerCreatedFetchSetting = null,
     providerCreatedFetchPayload = null,
-    providerResponesFormat = null
+    providerResponesFormat = null,
+
+    onConnecting = null,
+    onConnected = null,
+    onError = null
   } = setting;
 
   const aiProvider = {
     base: providerBaseUrl,
     pingUrl: providerPingUrl,
     chatUrl: providerChatUrl,
+
+    get createdFetchSetting() {
+      return providerCreatedFetchSetting;
+    },
+    get createdFetchPayload() {
+      return providerCreatedFetchPayload;
+    },
+    get responesFormat() {
+      return providerResponesFormat;
+    },
+
+    get onConnecting() {
+      return onConnecting;
+    },
+    get onConnected() {
+      return onConnected;
+    },
+    get onError() {
+      return onError;
+    },
 
     model: providerModel || DEFAULT_AI_PROVIDER_MODEL,
     enabled: !!providerBaseUrl,
@@ -133,14 +197,17 @@ export function initAiProvider(setting = {}, brain) {
         return false;
       }
       try {
+        await this.onConnecting(fetchSetting);
         const response = await fetch(
           this.base + (this.pingUrl || '/api/tags'),
           fetchSetting
         );
         this.ready = response.ok;
+        await this.onConnected(response, fetchSetting);
         return response.ok;
-      } catch (_error) {
+      } catch (error) {
         this.ready = false;
+        await this.onError(error, fetchSetting);
         return false;
       }
     },
@@ -158,7 +225,7 @@ export function initAiProvider(setting = {}, brain) {
       };
 
       if (typeof this.createdFetchSetting === 'function') {
-        const currentFetchSetting = this.createdFetchSetting(
+        const currentFetchSetting = await this.createdFetchSetting(
           messages,
           defaultFetchSetting
         );
@@ -171,19 +238,19 @@ export function initAiProvider(setting = {}, brain) {
         fetchSetting = defaultFetchSetting;
       }
 
-      if (typeof fetchSetting?.body === 'undefined') {
-        if (typeof this.createdFetchPayload === 'function') {
-          const currentPayload = this.createdFetchPayload(
-            messages,
-            defaultPaylaod,
-            fetchSetting
-          );
-          if (typeof currentPayload !== 'undefined') {
-            fetchSetting.body = currentPayload;
-          }
-        } else {
-          fetchSetting.body = JSON.stringify(defaultPaylaod);
+      if (typeof this.createdFetchPayload === 'function') {
+        const currentPayload = await this.createdFetchPayload(
+          messages,
+          defaultPaylaod,
+          fetchSetting
+        );
+        if (typeof currentPayload !== 'undefined') {
+          fetchSetting.body = currentPayload;
         }
+      }
+
+      if (typeof fetchSetting.body === 'undefined') {
+        fetchSetting.body = JSON.stringify(defaultPaylaod);
       }
 
       const response = await fetch(
@@ -195,12 +262,7 @@ export function initAiProvider(setting = {}, brain) {
       // }
 
       if (typeof this.responesFormat === 'function') {
-        return await this.responesFormat(
-          response,
-          fetchSetting,
-          messages,
-          this
-        );
+        return await this.responesFormat(response, fetchSetting, messages);
       }
 
       const result = await response.json();
@@ -208,29 +270,11 @@ export function initAiProvider(setting = {}, brain) {
     }
   };
 
-  aiProvider.createdFetchSetting = function (...arg) {
-    if (typeof providerCreatedFetchSetting === 'function') {
-      providerCreatedFetchSetting.call(this, ...arg, this, brain);
-    }
-  }.bind(aiProvider);
-
-  aiProvider.createdFetchPayload = function (...arg) {
-    if (typeof providerCreatedFetchPayload === 'function') {
-      providerCreatedFetchPayload.call(this, ...arg, this, brain);
-    }
-  }.bind(aiProvider);
-
-  aiProvider.responesFormat = function (...arg) {
-    if (typeof providerResponesFormat === 'function') {
-      providerResponesFormat.call(this, ...arg, this, brain);
-    }
-  }.bind(aiProvider);
-
   return aiProvider;
 }
 
 // brain.js
-export function initMEM(avatarMode, brain) {
+export function initMEM({ avatarMode }, brain) {
   // 記憶（陪伴模式限定）：只存訪客自己瀏覽器的 localStorage，零後端、不上傳；說「忘記我」即清除
   const mem = {
     key: 'avatar-widget-mem',
@@ -297,9 +341,16 @@ export function initBrainEngine(seting = {}) {
   const {
     llmModel,
     avatarMode,
-    onConnecting,
-    onConnected,
-    onDisconnecting,
+
+    onLlmLoading,
+    onLlmLoadProgress,
+    onLlmLoaded,
+    onLlmLoadError,
+
+    onAiProviderConnecting,
+    onAiProviderConnected,
+    onAiProviderError,
+
     aiProviderModel,
     aiProviderCreatedFetchSetting,
     aiProviderCreatedFetchPayload,
@@ -308,77 +359,20 @@ export function initBrainEngine(seting = {}) {
     aiProviderChatUrl
   } = seting;
 
+  let llm = null;
+  let mem = null;
+  let aiProvider = null;
+
   const brain = {
-    onConnecting: null,
-    onConnected: null,
-    onDisconnecting: null,
+    onLlmLoading: null,
+    onLlmLoadProgress: null,
+    onLlmLoaded: null,
+    onLlmLoadError: null,
 
-    _connecting: false,
-    get connecting() {
-      return this._connecting;
-    },
-    set connecting(value) {
-      this._connecting = value;
-      if (value === false) return;
+    onAiProviderConnecting: null,
+    onAiProviderConnected: null,
+    onAiProviderError: null,
 
-      if (typeof this.onConnecting === 'function') {
-        this.onConnecting(this);
-      }
-    },
-    _connected: false,
-    get connected() {
-      return this._connected;
-    },
-    set connected(value) {
-      this._connected = value;
-      if (value === false) return;
-
-      if (typeof this.onConnected === 'function') {
-        this.onConnected(this);
-      }
-    },
-    _disconnecting: false,
-    get disconnecting() {
-      return this._disconnecting;
-    },
-    set disconnecting(value) {
-      this._disconnecting = value;
-      if (value === false) return;
-
-      if (typeof this.onDisconnecting === 'function') {
-        this.onDisconnecting(this);
-      }
-    }
-  };
-
-  const llm = initLLM(llmModel, brain);
-  const mem = initMEM(avatarMode, brain);
-  const aiProvider = initAiProvider(
-    {
-      providerModel: aiProviderModel,
-      providerCreatedFetchSetting: aiProviderCreatedFetchSetting,
-      providerCreatedFetchPayload: aiProviderCreatedFetchPayload,
-      providerBaseUrl: aiProviderBaseUrl,
-      providerPingUrl: aiProviderPingUrl,
-      providerChatUrl: aiProviderChatUrl
-    },
-    brain
-  );
-
-  if (typeof onConnecting === 'function') {
-    brain.onConnecting = onConnecting.bind(brain);
-  }
-
-  if (typeof onConnected === 'function') {
-    brain.onConnected = onConnected.bind(brain);
-  }
-
-  if (typeof onDisconnecting === 'function') {
-    brain.onDisconnecting = onDisconnecting.bind(brain);
-  }
-
-  return {
-    ...brain,
     get llm() {
       return llm;
     },
@@ -389,4 +383,74 @@ export function initBrainEngine(seting = {}) {
       return aiProvider;
     }
   };
+
+  if (typeof onLlmLoading === 'function') {
+    brain.onLlmLoading = onLlmLoading.bind(brain);
+  }
+
+  if (typeof onLlmLoadProgress === 'function') {
+    brain.onLlmLoadProgress = onLlmLoadProgress.bind(brain);
+  }
+
+  if (typeof onLlmLoaded === 'function') {
+    brain.onLlmLoaded = onLlmLoaded.bind(brain);
+  }
+
+  if (typeof onLlmLoadError === 'function') {
+    brain.onLlmLoadError = onLlmLoadError.bind(brain);
+  }
+
+  if (typeof onAiProviderConnecting === 'function') {
+    brain.onAiProviderConnecting = onAiProviderConnecting.bind(brain);
+  }
+
+  if (typeof onAiProviderConnected === 'function') {
+    brain.onAiProviderConnected = onAiProviderConnected.bind(brain);
+  }
+
+  if (typeof onAiProviderError === 'function') {
+    brain.onAiProviderError = onAiProviderError.bind(brain);
+  }
+
+  llm = initLLM(
+    {
+      llmModel,
+      onLoading(...arg) {
+        return brain.onLlmLoading?.(...arg, brain);
+      },
+      onLoadProgress(...arg) {
+        return brain.onLlmLoadProgress?.(...arg, brain);
+      },
+      onLoaded(...arg) {
+        return brain.onLlmLoaded?.(...arg, brain);
+      },
+      onLoadError(...arg) {
+        return brain.onLlmLoadError?.(...arg, brain);
+      }
+    },
+    brain
+  );
+  mem = initMEM({ avatarMode }, brain);
+  aiProvider = initAiProvider(
+    {
+      providerModel: aiProviderModel,
+      providerCreatedFetchSetting: aiProviderCreatedFetchSetting,
+      providerCreatedFetchPayload: aiProviderCreatedFetchPayload,
+      providerBaseUrl: aiProviderBaseUrl,
+      providerPingUrl: aiProviderPingUrl,
+      providerChatUrl: aiProviderChatUrl,
+      onConnecting(...arg) {
+        return brain.onAiProviderConnecting?.(...arg, brain);
+      },
+      onConnected(...arg) {
+        return brain.onAiProviderConnected?.(...arg, brain);
+      },
+      onError(...arg) {
+        return brain.onAiProviderError?.(...arg, brain);
+      }
+    },
+    brain
+  );
+
+  return brain;
 }

@@ -1629,14 +1629,14 @@ async function webLLMBrain(aiAvatarWidget = null, question) {
 // 有大腦時生成更自然的回答；WebLLM 走串流「邊生成邊講」，Ollama／檢索為整段後逐句講
 function sayAnswer(aiAvatarWidget = null, t) {
   aiAvatarWidget.brainEngine.mem.addTurn('assistant', t);
-  speak(aiAvatarWidget, t);
+  aiAvatarWidget.speakingSounds = t;
 }
 // voice.js | brain.js
 // 回答統一走這：陪伴模式順手寫進記憶
 async function handleAnswer(aiAvatarWidget = null, question) {
   const safeQuestion = (question || '').trim();
   if (!safeQuestion) {
-    speak(aiAvatarWidget, '我好像沒聽清楚，可以再說一次嗎？');
+    aiAvatarWidget.speakingSounds = '我好像沒聽清楚，可以再說一次嗎？';
     return;
   }
   try {
@@ -1674,7 +1674,7 @@ async function handleUser(aiAvatarWidget = null, text = '') {
   if (aiAvatarWidget.brainEngine.mem.isCompanion && text) {
     if (/忘記我|清除記憶|forget me/i.test(text)) {
       aiAvatarWidget.brainEngine.mem.wipe();
-      speak(aiAvatarWidget, '好，我把記憶都清掉了，我們重新認識吧！');
+      aiAvatarWidget.speakingSounds = '好，我把記憶都清掉了，我們重新認識吧！';
       return;
     }
     aiAvatarWidget.brainEngine.mem.captureName(text);
@@ -1723,7 +1723,8 @@ function startListening(aiAvatarWidget = null) {
   const SafeSpeechRecognition =
     window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SafeSpeechRecognition) {
-    speak(aiAvatarWidget, '你的瀏覽器不支援語音辨識，建議用 Chrome 開喔。');
+    aiAvatarWidget.speakingSounds =
+      '你的瀏覽器不支援語音辨識，建議用 Chrome 開喔。';
     aiAvatarWidget.convoOn = false;
     return;
   }
@@ -1734,7 +1735,7 @@ function startListening(aiAvatarWidget = null) {
   try {
     aiAvatarWidget.recognition = new SafeSpeechRecognition();
   } catch (error) {
-    speak(aiAvatarWidget, '語音辨識啟動失敗：' + error.message);
+    aiAvatarWidget.speakingSounds = '語音辨識啟動失敗：' + error.message;
     aiAvatarWidget.convoOn = false;
     return;
   }
@@ -1896,7 +1897,7 @@ function onTap(aiAvatarWidget = null) {
     }
   }
 
-  speak(aiAvatarWidget, greeting);
+  aiAvatarWidget.speakingSounds = greeting;
 }
 
 // brain.js | ui.js
@@ -2047,21 +2048,7 @@ export function bindUiEvent(aiAvatarWidget = null) {
         return;
       }
 
-      aiAvatarWidget.speakingLabel = '開始下載 AI 大腦（約 1GB，只需第一次）…';
-      try {
-        await aiAvatarWidget.brainEngine.llm.load((p) => {
-          el.textContent = '🧠 ' + Math.round((p.progress || 0) * 100) + '%';
-        });
-        el.textContent = '🧠✓';
-        el.classList.add('llm-on');
-        speak(aiAvatarWidget, 'AI 大腦啟用完成，現在我可以聊得更自然囉！');
-        aiAvatarWidget.speakingLabel =
-          'AI 大腦啟用完成，現在我可以聊得更自然囉！';
-      } catch (e) {
-        el.textContent = '🧠✗';
-        aiAvatarWidget.speakingLabel =
-          'AI 大腦載入失敗：' + ((e && e.message) || e);
-      }
+      await aiAvatarWidget.brainEngine.llm.load();
     };
   }
 }
@@ -2132,12 +2119,7 @@ export async function initAvatarBot(optiopns = {}) {
 
   const uiDom = initUi(container);
 
-  const brainEngine = initBrainEngine({
-    llmModel,
-    avatarMode,
-    aiProviderBaseUrl,
-    aiProviderModel
-  });
+  let brainEngine = null;
 
   const aiAvatarWidget = {
     get optiopns() {
@@ -2729,11 +2711,49 @@ export async function initAvatarBot(optiopns = {}) {
         );
       }
     },
+    _speakingSounds: '',
+    get speakingSounds() {
+      return this._speakingSounds;
+    },
+    set speakingSounds(newSpeakingSounds) {
+      if (typeof newSpeakingSounds === 'string' || newSpeakingSounds === null) {
+        this._speakingSounds = newSpeakingSounds;
+
+        this.speak(newSpeakingSounds);
+      }
+    },
 
     speakingLabelTimer: 0,
     speakBrowserTimer: 0,
     onTapTimer: false
   };
+
+  brainEngine = initBrainEngine({
+    llmModel,
+    avatarMode,
+    aiProviderBaseUrl,
+    aiProviderModel,
+    onLlmLoading() {
+      aiAvatarWidget.speakingLabel = '開始下載 AI 大腦（約 1GB，只需第一次）…';
+    },
+    onLlmLoadProgress(p) {
+      uiDom.btnLlmEl.textContent =
+        '🧠 ' + Math.round((p.progress || 0) * 100) + '%';
+    },
+    onLlmLoaded() {
+      uiDom.btnLlmEl.textContent = '🧠✓';
+      uiDom.btnLlmEl.classList.add('llm-on');
+      aiAvatarWidget.speakingSounds =
+        'AI 大腦啟用完成，現在我可以聊得更自然囉！';
+      aiAvatarWidget.speakingLabel =
+        'AI 大腦啟用完成，現在我可以聊得更自然囉！';
+    },
+    onLlmLoadError(error) {
+      uiDom.btnLlmEl.textContent = '🧠✗';
+      aiAvatarWidget.speakingLabel =
+        'AI 大腦載入失敗：' + (error?.message || error);
+    }
+  });
 
   if (typeof optiopns.onReady === 'function') {
     aiAvatarWidget.onReady = optiopns.onReady.bind(aiAvatarWidget);
