@@ -1008,7 +1008,9 @@ function splitSentences(text) {
   for (const ch of String(text || '')) {
     buf += ch;
     if (/[。！？!?；;\n…]/.test(ch)) {
-      if (buf.trim()) out.push(buf.trim());
+      if (buf.trim()) {
+        out.push(buf.trim());
+      }
       buf = '';
     } else if (buf.length >= 80) {
       // 沒標點的長串：找逗號斷，不然硬切
@@ -1022,7 +1024,9 @@ function splitSentences(text) {
       }
     }
   }
-  if (buf.trim()) out.push(buf.trim());
+  if (buf.trim()) {
+    out.push(buf.trim());
+  }
   const merged = []; // 太短的碎句併進前一句（太短的 TTS 不自然、請求也多）
   for (const s of out) {
     if (
@@ -1037,8 +1041,9 @@ function splitSentences(text) {
   while (merged.length > 10) {
     // 上限 10 段：護 TTS 限流
     const m2 = [];
-    for (let i = 0; i < merged.length; i += 2)
+    for (let i = 0; i < merged.length; i += 2) {
       m2.push(merged[i] + (merged[i + 1] || ''));
+    }
     merged.length = 0;
     merged.push.apply(merged, m2);
   }
@@ -1192,7 +1197,9 @@ function beginSpeech(aiAvatarWidget = null) {
 }
 // voice.js
 function pushSpeech(aiAvatarWidget = null, sid, text) {
-  if (sid !== aiAvatarWidget.speakSeq) return;
+  if (sid !== aiAvatarWidget.speakSeq) {
+    return;
+  }
   const safeText = String(text || '').trim();
   if (!safeText) {
     return;
@@ -1248,7 +1255,9 @@ function prefetchSpeech(aiAvatarWidget = null, sid) {
 }
 // voice.js
 async function pumpSpeech(aiAvatarWidget = null, sid) {
-  if (aiAvatarWidget.speechPlaying || sid !== aiAvatarWidget.speakSeq) return;
+  if (aiAvatarWidget.speechPlaying || sid !== aiAvatarWidget.speakSeq) {
+    return;
+  }
   const item = aiAvatarWidget.speechQ.shift();
   if (!item) {
     if (aiAvatarWidget.speechEnded) {
@@ -1259,7 +1268,9 @@ async function pumpSpeech(aiAvatarWidget = null, sid) {
   } // 整段講完 → 表情回中性＋(陪伴)重開麥
   aiAvatarWidget.speechPlaying = true;
   const done = () => {
-    if (sid !== aiAvatarWidget.speakSeq) return;
+    if (sid !== aiAvatarWidget.speakSeq) {
+      return;
+    }
     aiAvatarWidget.speechPlaying = false;
     prefetchSpeech(aiAvatarWidget, sid);
     pumpSpeech(aiAvatarWidget, sid);
@@ -1418,7 +1429,9 @@ function speakBrowserChunk(aiAvatarWidget = null, text, sid, done) {
   };
   let fin = false;
   const finish = () => {
-    if (fin) return;
+    if (fin) {
+      return;
+    }
     fin = true;
     aiAvatarWidget.isSpeaking = false;
     done();
@@ -1429,7 +1442,9 @@ function speakBrowserChunk(aiAvatarWidget = null, text, sid, done) {
     Math.max(1200, (text.length * 130) / (aiAvatarWidget.ttsRate || 1))
   );
   const fire = () => {
-    if (sid !== aiAvatarWidget.speakSeq) return; // 排隊期間被打斷就不講了
+    if (sid !== aiAvatarWidget.speakSeq) {
+      return; // 排隊期間被打斷就不講了
+    }
     try {
       speechSynthesis.resume();
     } catch (_error) {} // 解 Chrome cancel 後卡住的 bug
@@ -1589,7 +1604,9 @@ async function webLLMBrain(aiAvatarWidget = null, question) {
       (delta, sofar) => {
         aiAvatarWidget.speakingLabel = sofar; // 邊生成邊更新字幕
         if (sid) {
-          if (sid !== aiAvatarWidget.speakSeq) return; // 中途被打斷 → 剩下的只當字幕
+          if (sid !== aiAvatarWidget.speakSeq) {
+            return; // 中途被打斷 → 剩下的只當字幕
+          }
           setEmotionFromText(aiAvatarWidget, sofar);
           st.buf += delta;
           for (const s of drainSentences(st, false)) {
