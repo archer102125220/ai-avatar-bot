@@ -2249,11 +2249,6 @@ export async function initAvatarBot(optiopns = {}) {
       return isIframe;
     },
 
-    // ②逐句開講的佇列狀態（var：這檔案有「宣告前就被呼叫」的前例，避 TDZ）
-    speechQ: [],
-    speechEnded: true,
-    isSpeechPlaying: false,
-    tapDone: false,
     // ①情緒表情狀態：speak 時從文字判斷 → 3D 表情 preset 慢慢 ease 進、講完 ease 回中性（2D 模型表情規格不一，先不套）
     emo: { name: 'neutral', target: 0, weight: 0, applied: '' },
 
@@ -2568,8 +2563,6 @@ export async function initAvatarBot(optiopns = {}) {
 
     companionFallbackIdx: 0,
 
-    speakingLabelTimer: 0,
-    speakBrowserTimer: 0,
     onTapTimer: false
   };
 
@@ -2641,6 +2634,7 @@ export async function initAvatarBot(optiopns = {}) {
     tapDone: false,
 
     speakBrowserTimer: 0,
+    spokenDisplayTextTimer: 0,
 
     // 控制「點第二下打斷第一下」
     _currentFps: 0,
@@ -2783,8 +2777,8 @@ export async function initAvatarBot(optiopns = {}) {
 
         uiDom.bubbleEl.textContent = newSpeakingLabel;
         uiDom.bubbleEl.classList.add('show');
-        clearTimeout(this.speakingLabelTimer);
-        this.speakingLabelTimer = setTimeout(
+        clearTimeout(this.spokenDisplayTextTimer);
+        this.spokenDisplayTextTimer = setTimeout(
           () => uiDom.bubbleEl.classList.remove('show'),
           6000
         );
