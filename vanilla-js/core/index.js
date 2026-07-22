@@ -2604,6 +2604,26 @@ export async function initAvatarBot(optiopns = {}) {
   voiceEngine = {
     avatarMode: '', // 不確定？
 
+    _mouthTarget: 0.7, // 可能要歸在 skin ?
+    get mouthTarget() {
+      return this._mouthTarget;
+    },
+    set mouthTarget(newMouthTarget) {
+      if (typeof newMouthTarget === 'number' || newMouthTarget === null) {
+        this._mouthTarget = newMouthTarget;
+      }
+    },
+
+    _mouthValue: 0, // 可能要歸在 skin ?
+    get mouthValue() {
+      return this._mouthValue;
+    },
+    set mouthValue(newMouthValue) {
+      if (typeof newMouthValue === 'number' || newMouthValue === null) {
+        this._mouthValue = newMouthValue;
+      }
+    },
+
     _speakSeq: 0,
     get speakSeq() {
       return this._speakSeq;
@@ -2743,16 +2763,6 @@ export async function initAvatarBot(optiopns = {}) {
       }
     },
 
-    _mouthTarget: 0.7,
-    get mouthTarget() {
-      return this._mouthTarget;
-    },
-    set mouthTarget(newMouthTarget) {
-      if (typeof newMouthTarget === 'number' || newMouthTarget === null) {
-        this._mouthTarget = newMouthTarget;
-      }
-    },
-
     _ttsRate: 1.0,
     get ttsRate() {
       return this._ttsRate;
@@ -2760,16 +2770,6 @@ export async function initAvatarBot(optiopns = {}) {
     set ttsRate(newTtsRate) {
       if (typeof newTtsRate === 'number' || newTtsRate === null) {
         this._ttsRate = newTtsRate;
-      }
-    },
-
-    _mouthValue: 0,
-    get mouthValue() {
-      return this._mouthValue;
-    },
-    set mouthValue(newMouthValue) {
-      if (typeof newMouthValue === 'number' || newMouthValue === null) {
-        this._mouthValue = newMouthValue;
       }
     },
 
