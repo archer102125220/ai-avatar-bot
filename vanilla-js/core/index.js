@@ -1173,10 +1173,7 @@ function speak(aiAvatarWidget = null, text) {
     );
     return;
   }
-  aiAvatarWidget.voiceEngine.spokenDisplayText = text;
-  if (typeof aiAvatarWidget.voiceEngine.onSpeaking === 'function') {
-    aiAvatarWidget.voiceEngine.onSpeaking(text, aiAvatarWidget);
-  }
+
   if (aiAvatarWidget.voiceEngine.ttsMuted === true) {
     onUtteranceEnd(aiAvatarWidget); // 靜音：沒語音可收尾，直接觸發對話迴圈 hook
     return;
@@ -1653,7 +1650,7 @@ async function webLLMBrain(aiAvatarWidget = null, question) {
         onUtteranceEnd(aiAvatarWidget); // 靜音：沒有語音收尾 → 手動觸發對話迴圈 hook
       }
       if (typeof aiAvatarWidget?.voiceEngine.onSpeakingEnd === 'function') {
-        aiAvatarWidget.voiceEngine.onSpeakingEnd({ text: out.trim() });
+        aiAvatarWidget.voiceEngine.onSpeakingEnd(out.trim(), aiAvatarWidget);
       }
       return;
     }
@@ -2775,14 +2772,15 @@ export async function initAvatarBot(optiopns = {}) {
       if (typeof newSpeakingLabel === 'string' || newSpeakingLabel === null) {
         this._spokenDisplayText = newSpeakingLabel;
 
-        uiDom.bubbleEl.textContent = newSpeakingLabel;
-        uiDom.bubbleEl.classList.add('show');
-        clearTimeout(this.spokenDisplayTextTimer);
-        this.spokenDisplayTextTimer = setTimeout(
-          () => uiDom.bubbleEl.classList.remove('show'),
-          6000
-        );
+        if (typeof this.onSpokenDisplayTextChange === 'function') {
+          this.onSpokenDisplayTextChange(newSpeakingLabel, aiAvatarWidget);
+        }
       }
+    },
+    get speak() {
+      return function _speak(text) {
+        return speak(aiAvatarWidget, String(text || '').slice(0, 600));
+      };
     },
     _spokenAudioText: '',
     get spokenAudioText() {
@@ -2792,6 +2790,10 @@ export async function initAvatarBot(optiopns = {}) {
       if (typeof newSpeakingSounds === 'string' || newSpeakingSounds === null) {
         this._spokenAudioText = newSpeakingSounds;
 
+        this.spokenDisplayText = newSpeakingSounds;
+        if (typeof this.onSpeaking === 'function') {
+          this.onSpeaking(newSpeakingSounds, aiAvatarWidget);
+        }
         this.speak(newSpeakingSounds);
       }
     },
@@ -2806,8 +2808,54 @@ export async function initAvatarBot(optiopns = {}) {
       }
     },
 
-    onSpeaking: null, // function
-    onSpeakingEnd: null, // function
+    get onSpeaking() {
+      return function (text, currentAiAvatar, ...args) {
+        if (typeof optiopns.onSpeaking === 'function') {
+          return optiopns.onSpeaking.call(
+            currentAiAvatar,
+            text,
+            currentAiAvatar,
+            ...args
+          );
+        }
+      };
+    },
+    get onSpeakingEnd() {
+      return function (text, currentAiAvatar, ...args) {
+        if (typeof optiopns.onSpeakingEnd === 'function') {
+          return optiopns.onSpeakingEnd.call(
+            currentAiAvatar,
+            text,
+            currentAiAvatar,
+            ...args
+          );
+        }
+      };
+    },
+    get onSpokenDisplayTextChange() {
+      return function _onSpokenDisplayTextChange(
+        newSpeakingLabel,
+        currentAiAvatar,
+        ...args
+      ) {
+        uiDom.bubbleEl.textContent = newSpeakingLabel;
+        uiDom.bubbleEl.classList.add('show');
+        clearTimeout(this.spokenDisplayTextTimer);
+        this.spokenDisplayTextTimer = setTimeout(
+          () => uiDom.bubbleEl.classList.remove('show'),
+          6000
+        );
+
+        if (typeof optiopns.onSpokenDisplayTextChange === 'function') {
+          return optiopns.onSpokenDisplayTextChange.call(
+            currentAiAvatar,
+            newSpeakingLabel,
+            currentAiAvatar,
+            ...args
+          );
+        }
+      };
+    },
 
     _greeting: null, // function
     get greeting() {
@@ -2848,45 +2896,48 @@ export async function initAvatarBot(optiopns = {}) {
     }
   };
 
-  voiceEngine.speak = function (text) {
-    speak(aiAvatarWidget, String(text || '').slice(0, 600));
-  };
+  if (typeof optiopns.greeting === 'function') {
+    voiceEngine.greeting = optiopns.greeting.bind(aiAvatarWidget);
+  }
+  if (typeof optiopns.companionGreeting === 'function') {
+    voiceEngine.companionGreeting =
+      optiopns.companionGreeting.bind(aiAvatarWidget);
+  } else if (typeof optiopns.companionGreeting === 'string') {
+    voiceEngine.companionGreeting = optiopns.companionGreeting;
+  }
+  if (typeof optiopns.assistantGreeting === 'function') {
+    voiceEngine.assistantGreeting =
+      optiopns.assistantGreeting.bind(aiAvatarWidget);
+  } else if (typeof optiopns.assistantGreeting === 'string') {
+    voiceEngine.assistantGreeting = optiopns.assistantGreeting;
+  }
+
+  // voice.js
+  if ('speechSynthesis' in window) {
+    speechSynthesis.onvoiceschanged = () => {
+      voiceEngine.ttVoice = loadVoice(aiAvatarWidget);
+    };
+    voiceEngine.ttVoice = loadVoice(aiAvatarWidget);
+  }
 
   if (typeof optiopns.onReady === 'function') {
     aiAvatarWidget.onReady = optiopns.onReady.bind(aiAvatarWidget);
   }
 
   if (typeof optiopns.welcomeText === 'function') {
-    aiAvatarWidget._welcomeText = optiopns.welcomeText.bind(aiAvatarWidget);
+    aiAvatarWidget.welcomeText = optiopns.welcomeText.bind(aiAvatarWidget);
   }
   if (typeof optiopns.companionWelcomeText === 'function') {
     aiAvatarWidget._companionWelcomeText =
       optiopns.companionWelcomeText.bind(aiAvatarWidget);
   } else if (typeof optiopns.companionWelcomeText === 'string') {
-    aiAvatarWidget._companionWelcomeText = optiopns.companionWelcomeText;
+    aiAvatarWidget.companionWelcomeText = optiopns.companionWelcomeText;
   }
   if (typeof optiopns.assistantWelcomeText === 'function') {
-    aiAvatarWidget._assistantWelcomeText =
+    aiAvatarWidget.assistantWelcomeText =
       optiopns.assistantWelcomeText.bind(aiAvatarWidget);
   } else if (typeof optiopns.assistantWelcomeText === 'string') {
-    aiAvatarWidget._assistantWelcomeText = optiopns.assistantWelcomeText;
-  }
-
-  if (typeof optiopns.greeting === 'function') {
-    aiAvatarWidget.voiceEngine.greeting =
-      optiopns.greeting.bind(aiAvatarWidget);
-  }
-  if (typeof optiopns.companionGreeting === 'function') {
-    aiAvatarWidget.voiceEngine.companionGreeting =
-      optiopns.companionGreeting.bind(aiAvatarWidget);
-  } else if (typeof optiopns.companionGreeting === 'string') {
-    aiAvatarWidget.voiceEngine.companionGreeting = optiopns.companionGreeting;
-  }
-  if (typeof optiopns.assistantGreeting === 'function') {
-    aiAvatarWidget.voiceEngine.assistantGreeting =
-      optiopns.assistantGreeting.bind(aiAvatarWidget);
-  } else if (typeof optiopns.assistantGreeting === 'string') {
-    aiAvatarWidget.voiceEngine.assistantGreeting = optiopns.assistantGreeting;
+    aiAvatarWidget.assistantWelcomeText = optiopns.assistantWelcomeText;
   }
 
   if (typeof optiopns.buildLLMMessages === 'function') {
@@ -2897,14 +2948,6 @@ export async function initAvatarBot(optiopns = {}) {
       defaultBuildLLMMessages.bind(aiAvatarWidget);
   }
 
-  if (typeof optiopns.onSpeaking === 'function') {
-    aiAvatarWidget.voiceEngine.onSpeaking =
-      optiopns.onSpeaking.bind(aiAvatarWidget);
-  }
-  if (typeof optiopns.onSpeakingEnd === 'function') {
-    aiAvatarWidget.voiceEngine.onSpeakingEnd =
-      optiopns.onSpeakingEnd.bind(aiAvatarWidget);
-  }
   if (typeof optiopns.onMinimalTrigger === 'function') {
     aiAvatarWidget.onMinimalTrigger =
       optiopns.onMinimalTrigger.bind(aiAvatarWidget);
@@ -2929,14 +2972,6 @@ export async function initAvatarBot(optiopns = {}) {
   renderSuggestions(aiAvatarWidget);
   bindTyping(aiAvatarWidget);
   setMic(aiAvatarWidget, false); // 依模式套按鈕字樣（🎤 說話 / 💬 對話）
-
-  // voice.js
-  if ('speechSynthesis' in window) {
-    speechSynthesis.onvoiceschanged = () => {
-      aiAvatarWidget.voiceEngine.ttVoice = loadVoice(aiAvatarWidget);
-    };
-    aiAvatarWidget.voiceEngine.ttVoice = loadVoice(aiAvatarWidget);
-  }
 
   ['dragenter', 'dragover'].forEach((eventName) =>
     container.addEventListener(eventName, (event) => {
