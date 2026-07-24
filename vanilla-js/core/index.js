@@ -1226,7 +1226,7 @@ function endSpeech(aiAvatarWidget = null, sid) {
 
 // voice.js
 function onUtteranceEnd(aiAvatarWidget = null) {
-  handleUser._busy = false;
+  aiAvatarWidget.voiceEngine.isProcessing = false;
   if (
     aiAvatarWidget.voiceEngine.convoOn &&
     aiAvatarWidget.avatarMode === AVATAR_MODE_MAP.companion
@@ -1724,7 +1724,7 @@ async function handleUser(aiAvatarWidget = null, text = '') {
   }
 
   // aiAvatarWidget.voiceEngine.isSpeaking = true;
-  handleUser._busy = true; // 回答完成前不要自動重開麥（onUtteranceEnd 會清）
+  aiAvatarWidget.voiceEngine.isProcessing = true; // 回答完成前不要自動重開麥（onUtteranceEnd 會清）
   handleAnswer(aiAvatarWidget, text);
 }
 
@@ -1835,7 +1835,7 @@ function startListening(aiAvatarWidget = null) {
     // 連續對話：靜默結束（沒觸發回答）→ 自動再聽；連 3 次沒聲音就休息，避免無限開麥
     if (
       aiAvatarWidget.voiceEngine.convoOn === true &&
-      !handleUser._busy &&
+      !aiAvatarWidget.voiceEngine.isProcessing &&
       !aiAvatarWidget.voiceEngine.isSpeaking &&
       !aiAvatarWidget.voiceEngine.isSpeechPlaying
     ) {
@@ -1851,7 +1851,7 @@ function startListening(aiAvatarWidget = null) {
           !aiAvatarWidget.voiceEngine.isListening &&
           !aiAvatarWidget.voiceEngine.isSpeaking &&
           !aiAvatarWidget.voiceEngine.isSpeechPlaying &&
-          !handleUser._busy
+          !aiAvatarWidget.voiceEngine.isProcessing
         ) {
           startListening(aiAvatarWidget);
         }
@@ -2893,7 +2893,8 @@ export async function initAvatarBot(optiopns = {}) {
       ) {
         this._assistantGreeting = newAssistantGreeting;
       }
-    }
+    },
+    isProcessing: false
   };
 
   if (typeof optiopns.greeting === 'function') {
