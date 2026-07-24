@@ -21,7 +21,7 @@ import {
   DEFAULT_TTS_ENDPOINT,
   DEFAULT_FEMALE_NEURAL_VOICE,
   DEFAULT_MALE_NEURAL_VOICE
-} from './voice';
+} from './speech';
 
 import { initUi } from './ui';
 
