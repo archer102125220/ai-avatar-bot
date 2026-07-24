@@ -30,7 +30,7 @@ import '../style/style.scss';
 // M4b：WebLLM（瀏覽器內跑小模型，零金鑰）。函式庫改成「按下🧠才動態 import」，
 //    一般訪客（不啟用大腦）不會下載這包 JS。控制權掛到 window.LLM。
 
-// skin.js | voice.js
+// skin.js | speech.js
 export const GENDER_MAP = {
   female: 'female',
   male: 'male'
@@ -43,7 +43,7 @@ const DEFAULT_MODEL_URL =
     ? DEFAULT_FEMALE_MODEL_URL
     : DEFAULT_MALE_MODEL_URL;
 
-// voice.js
+// speech.js
 export const DEFAULT_NEURAL_VOICE =
   DEFAULT_GENDER === GENDER_MAP.female
     ? DEFAULT_FEMALE_NEURAL_VOICE
@@ -1006,7 +1006,7 @@ function loadVRMFile(aiAvatarWidget = null, file) {
   aiAvatarWidget.speechEngine.spokenDisplayText = '換上你的角色了！🎭';
 }
 
-// voice.js
+// speech.js
 // 整段文字 → 句子陣列（TTS 逐句抓、邊講邊抓下一句，長答案不用等整段）
 function splitSentences(text) {
   const out = [];
@@ -1055,7 +1055,7 @@ function splitSentences(text) {
   }
   return merged;
 }
-// voice.js
+// speech.js
 // 串流版切句：state.buf 累積 token，切得出完整句就吐出（force＝收尾把殘句也吐）
 function drainSentences(state, force) {
   const out = [];
@@ -1074,7 +1074,7 @@ function drainSentences(state, force) {
   return out;
 }
 
-// voice.js | brain.js
+// speech.js | brain.js
 // 共用：檢索到的資料 + 問題 → 給 llm 的訊息（Ollama 與 WebLLM 共用同一套 RAG 提示）
 function defaultBuildLLMMessages(aiAvatarWidget = null, question) {
   const context = topK(aiAvatarWidget, question, 3)
@@ -1105,7 +1105,7 @@ function defaultBuildLLMMessages(aiAvatarWidget = null, question) {
   return msgs;
 }
 
-// voice.js
+// speech.js
 // ===== TTS：開口說話 + 對嘴 =====
 function loadVoice() {
   const voices = speechSynthesis.getVoices();
@@ -1127,7 +1127,7 @@ function loadVoice() {
   );
 }
 
-// voice.js
+// speech.js
 // 中止目前正在講的（逐句佇列 + 神經語音音檔 + 瀏覽器 TTS + 對嘴），給「點第二下打斷第一下」用
 function stopSpeaking(aiAvatarWidget = null) {
   aiAvatarWidget.speechEngine.speakSeq++; // 作廢所有在跑的逐句鏈（pump 看序號就會停）
@@ -1163,7 +1163,7 @@ function stopSpeaking(aiAvatarWidget = null) {
   setEmotion(aiAvatarWidget, 'neutral');
 }
 
-// voice.js
+// speech.js
 // 對外入口：整段文字 → 切句進逐句佇列（②講第 1 句時預抓第 2 句 → 長答案幾乎立刻開口）
 function speak(aiAvatarWidget = null, text) {
   const rootContainer = aiAvatarWidget?.container;
@@ -1187,7 +1187,7 @@ function speak(aiAvatarWidget = null, text) {
   endSpeech(aiAvatarWidget, sid);
 }
 
-// voice.js
+// speech.js
 // ===== ②逐句開講引擎：一次一個 session；句子依序講，神經語音在背景先抓下一句 =====
 function beginSpeech(aiAvatarWidget = null) {
   stopSpeaking(aiAvatarWidget); // 打斷上一段（含清佇列、表情回中性）
@@ -1197,7 +1197,7 @@ function beginSpeech(aiAvatarWidget = null) {
   aiAvatarWidget.speechEngine.tapDone = false;
   return ++aiAvatarWidget.speechEngine.speakSeq;
 }
-// voice.js
+// speech.js
 function pushSpeech(aiAvatarWidget = null, sid, text) {
   if (sid !== aiAvatarWidget.speechEngine.speakSeq) {
     return;
@@ -1214,7 +1214,7 @@ function pushSpeech(aiAvatarWidget = null, sid, text) {
   prefetchSpeech(aiAvatarWidget, sid);
   pumpSpeech(aiAvatarWidget, sid);
 }
-// voice.js
+// speech.js
 function endSpeech(aiAvatarWidget = null, sid) {
   if (sid === aiAvatarWidget.speechEngine.speakSeq) {
     aiAvatarWidget.speechEngine.speechEnded = true;
@@ -1224,7 +1224,7 @@ function endSpeech(aiAvatarWidget = null, sid) {
   }
 }
 
-// voice.js
+// speech.js
 function onUtteranceEnd(aiAvatarWidget = null) {
   aiAvatarWidget.speechEngine.isProcessing = false;
   if (
@@ -1244,7 +1244,7 @@ function onUtteranceEnd(aiAvatarWidget = null) {
     }, 450);
   }
 }
-// voice.js
+// speech.js
 function prefetchSpeech(aiAvatarWidget = null, sid) {
   // 只預抓最前面 2 句（在途 ≤2），護後端限流
   if (
@@ -1262,7 +1262,7 @@ function prefetchSpeech(aiAvatarWidget = null, sid) {
     }
   }
 }
-// voice.js
+// speech.js
 async function pumpSpeech(aiAvatarWidget = null, sid) {
   if (
     aiAvatarWidget.speechEngine.isSpeechPlaying ||
@@ -1310,7 +1310,7 @@ async function pumpSpeech(aiAvatarWidget = null, sid) {
     speakBrowserChunk(aiAvatarWidget, item.text, sid, done);
   }
 }
-// voice.js
+// speech.js
 function handleNeuralFail(aiAvatarWidget = null, e) {
   const msg = e?.message || '';
   if (/http 429/.test(msg)) {
@@ -1323,7 +1323,7 @@ function handleNeuralFail(aiAvatarWidget = null, e) {
   console.warn('神經語音失敗，退回瀏覽器語音：', msg);
 }
 
-// voice.js
+// speech.js
 // edge-tts 神經語音：抓 /api/tts 的 MP3 → AudioBuffer（給佇列預抓用）
 async function fetchTTSBuffer(aiAvatarWidget = null, text) {
   const safeAudioContext = window.AudioContext || window.webkitAudioContext;
@@ -1357,7 +1357,7 @@ async function fetchTTSBuffer(aiAvatarWidget = null, text) {
   }
   return aiAvatarWidget.speechEngine.audioCtx.decodeAudioData(respArrayBuffer);
 }
-// voice.js
+// speech.js
 // 播一句（Web Audio + AnalyserNode 以「實際音量」驅動嘴型），播完呼叫 done 換下一句
 function playBuffer(aiAvatarWidget = null, audioBuf, done) {
   const src = aiAvatarWidget.speechEngine.audioCtx.createBufferSource();
@@ -1416,7 +1416,7 @@ function playBuffer(aiAvatarWidget = null, audioBuf, done) {
   src.start(0);
 }
 
-// voice.js
+// speech.js
 // 後備：瀏覽器內建語音(Yating) 逐句版。對嘴用「估時長」驅動，不靠 speechSynthesis.speaking 輪詢
 // （Chrome 在 cancel 後常回報失準 → 第二次說話嘴巴就不動了）
 function speakBrowserChunk(aiAvatarWidget = null, text, sid, done) {
@@ -1612,7 +1612,7 @@ function getWelcomeText(aiAvatarWidget = null) {
   return welcomeText;
 }
 
-// brain.js | voice.js
+// brain.js | speech.js
 async function webLLMBrain(aiAvatarWidget = null, question) {
   try {
     aiAvatarWidget.speechEngine.spokenDisplayText = '讓我想想…';
@@ -1665,13 +1665,13 @@ async function webLLMBrain(aiAvatarWidget = null, question) {
   );
 }
 
-// voice.js | brain.js
+// speech.js | brain.js
 // 有大腦時生成更自然的回答；WebLLM 走串流「邊生成邊講」，Ollama／檢索為整段後逐句講
 function sayAnswer(aiAvatarWidget = null, t) {
   aiAvatarWidget.brainEngine.mem.addTurn('assistant', t);
   aiAvatarWidget.speechEngine.spokenAudioText = t;
 }
-// voice.js | brain.js
+// speech.js | brain.js
 // 回答統一走這：陪伴模式順手寫進記憶
 async function handleAnswer(aiAvatarWidget = null, question) {
   const safeQuestion = (question || '').trim();
@@ -1700,7 +1700,7 @@ async function handleAnswer(aiAvatarWidget = null, question) {
   sayAnswer(aiAvatarWidget, handleThinking(aiAvatarWidget, safeQuestion));
 }
 
-// voice.js | brain.js
+// speech.js | brain.js
 async function handleUser(aiAvatarWidget = null, text = '') {
   const rootContainer = aiAvatarWidget?.container;
   if (rootContainer instanceof HTMLElement === false) {
@@ -1728,7 +1728,7 @@ async function handleUser(aiAvatarWidget = null, text = '') {
   handleAnswer(aiAvatarWidget, text);
 }
 
-// voice.js | brain.js | ui.js
+// speech.js | brain.js | ui.js
 // ===== STT：聽你說話 =====
 function setMic(aiAvatarWidget = null, isListening = false) {
   const rootContainer = aiAvatarWidget?.container;
@@ -1752,7 +1752,7 @@ function setMic(aiAvatarWidget = null, isListening = false) {
     suggestions.style.display = isListening ? 'none' : 'flex';
   } // 聆聽中收起清單
 }
-// voice.js | brain.js
+// speech.js | brain.js
 function startListening(aiAvatarWidget = null) {
   const rootContainer = aiAvatarWidget?.container;
   if (rootContainer instanceof HTMLElement === false) {
@@ -1863,7 +1863,7 @@ function startListening(aiAvatarWidget = null) {
   } catch (_error) {}
 }
 
-// skin.js | voice.js
+// skin.js | speech.js
 // ===== 共用：每幀算出嘴巴開合 0..1（2D 寫 ParamMouthOpenY、3D 寫 aa 表情，共用同一套計算）=====
 function computeMouth(aiAvatarWidget = null) {
   if (
@@ -1890,7 +1890,7 @@ function computeMouth(aiAvatarWidget = null) {
   return aiAvatarWidget.speechEngine.mouthValue;
 }
 
-// voice.js | brain.js | skin.js
+// speech.js | brain.js | skin.js
 function onTap(aiAvatarWidget = null) {
   if (
     typeof aiAvatarWidget !== 'object' ||
@@ -2917,7 +2917,7 @@ export async function initAvatarBot(optiopns = {}) {
     speechEngine.assistantGreeting = optiopns.assistantGreeting;
   }
 
-  // voice.js
+  // speech.js
   if ('speechSynthesis' in window) {
     speechSynthesis.onvoiceschanged = () => {
       speechEngine.ttVoice = loadVoice(aiAvatarWidget);
