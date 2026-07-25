@@ -274,7 +274,7 @@ export function initAiProvider(setting = {}) {
 }
 
 // brain.js
-export function initMEM({ avatarMode }, brain) {
+export function initMEM({ avatarMode }) {
   // 記憶（陪伴模式限定）：只存訪客自己瀏覽器的 localStorage，零後端、不上傳；說「忘記我」即清除
   const mem = {
     key: 'avatar-widget-mem',
@@ -337,10 +337,15 @@ export function initMEM({ avatarMode }, brain) {
   return mem;
 }
 
-export function initBrainEngine(seting = {}) {
+export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
   const {
     llmModel,
     avatarMode,
+    knowledge = [],
+    knowledgeUrl,
+    companionKnowledge = [],
+    companionKnowledgeUrl,
+    companionFallback,
 
     onLlmLoading,
     onLlmLoadProgress,
@@ -363,7 +368,43 @@ export function initBrainEngine(seting = {}) {
   let mem = null;
   let aiProvider = null;
 
+  const safeKnowledge =
+    Array.isArray(knowledge) && knowledge.length > 0
+      ? knowledge
+      : await handleGetKnowledge(knowledgeUrl);
+  const safeCompanionKnowledge =
+    Array.isArray(companionKnowledge) && companionKnowledge.length > 0
+      ? companionKnowledge
+      : await handleGetKnowledge(companionKnowledgeUrl);
+
   const brain = {
+    get STATE_MAP() {
+      return STATE_MAP;
+    },
+    get AVATAR_MODE_MAP() {
+      return AVATAR_MODE_MAP;
+    },
+    get DEFAULT_AVATAR_MODE() {
+      return DEFAULT_AVATAR_MODE;
+    },
+    get DEFAULT_LLM_MODEL() {
+      return DEFAULT_LLM_MODEL;
+    },
+    get DEFAULT_AI_PROVIDER_MODEL() {
+      return DEFAULT_AI_PROVIDER_MODEL;
+    },
+
+    get knowledgeUrl() {
+      return knowledgeUrl;
+    },
+    knowledge: safeKnowledge,
+    get companionKnowledgeUrl() {
+      return companionKnowledgeUrl;
+    },
+    companionKnowledge: safeCompanionKnowledge,
+    companionFallback,
+    companionFallbackIdx: 0,
+
     onLlmLoading: null,
     onLlmLoadProgress: null,
     onLlmLoaded: null,
@@ -416,41 +457,38 @@ export function initBrainEngine(seting = {}) {
     {
       llmModel,
       onLoading(...arg) {
-        return brain.onLlmLoading?.(...arg, brain);
+        return brain.onLlmLoading?.(...arg, aiAvatarWidget);
       },
       onLoadProgress(...arg) {
-        return brain.onLlmLoadProgress?.(...arg, brain);
+        return brain.onLlmLoadProgress?.(...arg, aiAvatarWidget);
       },
       onLoaded(...arg) {
-        return brain.onLlmLoaded?.(...arg, brain);
+        return brain.onLlmLoaded?.(...arg, aiAvatarWidget);
       },
       onLoadError(...arg) {
-        return brain.onLlmLoadError?.(...arg, brain);
+        return brain.onLlmLoadError?.(...arg, aiAvatarWidget);
       }
     },
     brain
   );
-  mem = initMEM({ avatarMode }, brain);
-  aiProvider = initAiProvider(
-    {
-      providerModel: aiProviderModel,
-      providerCreatedFetchSetting: aiProviderCreatedFetchSetting,
-      providerCreatedFetchPayload: aiProviderCreatedFetchPayload,
-      providerBaseUrl: aiProviderBaseUrl,
-      providerPingUrl: aiProviderPingUrl,
-      providerChatUrl: aiProviderChatUrl,
-      onConnecting(...arg) {
-        return brain.onAiProviderConnecting?.(...arg, brain);
-      },
-      onConnected(...arg) {
-        return brain.onAiProviderConnected?.(...arg, brain);
-      },
-      onError(...arg) {
-        return brain.onAiProviderError?.(...arg, brain);
-      }
+  mem = initMEM({ avatarMode });
+  aiProvider = initAiProvider({
+    providerModel: aiProviderModel,
+    providerCreatedFetchSetting: aiProviderCreatedFetchSetting,
+    providerCreatedFetchPayload: aiProviderCreatedFetchPayload,
+    providerBaseUrl: aiProviderBaseUrl,
+    providerPingUrl: aiProviderPingUrl,
+    providerChatUrl: aiProviderChatUrl,
+    onConnecting(...arg) {
+      return brain.onAiProviderConnecting?.(...arg, aiAvatarWidget);
     },
-    brain
-  );
+    onConnected(...arg) {
+      return brain.onAiProviderConnected?.(...arg, aiAvatarWidget);
+    },
+    onError(...arg) {
+      return brain.onAiProviderError?.(...arg, aiAvatarWidget);
+    }
+  });
 
   return brain;
 }

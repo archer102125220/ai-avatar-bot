@@ -151,7 +151,7 @@ function scoreEntry(question, e) {
 }
 // brain.js
 function topK(aiAvatarWidget = null, question, k) {
-  const knowledge = aiAvatarWidget?.knowledge || [];
+  const knowledge = aiAvatarWidget?.brainEngine?.knowledge || [];
 
   return knowledge
     .map((e) => ({ e, s: scoreEntry(question, e) }))
@@ -185,8 +185,9 @@ function brainCompanionFallback(aiAvatarWidget = null, question) {
   // 陪聊版兜底：輪流換句，不推銷產品題
   const name = aiAvatarWidget.brainEngine.mem.data.name;
   const companionFallbackList =
-    Array.isArray(aiAvatarWidget.companionFallback) === true
-      ? aiAvatarWidget.companionFallback
+    Array.isArray(aiAvatarWidget.brainEngine.companionFallback) === true &&
+    aiAvatarWidget.brainEngine.companionFallback.length > 0
+      ? aiAvatarWidget.brainEngine.companionFallback
       : [
           (name ? name + '，' : '') +
             '這個我還不太會聊，但我想聽你說——多講一點？',
@@ -196,7 +197,8 @@ function brainCompanionFallback(aiAvatarWidget = null, question) {
         ];
 
   return companionFallbackList[
-    aiAvatarWidget.companionFallbackIdx++ % companionFallbackList.length
+    aiAvatarWidget.brainEngine.companionFallbackIdx++ %
+      companionFallbackList.length
   ];
 }
 // brain.js
@@ -205,10 +207,13 @@ function handleThinking(aiAvatarWidget = null, rawQuestion) {
   if (!question) {
     return '我好像沒聽清楚，可以再說一次嗎？';
   }
-  const site = bestOf(aiAvatarWidget.knowledge, question);
+  const site = bestOf(aiAvatarWidget.brainEngine.knowledge, question);
   if (aiAvatarWidget.avatarMode === AVATAR_MODE_MAP.companion) {
     // 陪伴模式：聊天題給陪聊腦、網站/產品題照答
-    const chat = bestOf(aiAvatarWidget.companionKnowledge, question);
+    const chat = bestOf(
+      aiAvatarWidget.brainEngine.companionKnowledge,
+      question
+    );
     if (chat.e && chat.s >= 0.16 && chat.s + 0.05 >= site.s) {
       return chat.e.a;
     }
@@ -626,7 +631,7 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
     })();
 
     aiAvatarWidget.speechEngine.spokenDisplayText =
-      getWelcomeText(aiAvatarWidget);
+      await getWelcomeText(aiAvatarWidget);
     if (typeof aiAvatarWidget.onReady === 'function') {
       aiAvatarWidget.onReady(aiAvatarWidget);
     }
@@ -911,7 +916,7 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
     canvas.addEventListener('pointerdown', () => onTap(aiAvatarWidget));
 
     aiAvatarWidget.speechEngine.spokenDisplayText =
-      getWelcomeText(aiAvatarWidget);
+      await getWelcomeText(aiAvatarWidget);
     if (typeof aiAvatarWidget.onReady === 'function') {
       aiAvatarWidget.onReady(aiAvatarWidget);
     }
@@ -1228,15 +1233,15 @@ function endSpeech(aiAvatarWidget = null, sid) {
 function onUtteranceEnd(aiAvatarWidget = null) {
   aiAvatarWidget.speechEngine.isProcessing = false;
   if (
-    aiAvatarWidget.speechEngine.convoOn &&
+    aiAvatarWidget.speechEngine.convoOn === true &&
     aiAvatarWidget.avatarMode === AVATAR_MODE_MAP.companion
   ) {
     setTimeout(() => {
       if (
-        aiAvatarWidget.speechEngine.convoOn &&
-        !aiAvatarWidget.speechEngine.isListening &&
-        !aiAvatarWidget.speechEngine.isSpeaking &&
-        !aiAvatarWidget.speechEngine.isSpeechPlaying
+        aiAvatarWidget.speechEngine.convoOn === true &&
+        aiAvatarWidget.speechEngine.isListening === false &&
+        aiAvatarWidget.speechEngine.isSpeaking === false &&
+        aiAvatarWidget.speechEngine.isSpeechPlaying === false
       ) {
         aiAvatarWidget.speechEngine.noSpeechRuns = 0;
         startListening(aiAvatarWidget);
@@ -1573,12 +1578,12 @@ function bindTyping(aiAvatarWidget = null) {
 }
 
 // brain.js | skin.js
-function getWelcomeText(aiAvatarWidget = null) {
+async function getWelcomeText(aiAvatarWidget = null) {
   let welcomeText =
     '點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋';
 
   if (typeof aiAvatarWidget?.welcomeText === 'function') {
-    welcomeText = aiAvatarWidget.welcomeText(
+    welcomeText = await aiAvatarWidget.welcomeText(
       {
         isCompanion: aiAvatarWidget.brainEngine.mem.isCompanion,
         visits: aiAvatarWidget.brainEngine.mem.data.visits,
@@ -1586,9 +1591,11 @@ function getWelcomeText(aiAvatarWidget = null) {
       },
       aiAvatarWidget
     );
+  } else if (typeof aiAvatarWidget?.welcomeText === 'string') {
+    welcomeText = aiAvatarWidget.welcomeText;
   } else if (aiAvatarWidget?.avatarMode === AVATAR_MODE_MAP.companion) {
     if (typeof aiAvatarWidget.companionWelcomeText === 'function') {
-      welcomeText = aiAvatarWidget.companionWelcomeText(aiAvatarWidget);
+      welcomeText = await aiAvatarWidget.companionWelcomeText(aiAvatarWidget);
     } else if (aiAvatarWidget.brainEngine.mem.data.visits > 1) {
       welcomeText =
         (aiAvatarWidget.brainEngine.mem.data.name
@@ -1604,7 +1611,7 @@ function getWelcomeText(aiAvatarWidget = null) {
         '嗨～我是這裡的陪聊虛擬人！點 💬 就能連續對話，我會記得你說過的話（只存在你這台瀏覽器，說『忘記我』就清掉）';
     }
   } else if (typeof aiAvatarWidget.assistantWelcomeText === 'function') {
-    welcomeText = aiAvatarWidget.assistantWelcomeText(aiAvatarWidget);
+    welcomeText = await aiAvatarWidget.assistantWelcomeText(aiAvatarWidget);
   } else if (typeof aiAvatarWidget.assistantWelcomeText === 'string') {
     welcomeText = aiAvatarWidget.assistantWelcomeText;
   }
@@ -2150,7 +2157,8 @@ export async function initAvatarBot(optiopns = {}) {
     gesture2D = null,
     isMinimal = false,
     isIframe = false,
-    gender = ''
+    gender = '',
+    companionFallback = []
   } = optiopns;
 
   if (container instanceof HTMLElement === false) {
@@ -2181,16 +2189,6 @@ export async function initAvatarBot(optiopns = {}) {
 
   const safeVrmUrl =
     vrmUrl || (/\.vrm($|\?)/i.test(safeModelUrl) ? safeModelUrl : '');
-
-  const safeKnowledge =
-    Array.isArray(knowledge) && knowledge.length > 0
-      ? knowledge
-      : await handleGetKnowledge(knowledgeUrl);
-  const safeCompanionKnowledge =
-    Array.isArray(companionKnowledge) && companionKnowledge.length > 0
-      ? companionKnowledge
-      : await handleGetKnowledge(companionKnowledgeUrl);
-
   const uiDom = initUi(container);
 
   let brainEngine = null;
@@ -2221,12 +2219,6 @@ export async function initAvatarBot(optiopns = {}) {
       return DEFAULT_MODEL_URL;
     },
 
-    // ===== Ollama 伺服器 大腦 =====
-    // data-ai-provider 指向 OpenAI 相容端點（如 http://localhost:11434/v1）；data-llmmodel 指定模型名
-    get aiProviderBaseUrl() {
-      return aiProviderBaseUrl;
-    },
-
     get container() {
       return container;
     },
@@ -2252,16 +2244,6 @@ export async function initAvatarBot(optiopns = {}) {
 
     // ①情緒表情狀態：speak 時從文字判斷 → 3D 表情 preset 慢慢 ease 進、講完 ease 回中性（2D 模型表情規格不一，先不套）
     emo: { name: 'neutral', target: 0, weight: 0, applied: '' },
-
-    _aiProviderModel: aiProviderModel || DEFAULT_AI_PROVIDER_MODEL,
-    get aiProviderModel() {
-      return this._aiProviderModel;
-    },
-    set aiProviderModel(newOllamaModel) {
-      if (typeof newOllamaModel === 'string' || newOllamaModel === null) {
-        this._aiProviderModel = newOllamaModel;
-      }
-    },
 
     _isMinimal: isIframe === true ? false : isMinimal || false,
     get isMinimal() {
@@ -2296,10 +2278,6 @@ export async function initAvatarBot(optiopns = {}) {
       // this.uiDom.stageEl.style.display = "block";
       this.uiDom.minimalEl.style.display = 'none';
     },
-
-    // 連續對話（陪伴模式）：她講完 → 自動重開麥。她講話期間不開麥（會聽到自己的聲音）
-    convoOn: false,
-    noSpeechRuns: 0,
 
     // 狀態
     // 皮的引擎判斷：data-vrm 指向 .vrm → 走 3D(VRM)；否則 data-model(.model3.json) → 走 2D(Live2D)
@@ -2529,31 +2507,6 @@ export async function initAvatarBot(optiopns = {}) {
         }
       }
     },
-    _knowledge: safeKnowledge,
-    get knowledge() {
-      return this._knowledge;
-    },
-    set knowledge(newKnowledge = []) {
-      if (Array.isArray(newKnowledge) === true) {
-        this._knowledge = newKnowledge;
-      }
-    },
-    _companionKnowledge: safeCompanionKnowledge,
-    get companionKnowledge() {
-      return this._companionKnowledge;
-    },
-    set companionKnowledge(newCompanionKnowledge = []) {
-      if (Array.isArray(newCompanionKnowledge) === true) {
-        this._companionKnowledge = newCompanionKnowledge;
-      }
-    },
-
-    get knowledgeUrl() {
-      return knowledgeUrl;
-    },
-    get companionKnowledgeUrl() {
-      return companionKnowledgeUrl;
-    },
 
     get brainEngine() {
       return brainEngine;
@@ -2562,38 +2515,44 @@ export async function initAvatarBot(optiopns = {}) {
       return speechEngine;
     },
 
-    companionFallbackIdx: 0,
-
     onTapTimer: false
   };
 
-  brainEngine = initBrainEngine({
-    llmModel,
-    avatarMode,
-    aiProviderBaseUrl,
-    aiProviderModel,
-    onLlmLoading() {
-      aiAvatarWidget.speechEngine.spokenDisplayText =
-        '開始下載 AI 大腦（約 1GB，只需第一次）…';
+  brainEngine = await initBrainEngine(
+    {
+      llmModel,
+      avatarMode,
+      knowledgeUrl,
+      companionKnowledgeUrl,
+      knowledge,
+      companionKnowledge,
+      companionFallback,
+      aiProviderBaseUrl,
+      aiProviderModel,
+      onLlmLoading() {
+        aiAvatarWidget.speechEngine.spokenDisplayText =
+          '開始下載 AI 大腦（約 1GB，只需第一次）…';
+      },
+      onLlmLoadProgress(p) {
+        uiDom.btnLlmEl.textContent =
+          '🧠 ' + Math.round((p.progress || 0) * 100) + '%';
+      },
+      onLlmLoaded() {
+        uiDom.btnLlmEl.textContent = '🧠✓';
+        uiDom.btnLlmEl.classList.add('llm-on');
+        aiAvatarWidget.speechEngine.spokenAudioText =
+          'AI 大腦啟用完成，現在我可以聊得更自然囉！';
+        aiAvatarWidget.speechEngine.spokenDisplayText =
+          'AI 大腦啟用完成，現在我可以聊得更自然囉！';
+      },
+      onLlmLoadError(error) {
+        uiDom.btnLlmEl.textContent = '🧠✗';
+        aiAvatarWidget.speechEngine.spokenDisplayText =
+          'AI 大腦載入失敗：' + (error?.message || error);
+      }
     },
-    onLlmLoadProgress(p) {
-      uiDom.btnLlmEl.textContent =
-        '🧠 ' + Math.round((p.progress || 0) * 100) + '%';
-    },
-    onLlmLoaded() {
-      uiDom.btnLlmEl.textContent = '🧠✓';
-      uiDom.btnLlmEl.classList.add('llm-on');
-      aiAvatarWidget.speechEngine.spokenAudioText =
-        'AI 大腦啟用完成，現在我可以聊得更自然囉！';
-      aiAvatarWidget.speechEngine.spokenDisplayText =
-        'AI 大腦啟用完成，現在我可以聊得更自然囉！';
-    },
-    onLlmLoadError(error) {
-      uiDom.btnLlmEl.textContent = '🧠✗';
-      aiAvatarWidget.speechEngine.spokenDisplayText =
-        'AI 大腦載入失敗：' + (error?.message || error);
-    }
-  });
+    aiAvatarWidget
+  );
 
   speechEngine = {
     avatarMode: '', // 不確定？
