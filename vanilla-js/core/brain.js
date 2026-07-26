@@ -346,6 +346,12 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     companionKnowledge = [],
     companionKnowledgeUrl,
     companionFallback,
+    aiProviderModel,
+    aiProviderBaseUrl,
+
+    welcomeText = null,
+    companionWelcomeText = null,
+    assistantWelcomeText = null,
 
     onLlmLoading,
     onLlmLoadProgress,
@@ -356,10 +362,8 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     onAiProviderConnected,
     onAiProviderError,
 
-    aiProviderModel,
     aiProviderCreatedFetchSetting,
     aiProviderCreatedFetchPayload,
-    aiProviderBaseUrl,
     aiProviderPingUrl,
     aiProviderChatUrl
   } = seting;
@@ -414,6 +418,44 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     onAiProviderConnected: null,
     onAiProviderError: null,
 
+    _welcomeText: null,
+    get welcomeText() {
+      return this._welcomeText;
+    },
+    set welcomeText(newWelcomeText) {
+      if (typeof newWelcomeText === 'function' || newWelcomeText === null) {
+        this._welcomeText = newWelcomeText;
+      }
+    },
+
+    _companionWelcomeText: null,
+    get companionWelcomeText() {
+      return this._companionWelcomeText;
+    },
+    set companionWelcomeText(newCompanionWelcomeText) {
+      if (
+        typeof newCompanionWelcomeText === 'function' ||
+        typeof newCompanionWelcomeText === 'string' ||
+        newCompanionWelcomeText === null
+      ) {
+        this._companionWelcomeText = newCompanionWelcomeText;
+      }
+    },
+
+    _assistantWelcomeText: null,
+    get assistantWelcomeText() {
+      return this._assistantWelcomeText;
+    },
+    set assistantWelcomeText(newAssistantWelcomeText) {
+      if (
+        typeof newAssistantWelcomeText === 'function' ||
+        typeof newAssistantWelcomeText === 'string' ||
+        newAssistantWelcomeText === null
+      ) {
+        this._assistantWelcomeText = newAssistantWelcomeText;
+      }
+    },
+
     get llm() {
       return llm;
     },
@@ -424,6 +466,22 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
       return aiProvider;
     }
   };
+
+  if (typeof welcomeText === 'function') {
+    brain.welcomeText = welcomeText.bind(aiAvatarWidget);
+  } else if (typeof welcomeText === 'string') {
+    brain.welcomeText = welcomeText;
+  }
+  if (typeof companionWelcomeText === 'function') {
+    brain.companionWelcomeText = companionWelcomeText.bind(aiAvatarWidget);
+  } else if (typeof companionWelcomeText === 'string') {
+    brain.companionWelcomeText = companionWelcomeText;
+  }
+  if (typeof assistantWelcomeText === 'function') {
+    brain.assistantWelcomeText = assistantWelcomeText.bind(aiAvatarWidget);
+  } else if (typeof assistantWelcomeText === 'string') {
+    brain.assistantWelcomeText = assistantWelcomeText;
+  }
 
   if (typeof onLlmLoading === 'function') {
     brain.onLlmLoading = onLlmLoading.bind(brain);

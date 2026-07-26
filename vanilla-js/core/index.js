@@ -1577,13 +1577,13 @@ function bindTyping(aiAvatarWidget = null) {
   });
 }
 
-// brain.js | skin.js
+// brain.js
 async function getWelcomeText(aiAvatarWidget = null) {
   let welcomeText =
     '點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋';
 
-  if (typeof aiAvatarWidget?.welcomeText === 'function') {
-    welcomeText = await aiAvatarWidget.welcomeText(
+  if (typeof aiAvatarWidget?.brainEngine?.welcomeText === 'function') {
+    welcomeText = await aiAvatarWidget.brainEngine.welcomeText(
       {
         isCompanion: aiAvatarWidget.brainEngine.mem.isCompanion,
         visits: aiAvatarWidget.brainEngine.mem.data.visits,
@@ -1591,11 +1591,14 @@ async function getWelcomeText(aiAvatarWidget = null) {
       },
       aiAvatarWidget
     );
-  } else if (typeof aiAvatarWidget?.welcomeText === 'string') {
-    welcomeText = aiAvatarWidget.welcomeText;
+  } else if (typeof aiAvatarWidget?.brainEngine?.welcomeText === 'string') {
+    welcomeText = aiAvatarWidget.brainEngine.welcomeText;
   } else if (aiAvatarWidget?.avatarMode === AVATAR_MODE_MAP.companion) {
-    if (typeof aiAvatarWidget.companionWelcomeText === 'function') {
-      welcomeText = await aiAvatarWidget.companionWelcomeText(aiAvatarWidget);
+    if (
+      typeof aiAvatarWidget?.brainEngine?.companionWelcomeText === 'function'
+    ) {
+      welcomeText =
+        await aiAvatarWidget.brainEngine.companionWelcomeText(aiAvatarWidget);
     } else if (aiAvatarWidget.brainEngine.mem.data.visits > 1) {
       welcomeText =
         (aiAvatarWidget.brainEngine.mem.data.name
@@ -1604,16 +1607,23 @@ async function getWelcomeText(aiAvatarWidget = null) {
         '歡迎回來～這是我們第 ' +
         aiAvatarWidget.brainEngine.mem.data.visits +
         ' 次見面！點 💬 繼續聊，我記得我們聊過什麼喔';
-    } else if (typeof aiAvatarWidget.companionWelcomeText === 'string') {
-      welcomeText = aiAvatarWidget.companionWelcomeText;
+    } else if (
+      typeof aiAvatarWidget.brainEngine.companionWelcomeText === 'string'
+    ) {
+      welcomeText = aiAvatarWidget.brainEngine.companionWelcomeText;
     } else {
       welcomeText =
         '嗨～我是這裡的陪聊虛擬人！點 💬 就能連續對話，我會記得你說過的話（只存在你這台瀏覽器，說『忘記我』就清掉）';
     }
-  } else if (typeof aiAvatarWidget.assistantWelcomeText === 'function') {
-    welcomeText = await aiAvatarWidget.assistantWelcomeText(aiAvatarWidget);
-  } else if (typeof aiAvatarWidget.assistantWelcomeText === 'string') {
-    welcomeText = aiAvatarWidget.assistantWelcomeText;
+  } else if (
+    typeof aiAvatarWidget?.brainEngine?.assistantWelcomeText === 'function'
+  ) {
+    welcomeText =
+      await aiAvatarWidget.brainEngine.assistantWelcomeText(aiAvatarWidget);
+  } else if (
+    typeof aiAvatarWidget?.brainEngine?.assistantWelcomeText === 'string'
+  ) {
+    welcomeText = aiAvatarWidget.brainEngine.assistantWelcomeText;
   }
 
   return welcomeText;
@@ -2291,42 +2301,6 @@ export async function initAvatarBot(optiopns = {}) {
       }
     },
 
-    _welcomeText: null,
-    get welcomeText() {
-      return this._welcomeText;
-    },
-    set welcomeText(newWelcomeText) {
-      if (typeof newWelcomeText === 'function' || newWelcomeText === null) {
-        this._welcomeText = newWelcomeText;
-      }
-    },
-    _companionWelcomeText: null,
-    get companionWelcomeText() {
-      return this._companionWelcomeText;
-    },
-    set companionWelcomeText(newCompanionWelcomeText) {
-      if (
-        typeof newCompanionWelcomeText === 'function' ||
-        typeof newCompanionWelcomeText === 'string' ||
-        newCompanionWelcomeText === null
-      ) {
-        this._companionWelcomeText = newCompanionWelcomeText;
-      }
-    },
-    _assistantWelcomeText: null,
-    get assistantWelcomeText() {
-      return this._assistantWelcomeText;
-    },
-    set assistantWelcomeText(newAssistantWelcomeText) {
-      if (
-        typeof newAssistantWelcomeText === 'function' ||
-        typeof newAssistantWelcomeText === 'string' ||
-        newAssistantWelcomeText === null
-      ) {
-        this._assistantWelcomeText = newAssistantWelcomeText;
-      }
-    },
-
     get has2D() {
       return !!this.modelUrl;
     },
@@ -2529,6 +2503,11 @@ export async function initAvatarBot(optiopns = {}) {
       companionFallback,
       aiProviderBaseUrl,
       aiProviderModel,
+
+      welcomeText: optiopns.welcomeText,
+      companionWelcomeText: optiopns.companionWelcomeText,
+      assistantWelcomeText: optiopns.assistantWelcomeText,
+
       onLlmLoading() {
         aiAvatarWidget.speechEngine.spokenDisplayText =
           '開始下載 AI 大腦（約 1GB，只需第一次）…';
@@ -2886,22 +2865,6 @@ export async function initAvatarBot(optiopns = {}) {
 
   if (typeof optiopns.onReady === 'function') {
     aiAvatarWidget.onReady = optiopns.onReady.bind(aiAvatarWidget);
-  }
-
-  if (typeof optiopns.welcomeText === 'function') {
-    aiAvatarWidget.welcomeText = optiopns.welcomeText.bind(aiAvatarWidget);
-  }
-  if (typeof optiopns.companionWelcomeText === 'function') {
-    aiAvatarWidget._companionWelcomeText =
-      optiopns.companionWelcomeText.bind(aiAvatarWidget);
-  } else if (typeof optiopns.companionWelcomeText === 'string') {
-    aiAvatarWidget.companionWelcomeText = optiopns.companionWelcomeText;
-  }
-  if (typeof optiopns.assistantWelcomeText === 'function') {
-    aiAvatarWidget.assistantWelcomeText =
-      optiopns.assistantWelcomeText.bind(aiAvatarWidget);
-  } else if (typeof optiopns.assistantWelcomeText === 'string') {
-    aiAvatarWidget.assistantWelcomeText = optiopns.assistantWelcomeText;
   }
 
   if (typeof optiopns.buildLLMMessages === 'function') {
