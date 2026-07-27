@@ -1937,6 +1937,8 @@ function onTap(aiAvatarWidget = null) {
       },
       aiAvatarWidget
     );
+  } else if (typeof aiAvatarWidget.speechEngine.greeting === 'string') {
+    greeting = aiAvatarWidget.speechEngine.greeting;
   } else if (aiAvatarWidget.avatarMode === AVATAR_MODE_MAP.companion) {
     greeting =
       (aiAvatarWidget.brainEngine.mem.data.name
