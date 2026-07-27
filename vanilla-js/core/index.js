@@ -1982,7 +1982,7 @@ function onTap(aiAvatarWidget = null) {
   aiAvatarWidget.speechEngine.spokenAudioText = greeting;
 }
 
-// brain.js | ui.js
+// brain.js
 // 啟用本機 Ollama 時：開機 ping 一下，連上就把 🧠 切成「本機大腦」狀態
 async function initOllama(aiAvatarWidget = null) {
   if (aiAvatarWidget?.container instanceof HTMLElement === false) {
@@ -1997,32 +1997,33 @@ async function initOllama(aiAvatarWidget = null) {
   }
 
   // aiAvatarWidget.brainEngine.connecting = true;
-  const btnLlm = aiAvatarWidget.uiDom.btnLlmEl;
-  if (btnLlm instanceof HTMLElement) {
-    btnLlm.textContent = '🧠…';
-    btnLlm.title = 'Ollama 伺服器大腦（連線中）';
-  }
-  const ok = await aiAvatarWidget.brainEngine.aiProvider.ping();
+  // const btnLlm = aiAvatarWidget.uiDom.btnLlmEl;
+  // if (btnLlm instanceof HTMLElement) {
+  //   btnLlm.textContent = '🧠…';
+  //   btnLlm.title = 'Ollama 伺服器大腦（連線中）';
+  // }
+  // const ok = await aiAvatarWidget.brainEngine.aiProvider.ping();
+  await aiAvatarWidget.brainEngine.aiProvider.ping();
 
   // aiAvatarWidget.brainEngine.connecting = false;
   // aiAvatarWidget.brainEngine.connected = ok;
 
-  if (btnLlm instanceof HTMLElement) {
-    btnLlm.textContent = ok ? '🧠本機' : '🧠✗';
-    btnLlm.classList.toggle('llm-on', ok);
-    btnLlm.setAttribute('aria-pressed', String(ok));
-    btnLlm.title = ok
-      ? 'Ollama 伺服器：已連線 ' + aiAvatarWidget.brainEngine.aiProvider.model
-      : 'Ollama 伺服器連不上（檢查 Ollama 是否在跑 / CORS）';
-  }
-  if (ok === true) {
-    setTimeout(() => {
-      aiAvatarWidget.speechEngine.spokenDisplayText =
-        '已接上 Ollama 伺服器大腦（' +
-        aiAvatarWidget.brainEngine.aiProvider.model +
-        '）🧠 問我問題吧！';
-    }, 1300);
-  }
+  // if (btnLlm instanceof HTMLElement) {
+  //   btnLlm.textContent = ok ? '🧠本機' : '🧠✗';
+  //   btnLlm.classList.toggle('llm-on', ok);
+  //   btnLlm.setAttribute('aria-pressed', String(ok));
+  //   btnLlm.title = ok
+  //     ? 'Ollama 伺服器：已連線 ' + aiAvatarWidget.brainEngine.aiProvider.model
+  //     : 'Ollama 伺服器連不上（檢查 Ollama 是否在跑 / CORS）';
+  // }
+  // if (ok === true) {
+  //   setTimeout(() => {
+  //     aiAvatarWidget.speechEngine.spokenDisplayText =
+  //       '已接上 Ollama 伺服器大腦（' +
+  //       aiAvatarWidget.brainEngine.aiProvider.model +
+  //       '）🧠 問我問題吧！';
+  //   }, 1300);
+  // }
 }
 
 // ui.js
@@ -2530,6 +2531,35 @@ export async function initAvatarBot(optiopns = {}) {
         uiDom.btnLlmEl.textContent = '🧠✗';
         aiAvatarWidget.speechEngine.spokenDisplayText =
           'AI 大腦載入失敗：' + (error?.message || error);
+      },
+      onAiProviderConnecting() {
+        const btnLlmEl = uiDom.btnLlmEl;
+        if (btnLlmEl instanceof HTMLElement) {
+          btnLlmEl.textContent = '🧠…';
+          btnLlmEl.title = 'Ollama 伺服器大腦（連線中）';
+        }
+      },
+      onAiProviderConnected(response) {
+        const ok = response?.ok || false;
+        const btnLlmEl = uiDom.btnLlmEl;
+
+        if (btnLlmEl instanceof HTMLElement) {
+          btnLlmEl.textContent = ok ? '🧠本機' : '🧠✗';
+          btnLlmEl.classList.toggle('llm-on', ok);
+          btnLlmEl.setAttribute('aria-pressed', String(ok));
+          btnLlmEl.title = ok
+            ? 'Ollama 伺服器：已連線 ' +
+              aiAvatarWidget.brainEngine.aiProvider.model
+            : 'Ollama 伺服器連不上（檢查 Ollama 是否在跑 / CORS）';
+        }
+        if (ok === true) {
+          setTimeout(() => {
+            aiAvatarWidget.speechEngine.spokenDisplayText =
+              '已接上 Ollama 伺服器大腦（' +
+              aiAvatarWidget.brainEngine.aiProvider.model +
+              '）🧠 問我問題吧！';
+          }, 1300);
+        }
       }
     },
     aiAvatarWidget
