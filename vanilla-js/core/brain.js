@@ -261,11 +261,15 @@ export function initAiProvider(setting = {}) {
       //   throw new Error('http ' + response.status);
       // }
 
+      console.log({ response });
+
       if (typeof this.responesFormat === 'function') {
         return await this.responesFormat(response, fetchSetting, messages);
       }
 
       const result = await response.json();
+
+      console.log({ result });
       return result?.choices?.[0]?.message?.content;
     }
   };

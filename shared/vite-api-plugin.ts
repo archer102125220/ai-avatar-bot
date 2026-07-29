@@ -10,11 +10,21 @@ export default function apiPlugin(): Plugin {
         if (req.url?.startsWith('/api/')) {
           const apiPath = req.url.split('?')[0]; // e.g. '/api/tts'
           // map to 'package/shared/api/tts.ts'
-          const filePath = resolve(
+          let filePath = resolve(
             __dirname,
             'api',
             apiPath.substring(5) + '.ts'
-          ); // changed to substring(5) to get 'tts'
+          );
+
+          if (!fs.existsSync(filePath)) {
+            const pathParts = apiPath.substring(5).split('/');
+            if (pathParts.length > 1) {
+              const fallbackPath = resolve(__dirname, 'api', pathParts[0] + '.ts');
+              if (fs.existsSync(fallbackPath)) {
+                filePath = fallbackPath;
+              }
+            }
+          }
 
           if (fs.existsSync(filePath)) {
             try {

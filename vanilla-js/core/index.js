@@ -1697,6 +1697,7 @@ async function handleAnswer(aiAvatarWidget = null, question) {
       '我好像沒聽清楚，可以再說一次嗎？';
     return;
   }
+  console.log(aiAvatarWidget.brainEngine.aiProvider);
   try {
     // 1) Ollama 伺服器大腦（最聰明，優先；整段生成後逐句講）
     if (
@@ -2114,7 +2115,8 @@ export function bindUiEvent(aiAvatarWidget = null) {
         const ok =
           aiAvatarWidget.brainEngine.aiProvider.ready ||
           (await aiAvatarWidget.brainEngine.aiProvider.ping());
-        el.textContent = ok ? '🧠本機' : '🧠✗';
+        // el.textContent = ok ? '🧠本機' : '🧠✗';
+        el.textContent = ok ? '🧠✓' : '🧠✗';
         el.classList.toggle('llm-on', ok);
         el.setAttribute('aria-pressed', String(ok));
         aiAvatarWidget.speechEngine.spokenDisplayText = ok
@@ -2544,7 +2546,7 @@ export async function initAvatarBot(optiopns = {}) {
         const btnLlmEl = uiDom.btnLlmEl;
 
         if (btnLlmEl instanceof HTMLElement) {
-          btnLlmEl.textContent = ok ? '🧠本機' : '🧠✗';
+          btnLlmEl.textContent = ok ? '🧠✓' : '🧠✗';
           btnLlmEl.classList.toggle('llm-on', ok);
           btnLlmEl.setAttribute('aria-pressed', String(ok));
           btnLlmEl.title = ok
