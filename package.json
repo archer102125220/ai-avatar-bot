@@ -24,6 +24,7 @@
   ],
   "packageManager": "yarn@4.17.0",
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "msedge-tts": "^2.0.6"
   }
 }

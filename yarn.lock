@@ -4267,6 +4267,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "ai-avatar-bot@workspace:."
   dependencies:
+    "@types/node": "npm:^20.0.0"
     msedge-tts: "npm:^2.0.6"
   languageName: unknown
   linkType: soft

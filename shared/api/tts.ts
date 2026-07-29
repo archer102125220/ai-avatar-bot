@@ -1,3 +1,7 @@
+/// <reference types="node" />
+import type { IncomingMessage, ServerResponse } from 'http';
+import { Buffer } from 'buffer';
+
 /* =====================================================================
  * api/tts.js — Vercel serverless function
  * 用 msedge-tts 取得微軟「神經語音」(曉臻等) 的 MP3，回傳給前端播放。
@@ -85,8 +89,6 @@ function rateLimited(req: IncomingMessage) {
   return e.n > RL_MAX;
 }
 
-import type { IncomingMessage, ServerResponse } from 'http';
-
 export default async (req: IncomingMessage, res: ServerResponse) => {
   const origin = req.headers.origin || '';
   res.setHeader('Access-Control-Allow-Origin', origin || '*');
@@ -126,7 +128,7 @@ export default async (req: IncomingMessage, res: ServerResponse) => {
     await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
     const { audioStream } = await tts.toStream(escapeXml(text)); // escape 防 SSML 注入
 
-    const buf = await new Promise((resolve, reject) => {
+    const buf = await new Promise<Buffer>((resolve, reject) => {
       const chunks: Uint8Array[] = [];
       const timer = setTimeout(() => {
         try {
