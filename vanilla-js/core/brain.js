@@ -159,6 +159,9 @@ export function initAiProvider(setting = {}) {
     providerCreatedFetchPayload = null,
     providerResponesFormat = null,
 
+    providerMaxTokens = 2048,
+    providerStream = false,
+
     onConnecting = null,
     onConnected = null,
     onError = null
@@ -177,6 +180,12 @@ export function initAiProvider(setting = {}) {
     },
     get responesFormat() {
       return providerResponesFormat;
+    },
+    get maxTokens() {
+      return providerMaxTokens;
+    },
+    get stream() {
+      return providerStream;
     },
 
     get onConnecting() {
@@ -216,17 +225,19 @@ export function initAiProvider(setting = {}) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       };
+      // TODO: 可以傳遞參數的方式在初始化時設定 max_tokens 及 stream
       const defaultPaylaod = {
         model: this.model,
         messages,
         temperature: 0.4,
-        max_tokens: 220,
-        stream: false
+        max_tokens: this.maxTokens,
+        stream: this.stream
       };
 
       if (typeof this.createdFetchSetting === 'function') {
         const currentFetchSetting = await this.createdFetchSetting(
           messages,
+          this.model,
           defaultFetchSetting
         );
         if (typeof currentFetchSetting === 'object') {
@@ -241,6 +252,7 @@ export function initAiProvider(setting = {}) {
       if (typeof this.createdFetchPayload === 'function') {
         const currentPayload = await this.createdFetchPayload(
           messages,
+          this.model,
           defaultPaylaod,
           fetchSetting
         );
@@ -369,7 +381,9 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     aiProviderCreatedFetchSetting,
     aiProviderCreatedFetchPayload,
     aiProviderPingUrl,
-    aiProviderChatUrl
+    aiProviderChatUrl,
+    aiProviderMaxTokens,
+    aiProviderStream
   } = seting;
 
   let llm = null;
@@ -541,6 +555,8 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     providerBaseUrl: aiProviderBaseUrl,
     providerPingUrl: aiProviderPingUrl,
     providerChatUrl: aiProviderChatUrl,
+    providerMaxTokens: aiProviderMaxTokens,
+    providerStream: aiProviderStream,
     onConnecting(...arg) {
       return brain.onAiProviderConnecting?.(...arg, aiAvatarWidget);
     },
