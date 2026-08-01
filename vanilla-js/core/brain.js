@@ -149,7 +149,7 @@ export function initLLM(setting = {}, brain) {
 }
 
 // brain.js
-export function initAiProvider(setting = {}) {
+export async function initAiProvider(setting = {}) {
   const {
     providerBaseUrl = '',
     providerPingUrl = '',
@@ -206,17 +206,18 @@ export function initAiProvider(setting = {}) {
         return false;
       }
       try {
-        await this.onConnecting(fetchSetting);
+        await this.onConnecting(fetchSetting, this);
         const response = await fetch(
           this.base + (this.pingUrl || '/api/tags'),
           fetchSetting
         );
         this.ready = response.ok;
-        await this.onConnected(response, fetchSetting);
+        await this.onConnected(response, fetchSetting, this);
         return response.ok;
       } catch (error) {
+        console.error(error);
         this.ready = false;
-        await this.onError(error, fetchSetting);
+        await this.onError(error, fetchSetting, this);
         return false;
       }
     },
@@ -238,7 +239,8 @@ export function initAiProvider(setting = {}) {
         const currentFetchSetting = await this.createdFetchSetting(
           messages,
           this.model,
-          defaultFetchSetting
+          defaultFetchSetting,
+          this
         );
         if (typeof currentFetchSetting === 'object') {
           fetchSetting = currentFetchSetting;
@@ -254,7 +256,8 @@ export function initAiProvider(setting = {}) {
           messages,
           this.model,
           defaultPaylaod,
-          fetchSetting
+          fetchSetting,
+          this
         );
         if (typeof currentPayload !== 'undefined') {
           fetchSetting.body = currentPayload;
@@ -276,7 +279,12 @@ export function initAiProvider(setting = {}) {
       console.log({ response });
 
       if (typeof this.responesFormat === 'function') {
-        return await this.responesFormat(response, fetchSetting, messages);
+        return await this.responesFormat(
+          response,
+          fetchSetting,
+          messages,
+          this
+        );
       }
 
       const result = await response.json();
@@ -285,6 +293,11 @@ export function initAiProvider(setting = {}) {
       return result?.choices?.[0]?.message?.content;
     }
   };
+
+  // 啟用本機 Ollama 時：開機 ping 一下，連上就把 🧠 切成「本機大腦」狀態
+  if (aiProvider?.enabled === true) {
+    await aiProvider.ping();
+  }
 
   return aiProvider;
 }
@@ -548,7 +561,7 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     brain
   );
   mem = initMEM({ avatarMode });
-  aiProvider = initAiProvider({
+  aiProvider = await initAiProvider({
     providerModel: aiProviderModel,
     providerCreatedFetchSetting: aiProviderCreatedFetchSetting,
     providerCreatedFetchPayload: aiProviderCreatedFetchPayload,
