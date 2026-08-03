@@ -4,8 +4,8 @@ import {
   DEFAULT_LLM_MODEL,
   DEFAULT_AI_PROVIDER_MODEL,
   STATE_MAP,
-  handleGetKnowledge,
-  initBrainEngine
+  initBrainEngine,
+  classifyEmotion
 } from './brain';
 
 import {
@@ -20,7 +20,9 @@ import {
 import {
   DEFAULT_TTS_ENDPOINT,
   DEFAULT_FEMALE_NEURAL_VOICE,
-  DEFAULT_MALE_NEURAL_VOICE
+  DEFAULT_MALE_NEURAL_VOICE,
+  initSpeechEngine,
+  loadVoice
 } from './speech';
 
 import { initUi } from './ui';
@@ -67,29 +69,6 @@ export {
   DEFAULT_MALE_NEURAL_VOICE
 };
 
-// brain.js
-// 從回答文字粗判情緒（規則式、零成本；驚訝 > 難過 > 開心 > 中性）
-function classifyEmotion(text) {
-  const safeText = String(text || '');
-  const countPattern = (regex) => (safeText.match(regex) || []).length;
-  const surprised = countPattern(/哇|居然|竟然|沒想到|驚|真的嗎|！？|\?!|!\?/g);
-  const sad = countPattern(
-    /抱歉|對不起|可惜|遺憾|失敗|錯誤|沒辦法|不支援|不行|連不上|難過|唉/g
-  );
-  const happy = countPattern(
-    /哈|笑|開心|太好了|好耶|讚|恭喜|歡迎|謝謝|沒問題|完成|成功|一起|囉|喔！|🎉|😊|👋/g
-  );
-  if (surprised && surprised >= Math.max(happy, sad)) {
-    return 'surprised';
-  }
-  if (sad > happy) {
-    return 'sad';
-  }
-  if (happy) {
-    return 'happy';
-  }
-  return 'neutral';
-}
 // brain.js
 function setEmotion(aiAvatarWidget = null, name) {
   if (name === aiAvatarWidget?.emo.name) {
@@ -239,7 +218,7 @@ function handleThinking(aiAvatarWidget = null, rawQuestion) {
   );
 }
 
-// brain.js
+// brain.js | skin.js
 async function aiProviderLLMBrain(aiAvatarWidget = null, question) {
   try {
     aiAvatarWidget.speechEngine.spokenDisplayText = '讓我想想…';
@@ -253,11 +232,10 @@ async function aiProviderLLMBrain(aiAvatarWidget = null, question) {
       return sayAnswer(aiAvatarWidget, out.trim());
     }
   } catch (e) {
-    console.warn('Ollama error', e);
-    aiAvatarWidget.brainEngine.aiProvider.ready = false;
+    console.warn('AI Provider error', e);
   }
   throw new Error(
-    `Ollama did not return a string or returned an empty string: ${out}`
+    `AI Provider did not return a string or returned an empty string: ${out}`
   );
 }
 
@@ -654,8 +632,15 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
     });
 
     let alive = true;
-    (function loop() {
-      if (!alive) return;
+    let paused = false;
+    let renderRaf = 0;
+    function animationLoop() {
+      if (alive !== true || paused === true) {
+        renderRaf = 0;
+        return;
+      }
+      renderRaf = requestAnimationFrame(animationLoop);
+
       const delta = clock.getDelta();
       const elapsedTime = clock.elapsedTime;
       if (vrm) {
@@ -766,9 +751,8 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
         vrm.update(delta); // 套用骨架/表情/springbone
       }
       webGLRenderer.render(scene, camera);
-
-      requestAnimationFrame(loop);
-    })();
+    }
+    renderRaf = requestAnimationFrame(animationLoop);
 
     return {
       aiAvatarWidget,
@@ -776,6 +760,13 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
       gltf,
       get vrm() {
         return vrm;
+      },
+      setPaused(value) {
+        paused = !!value;
+        if (!paused && alive && !renderRaf) {
+          clock.getDelta();
+          animationLoop();
+        }
       },
       dispose() {
         alive = false;
@@ -1108,28 +1099,6 @@ function defaultBuildLLMMessages(aiAvatarWidget = null, question) {
   }
   msgs.push({ role: 'user', content: question });
   return msgs;
-}
-
-// speech.js
-// ===== TTS：開口說話 + 對嘴 =====
-function loadVoice() {
-  const voices = speechSynthesis.getVoices();
-  const pick = (targetVoice) =>
-    voices.find(
-      (voice) =>
-        targetVoice.test(`${voice.name} ${voice.lang}`) &&
-        !/Google/i.test(voice.name)
-    ); // 避開 Chrome 會靜默失敗的 Google 遠端語音
-
-  return (
-    pick(/(HsiaoChen|HsiaoYu|曉臻|曉雨).*zh/i) || // 微軟神經女聲（最自然，若有安裝）
-    pick(/(Yating|Zhiwei).*zh[-_]TW/i) || // 較新、較不機械的微軟 zh-TW 女聲
-    pick(/Microsoft.*zh[-_]TW/i) || // 任何微軟 zh-TW（本地、可靠）
-    pick(/zh[-_]TW/i) ||
-    pick(/^zh/i) ||
-    voices.find((voice) => /zh/i.test(voice.lang)) ||
-    null
-  );
 }
 
 // speech.js
@@ -1699,7 +1668,7 @@ async function handleAnswer(aiAvatarWidget = null, question) {
   }
   console.log(aiAvatarWidget.brainEngine.aiProvider);
   try {
-    // 1) Ollama 伺服器大腦（最聰明，優先；整段生成後逐句講）
+    // 1) AI 伺服器大腦（最聰明，優先；整段生成後逐句講）
     if (
       aiAvatarWidget.brainEngine.aiProvider?.enabled &&
       aiAvatarWidget.brainEngine.aiProvider.ready
@@ -2066,7 +2035,7 @@ export function bindUiEvent(aiAvatarWidget = null) {
     uiDom.btnLlmEl.onclick = async (event) => {
       const el = event.target;
 
-      // 啟用本機 Ollama 模式時：🧠 用來顯示狀態 / 重新連線，不下載 WebLLM
+      // 啟用 AI 伺服器模式時：🧠 用來顯示狀態 / 重新連線，不下載 WebLLM
       if (aiAvatarWidget.brainEngine.aiProvider?.enabled === true) {
         const ok =
           aiAvatarWidget.brainEngine.aiProvider.ready ||
@@ -2076,10 +2045,10 @@ export function bindUiEvent(aiAvatarWidget = null) {
         el.classList.toggle('llm-on', ok);
         el.setAttribute('aria-pressed', String(ok));
         aiAvatarWidget.speechEngine.spokenDisplayText = ok
-          ? 'Ollama 伺服器 AI 大腦運作中（' +
+          ? 'AI 伺服器大腦運作中（' +
             aiAvatarWidget.brainEngine.aiProvider.model +
             '）🧠'
-          : 'Ollama 伺服器連不上：確認 Ollama 在跑、且 AI_PROVIDER_ORIGINS 已允許這個網站。';
+          : 'AI 伺服器連不上：確認 AI 伺服器在跑、且 AI_PROVIDER_ORIGINS 已允許這個網站。';
 
         return;
       }
@@ -2168,6 +2137,7 @@ export async function initAvatarBot(optiopns = {}) {
 
   let brainEngine = null;
   let speechEngine = null;
+  let skinEngine = null;
 
   const aiAvatarWidget = {
     get optiopns() {
@@ -2217,6 +2187,7 @@ export async function initAvatarBot(optiopns = {}) {
       return isIframe;
     },
 
+    // 主要是 animationLoop 時使用
     // ①情緒表情狀態：speak 時從文字判斷 → 3D 表情 preset 慢慢 ease 進、講完 ease 回中性（2D 模型表情規格不一，先不套）
     emo: { name: 'neutral', target: 0, weight: 0, applied: '' },
 
@@ -2424,15 +2395,6 @@ export async function initAvatarBot(optiopns = {}) {
       }
     },
 
-    _llmModel: llmModel || DEFAULT_LLM_MODEL,
-    get llmModel() {
-      return this._llmModel;
-    },
-    set llmModel(newLlmModel = '') {
-      if (typeof newLlmModel === 'string' && newLlmModel !== '') {
-        this._llmModel = newLlmModel;
-      }
-    },
     _avatarMode: avatarMode || DEFAULT_AVATAR_MODE,
     get avatarMode() {
       return this._avatarMode;
@@ -2452,6 +2414,9 @@ export async function initAvatarBot(optiopns = {}) {
     },
     get speechEngine() {
       return speechEngine;
+    },
+    get skinEngine() {
+      return skinEngine;
     },
 
     onTapTimer: false
@@ -2502,7 +2467,7 @@ export async function initAvatarBot(optiopns = {}) {
         const btnLlmEl = uiDom.btnLlmEl;
         if (btnLlmEl instanceof HTMLElement) {
           btnLlmEl.textContent = '🧠…';
-          btnLlmEl.title = 'Ollama 伺服器大腦（連線中）';
+          btnLlmEl.title = 'AI 伺服器大腦（連線中）';
         }
       },
       onAiProviderConnected(response, _fetchSetting, aiProvider) {
@@ -2514,13 +2479,13 @@ export async function initAvatarBot(optiopns = {}) {
           btnLlmEl.classList.toggle('llm-on', ok);
           btnLlmEl.setAttribute('aria-pressed', String(ok));
           btnLlmEl.title = ok
-            ? 'Ollama 伺服器：已連線 ' + aiProvider.model
-            : 'Ollama 伺服器連不上（檢查 Ollama 是否在跑 / CORS）';
+            ? 'AI 伺服器：已連線 ' + aiProvider.model
+            : 'AI 伺服器連不上（檢查 AI 伺服器是否在跑 / CORS）';
         }
         if (ok === true) {
           setTimeout(() => {
             aiAvatarWidget.speechEngine.spokenDisplayText =
-              '已接上 Ollama 伺服器大腦（' +
+              '已接上 AI 伺服器大腦（' +
               aiAvatarWidget.brainEngine.aiProvider.model +
               '）🧠 問我問題吧！';
           }, 1300);
@@ -2530,335 +2495,28 @@ export async function initAvatarBot(optiopns = {}) {
     aiAvatarWidget
   );
 
-  speechEngine = {
-    avatarMode: '', // 不確定？
-
-    _mouthTarget: 0.7, // 可能要歸在 skin ?
-    get mouthTarget() {
-      return this._mouthTarget;
-    },
-    set mouthTarget(newMouthTarget) {
-      if (typeof newMouthTarget === 'number' || newMouthTarget === null) {
-        this._mouthTarget = newMouthTarget;
-      }
-    },
-
-    _mouthValue: 0, // 可能要歸在 skin ?
-    get mouthValue() {
-      return this._mouthValue;
-    },
-    set mouthValue(newMouthValue) {
-      if (typeof newMouthValue === 'number' || newMouthValue === null) {
-        this._mouthValue = newMouthValue;
-      }
-    },
-
-    _speakSeq: 0,
-    get speakSeq() {
-      return this._speakSeq;
-    },
-    set speakSeq(newSpeakSeq) {
-      if (typeof newSpeakSeq === 'number' || newSpeakSeq === null) {
-        this._speakSeq = newSpeakSeq;
-      }
-    },
-
-    // ②逐句開講的佇列狀態（var：這檔案有「宣告前就被呼叫」的前例，避 TDZ）
-    speechQ: [],
-    speechEnded: false,
-    isSpeechPlaying: false,
-    tapDone: false,
-
-    speakBrowserTimer: 0,
-    spokenDisplayTextTimer: 0,
-
-    // 控制「點第二下打斷第一下」
-    _currentFps: 0,
-    get currentFps() {
-      return this._currentFps;
-    },
-    set currentFps(newCurrentFps) {
-      if (typeof newCurrentFps === 'number' || newCurrentFps === null) {
-        this._currentFps = newCurrentFps;
-      }
-    },
-
-    _currentSource: null,
-    get currentSource() {
-      return this._currentSource;
-    },
-    set currentSource(newCurrentSource) {
-      if (typeof newCurrentSource === 'object') {
-        this._currentSource = newCurrentSource;
-      }
-    },
-
-    _isSpeaking: false,
-    get isSpeaking() {
-      return this._isSpeaking;
-    },
-    set isSpeaking(newIsSpeaking) {
-      if (typeof newIsSpeaking === 'boolean' || newIsSpeaking === null) {
-        this._isSpeaking = newIsSpeaking;
-      }
-    },
-
-    _useAudioMouth: false,
-    get useAudioMouth() {
-      return this._useAudioMouth;
-    },
-    set useAudioMouth(newUseAudioMouth) {
-      if (typeof newUseAudioMouth === 'boolean' || newUseAudioMouth === null) {
-        this._newUseAudioMouth = newUseAudioMouth;
-      }
-    },
-
-    _audioMouth: 0,
-    get audioMouth() {
-      return this._audioMouth;
-    },
-    set audioMouth(newAudioMouth) {
-      if (typeof newAudioMouth === 'number' || newAudioMouth === null) {
-        this._audioMouth = newAudioMouth;
-      }
-    },
-
-    _ttsMuted: false,
-    get ttsMuted() {
-      return this._ttsMuted;
-    },
-    set ttsMuted(newTtsMuted) {
-      if (typeof newTtsMuted === 'boolean' || newTtsMuted === null) {
-        this._ttsMuted = newTtsMuted;
-      }
-    },
-
-    // 連續對話（陪伴模式）：她講完 → 自動重開麥。她講話期間不開麥（會聽到自己的聲音）
-    convoOn: false,
-    noSpeechRuns: 0,
-
-    isListening: false,
-
-    // 抓不到神經語音後端就鎖定瀏覽器語音，避免每句都打 404
-    _neuralDisabled: false,
-    get neuralDisabled() {
-      return this._neuralDisabled;
-    },
-    set neuralDisabled(newNeuralDisabled) {
-      if (
-        typeof newNeuralDisabled === 'boolean' ||
-        newNeuralDisabled === null
-      ) {
-        this._neuralDisabled = newNeuralDisabled;
-      }
-    },
-
-    _audioCtx: null,
-    get audioCtx() {
-      return this._audioCtx;
-    },
-    set audioCtx(newAudioCtx = null) {
-      if (typeof newAudioCtx === 'object') {
-        this._audioCtx = newAudioCtx;
-      }
-    },
-
-    _ttsEndpoint: ttsEndpoint || DEFAULT_TTS_ENDPOINT,
-    get ttsEndpoint() {
-      return this._ttsEndpoint;
-    },
-    set ttsEndpoint(newTtsEndpoint = '') {
-      if (typeof newTtsEndpoint === 'string' && newTtsEndpoint !== '') {
-        this._ttsEndpoint = newTtsEndpoint;
-      }
-    },
-
-    _neuralVoice: safeNeuralVoice,
-    get neuralVoice() {
-      return this._neuralVoice; // 神經語音
-    },
-    set neuralVoice(newNeuralVoice = '') {
-      if (typeof newNeuralVoice === 'string' || newNeuralVoice === null) {
-        this._neuralVoice = newNeuralVoice;
-      }
-    },
-
-    _ttVoice: null,
-    get ttVoice() {
-      return this._ttVoice;
-    },
-    set ttVoice(newTtVoice) {
-      if (typeof newTtVoice === 'object') {
-        this._ttVoice = newTtVoice;
-      }
-    },
-
-    _ttsRate: 1.0,
-    get ttsRate() {
-      return this._ttsRate;
-    },
-    set ttsRate(newTtsRate) {
-      if (typeof newTtsRate === 'number' || newTtsRate === null) {
-        this._ttsRate = newTtsRate;
-      }
-    },
-
-    _spokenDisplayText: '',
-    get spokenDisplayText() {
-      return this._spokenDisplayText;
-    },
-    set spokenDisplayText(newSpeakingLabel) {
-      if (typeof newSpeakingLabel === 'string' || newSpeakingLabel === null) {
-        this._spokenDisplayText = newSpeakingLabel;
-
-        if (typeof this.onSpokenDisplayTextChange === 'function') {
-          this.onSpokenDisplayTextChange(newSpeakingLabel, aiAvatarWidget);
-        }
-      }
-    },
-    get speak() {
-      return function _speak(text) {
-        return speak(aiAvatarWidget, String(text || '').slice(0, 600));
-      };
-    },
-    _spokenAudioText: '',
-    get spokenAudioText() {
-      return this._spokenAudioText;
-    },
-    set spokenAudioText(newSpeakingSounds) {
-      if (typeof newSpeakingSounds === 'string' || newSpeakingSounds === null) {
-        this._spokenAudioText = newSpeakingSounds;
-
-        this.spokenDisplayText = newSpeakingSounds;
-        if (typeof this.onSpeaking === 'function') {
-          this.onSpeaking(newSpeakingSounds, aiAvatarWidget);
-        }
-        this.speak(newSpeakingSounds);
-      }
-    },
-
-    _recognition: null,
-    get recognition() {
-      return this._recognition;
-    },
-    set recognition(newRecognition) {
-      if (typeof newRecognition === 'object') {
-        this._recognition = newRecognition;
-      }
-    },
-
-    get onSpeaking() {
-      return function (text, currentAiAvatar, ...args) {
-        if (typeof optiopns.onSpeaking === 'function') {
-          return optiopns.onSpeaking.call(
-            currentAiAvatar,
-            text,
-            currentAiAvatar,
-            ...args
-          );
-        }
-      };
-    },
-    get onSpeakingEnd() {
-      return function (text, currentAiAvatar, ...args) {
-        if (typeof optiopns.onSpeakingEnd === 'function') {
-          return optiopns.onSpeakingEnd.call(
-            currentAiAvatar,
-            text,
-            currentAiAvatar,
-            ...args
-          );
-        }
-      };
-    },
-    get onSpokenDisplayTextChange() {
-      return function _onSpokenDisplayTextChange(
-        newSpeakingLabel,
-        currentAiAvatar,
-        ...args
-      ) {
+  speechEngine = initSpeechEngine(
+    {
+      ttsEndpoint: ttsEndpoint || DEFAULT_TTS_ENDPOINT,
+      neuralVoice: safeNeuralVoice,
+      greeting: optiopns.greeting,
+      companionGreeting: optiopns.companionGreeting,
+      assistantGreeting: optiopns.assistantGreeting,
+      onSpokenDisplayTextChange(newSpeakingLabel) {
         uiDom.bubbleEl.textContent = newSpeakingLabel;
         uiDom.bubbleEl.classList.add('show');
-        clearTimeout(this.spokenDisplayTextTimer);
-        this.spokenDisplayTextTimer = setTimeout(
-          () => uiDom.bubbleEl.classList.remove('show'),
-          6000
-        );
+      },
+      onSpokenDisplayTextTimeout() {
+        uiDom.bubbleEl.classList.remove('show');
+      },
 
-        if (typeof optiopns.onSpokenDisplayTextChange === 'function') {
-          return optiopns.onSpokenDisplayTextChange.call(
-            currentAiAvatar,
-            newSpeakingLabel,
-            currentAiAvatar,
-            ...args
-          );
-        }
-      };
+      // TODO: 帶 speak 與其他方法耦合拆解完後改為直接放到 speech.js 檔案中
+      speak
     },
+    aiAvatarWidget
+  );
 
-    _greeting: null, // function
-    get greeting() {
-      return this._greeting;
-    },
-    set greeting(newGreeting) {
-      if (typeof newGreeting === 'function' || newGreeting === null) {
-        this._greeting = newGreeting;
-      }
-    },
-
-    _companionGreeting: null, // function | string
-    get companionGreeting() {
-      return this._companionGreeting;
-    },
-    set companionGreeting(newCompanionGreeting) {
-      if (
-        typeof newCompanionGreeting === 'function' ||
-        typeof newCompanionGreeting === 'string' ||
-        newCompanionGreeting === null
-      ) {
-        this._companionGreeting = newCompanionGreeting;
-      }
-    },
-
-    _assistantGreeting: null, // function | string
-    get assistantGreeting() {
-      return this._assistantGreeting;
-    },
-    set assistantGreeting(newAssistantGreeting) {
-      if (
-        typeof newAssistantGreeting === 'function' ||
-        typeof newAssistantGreeting === 'string' ||
-        newAssistantGreeting === null
-      ) {
-        this._assistantGreeting = newAssistantGreeting;
-      }
-    },
-    isProcessing: false
-  };
-
-  if (typeof optiopns.greeting === 'function') {
-    speechEngine.greeting = optiopns.greeting.bind(aiAvatarWidget);
-  }
-  if (typeof optiopns.companionGreeting === 'function') {
-    speechEngine.companionGreeting =
-      optiopns.companionGreeting.bind(aiAvatarWidget);
-  } else if (typeof optiopns.companionGreeting === 'string') {
-    speechEngine.companionGreeting = optiopns.companionGreeting;
-  }
-  if (typeof optiopns.assistantGreeting === 'function') {
-    speechEngine.assistantGreeting =
-      optiopns.assistantGreeting.bind(aiAvatarWidget);
-  } else if (typeof optiopns.assistantGreeting === 'string') {
-    speechEngine.assistantGreeting = optiopns.assistantGreeting;
-  }
-
-  // speech.js
-  if ('speechSynthesis' in window) {
-    speechSynthesis.onvoiceschanged = () => {
-      speechEngine.ttVoice = loadVoice(aiAvatarWidget);
-    };
-    speechEngine.ttVoice = loadVoice(aiAvatarWidget);
-  }
+  skinEngine = {};
 
   if (typeof optiopns.onReady === 'function') {
     aiAvatarWidget.onReady = optiopns.onReady.bind(aiAvatarWidget);

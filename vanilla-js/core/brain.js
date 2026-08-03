@@ -41,10 +41,14 @@ export async function handleGetKnowledge(knowledgeUrl = '') {
 export function initLLM(setting = {}, brain) {
   const {
     llmModel = DEFAULT_LLM_MODEL,
+    LLMMaxTokens = 220,
+    LLMIsStream = true,
     onLoading,
     onLoadProgress,
     onLoaded,
-    onLoadError
+    onLoadError,
+    onChatting,
+    onStreamChatting
   } = setting;
 
   let engine = null;
@@ -57,6 +61,13 @@ export function initLLM(setting = {}, brain) {
     state: STATE_MAP.IDLE, // idle | loading | ready | error
     progress: 0,
     model: llmModel || DEFAULT_LLM_MODEL,
+
+    get maxTokens() {
+      return LLMMaxTokens;
+    },
+    get isStream() {
+      return LLMIsStream;
+    },
 
     get onLoading() {
       return function _onLoading(...arg) {
@@ -86,51 +97,67 @@ export function initLLM(setting = {}, brain) {
         }
       };
     },
+    get onChatting() {
+      return function _onChating(...arg) {
+        if (typeof onChatting === 'function') {
+          onChatting(...arg);
+        }
+      };
+    },
+    get onStreamChatting() {
+      return function _onStreamChatting(...arg) {
+        if (typeof onStreamChatting === 'function') {
+          onStreamChatting(...arg);
+        }
+      };
+    },
     async load() {
       if (engine) return engine;
       if (loadingPromise) return loadingPromise;
       this.state = STATE_MAP.LOADING;
       this.onLoading();
-      loadingPromise = import('@mlc-ai/web-llm') // 動態載入：只有按下🧠才抓這包函式庫
-        .then((webllm) => {
-          return webllm.CreateMLCEngine(llmModel, {
+
+      loadingPromise = (async () => {
+        try {
+          const webllm = await import('@mlc-ai/web-llm'); // 動態載入：只有按下🧠才抓這包函式庫
+          engine = await webllm.CreateMLCEngine(llmModel, {
             initProgressCallback: (p) => {
               this.progress = p.progress || 0;
               this.onLoadProgress(p);
             }
           });
-        })
-        .then((mlcEngine) => {
-          engine = mlcEngine;
-          this.state = STATE_MAP.READY;
-          this.onLoaded(mlcEngine);
-          return mlcEngine;
-        })
-        .catch((error) => {
+          this.onLoaded(engine);
+        } catch (error) {
           this.state = STATE_MAP.ERROR;
           this.error = String(error);
           this.onLoadError(error, this);
           throw error;
-        });
+        }
+      })();
+
       return loadingPromise;
     },
     async chat(messages, onDelta) {
       if (!engine) {
         return null;
       }
-      if (!onDelta) {
+
+      if (!onDelta || this.isStream === false) {
         const result = await engine.chat.completions.create({
           messages,
           temperature: 0.4,
-          max_tokens: 220
+          max_tokens: this.maxTokens
         });
+
+        this.onChatting(result, messages, brain);
         return result?.choices?.[0]?.message?.content;
       }
+
       // 串流：邊生成邊回吐 token（逐句開講用）——首句不用等整段生成完
       const stream = await engine.chat.completions.create({
         messages,
         temperature: 0.4,
-        max_tokens: 220,
+        max_tokens: this.maxTokens,
         stream: true
       });
       let fullResponse = '';
@@ -139,8 +166,11 @@ export function initLLM(setting = {}, brain) {
         if (content) {
           fullResponse += content;
           onDelta(content, fullResponse, llm, brain);
+          this.onStreamChatting(content, fullResponse, brain);
         }
       }
+
+      this.onChatting(fullResponse, messages, brain);
       return fullResponse;
     }
   };
@@ -160,11 +190,13 @@ export async function initAiProvider(setting = {}) {
     providerResponesFormat = null,
 
     providerMaxTokens = 2048,
-    providerStream = false,
+    providerIsStream = false,
 
     onConnecting = null,
     onConnected = null,
-    onError = null
+    onError = null,
+    onChatting = null,
+    onStreamChatting = null
   } = setting;
 
   const aiProvider = {
@@ -184,18 +216,44 @@ export async function initAiProvider(setting = {}) {
     get maxTokens() {
       return providerMaxTokens;
     },
-    get stream() {
-      return providerStream;
+    get isStream() {
+      return providerIsStream;
     },
 
     get onConnecting() {
-      return onConnecting;
+      return function _onConnecting(...arg) {
+        if (typeof onConnecting === 'function') {
+          onConnecting(...arg);
+        }
+      };
     },
     get onConnected() {
-      return onConnected;
+      return function _onConnected(...arg) {
+        if (typeof onConnected === 'function') {
+          onConnected(...arg);
+        }
+      };
     },
     get onError() {
-      return onError;
+      return function _onError(...arg) {
+        if (typeof onError === 'function') {
+          onError(...arg);
+        }
+      };
+    },
+    get onChatting() {
+      return function _onChating(...arg) {
+        if (typeof onChatting === 'function') {
+          onChatting(...arg);
+        }
+      };
+    },
+    get onStreamChatting() {
+      return function _onStreamChatting(...arg) {
+        if (typeof onStreamChatting === 'function') {
+          onStreamChatting(...arg);
+        }
+      };
     },
 
     model: providerModel || DEFAULT_AI_PROVIDER_MODEL,
@@ -222,79 +280,84 @@ export async function initAiProvider(setting = {}) {
       }
     },
     async chat(messages, fetchSetting) {
-      const defaultFetchSetting = {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      };
-      // TODO: 可以傳遞參數的方式在初始化時設定 max_tokens 及 stream
-      const defaultPaylaod = {
-        model: this.model,
-        messages,
-        temperature: 0.4,
-        max_tokens: this.maxTokens,
-        stream: this.stream
-      };
-
-      if (typeof this.createdFetchSetting === 'function') {
-        const currentFetchSetting = await this.createdFetchSetting(
+      try {
+        const defaultFetchSetting = {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        };
+        // TODO: 調整成支援 stream 的模式
+        const defaultPaylaod = {
+          model: this.model,
           messages,
-          this.model,
-          defaultFetchSetting,
-          this
-        );
-        if (typeof currentFetchSetting === 'object') {
-          fetchSetting = currentFetchSetting;
+          temperature: 0.4,
+          max_tokens: this.maxTokens,
+          stream: this.isStream
+        };
+
+        if (typeof this.createdFetchSetting === 'function') {
+          const currentFetchSetting = await this.createdFetchSetting(
+            messages,
+            this.model,
+            defaultFetchSetting,
+            this
+          );
+          if (typeof currentFetchSetting === 'object') {
+            fetchSetting = currentFetchSetting;
+          }
         }
-      }
 
-      if (typeof fetchSetting !== 'object') {
-        fetchSetting = defaultFetchSetting;
-      }
-
-      if (typeof this.createdFetchPayload === 'function') {
-        const currentPayload = await this.createdFetchPayload(
-          messages,
-          this.model,
-          defaultPaylaod,
-          fetchSetting,
-          this
-        );
-        if (typeof currentPayload !== 'undefined') {
-          fetchSetting.body = currentPayload;
+        if (typeof fetchSetting !== 'object') {
+          fetchSetting = defaultFetchSetting;
         }
-      }
 
-      if (typeof fetchSetting.body === 'undefined') {
-        fetchSetting.body = JSON.stringify(defaultPaylaod);
-      }
+        if (typeof this.createdFetchPayload === 'function') {
+          const currentPayload = await this.createdFetchPayload(
+            messages,
+            this.model,
+            defaultPaylaod,
+            fetchSetting,
+            this
+          );
+          if (typeof currentPayload !== 'undefined') {
+            fetchSetting.body = currentPayload;
+          }
+        }
 
-      const response = await fetch(
-        this.base + (this.chatUrl || '/chat/completions'),
-        fetchSetting
-      );
-      // if (response.ok !== true) {
-      //   throw new Error('http ' + response.status);
-      // }
+        if (typeof fetchSetting.body === 'undefined') {
+          fetchSetting.body = JSON.stringify(defaultPaylaod);
+        }
 
-      console.log({ response });
-
-      if (typeof this.responesFormat === 'function') {
-        return await this.responesFormat(
-          response,
-          fetchSetting,
-          messages,
-          this
+        const response = await fetch(
+          this.base + (this.chatUrl || '/chat/completions'),
+          fetchSetting
         );
+        // if (response.ok !== true) {
+        //   throw new Error('http ' + response.status);
+        // }
+
+        console.log({ response });
+
+        if (typeof this.responesFormat === 'function') {
+          return await this.responesFormat(
+            response,
+            fetchSetting,
+            messages,
+            this
+          );
+        }
+
+        const result = await response.json();
+
+        console.log({ result });
+        return result?.choices?.[0]?.message?.content;
+      } catch (error) {
+        this.ready = false;
+        throw error;
       }
-
-      const result = await response.json();
-
-      console.log({ result });
-      return result?.choices?.[0]?.message?.content;
     }
   };
 
-  // 啟用本機 Ollama 時：開機 ping 一下，連上就把 🧠 切成「本機大腦」狀態
+  // 啟用本機 AI 伺服器時：開機 ping 一下，連上就把 🧠 切成「AI 伺服器大腦」狀態
   if (aiProvider?.enabled === true) {
     await aiProvider.ping();
   }
@@ -366,6 +429,30 @@ export function initMEM({ avatarMode }) {
   return mem;
 }
 
+// brain.js
+// 從回答文字粗判情緒（規則式、零成本；驚訝 > 難過 > 開心 > 中性）
+export function classifyEmotion(text) {
+  const safeText = String(text || '');
+  const countPattern = (regex) => (safeText.match(regex) || []).length;
+  const surprised = countPattern(/哇|居然|竟然|沒想到|驚|真的嗎|！？|\?!|!\?/g);
+  const sad = countPattern(
+    /抱歉|對不起|可惜|遺憾|失敗|錯誤|沒辦法|不支援|不行|連不上|難過|唉/g
+  );
+  const happy = countPattern(
+    /哈|笑|開心|太好了|好耶|讚|恭喜|歡迎|謝謝|沒問題|完成|成功|一起|囉|喔！|🎉|😊|👋/g
+  );
+  if (surprised && surprised >= Math.max(happy, sad)) {
+    return 'surprised';
+  }
+  if (sad > happy) {
+    return 'sad';
+  }
+  if (happy) {
+    return 'happy';
+  }
+  return 'neutral';
+}
+
 export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
   const {
     llmModel,
@@ -382,21 +469,27 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     companionWelcomeText = null,
     assistantWelcomeText = null,
 
+    LLMMaxTokens,
+    LLMIsStream,
     onLlmLoading,
     onLlmLoadProgress,
     onLlmLoaded,
     onLlmLoadError,
+    onLlmChatting,
+    onLlmStreamChatting,
 
     onAiProviderConnecting,
     onAiProviderConnected,
     onAiProviderError,
+    onAiProviderChatting,
+    onAiProviderStreamChatting,
 
     aiProviderCreatedFetchSetting,
     aiProviderCreatedFetchPayload,
     aiProviderPingUrl,
     aiProviderChatUrl,
     aiProviderMaxTokens,
-    aiProviderStream
+    aiProviderIsStream
   } = seting;
 
   let llm = null;
@@ -444,10 +537,14 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     onLlmLoadProgress: null,
     onLlmLoaded: null,
     onLlmLoadError: null,
+    onLlmChatting: null,
+    onLlmStreamChatting: null,
 
     onAiProviderConnecting: null,
     onAiProviderConnected: null,
     onAiProviderError: null,
+    onAiProviderChatting: null,
+    onAiProviderStreamChatting: null,
 
     _welcomeText: null,
     get welcomeText() {
@@ -530,6 +627,14 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     brain.onLlmLoadError = onLlmLoadError.bind(brain);
   }
 
+  if (typeof onLlmChatting === 'function') {
+    brain.onLlmChatting = onLlmChatting.bind(brain);
+  }
+
+  if (typeof onLlmStreamChatting === 'function') {
+    brain.onLlmStreamChatting = onLlmStreamChatting.bind(brain);
+  }
+
   if (typeof onAiProviderConnecting === 'function') {
     brain.onAiProviderConnecting = onAiProviderConnecting.bind(brain);
   }
@@ -542,9 +647,19 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     brain.onAiProviderError = onAiProviderError.bind(brain);
   }
 
+  if (typeof onAiProviderChatting === 'function') {
+    brain.onAiProviderChatting = onAiProviderChatting.bind(brain);
+  }
+
+  if (typeof onAiProviderStreamChatting === 'function') {
+    brain.onAiProviderStreamChatting = onAiProviderStreamChatting.bind(brain);
+  }
+
   llm = initLLM(
     {
       llmModel,
+      LLMMaxTokens,
+      LLMIsStream,
       onLoading(...arg) {
         return brain.onLlmLoading?.(...arg, aiAvatarWidget);
       },
@@ -556,6 +671,12 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
       },
       onLoadError(...arg) {
         return brain.onLlmLoadError?.(...arg, aiAvatarWidget);
+      },
+      onChatting(...arg) {
+        return brain.onLlmChatting?.(...arg, aiAvatarWidget);
+      },
+      onStreamChatting(...arg) {
+        return brain.onLlmStreamChatting?.(...arg, aiAvatarWidget);
       }
     },
     brain
@@ -569,7 +690,7 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     providerPingUrl: aiProviderPingUrl,
     providerChatUrl: aiProviderChatUrl,
     providerMaxTokens: aiProviderMaxTokens,
-    providerStream: aiProviderStream,
+    providerIsStream: aiProviderIsStream,
     onConnecting(...arg) {
       return brain.onAiProviderConnecting?.(...arg, aiAvatarWidget);
     },
@@ -578,6 +699,12 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     },
     onError(...arg) {
       return brain.onAiProviderError?.(...arg, aiAvatarWidget);
+    },
+    onChatting(...arg) {
+      return brain.onAiProviderChatting?.(...arg, aiAvatarWidget);
+    },
+    onStreamChatting(...arg) {
+      return brain.onAiProviderStreamChatting?.(...arg, aiAvatarWidget);
     }
   });
 
