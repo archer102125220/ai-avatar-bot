@@ -16,6 +16,12 @@ export const DEFAULT_AVATAR_MODE = AVATAR_MODE_MAP.assistant;
 export const DEFAULT_LLM_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 export const DEFAULT_AI_PROVIDER_MODEL = 'qwen2.5:latest';
 
+export const EMO_TARGET_MAP = {
+  happy: 0.65,
+  surprised: 0.6,
+  sad: 0.5
+};
+
 // brain.js
 export async function handleGetKnowledge(knowledgeUrl = '') {
   try {
@@ -35,6 +41,64 @@ export async function handleGetKnowledge(knowledgeUrl = '') {
     }
   } catch (_error) {}
   return [];
+}
+
+// brain.js
+// ===== 大腦：M4 檢索 + M4b（WebLLM）生成 =====
+// 中文不好斷詞，改用「字元 bigram（相鄰兩字）」相似度，對中文很有效、又不用任何函式庫。
+export function bigrams(s) {
+  s = (s || '').toLowerCase().replace(/[\s，。、？！,.?!~～]/g, '');
+  const g = [];
+  for (let i = 0; i < s.length - 1; i++) {
+    g.push(s.slice(i, i + 2));
+  }
+  if (s.length === 1) {
+    g.push(s);
+  }
+  return g;
+}
+
+// brain.js
+export function similarity(query, text) {
+  const A = bigrams(query);
+  const B = new Set(bigrams(text));
+  if (!A.length || !B.size) {
+    return 0;
+  }
+  let hit = 0;
+  for (const x of A) {
+    if (B.has(x)) {
+      hit++;
+    }
+  }
+  return hit / Math.sqrt(A.length * B.size);
+}
+
+// brain.js
+export function scoreEntry(question, e) {
+  let score = Math.max(
+    similarity(question, e.q),
+    similarity(question, e.kw || '')
+  );
+  const terms = (e.kw || '').split(/\s+/).filter(Boolean);
+  for (const item of terms) {
+    if (item.length >= 2 && question.includes(item)) {
+      score = Math.max(score, 0.5 + item.length * 0.04);
+    }
+  }
+  return score;
+}
+
+// brain.js
+export function topK(aiAvatarWidget = null, question, k) {
+  const knowledge = aiAvatarWidget?.brainEngine?.knowledge || [];
+
+  return knowledge
+    .map((e) => ({ e, s: scoreEntry(question, e) }))
+    .sort((a, b) => b.s - a.s)
+    .slice(0, k)
+    .filter((x) => x.s > 0.05)
+    .map((x) => x.e);
 }
 
 // brain.js
@@ -126,6 +190,9 @@ export function initLLM(setting = {}, brain) {
               this.onLoadProgress(p);
             }
           });
+
+          this.state = STATE_MAP.READY;
+
           this.onLoaded(engine);
         } catch (error) {
           this.state = STATE_MAP.ERROR;

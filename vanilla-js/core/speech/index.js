@@ -24,6 +24,258 @@ export function loadVoice() {
   );
 }
 
+// speech.js
+// edge-tts 神經語音：抓 /api/tts 的 MP3 → AudioBuffer（給佇列預抓用）
+export async function fetchTTSBuffer(aiAvatarWidget = null, text) {
+  const safeAudioContext = window.AudioContext || window.webkitAudioContext;
+  if (
+    aiAvatarWidget.speechEngine.audioCtx instanceof safeAudioContext ===
+    false
+  ) {
+    aiAvatarWidget.speechEngine.audioCtx = new safeAudioContext();
+  }
+  if (aiAvatarWidget.speechEngine.audioCtx.state === 'suspended') {
+    try {
+      await aiAvatarWidget.speechEngine.audioCtx.resume();
+    } catch (_error) {}
+  }
+  const sep =
+    aiAvatarWidget.speechEngine.ttsEndpoint.indexOf('?') < 0 ? '?' : '&';
+  const response = await fetch(
+    aiAvatarWidget.speechEngine.ttsEndpoint +
+      sep +
+      'voice=' +
+      encodeURIComponent(aiAvatarWidget.speechEngine.neuralVoice) +
+      '&text=' +
+      encodeURIComponent(text)
+  );
+  if (!response.ok) {
+    throw new Error('http ' + response.status);
+  }
+  const respArrayBuffer = await response.arrayBuffer();
+  if (respArrayBuffer.byteLength < 800) {
+    throw new Error('audio too small');
+  }
+  return aiAvatarWidget.speechEngine.audioCtx.decodeAudioData(respArrayBuffer);
+}
+
+// speech.js
+export function prefetchSpeech(aiAvatarWidget = null, sid) {
+  // 只預抓最前面 2 句（在途 ≤2），護後端限流
+  if (
+    sid !== aiAvatarWidget.speechEngine.speakSeq ||
+    aiAvatarWidget.speechEngine.neuralDisabled
+  ) {
+    return;
+  }
+  for (const item of aiAvatarWidget.speechEngine.speechQ.slice(0, 2)) {
+    if (!item.prep && !item.err) {
+      item.prep = fetchTTSBuffer(aiAvatarWidget, item.text).catch((e) => {
+        item.err = e;
+        return null;
+      });
+    }
+  }
+}
+
+// speech.js
+// 播一句（Web Audio + AnalyserNode 以「實際音量」驅動嘴型），播完呼叫 done 換下一句
+export function playBuffer(aiAvatarWidget = null, audioBuf, done) {
+  const src = aiAvatarWidget.speechEngine.audioCtx.createBufferSource();
+  src.buffer = audioBuf;
+  const analyser = aiAvatarWidget.speechEngine.audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  src.connect(analyser);
+  analyser.connect(aiAvatarWidget.speechEngine.audioCtx.destination);
+  const data = new Uint8Array(analyser.fftSize);
+  aiAvatarWidget.speechEngine.currentSource = src;
+  aiAvatarWidget.speechEngine.useAudioMouth = true;
+  aiAvatarWidget.speechEngine.isSpeaking = true;
+  if (!aiAvatarWidget.speechEngine.tapDone) {
+    aiAvatarWidget.speechEngine.tapDone = true;
+    if (aiAvatarWidget.avatarModel) {
+      try {
+        aiAvatarWidget.avatarModel.motion('Tap');
+      } catch (_error) {}
+    }
+  } // Tap 動作一段話只做一次
+  function audioLoop() {
+    if (aiAvatarWidget.speechEngine.currentSource !== src) {
+      return; // 不是我在播了就停
+    }
+    analyser.getByteTimeDomainData(data);
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) {
+      const v = (data[i] - 128) / 128;
+      sum += v * v;
+    }
+    aiAvatarWidget.speechEngine.audioMouth = Math.min(
+      1,
+      Math.sqrt(sum / data.length) * 3.4
+    ); // RMS 音量 → 開口
+    aiAvatarWidget.speechEngine.currentFps = requestAnimationFrame(audioLoop);
+  }
+  aiAvatarWidget.speechEngine.currentFps = requestAnimationFrame(audioLoop);
+  src.onended = () => {
+    // 自然播完才收尾；被打斷時 onended 已被清掉
+    if (aiAvatarWidget.speechEngine.currentSource !== src) {
+      return;
+    }
+    if (
+      typeof aiAvatarWidget.speechEngine.currentFps === 'number' &&
+      aiAvatarWidget.speechEngine.currentFps > 0
+    ) {
+      cancelAnimationFrame(aiAvatarWidget.speechEngine.currentFps);
+      aiAvatarWidget.speechEngine.currentFps = 0;
+    }
+    aiAvatarWidget.speechEngine.isSpeaking = false;
+    aiAvatarWidget.speechEngine.useAudioMouth = false;
+    aiAvatarWidget.speechEngine.audioMouth = 0;
+    aiAvatarWidget.speechEngine.currentSource = null;
+    done();
+  };
+  src.start(0);
+}
+
+// speech.js
+// 整段文字 → 句子陣列（TTS 逐句抓、邊講邊抓下一句，長答案不用等整段）
+export function splitSentences(text) {
+  const out = [];
+  let buf = '';
+  for (const ch of String(text || '')) {
+    buf += ch;
+    if (/[。！？!?；;\n…]/.test(ch)) {
+      if (buf.trim()) {
+        out.push(buf.trim());
+      }
+      buf = '';
+    } else if (buf.length >= 80) {
+      // 沒標點的長串：找逗號斷，不然硬切
+      const cut = Math.max(buf.lastIndexOf('，'), buf.lastIndexOf(','));
+      if (cut > 20) {
+        out.push(buf.slice(0, cut + 1).trim());
+        buf = buf.slice(cut + 1);
+      } else {
+        out.push(buf.trim());
+        buf = '';
+      }
+    }
+  }
+  if (buf.trim()) {
+    out.push(buf.trim());
+  }
+  const merged = []; // 太短的碎句併進前一句（太短的 TTS 不自然、請求也多）
+  for (const s of out) {
+    if (
+      merged.length &&
+      (s.length < 6 || merged[merged.length - 1].length < 6)
+    ) {
+      merged[merged.length - 1] += s;
+    } else {
+      merged.push(s);
+    }
+  }
+  while (merged.length > 10) {
+    // 上限 10 段：護 TTS 限流
+    const m2 = [];
+    for (let i = 0; i < merged.length; i += 2) {
+      m2.push(merged[i] + (merged[i + 1] || ''));
+    }
+    merged.length = 0;
+    merged.push.apply(merged, m2);
+  }
+  return merged;
+}
+
+// speech.js
+export function handleNeuralFail(aiAvatarWidget = null, e) {
+  const msg = e?.message || '';
+  if (/http 429/.test(msg)) {
+    console.warn('TTS 被限流，這句退瀏覽器語音');
+    return;
+  } // 429 是暫時的，別鎖死神經語音
+  if (/http 4\d\d|Failed to fetch|NetworkError|Load failed/i.test(msg)) {
+    aiAvatarWidget.speechEngine.neuralDisabled = true; // 結構性失敗(無後端/CORS/被擋)→不再試
+  }
+  console.warn('神經語音失敗，退回瀏覽器語音：', msg);
+}
+
+// speech.js
+// 後備：瀏覽器內建語音(Yating) 逐句版。對嘴用「估時長」驅動，不靠 speechSynthesis.speaking 輪詢
+// （Chrome 在 cancel 後常回報失準 → 第二次說話嘴巴就不動了）
+export function speakBrowserChunk(aiAvatarWidget = null, text, sid, done) {
+  if (
+    aiAvatarWidget.speechEngine.ttsMuted === true ||
+    'speechSynthesis' in window === false
+  ) {
+    done();
+    return;
+  }
+  const utterance = new SpeechSynthesisUtterance(text);
+  if (
+    typeof aiAvatarWidget.speechEngine.ttVoice !== 'object' ||
+    aiAvatarWidget.speechEngine.ttVoice === null
+  ) {
+    aiAvatarWidget.speechEngine.ttVoice = loadVoice(aiAvatarWidget);
+  }
+  if (
+    typeof aiAvatarWidget.speechEngine.ttVoice === 'object' &&
+    aiAvatarWidget.speechEngine.ttVoice !== null
+  ) {
+    utterance.voice = aiAvatarWidget.speechEngine.ttVoice;
+  }
+  utterance.lang = aiAvatarWidget.speechEngine.ttVoice?.lang || 'zh-TW';
+  utterance.rate = aiAvatarWidget.speechEngine.ttsRate || 1.0;
+  utterance.pitch = 1.0;
+  utterance.onboundary = () => {
+    aiAvatarWidget.speechEngine.mouthTarget = 0.5 + Math.random() * 0.5;
+  };
+  let fin = false;
+  const finish = () => {
+    if (fin) {
+      return;
+    }
+    fin = true;
+    aiAvatarWidget.speechEngine.isSpeaking = false;
+    done();
+  };
+  utterance.onend = finish;
+  const estMs = Math.min(
+    16000,
+    Math.max(
+      1200,
+      (text.length * 130) / (aiAvatarWidget.speechEngine.ttsRate || 1)
+    )
+  );
+  const fire = () => {
+    if (sid !== aiAvatarWidget.speechEngine.speakSeq) {
+      return; // 排隊期間被打斷就不講了
+    }
+    try {
+      speechSynthesis.resume();
+    } catch (_error) {} // 解 Chrome cancel 後卡住的 bug
+    speechSynthesis.speak(utterance);
+    aiAvatarWidget.speechEngine.isSpeaking = true;
+    aiAvatarWidget.speechEngine.mouthTarget = 0.7;
+    if (!aiAvatarWidget.speechEngine.tapDone) {
+      aiAvatarWidget.speechEngine.tapDone = true;
+      if (aiAvatarWidget.avatarModel) {
+        try {
+          aiAvatarWidget.avatarModel.motion('Tap');
+        } catch (_error) {}
+      }
+    }
+    clearTimeout(aiAvatarWidget.speechEngine.speakBrowserTimer);
+    aiAvatarWidget.speechEngine.speakBrowserTimer = setTimeout(finish, estMs); // 保底：時間到閉嘴＋換下一句，不依賴事件
+  };
+  if (speechSynthesis.speaking || speechSynthesis.pending) {
+    speechSynthesis.cancel();
+    setTimeout(fire, 120);
+  } else {
+    fire();
+  }
+}
+
 export function initSpeechEngine(setting = {}, aiAvatarWidget) {
   const {
     ttsEndpoint,
