@@ -2238,7 +2238,7 @@ export async function initAvatarBot(optiopns = {}) {
         uiDom.bubbleEl.classList.remove('show');
       },
 
-      // TODO: 帶 speak 與其他方法耦合拆解完後改為直接放到 speech.js 檔案中
+      // TODO: 待 speak 與其他方法耦合拆解完後改為直接放到 speech.js 檔案中
       speak
     },
     aiAvatarWidget
