@@ -21,8 +21,32 @@ export function initUi(container, stageEl) {
   bubbleEl.setAttribute('id', 'bubble');
   const suggestionsEl = document.createElement('div');
   suggestionsEl.setAttribute('id', 'suggestions');
+  const historyPanelEl = document.createElement('section');
+  historyPanelEl.setAttribute('id', 'history-panel');
+  historyPanelEl.setAttribute('aria-label', '聊天紀錄');
+  historyPanelEl.setAttribute('aria-hidden', 'true');
+  historyPanelEl.innerHTML = `
+    <div class="history-head">
+      <div class="history-title">聊天紀錄<span class="history-note">只保留在這次開啟期間</span></div>
+      <button class="history-action" id="btn-history-clear" type="button">清除</button>
+      <button class="history-action" id="btn-history-close" type="button" aria-label="關閉聊天紀錄">✕</button>
+    </div>
+    <div id="history-list" role="log" aria-live="polite"></div>
+  `;
+
   const controlBarEl = document.createElement('div');
   controlBarEl.setAttribute('id', 'control-bar');
+
+  const voiceLiveEl = document.createElement('div');
+  voiceLiveEl.setAttribute('id', 'voice-live');
+  voiceLiveEl.setAttribute('role', 'status');
+  voiceLiveEl.setAttribute('aria-live', 'polite');
+  voiceLiveEl.innerHTML = `
+    <span class="voice-dot" aria-hidden="true"></span>
+    <span id="voice-status">即時語音待命</span>
+    <span class="voice-meter" aria-hidden="true"><i id="voice-level"></i></span>
+  `;
+
   const dockRow1El = document.createElement('div');
   dockRow1El.classList.add('dock-row');
 
@@ -95,6 +119,22 @@ export function initUi(container, stageEl) {
   speedButtonSpanEl.textContent = '1.0×';
   speedButtonEl.append(speedButtonSpanEl);
 
+  const langButtonEl = document.createElement('button');
+  langButtonEl.setAttribute('id', 'btn-lang');
+  langButtonEl.setAttribute('aria-label', '切換對話語言');
+  langButtonEl.classList.add('ctrl');
+  langButtonEl.textContent = '中';
+
+  const historyButtonEl = document.createElement('button');
+  historyButtonEl.setAttribute('id', 'btn-history');
+  historyButtonEl.setAttribute('aria-label', '開啟聊天紀錄');
+  historyButtonEl.setAttribute('aria-expanded', 'false');
+  historyButtonEl.classList.add('ctrl');
+  const historyButtonSpanEl = document.createElement('span');
+  historyButtonSpanEl.setAttribute('aria-hidden', 'true');
+  historyButtonSpanEl.textContent = '☰';
+  historyButtonEl.appendChild(historyButtonSpanEl);
+
   const closeButtonEl = document.createElement('button');
   closeButtonEl.setAttribute('id', 'btn-close');
   closeButtonEl.setAttribute('aria-label', '收起助理');
@@ -118,7 +158,9 @@ export function initUi(container, stageEl) {
 
   stageEl.appendChild(bubbleEl);
   stageEl.appendChild(suggestionsEl);
+  stageEl.appendChild(historyPanelEl);
   stageEl.appendChild(controlBarEl);
+  controlBarEl.appendChild(voiceLiveEl);
   controlBarEl.appendChild(dockRow1El);
   controlBarEl.appendChild(dockRow2El);
   dockRow1El.appendChild(questionInputEl);
@@ -128,6 +170,8 @@ export function initUi(container, stageEl) {
   dockRow2El.appendChild(engineButtonEl);
   dockRow2El.appendChild(muteButtonEl);
   dockRow2El.appendChild(speedButtonEl);
+  dockRow2El.appendChild(langButtonEl);
+  dockRow2El.appendChild(historyButtonEl);
   dockRow2El.appendChild(closeButtonEl);
   container.appendChild(stageEl);
   container.appendChild(directWarnEl);
@@ -141,6 +185,12 @@ export function initUi(container, stageEl) {
     },
     get suggestionsEl() {
       return suggestionsEl;
+    },
+    get historyPanelEl() {
+      return historyPanelEl;
+    },
+    get voiceLiveEl() {
+      return voiceLiveEl;
     },
     get controlBarEl() {
       return controlBarEl;
@@ -171,6 +221,12 @@ export function initUi(container, stageEl) {
     },
     get speedButtonEl() {
       return speedButtonEl;
+    },
+    get langButtonEl() {
+      return langButtonEl;
+    },
+    get historyButtonEl() {
+      return historyButtonEl;
     },
     get closeButtonEl() {
       return closeButtonEl;
