@@ -76,7 +76,7 @@ export {
 
 // brain.js
 function setEmotionFromText(aiAvatarWidget, text) {
-  aiAvatarWidget.gestureName = classifyEmotion(text);
+  aiAvatarWidget.skinEngine.gestureName = classifyEmotion(text);
 }
 
 // brain.js
@@ -163,7 +163,7 @@ async function aiProviderLLMBrain(aiAvatarWidget = null, question) {
   try {
     aiAvatarWidget.speechEngine.spokenDisplayText = '讓我想想…';
 
-    aiAvatarWidget.gestureName = 'thinking';
+    aiAvatarWidget.skinEngine.gestureName = 'thinking';
 
     const out = await aiAvatarWidget.brainEngine.aiProvider.chat(
       aiAvatarWidget.buildLLMMessages(aiAvatarWidget, question)
@@ -266,7 +266,7 @@ function loadUMD() {
 // skin.js
 // ===== 引擎切換外殼：每個引擎建自己的 canvas、回傳 dispose；切換＝dispose 舊的再 boot 新的 =====
 function createCanvas(aiAvatarWidget = null) {
-  const stageEl = aiAvatarWidget?.uiDom?.stageEl;
+  const stageEl = aiAvatarWidget?.skinEngine?.stageEl;
   if (stageEl instanceof HTMLElement === false) {
     throw new Error('[aiAvatar createCanvas] stageEl is not an HTMLElement');
   }
@@ -281,25 +281,23 @@ function createCanvas(aiAvatarWidget = null) {
 }
 
 // skin.js
-function initSkinMode(aiAvatarWidget = null) {
-  const rootContainer = aiAvatarWidget?.container;
-  if (rootContainer instanceof HTMLElement === false) {
-    console.error(
-      '[aiAvatar initSkinMode] rootContainer is not an HTMLElement'
-    );
+function initSkinMode(skinEngine = null) {
+  const stageEl = skinEngine?.stageEl;
+  if (stageEl instanceof HTMLElement === false) {
+    console.error('[aiAvatar initSkinMode] stageEl is not an HTMLElement');
     return;
   }
 
   const startMode =
-    aiAvatarWidget.startMode ||
-    (has2D
+    skinEngine.startMode ||
+    (skinEngine.has2D
       ? ENGINE_MODE_MAP.twoDimensional
-      : has3D
+      : skinEngine.has3D
         ? ENGINE_MODE_MAP.threeDimensional
         : ENGINE_MODE_MAP.twoDimensional);
 
-  aiAvatarWidget.startMode = startMode;
-  aiAvatarWidget.engineMode = startMode;
+  skinEngine.startMode = startMode;
+  skinEngine.engineMode = startMode;
 }
 
 // ui.js
@@ -324,7 +322,7 @@ function initSkinModeChangeButton(aiAvatarWidget = null, has2D, has3D) {
     if (engineButtonEl instanceof HTMLElement) {
       engineButtonEl.style.display = '';
       engineButtonEl.onclick = () => {
-        aiAvatarWidget.engineMode = ENGINE_MODE_MAP.threeDimensional
+        aiAvatarWidget.skinEngine.engineMode = ENGINE_MODE_MAP.threeDimensional
           ? ENGINE_MODE_MAP.twoDimensional
           : ENGINE_MODE_MAP.threeDimensional;
       };
@@ -335,7 +333,7 @@ function initSkinModeChangeButton(aiAvatarWidget = null, has2D, has3D) {
 // skin.js
 // ===== 3D 皮：VRM（three + three-vrm，ESM 動態 import）=====
 async function bootVRM(aiAvatarWidget = null, setting = {}) {
-  const stageEl = aiAvatarWidget?.uiDom?.stageEl;
+  const stageEl = aiAvatarWidget?.skinEngine?.stageEl;
   const rootContainer = aiAvatarWidget?.container;
   const {
     bow = '',
@@ -441,7 +439,7 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
     loader.register((p) => new VRMAnimationLoaderPlugin(p)); // 同一個 loader 也能讀 .vrma
     const gltf = await new Promise((resolve, reject) =>
       loader.load(
-        aiAvatarWidget.vrmUrl,
+        aiAvatarWidget.skinEngine.vrmUrl,
         (gltf) => {
           resolve(gltf);
         },
@@ -513,7 +511,7 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
             waving = false;
           }
         });
-        aiAvatarWidget.gesture3D = playGesture; // 對外 hook：思考等時機可從對話流程觸發
+        aiAvatarWidget.skinEngine.gesture3D = playGesture; // 對外 hook：思考等時機可從對話流程觸發
         if (gestureActions.wave) {
           setTimeout(() => playGesture('wave'), 800); // 出場招呼
         }
@@ -596,44 +594,58 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
         // ①情緒表情：慢慢 ease 進／出；換情緒時把舊的歸零，缺這個 preset 的模型自動 no-op
         if (
           expressionManager &&
-          (aiAvatarWidget.emo.target > 0 ||
-            aiAvatarWidget.emo.weight > 0.005 ||
-            aiAvatarWidget.emo.applied)
+          (aiAvatarWidget.skinEngine.emo.target > 0 ||
+            aiAvatarWidget.skinEngine.emo.weight > 0.005 ||
+            aiAvatarWidget.skinEngine.emo.applied)
         ) {
           if (
-            aiAvatarWidget.emo.applied &&
-            aiAvatarWidget.emo.applied !== aiAvatarWidget.emo.name
+            aiAvatarWidget.skinEngine.emo.applied &&
+            aiAvatarWidget.skinEngine.emo.applied !==
+              aiAvatarWidget.skinEngine.emo.name
           ) {
             try {
-              expressionManager.setValue(aiAvatarWidget.emo.applied, 0);
+              expressionManager.setValue(
+                aiAvatarWidget.skinEngine.emo.applied,
+                0
+              );
             } catch (_error) {}
-            aiAvatarWidget.emo.applied = '';
+            aiAvatarWidget.skinEngine.emo.applied = '';
           }
-          aiAvatarWidget.emo.weight +=
-            (aiAvatarWidget.emo.target - aiAvatarWidget.emo.weight) *
+          aiAvatarWidget.skinEngine.emo.weight +=
+            (aiAvatarWidget.skinEngine.emo.target -
+              aiAvatarWidget.skinEngine.emo.weight) *
             Math.min(1, delta * 4);
           if (
-            aiAvatarWidget.emo.weight <= 0.005 &&
-            aiAvatarWidget.emo.target === 0
+            aiAvatarWidget.skinEngine.emo.weight <= 0.005 &&
+            aiAvatarWidget.skinEngine.emo.target === 0
           ) {
-            aiAvatarWidget.emo.weight = 0;
-            if (aiAvatarWidget.emo.applied) {
+            aiAvatarWidget.skinEngine.emo.weight = 0;
+            if (aiAvatarWidget.skinEngine.emo.applied) {
               try {
-                expressionManager.setValue(aiAvatarWidget.emo.applied, 0);
+                expressionManager.setValue(
+                  aiAvatarWidget.skinEngine.emo.applied,
+                  0
+                );
               } catch (_error) {}
-              aiAvatarWidget.emo.applied = '';
+              aiAvatarWidget.skinEngine.emo.applied = '';
             }
-          } else if (aiAvatarWidget.emo.name !== 'neutral') {
+          } else if (aiAvatarWidget.skinEngine.emo.name !== 'neutral') {
             try {
               const ex = expressionManager.getExpression
-                ? expressionManager.getExpression(aiAvatarWidget.emo.name)
+                ? expressionManager.getExpression(
+                    aiAvatarWidget.skinEngine.emo.name
+                  )
                 : null;
               const weight =
                 ex?.overrideMouth && String(ex.overrideMouth) !== 'none'
-                  ? Math.min(aiAvatarWidget.emo.weight, 0.4)
-                  : aiAvatarWidget.emo.weight; // 別把對嘴蓋死
-              expressionManager.setValue(aiAvatarWidget.emo.name, weight);
-              aiAvatarWidget.emo.applied = aiAvatarWidget.emo.name;
+                  ? Math.min(aiAvatarWidget.skinEngine.emo.weight, 0.4)
+                  : aiAvatarWidget.skinEngine.emo.weight; // 別把對嘴蓋死
+              expressionManager.setValue(
+                aiAvatarWidget.skinEngine.emo.name,
+                weight
+              );
+              aiAvatarWidget.skinEngine.emo.applied =
+                aiAvatarWidget.skinEngine.emo.name;
             } catch (_error) {}
           }
         }
@@ -694,8 +706,8 @@ async function bootVRM(aiAvatarWidget = null, setting = {}) {
       },
       dispose() {
         alive = false;
-        aiAvatarWidget.gesture3D = null;
-        aiAvatarWidget.gesture2D = null;
+        aiAvatarWidget.skinEngine.gesture3D = null;
+        aiAvatarWidget.skinEngine.gesture2D = null;
         try {
           clearInterval(idleBreak);
         } catch (_error) {}
@@ -737,7 +749,7 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
     console.error('[aiAvatar bootAvatar] rootContainer is not an HTMLElement');
     return;
   }
-  const stageEl = aiAvatarWidget?.uiDom?.stageEl;
+  const stageEl = aiAvatarWidget?.skinEngine?.stageEl;
   if (stageEl instanceof HTMLElement === false) {
     console.error('[aiAvatar bootAvatar] stageEl is not an HTMLElement');
     return;
@@ -783,7 +795,7 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
       }
     } catch (_error) {}
 
-    const safeFitMode = aiAvatarWidget.fitMode || DEFAULT_FIT_MODE;
+    const safeFitMode = aiAvatarWidget.skinEngine.fitMode || DEFAULT_FIT_MODE;
     function fit() {
       const width = pixiApp.renderer.width;
       const height = pixiApp.renderer.height;
@@ -808,7 +820,7 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
         aiAvatarWidget.avatarModel.internalModel.settings.groups || [];
       const g = groups.find((x) => (x.Name || '').toLowerCase() === 'lipsync');
       if (g?.Ids?.length) {
-        aiAvatarWidget.lipIds = g.Ids;
+        aiAvatarWidget.skinEngine.lipIds = g.Ids;
       }
     } catch (_error) {}
 
@@ -818,7 +830,7 @@ async function bootAvatar(aiAvatarWidget = null, modelUrl = DEFAULT_MODEL_URL) {
       const origUpdate = core.update.bind(core);
       core.update = function () {
         const mouth = computeMouth(aiAvatarWidget); // 共用嘴型計算（與 3D 同一套）
-        for (const id of aiAvatarWidget.lipIds) {
+        for (const id of aiAvatarWidget.skinEngine.lipIds) {
           try {
             core.setParameterValueById(id, mouth);
           } catch (_error) {}
@@ -903,26 +915,26 @@ function loadVRMFile(aiAvatarWidget = null, file) {
   }
   try {
     if (
-      typeof aiAvatarWidget.vrmUrl === 'string' &&
-      aiAvatarWidget.vrmUrl.indexOf('blob:') === 0
+      typeof aiAvatarWidget.skinEngine.vrmUrl === 'string' &&
+      aiAvatarWidget.skinEngine.vrmUrl.indexOf('blob:') === 0
     ) {
-      URL.revokeObjectURL(aiAvatarWidget.vrmUrl);
+      URL.revokeObjectURL(aiAvatarWidget.skinEngine.vrmUrl);
     }
   } catch (_error) {}
-  aiAvatarWidget.vrmUrl = URL.createObjectURL(file);
+  aiAvatarWidget.skinEngine.vrmUrl = URL.createObjectURL(file);
   // 換上後也顯示 2D/3D 切換鈕
   if (engineButtonEl instanceof HTMLElement) {
     engineButtonEl.style.display = '';
     if (typeof engineButtonEl.onclick !== 'function') {
       engineButtonEl.onclick = () => {
-        aiAvatarWidget.engineMode = ENGINE_MODE_MAP.threeDimensional
+        aiAvatarWidget.skinEngine.engineMode = ENGINE_MODE_MAP.threeDimensional
           ? ENGINE_MODE_MAP.twoDimensional
           : ENGINE_MODE_MAP.threeDimensional;
       };
     }
   }
-  aiAvatarWidget.engineMode = null; // 強制重 boot（即使已在 3D）
-  aiAvatarWidget.engineMode = ENGINE_MODE_MAP.threeDimensional;
+  aiAvatarWidget.skinEngine.engineMode = null; // 強制重 boot（即使已在 3D）
+  aiAvatarWidget.skinEngine.engineMode = ENGINE_MODE_MAP.threeDimensional;
   aiAvatarWidget.speechEngine.spokenDisplayText = '換上你的角色了！🎭';
 }
 
@@ -1009,7 +1021,7 @@ function stopSpeaking(aiAvatarWidget = null) {
   aiAvatarWidget.speechEngine.useAudioMouth = false;
   aiAvatarWidget.speechEngine.audioMouth = 0;
 
-  aiAvatarWidget.gestureName = 'neutral';
+  aiAvatarWidget.skinEngine.gestureName = 'neutral';
 }
 
 // speech.js
@@ -1068,7 +1080,7 @@ function endSpeech(aiAvatarWidget = null, sid) {
   if (sid === aiAvatarWidget.speechEngine.speakSeq) {
     aiAvatarWidget.speechEngine.speechEnded = true;
     // aiAvatarWidget.speechEngine.spokenDisplayText = "";
-    aiAvatarWidget.emo.target = 0;
+    aiAvatarWidget.skinEngine.emo.target = 0;
     pumpSpeech(aiAvatarWidget, sid);
   }
 }
@@ -1237,7 +1249,7 @@ async function pumpSpeech(aiAvatarWidget = null, sid) {
   const item = aiAvatarWidget.speechEngine.speechQ.shift();
   if (!item) {
     if (aiAvatarWidget.speechEngine.speechEnded) {
-      aiAvatarWidget.gestureName = 'neutral';
+      aiAvatarWidget.skinEngine.gestureName = 'neutral';
       onUtteranceEnd(aiAvatarWidget);
     }
     return;
@@ -1280,7 +1292,7 @@ async function webLLMBrain(aiAvatarWidget = null, question) {
   try {
     aiAvatarWidget.speechEngine.spokenDisplayText = '讓我想想…';
 
-    aiAvatarWidget.gestureName = 'thinking';
+    aiAvatarWidget.skinEngine.gestureName = 'thinking';
 
     const sid = aiAvatarWidget.speechEngine.ttsMuted
       ? 0
@@ -1811,7 +1823,8 @@ export async function initAvatarBot(optiopns = {}) {
 
   const safeVrmUrl =
     vrmUrl || (/\.vrm($|\?)/i.test(safeModelUrl) ? safeModelUrl : '');
-  const uiDom = initUi(container);
+
+  let uiDom = null;
 
   let brainEngine = null;
   let speechEngine = null;
@@ -1864,6 +1877,99 @@ export async function initAvatarBot(optiopns = {}) {
       return isIframe;
     },
 
+    _isMinimal: isIframe === true ? false : isMinimal || false,
+    get isMinimal() {
+      return this._isMinimal;
+    },
+    set isMinimal(newIsMinimal) {
+      if (typeof newIsMinimal === 'boolean') {
+        this._isMinimal = newIsMinimal;
+
+        if (typeof this.onMinimalTrigger === 'function') {
+          this.onMinimalTrigger(newIsMinimal, this);
+        }
+
+        if (newIsMinimal === false) {
+          this.hiddenMinimalEl();
+        } else {
+          this.showMinimalEl();
+        }
+      }
+    },
+    showMinimalEl() {
+      this.skinEngine.stageEl.style.left = '100vw';
+      this.skinEngine.stageEl.style.opacity = 0;
+      this.skinEngine.stageEl.style.userSelect = 'none';
+      // this.skinEngine.stageEl.style.display = "none";
+      this.uiDom.minimalEl.style.display = 'flex';
+    },
+    hiddenMinimalEl() {
+      this.skinEngine.stageEl.style.left = '';
+      this.skinEngine.stageEl.style.opacity = 1;
+      this.skinEngine.stageEl.style.userSelect = 'auto';
+      // this.skinEngine.stageEl.style.display = "block";
+      this.uiDom.minimalEl.style.display = 'none';
+    },
+
+    _gender: safeGender,
+    get gender() {
+      return this._gender;
+    },
+    set gender(newGender = '') {
+      if (Object.values(GENDER_MAP).includes(newGender)) {
+        this._gender = newGender;
+        if (newGender === GENDER_MAP.female) {
+          this.speechEngine.neuralVoice = DEFAULT_FEMALE_NEURAL_VOICE;
+          this.skinEngine.modelUrl = DEFAULT_FEMALE_MODEL_URL;
+        } else if (newGender === GENDER_MAP.male) {
+          this.speechEngine.neuralVoice = DEFAULT_MALE_NEURAL_VOICE;
+          this.skinEngine.modelUrl = DEFAULT_MALE_MODEL_URL;
+        }
+      }
+    },
+
+    _avatarMode: avatarMode || DEFAULT_AVATAR_MODE,
+    get avatarMode() {
+      return this._avatarMode;
+    },
+    set avatarMode(newAvatarMode = '') {
+      if (typeof newAvatarMode === 'string' && newAvatarMode !== '') {
+        if (Object.values(AVATAR_MODE_MAP).includes(newAvatarMode)) {
+          this._avatarMode = newAvatarMode;
+        } else {
+          this._avatarMode = AVATAR_MODE_MAP.assistant;
+        }
+      }
+    },
+
+    get brainEngine() {
+      return brainEngine;
+    },
+    get speechEngine() {
+      return speechEngine;
+    },
+    get skinEngine() {
+      return skinEngine;
+    },
+
+    onTapTimer: false
+  };
+
+  const stageEl = document.createElement('div');
+  stageEl.setAttribute('id', 'stage');
+
+  skinEngine = {
+    stageEl,
+    _modelUrl: safeModelUrl,
+    get modelUrl() {
+      return this._modelUrl;
+    },
+    set modelUrl(newModelUrl = '') {
+      if (typeof newModelUrl === 'string' && newModelUrl !== '') {
+        this._modelUrl = newModelUrl;
+      }
+    },
+
     // 主要是 animationLoop 時使用
     // ①情緒表情狀態：speak 時從文字判斷 → 3D 表情 preset 慢慢 ease 進、講完 ease 回中性（2D 模型表情規格不一，先不套）
     emo: {
@@ -1889,52 +1995,6 @@ export async function initAvatarBot(optiopns = {}) {
       applied: ''
     },
 
-    _isMinimal: isIframe === true ? false : isMinimal || false,
-    get isMinimal() {
-      return this._isMinimal;
-    },
-    set isMinimal(newIsMinimal) {
-      if (typeof newIsMinimal === 'boolean') {
-        this._isMinimal = newIsMinimal;
-
-        if (typeof this.onMinimalTrigger === 'function') {
-          this.onMinimalTrigger(newIsMinimal, this);
-        }
-
-        if (newIsMinimal === false) {
-          this.hiddenMinimalEl();
-        } else {
-          this.showMinimalEl();
-        }
-      }
-    },
-    showMinimalEl() {
-      this.uiDom.stageEl.style.left = '100vw';
-      this.uiDom.stageEl.style.opacity = 0;
-      this.uiDom.stageEl.style.userSelect = 'none';
-      // this.uiDom.stageEl.style.display = "none";
-      this.uiDom.minimalEl.style.display = 'flex';
-    },
-    hiddenMinimalEl() {
-      this.uiDom.stageEl.style.left = '';
-      this.uiDom.stageEl.style.opacity = 1;
-      this.uiDom.stageEl.style.userSelect = 'auto';
-      // this.uiDom.stageEl.style.display = "block";
-      this.uiDom.minimalEl.style.display = 'none';
-    },
-
-    // 狀態
-    // 皮的引擎判斷：data-vrm 指向 .vrm → 走 3D(VRM)；否則 data-model(.model3.json) → 走 2D(Live2D)
-    _vrmUrl: safeVrmUrl, // let：拖放自己的 VRM 時可換,
-    get vrmUrl() {
-      return this._vrmUrl;
-    },
-    set vrmUrl(newVrmUrl = '') {
-      if (typeof newVrmUrl === 'string' && newVrmUrl !== '') {
-        this._vrmUrl = newVrmUrl;
-      }
-    },
-
     get has2D() {
       return !!this.modelUrl;
     },
@@ -1943,46 +2003,56 @@ export async function initAvatarBot(optiopns = {}) {
       return !!this.vrmUrl;
     },
 
-    _startMode: startMode || DEFALUT_START_MODE,
-    get startMode() {
-      return this._startMode;
-    },
-    set startMode(newStartMode = '') {
-      if (typeof newStartMode === 'string' && newStartMode !== '') {
-        this._startMode = newStartMode;
-      }
-    },
-
-    _fitMode: fitMode || DEFAULT_FIT_MODE,
-    get fitMode() {
-      return this._fitMode;
-    },
-    set fitMode(newFitMode = '') {
-      if (typeof newFitMode === 'string' && newFitMode !== '') {
-        if (Object.values(this.FIT_MODE_MAP).includes(newFitMode)) {
-          this._fitMode = newFitMode;
-        } else {
-          this._fitMode = DEFAULT_FIT_MODE;
-        }
-      }
-    },
-
-    _switching: null,
-    get switching() {
-      return this._switching;
-    },
-    set switching(newSwitching = null) {
-      if (typeof newSwitching === 'boolean') {
-        this._switching = newSwitching;
-      }
-    },
-
     _renderer: null,
     get renderer() {
       return this._renderer;
     },
     set renderer(newRenderer = null) {
       this._renderer = newRenderer;
+    },
+
+    get onGesture() {
+      return function () {
+        if (typeof optiopns.onGesture === 'function') {
+          return optiopns.onGesture(...arguments);
+        }
+      };
+    },
+    get onGestureError() {
+      return function () {
+        if (typeof optiopns.onGestureError === 'function') {
+          return optiopns.onGestureError(...arguments);
+        }
+      };
+    },
+    get onGestureEnd() {
+      return function () {
+        if (typeof optiopns.onGestureEnd === 'function') {
+          return optiopns.onGestureEnd(...arguments);
+        }
+      };
+    },
+
+    get onModelChange() {
+      return function () {
+        if (typeof optiopns.onModelChange === 'function') {
+          return optiopns.onModelChange(...arguments);
+        }
+      };
+    },
+    get onModelChangeEnd() {
+      return function () {
+        if (typeof optiopns.onModelChangeEnd === 'function') {
+          return optiopns.onModelChangeEnd(...arguments);
+        }
+      };
+    },
+    get onModelChangeError() {
+      return function () {
+        if (typeof optiopns.onModelChangeError === 'function') {
+          return optiopns.onModelChangeError(...arguments);
+        }
+      };
     },
 
     _engineMode: null,
@@ -2000,13 +2070,16 @@ export async function initAvatarBot(optiopns = {}) {
       ) {
         this._engineMode = newEngineMode;
 
-        this.uiDom.engineButtonEl.textContent =
-          newEngineMode === this.ENGINE_MODE_MAP.threeDimensional ? '3D' : '2D';
+        if (typeof this.onModelChange === 'function') {
+          this.onModelChange(newEngineMode);
+        }
+        aiAvatarWidget.uiDom.engineButtonEl.textContent =
+          newEngineMode === ENGINE_MODE_MAP.threeDimensional ? '3D' : '2D';
 
         (async () => {
           this.switching = true;
 
-          if (typeof this?.renderer?.dispose === 'function') {
+          if (typeof this.renderer?.dispose === 'function') {
             try {
               this.renderer.dispose();
             } catch (_error) {}
@@ -2014,26 +2087,52 @@ export async function initAvatarBot(optiopns = {}) {
           }
           try {
             this.renderer =
-              newEngineMode === this.ENGINE_MODE_MAP.threeDimensional
-                ? await bootVRM(this, this.modelSettings)
-                : await bootAvatar(this, this.modelUrl);
+              newEngineMode === ENGINE_MODE_MAP.threeDimensional
+                ? await bootVRM(aiAvatarWidget, this.modelSettings)
+                : await bootAvatar(aiAvatarWidget, this.modelUrl);
           } catch (error) {
             console.error(error);
+
+            if (typeof this.onModelChangeError === 'function') {
+              this.onModelChangeError(error);
+            }
           }
 
+          if (typeof this.onModelChangeEnd === 'function') {
+            this.onModelChangeEnd(newEngineMode);
+          }
           this.switching = false;
         })();
       }
     },
 
-    _lipIds: ['ParamMouthOpenY'],
-    get lipIds() {
-      return this._lipIds;
+    // 3D 手勢觸發 hook（bootVRM 設定；2D 模式為 null → 自動 no-op）
+    _gesture3D: null,
+    get gesture3D() {
+      return this._gesture3D;
     },
-    set lipIds(newLipIds) {
-      if (Array.isArray(newLipIds) || newLipIds === null) {
-        this._lipIds = newLipIds;
+    set gesture3D(newGesture3D) {
+      if (typeof newGesture3D === 'function' || newGesture3D === null) {
+        this._gesture3D = newGesture3D;
       }
+    },
+
+    _gesture2D: null,
+    get gesture2D() {
+      return this._gesture2D;
+    },
+    set gesture2D(newGesture2D) {
+      if (typeof newGesture2D === 'function' || newGesture2D === null) {
+        this._gesture2D = newGesture2D;
+      }
+    },
+    get gesture() {
+      if (this.engineMode === ENGINE_MODE_MAP.threeDimensional) {
+        return this.gesture3D;
+      } else if (this.engineMode === ENGINE_MODE_MAP.twoDimensional) {
+        return this.gesture2D;
+      }
+      return null;
     },
 
     _gestureName: 'neutral',
@@ -2066,89 +2165,64 @@ export async function initAvatarBot(optiopns = {}) {
       }
     },
 
-    // 3D 手勢觸發 hook（bootVRM 設定；2D 模式為 null → 自動 no-op）
-    _gesture3D: null,
-    get gesture3D() {
-      return this._gesture3D;
+    // 狀態
+    // 皮的引擎判斷：data-vrm 指向 .vrm → 走 3D(VRM)；否則 data-model(.model3.json) → 走 2D(Live2D)
+    _vrmUrl: safeVrmUrl, // let：拖放自己的 VRM 時可換,
+    get vrmUrl() {
+      return this._vrmUrl;
     },
-    set gesture3D(newGesture3D) {
-      if (typeof newGesture3D === 'function' || newGesture3D === null) {
-        this._gesture3D = newGesture3D;
+    set vrmUrl(newVrmUrl = '') {
+      if (typeof newVrmUrl === 'string' && newVrmUrl !== '') {
+        this._vrmUrl = newVrmUrl;
       }
     },
 
-    _gesture2D: null,
-    get gesture2D() {
-      return this._gesture2D;
+    _switching: null,
+    get switching() {
+      return this._switching;
     },
-    set gesture2D(newGesture2D) {
-      if (typeof newGesture2D === 'function' || newGesture2D === null) {
-        this._gesture2D = newGesture2D;
+    set switching(newSwitching = null) {
+      if (typeof newSwitching === 'boolean') {
+        this._switching = newSwitching;
       }
     },
 
-    get gesture() {
-      if (this.engineMode === ENGINE_MODE_MAP.threeDimensional) {
-        return this.gesture3D;
-      } else if (this.engineMode === ENGINE_MODE_MAP.twoDimensional) {
-        return this.gesture2D;
-      }
-      return null;
+    _lipIds: ['ParamMouthOpenY'],
+    get lipIds() {
+      return this._lipIds;
     },
-
-    _modelUrl: safeModelUrl,
-    get modelUrl() {
-      return this._modelUrl;
-    },
-    set modelUrl(newModelUrl = '') {
-      if (typeof newModelUrl === 'string' && newModelUrl !== '') {
-        this._modelUrl = newModelUrl;
+    set lipIds(newLipIds) {
+      if (Array.isArray(newLipIds) || newLipIds === null) {
+        this._lipIds = newLipIds;
       }
     },
 
-    _gender: safeGender,
-    get gender() {
-      return this._gender;
+    _startMode: startMode || DEFALUT_START_MODE,
+    get startMode() {
+      return this._startMode;
     },
-    set gender(newGender = '') {
-      if (Object.values(GENDER_MAP).includes(newGender)) {
-        this._gender = newGender;
-        if (newGender === GENDER_MAP.female) {
-          this.speechEngine.neuralVoice = DEFAULT_FEMALE_NEURAL_VOICE;
-          this.modelUrl = DEFAULT_FEMALE_MODEL_URL;
-        } else if (newGender === GENDER_MAP.male) {
-          this.speechEngine.neuralVoice = DEFAULT_MALE_NEURAL_VOICE;
-          this.modelUrl = DEFAULT_MALE_MODEL_URL;
-        }
+    set startMode(newStartMode = '') {
+      if (typeof newStartMode === 'string' && newStartMode !== '') {
+        this._startMode = newStartMode;
       }
     },
 
-    _avatarMode: avatarMode || DEFAULT_AVATAR_MODE,
-    get avatarMode() {
-      return this._avatarMode;
+    _fitMode: fitMode || DEFAULT_FIT_MODE,
+    get fitMode() {
+      return this._fitMode;
     },
-    set avatarMode(newAvatarMode = '') {
-      if (typeof newAvatarMode === 'string' && newAvatarMode !== '') {
-        if (Object.values(AVATAR_MODE_MAP).includes(newAvatarMode)) {
-          this._avatarMode = newAvatarMode;
+    set fitMode(newFitMode = '') {
+      if (typeof newFitMode === 'string' && newFitMode !== '') {
+        if (Object.values(this.FIT_MODE_MAP).includes(newFitMode)) {
+          this._fitMode = newFitMode;
         } else {
-          this._avatarMode = AVATAR_MODE_MAP.assistant;
+          this._fitMode = DEFAULT_FIT_MODE;
         }
       }
-    },
-
-    get brainEngine() {
-      return brainEngine;
-    },
-    get speechEngine() {
-      return speechEngine;
-    },
-    get skinEngine() {
-      return skinEngine;
-    },
-
-    onTapTimer: false
+    }
   };
+
+  uiDom = initUi(container, stageEl);
 
   brainEngine = await initBrainEngine(
     {
@@ -2244,8 +2318,6 @@ export async function initAvatarBot(optiopns = {}) {
     aiAvatarWidget
   );
 
-  skinEngine = {};
-
   if (typeof optiopns.onReady === 'function') {
     aiAvatarWidget.onReady = optiopns.onReady.bind(aiAvatarWidget);
   }
@@ -2264,30 +2336,14 @@ export async function initAvatarBot(optiopns = {}) {
   }
 
   if (typeof safeGesture2D === 'function') {
-    aiAvatarWidget.gesture2D = async function gesture2D(emotionName) {
+    skinEngine.gesture2D = async function gesture2D(emotionName) {
       await safeGesture2D.call(this, this, emotionName);
     }.bind(aiAvatarWidget);
   }
-  if (typeof optiopns.onGesture === 'function') {
-    aiAvatarWidget.onGesture = optiopns.onGesture.bind(aiAvatarWidget);
-  }
 
-  if (typeof optiopns.onGestureError === 'function') {
-    aiAvatarWidget.onGestureError =
-      optiopns.onGestureError.bind(aiAvatarWidget);
-  }
+  initSkinMode(skinEngine);
 
-  if (typeof optiopns.onGestureEnd === 'function') {
-    aiAvatarWidget.onGestureEnd = optiopns.onGestureEnd.bind(aiAvatarWidget);
-  }
-
-  initSkinMode(aiAvatarWidget);
-  initSkinModeChangeButton(
-    aiAvatarWidget,
-    aiAvatarWidget.has2D,
-    aiAvatarWidget.has3D
-  );
-
+  initSkinModeChangeButton(aiAvatarWidget, skinEngine.has2D, skinEngine.has3D);
   renderSuggestions(aiAvatarWidget);
   bindTyping(aiAvatarWidget);
   setMic(aiAvatarWidget, false); // 依模式套按鈕字樣（🎤 說話 / 💬 對話）

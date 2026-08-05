@@ -1,7 +1,11 @@
 // ui.js
-export function initUi(container) {
+export function initUi(container, stageEl) {
   if (container instanceof HTMLElement === false) {
     console.error('[aiAvatar initUi] container is not an HTMLElement');
+    return;
+  }
+  if (stageEl instanceof HTMLElement === false) {
+    console.error('[aiAvatar initUi] stageEl is not an HTMLElement');
     return;
   }
 
@@ -13,8 +17,6 @@ export function initUi(container) {
     container.style.position = 'relative';
   }
 
-  const stageEl = document.createElement('div');
-  stageEl.setAttribute('id', 'stage');
   const bubbleEl = document.createElement('p');
   bubbleEl.setAttribute('id', 'bubble');
   const suggestionsEl = document.createElement('div');
