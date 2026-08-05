@@ -41,11 +41,25 @@ export function initUi(container, stageEl) {
   voiceLiveEl.setAttribute('id', 'voice-live');
   voiceLiveEl.setAttribute('role', 'status');
   voiceLiveEl.setAttribute('aria-live', 'polite');
-  voiceLiveEl.innerHTML = `
-    <span class="voice-dot" aria-hidden="true"></span>
-    <span id="voice-status">即時語音待命</span>
-    <span class="voice-meter" aria-hidden="true"><i id="voice-level"></i></span>
-  `;
+  const voiceDotEl = document.createElement('span');
+  voiceDotEl.classList.add('voice-dot');
+  voiceDotEl.setAttribute('aria-hidden', 'true');
+
+  const voiceStatusEl = document.createElement('span');
+  voiceStatusEl.setAttribute('id', 'voice-status');
+  voiceStatusEl.textContent = '即時語音待命';
+
+  const voiceMeterEl = document.createElement('span');
+  voiceMeterEl.classList.add('voice-meter');
+  voiceMeterEl.setAttribute('aria-hidden', 'true');
+
+  const voiceLevelEl = document.createElement('i');
+  voiceLevelEl.setAttribute('id', 'voice-level');
+  voiceMeterEl.appendChild(voiceLevelEl);
+
+  voiceLiveEl.appendChild(voiceDotEl);
+  voiceLiveEl.appendChild(voiceStatusEl);
+  voiceLiveEl.appendChild(voiceMeterEl);
 
   const dockRow1El = document.createElement('div');
   dockRow1El.classList.add('dock-row');
@@ -74,13 +88,15 @@ export function initUi(container, stageEl) {
 
   const micButtonEl = document.createElement('button');
   micButtonEl.setAttribute('id', 'btn-mic');
-  micButtonEl.setAttribute('aria-label', '開始語音對話');
+  micButtonEl.setAttribute('aria-label', '開始即時語音對話');
+  micButtonEl.setAttribute('aria-pressed', 'false');
   micButtonEl.classList.add('ctrl');
   micButtonEl.classList.add('primary');
   const micButtonSpanEl = document.createElement('span');
   micButtonSpanEl.setAttribute('aria-hidden', 'true');
-  micButtonSpanEl.textContent = '🎤 說話';
+  micButtonSpanEl.textContent = '🎙️';
   micButtonEl.appendChild(micButtonSpanEl);
+  micButtonEl.appendChild(document.createTextNode(' 即時'));
 
   const engineButtonEl = document.createElement('button');
   engineButtonEl.setAttribute('id', 'btn-engine');
@@ -191,6 +207,31 @@ export function initUi(container, stageEl) {
     },
     get voiceLiveEl() {
       return voiceLiveEl;
+    },
+    get voiceStatusEl() {
+      return voiceStatusEl;
+    },
+    get voiceLevelEl() {
+      return voiceLevelEl;
+    },
+    updateVoiceStatus(convoOn, text, state, level) {
+      if (convoOn) {
+        voiceLiveEl.setAttribute('css-is-active', 'true');
+        if (state) {
+          voiceLiveEl.setAttribute('css-state', state);
+        } else {
+          voiceLiveEl.removeAttribute('css-state');
+        }
+      } else {
+        voiceLiveEl.removeAttribute('css-is-active');
+        voiceLiveEl.removeAttribute('css-state');
+      }
+      if (voiceStatusEl && text !== undefined) {
+        voiceStatusEl.textContent = text || '即時語音待命';
+      }
+      if (typeof level === 'number' && voiceLevelEl) {
+        voiceLevelEl.style.width = Math.max(0, Math.min(100, level)) + '%';
+      }
     },
     get controlBarEl() {
       return controlBarEl;
