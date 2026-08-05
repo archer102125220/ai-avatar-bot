@@ -246,6 +246,58 @@ export function initLLM(setting = {}, brain) {
 }
 
 // brain.js
+export async function getWelcomeText(aiAvatarWidget = null) {
+  let welcomeText =
+    '點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋';
+
+  if (typeof aiAvatarWidget?.brainEngine?.welcomeText === 'function') {
+    welcomeText = await aiAvatarWidget.brainEngine.welcomeText(
+      {
+        isCompanion: aiAvatarWidget.brainEngine.mem.isCompanion,
+        visits: aiAvatarWidget.brainEngine.mem.data.visits,
+        name: aiAvatarWidget.brainEngine.mem.data.name
+      },
+      aiAvatarWidget
+    );
+  } else if (typeof aiAvatarWidget?.brainEngine?.welcomeText === 'string') {
+    welcomeText = aiAvatarWidget.brainEngine.welcomeText;
+  } else if (aiAvatarWidget?.avatarMode === AVATAR_MODE_MAP.companion) {
+    if (
+      typeof aiAvatarWidget?.brainEngine?.companionWelcomeText === 'function'
+    ) {
+      welcomeText =
+        await aiAvatarWidget.brainEngine.companionWelcomeText(aiAvatarWidget);
+    } else if (aiAvatarWidget.brainEngine.mem.data.visits > 1) {
+      welcomeText =
+        (aiAvatarWidget.brainEngine.mem.data.name
+          ? aiAvatarWidget.brainEngine.mem.data.name + '，'
+          : '') +
+        '歡迎回來～這是我們第 ' +
+        aiAvatarWidget.brainEngine.mem.data.visits +
+        ' 次見面！點 💬 繼續聊，我記得我們聊過什麼喔';
+    } else if (
+      typeof aiAvatarWidget.brainEngine.companionWelcomeText === 'string'
+    ) {
+      welcomeText = aiAvatarWidget.brainEngine.companionWelcomeText;
+    } else {
+      welcomeText =
+        '嗨～我是這裡的陪聊虛擬人！點 💬 就能連續對話，我會記得你說過的話（只存在你這台瀏覽器，說『忘記我』就清掉）';
+    }
+  } else if (
+    typeof aiAvatarWidget?.brainEngine?.assistantWelcomeText === 'function'
+  ) {
+    welcomeText =
+      await aiAvatarWidget.brainEngine.assistantWelcomeText(aiAvatarWidget);
+  } else if (
+    typeof aiAvatarWidget?.brainEngine?.assistantWelcomeText === 'string'
+  ) {
+    welcomeText = aiAvatarWidget.brainEngine.assistantWelcomeText;
+  }
+
+  return welcomeText;
+}
+
+// brain.js
 export async function initAiProvider(setting = {}) {
   const {
     providerBaseUrl = '',

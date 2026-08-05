@@ -317,6 +317,12 @@ export function initSpeechEngine(setting = {}, aiAvatarWidget) {
       }
     },
 
+    get fetchTTSBuffer() {
+      return function _fetchTTSBuffer() {
+        return fetchTTSBuffer(...arguments);
+      };
+    },
+
     // ②逐句開講的佇列狀態（var：這檔案有「宣告前就被呼叫」的前例，避 TDZ）
     speechQ: [],
     speechEnded: false,

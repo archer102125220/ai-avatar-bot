@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
+import unicorn from 'eslint-plugin-unicorn';
 import tseslint from 'typescript-eslint';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,13 +33,42 @@ export default tseslint.config(
     },
     plugins: {
       'react-hooks': reactHooks,
-      'react-refresh': reactRefresh
+      'react-refresh': reactRefresh,
+      unicorn
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true }
+      ],
+      'no-extra-semi': 2,
+      semi: [1, 'always'],
+      quotes: [1, 'single', { avoidEscape: true }],
+      'prefer-const': 2,
+      'no-var': 2,
+      'no-console': 0,
+      'no-const-assign': 2,
+      'no-useless-escape': 1,
+      'unicorn/escape-case': 1,
+      camelcase: 0,
+      'no-async-promise-executor': 'off',
+      'no-empty': 'off',
+      'import/no-mutable-exports': 'off',
+      'no-unsafe-optional-chaining': 'off',
+      'no-unused-vars': 'off',
+      '@typescript-eslint/consistent-type-imports': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unsafe-declaration-merging': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        1,
+        {
+          vars: 'all',
+          args: 'after-used',
+          varsIgnorePattern: '^_',
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_'
+        }
       ]
     }
   },

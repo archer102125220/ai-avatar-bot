@@ -1,8 +1,10 @@
+import js from '@eslint/js';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 import unicorn from 'eslint-plugin-unicorn';
 
 export default [
+  js.configs.recommended,
   {
     plugins: {
       unicorn
