@@ -10,7 +10,9 @@ import {
   scoreEntry,
   topK,
   getWelcomeText,
-  initBrainEngine
+  initBrainEngine,
+  addChatMessage,
+  updateChatMessage
 } from './brain';
 
 import {
@@ -41,6 +43,7 @@ import {
 } from './speech';
 
 import { initUi, renderHistory, renderSuggestions, bindTyping, bindUiEvent, initSkinModeChangeButton } from './ui';
+import { initToolsEngine } from './tools';
 
 import '../style/style.scss';
 
@@ -151,6 +154,7 @@ export async function initAvatarBot(optiopns = {}) {
   let brainEngine = null;
   let speechEngine = null;
   let skinEngine = null;
+  let toolsEngine = null;
 
   const aiAvatarWidget = {
     get optiopns() {
@@ -179,6 +183,10 @@ export async function initAvatarBot(optiopns = {}) {
 
     get uiDom() {
       return uiDom;
+    },
+
+    get toolsEngine() {
+      return toolsEngine;
     },
 
     get classifyEmotion() {
@@ -397,6 +405,36 @@ export async function initAvatarBot(optiopns = {}) {
 
       // TODO: 待 speak 與其他方法耦合拆解完後改為直接放到 speech.js 檔案中
       speak
+    },
+    aiAvatarWidget
+  );
+
+  toolsEngine = initToolsEngine(
+    {
+      onAddChatMessage(role, text, options) {
+        return addChatMessage(aiAvatarWidget, role, text, options);
+      },
+      onUpdateChatMessage(id, text, append) {
+        return updateChatMessage(aiAvatarWidget, id, text, append);
+      },
+      onSetHistoryOpen(isOpen) {
+        if (uiDom.historyPanelEl) {
+          if (isOpen) {
+            uiDom.historyPanelEl.setAttribute('css-is-open', 'true');
+          } else {
+            uiDom.historyPanelEl.removeAttribute('css-is-open');
+          }
+          if (uiDom.historyPanelEl.getAttribute('css-is-open') === 'true') {
+            renderHistory(aiAvatarWidget);
+          }
+        }
+      },
+      onRenderHistory() {
+        renderHistory(aiAvatarWidget);
+      },
+      onSpeak(text) {
+        aiAvatarWidget.speechEngine.speak(text);
+      }
     },
     aiAvatarWidget
   );

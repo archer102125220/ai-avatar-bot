@@ -1,3 +1,4 @@
+// TODO: 等到環境可以測試麥克風跟喇叭時，要徹底測過這份檔案內部的所有機制有沒有因為重構而出問題
 import { addChatMessage, handleAnswer } from '../brain.js';
 import {
   continueToolConfirmation,

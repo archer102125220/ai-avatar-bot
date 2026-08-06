@@ -677,10 +677,6 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
 
     chatLog: [],
     chatSeq: 0,
-    HOST_TOOLS: [],
-    pendingToolInput: null,
-    pendingToolChoice: null,
-    pendingToolConfirmation: null,
 
     _welcomeText: null,
     get welcomeText() {
