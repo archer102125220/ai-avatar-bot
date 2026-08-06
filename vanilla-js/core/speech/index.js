@@ -1,3 +1,5 @@
+import { addChatMessage, handleAnswer } from '../brain.js';
+import { continueToolConfirmation, continueToolChoice, continueToolInput, routeHostTool, offerToolChoices, prepareTool } from '../tools.js';
 export const DEFAULT_TTS_ENDPOINT = 'api/tts';
 export const DEFAULT_FEMALE_NEURAL_VOICE = 'zh-TW-HsiaoChenNeural'; // 微軟神經語音「曉臻」
 export const DEFAULT_MALE_NEURAL_VOICE = 'zh-TW-YunJheNeural'; // 微軟神經語音「雲哲」
@@ -629,4 +631,927 @@ export function initSpeechEngine(setting = {}, aiAvatarWidget) {
   }
 
   return speechEngine;
+}
+
+// ================== EXTRACTED FROM index.js ==================
+export function computeMouth(aiAvatarWidget = null) {
+  if (
+    aiAvatarWidget.speechEngine.isSpeaking &&
+    aiAvatarWidget.speechEngine.useAudioMouth
+  ) {
+    aiAvatarWidget.speechEngine.mouthValue +=
+      (aiAvatarWidget.speechEngine.audioMouth -
+        aiAvatarWidget.speechEngine.mouthValue) *
+      0.5; // 神經語音：跟真實音量精準對嘴
+  } else if (aiAvatarWidget.speechEngine.isSpeaking) {
+    const t = performance.now() / 1000;
+    aiAvatarWidget.speechEngine.mouthValue =
+      0.12 +
+      0.83 *
+        aiAvatarWidget.speechEngine.mouthTarget *
+        Math.abs(Math.sin(t * 9)); // 瀏覽器語音：假開合
+  } else {
+    aiAvatarWidget.speechEngine.mouthValue = Math.max(
+      0,
+      aiAvatarWidget.speechEngine.mouthValue - 0.18
+    );
+  }
+  return aiAvatarWidget.speechEngine.mouthValue;
+}
+
+// speech.js
+// 串流版切句：state.buf 累積 token，切得出完整句就吐出（force＝收尾把殘句也吐）
+export function drainSentences(state, force) {
+  const out = [];
+  let i;
+  while ((i = state.buf.search(/[。！？!?；;\n…]/)) >= 0) {
+    const s = state.buf.slice(0, i + 1).trim();
+    state.buf = state.buf.slice(i + 1);
+    if (s) {
+      out.push(s);
+    }
+  }
+  if (force && state.buf.trim()) {
+    out.push(state.buf.trim());
+    state.buf = '';
+  }
+  return out;
+}
+
+// speech.js | brain.js
+
+
+// speech.js
+// 中止目前正在講的（逐句佇列 + 神經語音音檔 + 瀏覽器 TTS + 對嘴），給「點第二下打斷第一下」用
+export function stopSpeaking(aiAvatarWidget = null) {
+  aiAvatarWidget.speechEngine.speakSeq++; // 作廢所有在跑的逐句鏈（pump 看序號就會停）
+  aiAvatarWidget.speechEngine.speechQ = [];
+  aiAvatarWidget.speechEngine.speechEnded = true;
+  aiAvatarWidget.speechEngine.isSpeechPlaying = false;
+  try {
+    if ('speechSynthesis' in window) {
+      speechSynthesis.cancel();
+    }
+  } catch (_error) {}
+  try {
+    clearTimeout(aiAvatarWidget.speechEngine.speakBrowserTimer);
+  } catch (_error) {}
+  if (
+    typeof aiAvatarWidget.speechEngine.currentFps === 'number' &&
+    aiAvatarWidget.speechEngine.currentFps > 0
+  ) {
+    cancelAnimationFrame(aiAvatarWidget.speechEngine.currentFps);
+    aiAvatarWidget.speechEngine.currentFps = 0;
+  }
+  if (aiAvatarWidget.speechEngine.currentSource) {
+    try {
+      aiAvatarWidget.speechEngine.currentSource.onended = null;
+      aiAvatarWidget.speechEngine.currentSource.stop();
+    } catch (_error) {}
+    aiAvatarWidget.speechEngine.currentSource = null;
+  }
+  aiAvatarWidget.speechEngine.isSpeaking = false;
+  aiAvatarWidget.speechEngine.useAudioMouth = false;
+  aiAvatarWidget.speechEngine.audioMouth = 0;
+
+  aiAvatarWidget.skinEngine.gestureName = 'neutral';
+}
+
+// speech.js
+// 對外入口：整段文字 → 切句進逐句佇列（②講第 1 句時預抓第 2 句 → 長答案幾乎立刻開口）
+export function speak(aiAvatarWidget = null, text, options) {
+  const rootContainer = aiAvatarWidget?.container;
+  if (rootContainer instanceof HTMLElement === false) {
+    console.error(
+      '[aiAvatar speak] aiAvatarWidget.container is not an HTMLElement'
+    );
+    return;
+  }
+
+  if (aiAvatarWidget.speechEngine.ttsMuted === true) {
+    onUtteranceEnd(aiAvatarWidget); // 靜音：沒語音可收尾，直接觸發對話迴圈 hook
+    return;
+  }
+
+  aiAvatarWidget.speechEngine.spokenDisplayText = text;
+  const sid = beginSpeech(aiAvatarWidget);
+  aiAvatarWidget.setEmotionFromText(text); // ①講話帶情緒（3D 表情；要在 beginSpeech 之後，不然被 reset）
+  for (const sentences of splitSentences(text)) {
+    pushSpeech(aiAvatarWidget, sid, sentences, options);
+  }
+  endSpeech(aiAvatarWidget, sid);
+}
+
+// speech.js
+// ===== ②逐句開講引擎：一次一個 session；句子依序講，神經語音在背景先抓下一句 =====
+export function beginSpeech(aiAvatarWidget = null) {
+  stopSpeaking(aiAvatarWidget); // 打斷上一段（含清佇列、表情回中性）
+  aiAvatarWidget.speechEngine.assistantSpeechStartedAt = performance.now();
+  if (aiAvatarWidget.speechEngine.convoOn) {
+    aiAvatarWidget.uiDom.updateVoiceStatus(
+      aiAvatarWidget.speechEngine.convoOn,
+      '正在回答，可以直接插話…',
+      'speaking',
+      0
+    );
+  }
+  aiAvatarWidget.speechEngine.speechQ = [];
+  aiAvatarWidget.speechEngine.speechEnded = false;
+  aiAvatarWidget.speechEngine.isSpeechPlaying = false;
+  aiAvatarWidget.speechEngine.tapDone = false;
+  return ++aiAvatarWidget.speechEngine.speakSeq;
+}
+// speech.js
+export function pushSpeech(aiAvatarWidget = null, sid, text, options) {
+  if (sid !== aiAvatarWidget.speechEngine.speakSeq) {
+    return;
+  }
+  const safeText = String(text || '').trim();
+  if (!safeText) {
+    return;
+  }
+  aiAvatarWidget.speechEngine.speechQ.push({
+    text: safeText,
+    prep: null,
+    err: null,
+    instant: !!(options && options.instant)
+  });
+  prefetchSpeech(aiAvatarWidget, sid);
+  pumpSpeech(aiAvatarWidget, sid);
+}
+// speech.js
+export function endSpeech(aiAvatarWidget = null, sid) {
+  if (sid === aiAvatarWidget.speechEngine.speakSeq) {
+    aiAvatarWidget.speechEngine.speechEnded = true;
+    // aiAvatarWidget.speechEngine.spokenDisplayText = "";
+    aiAvatarWidget.skinEngine.emo.target = 0;
+    pumpSpeech(aiAvatarWidget, sid);
+  }
+}
+
+// speech.js
+export function onUtteranceEnd(aiAvatarWidget = null) {
+  aiAvatarWidget.speechEngine.isProcessing = false;
+  if (
+    aiAvatarWidget.speechEngine.convoOn === true &&
+    aiAvatarWidget.avatarMode === aiAvatarWidget.AVATAR_MODE_MAP.companion
+  ) {
+    aiAvatarWidget.uiDom.updateVoiceStatus(
+      aiAvatarWidget.speechEngine.convoOn,
+      '準備繼續聆聽…',
+      'thinking',
+      0
+    );
+    setTimeout(() => {
+      if (
+        aiAvatarWidget.speechEngine.convoOn === true &&
+        aiAvatarWidget.speechEngine.isListening === false &&
+        aiAvatarWidget.speechEngine.isSpeaking === false &&
+        aiAvatarWidget.speechEngine.isSpeechPlaying === false
+      ) {
+        aiAvatarWidget.speechEngine.noSpeechRuns = 0;
+        startListening(aiAvatarWidget);
+      }
+    }, 450);
+  } else {
+    stopVoiceSession(aiAvatarWidget);
+  }
+}
+
+// ui.js
+// 範例提示清單：一進站就告訴使用者「可以說什麼」，點任一項＝直接問（語音/打字都不用先猜）
+
+
+// ui.js
+// 打字輸入：Enter 或 ➤ 送出。組字中（注音/拼音選字）按的 Enter 不送，避免誤發半成品
+
+
+// speech.js
+export async function pumpSpeech(aiAvatarWidget = null, sid) {
+  if (
+    aiAvatarWidget.speechEngine.isSpeechPlaying ||
+    sid !== aiAvatarWidget.speechEngine.speakSeq
+  ) {
+    return;
+  }
+  const item = aiAvatarWidget.speechEngine.speechQ.shift();
+  if (!item) {
+    if (aiAvatarWidget.speechEngine.speechEnded) {
+      aiAvatarWidget.skinEngine.gestureName = 'neutral';
+      onUtteranceEnd(aiAvatarWidget);
+    }
+    return;
+  } // 整段講完 → 表情回中性＋(陪伴)重開麥
+  aiAvatarWidget.speechEngine.isSpeechPlaying = true;
+  const done = () => {
+    if (sid !== aiAvatarWidget.speechEngine.speakSeq) {
+      return;
+    }
+    aiAvatarWidget.speechEngine.isSpeechPlaying = false;
+    prefetchSpeech(aiAvatarWidget, sid);
+    pumpSpeech(aiAvatarWidget, sid);
+  };
+
+  if (
+    item.instant &&
+    item.text === getGreetingText(aiAvatarWidget) &&
+    !aiAvatarWidget.speechEngine.tapGreetingBuffer
+  ) {
+    preloadTapGreeting(aiAvatarWidget);
+    speakBrowserChunk(aiAvatarWidget, item.text, sid, done);
+    return;
+  }
+
+  let buf = null;
+  if (!aiAvatarWidget.speechEngine.neuralDisabled && !item.err) {
+    if (!item.prep) {
+      item.prep = fetchTTSBuffer(aiAvatarWidget, item.text).catch((e) => {
+        item.err = e;
+        return null;
+      });
+    }
+    buf = await item.prep;
+  }
+  if (sid !== aiAvatarWidget.speechEngine.speakSeq) {
+    return; // 等音檔期間被新的說話打斷 → 整條放棄
+  }
+  if (buf) {
+    prefetchSpeech(aiAvatarWidget, sid);
+    playBuffer(aiAvatarWidget, buf, done);
+  } else {
+    if (item.err) {
+      handleNeuralFail(aiAvatarWidget, item.err);
+    }
+    speakBrowserChunk(aiAvatarWidget, item.text, sid, done);
+  }
+}
+
+// brain.js | speech.js
+
+
+// speech.js | brain.js
+export async function handleUser(aiAvatarWidget = null, text = '') {
+  const rootContainer = aiAvatarWidget?.container;
+  if (rootContainer instanceof HTMLElement === false) {
+    console.error('[aiAvatar handleUser] rootContainer is not an HTMLElement');
+    return;
+  }
+
+  if (typeof text === 'string' && text !== '') {
+    addChatMessage(aiAvatarWidget, 'user', text);
+    aiAvatarWidget.speechEngine.spokenDisplayText = '你：' + text;
+  }
+
+  if (
+    text &&
+    aiAvatarWidget.brainEngine.pendingToolConfirmation &&
+    continueToolConfirmation(aiAvatarWidget, text)
+  )
+    return;
+  if (
+    text &&
+    aiAvatarWidget.brainEngine.pendingToolChoice &&
+    continueToolChoice(aiAvatarWidget, text)
+  )
+    return;
+  if (
+    text &&
+    aiAvatarWidget.brainEngine.pendingToolInput &&
+    continueToolInput(aiAvatarWidget, text)
+  )
+    return;
+
+  if (aiAvatarWidget.brainEngine.mem.isCompanion && text) {
+    if (/忘記我|清除記憶|forget me/i.test(text)) {
+      aiAvatarWidget.brainEngine.mem.wipe();
+      aiAvatarWidget.speechEngine.spokenAudioText =
+        '好，我把記憶都清掉了，我們重新認識吧！';
+      return;
+    }
+    aiAvatarWidget.brainEngine.mem.captureName(text);
+    aiAvatarWidget.brainEngine.mem.addTurn('user', text);
+  }
+
+  const routedTool = routeHostTool(aiAvatarWidget, text);
+  if (routedTool.ambiguous && routedTool.ambiguous.length) {
+    aiAvatarWidget.speechEngine.isProcessing = false;
+    offerToolChoices(aiAvatarWidget, text, routedTool.ambiguous);
+    return;
+  }
+  if (routedTool.match) {
+    aiAvatarWidget.speechEngine.isProcessing = false;
+    prepareTool(
+      aiAvatarWidget,
+      routedTool.match.tool,
+      text,
+      { confidence: routedTool.match.score, reason: routedTool.match.reason },
+      {}
+    );
+    return;
+  }
+
+  // aiAvatarWidget.speechEngine.isSpeaking = true;
+  aiAvatarWidget.speechEngine.isProcessing = true; // 回答完成前不要自動重開麥（onUtteranceEnd 會清）
+
+  if (
+    aiAvatarWidget.skinEngine &&
+    aiAvatarWidget.skinEngine.gestureName !== undefined
+  ) {
+    aiAvatarWidget.skinEngine.gestureName = 'thinking';
+  }
+
+  handleAnswer(aiAvatarWidget, text);
+}
+
+export async function ensureMicMonitor(aiAvatarWidget) {
+  if (aiAvatarWidget.speechEngine.micStream) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)
+    throw new Error('media-not-supported');
+
+  aiAvatarWidget.speechEngine.micStream =
+    await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      },
+      video: false
+    });
+  aiAvatarWidget.speechEngine.micAudioCtx = new (
+    window.AudioContext || window.webkitAudioContext
+  )();
+  if (aiAvatarWidget.speechEngine.micAudioCtx.state === 'suspended') {
+    try {
+      await aiAvatarWidget.speechEngine.micAudioCtx.resume();
+    } catch (_e) {}
+  }
+
+  aiAvatarWidget.speechEngine.micAnalyser =
+    aiAvatarWidget.speechEngine.micAudioCtx.createAnalyser();
+  aiAvatarWidget.speechEngine.micAnalyser.fftSize = 256;
+  aiAvatarWidget.speechEngine.micAnalyser.smoothingTimeConstant = 0.35;
+  aiAvatarWidget.speechEngine.micAudioCtx
+    .createMediaStreamSource(aiAvatarWidget.speechEngine.micStream)
+    .connect(aiAvatarWidget.speechEngine.micAnalyser);
+  aiAvatarWidget.speechEngine.micData = new Uint8Array(
+    aiAvatarWidget.speechEngine.micAnalyser.fftSize
+  );
+
+  aiAvatarWidget.speechEngine.micNoiseFloor = 0;
+  aiAvatarWidget.speechEngine.voiceFrames = 0;
+  aiAvatarWidget.speechEngine.lastBargeIn = 0;
+
+  monitorMicLevel(aiAvatarWidget);
+}
+
+export function monitorMicLevel(aiAvatarWidget) {
+  if (
+    !aiAvatarWidget.speechEngine.micAnalyser ||
+    !aiAvatarWidget.speechEngine.micData
+  ) {
+    return;
+  }
+  aiAvatarWidget.speechEngine.micAnalyser.getByteTimeDomainData(
+    aiAvatarWidget.speechEngine.micData
+  );
+  let sum = 0;
+  for (let i = 0; i < aiAvatarWidget.speechEngine.micData.length; i++) {
+    const value = (aiAvatarWidget.speechEngine.micData[i] - 128) / 128;
+    sum += value * value;
+  }
+  const rms = Math.sqrt(sum / aiAvatarWidget.speechEngine.micData.length);
+
+  const isSpeaking =
+    aiAvatarWidget.speechEngine.isSpeaking ||
+    aiAvatarWidget.speechEngine.isSpeechPlaying;
+  const isListening = aiAvatarWidget.speechEngine.isListening;
+  const assistantActive =
+    isSpeaking || aiAvatarWidget.speechEngine.isProcessing;
+
+  if (!assistantActive && !isListening) {
+    aiAvatarWidget.speechEngine.micNoiseFloor =
+      aiAvatarWidget.speechEngine.micNoiseFloor * 0.96 + rms * 0.04;
+  }
+
+  const showVoiceUI =
+    aiAvatarWidget.speechEngine.convoOn || isListening || assistantActive;
+
+  aiAvatarWidget.uiDom.updateVoiceStatus(
+    showVoiceUI,
+    aiAvatarWidget.uiDom.voiceStatusEl?.textContent,
+    isListening ? 'listening' : isSpeaking ? 'speaking' : 'thinking',
+    rms * 650
+  );
+
+  const threshold = Math.max(
+    0.085,
+    aiAvatarWidget.speechEngine.micNoiseFloor * 5.5
+  );
+  const speechDuration =
+    performance.now() -
+    (aiAvatarWidget.speechEngine.assistantSpeechStartedAt || performance.now());
+
+  if (
+    aiAvatarWidget.speechEngine.convoOn &&
+    assistantActive &&
+    speechDuration > 550 &&
+    rms > threshold
+  ) {
+    aiAvatarWidget.speechEngine.voiceFrames++;
+  } else {
+    aiAvatarWidget.speechEngine.voiceFrames = Math.max(
+      0,
+      (aiAvatarWidget.speechEngine.voiceFrames || 0) - 2
+    );
+  }
+
+  if (
+    aiAvatarWidget.speechEngine.voiceFrames >= 9 &&
+    performance.now() - aiAvatarWidget.speechEngine.lastBargeIn > 1400
+  ) {
+    interruptForVoice(aiAvatarWidget);
+  }
+
+  aiAvatarWidget.speechEngine.micRaf = requestAnimationFrame(() =>
+    monitorMicLevel(aiAvatarWidget)
+  );
+}
+
+export function stopMicMonitor(aiAvatarWidget) {
+  if (aiAvatarWidget.speechEngine.micRaf)
+    cancelAnimationFrame(aiAvatarWidget.speechEngine.micRaf);
+  aiAvatarWidget.speechEngine.micRaf = 0;
+
+  if (aiAvatarWidget.speechEngine.micStream) {
+    aiAvatarWidget.speechEngine.micStream
+      .getTracks()
+      .forEach((track) => track.stop());
+  }
+  aiAvatarWidget.speechEngine.micStream = null;
+  aiAvatarWidget.speechEngine.micAnalyser = null;
+  aiAvatarWidget.speechEngine.micData = null;
+
+  if (aiAvatarWidget.speechEngine.micAudioCtx) {
+    try {
+      aiAvatarWidget.speechEngine.micAudioCtx.close();
+    } catch (_e) {}
+  }
+  aiAvatarWidget.speechEngine.micAudioCtx = null;
+  if (aiAvatarWidget.uiDom.voiceLevelEl)
+    aiAvatarWidget.uiDom.voiceLevelEl.style.width = '0';
+}
+
+export function stopVoiceSession(aiAvatarWidget, message) {
+  aiAvatarWidget.speechEngine.convoOn = false;
+  clearTimeout(aiAvatarWidget.speechEngine.recognitionSilenceTimer);
+  aiAvatarWidget.speechEngine.recognitionText = '';
+  aiAvatarWidget.speechEngine.recognitionSubmitted = true;
+  aiAvatarWidget.speechEngine.recognitionError = 'aborted';
+  try {
+    if (typeof aiAvatarWidget.speechEngine?.recognition?.abort === 'function') {
+      aiAvatarWidget.speechEngine.recognition.abort();
+    }
+  } catch (_error) {}
+  aiAvatarWidget.speechEngine.recognition = null;
+  aiAvatarWidget.speechEngine.isListening = false;
+  aiAvatarWidget.speechEngine.isProcessing = false;
+  stopSpeaking(aiAvatarWidget);
+  setMic(aiAvatarWidget, false);
+  stopMicMonitor(aiAvatarWidget);
+
+  aiAvatarWidget.uiDom.updateVoiceStatus(false, '', '', 0);
+  if (message) {
+    aiAvatarWidget.speechEngine.spokenDisplayText = message;
+  }
+}
+
+export function interruptForVoice(aiAvatarWidget) {
+  aiAvatarWidget.speechEngine.lastBargeIn = performance.now();
+  aiAvatarWidget.speechEngine.voiceFrames = 0;
+
+  aiAvatarWidget.speechEngine.speakSeq++;
+  if (
+    typeof aiAvatarWidget.brainEngine?.llm?.controller?.abort === 'function'
+  ) {
+    try {
+      aiAvatarWidget.brainEngine.llm.controller.abort();
+    } catch (_error) {}
+  }
+
+  stopSpeaking(aiAvatarWidget);
+  aiAvatarWidget.speechEngine.isProcessing = false;
+
+  aiAvatarWidget.uiDom.updateVoiceStatus(
+    aiAvatarWidget.speechEngine.convoOn,
+    '已停止回答，請繼續說…',
+    'listening',
+    0
+  );
+
+  setTimeout(() => {
+    if (
+      aiAvatarWidget.speechEngine.convoOn &&
+      !aiAvatarWidget.speechEngine.isListening
+    ) {
+      startListening(aiAvatarWidget);
+    }
+  }, 100);
+}
+
+// ===== STT：聽你說話 =====
+export function setMic(aiAvatarWidget = null, isListening = false) {
+  const rootContainer = aiAvatarWidget?.container;
+  if (rootContainer instanceof HTMLElement === false) {
+    console.error('[aiAvatar setMic] rootContainer is not an HTMLElement');
+    return;
+  }
+
+  const btnMic = aiAvatarWidget.uiDom.micButtonEl;
+  if (isListening === true) {
+    btnMic.setAttribute('css-state', 'listening');
+  } else {
+    btnMic.removeAttribute('css-state');
+  }
+
+  const convoOn = aiAvatarWidget.speechEngine.convoOn;
+  btnMic.setAttribute('aria-pressed', String(!!convoOn));
+
+  btnMic.textContent =
+    isListening === true
+      ? aiAvatarWidget.avatarMode === aiAvatarWidget.AVATAR_MODE_MAP.companion
+        ? '● 對話中'
+        : '● 聆聽中'
+      : convoOn
+        ? '◌ 對話中'
+        : '🎙️ 即時';
+
+  const suggestions = aiAvatarWidget.uiDom.suggestionsEl;
+  if (suggestions instanceof HTMLElement) {
+    suggestions.style.display = isListening || convoOn ? 'none' : 'flex';
+  } // 聆聽中收起清單
+}
+
+// speech.js | brain.js
+export async function startListening(aiAvatarWidget = null) {
+  const rootContainer = aiAvatarWidget?.container;
+  if (rootContainer instanceof HTMLElement === false) {
+    console.error(
+      '[aiAvatar startListening] rootContainer is not an HTMLElement'
+    );
+    return;
+  }
+
+  const SafeSpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SafeSpeechRecognition) {
+    aiAvatarWidget.speechEngine.spokenAudioText =
+      '你的瀏覽器不支援語音辨識，建議用 Chrome 開喔。';
+    aiAvatarWidget.speechEngine.convoOn = false;
+    return;
+  }
+  if (
+    aiAvatarWidget.speechEngine.isListening &&
+    aiAvatarWidget.speechEngine.recognition
+  ) {
+    aiAvatarWidget.speechEngine.recognition.stop();
+    return;
+  }
+
+  if (!aiAvatarWidget.speechEngine.micStream) {
+    setMic(aiAvatarWidget, false);
+    aiAvatarWidget.uiDom.updateVoiceStatus(
+      true,
+      '正在取得麥克風權限…',
+      'thinking',
+      0
+    );
+  }
+  try {
+    await ensureMicMonitor(aiAvatarWidget);
+    if (
+      aiAvatarWidget.speechEngine.isSpeechPlaying ||
+      aiAvatarWidget.speechEngine.isProcessing
+    ) {
+      stopSpeaking(aiAvatarWidget);
+    }
+  } catch (e) {
+    aiAvatarWidget.speechEngine.convoOn = false;
+    setMic(aiAvatarWidget, false);
+    const message = '無法啟動語音功能，請檢查麥克風與瀏覽器設定。';
+    aiAvatarWidget.speechEngine.spokenAudioText = message;
+    aiAvatarWidget.uiDom.updateVoiceStatus(true, message, '', 0);
+    console.warn('mic monitor error', e);
+    return;
+  }
+
+  try {
+    aiAvatarWidget.speechEngine.recognition = new SafeSpeechRecognition();
+  } catch (error) {
+    aiAvatarWidget.speechEngine.spokenAudioText =
+      '語音辨識啟動失敗：' + error.message;
+    aiAvatarWidget.speechEngine.convoOn = false;
+    return;
+  }
+
+  aiAvatarWidget.speechEngine.recognitionSilenceTimer = null;
+  aiAvatarWidget.speechEngine.recognition.lang = 'zh-TW';
+  aiAvatarWidget.speechEngine.recognition.interimResults = true;
+  aiAvatarWidget.speechEngine.recognition.continuous = true;
+  aiAvatarWidget.speechEngine.recognition.maxAlternatives = 1;
+  aiAvatarWidget.speechEngine.recognition.onstart = () => {
+    aiAvatarWidget.speechEngine.isListening = true;
+    setMic(aiAvatarWidget, true);
+    aiAvatarWidget.uiDom.updateVoiceStatus(
+      true,
+      '請說話，可以隨時插話…',
+      'listening',
+      0
+    );
+  };
+  aiAvatarWidget.speechEngine.recognition.onresult = (event) => {
+    let finalText = '',
+      interimText = '';
+    for (const result of event.results) {
+      if (result.isFinal) finalText += result[0].transcript + ' ';
+      else interimText += result[0].transcript + ' ';
+    }
+    const txt = (finalText + interimText).trim();
+    if (!txt) return;
+
+    aiAvatarWidget.speechEngine.noSpeechRuns = 0;
+    aiAvatarWidget.speechEngine.spokenDisplayText =
+      '你：' + txt + (interimText ? '…' : '');
+    aiAvatarWidget.uiDom.updateVoiceStatus(
+      aiAvatarWidget.speechEngine.convoOn,
+      interimText ? '正在辨識：' + txt : '收到語音，準備送出…',
+      'listening',
+      0
+    );
+
+    clearTimeout(aiAvatarWidget.speechEngine.recognitionSilenceTimer);
+    aiAvatarWidget.speechEngine.recognitionSilenceTimer = setTimeout(
+      () => {
+        try {
+          if (aiAvatarWidget.speechEngine.recognition)
+            aiAvatarWidget.speechEngine.recognition.stop();
+        } catch (_error) {}
+      },
+      interimText ? 900 : 420
+    );
+
+    const last = event.results[event.results.length - 1];
+    if (last.isFinal) {
+      handleUser(aiAvatarWidget, txt);
+    }
+  };
+  aiAvatarWidget.speechEngine.recognition.onerror = (event) => {
+    aiAvatarWidget.speechEngine.isListening = false;
+    setMic(aiAvatarWidget, false);
+    if (event.error === 'not-allowed') {
+      aiAvatarWidget.speechEngine.convoOn = false;
+      aiAvatarWidget.speechEngine.spokenDisplayText =
+        '我需要麥克風權限才能聽你說話喔。';
+      stopMicMonitor(aiAvatarWidget);
+      aiAvatarWidget.uiDom.updateVoiceStatus(true, '麥克風權限被拒絕', '', 0);
+      return;
+    }
+    if (event.error === 'aborted') {
+      return; // 手動中止不需顯示錯誤，保留 stopVoiceSession 寫入的文字
+    }
+    if (
+      aiAvatarWidget.speechEngine.convoOn === true &&
+      event.error === 'no-speech'
+    ) {
+      return; // 交給 onend 的續聽邏輯
+    }
+
+    aiAvatarWidget.speechEngine.spokenDisplayText =
+      '沒聽清楚（' + event.error + '），再試一次。';
+  };
+  aiAvatarWidget.speechEngine.recognition.onend = () => {
+    aiAvatarWidget.speechEngine.isListening = false;
+    setMic(aiAvatarWidget, false);
+    // 連續對話：靜默結束（沒觸發回答）→ 自動再聽；連 3 次沒聲音就休息，避免無限開麥
+    if (
+      aiAvatarWidget.speechEngine.convoOn === true &&
+      !aiAvatarWidget.speechEngine.isProcessing &&
+      !aiAvatarWidget.speechEngine.isSpeaking &&
+      !aiAvatarWidget.speechEngine.isSpeechPlaying
+    ) {
+      if (++aiAvatarWidget.speechEngine.noSpeechRuns >= 3) {
+        stopVoiceSession(
+          aiAvatarWidget,
+          '連續幾次沒有聽到聲音，即時對話已暫停。'
+        );
+        return;
+      }
+      setTimeout(() => {
+        if (
+          aiAvatarWidget.speechEngine.convoOn === true &&
+          !aiAvatarWidget.speechEngine.isListening &&
+          !aiAvatarWidget.speechEngine.isSpeaking &&
+          !aiAvatarWidget.speechEngine.isSpeechPlaying &&
+          !aiAvatarWidget.speechEngine.isProcessing
+        ) {
+          startListening(aiAvatarWidget);
+        }
+      }, 350);
+    }
+  };
+  try {
+    aiAvatarWidget.speechEngine.recognition.start();
+  } catch (_error) {}
+}
+
+// speech.js | brain.js | skin.js
+// TODO: onTap 留在這份檔案，畢竟有複雜交互的邏輯，但是內部的邏輯要再深入研究是否應該細部拆分出去
+// onTap 內主要就呼叫那些被細拆的邏輯
+export function onTap(aiAvatarWidget = null) {
+  if (
+    typeof aiAvatarWidget !== 'object' ||
+    aiAvatarWidget === null ||
+    aiAvatarWidget?.uiDom?.onTapTimer === true
+  ) {
+    return; // 去抖：hit 事件與 pointerdown 可能同時觸發
+  }
+  if (aiAvatarWidget.uiDom) aiAvatarWidget.uiDom.onTapTimer = true;
+  setTimeout(() => {
+    if (aiAvatarWidget.uiDom) aiAvatarWidget.uiDom.onTapTimer = false;
+  }, 400);
+  if (aiAvatarWidget.skinEngine.avatarModel) {
+    try {
+      aiAvatarWidget.skinEngine.avatarModel.motion('Tap');
+    } catch (_error) {}
+  }
+
+  let greeting = '你好～';
+
+  if (typeof aiAvatarWidget.speechEngine.greeting === 'function') {
+    greeting = aiAvatarWidget.speechEngine.greeting(
+      {
+        isCompanion: aiAvatarWidget.brainEngine.mem.isCompanion,
+        visits: aiAvatarWidget.brainEngine.mem.data.visits,
+        name: aiAvatarWidget.brainEngine.mem.data.name
+      },
+      aiAvatarWidget
+    );
+  } else if (typeof aiAvatarWidget.speechEngine.greeting === 'string') {
+    greeting = aiAvatarWidget.speechEngine.greeting;
+  } else if (aiAvatarWidget.avatarMode === aiAvatarWidget.AVATAR_MODE_MAP.companion) {
+    greeting =
+      (aiAvatarWidget.brainEngine.mem.data.name
+        ? aiAvatarWidget.brainEngine.mem.data.name + '～'
+        : '你好～') + '想聊什麼都可以，點 💬 我們就開始！';
+
+    if (typeof aiAvatarWidget.speechEngine.companionGreeting === 'function') {
+      greeting = aiAvatarWidget.speechEngine.companionGreeting(
+        {
+          isCompanion: aiAvatarWidget.brainEngine.mem.isCompanion,
+          visits: aiAvatarWidget.brainEngine.mem.data.visits,
+          name: aiAvatarWidget.brainEngine.mem.data.name
+        },
+        aiAvatarWidget
+      );
+    } else if (
+      typeof aiAvatarWidget.speechEngine.companionGreeting === 'string'
+    ) {
+      greeting = aiAvatarWidget.speechEngine.companionGreeting;
+    }
+  } else if (aiAvatarWidget.avatarMode === aiAvatarWidget.AVATAR_MODE_MAP.assistant) {
+    greeting =
+      '你好～我是可以嵌入任何網站的語音虛擬人，問我怎麼安裝、怎麼換成你的角色都行！';
+
+    if (typeof aiAvatarWidget.speechEngine.assistantGreeting === 'function') {
+      greeting = aiAvatarWidget.speechEngine.assistantGreeting(
+        {
+          isCompanion: aiAvatarWidget.brainEngine.mem.isCompanion,
+          visits: aiAvatarWidget.brainEngine.mem.data.visits,
+          name: aiAvatarWidget.brainEngine.mem.data.name
+        },
+        aiAvatarWidget
+      );
+    } else if (
+      typeof aiAvatarWidget.speechEngine.assistantGreeting === 'string'
+    ) {
+      greeting = aiAvatarWidget.speechEngine.assistantGreeting;
+    }
+  }
+
+  aiAvatarWidget.speechEngine.spokenAudioText = greeting;
+}
+
+export function getGreetingText(aiAvatarWidget) {
+  if (aiAvatarWidget.speechEngine.greeting) {
+    const text = aiAvatarWidget.speechEngine.greeting(aiAvatarWidget);
+    if (text) return text;
+  }
+
+  if (aiAvatarWidget.avatarMode === aiAvatarWidget.AVATAR_MODE_MAP.companion) {
+    if (aiAvatarWidget.speechEngine.companionGreeting) {
+      if (typeof aiAvatarWidget.speechEngine.companionGreeting === 'function') {
+        const text =
+          aiAvatarWidget.speechEngine.companionGreeting(aiAvatarWidget);
+        if (text) return text;
+      } else {
+        return aiAvatarWidget.speechEngine.companionGreeting;
+      }
+    }
+    const name = aiAvatarWidget.brainEngine?.mem?.data?.name || '';
+    return (
+      (name ? name + '～' : '你好～') + '想聊什麼都可以，點 💬 我們就開始！'
+    );
+  } else {
+    if (aiAvatarWidget.speechEngine.assistantGreeting) {
+      if (typeof aiAvatarWidget.speechEngine.assistantGreeting === 'function') {
+        const text =
+          aiAvatarWidget.speechEngine.assistantGreeting(aiAvatarWidget);
+        if (text) return text;
+      } else {
+        return aiAvatarWidget.speechEngine.assistantGreeting;
+      }
+    }
+    return (
+      aiAvatarWidget.brainEngine?.KBM?.greeting ||
+      '你好～我是可以嵌入任何網站的語音虛擬人，問我怎麼安裝、怎麼換成你的角色都行！'
+    );
+  }
+}
+
+export function preloadTapGreeting(aiAvatarWidget) {
+  if (aiAvatarWidget.speechEngine.neuralDisabled) return Promise.resolve(null);
+
+  const text = getGreetingText(aiAvatarWidget);
+  const key = aiAvatarWidget.speechEngine.neuralVoice + '\n' + text;
+
+  if (
+    aiAvatarWidget.speechEngine.tapGreetingPrep &&
+    aiAvatarWidget.speechEngine.tapGreetingCacheKey === key
+  ) {
+    return aiAvatarWidget.speechEngine.tapGreetingPrep;
+  }
+
+  aiAvatarWidget.speechEngine.tapGreetingCacheKey = key;
+  aiAvatarWidget.speechEngine.tapGreetingBuffer = null;
+  aiAvatarWidget.speechEngine.tapGreetingPrep = fetchTTSBuffer(
+    aiAvatarWidget,
+    text,
+    true
+  )
+    .then((buffer) => {
+      if (aiAvatarWidget.speechEngine.tapGreetingCacheKey === key) {
+        aiAvatarWidget.speechEngine.tapGreetingBuffer = buffer;
+      }
+      return buffer;
+    })
+    .catch((error) => {
+      if (aiAvatarWidget.speechEngine.tapGreetingCacheKey === key) {
+        aiAvatarWidget.speechEngine.tapGreetingPrep = null;
+        aiAvatarWidget.speechEngine.tapGreetingBuffer = null;
+      }
+      throw error;
+    });
+
+  return aiAvatarWidget.speechEngine.tapGreetingPrep;
+}
+
+export function localeLabel(locale) {
+  return /^en/i.test(locale)
+    ? 'EN'
+    : /^ja/i.test(locale)
+      ? '日'
+      : /^ko/i.test(locale)
+        ? '한'
+        : '中';
+}
+
+export function localeVoice(locale) {
+  return /^en/i.test(locale)
+    ? 'en-US-JennyNeural'
+    : /^ja/i.test(locale)
+      ? 'ja-JP-NanamiNeural'
+      : /^ko/i.test(locale)
+        ? 'ko-KR-SunHiNeural'
+        : 'zh-TW-HsiaoChenNeural';
+}
+
+export function setLocale(aiAvatarWidget, locale) {
+  const matched =
+    ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'].find(
+      (l) => l.toLowerCase() === (locale || '').toLowerCase()
+    ) || 'zh-TW';
+  aiAvatarWidget.speechEngine.currentLocale = matched;
+  // Note: Only fallback neural voice if the developer didn't set a hardcoded voice in config
+  if (!aiAvatarWidget.config?.voice) {
+    aiAvatarWidget.speechEngine.neuralVoice = localeVoice(matched);
+  }
+
+  if (aiAvatarWidget.uiDom.langButtonEl) {
+    aiAvatarWidget.uiDom.langButtonEl.textContent = localeLabel(matched);
+  }
+
+  if (aiAvatarWidget.speechEngine.recognition) {
+    aiAvatarWidget.speechEngine.recognition.lang = matched;
+  }
+
+  loadVoice(aiAvatarWidget);
 }

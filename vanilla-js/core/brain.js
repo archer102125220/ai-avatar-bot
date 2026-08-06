@@ -665,6 +665,13 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     onAiProviderChatting: null,
     onAiProviderStreamChatting: null,
 
+    chatLog: [],
+    chatSeq: 0,
+    HOST_TOOLS: [],
+    pendingToolInput: null,
+    pendingToolChoice: null,
+    pendingToolConfirmation: null,
+
     _welcomeText: null,
     get welcomeText() {
       return this._welcomeText;
@@ -800,16 +807,18 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     },
     brain
   );
-  mem = initMEM({ avatarMode });
+  mem = initMEM({ avatarMode: brain.avatarMode });
   aiProvider = await initAiProvider({
     providerModel: aiProviderModel,
+    providerBaseUrl: aiProviderBaseUrl,
+
     providerCreatedFetchSetting: aiProviderCreatedFetchSetting,
     providerCreatedFetchPayload: aiProviderCreatedFetchPayload,
-    providerBaseUrl: aiProviderBaseUrl,
     providerPingUrl: aiProviderPingUrl,
     providerChatUrl: aiProviderChatUrl,
     providerMaxTokens: aiProviderMaxTokens,
     providerIsStream: aiProviderIsStream,
+
     onConnecting(...arg) {
       return brain.onAiProviderConnecting?.(...arg, aiAvatarWidget);
     },
@@ -828,4 +837,257 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
   });
 
   return brain;
+}
+
+export function setEmotionFromText(aiAvatarWidget, text) {
+  aiAvatarWidget.skinEngine.gestureName = classifyEmotion(text);
+}
+
+// 檢索式回答（零金鑰、即時、永遠可用的後備）
+export function bestOf(knowledgeList = [], question) {
+  let e = null;
+  let s = 0;
+  for (const x of knowledgeList || []) {
+    const v = scoreEntry(question, x);
+    if (v > s) {
+      s = v;
+      e = x;
+    }
+  }
+  return { e, s };
+}
+
+export function brainCompanionFallback(aiAvatarWidget = null, question) {
+  if (typeof aiAvatarWidget?.companionFallbackContext === 'function') {
+    return aiAvatarWidget.companionFallbackContext(question, aiAvatarWidget);
+  } else if (typeof aiAvatarWidget?.companionFallbackContext === 'string') {
+    return aiAvatarWidget.companionFallbackContext;
+  }
+
+  // 陪聊版兜底：輪流換句，不推銷產品題
+  const name = aiAvatarWidget.brainEngine.mem.data.name;
+  const companionFallbackList =
+    Array.isArray(aiAvatarWidget.brainEngine.companionFallback) === true &&
+    aiAvatarWidget.brainEngine.companionFallback.length > 0
+      ? aiAvatarWidget.brainEngine.companionFallback
+      : [
+          (name ? name + '，' : '') +
+            '這個我還不太會聊，但我想聽你說——多講一點？',
+          '嗯嗯，我在聽。後來呢？',
+          '哈，這題有點考倒我了，你怎麼看？',
+          '我還在學著聊這個～對了，按 🧠 開 AI 大腦，我會聊得更順喔。'
+        ];
+
+  return companionFallbackList[
+    aiAvatarWidget.brainEngine.companionFallbackIdx++ %
+      companionFallbackList.length
+  ];
+}
+
+export function handleThinking(aiAvatarWidget = null, rawQuestion) {
+  const question = (rawQuestion || '').trim();
+  if (!question) {
+    return '我好像沒聽清楚，可以再說一次嗎？';
+  }
+  const site = bestOf(aiAvatarWidget.brainEngine.knowledge, question);
+  if (aiAvatarWidget.avatarMode === AVATAR_MODE_MAP.companion) {
+    // 陪伴模式：聊天題給陪聊腦、網站/產品題照答
+    const chat = bestOf(
+      aiAvatarWidget.brainEngine.companionKnowledge,
+      question
+    );
+    if (chat.e && chat.s >= 0.16 && chat.s + 0.05 >= site.s) {
+      return chat.e.a;
+    }
+    if (site.e && site.s >= 0.16) {
+      return site.e.a;
+    }
+    return brainCompanionFallback(aiAvatarWidget, question);
+  }
+  if (site.e && site.s >= 0.16) {
+    return site.e.a;
+  }
+
+  if (typeof aiAvatarWidget?.assistantFallbackContext === 'function') {
+    return aiAvatarWidget.assistantFallbackContext(question, aiAvatarWidget);
+  } else if (typeof aiAvatarWidget?.assistantFallbackContext === 'string') {
+    return aiAvatarWidget.assistantFallbackContext;
+  }
+
+  return (
+    '你問的是「' +
+    question +
+    '」對吧？這題我的知識庫還沒收錄～你可以問我「怎麼安裝」「怎麼換成我的角色」「要不要錢」「麥克風怎麼用」這些喔。'
+  );
+}
+
+export function addChatMessage(aiAvatarWidget, role, text, options = {}) {
+  const item = {
+    id: options.id || 'm' + ++aiAvatarWidget.brainEngine.chatSeq,
+    role: role === 'user' ? 'user' : 'assistant',
+    text: String(text || '').slice(0, 4000),
+    streaming: !!options.streaming,
+    pendingTool: options.pendingTool || null,
+    pendingChoices: options.pendingChoices || null
+  };
+  aiAvatarWidget.brainEngine.chatLog.push(item);
+  if (aiAvatarWidget.brainEngine.chatLog.length > 80) aiAvatarWidget.brainEngine.chatLog.shift();
+
+  if (aiAvatarWidget.uiDom.historyPanelEl?.classList.contains('open')) {
+    import('./ui.js').then(({ renderHistory }) => renderHistory(aiAvatarWidget));
+  }
+  return item.id;
+}
+
+export function updateChatMessage(aiAvatarWidget, id, text, streaming) {
+  const item = aiAvatarWidget.brainEngine.chatLog.find((m) => m.id === id);
+  if (!item) {
+    return addChatMessage(aiAvatarWidget, 'assistant', text, { id, streaming });
+  }
+  item.text = String(text || '').slice(0, 4000);
+  item.streaming = !!streaming;
+  if (aiAvatarWidget.uiDom.historyPanelEl?.classList.contains('open')) {
+    import('./ui.js').then(({ renderHistory }) => renderHistory(aiAvatarWidget));
+  }
+  return item.id;
+}
+
+export async function aiProviderLLMBrain(aiAvatarWidget = null, question) {
+  try {
+    aiAvatarWidget.speechEngine.spokenDisplayText = '讓我想想…';
+
+    aiAvatarWidget.skinEngine.gestureName = 'thinking';
+
+    const out = await aiAvatarWidget.brainEngine.aiProvider.chat(
+      aiAvatarWidget.buildLLMMessages(aiAvatarWidget, question)
+    );
+    if (out?.trim?.()) {
+      return sayAnswer(aiAvatarWidget, out.trim());
+    }
+    throw new Error('AI Provider response is empty');
+  } catch (e) {
+    console.warn('AI Provider error', e);
+    throw e;
+  }
+}
+
+export function defaultBuildLLMMessages(aiAvatarWidget = null, question) {
+  const context = topK(aiAvatarWidget, question, 3)
+    .map((e) => 'Q：' + e.q + '\nA：' + e.a)
+    .join('\n---\n');
+  const RAG =
+    '優先依據【參考資料】回答；資料沒有的就用常識簡短回應，不確定就老實說不知道。\n\n【參考資料】\n' +
+    (context || '（無）');
+  const systemContext =
+    aiAvatarWidget?.avatarMode === AVATAR_MODE_MAP.companion
+      ? '你是這個網站的陪伴型語音虛擬人，親切、口語、繁體中文、每次最多兩三句。你記得訪客先前的對話' +
+        (aiAvatarWidget?.brainEngine?.mem?.data?.name
+          ? '，訪客叫「' +
+            aiAvatarWidget.brainEngine.mem.data.name +
+            '」，可自然稱呼'
+          : '') +
+        '。' +
+        RAG
+      : '你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請用繁體中文、口語、最多兩三句話簡短回答。' +
+        RAG;
+  const msgs = [{ role: 'system', content: systemContext }];
+  if (aiAvatarWidget?.brainEngine?.mem?.isCompanion === true) {
+    for (const h of aiAvatarWidget.brainEngine.mem.data.history) {
+      msgs.push({ role: h.role, content: h.content });
+    }
+  }
+  msgs.push({ role: 'user', content: question });
+  return msgs;
+}
+
+export async function webLLMBrain(aiAvatarWidget = null, question) {
+  try {
+    aiAvatarWidget.speechEngine.spokenDisplayText = '讓我想想…';
+
+    aiAvatarWidget.skinEngine.gestureName = 'thinking';
+
+    const { beginSpeech, pushSpeech, endSpeech, onUtteranceEnd, drainSentences } = await import('./speech/index.js');
+
+    const sid = aiAvatarWidget.speechEngine.ttsMuted
+      ? 0
+      : beginSpeech(aiAvatarWidget); // 靜音時只更新字幕、不進語音佇列
+    const st = { buf: '' };
+    const streamMessageId = 'stream-' + Date.now();
+    const out = await aiAvatarWidget.brainEngine.llm.chat(
+      aiAvatarWidget.buildLLMMessages(aiAvatarWidget, question),
+      (delta, sofar) => {
+        aiAvatarWidget.speechEngine.spokenDisplayText = sofar; // 邊生成邊更新字幕
+        updateChatMessage(aiAvatarWidget, streamMessageId, sofar, true);
+        if (sid) {
+          if (sid !== aiAvatarWidget.speechEngine.speakSeq) {
+            return; // 中途被打斷 → 剩下的只當字幕
+          }
+          aiAvatarWidget.setEmotionFromText(sofar);
+          st.buf += delta;
+          for (const s of drainSentences(st, false)) {
+            pushSpeech(aiAvatarWidget, sid, s);
+          }
+        }
+      }
+    );
+    if (out?.trim?.()) {
+      aiAvatarWidget.brainEngine.mem.addTurn('assistant', out.trim());
+      updateChatMessage(aiAvatarWidget, streamMessageId, out.trim(), false);
+      if (sid && sid === aiAvatarWidget.speechEngine.speakSeq) {
+        for (const s of drainSentences(st, true)) {
+          pushSpeech(aiAvatarWidget, sid, s);
+        }
+        endSpeech(aiAvatarWidget, sid);
+      } else if (!sid) {
+        onUtteranceEnd(aiAvatarWidget); // 靜音：沒有語音收尾 → 手動觸發對話迴圈 hook
+      }
+      if (typeof aiAvatarWidget?.speechEngine.onSpeakingEnd === 'function') {
+        aiAvatarWidget.speechEngine.onSpeakingEnd(out.trim(), aiAvatarWidget);
+      }
+      return;
+    }
+    if (sid) {
+      endSpeech(aiAvatarWidget, sid); // 空回答：收掉這條 session，往下走檢索
+    }
+    throw new Error('WebLLM response is empty');
+  } catch (e) {
+    console.warn('llm error', e);
+    throw e;
+  }
+}
+
+export async function handleAnswer(aiAvatarWidget = null, question) {
+  const safeQuestion = (question || '').trim();
+  if (!safeQuestion) {
+    aiAvatarWidget.speechEngine.spokenAudioText =
+      '我好像沒聽清楚，可以再說一次嗎？';
+    return;
+  }
+  try {
+    // 1) AI 伺服器大腦（最聰明，優先；整段生成後逐句講）
+    if (
+      aiAvatarWidget.brainEngine.aiProvider?.enabled &&
+      aiAvatarWidget.brainEngine.aiProvider.ready
+    ) {
+      return await aiProviderLLMBrain(aiAvatarWidget, question);
+    }
+    // 2) 瀏覽器內 WebLLM：串流 → 每切出一個完整句就丟進逐句佇列開講（首句延遲大幅縮短）
+    if (
+      aiAvatarWidget.brainEngine.llm?.state === aiAvatarWidget.STATE_MAP.READY
+    ) {
+      return await webLLMBrain(aiAvatarWidget, question);
+    }
+  } catch (_error) {
+    console.error(_error);
+  }
+
+  // 3) 檢索式後備（零金鑰、永遠可用）
+  sayAnswer(aiAvatarWidget, handleThinking(aiAvatarWidget, safeQuestion));
+}
+
+export function sayAnswer(aiAvatarWidget, text) {
+  if (!text) return;
+  aiAvatarWidget.brainEngine.mem.addTurn('assistant', text);
+  addChatMessage(aiAvatarWidget, 'assistant', text);
+  aiAvatarWidget.speechEngine.speak(text);
 }
