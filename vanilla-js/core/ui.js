@@ -233,6 +233,28 @@ export function initUi(container, stageEl) {
         voiceLevelEl.style.width = Math.max(0, Math.min(100, level)) + '%';
       }
     },
+    updateMicState(isListening, convoOn, isCompanion) {
+      if (isListening === true) {
+        micButtonEl.setAttribute('css-state', 'listening');
+      } else {
+        micButtonEl.removeAttribute('css-state');
+      }
+
+      micButtonEl.setAttribute('aria-pressed', String(!!convoOn));
+
+      micButtonEl.textContent =
+        isListening === true
+          ? isCompanion
+            ? '● 對話中'
+            : '● 聆聽中'
+          : convoOn
+            ? '◌ 對話中'
+            : '🎙️ 即時';
+
+      if (suggestionsEl) {
+        suggestionsEl.style.display = isListening || convoOn ? 'none' : 'flex';
+      }
+    },
     get controlBarEl() {
       return controlBarEl;
     },

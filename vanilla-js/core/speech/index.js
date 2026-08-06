@@ -1,5 +1,12 @@
 import { addChatMessage, handleAnswer } from '../brain.js';
-import { continueToolConfirmation, continueToolChoice, continueToolInput, routeHostTool, offerToolChoices, prepareTool } from '../tools.js';
+import {
+  continueToolConfirmation,
+  continueToolChoice,
+  continueToolInput,
+  routeHostTool,
+  offerToolChoices,
+  prepareTool
+} from '../tools.js';
 export const DEFAULT_TTS_ENDPOINT = 'api/tts';
 export const DEFAULT_FEMALE_NEURAL_VOICE = 'zh-TW-HsiaoChenNeural'; // 微軟神經語音「曉臻」
 export const DEFAULT_MALE_NEURAL_VOICE = 'zh-TW-YunJheNeural'; // 微軟神經語音「雲哲」
@@ -566,6 +573,30 @@ export function initSpeechEngine(setting = {}, aiAvatarWidget) {
       };
     },
 
+    get onMicStateChanged() {
+      return function (currentAiAvatar, ...args) {
+        if (typeof setting.onMicStateChanged === 'function') {
+          return setting.onMicStateChanged.call(currentAiAvatar, ...args);
+        }
+      };
+    },
+
+    get onVoiceStatusChanged() {
+      return function (currentAiAvatar, ...args) {
+        if (typeof setting.onVoiceStatusChanged === 'function') {
+          return setting.onVoiceStatusChanged.call(currentAiAvatar, ...args);
+        }
+      };
+    },
+
+    get onLanguageChanged() {
+      return function (currentAiAvatar, ...args) {
+        if (typeof setting.onLanguageChanged === 'function') {
+          return setting.onLanguageChanged.call(currentAiAvatar, ...args);
+        }
+      };
+    },
+
     _greeting: null, // function
     get greeting() {
       return this._greeting;
@@ -678,9 +709,6 @@ export function drainSentences(state, force) {
   return out;
 }
 
-// speech.js | brain.js
-
-
 // speech.js
 // 中止目前正在講的（逐句佇列 + 神經語音音檔 + 瀏覽器 TTS + 對嘴），給「點第二下打斷第一下」用
 export function stopSpeaking(aiAvatarWidget = null) {
@@ -748,12 +776,17 @@ export function beginSpeech(aiAvatarWidget = null) {
   stopSpeaking(aiAvatarWidget); // 打斷上一段（含清佇列、表情回中性）
   aiAvatarWidget.speechEngine.assistantSpeechStartedAt = performance.now();
   if (aiAvatarWidget.speechEngine.convoOn) {
-    aiAvatarWidget.uiDom.updateVoiceStatus(
-      aiAvatarWidget.speechEngine.convoOn,
-      '正在回答，可以直接插話…',
-      'speaking',
-      0
-    );
+    if (
+      typeof aiAvatarWidget?.speechEngine?.onVoiceStatusChanged === 'function'
+    ) {
+      aiAvatarWidget.speechEngine.onVoiceStatusChanged(
+        aiAvatarWidget,
+        aiAvatarWidget.speechEngine.convoOn,
+        '正在回答，可以直接插話…',
+        'speaking',
+        0
+      );
+    }
   }
   aiAvatarWidget.speechEngine.speechQ = [];
   aiAvatarWidget.speechEngine.speechEnded = false;
@@ -796,12 +829,16 @@ export function onUtteranceEnd(aiAvatarWidget = null) {
     aiAvatarWidget.speechEngine.convoOn === true &&
     aiAvatarWidget.avatarMode === aiAvatarWidget.AVATAR_MODE_MAP.companion
   ) {
-    aiAvatarWidget.uiDom.updateVoiceStatus(
-      aiAvatarWidget.speechEngine.convoOn,
-      '準備繼續聆聽…',
-      'thinking',
-      0
-    );
+    if (
+      typeof aiAvatarWidget?.speechEngine?.onVoiceStatusChanged === 'function'
+    )
+      aiAvatarWidget.speechEngine.onVoiceStatusChanged(
+        aiAvatarWidget,
+        aiAvatarWidget.speechEngine.convoOn,
+        '準備繼續聆聽…',
+        'thinking',
+        0
+      );
     setTimeout(() => {
       if (
         aiAvatarWidget.speechEngine.convoOn === true &&
@@ -817,14 +854,6 @@ export function onUtteranceEnd(aiAvatarWidget = null) {
     stopVoiceSession(aiAvatarWidget);
   }
 }
-
-// ui.js
-// 範例提示清單：一進站就告訴使用者「可以說什麼」，點任一項＝直接問（語音/打字都不用先猜）
-
-
-// ui.js
-// 打字輸入：Enter 或 ➤ 送出。組字中（注音/拼音選字）按的 Enter 不送，避免誤發半成品
-
 
 // speech.js
 export async function pumpSpeech(aiAvatarWidget = null, sid) {
@@ -885,9 +914,6 @@ export async function pumpSpeech(aiAvatarWidget = null, sid) {
     speakBrowserChunk(aiAvatarWidget, item.text, sid, done);
   }
 }
-
-// brain.js | speech.js
-
 
 // speech.js | brain.js
 export async function handleUser(aiAvatarWidget = null, text = '') {
@@ -1036,12 +1062,17 @@ export function monitorMicLevel(aiAvatarWidget) {
   const showVoiceUI =
     aiAvatarWidget.speechEngine.convoOn || isListening || assistantActive;
 
-  aiAvatarWidget.uiDom.updateVoiceStatus(
-    showVoiceUI,
-    aiAvatarWidget.uiDom.voiceStatusEl?.textContent,
-    isListening ? 'listening' : isSpeaking ? 'speaking' : 'thinking',
-    rms * 650
-  );
+  if (
+    typeof aiAvatarWidget?.speechEngine?.onVoiceStatusChanged === 'function'
+  ) {
+    aiAvatarWidget.speechEngine.onVoiceStatusChanged(
+      aiAvatarWidget,
+      showVoiceUI,
+      undefined,
+      isListening ? 'listening' : isSpeaking ? 'speaking' : 'thinking',
+      rms * 650
+    );
+  }
 
   const threshold = Math.max(
     0.085,
@@ -1097,8 +1128,17 @@ export function stopMicMonitor(aiAvatarWidget) {
     } catch (_e) {}
   }
   aiAvatarWidget.speechEngine.micAudioCtx = null;
-  if (aiAvatarWidget.uiDom.voiceLevelEl)
-    aiAvatarWidget.uiDom.voiceLevelEl.style.width = '0';
+  if (
+    typeof aiAvatarWidget?.speechEngine?.onVoiceStatusChanged === 'function'
+  ) {
+    aiAvatarWidget.speechEngine.onVoiceStatusChanged(
+      aiAvatarWidget,
+      aiAvatarWidget.speechEngine.convoOn,
+      undefined,
+      undefined,
+      0
+    );
+  }
 }
 
 export function stopVoiceSession(aiAvatarWidget, message) {
@@ -1119,7 +1159,17 @@ export function stopVoiceSession(aiAvatarWidget, message) {
   setMic(aiAvatarWidget, false);
   stopMicMonitor(aiAvatarWidget);
 
-  aiAvatarWidget.uiDom.updateVoiceStatus(false, '', '', 0);
+  if (
+    typeof aiAvatarWidget?.speechEngine?.onVoiceStatusChanged === 'function'
+  ) {
+    aiAvatarWidget.speechEngine.onVoiceStatusChanged(
+      aiAvatarWidget,
+      false,
+      '',
+      '',
+      0
+    );
+  }
   if (message) {
     aiAvatarWidget.speechEngine.spokenDisplayText = message;
   }
@@ -1141,12 +1191,17 @@ export function interruptForVoice(aiAvatarWidget) {
   stopSpeaking(aiAvatarWidget);
   aiAvatarWidget.speechEngine.isProcessing = false;
 
-  aiAvatarWidget.uiDom.updateVoiceStatus(
-    aiAvatarWidget.speechEngine.convoOn,
-    '已停止回答，請繼續說…',
-    'listening',
-    0
-  );
+  if (
+    typeof aiAvatarWidget?.speechEngine?.onVoiceStatusChanged === 'function'
+  ) {
+    aiAvatarWidget.speechEngine.onVoiceStatusChanged(
+      aiAvatarWidget,
+      aiAvatarWidget.speechEngine.convoOn,
+      '已停止回答，請繼續說…',
+      'listening',
+      0
+    );
+  }
 
   setTimeout(() => {
     if (
@@ -1160,35 +1215,13 @@ export function interruptForVoice(aiAvatarWidget) {
 
 // ===== STT：聽你說話 =====
 export function setMic(aiAvatarWidget = null, isListening = false) {
-  const rootContainer = aiAvatarWidget?.container;
-  if (rootContainer instanceof HTMLElement === false) {
-    console.error('[aiAvatar setMic] rootContainer is not an HTMLElement');
-    return;
+  if (typeof aiAvatarWidget?.speechEngine.onMicStateChanged === 'function') {
+    aiAvatarWidget.speechEngine.onMicStateChanged(
+      aiAvatarWidget,
+      isListening,
+      aiAvatarWidget.speechEngine.convoOn
+    );
   }
-
-  const btnMic = aiAvatarWidget.uiDom.micButtonEl;
-  if (isListening === true) {
-    btnMic.setAttribute('css-state', 'listening');
-  } else {
-    btnMic.removeAttribute('css-state');
-  }
-
-  const convoOn = aiAvatarWidget.speechEngine.convoOn;
-  btnMic.setAttribute('aria-pressed', String(!!convoOn));
-
-  btnMic.textContent =
-    isListening === true
-      ? aiAvatarWidget.avatarMode === aiAvatarWidget.AVATAR_MODE_MAP.companion
-        ? '● 對話中'
-        : '● 聆聽中'
-      : convoOn
-        ? '◌ 對話中'
-        : '🎙️ 即時';
-
-  const suggestions = aiAvatarWidget.uiDom.suggestionsEl;
-  if (suggestions instanceof HTMLElement) {
-    suggestions.style.display = isListening || convoOn ? 'none' : 'flex';
-  } // 聆聽中收起清單
 }
 
 // speech.js | brain.js
@@ -1219,12 +1252,17 @@ export async function startListening(aiAvatarWidget = null) {
 
   if (!aiAvatarWidget.speechEngine.micStream) {
     setMic(aiAvatarWidget, false);
-    aiAvatarWidget.uiDom.updateVoiceStatus(
-      true,
-      '正在取得麥克風權限…',
-      'thinking',
-      0
-    );
+    if (
+      typeof aiAvatarWidget?.speechEngine?.onVoiceStatusChanged === 'function'
+    ) {
+      aiAvatarWidget.speechEngine.onVoiceStatusChanged(
+        aiAvatarWidget,
+        true,
+        '正在取得麥克風權限…',
+        'thinking',
+        0
+      );
+    }
   }
   try {
     await ensureMicMonitor(aiAvatarWidget);
@@ -1239,7 +1277,17 @@ export async function startListening(aiAvatarWidget = null) {
     setMic(aiAvatarWidget, false);
     const message = '無法啟動語音功能，請檢查麥克風與瀏覽器設定。';
     aiAvatarWidget.speechEngine.spokenAudioText = message;
-    aiAvatarWidget.uiDom.updateVoiceStatus(true, message, '', 0);
+    if (
+      typeof aiAvatarWidget?.speechEngine?.onVoiceStatusChanged === 'function'
+    ) {
+      aiAvatarWidget.speechEngine.onVoiceStatusChanged(
+        aiAvatarWidget,
+        true,
+        message,
+        '',
+        0
+      );
+    }
     console.warn('mic monitor error', e);
     return;
   }
@@ -1261,12 +1309,17 @@ export async function startListening(aiAvatarWidget = null) {
   aiAvatarWidget.speechEngine.recognition.onstart = () => {
     aiAvatarWidget.speechEngine.isListening = true;
     setMic(aiAvatarWidget, true);
-    aiAvatarWidget.uiDom.updateVoiceStatus(
-      true,
-      '請說話，可以隨時插話…',
-      'listening',
-      0
-    );
+    if (
+      typeof aiAvatarWidget?.speechEngine?.onVoiceStatusChanged === 'function'
+    ) {
+      aiAvatarWidget.speechEngine.onVoiceStatusChanged(
+        aiAvatarWidget,
+        true,
+        '請說話，可以隨時插話…',
+        'listening',
+        0
+      );
+    }
   };
   aiAvatarWidget.speechEngine.recognition.onresult = (event) => {
     let finalText = '',
@@ -1281,12 +1334,17 @@ export async function startListening(aiAvatarWidget = null) {
     aiAvatarWidget.speechEngine.noSpeechRuns = 0;
     aiAvatarWidget.speechEngine.spokenDisplayText =
       '你：' + txt + (interimText ? '…' : '');
-    aiAvatarWidget.uiDom.updateVoiceStatus(
-      aiAvatarWidget.speechEngine.convoOn,
-      interimText ? '正在辨識：' + txt : '收到語音，準備送出…',
-      'listening',
-      0
-    );
+    if (
+      typeof aiAvatarWidget?.speechEngine?.onVoiceStatusChanged === 'function'
+    ) {
+      aiAvatarWidget.speechEngine.onVoiceStatusChanged(
+        aiAvatarWidget,
+        aiAvatarWidget.speechEngine.convoOn,
+        interimText ? '正在辨識：' + txt : '收到語音，準備送出…',
+        'listening',
+        0
+      );
+    }
 
     clearTimeout(aiAvatarWidget.speechEngine.recognitionSilenceTimer);
     aiAvatarWidget.speechEngine.recognitionSilenceTimer = setTimeout(
@@ -1312,7 +1370,17 @@ export async function startListening(aiAvatarWidget = null) {
       aiAvatarWidget.speechEngine.spokenDisplayText =
         '我需要麥克風權限才能聽你說話喔。';
       stopMicMonitor(aiAvatarWidget);
-      aiAvatarWidget.uiDom.updateVoiceStatus(true, '麥克風權限被拒絕', '', 0);
+      if (
+        typeof aiAvatarWidget?.speechEngine?.onVoiceStatusChanged === 'function'
+      ) {
+        aiAvatarWidget.speechEngine.onVoiceStatusChanged(
+          aiAvatarWidget,
+          true,
+          '麥克風權限被拒絕',
+          '',
+          0
+        );
+      }
       return;
     }
     if (event.error === 'aborted') {
@@ -1370,13 +1438,13 @@ export function onTap(aiAvatarWidget = null) {
   if (
     typeof aiAvatarWidget !== 'object' ||
     aiAvatarWidget === null ||
-    aiAvatarWidget?.uiDom?.onTapTimer === true
+    aiAvatarWidget?.speechEngine?.onTapTimer === true
   ) {
     return; // 去抖：hit 事件與 pointerdown 可能同時觸發
   }
-  if (aiAvatarWidget.uiDom) aiAvatarWidget.uiDom.onTapTimer = true;
+  aiAvatarWidget.speechEngine.onTapTimer = true;
   setTimeout(() => {
-    if (aiAvatarWidget.uiDom) aiAvatarWidget.uiDom.onTapTimer = false;
+    aiAvatarWidget.speechEngine.onTapTimer = false;
   }, 400);
   if (aiAvatarWidget.skinEngine.avatarModel) {
     try {
@@ -1397,7 +1465,9 @@ export function onTap(aiAvatarWidget = null) {
     );
   } else if (typeof aiAvatarWidget.speechEngine.greeting === 'string') {
     greeting = aiAvatarWidget.speechEngine.greeting;
-  } else if (aiAvatarWidget.avatarMode === aiAvatarWidget.AVATAR_MODE_MAP.companion) {
+  } else if (
+    aiAvatarWidget.avatarMode === aiAvatarWidget.AVATAR_MODE_MAP.companion
+  ) {
     greeting =
       (aiAvatarWidget.brainEngine.mem.data.name
         ? aiAvatarWidget.brainEngine.mem.data.name + '～'
@@ -1417,7 +1487,9 @@ export function onTap(aiAvatarWidget = null) {
     ) {
       greeting = aiAvatarWidget.speechEngine.companionGreeting;
     }
-  } else if (aiAvatarWidget.avatarMode === aiAvatarWidget.AVATAR_MODE_MAP.assistant) {
+  } else if (
+    aiAvatarWidget.avatarMode === aiAvatarWidget.AVATAR_MODE_MAP.assistant
+  ) {
     greeting =
       '你好～我是可以嵌入任何網站的語音虛擬人，問我怎麼安裝、怎麼換成你的角色都行！';
 
@@ -1545,8 +1617,12 @@ export function setLocale(aiAvatarWidget, locale) {
     aiAvatarWidget.speechEngine.neuralVoice = localeVoice(matched);
   }
 
-  if (aiAvatarWidget.uiDom.langButtonEl) {
-    aiAvatarWidget.uiDom.langButtonEl.textContent = localeLabel(matched);
+  if (typeof aiAvatarWidget?.speechEngine?.onLanguageChanged === 'function') {
+    aiAvatarWidget.speechEngine.onLanguageChanged(
+      aiAvatarWidget,
+      matched,
+      localeLabel(matched)
+    );
   }
 
   if (aiAvatarWidget.speechEngine.recognition) {

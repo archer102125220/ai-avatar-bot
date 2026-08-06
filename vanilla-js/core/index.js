@@ -378,6 +378,22 @@ export async function initAvatarBot(optiopns = {}) {
       onSpokenDisplayTextTimeout() {
         uiDom.bubbleEl.removeAttribute('css-is-show');
       },
+      onMicStateChanged(isListening, convoOn) {
+        if (uiDom.updateMicState) {
+          const isCompanion = aiAvatarWidget.avatarMode === aiAvatarWidget.AVATAR_MODE_MAP.companion;
+          uiDom.updateMicState(isListening, convoOn, isCompanion);
+        }
+      },
+      onVoiceStatusChanged(convoOn, text, state, level) {
+        if (uiDom.updateVoiceStatus) {
+          uiDom.updateVoiceStatus(convoOn, text, state, level);
+        }
+      },
+      onLanguageChanged(locale, localeLabel) {
+        if (uiDom.langButtonEl) {
+          uiDom.langButtonEl.textContent = localeLabel;
+        }
+      },
 
       // TODO: 待 speak 與其他方法耦合拆解完後改為直接放到 speech.js 檔案中
       speak
