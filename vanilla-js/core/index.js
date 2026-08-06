@@ -40,7 +40,7 @@ import {
   initSpeechEngine
 } from './speech';
 
-import { initUi } from './ui';
+import { initUi, renderHistory, renderSuggestions, bindTyping, bindUiEvent, initSkinModeChangeButton } from './ui';
 
 import '../style/style.scss';
 
@@ -346,6 +346,19 @@ export async function initAvatarBot(optiopns = {}) {
               '）🧠 問我問題吧！';
           }, 1300);
         }
+      },
+      onAddChatMessage(item) {
+        if (aiAvatarWidget.uiDom.historyPanelEl?.getAttribute('css-is-open') === 'true') {
+          renderHistory(aiAvatarWidget);
+        }
+      },
+      onUpdateChatMessage(item) {
+        if (aiAvatarWidget.uiDom.historyPanelEl?.getAttribute('css-is-open') === 'true') {
+          renderHistory(aiAvatarWidget);
+        }
+      },
+      onChatHistoryChanged(chatLog) {
+        // 這邊可以讓開發者自行註冊或給未來的全域事件處理用
       }
     },
     aiAvatarWidget
@@ -514,23 +527,14 @@ export async function initAvatarBot(optiopns = {}) {
       optiopns.onMinimalTrigger.bind(aiAvatarWidget);
   }
 
-  import('./ui.js').then(
-    ({
-      initSkinModeChangeButton,
-      renderSuggestions,
-      bindTyping,
-      bindUiEvent
-    }) => {
-      initSkinModeChangeButton(
-        aiAvatarWidget,
-        skinEngine.has2D,
-        skinEngine.has3D
-      );
-      renderSuggestions(aiAvatarWidget);
-      bindTyping(aiAvatarWidget);
-      bindUiEvent(aiAvatarWidget);
-    }
+  initSkinModeChangeButton(
+    aiAvatarWidget,
+    skinEngine.has2D,
+    skinEngine.has3D
   );
+  renderSuggestions(aiAvatarWidget);
+  bindTyping(aiAvatarWidget);
+  bindUiEvent(aiAvatarWidget);
   setMic(aiAvatarWidget, false); // 依模式套按鈕字樣（🎤 說話 / 💬 對話）
 
   ['dragenter', 'dragover'].forEach((eventName) =>

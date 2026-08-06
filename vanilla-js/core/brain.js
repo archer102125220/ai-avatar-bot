@@ -603,6 +603,10 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     onAiProviderChatting,
     onAiProviderStreamChatting,
 
+    onAddChatMessage,
+    onUpdateChatMessage,
+    onChatHistoryChanged,
+
     aiProviderCreatedFetchSetting,
     aiProviderCreatedFetchPayload,
     aiProviderPingUrl,
@@ -648,8 +652,10 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     get companionKnowledgeUrl() {
       return companionKnowledgeUrl;
     },
+    get companionFallback() {
+      return companionFallback;
+    },
     companionKnowledge: safeCompanionKnowledge,
-    companionFallback,
     companionFallbackIdx: 0,
 
     onLlmLoading: null,
@@ -664,6 +670,10 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     onAiProviderError: null,
     onAiProviderChatting: null,
     onAiProviderStreamChatting: null,
+
+    onAddChatMessage: onAddChatMessage || null,
+    onUpdateChatMessage: onUpdateChatMessage || null,
+    onChatHistoryChanged: onChatHistoryChanged || null,
 
     chatLog: [],
     chatSeq: 0,
@@ -933,8 +943,11 @@ export function addChatMessage(aiAvatarWidget, role, text, options = {}) {
   aiAvatarWidget.brainEngine.chatLog.push(item);
   if (aiAvatarWidget.brainEngine.chatLog.length > 80) aiAvatarWidget.brainEngine.chatLog.shift();
 
-  if (aiAvatarWidget.uiDom.historyPanelEl?.classList.contains('open')) {
-    import('./ui.js').then(({ renderHistory }) => renderHistory(aiAvatarWidget));
+  if (typeof aiAvatarWidget.brainEngine.onAddChatMessage === 'function') {
+    aiAvatarWidget.brainEngine.onAddChatMessage(item);
+  }
+  if (typeof aiAvatarWidget.brainEngine.onChatHistoryChanged === 'function') {
+    aiAvatarWidget.brainEngine.onChatHistoryChanged(aiAvatarWidget.brainEngine.chatLog);
   }
   return item.id;
 }
@@ -946,8 +959,11 @@ export function updateChatMessage(aiAvatarWidget, id, text, streaming) {
   }
   item.text = String(text || '').slice(0, 4000);
   item.streaming = !!streaming;
-  if (aiAvatarWidget.uiDom.historyPanelEl?.classList.contains('open')) {
-    import('./ui.js').then(({ renderHistory }) => renderHistory(aiAvatarWidget));
+  if (typeof aiAvatarWidget.brainEngine.onUpdateChatMessage === 'function') {
+    aiAvatarWidget.brainEngine.onUpdateChatMessage(item);
+  }
+  if (typeof aiAvatarWidget.brainEngine.onChatHistoryChanged === 'function') {
+    aiAvatarWidget.brainEngine.onChatHistoryChanged(aiAvatarWidget.brainEngine.chatLog);
   }
   return item.id;
 }
