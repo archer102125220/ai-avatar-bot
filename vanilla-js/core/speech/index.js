@@ -1,20 +1,12 @@
 // TODO: 等到環境可以測試麥克風跟喇叭時，要徹底測過這份檔案內部的所有機制有沒有因為重構而出問題
-import { addChatMessage, handleAnswer } from '../brain.js';
-import {
-  continueToolConfirmation,
-  continueToolChoice,
-  continueToolInput,
-  routeHostTool,
-  offerToolChoices,
-  prepareTool
-} from '../tools.js';
+// Imports removed for decoupling
 export const DEFAULT_TTS_ENDPOINT = 'api/tts';
 export const DEFAULT_FEMALE_NEURAL_VOICE = 'zh-TW-HsiaoChenNeural'; // 微軟神經語音「曉臻」
 export const DEFAULT_MALE_NEURAL_VOICE = 'zh-TW-YunJheNeural'; // 微軟神經語音「雲哲」
 
 // speech.js
 // ===== TTS：開口說話 + 對嘴 =====
-export function loadVoice() {
+function loadVoice() {
   const voices = speechSynthesis.getVoices();
   const pick = (targetVoice) =>
     voices.find(
@@ -36,7 +28,7 @@ export function loadVoice() {
 
 // speech.js
 // edge-tts 神經語音：抓 /api/tts 的 MP3 → AudioBuffer（給佇列預抓用）
-export async function fetchTTSBuffer(aiAvatarWidget = null, text) {
+async function fetchTTSBuffer(aiAvatarWidget = null, text) {
   const safeAudioContext = window.AudioContext || window.webkitAudioContext;
   if (
     aiAvatarWidget.speechEngine.audioCtx instanceof safeAudioContext ===
@@ -70,7 +62,7 @@ export async function fetchTTSBuffer(aiAvatarWidget = null, text) {
 }
 
 // speech.js
-export function prefetchSpeech(aiAvatarWidget = null, sid) {
+function prefetchSpeech(aiAvatarWidget = null, sid) {
   // 只預抓最前面 2 句（在途 ≤2），護後端限流
   if (
     sid !== aiAvatarWidget.speechEngine.speakSeq ||
@@ -90,7 +82,7 @@ export function prefetchSpeech(aiAvatarWidget = null, sid) {
 
 // speech.js
 // 播一句（Web Audio + AnalyserNode 以「實際音量」驅動嘴型），播完呼叫 done 換下一句
-export function playBuffer(aiAvatarWidget = null, audioBuf, done) {
+function playBuffer(aiAvatarWidget = null, audioBuf, done) {
   const src = aiAvatarWidget.speechEngine.audioCtx.createBufferSource();
   src.buffer = audioBuf;
   const analyser = aiAvatarWidget.speechEngine.audioCtx.createAnalyser();
@@ -149,7 +141,7 @@ export function playBuffer(aiAvatarWidget = null, audioBuf, done) {
 
 // speech.js
 // 整段文字 → 句子陣列（TTS 逐句抓、邊講邊抓下一句，長答案不用等整段）
-export function splitSentences(text) {
+function splitSentences(text) {
   const out = [];
   let buf = '';
   for (const ch of String(text || '')) {
@@ -198,7 +190,7 @@ export function splitSentences(text) {
 }
 
 // speech.js
-export function handleNeuralFail(aiAvatarWidget = null, e) {
+function handleNeuralFail(aiAvatarWidget = null, e) {
   const msg = e?.message || '';
   if (/http 429/.test(msg)) {
     console.warn('TTS 被限流，這句退瀏覽器語音');
@@ -213,7 +205,7 @@ export function handleNeuralFail(aiAvatarWidget = null, e) {
 // speech.js
 // 後備：瀏覽器內建語音(Yating) 逐句版。對嘴用「估時長」驅動，不靠 speechSynthesis.speaking 輪詢
 // （Chrome 在 cancel 後常回報失準 → 第二次說話嘴巴就不動了）
-export function speakBrowserChunk(aiAvatarWidget = null, text, sid, done) {
+function speakBrowserChunk(aiAvatarWidget = null, text, sid, done) {
   if (
     aiAvatarWidget.speechEngine.ttsMuted === true ||
     'speechSynthesis' in window === false
@@ -289,9 +281,7 @@ export function speakBrowserChunk(aiAvatarWidget = null, text, sid, done) {
 export function initSpeechEngine(setting = {}, aiAvatarWidget) {
   const {
     ttsEndpoint,
-    neuralVoice,
-    // TODO: 帶 speak 與其他方法耦合拆解完後改為直接放到這份檔案中
-    speak
+    neuralVoice
   } = setting;
 
   const speechEngine = {
@@ -486,11 +476,7 @@ export function initSpeechEngine(setting = {}, aiAvatarWidget) {
         }
       }
     },
-    get speak() {
-      return function _speak(text) {
-        return speak(aiAvatarWidget, String(text || '').slice(0, 600));
-      };
-    },
+    speak: (text, options) => speak(aiAvatarWidget, String(text || '').slice(0, 600), options),
     _spokenAudioText: '',
     get spokenAudioText() {
       return this._spokenAudioText;
@@ -598,6 +584,24 @@ export function initSpeechEngine(setting = {}, aiAvatarWidget) {
       };
     },
 
+
+    stopSpeaking: () => stopSpeaking(aiAvatarWidget),
+    interruptForVoice: () => interruptForVoice(aiAvatarWidget),
+    computeMouth: () => computeMouth(aiAvatarWidget),
+    onTap: () => onTap(aiAvatarWidget),
+    stopVoiceSession: (message) => stopVoiceSession(aiAvatarWidget, message),
+    setMic: (isListening) => setMic(aiAvatarWidget, isListening),
+    startListening: () => startListening(aiAvatarWidget),
+    preloadTapGreeting: () => preloadTapGreeting(aiAvatarWidget),
+    setLocale: (locale) => setLocale(aiAvatarWidget, locale),
+    pumpSpeech: (sid) => pumpSpeech(aiAvatarWidget, sid),
+    handleUser: (text) => handleUser(aiAvatarWidget, text),
+    beginSpeech: () => beginSpeech(aiAvatarWidget),
+    pushSpeech: (sid, text, options) => pushSpeech(aiAvatarWidget, sid, text, options),
+    endSpeech: (sid) => endSpeech(aiAvatarWidget, sid),
+    onUtteranceEnd: () => onUtteranceEnd(aiAvatarWidget),
+    drainSentences: (state, force) => drainSentences(state, force),
+
     _greeting: null, // function
     get greeting() {
       return this._greeting;
@@ -666,7 +670,7 @@ export function initSpeechEngine(setting = {}, aiAvatarWidget) {
 }
 
 // ================== EXTRACTED FROM index.js ==================
-export function computeMouth(aiAvatarWidget = null) {
+function computeMouth(aiAvatarWidget = null) {
   if (
     aiAvatarWidget.speechEngine.isSpeaking &&
     aiAvatarWidget.speechEngine.useAudioMouth
@@ -693,7 +697,7 @@ export function computeMouth(aiAvatarWidget = null) {
 
 // speech.js
 // 串流版切句：state.buf 累積 token，切得出完整句就吐出（force＝收尾把殘句也吐）
-export function drainSentences(state, force) {
+function drainSentences(state, force) {
   const out = [];
   let i;
   while ((i = state.buf.search(/[。！？!?；;\n…]/)) >= 0) {
@@ -712,7 +716,7 @@ export function drainSentences(state, force) {
 
 // speech.js
 // 中止目前正在講的（逐句佇列 + 神經語音音檔 + 瀏覽器 TTS + 對嘴），給「點第二下打斷第一下」用
-export function stopSpeaking(aiAvatarWidget = null) {
+function stopSpeaking(aiAvatarWidget = null) {
   aiAvatarWidget.speechEngine.speakSeq++; // 作廢所有在跑的逐句鏈（pump 看序號就會停）
   aiAvatarWidget.speechEngine.speechQ = [];
   aiAvatarWidget.speechEngine.speechEnded = true;
@@ -748,7 +752,7 @@ export function stopSpeaking(aiAvatarWidget = null) {
 
 // speech.js
 // 對外入口：整段文字 → 切句進逐句佇列（②講第 1 句時預抓第 2 句 → 長答案幾乎立刻開口）
-export function speak(aiAvatarWidget = null, text, options) {
+function speak(aiAvatarWidget = null, text, options) {
   const rootContainer = aiAvatarWidget?.container;
   if (rootContainer instanceof HTMLElement === false) {
     console.error(
@@ -758,6 +762,7 @@ export function speak(aiAvatarWidget = null, text, options) {
   }
 
   if (aiAvatarWidget.speechEngine.ttsMuted === true) {
+    aiAvatarWidget.setEmotionFromText(text);
     onUtteranceEnd(aiAvatarWidget); // 靜音：沒語音可收尾，直接觸發對話迴圈 hook
     return;
   }
@@ -773,7 +778,7 @@ export function speak(aiAvatarWidget = null, text, options) {
 
 // speech.js
 // ===== ②逐句開講引擎：一次一個 session；句子依序講，神經語音在背景先抓下一句 =====
-export function beginSpeech(aiAvatarWidget = null) {
+function beginSpeech(aiAvatarWidget = null) {
   stopSpeaking(aiAvatarWidget); // 打斷上一段（含清佇列、表情回中性）
   aiAvatarWidget.speechEngine.assistantSpeechStartedAt = performance.now();
   if (aiAvatarWidget.speechEngine.convoOn) {
@@ -796,7 +801,7 @@ export function beginSpeech(aiAvatarWidget = null) {
   return ++aiAvatarWidget.speechEngine.speakSeq;
 }
 // speech.js
-export function pushSpeech(aiAvatarWidget = null, sid, text, options) {
+function pushSpeech(aiAvatarWidget = null, sid, text, options) {
   if (sid !== aiAvatarWidget.speechEngine.speakSeq) {
     return;
   }
@@ -814,7 +819,7 @@ export function pushSpeech(aiAvatarWidget = null, sid, text, options) {
   pumpSpeech(aiAvatarWidget, sid);
 }
 // speech.js
-export function endSpeech(aiAvatarWidget = null, sid) {
+function endSpeech(aiAvatarWidget = null, sid) {
   if (sid === aiAvatarWidget.speechEngine.speakSeq) {
     aiAvatarWidget.speechEngine.speechEnded = true;
     // aiAvatarWidget.speechEngine.spokenDisplayText = "";
@@ -824,7 +829,7 @@ export function endSpeech(aiAvatarWidget = null, sid) {
 }
 
 // speech.js
-export function onUtteranceEnd(aiAvatarWidget = null) {
+function onUtteranceEnd(aiAvatarWidget = null) {
   aiAvatarWidget.speechEngine.isProcessing = false;
   if (
     aiAvatarWidget.speechEngine.convoOn === true &&
@@ -857,7 +862,7 @@ export function onUtteranceEnd(aiAvatarWidget = null) {
 }
 
 // speech.js
-export async function pumpSpeech(aiAvatarWidget = null, sid) {
+async function pumpSpeech(aiAvatarWidget = null, sid) {
   if (
     aiAvatarWidget.speechEngine.isSpeechPlaying ||
     sid !== aiAvatarWidget.speechEngine.speakSeq
@@ -917,7 +922,7 @@ export async function pumpSpeech(aiAvatarWidget = null, sid) {
 }
 
 // speech.js | brain.js
-export async function handleUser(aiAvatarWidget = null, text = '') {
+async function handleUser(aiAvatarWidget = null, text = '') {
   const rootContainer = aiAvatarWidget?.container;
   if (rootContainer instanceof HTMLElement === false) {
     console.error('[aiAvatar handleUser] rootContainer is not an HTMLElement');
@@ -925,26 +930,26 @@ export async function handleUser(aiAvatarWidget = null, text = '') {
   }
 
   if (typeof text === 'string' && text !== '') {
-    addChatMessage(aiAvatarWidget, 'user', text);
+    aiAvatarWidget.brainEngine.addChatMessage('user', text);
     aiAvatarWidget.speechEngine.spokenDisplayText = '你：' + text;
   }
 
   if (
     text &&
-    aiAvatarWidget.brainEngine.pendingToolConfirmation &&
-    continueToolConfirmation(aiAvatarWidget, text)
+    aiAvatarWidget.toolsEngine.pendingToolConfirmation &&
+    aiAvatarWidget.toolsEngine.continueToolConfirmation(text)
   )
     return;
   if (
     text &&
-    aiAvatarWidget.brainEngine.pendingToolChoice &&
-    continueToolChoice(aiAvatarWidget, text)
+    aiAvatarWidget.toolsEngine.pendingToolChoice &&
+    aiAvatarWidget.toolsEngine.continueToolChoice(text)
   )
     return;
   if (
     text &&
-    aiAvatarWidget.brainEngine.pendingToolInput &&
-    continueToolInput(aiAvatarWidget, text)
+    aiAvatarWidget.toolsEngine.pendingToolInput &&
+    aiAvatarWidget.toolsEngine.continueToolInput(text)
   )
     return;
 
@@ -959,16 +964,15 @@ export async function handleUser(aiAvatarWidget = null, text = '') {
     aiAvatarWidget.brainEngine.mem.addTurn('user', text);
   }
 
-  const routedTool = routeHostTool(aiAvatarWidget, text);
+  const routedTool = aiAvatarWidget.toolsEngine.routeHostTool(text);
   if (routedTool.ambiguous && routedTool.ambiguous.length) {
     aiAvatarWidget.speechEngine.isProcessing = false;
-    offerToolChoices(aiAvatarWidget, text, routedTool.ambiguous);
+    aiAvatarWidget.toolsEngine.offerToolChoices(text, routedTool.ambiguous);
     return;
   }
   if (routedTool.match) {
     aiAvatarWidget.speechEngine.isProcessing = false;
-    prepareTool(
-      aiAvatarWidget,
+    aiAvatarWidget.toolsEngine.prepareTool(
       routedTool.match.tool,
       text,
       { confidence: routedTool.match.score, reason: routedTool.match.reason },
@@ -987,10 +991,10 @@ export async function handleUser(aiAvatarWidget = null, text = '') {
     aiAvatarWidget.skinEngine.gestureName = 'thinking';
   }
 
-  handleAnswer(aiAvatarWidget, text);
+  aiAvatarWidget.brainEngine.handleAnswer(text);
 }
 
-export async function ensureMicMonitor(aiAvatarWidget) {
+async function ensureMicMonitor(aiAvatarWidget) {
   if (aiAvatarWidget.speechEngine.micStream) return;
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)
     throw new Error('media-not-supported');
@@ -1031,7 +1035,7 @@ export async function ensureMicMonitor(aiAvatarWidget) {
   monitorMicLevel(aiAvatarWidget);
 }
 
-export function monitorMicLevel(aiAvatarWidget) {
+function monitorMicLevel(aiAvatarWidget) {
   if (
     !aiAvatarWidget.speechEngine.micAnalyser ||
     !aiAvatarWidget.speechEngine.micData
@@ -1109,7 +1113,7 @@ export function monitorMicLevel(aiAvatarWidget) {
   );
 }
 
-export function stopMicMonitor(aiAvatarWidget) {
+function stopMicMonitor(aiAvatarWidget) {
   if (aiAvatarWidget.speechEngine.micRaf)
     cancelAnimationFrame(aiAvatarWidget.speechEngine.micRaf);
   aiAvatarWidget.speechEngine.micRaf = 0;
@@ -1142,7 +1146,7 @@ export function stopMicMonitor(aiAvatarWidget) {
   }
 }
 
-export function stopVoiceSession(aiAvatarWidget, message) {
+function stopVoiceSession(aiAvatarWidget, message) {
   aiAvatarWidget.speechEngine.convoOn = false;
   clearTimeout(aiAvatarWidget.speechEngine.recognitionSilenceTimer);
   aiAvatarWidget.speechEngine.recognitionText = '';
@@ -1176,7 +1180,7 @@ export function stopVoiceSession(aiAvatarWidget, message) {
   }
 }
 
-export function interruptForVoice(aiAvatarWidget) {
+function interruptForVoice(aiAvatarWidget) {
   aiAvatarWidget.speechEngine.lastBargeIn = performance.now();
   aiAvatarWidget.speechEngine.voiceFrames = 0;
 
@@ -1215,7 +1219,7 @@ export function interruptForVoice(aiAvatarWidget) {
 }
 
 // ===== STT：聽你說話 =====
-export function setMic(aiAvatarWidget = null, isListening = false) {
+function setMic(aiAvatarWidget = null, isListening = false) {
   if (typeof aiAvatarWidget?.speechEngine.onMicStateChanged === 'function') {
     aiAvatarWidget.speechEngine.onMicStateChanged(
       aiAvatarWidget,
@@ -1226,7 +1230,7 @@ export function setMic(aiAvatarWidget = null, isListening = false) {
 }
 
 // speech.js | brain.js
-export async function startListening(aiAvatarWidget = null) {
+async function startListening(aiAvatarWidget = null) {
   const rootContainer = aiAvatarWidget?.container;
   if (rootContainer instanceof HTMLElement === false) {
     console.error(
@@ -1435,7 +1439,7 @@ export async function startListening(aiAvatarWidget = null) {
 // speech.js | brain.js | skin.js
 // TODO: onTap 留在這份檔案，畢竟有複雜交互的邏輯，但是內部的邏輯要再深入研究是否應該細部拆分出去
 // onTap 內主要就呼叫那些被細拆的邏輯
-export function onTap(aiAvatarWidget = null) {
+function onTap(aiAvatarWidget = null) {
   if (
     typeof aiAvatarWidget !== 'object' ||
     aiAvatarWidget === null ||
@@ -1513,7 +1517,7 @@ export function onTap(aiAvatarWidget = null) {
   aiAvatarWidget.speechEngine.spokenAudioText = greeting;
 }
 
-export function getGreetingText(aiAvatarWidget) {
+function getGreetingText(aiAvatarWidget) {
   if (aiAvatarWidget.speechEngine.greeting) {
     const text = aiAvatarWidget.speechEngine.greeting(aiAvatarWidget);
     if (text) return text;
@@ -1550,7 +1554,7 @@ export function getGreetingText(aiAvatarWidget) {
   }
 }
 
-export function preloadTapGreeting(aiAvatarWidget) {
+function preloadTapGreeting(aiAvatarWidget) {
   if (aiAvatarWidget.speechEngine.neuralDisabled) return Promise.resolve(null);
 
   const text = getGreetingText(aiAvatarWidget);
@@ -1587,7 +1591,7 @@ export function preloadTapGreeting(aiAvatarWidget) {
   return aiAvatarWidget.speechEngine.tapGreetingPrep;
 }
 
-export function localeLabel(locale) {
+function localeLabel(locale) {
   return /^en/i.test(locale)
     ? 'EN'
     : /^ja/i.test(locale)
@@ -1597,7 +1601,7 @@ export function localeLabel(locale) {
         : '中';
 }
 
-export function localeVoice(locale) {
+function localeVoice(locale) {
   return /^en/i.test(locale)
     ? 'en-US-JennyNeural'
     : /^ja/i.test(locale)
@@ -1607,7 +1611,7 @@ export function localeVoice(locale) {
         : 'zh-TW-HsiaoChenNeural';
 }
 
-export function setLocale(aiAvatarWidget, locale) {
+function setLocale(aiAvatarWidget, locale) {
   const matched =
     ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'].find(
       (l) => l.toLowerCase() === (locale || '').toLowerCase()

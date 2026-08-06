@@ -1,18 +1,10 @@
-import { setEmotionFromText, defaultBuildLLMMessages } from './brain.js';
-import { speak, computeMouth, onTap, stopVoiceSession, setMic, startListening, preloadTapGreeting, setLocale } from './speech/index.js';
 import {
   AVATAR_MODE_MAP,
   DEFAULT_AVATAR_MODE,
   DEFAULT_LLM_MODEL,
   DEFAULT_AI_PROVIDER_MODEL,
   STATE_MAP,
-  classifyEmotion,
-  scoreEntry,
-  topK,
-  getWelcomeText,
-  initBrainEngine,
-  addChatMessage,
-  updateChatMessage
+  initBrainEngine
 } from './brain';
 
 import {
@@ -32,13 +24,6 @@ import {
   DEFAULT_TTS_ENDPOINT,
   DEFAULT_FEMALE_NEURAL_VOICE,
   DEFAULT_MALE_NEURAL_VOICE,
-  prefetchSpeech,
-  splitSentences,
-  playBuffer,
-  fetchTTSBuffer,
-  handleNeuralFail,
-  speakBrowserChunk,
-  loadVoice,
   initSpeechEngine
 } from './speech';
 
@@ -190,13 +175,11 @@ export async function initAvatarBot(optiopns = {}) {
     },
 
     get classifyEmotion() {
-      return classifyEmotion;
+      return aiAvatarWidget.brainEngine.classifyEmotion;
     },
 
     get setEmotionFromText() {
-      return function _setEmotionFromText(...args) {
-        return setEmotionFromText(this, ...args);
-      };
+      return aiAvatarWidget.brainEngine.setEmotionFromText;
     },
 
     get isIframe() {
@@ -402,9 +385,6 @@ export async function initAvatarBot(optiopns = {}) {
           uiDom.langButtonEl.textContent = localeLabel;
         }
       },
-
-      // TODO: 待 speak 與其他方法耦合拆解完後改為直接放到 speech.js 檔案中
-      speak
     },
     aiAvatarWidget
   );
@@ -412,10 +392,10 @@ export async function initAvatarBot(optiopns = {}) {
   toolsEngine = initToolsEngine(
     {
       onAddChatMessage(role, text, options) {
-        return addChatMessage(aiAvatarWidget, role, text, options);
+        return aiAvatarWidget.brainEngine.addChatMessage(role, text, options);
       },
       onUpdateChatMessage(id, text, append) {
-        return updateChatMessage(aiAvatarWidget, id, text, append);
+        return aiAvatarWidget.brainEngine.updateChatMessage(id, text, append);
       },
       onSetHistoryOpen(isOpen) {
         if (uiDom.historyPanelEl) {
@@ -451,11 +431,11 @@ export async function initAvatarBot(optiopns = {}) {
         return aiAvatarWidget.gender;
       },
       computeMouth() {
-        return computeMouth(aiAvatarWidget);
+        return aiAvatarWidget.speechEngine.computeMouth();
       },
       async onMounted() {
         aiAvatarWidget.speechEngine.spokenDisplayText =
-          await getWelcomeText(aiAvatarWidget);
+          await aiAvatarWidget.brainEngine.getWelcomeText();
         if (typeof aiAvatarWidget.onReady === 'function') {
           aiAvatarWidget.onReady(aiAvatarWidget);
         }
@@ -517,7 +497,7 @@ export async function initAvatarBot(optiopns = {}) {
             : '2D';
 
         aiAvatarWidget.skinEngine.avatarModel.on('hit', () =>
-          onTap(aiAvatarWidget)
+          aiAvatarWidget.speechEngine.onTap()
         );
         if (
           aiAvatarWidget.skinEngine.engineMode ===
@@ -534,13 +514,13 @@ export async function initAvatarBot(optiopns = {}) {
                   )
                 ]
               );
-              onTap(aiAvatarWidget);
+              aiAvatarWidget.speechEngine.onTap();
             }
           );
         } else {
           aiAvatarWidget.skinEngine.renderer.canvas.addEventListener(
             'pointerdown',
-            () => onTap(aiAvatarWidget)
+            () => aiAvatarWidget.speechEngine.onTap()
           );
         }
       }
@@ -560,7 +540,7 @@ export async function initAvatarBot(optiopns = {}) {
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && aiAvatarWidget.speechEngine.convoOn) {
-      stopVoiceSession(aiAvatarWidget, '頁面進入背景，即時語音已停止。');
+      aiAvatarWidget.speechEngine.stopVoiceSession('頁面進入背景，即時語音已停止。');
     }
   });
 
@@ -573,7 +553,7 @@ export async function initAvatarBot(optiopns = {}) {
       optiopns.buildLLMMessages.bind(aiAvatarWidget);
   } else {
     aiAvatarWidget.buildLLMMessages =
-      defaultBuildLLMMessages.bind(aiAvatarWidget);
+      aiAvatarWidget.brainEngine.defaultBuildLLMMessages.bind(aiAvatarWidget);
   }
 
   if (typeof optiopns.onMinimalTrigger === 'function') {
@@ -589,7 +569,7 @@ export async function initAvatarBot(optiopns = {}) {
   renderSuggestions(aiAvatarWidget);
   bindTyping(aiAvatarWidget);
   bindUiEvent(aiAvatarWidget);
-  setMic(aiAvatarWidget, false); // 依模式套按鈕字樣（🎤 說話 / 💬 對話）
+  aiAvatarWidget.speechEngine.setMic(false); // 依模式套按鈕字樣（🎤 說話 / 💬 對話）
 
   ['dragenter', 'dragover'].forEach((eventName) =>
     container.addEventListener(eventName, (event) => {

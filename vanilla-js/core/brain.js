@@ -76,13 +76,16 @@ export function similarity(query, text) {
 
 // brain.js
 export function scoreEntry(question, e) {
+  const safeQ = typeof question === 'string' ? question : (Array.isArray(question) ? question[question.length - 1]?.content || '' : String(question || ''));
+  const targetQ = typeof e.q === 'string' ? e.q : String(e.q || '');
+  const targetKw = typeof e.kw === 'string' ? e.kw : String(e.kw || '');
   let score = Math.max(
-    similarity(question, e.q),
-    similarity(question, e.kw || '')
+    similarity(safeQ, targetQ),
+    similarity(safeQ, targetKw)
   );
-  const terms = (e.kw || '').split(/\s+/).filter(Boolean);
+  const terms = targetKw.split(/\s+/).filter(Boolean);
   for (const item of terms) {
-    if (item.length >= 2 && question.includes(item)) {
+    if (item.length >= 2 && safeQ.includes(item)) {
       score = Math.max(score, 0.5 + item.length * 0.04);
     }
   }
@@ -716,6 +719,15 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
       }
     },
 
+    defaultBuildLLMMessages: defaultBuildLLMMessages,
+
+    getWelcomeText: () => getWelcomeText(aiAvatarWidget),
+    classifyEmotion: classifyEmotion,
+    setEmotionFromText: (text) => setEmotionFromText(aiAvatarWidget, text),
+    handleAnswer: (question) => handleAnswer(aiAvatarWidget, question),
+    addChatMessage: (role, text, options) => addChatMessage(aiAvatarWidget, role, text, options),
+    updateChatMessage: (id, text, streaming) => updateChatMessage(aiAvatarWidget, id, text, streaming),
+
     get llm() {
       return llm;
     },
@@ -1018,11 +1030,9 @@ export async function webLLMBrain(aiAvatarWidget = null, question) {
 
     aiAvatarWidget.skinEngine.gestureName = 'thinking';
 
-    const { beginSpeech, pushSpeech, endSpeech, onUtteranceEnd, drainSentences } = await import('./speech/index.js');
-
     const sid = aiAvatarWidget.speechEngine.ttsMuted
       ? 0
-      : beginSpeech(aiAvatarWidget); // 靜音時只更新字幕、不進語音佇列
+      : aiAvatarWidget.speechEngine.beginSpeech(); // 靜音時只更新字幕、不進語音佇列
     const st = { buf: '' };
     const streamMessageId = 'stream-' + Date.now();
     const out = await aiAvatarWidget.brainEngine.llm.chat(
@@ -1030,14 +1040,19 @@ export async function webLLMBrain(aiAvatarWidget = null, question) {
       (delta, sofar) => {
         aiAvatarWidget.speechEngine.spokenDisplayText = sofar; // 邊生成邊更新字幕
         updateChatMessage(aiAvatarWidget, streamMessageId, sofar, true);
+        
+        // Always evaluate emotion from text during stream, even if TTS is muted
+        if (!sid || sid === aiAvatarWidget.speechEngine.speakSeq) {
+          aiAvatarWidget.setEmotionFromText(sofar);
+        }
+
         if (sid) {
           if (sid !== aiAvatarWidget.speechEngine.speakSeq) {
             return; // 中途被打斷 → 剩下的只當字幕
           }
-          aiAvatarWidget.setEmotionFromText(sofar);
           st.buf += delta;
-          for (const s of drainSentences(st, false)) {
-            pushSpeech(aiAvatarWidget, sid, s);
+          for (const s of aiAvatarWidget.speechEngine.drainSentences(st, false)) {
+            aiAvatarWidget.speechEngine.pushSpeech(sid, s);
           }
         }
       }
@@ -1046,12 +1061,12 @@ export async function webLLMBrain(aiAvatarWidget = null, question) {
       aiAvatarWidget.brainEngine.mem.addTurn('assistant', out.trim());
       updateChatMessage(aiAvatarWidget, streamMessageId, out.trim(), false);
       if (sid && sid === aiAvatarWidget.speechEngine.speakSeq) {
-        for (const s of drainSentences(st, true)) {
-          pushSpeech(aiAvatarWidget, sid, s);
+        for (const s of aiAvatarWidget.speechEngine.drainSentences(st, true)) {
+          aiAvatarWidget.speechEngine.pushSpeech(sid, s);
         }
-        endSpeech(aiAvatarWidget, sid);
+        aiAvatarWidget.speechEngine.endSpeech(sid);
       } else if (!sid) {
-        onUtteranceEnd(aiAvatarWidget); // 靜音：沒有語音收尾 → 手動觸發對話迴圈 hook
+        aiAvatarWidget.speechEngine.onUtteranceEnd(); // 靜音：沒有語音收尾 → 手動觸發對話迴圈 hook
       }
       if (typeof aiAvatarWidget?.speechEngine.onSpeakingEnd === 'function') {
         aiAvatarWidget.speechEngine.onSpeakingEnd(out.trim(), aiAvatarWidget);
@@ -1059,7 +1074,7 @@ export async function webLLMBrain(aiAvatarWidget = null, question) {
       return;
     }
     if (sid) {
-      endSpeech(aiAvatarWidget, sid); // 空回答：收掉這條 session，往下走檢索
+      aiAvatarWidget.speechEngine.endSpeech(sid); // 空回答：收掉這條 session，往下走檢索
     }
     throw new Error('WebLLM response is empty');
   } catch (e) {

@@ -396,10 +396,8 @@ export function renderHistory(aiAvatarWidget) {
       no.className = 'cancel';
       no.textContent = '取消';
       
-      import('./tools.js').then(({ executePendingTool, cancelPendingTool }) => {
-        yes.onclick = () => executePendingTool(aiAvatarWidget, item.id);
-        no.onclick = () => cancelPendingTool(aiAvatarWidget, item.id);
-      });
+      yes.onclick = () => aiAvatarWidget.toolsEngine.executePendingTool(item.id);
+      no.onclick = () => aiAvatarWidget.toolsEngine.cancelPendingTool(item.id);
 
       confirm.append(yes, no);
       row.appendChild(confirm);
@@ -411,9 +409,7 @@ export function renderHistory(aiAvatarWidget) {
         button.type = 'button';
         button.className = 'confirm';
         button.textContent = choice.tool.label;
-        import('./tools.js').then(({ chooseTool }) => {
-          button.onclick = () => chooseTool(aiAvatarWidget, item.id, index);
-        });
+        button.onclick = () => aiAvatarWidget.toolsEngine.chooseTool(item.id, index);
         choices.appendChild(button);
       });
       row.appendChild(choices);
@@ -520,11 +516,9 @@ export function renderSuggestions(aiAvatarWidget = null) {
     button.type = 'button';
     button.classList.add('sugg');
     button.textContent = suggestion;
-    import('./speech/index.js').then(({ handleUser }) => {
-      button.onclick = () => {
-        handleUser(aiAvatarWidget, suggestion.replace(/？$/, ''));
-      };
-    });
+    button.onclick = () => {
+      aiAvatarWidget.speechEngine.handleUser(suggestion.replace(/？$/, ''));
+    };
     suggestions.appendChild(button);
   });
 }
@@ -544,9 +538,7 @@ export function bindTyping(aiAvatarWidget = null) {
       return;
     }
     typeInput.value = '';
-    import('./speech/index.js').then(({ handleUser }) => {
-      handleUser(aiAvatarWidget, text);
-    });
+    aiAvatarWidget.speechEngine.handleUser(text);
   };
   aiAvatarWidget.uiDom.sendButtonEl.onclick = send;
   typeInput.addEventListener('keydown', (event) => {
@@ -578,34 +570,32 @@ export function bindUiEvent(aiAvatarWidget = null) {
   }
 
   if (uiDom.micButtonEl instanceof HTMLElement) {
-    uiDom.micButtonEl.onclick = () => {
-      import('./speech/index.js').then(({ stopVoiceSession, startListening, interruptForVoice }) => {
-        if (aiAvatarWidget.avatarMode !== 'companion') {
-          if (aiAvatarWidget.speechEngine.isSpeaking) {
-            // 正在說話時按麥克風，代表使用者想插嘴
-            interruptForVoice(aiAvatarWidget);
-            startListening(aiAvatarWidget);
-          } else {
-            const isActive =
-              aiAvatarWidget.speechEngine.isListening ||
-              aiAvatarWidget.speechEngine.isProcessing;
-            if (isActive) {
-              stopVoiceSession(aiAvatarWidget, '即時語音對話已結束。');
-            } else {
-              startListening(aiAvatarWidget);
-            }
-          }
-          return;
-        }
-        aiAvatarWidget.speechEngine.convoOn =
-          !aiAvatarWidget.speechEngine.convoOn; // 陪伴模式：一鍵開/關「連續對話」
-        if (aiAvatarWidget.speechEngine.convoOn === true) {
+        uiDom.micButtonEl.onclick = () => {
+      if (aiAvatarWidget.avatarMode === 'companion') {
+        const isIdle = !aiAvatarWidget.speechEngine.isListening && !aiAvatarWidget.speechEngine.isProcessing;
+        if (isIdle) {
+          aiAvatarWidget.speechEngine.convoOn = true;
           aiAvatarWidget.speechEngine.noSpeechRuns = 0;
-          startListening(aiAvatarWidget);
+          aiAvatarWidget.speechEngine.startListening();
         } else {
-          stopVoiceSession(aiAvatarWidget, '即時語音對話已結束。');
+          aiAvatarWidget.speechEngine.convoOn = false;
+          aiAvatarWidget.speechEngine.stopVoiceSession('即時語音對話已結束。');
         }
-      });
+        return;
+      }
+      
+      // 非 companion 模式
+      if (aiAvatarWidget.speechEngine.isSpeaking) {
+        aiAvatarWidget.speechEngine.interruptForVoice();
+        aiAvatarWidget.speechEngine.startListening();
+      } else {
+        const isActive = aiAvatarWidget.speechEngine.isListening || aiAvatarWidget.speechEngine.isProcessing;
+        if (isActive) {
+          aiAvatarWidget.speechEngine.stopVoiceSession('即時語音對話已結束。');
+        } else {
+          aiAvatarWidget.speechEngine.startListening();
+        }
+      }
     };
   }
 
@@ -620,7 +610,7 @@ export function bindUiEvent(aiAvatarWidget = null) {
         String(aiAvatarWidget.speechEngine.ttsMuted)
       );
       if (aiAvatarWidget.speechEngine.ttsMuted === true) {
-        import('./speech/index.js').then(({ stopSpeaking }) => stopSpeaking(aiAvatarWidget)); // 立刻停掉正在播的（神經語音 + 瀏覽器語音）
+        aiAvatarWidget.speechEngine.stopSpeaking(); // 立刻停掉正在播的（神經語音 + 瀏覽器語音）
       }
       aiAvatarWidget.speechEngine.spokenDisplayText = aiAvatarWidget
         .speechEngine.ttsMuted
@@ -646,19 +636,17 @@ export function bindUiEvent(aiAvatarWidget = null) {
 
   if (uiDom.langButtonEl instanceof HTMLElement) {
     uiDom.langButtonEl.onclick = () => {
-      import('./speech/index.js').then(({ setLocale }) => {
-        const locales = ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'];
-        const current = aiAvatarWidget.speechEngine.currentLocale || 'zh-TW';
-        const next = locales[(locales.indexOf(current) + 1) % locales.length];
-        setLocale(aiAvatarWidget, next);
+      const locales = ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'];
+      const current = aiAvatarWidget.speechEngine.currentLocale || 'zh-TW';
+      const next = locales[(locales.indexOf(current) + 1) % locales.length];
+      aiAvatarWidget.speechEngine.setLocale(next);
 
-        let msg = '語言：繁體中文';
-        if (next === 'en-US') msg = 'Language: English';
-        else if (next === 'ja-JP') msg = '言語：日本語';
-        else if (next === 'ko-KR') msg = '언어: 한국어';
+      let msg = '語言：繁體中文';
+      if (next === 'en-US') msg = 'Language: English';
+      else if (next === 'ja-JP') msg = '言語：日本語';
+      else if (next === 'ko-KR') msg = '언어: 한국어';
 
-        aiAvatarWidget.speechEngine.spokenDisplayText = msg;
-      });
+      aiAvatarWidget.speechEngine.spokenDisplayText = msg;
     };
   }
 
