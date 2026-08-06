@@ -57,7 +57,43 @@
         },
         onError(error) {
           console.warn('[avatar] widget error:', error);
+        },
+        // 1. 註冊工具被觸發時的監聽器
+        onToolCall(pendingCall, avatarWidget) {
+          // 檢查是否是我們定義的「笑一個」工具
+          if (pendingCall.name === 'make_smile') {
+            // --- 執行你的「笑臉」邏輯 ---
+            // 由於我們剛才看過 core 內部有把情緒 API 曝露出來，
+            // 可以直接丟一句很開心的句子讓大腦去解析並變成 happy 表情：
+            if (avatarWidget.setEmotionFromText) {
+              avatarWidget.setEmotionFromText('哈哈哈哈太開心了！');
+            }
+            // 如果你的 skinEngine 有額外寫死的笑臉 API，也可以直接呼叫
+            // avatarWidget.skinEngine.xxx...
+            // --- 告訴工具引擎：已執行完畢 ---
+            avatarWidget.toolsEngine.handleToolResult({
+              callId: pendingCall.callId,
+              ok: true,
+              message: '好的，我笑一個囉！😊' // 這個訊息會顯示在歷史紀錄中，並讓語音唸出來
+            });
+          }
         }
+      });
+      // 2. 將工具定義塞進大腦的工具池裡
+      window.aiAvatarWidget.toolsEngine.HOST_TOOLS.push({
+        name: 'make_smile', // 程式用唯一名稱
+        label: '擺出笑臉', // UI 顯示用的名稱
+        description: '當使用者要求虛擬人笑、擺出笑臉、開心一點時觸發。',
+        keywords: [
+          '給我笑',
+          '笑一個',
+          '擺出一個笑臉',
+          '笑一下',
+          '開心的表情',
+          '笑'
+        ], // 用來模糊比對的關鍵字
+        requiresConfirmation: false, // 設為 false 代表不用跳出「確認執行」按鈕，直接執行
+        inputSchema: { type: 'object', properties: {} } // 不需額外參數
       });
     </script>
   </body>
