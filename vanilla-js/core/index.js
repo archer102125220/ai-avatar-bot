@@ -1324,10 +1324,10 @@ export function stopVoiceSession(aiAvatarWidget, message) {
   aiAvatarWidget.speechEngine.recognitionSubmitted = true;
   aiAvatarWidget.speechEngine.recognitionError = 'aborted';
   try {
-    if (aiAvatarWidget.speechEngine.recognition) {
+    if (typeof aiAvatarWidget.speechEngine?.recognition?.abort === 'function') {
       aiAvatarWidget.speechEngine.recognition.abort();
     }
-  } catch (_e) {}
+  } catch (_error) {}
   aiAvatarWidget.speechEngine.recognition = null;
   aiAvatarWidget.speechEngine.isListening = false;
   setMic(aiAvatarWidget, false);
@@ -1344,10 +1344,12 @@ export function interruptForVoice(aiAvatarWidget) {
   aiAvatarWidget.speechEngine.voiceFrames = 0;
 
   aiAvatarWidget.speechEngine.speakSeq++;
-  if (aiAvatarWidget.brainEngine.llm?.controller) {
+  if (
+    typeof aiAvatarWidget.brainEngine?.llm?.controller?.abort === 'function'
+  ) {
     try {
       aiAvatarWidget.brainEngine.llm.controller.abort();
-    } catch (e) {}
+    } catch (_error) {}
   }
 
   stopSpeaking(aiAvatarWidget);
@@ -1379,7 +1381,7 @@ function setMic(aiAvatarWidget = null, isListening = false) {
   }
 
   const btnMic = aiAvatarWidget.uiDom.micButtonEl;
-  if (isListening) {
+  if (isListening === true) {
     btnMic.setAttribute('css-state', 'listening');
   } else {
     btnMic.removeAttribute('css-state');
@@ -1388,13 +1390,14 @@ function setMic(aiAvatarWidget = null, isListening = false) {
   const convoOn = aiAvatarWidget.speechEngine.convoOn;
   btnMic.setAttribute('aria-pressed', String(!!convoOn));
 
-  btnMic.textContent = isListening
-    ? aiAvatarWidget.avatarMode === aiAvatarWidget.AVATAR_MODE_MAP.companion
-      ? '● 對話中'
-      : '● 聆聽中'
-    : convoOn
-      ? '◌ 對話中'
-      : '🎙️ 即時';
+  btnMic.textContent =
+    isListening === true
+      ? aiAvatarWidget.avatarMode === aiAvatarWidget.AVATAR_MODE_MAP.companion
+        ? '● 對話中'
+        : '● 聆聽中'
+      : convoOn
+        ? '◌ 對話中'
+        : '🎙️ 即時';
 
   const suggestions = aiAvatarWidget.uiDom.suggestionsEl;
   if (suggestions instanceof HTMLElement) {
@@ -1403,7 +1406,6 @@ function setMic(aiAvatarWidget = null, isListening = false) {
 }
 
 // speech.js | brain.js
-
 async function startListening(aiAvatarWidget = null) {
   const rootContainer = aiAvatarWidget?.container;
   if (rootContainer instanceof HTMLElement === false) {
