@@ -2,7 +2,9 @@
 import {
   DEFAULT_TTS_ENDPOINT,
   GENDER_MAP,
-  AVATAR_MODE_MAP
+  AVATAR_MODE_MAP,
+  DEFAULT_FEMALE_NEURAL_VOICE,
+  DEFAULT_MALE_NEURAL_VOICE
 } from '../constants';
 import { createBaseStore } from '../store';
 
@@ -214,11 +216,8 @@ function speakBrowserChunk(speechEngine, text, sid, done) {
     return;
   }
   const utterance = new SpeechSynthesisUtterance(text);
-  if (
-    typeof speechEngine.ttVoice !== 'object' ||
-    speechEngine.ttVoice === null
-  ) {
-    speechEngine.ttVoice = loadVoice(speechEngine.skin?.gender);
+  if (speechEngine.ttVoice === null) {
+    speechEngine.ttVoice = loadVoice(speechEngine.gender);
   }
   if (
     typeof speechEngine.ttVoice === 'object' &&
@@ -299,6 +298,19 @@ export function initSpeechEngine(setting = {}) {
     },
     get tools() {
       return setting.getTools ? setting.getTools() : null;
+    },
+    _gender: setting.getGender ? setting.getGender() : GENDER_MAP.female,
+    get gender() {
+      return this._gender;
+    },
+    setGender(newGender) {
+      this._gender = newGender;
+      if (newGender === GENDER_MAP.female) {
+        this.neuralVoice = DEFAULT_FEMALE_NEURAL_VOICE;
+      } else if (newGender === GENDER_MAP.male) {
+        this.neuralVoice = DEFAULT_MALE_NEURAL_VOICE;
+      }
+      this.ttVoice = null;
     },
     get avatarMode() {
       return setting.getAvatarMode ? setting.getAvatarMode() : null;
@@ -647,9 +659,11 @@ export function initSpeechEngine(setting = {}) {
   // speech.js
   if ('speechSynthesis' in window) {
     speechSynthesis.onvoiceschanged = () => {
-      speechEngine.ttVoice = loadVoice(speechEngine.skin?.gender);
+      if (speechEngine.ttVoice === null) {
+        speechEngine.ttVoice = loadVoice(speechEngine.gender);
+      }
     };
-    speechEngine.ttVoice = loadVoice(speechEngine.skin?.gender);
+    speechEngine.ttVoice = loadVoice(speechEngine.gender);
   }
 
   return speechEngine;
@@ -755,7 +769,7 @@ function speak(speechEngine, text, options) {
 function beginSpeech(speechEngine) {
   stopSpeaking(speechEngine); // 打斷上一段（含清佇列、表情回中性）
   speechEngine.assistantSpeechStartedAt = performance.now();
-  if (speechEngine.convoOn) {
+  if (speechEngine.convoOn === true) {
     if (typeof speechEngine.onVoiceStatusChanged === 'function') {
       speechEngine.onVoiceStatusChanged(
         speechEngine.convoOn,

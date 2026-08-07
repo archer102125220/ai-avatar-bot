@@ -240,7 +240,7 @@ export function initUi(container, stageEl) {
       return voiceLevelEl;
     },
     updateVoiceStatus(convoOn, text, state, level) {
-      if (convoOn) {
+      if (convoOn === true) {
         voiceLiveEl.setAttribute('css-is-active', 'true');
         if (state) {
           voiceLiveEl.setAttribute('css-state', state);
@@ -269,15 +269,16 @@ export function initUi(container, stageEl) {
 
       micButtonEl.textContent =
         isListening === true
-          ? isCompanion
+          ? isCompanion === true
             ? '● 對話中'
             : '● 聆聽中'
-          : convoOn
+          : convoOn === true
             ? '◌ 對話中'
             : '🎙️ 即時';
 
       if (suggestionsEl) {
-        suggestionsEl.style.display = isListening || convoOn ? 'none' : 'flex';
+        suggestionsEl.style.display =
+          isListening === true || convoOn === true ? 'none' : 'flex';
       }
     },
     get controlBarEl() {
@@ -355,25 +356,27 @@ export function setHistoryOpen(context, open) {
   const bubble = context.uiDom.bubbleEl;
 
   if (panel instanceof HTMLElement && btn instanceof HTMLElement) {
-    if (open) {
+    if (open === true) {
       panel.setAttribute('css-is-open', 'true');
     } else {
       panel.removeAttribute('css-is-open');
     }
-    panel.inert = !open;
-    btn.setAttribute('aria-expanded', String(!!open));
+    panel.inert = open !== true;
+    btn.setAttribute('aria-expanded', String(open === true));
   }
 
   if (suggestions instanceof HTMLElement) {
-    suggestions.style.display = open
-      ? 'none'
-      : context.speechEngine.isListening || context.speechEngine.convoOn
+    suggestions.style.display =
+      open === true
         ? 'none'
-        : 'flex';
+        : context.speechEngine.isListening === true ||
+            context.speechEngine.convoOn === true
+          ? 'none'
+          : 'flex';
   }
 
   if (bubble instanceof HTMLElement) {
-    if (open) {
+    if (open === true) {
       bubble.style.opacity = '0';
       bubble.style.pointerEvents = 'none';
       renderHistory(context);
@@ -386,7 +389,9 @@ export function setHistoryOpen(context, open) {
 
 export function renderHistory(context) {
   const list = context.uiDom.historyPanelEl?.querySelector('#history-list');
-  if (!list) return;
+  if (!list) {
+    return;
+  }
 
   list.replaceChildren();
 
