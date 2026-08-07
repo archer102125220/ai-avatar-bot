@@ -711,7 +711,8 @@ export async function initBrainEngine(seting = {}) {
       }
     },
 
-    defaultBuildLLMMessages: (question) => defaultBuildLLMMessages(brainEngine, question),
+    defaultBuildLLMMessages: (question) =>
+      defaultBuildLLMMessages(brainEngine, question),
 
     getWelcomeText: () => getWelcomeText(brainEngine),
     classifyEmotion: classifyEmotion,

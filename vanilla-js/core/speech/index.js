@@ -9,7 +9,7 @@ import { createBaseStore } from '../store';
 
 // speech.js
 // ===== TTS：開口說話 + 對嘴 =====
-function loadVoice() {
+function loadVoice(gender) {
   const voices = speechSynthesis.getVoices();
   const pick = (targetVoice) =>
     voices.find(
@@ -18,9 +18,20 @@ function loadVoice() {
         !/Google/i.test(voice.name)
     ); // 避開 Chrome 會靜默失敗的 Google 遠端語音
 
+  let broswerVoice = null;
+
+  if (gender === 'male') {
+    broswerVoice = pick(
+      /(YunJhe|YunJian|YunXia|雲哲|雲健|雲夏|Zhiwei|志偉).*zh/i
+    ); // 微軟神經男聲
+  } else if (gender === 'female') {
+    broswerVoice =
+      pick(/(HsiaoChen|HsiaoYu|曉臻|曉雨).*zh/i) || // 微軟神經女聲（最自然，若有安裝）
+      pick(/(Yating|Hanhan|雅婷|涵涵).*zh[-_]TW/i); // 較新、較不機械的微軟 zh-TW 女聲
+  }
+
   return (
-    pick(/(HsiaoChen|HsiaoYu|曉臻|曉雨).*zh/i) || // 微軟神經女聲（最自然，若有安裝）
-    pick(/(Yating|Zhiwei).*zh[-_]TW/i) || // 較新、較不機械的微軟 zh-TW 女聲
+    broswerVoice ||
     pick(/Microsoft.*zh[-_]TW/i) || // 任何微軟 zh-TW（本地、可靠）
     pick(/zh[-_]TW/i) ||
     pick(/^zh/i) ||
@@ -208,7 +219,7 @@ function speakBrowserChunk(speechEngine, text, sid, done) {
     typeof speechEngine.ttVoice !== 'object' ||
     speechEngine.ttVoice === null
   ) {
-    speechEngine.ttVoice = loadVoice();
+    speechEngine.ttVoice = loadVoice(speechEngine.skin?.gender);
   }
   if (
     typeof speechEngine.ttVoice === 'object' &&
@@ -498,7 +509,8 @@ export function initSpeechEngine(setting = {}) {
         }
       }
     },
-    speak: (text, options) => speak(speechEngine, String(text || '').slice(0, 600), options),
+    speak: (text, options) =>
+      speak(speechEngine, String(text || '').slice(0, 600), options),
     _spokenAudioText: '',
     get spokenAudioText() {
       return this._spokenAudioText;
@@ -572,10 +584,12 @@ export function initSpeechEngine(setting = {}) {
     pumpSpeech: (sid) => pumpSpeech(speechEngine, sid),
     handleUser: (text) => handleUser(speechEngine, text),
     beginSpeech: () => beginSpeech(speechEngine),
-    pushSpeech: (sid, text, options) => pushSpeech(speechEngine, sid, text, options),
+    pushSpeech: (sid, text, options) =>
+      pushSpeech(speechEngine, sid, text, options),
     endSpeech: (sid) => endSpeech(speechEngine, sid),
     onUtteranceEnd: () => onUtteranceEnd(speechEngine),
-    drainSentences: (state, force) => drainSentences(speechEngine, state, force),
+    drainSentences: (state, force) =>
+      drainSentences(speechEngine, state, force),
 
     _greeting: null, // function
     get greeting() {
@@ -634,9 +648,9 @@ export function initSpeechEngine(setting = {}) {
   // speech.js
   if ('speechSynthesis' in window) {
     speechSynthesis.onvoiceschanged = () => {
-      speechEngine.ttVoice = loadVoice();
+      speechEngine.ttVoice = loadVoice(speechEngine.skin?.gender);
     };
-    speechEngine.ttVoice = loadVoice();
+    speechEngine.ttVoice = loadVoice(speechEngine.skin?.gender);
   }
 
   return speechEngine;
@@ -1033,7 +1047,9 @@ function monitorMicLevel(speechEngine) {
     interruptForVoice(speechEngine);
   }
 
-  speechEngine.micRaf = requestAnimationFrame(() => monitorMicLevel(speechEngine));
+  speechEngine.micRaf = requestAnimationFrame(() =>
+    monitorMicLevel(speechEngine)
+  );
 }
 
 function stopMicMonitor(speechEngine) {
@@ -1276,7 +1292,10 @@ async function startListening(speechEngine) {
       !speechEngine.isSpeechPlaying
     ) {
       if (++speechEngine.noSpeechRuns >= 3) {
-        stopVoiceSession(speechEngine, '連續幾次沒有聽到聲音，即時對話已暫停。');
+        stopVoiceSession(
+          speechEngine,
+          '連續幾次沒有聽到聲音，即時對話已暫停。'
+        );
         return;
       }
       setTimeout(() => {

@@ -245,6 +245,7 @@ export async function initAvatarBot(optiopns = {}) {
       aiAvatarWidget.speechEngine.neuralVoice = DEFAULT_MALE_NEURAL_VOICE;
     }
     aiAvatarWidget.skinEngine.setGender(newGender);
+    aiAvatarWidget.speechEngine.ttVoice = null; // 強制重抓瀏覽器語音
   });
 
   const stageEl = document.createElement('div');
