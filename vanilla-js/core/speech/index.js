@@ -549,14 +549,14 @@ export function initSpeechEngine(setting = {}) {
     },
 
     get onSpeaking() {
-      return function (text, ...args) {
+      return function _onSpeaking(text, ...args) {
         if (typeof setting.onSpeaking === 'function') {
           return setting.onSpeaking(text, ...args);
         }
       };
     },
     get onSpeakingEnd() {
-      return function (text, ...args) {
+      return function _onSpeakingEnd(text, ...args) {
         if (typeof setting.onSpeakingEnd === 'function') {
           return setting.onSpeakingEnd(text, ...args);
         }
@@ -576,7 +576,7 @@ export function initSpeechEngine(setting = {}) {
       };
     },
     get onSpokenDisplayTextTimeout() {
-      return function (...args) {
+      return function _onSpokenDisplayTextTimeout(...args) {
         if (typeof setting.onSpokenDisplayTextTimeout === 'function') {
           return setting.onSpokenDisplayTextTimeout(...args);
         }
