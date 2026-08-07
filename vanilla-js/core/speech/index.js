@@ -1,10 +1,11 @@
 // TODO: 等到環境可以測試麥克風跟喇叭時，要徹底測過這份檔案內部的所有機制有沒有因為重構而出問題
-// Imports removed for decoupling
-export const DEFAULT_TTS_ENDPOINT = 'api/tts';
-export const DEFAULT_FEMALE_NEURAL_VOICE = 'zh-TW-HsiaoChenNeural'; // 微軟神經語音「曉臻」
-export const DEFAULT_MALE_NEURAL_VOICE = 'zh-TW-YunJheNeural'; // 微軟神經語音「雲哲」
-
-import { AVATAR_MODE_MAP } from '../brain.js';
+import {
+  DEFAULT_TTS_ENDPOINT,
+  DEFAULT_FEMALE_NEURAL_VOICE,
+  DEFAULT_MALE_NEURAL_VOICE,
+  GENDER_MAP,
+  AVATAR_MODE_MAP
+} from '../constants';
 import { createBaseStore } from '../store';
 
 // speech.js
@@ -20,11 +21,11 @@ function loadVoice(gender) {
 
   let broswerVoice = null;
 
-  if (gender === 'male') {
+  if (gender === GENDER_MAP.male) {
     broswerVoice = pick(
       /(YunJhe|YunJian|YunXia|雲哲|雲健|雲夏|Zhiwei|志偉).*zh/i
     ); // 微軟神經男聲
-  } else if (gender === 'female') {
+  } else if (gender === GENDER_MAP.female) {
     broswerVoice =
       pick(/(HsiaoChen|HsiaoYu|曉臻|曉雨).*zh/i) || // 微軟神經女聲（最自然，若有安裝）
       pick(/(Yating|Hanhan|雅婷|涵涵).*zh[-_]TW/i); // 較新、較不機械的微軟 zh-TW 女聲

@@ -1,13 +1,12 @@
+import { initBrainEngine } from './brain';
+import { initSkinEngine } from './skin';
+import { initSpeechEngine } from './speech';
 import {
   AVATAR_MODE_MAP,
   DEFAULT_AVATAR_MODE,
   DEFAULT_LLM_MODEL,
   DEFAULT_AI_PROVIDER_MODEL,
   STATE_MAP,
-  initBrainEngine
-} from './brain';
-
-import {
   ENGINE_MODE_MAP,
   FIT_MODE_MAP,
   DEFALUT_START_MODE,
@@ -17,15 +16,13 @@ import {
   GENDER_MAP,
   DEFAULT_GENDER,
   DEFAULT_MODEL_URL,
-  initSkinEngine
-} from './skin';
-
-import {
   DEFAULT_TTS_ENDPOINT,
   DEFAULT_FEMALE_NEURAL_VOICE,
   DEFAULT_MALE_NEURAL_VOICE,
-  initSpeechEngine
-} from './speech';
+  DEFAULT_NEURAL_VOICE
+} from './constants';
+
+export * from './constants';
 
 import {
   initUi,
@@ -42,32 +39,6 @@ import '../style/style.scss';
 
 // M4b：WebLLM（瀏覽器內跑小模型，零金鑰）。函式庫改成「按下🧠才動態 import」，
 //    一般訪客（不啟用大腦）不會下載這包 JS。控制權掛到 window.LLM。
-
-// speech.js
-export const DEFAULT_NEURAL_VOICE =
-  DEFAULT_GENDER === GENDER_MAP.female
-    ? DEFAULT_FEMALE_NEURAL_VOICE
-    : DEFAULT_MALE_NEURAL_VOICE;
-
-export {
-  STATE_MAP,
-  AVATAR_MODE_MAP,
-  DEFAULT_LLM_MODEL,
-  DEFAULT_AI_PROVIDER_MODEL,
-  ENGINE_MODE_MAP,
-  FIT_MODE_MAP,
-  GENDER_MAP,
-  DEFAULT_GENDER,
-  DEFALUT_START_MODE,
-  DEFAULT_AVATAR_MODE,
-  DEFAULT_FIT_MODE,
-  DEFAULT_MODEL_URL,
-  DEFAULT_FEMALE_MODEL_URL,
-  DEFAULT_MALE_MODEL_URL,
-  DEFAULT_TTS_ENDPOINT,
-  DEFAULT_FEMALE_NEURAL_VOICE,
-  DEFAULT_MALE_NEURAL_VOICE
-};
 
 // index.js
 export async function initAvatarBot(optiopns = {}) {

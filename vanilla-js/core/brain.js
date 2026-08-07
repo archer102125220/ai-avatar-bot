@@ -1,28 +1,12 @@
 import { createBaseStore } from './store';
-
-export const STATE_MAP = {
-  IDLE: 'idle',
-  LOADING: 'loading',
-  READY: 'ready',
-  ERROR: 'error'
-};
-// brain.js
-export const AVATAR_MODE_MAP = {
-  companion: 'companion',
-  assistant: 'assistant'
-};
-export const DEFAULT_AVATAR_MODE = AVATAR_MODE_MAP.assistant;
-
-// brain.js
-export const DEFAULT_LLM_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
-export const DEFAULT_AI_PROVIDER_MODEL = 'qwen2.5:latest';
-
-export const EMO_TARGET_MAP = {
-  happy: 0.65,
-  surprised: 0.6,
-  sad: 0.5
-};
-
+import {
+  STATE_MAP,
+  AVATAR_MODE_MAP,
+  DEFAULT_AVATAR_MODE,
+  DEFAULT_LLM_MODEL,
+  DEFAULT_AI_PROVIDER_MODEL,
+  EMO_TARGET_MAP
+} from './constants';
 // brain.js
 export async function handleGetKnowledge(knowledgeUrl = '') {
   try {
