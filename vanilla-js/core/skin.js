@@ -8,8 +8,7 @@ import {
   GENDER_MAP,
   DEFAULT_GENDER,
   DEFAULT_FEMALE_MODEL_URL,
-  DEFAULT_MALE_MODEL_URL,
-  DEFAULT_MODEL_URL
+  DEFAULT_MALE_MODEL_URL
 } from './constants';
 
 // skin.js
@@ -100,7 +99,7 @@ export async function defaultGesture2D(skinEngine = null, emotionName) {
 
 // skin.js
 // ===== 2D 皮：Live2D 載入 + 對嘴 =====
-async function bootAvatar(skinEngine, modelUrl = DEFAULT_MODEL_URL) {
+async function bootAvatar(skinEngine, modelUrl) {
   const stageEl = skinEngine?.stageEl;
   if (stageEl instanceof HTMLElement === false) {
     console.error('[aiAvatar bootAvatar] stageEl is not an HTMLElement');
@@ -122,9 +121,7 @@ async function bootAvatar(skinEngine, modelUrl = DEFAULT_MODEL_URL) {
       resizeTo: stageEl
     });
 
-    skinEngine.avatarModel = await Live2DModel.from(
-      modelUrl || DEFAULT_MODEL_URL
-    );
+    skinEngine.avatarModel = await Live2DModel.from(modelUrl);
     pixiApp.stage.addChild(skinEngine.avatarModel);
     skinEngine.avatarModel.anchor.set(0.5, 1.0);
 

@@ -46,16 +46,7 @@ export const DEFAULT_FEMALE_MODEL_URL =
   '/avatar-skin/2d-model/female/haru_greeter_t03.model3.json';
 export const DEFAULT_MALE_MODEL_URL =
   '/avatar-skin/2d-model/male/natori_pro_t06.model3.json';
-export const DEFAULT_MODEL_URL =
-  DEFAULT_GENDER === GENDER_MAP.female
-    ? DEFAULT_FEMALE_MODEL_URL
-    : DEFAULT_MALE_MODEL_URL;
 
 export const DEFAULT_TTS_ENDPOINT = 'api/tts';
 export const DEFAULT_FEMALE_NEURAL_VOICE = 'zh-TW-HsiaoChenNeural'; // 微軟神經語音「曉臻」
 export const DEFAULT_MALE_NEURAL_VOICE = 'zh-TW-YunJheNeural'; // 微軟神經語音「雲哲」
-
-export const DEFAULT_NEURAL_VOICE =
-  DEFAULT_GENDER === GENDER_MAP.female
-    ? DEFAULT_FEMALE_NEURAL_VOICE
-    : DEFAULT_MALE_NEURAL_VOICE;

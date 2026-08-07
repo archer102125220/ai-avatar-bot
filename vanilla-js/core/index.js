@@ -9,20 +9,12 @@ import {
   STATE_MAP,
   ENGINE_MODE_MAP,
   FIT_MODE_MAP,
-  DEFALUT_START_MODE,
-  DEFAULT_FIT_MODE,
-  DEFAULT_FEMALE_MODEL_URL,
-  DEFAULT_MALE_MODEL_URL,
   GENDER_MAP,
   DEFAULT_GENDER,
-  DEFAULT_MODEL_URL,
   DEFAULT_TTS_ENDPOINT,
   DEFAULT_FEMALE_NEURAL_VOICE,
-  DEFAULT_MALE_NEURAL_VOICE,
-  DEFAULT_NEURAL_VOICE
+  DEFAULT_MALE_NEURAL_VOICE
 } from './constants';
-
-export * from './constants';
 
 import {
   initUi,
@@ -37,10 +29,8 @@ import { createBaseStore } from './store';
 
 import '../style/style.scss';
 
-// M4b：WebLLM（瀏覽器內跑小模型，零金鑰）。函式庫改成「按下🧠才動態 import」，
-//    一般訪客（不啟用大腦）不會下載這包 JS。控制權掛到 window.LLM。
+export * from './constants';
 
-// index.js
 export async function initAvatarBot(optiopns = {}) {
   if (typeof window !== 'object') return;
 

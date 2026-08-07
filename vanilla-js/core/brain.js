@@ -4,9 +4,9 @@ import {
   AVATAR_MODE_MAP,
   DEFAULT_AVATAR_MODE,
   DEFAULT_LLM_MODEL,
-  DEFAULT_AI_PROVIDER_MODEL,
-  EMO_TARGET_MAP
+  DEFAULT_AI_PROVIDER_MODEL
 } from './constants';
+
 // brain.js
 export async function handleGetKnowledge(knowledgeUrl = '') {
   try {
@@ -550,7 +550,6 @@ export function classifyEmotion(text) {
 export async function initBrainEngine(seting = {}) {
   const {
     llmModel,
-    avatarMode,
     knowledge = [],
     knowledgeUrl,
     companionKnowledge = [],
