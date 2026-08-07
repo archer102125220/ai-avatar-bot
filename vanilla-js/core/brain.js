@@ -1,4 +1,7 @@
 // brain.js
+import { createBaseStore } from './store';
+let brainEngine = null;
+
 export const STATE_MAP = {
   IDLE: 'idle',
   LOADING: 'loading',
@@ -76,13 +79,15 @@ export function similarity(query, text) {
 
 // brain.js
 export function scoreEntry(question, e) {
-  const safeQ = typeof question === 'string' ? question : (Array.isArray(question) ? question[question.length - 1]?.content || '' : String(question || ''));
+  const safeQ =
+    typeof question === 'string'
+      ? question
+      : Array.isArray(question)
+        ? question[question.length - 1]?.content || ''
+        : String(question || '');
   const targetQ = typeof e.q === 'string' ? e.q : String(e.q || '');
   const targetKw = typeof e.kw === 'string' ? e.kw : String(e.kw || '');
-  let score = Math.max(
-    similarity(safeQ, targetQ),
-    similarity(safeQ, targetKw)
-  );
+  let score = Math.max(similarity(safeQ, targetQ), similarity(safeQ, targetKw));
   const terms = targetKw.split(/\s+/).filter(Boolean);
   for (const item of terms) {
     if (item.length >= 2 && safeQ.includes(item)) {
@@ -93,8 +98,8 @@ export function scoreEntry(question, e) {
 }
 
 // brain.js
-export function topK(aiAvatarWidget = null, question, k) {
-  const knowledge = aiAvatarWidget?.brainEngine?.knowledge || [];
+export function topK(question, k) {
+  const knowledge = brainEngine?.knowledge || [];
 
   return knowledge
     .map((e) => ({ e, s: scoreEntry(question, e) }))
@@ -249,52 +254,37 @@ export function initLLM(setting = {}, brain) {
 }
 
 // brain.js
-export async function getWelcomeText(aiAvatarWidget = null) {
+export async function getWelcomeText() {
   let welcomeText =
     '點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋';
 
-  if (typeof aiAvatarWidget?.brainEngine?.welcomeText === 'function') {
-    welcomeText = await aiAvatarWidget.brainEngine.welcomeText(
-      {
-        isCompanion: aiAvatarWidget.brainEngine.mem.isCompanion,
-        visits: aiAvatarWidget.brainEngine.mem.data.visits,
-        name: aiAvatarWidget.brainEngine.mem.data.name
-      },
-      aiAvatarWidget
-    );
-  } else if (typeof aiAvatarWidget?.brainEngine?.welcomeText === 'string') {
-    welcomeText = aiAvatarWidget.brainEngine.welcomeText;
-  } else if (aiAvatarWidget?.avatarMode === AVATAR_MODE_MAP.companion) {
-    if (
-      typeof aiAvatarWidget?.brainEngine?.companionWelcomeText === 'function'
-    ) {
+  if (typeof brainEngine?.welcomeText === 'function') {
+    welcomeText = await brainEngine.welcomeText({
+      isCompanion: brainEngine.mem.isCompanion,
+      visits: brainEngine.mem.data.visits,
+      name: brainEngine.mem.data.name
+    });
+  } else if (typeof brainEngine?.welcomeText === 'string') {
+    welcomeText = brainEngine.welcomeText;
+  } else if (brainEngine?.avatarMode === AVATAR_MODE_MAP.companion) {
+    if (typeof brainEngine?.companionWelcomeText === 'function') {
+      welcomeText = await brainEngine.companionWelcomeText();
+    } else if (brainEngine.mem.data.visits > 1) {
       welcomeText =
-        await aiAvatarWidget.brainEngine.companionWelcomeText(aiAvatarWidget);
-    } else if (aiAvatarWidget.brainEngine.mem.data.visits > 1) {
-      welcomeText =
-        (aiAvatarWidget.brainEngine.mem.data.name
-          ? aiAvatarWidget.brainEngine.mem.data.name + '，'
-          : '') +
+        (brainEngine.mem.data.name ? brainEngine.mem.data.name + '，' : '') +
         '歡迎回來～這是我們第 ' +
-        aiAvatarWidget.brainEngine.mem.data.visits +
+        brainEngine.mem.data.visits +
         ' 次見面！點 💬 繼續聊，我記得我們聊過什麼喔';
-    } else if (
-      typeof aiAvatarWidget.brainEngine.companionWelcomeText === 'string'
-    ) {
-      welcomeText = aiAvatarWidget.brainEngine.companionWelcomeText;
+    } else if (typeof brainEngine.companionWelcomeText === 'string') {
+      welcomeText = brainEngine.companionWelcomeText;
     } else {
       welcomeText =
         '嗨～我是這裡的陪聊虛擬人！點 💬 就能連續對話，我會記得你說過的話（只存在你這台瀏覽器，說『忘記我』就清掉）';
     }
-  } else if (
-    typeof aiAvatarWidget?.brainEngine?.assistantWelcomeText === 'function'
-  ) {
-    welcomeText =
-      await aiAvatarWidget.brainEngine.assistantWelcomeText(aiAvatarWidget);
-  } else if (
-    typeof aiAvatarWidget?.brainEngine?.assistantWelcomeText === 'string'
-  ) {
-    welcomeText = aiAvatarWidget.brainEngine.assistantWelcomeText;
+  } else if (typeof brainEngine?.assistantWelcomeText === 'function') {
+    welcomeText = await brainEngine.assistantWelcomeText();
+  } else if (typeof brainEngine?.assistantWelcomeText === 'string') {
+    welcomeText = brainEngine.assistantWelcomeText;
   }
 
   return welcomeText;
@@ -575,7 +565,7 @@ export function classifyEmotion(text) {
   return 'neutral';
 }
 
-export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
+export async function initBrainEngine(seting = {}) {
   const {
     llmModel,
     avatarMode,
@@ -631,7 +621,11 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
       ? companionKnowledge
       : await handleGetKnowledge(companionKnowledgeUrl);
 
-  const brain = {
+  const store = createBaseStore({
+    // Add states here if needed in the future
+  });
+
+  brainEngine = {
     get STATE_MAP() {
       return STATE_MAP;
     },
@@ -721,12 +715,14 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
 
     defaultBuildLLMMessages: defaultBuildLLMMessages,
 
-    getWelcomeText: () => getWelcomeText(aiAvatarWidget),
+    getWelcomeText: () => getWelcomeText(),
     classifyEmotion: classifyEmotion,
-    setEmotionFromText: (text) => setEmotionFromText(aiAvatarWidget, text),
-    handleAnswer: (question) => handleAnswer(aiAvatarWidget, question),
-    addChatMessage: (role, text, options) => addChatMessage(aiAvatarWidget, role, text, options),
-    updateChatMessage: (id, text, streaming) => updateChatMessage(aiAvatarWidget, id, text, streaming),
+    setEmotionFromText: (text) => setEmotionFromText(text),
+    handleAnswer: (question) => handleAnswer(question),
+    addChatMessage: (role, text, options) =>
+      addChatMessage(role, text, options),
+    updateChatMessage: (id, text, streaming) =>
+      updateChatMessage(id, text, streaming),
 
     get llm() {
       return llm;
@@ -736,67 +732,75 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     },
     get aiProvider() {
       return aiProvider;
+    },
+    get skin() {
+      return seting.getSkin ? seting.getSkin() : null;
+    },
+    get speech() {
+      return seting.getSpeech ? seting.getSpeech() : null;
     }
   };
 
   if (typeof welcomeText === 'function') {
-    brain.welcomeText = welcomeText.bind(aiAvatarWidget);
+    brainEngine.welcomeText = welcomeText;
   } else if (typeof welcomeText === 'string') {
-    brain.welcomeText = welcomeText;
+    brainEngine.welcomeText = welcomeText;
   }
   if (typeof companionWelcomeText === 'function') {
-    brain.companionWelcomeText = companionWelcomeText.bind(aiAvatarWidget);
+    brainEngine.companionWelcomeText = companionWelcomeText;
   } else if (typeof companionWelcomeText === 'string') {
-    brain.companionWelcomeText = companionWelcomeText;
+    brainEngine.companionWelcomeText = companionWelcomeText;
   }
   if (typeof assistantWelcomeText === 'function') {
-    brain.assistantWelcomeText = assistantWelcomeText.bind(aiAvatarWidget);
+    brainEngine.assistantWelcomeText = assistantWelcomeText;
   } else if (typeof assistantWelcomeText === 'string') {
-    brain.assistantWelcomeText = assistantWelcomeText;
+    brainEngine.assistantWelcomeText = assistantWelcomeText;
   }
 
   if (typeof onLlmLoading === 'function') {
-    brain.onLlmLoading = onLlmLoading.bind(brain);
+    brainEngine.onLlmLoading = onLlmLoading.bind(brainEngine);
   }
 
   if (typeof onLlmLoadProgress === 'function') {
-    brain.onLlmLoadProgress = onLlmLoadProgress.bind(brain);
+    brainEngine.onLlmLoadProgress = onLlmLoadProgress.bind(brainEngine);
   }
 
   if (typeof onLlmLoaded === 'function') {
-    brain.onLlmLoaded = onLlmLoaded.bind(brain);
+    brainEngine.onLlmLoaded = onLlmLoaded.bind(brainEngine);
   }
 
   if (typeof onLlmLoadError === 'function') {
-    brain.onLlmLoadError = onLlmLoadError.bind(brain);
+    brainEngine.onLlmLoadError = onLlmLoadError.bind(brainEngine);
   }
 
   if (typeof onLlmChatting === 'function') {
-    brain.onLlmChatting = onLlmChatting.bind(brain);
+    brainEngine.onLlmChatting = onLlmChatting.bind(brainEngine);
   }
 
   if (typeof onLlmStreamChatting === 'function') {
-    brain.onLlmStreamChatting = onLlmStreamChatting.bind(brain);
+    brainEngine.onLlmStreamChatting = onLlmStreamChatting.bind(brainEngine);
   }
 
   if (typeof onAiProviderConnecting === 'function') {
-    brain.onAiProviderConnecting = onAiProviderConnecting.bind(brain);
+    brainEngine.onAiProviderConnecting =
+      onAiProviderConnecting.bind(brainEngine);
   }
 
   if (typeof onAiProviderConnected === 'function') {
-    brain.onAiProviderConnected = onAiProviderConnected.bind(brain);
+    brainEngine.onAiProviderConnected = onAiProviderConnected.bind(brainEngine);
   }
 
   if (typeof onAiProviderError === 'function') {
-    brain.onAiProviderError = onAiProviderError.bind(brain);
+    brainEngine.onAiProviderError = onAiProviderError.bind(brainEngine);
   }
 
   if (typeof onAiProviderChatting === 'function') {
-    brain.onAiProviderChatting = onAiProviderChatting.bind(brain);
+    brainEngine.onAiProviderChatting = onAiProviderChatting.bind(brainEngine);
   }
 
   if (typeof onAiProviderStreamChatting === 'function') {
-    brain.onAiProviderStreamChatting = onAiProviderStreamChatting.bind(brain);
+    brainEngine.onAiProviderStreamChatting =
+      onAiProviderStreamChatting.bind(brainEngine);
   }
 
   llm = initLLM(
@@ -805,27 +809,27 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
       LLMMaxTokens,
       LLMIsStream,
       onLoading(...arg) {
-        return brain.onLlmLoading?.(...arg, aiAvatarWidget);
+        return brainEngine.onLlmLoading?.(...arg);
       },
       onLoadProgress(...arg) {
-        return brain.onLlmLoadProgress?.(...arg, aiAvatarWidget);
+        return brainEngine.onLlmLoadProgress?.(...arg);
       },
       onLoaded(...arg) {
-        return brain.onLlmLoaded?.(...arg, aiAvatarWidget);
+        return brainEngine.onLlmLoaded?.(...arg);
       },
       onLoadError(...arg) {
-        return brain.onLlmLoadError?.(...arg, aiAvatarWidget);
+        return brainEngine.onLlmLoadError?.(...arg);
       },
       onChatting(...arg) {
-        return brain.onLlmChatting?.(...arg, aiAvatarWidget);
+        return brainEngine.onLlmChatting?.(...arg);
       },
       onStreamChatting(...arg) {
-        return brain.onLlmStreamChatting?.(...arg, aiAvatarWidget);
+        return brainEngine.onLlmStreamChatting?.(...arg);
       }
     },
-    brain
+    brainEngine
   );
-  mem = initMEM({ avatarMode: brain.avatarMode });
+  mem = initMEM({ avatarMode: brainEngine.avatarMode });
   aiProvider = await initAiProvider({
     providerModel: aiProviderModel,
     providerBaseUrl: aiProviderBaseUrl,
@@ -838,27 +842,29 @@ export async function initBrainEngine(seting = {}, aiAvatarWidget = null) {
     providerIsStream: aiProviderIsStream,
 
     onConnecting(...arg) {
-      return brain.onAiProviderConnecting?.(...arg, aiAvatarWidget);
+      return brainEngine.onAiProviderConnecting?.(...arg);
     },
     onConnected(...arg) {
-      return brain.onAiProviderConnected?.(...arg, aiAvatarWidget);
+      return brainEngine.onAiProviderConnected?.(...arg);
     },
     onError(...arg) {
-      return brain.onAiProviderError?.(...arg, aiAvatarWidget);
+      return brainEngine.onAiProviderError?.(...arg);
     },
     onChatting(...arg) {
-      return brain.onAiProviderChatting?.(...arg, aiAvatarWidget);
+      return brainEngine.onAiProviderChatting?.(...arg);
     },
     onStreamChatting(...arg) {
-      return brain.onAiProviderStreamChatting?.(...arg, aiAvatarWidget);
+      return brainEngine.onAiProviderStreamChatting?.(...arg);
     }
   });
 
-  return brain;
+  return brainEngine;
 }
 
-export function setEmotionFromText(aiAvatarWidget, text) {
-  aiAvatarWidget.skinEngine.gestureName = classifyEmotion(text);
+export function setEmotionFromText(text) {
+  if (brainEngine && brainEngine.skin) {
+    brainEngine.skin.gestureName = classifyEmotion(text);
+  }
 }
 
 // 檢索式回答（零金鑰、即時、永遠可用的後備）
@@ -875,19 +881,19 @@ export function bestOf(knowledgeList = [], question) {
   return { e, s };
 }
 
-export function brainCompanionFallback(aiAvatarWidget = null, question) {
-  if (typeof aiAvatarWidget?.companionFallbackContext === 'function') {
-    return aiAvatarWidget.companionFallbackContext(question, aiAvatarWidget);
-  } else if (typeof aiAvatarWidget?.companionFallbackContext === 'string') {
-    return aiAvatarWidget.companionFallbackContext;
+export function brainEngineCompanionFallback(question) {
+  if (typeof brainEngine?.companionFallbackContext === 'function') {
+    return brainEngine.companionFallbackContext(question);
+  } else if (typeof brainEngine?.companionFallbackContext === 'string') {
+    return brainEngine.companionFallbackContext;
   }
 
   // 陪聊版兜底：輪流換句，不推銷產品題
-  const name = aiAvatarWidget.brainEngine.mem.data.name;
+  const name = brainEngine.mem.data.name;
   const companionFallbackList =
-    Array.isArray(aiAvatarWidget.brainEngine.companionFallback) === true &&
-    aiAvatarWidget.brainEngine.companionFallback.length > 0
-      ? aiAvatarWidget.brainEngine.companionFallback
+    Array.isArray(brainEngine.companionFallback) === true &&
+    brainEngine.companionFallback.length > 0
+      ? brainEngine.companionFallback
       : [
           (name ? name + '，' : '') +
             '這個我還不太會聊，但我想聽你說——多講一點？',
@@ -897,39 +903,35 @@ export function brainCompanionFallback(aiAvatarWidget = null, question) {
         ];
 
   return companionFallbackList[
-    aiAvatarWidget.brainEngine.companionFallbackIdx++ %
-      companionFallbackList.length
+    brainEngine.companionFallbackIdx++ % companionFallbackList.length
   ];
 }
 
-export function handleThinking(aiAvatarWidget = null, rawQuestion) {
+export function handleThinking(rawQuestion) {
   const question = (rawQuestion || '').trim();
   if (!question) {
     return '我好像沒聽清楚，可以再說一次嗎？';
   }
-  const site = bestOf(aiAvatarWidget.brainEngine.knowledge, question);
-  if (aiAvatarWidget.avatarMode === AVATAR_MODE_MAP.companion) {
+  const site = bestOf(brainEngine.knowledge, question);
+  if (brainEngine.avatarMode === AVATAR_MODE_MAP.companion) {
     // 陪伴模式：聊天題給陪聊腦、網站/產品題照答
-    const chat = bestOf(
-      aiAvatarWidget.brainEngine.companionKnowledge,
-      question
-    );
+    const chat = bestOf(brainEngine.companionKnowledge, question);
     if (chat.e && chat.s >= 0.16 && chat.s + 0.05 >= site.s) {
       return chat.e.a;
     }
     if (site.e && site.s >= 0.16) {
       return site.e.a;
     }
-    return brainCompanionFallback(aiAvatarWidget, question);
+    return brainEngineCompanionFallback(question);
   }
   if (site.e && site.s >= 0.16) {
     return site.e.a;
   }
 
-  if (typeof aiAvatarWidget?.assistantFallbackContext === 'function') {
-    return aiAvatarWidget.assistantFallbackContext(question, aiAvatarWidget);
-  } else if (typeof aiAvatarWidget?.assistantFallbackContext === 'string') {
-    return aiAvatarWidget.assistantFallbackContext;
+  if (typeof brainEngine.assistantFallbackContext === 'function') {
+    return brainEngine.assistantFallbackContext(question);
+  } else if (typeof brainEngine.assistantFallbackContext === 'string') {
+    return brainEngine.assistantFallbackContext;
   }
 
   return (
@@ -939,54 +941,56 @@ export function handleThinking(aiAvatarWidget = null, rawQuestion) {
   );
 }
 
-export function addChatMessage(aiAvatarWidget, role, text, options = {}) {
+export function addChatMessage(role, text, options = {}) {
   const item = {
-    id: options.id || 'm' + ++aiAvatarWidget.brainEngine.chatSeq,
+    id: options.id || 'm' + ++brainEngine.chatSeq,
     role: role === 'user' ? 'user' : 'assistant',
     text: String(text || '').slice(0, 4000),
     streaming: !!options.streaming,
     pendingTool: options.pendingTool || null,
     pendingChoices: options.pendingChoices || null
   };
-  aiAvatarWidget.brainEngine.chatLog.push(item);
-  if (aiAvatarWidget.brainEngine.chatLog.length > 80) aiAvatarWidget.brainEngine.chatLog.shift();
+  brainEngine.chatLog.push(item);
+  if (brainEngine.chatLog.length > 80) brainEngine.chatLog.shift();
 
-  if (typeof aiAvatarWidget.brainEngine.onAddChatMessage === 'function') {
-    aiAvatarWidget.brainEngine.onAddChatMessage(item);
+  if (typeof brainEngine.onAddChatMessage === 'function') {
+    brainEngine.onAddChatMessage(item);
   }
-  if (typeof aiAvatarWidget.brainEngine.onChatHistoryChanged === 'function') {
-    aiAvatarWidget.brainEngine.onChatHistoryChanged(aiAvatarWidget.brainEngine.chatLog);
+  if (typeof brainEngine.onChatHistoryChanged === 'function') {
+    brainEngine.onChatHistoryChanged(brainEngine.chatLog);
   }
   return item.id;
 }
 
-export function updateChatMessage(aiAvatarWidget, id, text, streaming) {
-  const item = aiAvatarWidget.brainEngine.chatLog.find((m) => m.id === id);
+export function updateChatMessage(id, text, streaming) {
+  const item = brainEngine.chatLog.find((m) => m.id === id);
   if (!item) {
-    return addChatMessage(aiAvatarWidget, 'assistant', text, { id, streaming });
+    return addChatMessage('assistant', text, { id, streaming });
   }
   item.text = String(text || '').slice(0, 4000);
   item.streaming = !!streaming;
-  if (typeof aiAvatarWidget.brainEngine.onUpdateChatMessage === 'function') {
-    aiAvatarWidget.brainEngine.onUpdateChatMessage(item);
+  if (typeof brainEngine.onUpdateChatMessage === 'function') {
+    brainEngine.onUpdateChatMessage(item);
   }
-  if (typeof aiAvatarWidget.brainEngine.onChatHistoryChanged === 'function') {
-    aiAvatarWidget.brainEngine.onChatHistoryChanged(aiAvatarWidget.brainEngine.chatLog);
+  if (typeof brainEngine.onChatHistoryChanged === 'function') {
+    brainEngine.onChatHistoryChanged(brainEngine.chatLog);
   }
   return item.id;
 }
 
-export async function aiProviderLLMBrain(aiAvatarWidget = null, question) {
+export async function aiProviderLLMBrain(question) {
   try {
-    aiAvatarWidget.speechEngine.spokenDisplayText = '讓我想想…';
+    brainEngine.speech.spokenDisplayText = '讓我想想…';
 
-    aiAvatarWidget.skinEngine.gestureName = 'thinking';
+    if (brainEngine.skin) {
+      brainEngine.skin.gestureName = 'thinking';
+    }
 
-    const out = await aiAvatarWidget.brainEngine.aiProvider.chat(
-      aiAvatarWidget.buildLLMMessages(aiAvatarWidget, question)
+    const out = await brainEngine.aiProvider.chat(
+      brainEngine.defaultBuildLLMMessages(question)
     );
     if (out?.trim?.()) {
-      return sayAnswer(aiAvatarWidget, out.trim());
+      return sayAnswer(out.trim());
     }
     throw new Error('AI Provider response is empty');
   } catch (e) {
@@ -995,28 +999,26 @@ export async function aiProviderLLMBrain(aiAvatarWidget = null, question) {
   }
 }
 
-export function defaultBuildLLMMessages(aiAvatarWidget = null, question) {
-  const context = topK(aiAvatarWidget, question, 3)
+export function defaultBuildLLMMessages(question) {
+  const context = topK(question, 3)
     .map((e) => 'Q：' + e.q + '\nA：' + e.a)
     .join('\n---\n');
   const RAG =
     '優先依據【參考資料】回答；資料沒有的就用常識簡短回應，不確定就老實說不知道。\n\n【參考資料】\n' +
     (context || '（無）');
   const systemContext =
-    aiAvatarWidget?.avatarMode === AVATAR_MODE_MAP.companion
+    brainEngine?.avatarMode === AVATAR_MODE_MAP.companion
       ? '你是這個網站的陪伴型語音虛擬人，親切、口語、繁體中文、每次最多兩三句。你記得訪客先前的對話' +
-        (aiAvatarWidget?.brainEngine?.mem?.data?.name
-          ? '，訪客叫「' +
-            aiAvatarWidget.brainEngine.mem.data.name +
-            '」，可自然稱呼'
+        (brainEngine?.mem?.data?.name
+          ? '，訪客叫「' + brainEngine.mem.data.name + '」，可自然稱呼'
           : '') +
         '。' +
         RAG
       : '你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請用繁體中文、口語、最多兩三句話簡短回答。' +
         RAG;
   const msgs = [{ role: 'system', content: systemContext }];
-  if (aiAvatarWidget?.brainEngine?.mem?.isCompanion === true) {
-    for (const h of aiAvatarWidget.brainEngine.mem.data.history) {
+  if (brainEngine?.mem?.isCompanion === true) {
+    for (const h of brainEngine.mem.data.history) {
       msgs.push({ role: h.role, content: h.content });
     }
   }
@@ -1024,57 +1026,59 @@ export function defaultBuildLLMMessages(aiAvatarWidget = null, question) {
   return msgs;
 }
 
-export async function webLLMBrain(aiAvatarWidget = null, question) {
+export async function webLLMBrain(question) {
   try {
-    aiAvatarWidget.speechEngine.spokenDisplayText = '讓我想想…';
+    brainEngine.speech.spokenDisplayText = '讓我想想…';
 
-    aiAvatarWidget.skinEngine.gestureName = 'thinking';
+    if (brainEngine.skin) {
+      brainEngine.skin.gestureName = 'thinking';
+    }
 
-    const sid = aiAvatarWidget.speechEngine.ttsMuted
+    const sid = brainEngine.speech.ttsMuted
       ? 0
-      : aiAvatarWidget.speechEngine.beginSpeech(); // 靜音時只更新字幕、不進語音佇列
+      : brainEngine.speech.beginSpeech(); // 靜音時只更新字幕、不進語音佇列
     const st = { buf: '' };
     const streamMessageId = 'stream-' + Date.now();
-    const out = await aiAvatarWidget.brainEngine.llm.chat(
-      aiAvatarWidget.buildLLMMessages(aiAvatarWidget, question),
+    const out = await brainEngine.llm.chat(
+      brainEngine.defaultBuildLLMMessages(question),
       (delta, sofar) => {
-        aiAvatarWidget.speechEngine.spokenDisplayText = sofar; // 邊生成邊更新字幕
-        updateChatMessage(aiAvatarWidget, streamMessageId, sofar, true);
-        
+        brainEngine.speech.spokenDisplayText = sofar; // 邊生成邊更新字幕
+        updateChatMessage(streamMessageId, sofar, true);
+
         // Always evaluate emotion from text during stream, even if TTS is muted
-        if (!sid || sid === aiAvatarWidget.speechEngine.speakSeq) {
-          aiAvatarWidget.setEmotionFromText(sofar);
+        if (!sid || sid === brainEngine.speech.speakSeq) {
+          brainEngine.setEmotionFromText(sofar);
         }
 
         if (sid) {
-          if (sid !== aiAvatarWidget.speechEngine.speakSeq) {
+          if (sid !== brainEngine.speech.speakSeq) {
             return; // 中途被打斷 → 剩下的只當字幕
           }
           st.buf += delta;
-          for (const s of aiAvatarWidget.speechEngine.drainSentences(st, false)) {
-            aiAvatarWidget.speechEngine.pushSpeech(sid, s);
+          for (const s of brainEngine.speech.drainSentences(st, false)) {
+            brainEngine.speech.pushSpeech(sid, s);
           }
         }
       }
     );
     if (out?.trim?.()) {
-      aiAvatarWidget.brainEngine.mem.addTurn('assistant', out.trim());
-      updateChatMessage(aiAvatarWidget, streamMessageId, out.trim(), false);
-      if (sid && sid === aiAvatarWidget.speechEngine.speakSeq) {
-        for (const s of aiAvatarWidget.speechEngine.drainSentences(st, true)) {
-          aiAvatarWidget.speechEngine.pushSpeech(sid, s);
+      brainEngine.mem.addTurn('assistant', out.trim());
+      updateChatMessage(streamMessageId, out.trim(), false);
+      if (sid && sid === brainEngine.speech.speakSeq) {
+        for (const s of brainEngine.speech.drainSentences(st, true)) {
+          brainEngine.speech.pushSpeech(sid, s);
         }
-        aiAvatarWidget.speechEngine.endSpeech(sid);
+        brainEngine.speech.endSpeech(sid);
       } else if (!sid) {
-        aiAvatarWidget.speechEngine.onUtteranceEnd(); // 靜音：沒有語音收尾 → 手動觸發對話迴圈 hook
+        brainEngine.speech.onUtteranceEnd(); // 靜音：沒有語音收尾 → 手動觸發對話迴圈 hook
       }
-      if (typeof aiAvatarWidget?.speechEngine.onSpeakingEnd === 'function') {
-        aiAvatarWidget.speechEngine.onSpeakingEnd(out.trim(), aiAvatarWidget);
+      if (typeof brainEngine?.speech?.onSpeakingEnd === 'function') {
+        brainEngine.speech.onSpeakingEnd(out.trim());
       }
       return;
     }
     if (sid) {
-      aiAvatarWidget.speechEngine.endSpeech(sid); // 空回答：收掉這條 session，往下走檢索
+      brainEngine.speech.endSpeech(sid); // 空回答：收掉這條 session，往下走檢索
     }
     throw new Error('WebLLM response is empty');
   } catch (e) {
@@ -1083,38 +1087,32 @@ export async function webLLMBrain(aiAvatarWidget = null, question) {
   }
 }
 
-export async function handleAnswer(aiAvatarWidget = null, question) {
+export async function handleAnswer(question) {
   const safeQuestion = (question || '').trim();
   if (!safeQuestion) {
-    aiAvatarWidget.speechEngine.spokenAudioText =
-      '我好像沒聽清楚，可以再說一次嗎？';
+    brainEngine.speech.spokenAudioText = '我好像沒聽清楚，可以再說一次嗎？';
     return;
   }
   try {
     // 1) AI 伺服器大腦（最聰明，優先；整段生成後逐句講）
-    if (
-      aiAvatarWidget.brainEngine.aiProvider?.enabled &&
-      aiAvatarWidget.brainEngine.aiProvider.ready
-    ) {
-      return await aiProviderLLMBrain(aiAvatarWidget, question);
+    if (brainEngine.aiProvider?.enabled && brainEngine.aiProvider.ready) {
+      return await aiProviderLLMBrain(question);
     }
     // 2) 瀏覽器內 WebLLM：串流 → 每切出一個完整句就丟進逐句佇列開講（首句延遲大幅縮短）
-    if (
-      aiAvatarWidget.brainEngine.llm?.state === aiAvatarWidget.STATE_MAP.READY
-    ) {
-      return await webLLMBrain(aiAvatarWidget, question);
+    if (brainEngine.llm?.state === brainEngine.STATE_MAP.READY) {
+      return await webLLMBrain(question);
     }
   } catch (_error) {
     console.error(_error);
   }
 
   // 3) 檢索式後備（零金鑰、永遠可用）
-  sayAnswer(aiAvatarWidget, handleThinking(aiAvatarWidget, safeQuestion));
+  sayAnswer(handleThinking(safeQuestion));
 }
 
-export function sayAnswer(aiAvatarWidget, text) {
+export function sayAnswer(text) {
   if (!text) return;
-  aiAvatarWidget.brainEngine.mem.addTurn('assistant', text);
-  addChatMessage(aiAvatarWidget, 'assistant', text);
-  aiAvatarWidget.speechEngine.speak(text);
+  brainEngine.mem.addTurn('assistant', text);
+  addChatMessage('assistant', text);
+  brainEngine.speech.speak(text);
 }

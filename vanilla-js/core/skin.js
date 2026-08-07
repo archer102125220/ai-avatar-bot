@@ -1,4 +1,5 @@
 import { EMO_TARGET_MAP } from './brain';
+import { createBaseStore } from './store';
 
 // skin.js
 export const ENGINE_MODE_MAP = {
@@ -269,7 +270,7 @@ async function bootAvatar(skinEngine, modelUrl = DEFAULT_MODEL_URL) {
 // skin.js
 // TODO: 深入研究怎麼移除 aiAvatarWidget ，讓 function 更乾淨
 // ===== 3D 皮：VRM（three + three-vrm，ESM 動態 import）=====
-async function bootVRM(skinEngine, aiAvatarWidget = null, setting = {}) {
+async function bootVRM(skinEngine, setting = {}) {
   const stageEl = skinEngine?.stageEl;
   const {
     bow = '',
@@ -455,7 +456,7 @@ async function bootVRM(skinEngine, aiAvatarWidget = null, setting = {}) {
           // 待機變化：偶爾環顧/放鬆，不死板
           if (
             !waving &&
-            !aiAvatarWidget.speechEngine.isSpeaking &&
+            !skinEngine.getState().isSpeaking &&
             Math.random() < 0.65
           ) {
             playGesture(Math.random() < 0.5 ? 'look' : 'relax');
@@ -586,7 +587,7 @@ async function bootVRM(skinEngine, aiAvatarWidget = null, setting = {}) {
           let spY = Math.sin(elapsedTime * 0.5) * 0.012;
           let hdY = mx * 0.3;
           let hdX = my * 0.12 + Math.sin(elapsedTime * 0.5) * 0.01;
-          if (aiAvatarWidget.speechEngine.isSpeaking === true) {
+          if (skinEngine.getState().isSpeaking === true) {
             // 講話時：身體/頭/手持續小動作（疊在站姿上）
             const ts = elapsedTime * 3.0;
             spY += Math.sin(ts) * 0.03;
@@ -743,7 +744,7 @@ function loadVRMFile(skinEngine = null, file) {
   skinEngine.engineMode = ENGINE_MODE_MAP.threeDimensional;
 }
 
-export function initSkinEngine(setting = {}, aiAvatarWidget) {
+export function initSkinEngine(setting = {}) {
   const {
     stageEl,
     modelUrl = '',
@@ -779,7 +780,34 @@ export function initSkinEngine(setting = {}, aiAvatarWidget) {
   const safeVrmUrl =
     vrmUrl || (/\.vrm($|\?)/i.test(safeModelUrl) ? safeModelUrl : '');
 
+  const store = createBaseStore({
+    gender: setting.gender || DEFAULT_GENDER,
+    emotion: 'neutral',
+    isSpeaking: false
+  });
+
   const skinEngine = {
+    // --- Store Pattern Methods ---
+    getState: store.getState,
+    subscribe: store.subscribe,
+    setGender: (val) => {
+      store.setState({ gender: val });
+      // Sync internal logic
+      if (val === GENDER_MAP.female) {
+        skinEngine.modelUrl = DEFAULT_FEMALE_MODEL_URL;
+      } else if (val === GENDER_MAP.male) {
+        skinEngine.modelUrl = DEFAULT_MALE_MODEL_URL;
+      }
+    },
+    setEmotion: (val) => {
+      store.setState({ emotion: val });
+      skinEngine.gestureName = val;
+    },
+    setIsSpeaking: (val) => {
+      store.setState({ isSpeaking: val });
+    },
+    // ----------------------------
+
     get stageEl() {
       return stageEl;
     },
@@ -965,7 +993,7 @@ export function initSkinEngine(setting = {}, aiAvatarWidget) {
           try {
             this.renderer =
               newEngineMode === ENGINE_MODE_MAP.threeDimensional
-                ? await bootVRM(this, aiAvatarWidget, this.modelSettings)
+                ? await bootVRM(this, setting)
                 : await bootAvatar(this, this.modelUrl);
           } catch (error) {
             console.error(error);

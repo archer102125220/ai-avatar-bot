@@ -323,11 +323,11 @@ export function copyText(text) {
   return Promise.resolve();
 }
 
-export function setHistoryOpen(aiAvatarWidget, open) {
-  const panel = aiAvatarWidget.uiDom.historyPanelEl;
-  const btn = aiAvatarWidget.uiDom.historyButtonEl;
-  const suggestions = aiAvatarWidget.uiDom.suggestionsEl;
-  const bubble = aiAvatarWidget.uiDom.bubbleEl;
+export function setHistoryOpen(context, open) {
+  const panel = context.uiDom.historyPanelEl;
+  const btn = context.uiDom.historyButtonEl;
+  const suggestions = context.uiDom.suggestionsEl;
+  const bubble = context.uiDom.bubbleEl;
 
   if (panel instanceof HTMLElement && btn instanceof HTMLElement) {
     if (open) {
@@ -342,8 +342,7 @@ export function setHistoryOpen(aiAvatarWidget, open) {
   if (suggestions instanceof HTMLElement) {
     suggestions.style.display = open
       ? 'none'
-      : aiAvatarWidget.speechEngine.isListening ||
-          aiAvatarWidget.speechEngine.convoOn
+      : context.speechEngine.isListening || context.speechEngine.convoOn
         ? 'none'
         : 'flex';
   }
@@ -352,7 +351,7 @@ export function setHistoryOpen(aiAvatarWidget, open) {
     if (open) {
       bubble.style.opacity = '0';
       bubble.style.pointerEvents = 'none';
-      renderHistory(aiAvatarWidget);
+      renderHistory(context);
     } else {
       bubble.style.opacity = '';
       bubble.style.pointerEvents = '';
@@ -360,14 +359,13 @@ export function setHistoryOpen(aiAvatarWidget, open) {
   }
 }
 
-export function renderHistory(aiAvatarWidget) {
-  const list =
-    aiAvatarWidget.uiDom.historyPanelEl?.querySelector('#history-list');
+export function renderHistory(context) {
+  const list = context.uiDom.historyPanelEl?.querySelector('#history-list');
   if (!list) return;
 
   list.replaceChildren();
 
-  if (!aiAvatarWidget.brainEngine.chatLog || !aiAvatarWidget.brainEngine.chatLog.length) {
+  if (!context.brainEngine.chatLog || !context.brainEngine.chatLog.length) {
     const empty = document.createElement('div');
     empty.className = 'history-empty';
     empty.textContent = '還沒有對話。問我一個問題，紀錄會出現在這裡。';
@@ -375,7 +373,7 @@ export function renderHistory(aiAvatarWidget) {
     return;
   }
 
-  aiAvatarWidget.brainEngine.chatLog.forEach((item) => {
+  context.brainEngine.chatLog.forEach((item) => {
     const row = document.createElement('div');
     row.className = 'history-item ' + item.role;
 
@@ -395,9 +393,9 @@ export function renderHistory(aiAvatarWidget) {
       no.type = 'button';
       no.className = 'cancel';
       no.textContent = '取消';
-      
-      yes.onclick = () => aiAvatarWidget.toolsEngine.executePendingTool(item.id);
-      no.onclick = () => aiAvatarWidget.toolsEngine.cancelPendingTool(item.id);
+
+      yes.onclick = () => context.toolsEngine.executePendingTool(item.id);
+      no.onclick = () => context.toolsEngine.cancelPendingTool(item.id);
 
       confirm.append(yes, no);
       row.appendChild(confirm);
@@ -409,7 +407,7 @@ export function renderHistory(aiAvatarWidget) {
         button.type = 'button';
         button.className = 'confirm';
         button.textContent = choice.tool.label;
-        button.onclick = () => aiAvatarWidget.toolsEngine.chooseTool(item.id, index);
+        button.onclick = () => context.toolsEngine.chooseTool(item.id, index);
         choices.appendChild(button);
       });
       row.appendChild(choices);
@@ -429,11 +427,11 @@ export function renderHistory(aiAvatarWidget) {
 
       copy.onclick = () => {
         copyText(item.text).then(() => {
-          aiAvatarWidget.speechEngine.spokenDisplayText = '已複製回答';
+          context.speechEngine.spokenDisplayText = '已複製回答';
         });
       };
       replay.onclick = () => {
-        aiAvatarWidget.speechEngine.speak(item.text);
+        context.speechEngine.speak(item.text);
       };
 
       tools.append(copy, replay);
@@ -446,8 +444,8 @@ export function renderHistory(aiAvatarWidget) {
   list.scrollTop = list.scrollHeight;
 }
 
-export function initSkinModeChangeButton(aiAvatarWidget = null, has2D, has3D) {
-  const engineButtonEl = aiAvatarWidget?.uiDom?.engineButtonEl;
+export function initSkinModeChangeButton(context = null, has2D, has3D) {
+  const engineButtonEl = context?.uiDom?.engineButtonEl;
   if (engineButtonEl instanceof HTMLElement === false) {
     console.error(
       '[aiAvatar initSkinModeChangeButton] engineButtonEl is not an HTMLElement'
@@ -465,35 +463,35 @@ export function initSkinModeChangeButton(aiAvatarWidget = null, has2D, has3D) {
     if (engineButtonEl instanceof HTMLElement) {
       engineButtonEl.style.display = '';
       engineButtonEl.onclick = () => {
-        aiAvatarWidget.skinEngine.engineMode = aiAvatarWidget.ENGINE_MODE_MAP.threeDimensional
-          ? aiAvatarWidget.ENGINE_MODE_MAP.twoDimensional
-          : aiAvatarWidget.ENGINE_MODE_MAP.threeDimensional;
+        context.skinEngine.engineMode = context.ENGINE_MODE_MAP.threeDimensional
+          ? context.ENGINE_MODE_MAP.twoDimensional
+          : context.ENGINE_MODE_MAP.threeDimensional;
       };
     }
   }
 }
 
-export function renderSuggestions(aiAvatarWidget = null) {
-  const suggestions = aiAvatarWidget.uiDom.suggestionsEl;
+export function renderSuggestions(context = null) {
+  const suggestions = context.uiDom.suggestionsEl;
   if (suggestions instanceof HTMLElement === false) {
     console.warn(
-      '[aiAvatar renderSuggestions] aiAvatarWidget.suggestionsEl is not an HTMLElement'
+      '[aiAvatar renderSuggestions] context.suggestionsEl is not an HTMLElement'
     );
     return;
   }
 
   const SUGGESTIONS =
-    Array.isArray(aiAvatarWidget.suggestedQuestions) &&
-    aiAvatarWidget.suggestedQuestions.length > 0
-      ? aiAvatarWidget.suggestedQuestions
-      : aiAvatarWidget.avatarMode === aiAvatarWidget.AVATAR_MODE_MAP.companion
-        ? Array.isArray(aiAvatarWidget.companionSuggestedQuestions) &&
-          aiAvatarWidget.companionSuggestedQuestions.length > 0
-          ? aiAvatarWidget.companionSuggestedQuestions
+    Array.isArray(context.suggestedQuestions) &&
+    context.suggestedQuestions.length > 0
+      ? context.suggestedQuestions
+      : context.avatarMode === context.AVATAR_MODE_MAP.companion
+        ? Array.isArray(context.companionSuggestedQuestions) &&
+          context.companionSuggestedQuestions.length > 0
+          ? context.companionSuggestedQuestions
           : ['今天過得好嗎？', '跟我聊聊天', '說個笑話', '你會記得我嗎？']
-        : Array.isArray(aiAvatarWidget.assistantSuggestedQuestions) &&
-            aiAvatarWidget.assistantSuggestedQuestions.length > 0
-          ? aiAvatarWidget.assistantSuggestedQuestions
+        : Array.isArray(context.assistantSuggestedQuestions) &&
+            context.assistantSuggestedQuestions.length > 0
+          ? context.assistantSuggestedQuestions
           : [
               '怎麼安裝？',
               '怎麼換成我的角色？',
@@ -505,10 +503,10 @@ export function renderSuggestions(aiAvatarWidget = null) {
   const label = document.createElement('p');
   label.classList.add('sg-label');
   label.textContent =
-    aiAvatarWidget.suggestedTitle ||
-    (aiAvatarWidget.avatarMode === aiAvatarWidget.AVATAR_MODE_MAP.companion
-      ? aiAvatarWidget.companionSuggestedTitle || '💬 可以跟我聊：'
-      : aiAvatarWidget.assistantSuggestedTitle || '💬 你可以問我：');
+    context.suggestedTitle ||
+    (context.avatarMode === context.AVATAR_MODE_MAP.companion
+      ? context.companionSuggestedTitle || '💬 可以跟我聊：'
+      : context.assistantSuggestedTitle || '💬 你可以問我：');
 
   suggestions.appendChild(label);
   SUGGESTIONS.forEach((suggestion) => {
@@ -517,17 +515,17 @@ export function renderSuggestions(aiAvatarWidget = null) {
     button.classList.add('sugg');
     button.textContent = suggestion;
     button.onclick = () => {
-      aiAvatarWidget.speechEngine.handleUser(suggestion.replace(/？$/, ''));
+      context.speechEngine.handleUser(suggestion.replace(/？$/, ''));
     };
     suggestions.appendChild(button);
   });
 }
 
-export function bindTyping(aiAvatarWidget = null) {
-  const typeInput = aiAvatarWidget?.uiDom?.questionInputEl;
+export function bindTyping(context = null) {
+  const typeInput = context?.uiDom?.questionInputEl;
   if (typeInput instanceof HTMLElement === false) {
     console.error(
-      '[aiAvatar bindTyping] aiAvatarWidget?.uiDom?.questionInputEl is not an HTMLElement'
+      '[aiAvatar bindTyping] context?.uiDom?.questionInputEl is not an HTMLElement'
     );
     return;
   }
@@ -538,9 +536,9 @@ export function bindTyping(aiAvatarWidget = null) {
       return;
     }
     typeInput.value = '';
-    aiAvatarWidget.speechEngine.handleUser(text);
+    context.speechEngine.handleUser(text);
   };
-  aiAvatarWidget.uiDom.sendButtonEl.onclick = send;
+  context.uiDom.sendButtonEl.onclick = send;
   typeInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && !event.isComposing && event.keyCode !== 229) {
       event.preventDefault();
@@ -549,51 +547,54 @@ export function bindTyping(aiAvatarWidget = null) {
   });
 }
 
-export function bindUiEvent(aiAvatarWidget = null) {
-  const uiDom = aiAvatarWidget?.uiDom || {};
+export function bindUiEvent(context = null) {
+  const uiDom = context?.uiDom || {};
 
   if (uiDom.minimalEl instanceof HTMLElement) {
     uiDom.minimalEl.onclick = function () {
-      aiAvatarWidget.isMinimal = false;
+      context.isMinimal = false;
     };
   }
 
   // ===== 控制列 =====
   if (uiDom.closeButtonEl instanceof HTMLElement) {
     uiDom.closeButtonEl.onclick = () => {
-      if (aiAvatarWidget.isIframe === true) {
-        aiAvatarWidget.onMinimalTrigger(true, aiAvatarWidget);
+      if (context.isIframe === true) {
+        context.onMinimalTrigger(true, context);
       } else {
-        aiAvatarWidget.isMinimal = true;
+        context.isMinimal = true;
       }
     };
   }
 
   if (uiDom.micButtonEl instanceof HTMLElement) {
-        uiDom.micButtonEl.onclick = () => {
-      if (aiAvatarWidget.avatarMode === 'companion') {
-        const isIdle = !aiAvatarWidget.speechEngine.isListening && !aiAvatarWidget.speechEngine.isProcessing;
+    uiDom.micButtonEl.onclick = () => {
+      if (context.avatarMode === 'companion') {
+        const isIdle =
+          !context.speechEngine.isListening &&
+          !context.speechEngine.isProcessing;
         if (isIdle) {
-          aiAvatarWidget.speechEngine.convoOn = true;
-          aiAvatarWidget.speechEngine.noSpeechRuns = 0;
-          aiAvatarWidget.speechEngine.startListening();
+          context.speechEngine.convoOn = true;
+          context.speechEngine.noSpeechRuns = 0;
+          context.speechEngine.startListening();
         } else {
-          aiAvatarWidget.speechEngine.convoOn = false;
-          aiAvatarWidget.speechEngine.stopVoiceSession('即時語音對話已結束。');
+          context.speechEngine.convoOn = false;
+          context.speechEngine.stopVoiceSession('即時語音對話已結束。');
         }
         return;
       }
-      
+
       // 非 companion 模式
-      if (aiAvatarWidget.speechEngine.isSpeaking) {
-        aiAvatarWidget.speechEngine.interruptForVoice();
-        aiAvatarWidget.speechEngine.startListening();
+      if (context.speechEngine.isSpeaking) {
+        context.speechEngine.interruptForVoice();
+        context.speechEngine.startListening();
       } else {
-        const isActive = aiAvatarWidget.speechEngine.isListening || aiAvatarWidget.speechEngine.isProcessing;
+        const isActive =
+          context.speechEngine.isListening || context.speechEngine.isProcessing;
         if (isActive) {
-          aiAvatarWidget.speechEngine.stopVoiceSession('即時語音對話已結束。');
+          context.speechEngine.stopVoiceSession('即時語音對話已結束。');
         } else {
-          aiAvatarWidget.speechEngine.startListening();
+          context.speechEngine.startListening();
         }
       }
     };
@@ -602,18 +603,13 @@ export function bindUiEvent(aiAvatarWidget = null) {
   if (uiDom.muteButtonEl instanceof HTMLElement) {
     uiDom.muteButtonEl.onclick = (event) => {
       const el = event.target;
-      aiAvatarWidget.speechEngine.ttsMuted =
-        !aiAvatarWidget.speechEngine.ttsMuted;
-      el.textContent = aiAvatarWidget.speechEngine.ttsMuted ? '🔇' : '🔊';
-      el.setAttribute(
-        'aria-pressed',
-        String(aiAvatarWidget.speechEngine.ttsMuted)
-      );
-      if (aiAvatarWidget.speechEngine.ttsMuted === true) {
-        aiAvatarWidget.speechEngine.stopSpeaking(); // 立刻停掉正在播的（神經語音 + 瀏覽器語音）
+      context.speechEngine.ttsMuted = !context.speechEngine.ttsMuted;
+      el.textContent = context.speechEngine.ttsMuted ? '🔇' : '🔊';
+      el.setAttribute('aria-pressed', String(context.speechEngine.ttsMuted));
+      if (context.speechEngine.ttsMuted === true) {
+        context.speechEngine.stopSpeaking(); // 立刻停掉正在播的（神經語音 + 瀏覽器語音）
       }
-      aiAvatarWidget.speechEngine.spokenDisplayText = aiAvatarWidget
-        .speechEngine.ttsMuted
+      context.speechEngine.spokenDisplayText = context.speechEngine.ttsMuted
         ? '已靜音'
         : '已開啟語音';
     };
@@ -623,37 +619,37 @@ export function bindUiEvent(aiAvatarWidget = null) {
     uiDom.speedButtonEl.onclick = (event) => {
       const el = event.target;
       const steps = [0.9, 1.0, 1.2, 1.4];
-      aiAvatarWidget.speechEngine.ttsRate =
+      context.speechEngine.ttsRate =
         steps[
-          (steps.indexOf(aiAvatarWidget.speechEngine.ttsRate) + 1) %
-            steps.length
+          (steps.indexOf(context.speechEngine.ttsRate) + 1) % steps.length
         ] || 1.0;
-      el.textContent = aiAvatarWidget.speechEngine.ttsRate.toFixed(1) + '×';
-      aiAvatarWidget.speechEngine.spokenDisplayText =
-        '語速：' + aiAvatarWidget.speechEngine.ttsRate.toFixed(1) + '×';
+      el.textContent = context.speechEngine.ttsRate.toFixed(1) + '×';
+      context.speechEngine.spokenDisplayText =
+        '語速：' + context.speechEngine.ttsRate.toFixed(1) + '×';
     };
   }
 
   if (uiDom.langButtonEl instanceof HTMLElement) {
     uiDom.langButtonEl.onclick = () => {
       const locales = ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'];
-      const current = aiAvatarWidget.speechEngine.currentLocale || 'zh-TW';
+      const current = context.speechEngine.currentLocale || 'zh-TW';
       const next = locales[(locales.indexOf(current) + 1) % locales.length];
-      aiAvatarWidget.speechEngine.setLocale(next);
+      context.speechEngine.setLocale(next);
 
       let msg = '語言：繁體中文';
       if (next === 'en-US') msg = 'Language: English';
       else if (next === 'ja-JP') msg = '言語：日本語';
       else if (next === 'ko-KR') msg = '언어: 한국어';
 
-      aiAvatarWidget.speechEngine.spokenDisplayText = msg;
+      context.speechEngine.spokenDisplayText = msg;
     };
   }
 
   if (uiDom.historyButtonEl instanceof HTMLElement) {
     uiDom.historyButtonEl.onclick = () => {
-      const isOpen = uiDom.historyPanelEl?.getAttribute('css-is-open') === 'true';
-      setHistoryOpen(aiAvatarWidget, !isOpen);
+      const isOpen =
+        uiDom.historyPanelEl?.getAttribute('css-is-open') === 'true';
+      setHistoryOpen(context, !isOpen);
     };
   }
 
@@ -664,13 +660,13 @@ export function bindUiEvent(aiAvatarWidget = null) {
       uiDom.historyPanelEl.querySelector('#btn-history-clear');
 
     if (btnHistoryClose) {
-      btnHistoryClose.onclick = () => setHistoryOpen(aiAvatarWidget, false);
+      btnHistoryClose.onclick = () => setHistoryOpen(context, false);
     }
     if (btnHistoryClear) {
       btnHistoryClear.onclick = () => {
-        aiAvatarWidget.brainEngine.chatLog.length = 0;
-        renderHistory(aiAvatarWidget);
-        aiAvatarWidget.speechEngine.spokenDisplayText = '已清除這次的聊天紀錄';
+        context.brainEngine.chatLog.length = 0;
+        renderHistory(context);
+        context.speechEngine.spokenDisplayText = '已清除這次的聊天紀錄';
       };
     }
   }
@@ -680,10 +676,10 @@ export function bindUiEvent(aiAvatarWidget = null) {
       const el = event.target;
 
       // 啟用 AI 伺服器模式時：🧠 用來顯示狀態 / 重新連線，不下載 WebLLM
-      if (aiAvatarWidget.brainEngine.aiProvider?.enabled === true) {
+      if (context.brainEngine.aiProvider?.enabled === true) {
         const ok =
-          aiAvatarWidget.brainEngine.aiProvider.ready ||
-          (await aiAvatarWidget.brainEngine.aiProvider.ping());
+          context.brainEngine.aiProvider.ready ||
+          (await context.brainEngine.aiProvider.ping());
         // el.textContent = ok ? '🧠本機' : '🧠✗';
         el.textContent = ok ? '🧠✓' : '🧠✗';
         if (ok) {
@@ -692,32 +688,31 @@ export function bindUiEvent(aiAvatarWidget = null) {
           el.removeAttribute('css-llm-on');
         }
         el.setAttribute('aria-pressed', String(ok));
-        aiAvatarWidget.speechEngine.spokenDisplayText = ok
+        context.speechEngine.spokenDisplayText = ok
           ? 'AI 伺服器大腦運作中（' +
-            aiAvatarWidget.brainEngine.aiProvider.model +
+            context.brainEngine.aiProvider.model +
             '）🧠'
           : 'AI 伺服器連不上：確認 AI 伺服器在跑、且 AI_PROVIDER_ORIGINS 已允許這個網站。';
 
         return;
       }
-      if (aiAvatarWidget.brainEngine.llm?.supported !== true) {
-        aiAvatarWidget.speechEngine.spokenDisplayText =
+      if (context.brainEngine.llm?.supported !== true) {
+        context.speechEngine.spokenDisplayText =
           '這個裝置不支援 WebGPU，先用知識庫模式就好（功能一樣可用）。';
         return;
       }
-      if (aiAvatarWidget.brainEngine.llm?.state === aiAvatarWidget.STATE_MAP.READY) {
-        aiAvatarWidget.speechEngine.spokenDisplayText =
-          'AI 大腦已啟用，問我問題吧 🧠';
+      if (context.brainEngine.llm?.state === context.STATE_MAP.READY) {
+        context.speechEngine.spokenDisplayText = 'AI 大腦已啟用，問我問題吧 🧠';
         return;
-      } else if (aiAvatarWidget.brainEngine.llm?.state === aiAvatarWidget.STATE_MAP.LOADING) {
-        aiAvatarWidget.speechEngine.spokenDisplayText =
+      } else if (context.brainEngine.llm?.state === context.STATE_MAP.LOADING) {
+        context.speechEngine.spokenDisplayText =
           'AI 大腦載入中… ' +
-          Math.round(aiAvatarWidget.brainEngine.llm.progress * 100) +
+          Math.round(context.brainEngine.llm.progress * 100) +
           '%';
         return;
       }
 
-      await aiAvatarWidget.brainEngine.llm.load();
+      await context.brainEngine.llm.load();
     };
   }
 }
