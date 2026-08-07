@@ -69,22 +69,6 @@ export {
   DEFAULT_MALE_NEURAL_VOICE
 };
 
-// ui.js | history logic
-
-// Tool router core logic
-
-// brain.js | speech.js
-
-// ui.js
-// 切換用：兩個皮都給(data-model + data-vrm) → 長出 2D/3D 切換鈕。
-// 預設引擎：data-engine 優先；否則有明確 2D 皮就 2D、只有 3D 就 3D。
-
-// skin.js | speech.js
-// 思索很久，考量到計算嘴型的位置是在 skin.js 中的一個動畫循環位置
-// 而計算所需的核心數值卻是在 speech.js 中，因此放在整合檔內是目前的最佳解
-// ===== 共用：每幀算出嘴巴開合 0..1（2D 寫 ParamMouthOpenY、3D 寫 aa 表情，共用同一套計算）=====
-// ui.js
-
 // index.js
 export async function initAvatarBot(optiopns = {}) {
   if (typeof window !== 'object') return;
@@ -266,102 +250,100 @@ export async function initAvatarBot(optiopns = {}) {
   const stageEl = document.createElement('div');
   stageEl.setAttribute('id', 'stage');
 
-  brainEngine = await initBrainEngine(
-    {
-      llmModel,
-      avatarMode,
-      knowledgeUrl,
-      companionKnowledgeUrl,
-      knowledge,
-      companionKnowledge,
-      companionFallback,
-      aiProviderBaseUrl,
-      aiProviderModel,
-      aiProviderCreatedFetchSetting,
-      aiProviderCreatedFetchPayload,
-      aiProviderMaxTokens,
-      aiProviderStream,
+  brainEngine = await initBrainEngine({
+    llmModel,
+    avatarMode,
+    knowledgeUrl,
+    companionKnowledgeUrl,
+    knowledge,
+    companionKnowledge,
+    companionFallback,
+    aiProviderBaseUrl,
+    aiProviderModel,
+    aiProviderCreatedFetchSetting,
+    aiProviderCreatedFetchPayload,
+    aiProviderMaxTokens,
+    aiProviderStream,
 
-      welcomeText: optiopns.welcomeText,
-      companionWelcomeText: optiopns.companionWelcomeText,
-      assistantWelcomeText: optiopns.assistantWelcomeText,
+    welcomeText: optiopns.welcomeText,
+    companionWelcomeText: optiopns.companionWelcomeText,
+    assistantWelcomeText: optiopns.assistantWelcomeText,
 
-      onLlmLoading() {
-        aiAvatarWidget.speechEngine.spokenDisplayText =
-          '開始下載 AI 大腦（約 1GB，只需第一次）…';
-      },
-      onLlmLoadProgress(p) {
-        uiDom.btnLlmEl.textContent =
-          '🧠 ' + Math.round((p.progress || 0) * 100) + '%';
-      },
-      onLlmLoaded() {
-        uiDom.btnLlmEl.textContent = '🧠✓';
-        uiDom.btnLlmEl.setAttribute('css-llm-on', 'true');
-        aiAvatarWidget.speechEngine.spokenAudioText =
-          'AI 大腦啟用完成，現在我可以聊得更自然囉！';
-        aiAvatarWidget.speechEngine.spokenDisplayText =
-          'AI 大腦啟用完成，現在我可以聊得更自然囉！';
-      },
-      onLlmLoadError(error) {
-        uiDom.btnLlmEl.textContent = '🧠✗';
-        aiAvatarWidget.speechEngine.spokenDisplayText =
-          'AI 大腦載入失敗：' + (error?.message || error);
-      },
-      onAiProviderConnecting() {
-        const btnLlmEl = uiDom.btnLlmEl;
-        if (btnLlmEl instanceof HTMLElement) {
-          btnLlmEl.textContent = '🧠…';
-          btnLlmEl.title = 'AI 伺服器大腦（連線中）';
-        }
-      },
-      onAiProviderConnected(response, _fetchSetting, aiProvider) {
-        const ok = response?.ok || false;
-        const btnLlmEl = uiDom.btnLlmEl;
+    onLlmLoading() {
+      aiAvatarWidget.speechEngine.spokenDisplayText =
+        '開始下載 AI 大腦（約 1GB，只需第一次）…';
+    },
+    onLlmLoadProgress(p) {
+      uiDom.btnLlmEl.textContent =
+        '🧠 ' + Math.round((p.progress || 0) * 100) + '%';
+    },
+    onLlmLoaded() {
+      uiDom.btnLlmEl.textContent = '🧠✓';
+      uiDom.btnLlmEl.setAttribute('css-llm-on', 'true');
+      aiAvatarWidget.speechEngine.spokenAudioText =
+        'AI 大腦啟用完成，現在我可以聊得更自然囉！';
+      aiAvatarWidget.speechEngine.spokenDisplayText =
+        'AI 大腦啟用完成，現在我可以聊得更自然囉！';
+    },
+    onLlmLoadError(error) {
+      uiDom.btnLlmEl.textContent = '🧠✗';
+      aiAvatarWidget.speechEngine.spokenDisplayText =
+        'AI 大腦載入失敗：' + (error?.message || error);
+    },
+    onAiProviderConnecting() {
+      const btnLlmEl = uiDom.btnLlmEl;
+      if (btnLlmEl instanceof HTMLElement) {
+        btnLlmEl.textContent = '🧠…';
+        btnLlmEl.title = 'AI 伺服器大腦（連線中）';
+      }
+    },
+    onAiProviderConnected(response, _fetchSetting, aiProvider) {
+      const ok = response?.ok || false;
+      const btnLlmEl = uiDom.btnLlmEl;
 
-        if (btnLlmEl instanceof HTMLElement) {
-          btnLlmEl.textContent = ok ? '🧠✓' : '🧠✗';
-          if (ok) {
-            btnLlmEl.setAttribute('css-llm-on', 'true');
-          } else {
-            btnLlmEl.removeAttribute('css-llm-on');
-          }
-          btnLlmEl.setAttribute('aria-pressed', String(ok));
-          btnLlmEl.title = ok
-            ? 'AI 伺服器：已連線 ' + aiProvider.model
-            : 'AI 伺服器連不上（檢查 AI 伺服器是否在跑 / CORS）';
+      if (btnLlmEl instanceof HTMLElement) {
+        btnLlmEl.textContent = ok ? '🧠✓' : '🧠✗';
+        if (ok) {
+          btnLlmEl.setAttribute('css-llm-on', 'true');
+        } else {
+          btnLlmEl.removeAttribute('css-llm-on');
         }
-        if (ok === true) {
-          setTimeout(() => {
-            aiAvatarWidget.speechEngine.spokenDisplayText =
-              '已接上 AI 伺服器大腦（' +
-              brainEngine.aiProvider.model +
-              '）🧠 問我問題吧！';
-          }, 1300);
-        }
-      },
-      onAddChatMessage(item) {
-        if (
-          aiAvatarWidget.uiDom.historyPanelEl?.getAttribute('css-is-open') ===
-          'true'
-        ) {
-          renderHistory(aiAvatarWidget);
-        }
-      },
-      onUpdateChatMessage(item) {
-        if (
-          aiAvatarWidget.uiDom.historyPanelEl?.getAttribute('css-is-open') ===
-          'true'
-        ) {
-          renderHistory(aiAvatarWidget);
-        }
-      },
-      onChatHistoryChanged(chatLog) {
-        // 這邊可以讓開發者自行註冊或給未來的全域事件處理用
-      },
-      getSkin: () => skinEngine,
-      getSpeech: () => speechEngine
-    }
-  );
+        btnLlmEl.setAttribute('aria-pressed', String(ok));
+        btnLlmEl.title = ok
+          ? 'AI 伺服器：已連線 ' + aiProvider.model
+          : 'AI 伺服器連不上（檢查 AI 伺服器是否在跑 / CORS）';
+      }
+      if (ok === true) {
+        setTimeout(() => {
+          aiAvatarWidget.speechEngine.spokenDisplayText =
+            '已接上 AI 伺服器大腦（' +
+            brainEngine.aiProvider.model +
+            '）🧠 問我問題吧！';
+        }, 1300);
+      }
+    },
+    onAddChatMessage(item) {
+      if (
+        aiAvatarWidget.uiDom.historyPanelEl?.getAttribute('css-is-open') ===
+        'true'
+      ) {
+        renderHistory(aiAvatarWidget);
+      }
+    },
+    onUpdateChatMessage(item) {
+      if (
+        aiAvatarWidget.uiDom.historyPanelEl?.getAttribute('css-is-open') ===
+        'true'
+      ) {
+        renderHistory(aiAvatarWidget);
+      }
+    },
+    onChatHistoryChanged(chatLog) {
+      // 這邊可以讓開發者自行註冊或給未來的全域事件處理用
+    },
+    getSkin: () => skinEngine,
+    getSpeech: () => speechEngine
+  });
 
   speechEngine = initSpeechEngine({
     ttsEndpoint: ttsEndpoint || DEFAULT_TTS_ENDPOINT,

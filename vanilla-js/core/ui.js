@@ -25,14 +25,38 @@ export function initUi(container, stageEl) {
   historyPanelEl.setAttribute('id', 'history-panel');
   historyPanelEl.setAttribute('aria-label', '聊天紀錄');
   historyPanelEl.setAttribute('aria-hidden', 'true');
-  historyPanelEl.innerHTML = `
-    <div class="history-head">
-      <div class="history-title">聊天紀錄<span class="history-note">只保留在這次開啟期間</span></div>
-      <button class="history-action" id="btn-history-clear" type="button">清除</button>
-      <button class="history-action" id="btn-history-close" type="button" aria-label="關閉聊天紀錄">✕</button>
-    </div>
-    <div id="history-list" role="log" aria-live="polite"></div>
-  `;
+
+  const historyHead = document.createElement('div');
+  historyHead.setAttribute('class', 'history-head');
+  const historyTitle = document.createElement('p');
+  historyTitle.setAttribute('class', 'history-title');
+  historyTitle.textContent = '聊天紀錄';
+  const historyNote = document.createElement('span');
+  historyNote.setAttribute('class', 'history-note');
+  historyNote.textContent = '只保留在這次開啟期間';
+  historyTitle.appendChild(historyNote);
+  const historyClear = document.createElement('button');
+  historyClear.setAttribute('class', 'history-action');
+  historyClear.setAttribute('id', 'btn-history-clear');
+  historyClear.setAttribute('type', 'button');
+  historyClear.textContent = '清除';
+  const historyClose = document.createElement('button');
+  historyClose.setAttribute('class', 'history-action');
+  historyClose.setAttribute('id', 'btn-history-close');
+  historyClose.setAttribute('type', 'button');
+  historyClose.setAttribute('aria-label', '關閉聊天紀錄');
+  historyClose.textContent = '✕';
+  historyHead.appendChild(historyTitle);
+  historyHead.appendChild(historyClear);
+  historyHead.appendChild(historyClose);
+
+  const historyList = document.createElement('div');
+  historyList.setAttribute('id', 'history-list');
+  historyList.setAttribute('role', 'log');
+  historyList.setAttribute('aria-live', 'polite');
+
+  historyPanelEl.appendChild(historyHead);
+  historyPanelEl.appendChild(historyList);
 
   const controlBarEl = document.createElement('div');
   controlBarEl.setAttribute('id', 'control-bar');
