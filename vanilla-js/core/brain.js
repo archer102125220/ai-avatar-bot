@@ -1,6 +1,4 @@
-// brain.js
 import { createBaseStore } from './store';
-let brainEngine = null;
 
 export const STATE_MAP = {
   IDLE: 'idle',
@@ -98,7 +96,7 @@ export function scoreEntry(question, e) {
 }
 
 // brain.js
-export function topK(question, k) {
+export function topK(brainEngine, question, k) {
   const knowledge = brainEngine?.knowledge || [];
 
   return knowledge
@@ -254,7 +252,7 @@ export function initLLM(setting = {}, brain) {
 }
 
 // brain.js
-export async function getWelcomeText() {
+export async function getWelcomeText(brainEngine) {
   let welcomeText =
     '點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋';
 
@@ -625,7 +623,7 @@ export async function initBrainEngine(seting = {}) {
     // Add states here if needed in the future
   });
 
-  brainEngine = {
+  const brainEngine = {
     get STATE_MAP() {
       return STATE_MAP;
     },
@@ -713,16 +711,16 @@ export async function initBrainEngine(seting = {}) {
       }
     },
 
-    defaultBuildLLMMessages: defaultBuildLLMMessages,
+    defaultBuildLLMMessages: (question) => defaultBuildLLMMessages(brainEngine, question),
 
-    getWelcomeText: () => getWelcomeText(),
+    getWelcomeText: () => getWelcomeText(brainEngine),
     classifyEmotion: classifyEmotion,
-    setEmotionFromText: (text) => setEmotionFromText(text),
-    handleAnswer: (question) => handleAnswer(question),
+    setEmotionFromText: (text) => setEmotionFromText(brainEngine, text),
+    handleAnswer: (question) => handleAnswer(brainEngine, question),
     addChatMessage: (role, text, options) =>
-      addChatMessage(role, text, options),
+      addChatMessage(brainEngine, role, text, options),
     updateChatMessage: (id, text, streaming) =>
-      updateChatMessage(id, text, streaming),
+      updateChatMessage(brainEngine, id, text, streaming),
 
     get llm() {
       return llm;
@@ -861,7 +859,7 @@ export async function initBrainEngine(seting = {}) {
   return brainEngine;
 }
 
-export function setEmotionFromText(text) {
+export function setEmotionFromText(brainEngine, text) {
   if (brainEngine && brainEngine.skin) {
     brainEngine.skin.gestureName = classifyEmotion(text);
   }
@@ -881,7 +879,7 @@ export function bestOf(knowledgeList = [], question) {
   return { e, s };
 }
 
-export function brainEngineCompanionFallback(question) {
+export function brainEngineCompanionFallback(brainEngine, question) {
   if (typeof brainEngine?.companionFallbackContext === 'function') {
     return brainEngine.companionFallbackContext(question);
   } else if (typeof brainEngine?.companionFallbackContext === 'string') {
@@ -907,7 +905,7 @@ export function brainEngineCompanionFallback(question) {
   ];
 }
 
-export function handleThinking(rawQuestion) {
+export function handleThinking(brainEngine, rawQuestion) {
   const question = (rawQuestion || '').trim();
   if (!question) {
     return '我好像沒聽清楚，可以再說一次嗎？';
@@ -922,7 +920,7 @@ export function handleThinking(rawQuestion) {
     if (site.e && site.s >= 0.16) {
       return site.e.a;
     }
-    return brainEngineCompanionFallback(question);
+    return brainEngineCompanionFallback(brainEngine, question);
   }
   if (site.e && site.s >= 0.16) {
     return site.e.a;
@@ -941,7 +939,7 @@ export function handleThinking(rawQuestion) {
   );
 }
 
-export function addChatMessage(role, text, options = {}) {
+export function addChatMessage(brainEngine, role, text, options = {}) {
   const item = {
     id: options.id || 'm' + ++brainEngine.chatSeq,
     role: role === 'user' ? 'user' : 'assistant',
@@ -962,10 +960,10 @@ export function addChatMessage(role, text, options = {}) {
   return item.id;
 }
 
-export function updateChatMessage(id, text, streaming) {
+export function updateChatMessage(brainEngine, id, text, streaming) {
   const item = brainEngine.chatLog.find((m) => m.id === id);
   if (!item) {
-    return addChatMessage('assistant', text, { id, streaming });
+    return addChatMessage(brainEngine, 'assistant', text, { id, streaming });
   }
   item.text = String(text || '').slice(0, 4000);
   item.streaming = !!streaming;
@@ -978,7 +976,7 @@ export function updateChatMessage(id, text, streaming) {
   return item.id;
 }
 
-export async function aiProviderLLMBrain(question) {
+export async function aiProviderLLMBrain(brainEngine, question) {
   try {
     brainEngine.speech.spokenDisplayText = '讓我想想…';
 
@@ -990,7 +988,7 @@ export async function aiProviderLLMBrain(question) {
       brainEngine.defaultBuildLLMMessages(question)
     );
     if (out?.trim?.()) {
-      return sayAnswer(out.trim());
+      return sayAnswer(brainEngine, out.trim());
     }
     throw new Error('AI Provider response is empty');
   } catch (e) {
@@ -999,8 +997,8 @@ export async function aiProviderLLMBrain(question) {
   }
 }
 
-export function defaultBuildLLMMessages(question) {
-  const context = topK(question, 3)
+export function defaultBuildLLMMessages(brainEngine, question) {
+  const context = topK(brainEngine, question, 3)
     .map((e) => 'Q：' + e.q + '\nA：' + e.a)
     .join('\n---\n');
   const RAG =
@@ -1026,7 +1024,7 @@ export function defaultBuildLLMMessages(question) {
   return msgs;
 }
 
-export async function webLLMBrain(question) {
+export async function webLLMBrain(brainEngine, question) {
   try {
     brainEngine.speech.spokenDisplayText = '讓我想想…';
 
@@ -1043,7 +1041,7 @@ export async function webLLMBrain(question) {
       brainEngine.defaultBuildLLMMessages(question),
       (delta, sofar) => {
         brainEngine.speech.spokenDisplayText = sofar; // 邊生成邊更新字幕
-        updateChatMessage(streamMessageId, sofar, true);
+        updateChatMessage(brainEngine, streamMessageId, sofar, true);
 
         // Always evaluate emotion from text during stream, even if TTS is muted
         if (!sid || sid === brainEngine.speech.speakSeq) {
@@ -1063,7 +1061,7 @@ export async function webLLMBrain(question) {
     );
     if (out?.trim?.()) {
       brainEngine.mem.addTurn('assistant', out.trim());
-      updateChatMessage(streamMessageId, out.trim(), false);
+      updateChatMessage(brainEngine, streamMessageId, out.trim(), false);
       if (sid && sid === brainEngine.speech.speakSeq) {
         for (const s of brainEngine.speech.drainSentences(st, true)) {
           brainEngine.speech.pushSpeech(sid, s);
@@ -1087,7 +1085,7 @@ export async function webLLMBrain(question) {
   }
 }
 
-export async function handleAnswer(question) {
+export async function handleAnswer(brainEngine, question) {
   const safeQuestion = (question || '').trim();
   if (!safeQuestion) {
     brainEngine.speech.spokenAudioText = '我好像沒聽清楚，可以再說一次嗎？';
@@ -1096,23 +1094,23 @@ export async function handleAnswer(question) {
   try {
     // 1) AI 伺服器大腦（最聰明，優先；整段生成後逐句講）
     if (brainEngine.aiProvider?.enabled && brainEngine.aiProvider.ready) {
-      return await aiProviderLLMBrain(question);
+      return await aiProviderLLMBrain(brainEngine, question);
     }
     // 2) 瀏覽器內 WebLLM：串流 → 每切出一個完整句就丟進逐句佇列開講（首句延遲大幅縮短）
     if (brainEngine.llm?.state === brainEngine.STATE_MAP.READY) {
-      return await webLLMBrain(question);
+      return await webLLMBrain(brainEngine, question);
     }
   } catch (_error) {
     console.error(_error);
   }
 
   // 3) 檢索式後備（零金鑰、永遠可用）
-  sayAnswer(handleThinking(safeQuestion));
+  sayAnswer(brainEngine, handleThinking(brainEngine, safeQuestion));
 }
 
-export function sayAnswer(text) {
+export function sayAnswer(brainEngine, text) {
   if (!text) return;
   brainEngine.mem.addTurn('assistant', text);
-  addChatMessage('assistant', text);
+  addChatMessage(brainEngine, 'assistant', text);
   brainEngine.speech.speak(text);
 }
