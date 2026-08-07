@@ -7,6 +7,11 @@ import {
   DEFAULT_AI_PROVIDER_MODEL
 } from './constants';
 
+/**
+ * 取得知識庫內容
+ * @param {string} [knowledgeUrl=''] - 知識庫的 URL
+ * @returns {Promise<Array>} 知識庫陣列資料
+ */
 export async function handleGetKnowledge(knowledgeUrl = '') {
   try {
     if (typeof knowledgeUrl === 'string' && knowledgeUrl !== '') {
@@ -29,18 +34,29 @@ export async function handleGetKnowledge(knowledgeUrl = '') {
 
 // ===== 大腦：M4 檢索 + M4b（WebLLM）生成 =====
 // 中文不好斷詞，改用「字元 bigram（相鄰兩字）」相似度，對中文很有效、又不用任何函式庫。
-export function bigrams(s) {
-  s = (s || '').toLowerCase().replace(/[\s，。、？！,.?!~～]/g, '');
+/**
+ * 將字串轉換為相鄰兩字元（bigram）陣列
+ * @param {string} text - 要處理的字串
+ * @returns {string[]} bigram 陣列
+ */
+export function bigrams(text) {
+  text = (text || '').toLowerCase().replace(/[\s，。、？！,.?!~～]/g, '');
   const grams = [];
-  for (let i = 0; i < s.length - 1; i++) {
-    grams.push(s.slice(i, i + 2));
+  for (let i = 0; i < text.length - 1; i++) {
+    grams.push(text.slice(i, i + 2));
   }
-  if (s.length === 1) {
-    grams.push(s);
+  if (text.length === 1) {
+    grams.push(text);
   }
   return grams;
 }
 
+/**
+ * 計算兩個字串基於 bigram 的相似度
+ * @param {string} query - 查詢字串
+ * @param {string} text - 目標文本字串
+ * @returns {number} 相似度分數 (0 到 1)
+ */
 export function similarity(query, text) {
   const queryBigrams = bigrams(query);
   const textBigramsSet = new Set(bigrams(text));
@@ -56,36 +72,57 @@ export function similarity(query, text) {
   return hit / Math.sqrt(queryBigrams.length * textBigramsSet.size);
 }
 
-export function scoreEntry(question, e) {
-  const safeQ =
+/**
+ * 評分知識庫項目與問題的相關性
+ * @param {string|Array} question - 使用者問題
+ * @param {Object} entry - 知識庫項目
+ * @param {string} entry.q - 項目問題
+ * @param {string} entry.kw - 項目關鍵字
+ * @returns {number} 相關性分數
+ */
+export function scoreEntry(question, entry) {
+  const safeQuestion =
     typeof question === 'string'
       ? question
       : Array.isArray(question)
         ? question[question.length - 1]?.content || ''
         : String(question || '');
-  const targetQ = typeof e.q === 'string' ? e.q : String(e.q || '');
-  const targetKw = typeof e.kw === 'string' ? e.kw : String(e.kw || '');
-  let score = Math.max(similarity(safeQ, targetQ), similarity(safeQ, targetKw));
-  const terms = targetKw.split(/\s+/).filter(Boolean);
+  const targetQuestion = typeof entry.q === 'string' ? entry.q : String(entry.q || '');
+  const targetKeyword = typeof entry.kw === 'string' ? entry.kw : String(entry.kw || '');
+  let score = Math.max(similarity(safeQuestion, targetQuestion), similarity(safeQuestion, targetKeyword));
+  const terms = targetKeyword.split(/\s+/).filter(Boolean);
   for (const item of terms) {
-    if (item.length >= 2 && safeQ.includes(item) === true) {
+    if (item.length >= 2 && safeQuestion.includes(item) === true) {
       score = Math.max(score, 0.5 + item.length * 0.04);
     }
   }
   return score;
 }
 
-export function topK(brainEngine, question, k) {
+/**
+ * 取得與問題最相關的 Top K 知識庫項目
+ * @param {Object} brainEngine - 大腦引擎實例
+ * @param {string|Array} question - 使用者問題
+ * @param {number} limit - 擷取數量
+ * @returns {Array} 相關的知識庫項目陣列
+ */
+export function topK(brainEngine, question, limit) {
   const knowledge = brainEngine?.knowledge || [];
 
   return knowledge
     .map((entry) => ({ entry, score: scoreEntry(question, entry) }))
     .sort((a, b) => b.score - a.score)
-    .slice(0, k)
+    .slice(0, limit)
     .filter((item) => item.score > 0.05)
     .map((item) => item.entry);
 }
 
+/**
+ * 初始化 WebLLM 引擎
+ * @param {Object} [setting={}] - LLM 設定
+ * @param {Object} brain - 大腦引擎實例
+ * @returns {Object} WebLLM 實例
+ */
 export function initLLM(setting = {}, brain) {
   const {
     llmModel = DEFAULT_LLM_MODEL,
@@ -233,6 +270,11 @@ export function initLLM(setting = {}, brain) {
   return llm;
 }
 
+/**
+ * 取得歡迎詞文字
+ * @param {Object} brainEngine - 大腦引擎實例
+ * @returns {Promise<string>} 歡迎詞
+ */
 export async function getWelcomeText(brainEngine) {
   let welcomeText =
     '點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋';
@@ -269,6 +311,11 @@ export async function getWelcomeText(brainEngine) {
   return welcomeText;
 }
 
+/**
+ * 初始化 AI 供應商連線 (後端 API)
+ * @param {Object} [setting={}] - AI 供應商設定
+ * @returns {Promise<Object>} AI 供應商實例
+ */
 export async function initAiProvider(setting = {}) {
   const {
     providerBaseUrl = '',
@@ -455,6 +502,12 @@ export async function initAiProvider(setting = {}) {
   return aiProvider;
 }
 
+/**
+ * 初始化記憶體模組 (主要用於陪伴模式)
+ * @param {Object} params - 參數
+ * @param {string} params.avatarMode - 虛擬人模式
+ * @returns {Object} 記憶體實例
+ */
 export function initMEM({ avatarMode }) {
   // 記憶（陪伴模式限定）：只存訪客自己瀏覽器的 localStorage，零後端、不上傳；說「忘記我」即清除
   const mem = {
@@ -523,6 +576,11 @@ export function initMEM({ avatarMode }) {
 }
 
 // 從回答文字粗判情緒（規則式、零成本；驚訝 > 難過 > 開心 > 中性）
+/**
+ * 從文字判斷情緒狀態
+ * @param {string} text - 輸入文字
+ * @returns {string} 情緒狀態 ('surprised'|'sad'|'happy'|'neutral')
+ */
 export function classifyEmotion(text) {
   const safeText = String(text || '');
   const countPattern = (regex) => (safeText.match(regex) || []).length;
@@ -545,7 +603,12 @@ export function classifyEmotion(text) {
   return 'neutral';
 }
 
-export async function initBrainEngine(seting = {}) {
+/**
+ * 初始化大腦引擎核心
+ * @param {Object} [setting={}] - 大腦引擎設定
+ * @returns {Promise<Object>} 大腦引擎實例
+ */
+export async function initBrainEngine(setting = {}) {
   const {
     llmModel,
     knowledge = [],
@@ -586,7 +649,7 @@ export async function initBrainEngine(seting = {}) {
     aiProviderMaxTokens,
     aiProviderIsStream,
     buildLLMMessages
-  } = seting;
+  } = setting;
 
   let llm = null;
   let mem = null;
@@ -719,10 +782,10 @@ export async function initBrainEngine(seting = {}) {
       return aiProvider;
     },
     get skin() {
-      return seting.getSkin ? seting.getSkin() : null;
+      return setting.getSkin ? setting.getSkin() : null;
     },
     get speech() {
-      return seting.getSpeech ? seting.getSpeech() : null;
+      return setting.getSpeech ? setting.getSpeech() : null;
     }
   };
 
@@ -846,6 +909,11 @@ export async function initBrainEngine(seting = {}) {
   return brainEngine;
 }
 
+/**
+ * 根據文字設定虛擬人情緒動作
+ * @param {Object} brainEngine - 大腦引擎實例
+ * @param {string} text - 回應文字
+ */
 export function setEmotionFromText(brainEngine, text) {
   if (
     typeof brainEngine === 'object' &&
@@ -858,6 +926,12 @@ export function setEmotionFromText(brainEngine, text) {
 }
 
 // 檢索式回答（零金鑰、即時、永遠可用的後備）
+/**
+ * 找出知識庫中得分最高的項目
+ * @param {Array} [knowledgeList=[]] - 知識庫陣列
+ * @param {string} question - 使用者問題
+ * @returns {Object} 最佳符合項目與分數 { entry, score }
+ */
 export function bestOf(knowledgeList = [], question) {
   let bestEntry = null;
   let bestScore = 0;
@@ -871,6 +945,12 @@ export function bestOf(knowledgeList = [], question) {
   return { entry: bestEntry, score: bestScore };
 }
 
+/**
+ * 陪伴模式的預設兜底回覆
+ * @param {Object} brainEngine - 大腦引擎實例
+ * @param {string} question - 使用者問題
+ * @returns {string} 兜底回覆文字
+ */
 export function brainEngineCompanionFallback(brainEngine, question) {
   if (typeof brainEngine?.companionFallbackContext === 'function') {
     return brainEngine.companionFallbackContext(question);
@@ -897,6 +977,12 @@ export function brainEngineCompanionFallback(brainEngine, question) {
   ];
 }
 
+/**
+ * 處理問題的檢索思考邏輯
+ * @param {Object} brainEngine - 大腦引擎實例
+ * @param {string} rawQuestion - 原始使用者問題
+ * @returns {string} 回答文字
+ */
 export function handleThinking(brainEngine, rawQuestion) {
   const question = (rawQuestion || '').trim();
   if (question === '') {
@@ -906,15 +992,15 @@ export function handleThinking(brainEngine, rawQuestion) {
   if (brainEngine.avatarMode === AVATAR_MODE_MAP.companion) {
     // 陪伴模式：聊天題給陪聊腦、網站/產品題照答
     const chat = bestOf(brainEngine.companionKnowledge, question);
-    if (chat.entry && chat.score >= 0.16 && chat.score + 0.05 >= site.score) {
+    if (chat.entry !== null && chat.score >= 0.16 && chat.score + 0.05 >= site.score) {
       return chat.entry.a;
     }
-    if (site.entry && site.score >= 0.16) {
+    if (site.entry !== null && site.score >= 0.16) {
       return site.entry.a;
     }
     return brainEngineCompanionFallback(brainEngine, question);
   }
-  if (site.entry && site.score >= 0.16) {
+  if (site.entry !== null && site.score >= 0.16) {
     return site.entry.a;
   }
 
@@ -931,6 +1017,14 @@ export function handleThinking(brainEngine, rawQuestion) {
   );
 }
 
+/**
+ * 新增對話訊息至歷史紀錄
+ * @param {Object} brainEngine - 大腦引擎實例
+ * @param {string} role - 角色 ('user'|'assistant')
+ * @param {string} text - 訊息內容
+ * @param {Object} [options={}] - 額外選項設定
+ * @returns {string} 訊息 ID
+ */
 export function addChatMessage(brainEngine, role, text, options = {}) {
   const item = {
     id: options.id || 'm' + ++brainEngine.chatSeq,
@@ -954,6 +1048,14 @@ export function addChatMessage(brainEngine, role, text, options = {}) {
   return item.id;
 }
 
+/**
+ * 更新歷史對話紀錄中的訊息
+ * @param {Object} brainEngine - 大腦引擎實例
+ * @param {string} id - 訊息 ID
+ * @param {string} text - 更新後的文字
+ * @param {boolean} streaming - 是否為串流狀態中
+ * @returns {string} 訊息 ID
+ */
 export function updateChatMessage(brainEngine, id, text, streaming) {
   const item = brainEngine.chatLog.find((msg) => msg.id === id);
   if (item === undefined) {
@@ -970,11 +1072,17 @@ export function updateChatMessage(brainEngine, id, text, streaming) {
   return item.id;
 }
 
+/**
+ * 透過後端 AI 供應商回答問題
+ * @param {Object} brainEngine - 大腦引擎實例
+ * @param {string} question - 使用者問題
+ * @returns {Promise<void>}
+ */
 export async function aiProviderLLMBrain(brainEngine, question) {
   try {
     brainEngine.speech.spokenDisplayText = '讓我想想…';
 
-    if (brainEngine.skin) {
+    if (typeof brainEngine.skin === 'object' && brainEngine.skin !== null) {
       brainEngine.skin.gestureName = 'thinking';
     }
 
@@ -985,12 +1093,18 @@ export async function aiProviderLLMBrain(brainEngine, question) {
       return sayAnswer(brainEngine, out.trim());
     }
     throw new Error('AI Provider response is empty');
-  } catch (e) {
-    console.warn('AI Provider error', e);
-    throw e;
+  } catch (error) {
+    console.warn('AI Provider error', error);
+    throw error;
   }
 }
 
+/**
+ * 預設的 LLM 訊息建構方法
+ * @param {Object} brainEngine - 大腦引擎實例
+ * @param {string} question - 使用者問題
+ * @returns {Array} LLM 對話訊息陣列
+ */
 export function defaultBuildLLMMessages(brainEngine, question) {
   const context = topK(brainEngine, question, 3)
     .map((entry) => 'Q：' + entry.q + '\nA：' + entry.a)
@@ -1010,26 +1124,32 @@ export function defaultBuildLLMMessages(brainEngine, question) {
         RAG;
   const msgs = [{ role: 'system', content: systemContext }];
   if (brainEngine?.mem?.isCompanion === true) {
-    for (const h of brainEngine.mem.data.history) {
-      msgs.push({ role: h.role, content: h.content });
+    for (const historyItem of brainEngine.mem.data.history) {
+      msgs.push({ role: historyItem.role, content: historyItem.content });
     }
   }
   msgs.push({ role: 'user', content: question });
   return msgs;
 }
 
+/**
+ * 透過瀏覽器端 WebLLM 引擎回答問題
+ * @param {Object} brainEngine - 大腦引擎實例
+ * @param {string} question - 使用者問題
+ * @returns {Promise<void>}
+ */
 export async function webLLMBrain(brainEngine, question) {
   try {
     brainEngine.speech.spokenDisplayText = '讓我想想…';
 
-    if (brainEngine.skin) {
+    if (typeof brainEngine.skin === 'object' && brainEngine.skin !== null) {
       brainEngine.skin.gestureName = 'thinking';
     }
 
-    const sid = brainEngine.speech.ttsMuted
+    const speechId = brainEngine.speech.ttsMuted
       ? 0
       : brainEngine.speech.beginSpeech(); // 靜音時只更新字幕、不進語音佇列
-    const st = { buf: '' };
+    const speechState = { buf: '' };
     const streamMessageId = 'stream-' + Date.now();
     const out = await brainEngine.llm.chat(
       brainEngine.buildLLMMessages(question),
@@ -1038,17 +1158,17 @@ export async function webLLMBrain(brainEngine, question) {
         updateChatMessage(brainEngine, streamMessageId, sofar, true);
 
         // Always evaluate emotion from text during stream, even if TTS is muted
-        if (!sid || sid === brainEngine.speech.speakSeq) {
+        if (speechId === 0 || speechId === brainEngine.speech.speakSeq) {
           brainEngine.setEmotionFromText(sofar);
         }
 
-        if (sid) {
-          if (sid !== brainEngine.speech.speakSeq) {
+        if (speechId !== 0) {
+          if (speechId !== brainEngine.speech.speakSeq) {
             return; // 中途被打斷 → 剩下的只當字幕
           }
-          st.buf += delta;
-          for (const s of brainEngine.speech.drainSentences(st, false)) {
-            brainEngine.speech.pushSpeech(sid, s);
+          speechState.buf += delta;
+          for (const sentence of brainEngine.speech.drainSentences(speechState, false)) {
+            brainEngine.speech.pushSpeech(speechId, sentence);
           }
         }
       }
@@ -1056,12 +1176,12 @@ export async function webLLMBrain(brainEngine, question) {
     if (typeof out === 'string' && out.trim() !== '') {
       brainEngine.mem.addTurn('assistant', out.trim());
       updateChatMessage(brainEngine, streamMessageId, out.trim(), false);
-      if (sid && sid === brainEngine.speech.speakSeq) {
-        for (const s of brainEngine.speech.drainSentences(st, true)) {
-          brainEngine.speech.pushSpeech(sid, s);
+      if (speechId !== 0 && speechId === brainEngine.speech.speakSeq) {
+        for (const sentence of brainEngine.speech.drainSentences(speechState, true)) {
+          brainEngine.speech.pushSpeech(speechId, sentence);
         }
-        brainEngine.speech.endSpeech(sid);
-      } else if (!sid) {
+        brainEngine.speech.endSpeech(speechId);
+      } else if (speechId === 0) {
         brainEngine.speech.onUtteranceEnd(); // 靜音：沒有語音收尾 → 手動觸發對話迴圈 hook
       }
       if (typeof brainEngine?.speech?.onSpeakingEnd === 'function') {
@@ -1069,16 +1189,22 @@ export async function webLLMBrain(brainEngine, question) {
       }
       return;
     }
-    if (sid) {
-      brainEngine.speech.endSpeech(sid); // 空回答：收掉這條 session，往下走檢索
+    if (speechId !== 0) {
+      brainEngine.speech.endSpeech(speechId); // 空回答：收掉這條 session，往下走檢索
     }
     throw new Error('WebLLM response is empty');
-  } catch (e) {
-    console.warn('llm error', e);
-    throw e;
+  } catch (error) {
+    console.warn('llm error', error);
+    throw error;
   }
 }
 
+/**
+ * 綜合處理回答流程 (AI Provider -> WebLLM -> 檢索後備)
+ * @param {Object} brainEngine - 大腦引擎實例
+ * @param {string} question - 使用者問題
+ * @returns {Promise<void>}
+ */
 export async function handleAnswer(brainEngine, question) {
   const safeQuestion = (question || '').trim();
   if (safeQuestion === '') {
@@ -1087,7 +1213,7 @@ export async function handleAnswer(brainEngine, question) {
   }
   try {
     // 1) AI 伺服器大腦（最聰明，優先；整段生成後逐句講）
-    if (brainEngine.aiProvider?.enabled && brainEngine.aiProvider.ready) {
+    if (brainEngine.aiProvider?.enabled === true && brainEngine.aiProvider.ready === true) {
       return await aiProviderLLMBrain(brainEngine, question);
     }
     // 2) 瀏覽器內 WebLLM：串流 → 每切出一個完整句就丟進逐句佇列開講（首句延遲大幅縮短）
@@ -1102,6 +1228,11 @@ export async function handleAnswer(brainEngine, question) {
   sayAnswer(brainEngine, handleThinking(brainEngine, safeQuestion));
 }
 
+/**
+ * 輸出回答 (記錄、顯示、發聲)
+ * @param {Object} brainEngine - 大腦引擎實例
+ * @param {string} text - 回答內容
+ */
 export function sayAnswer(brainEngine, text) {
   if (typeof text !== 'string' || text === '') {
     return;
