@@ -76,8 +76,9 @@ export function similarity(query, text) {
  * 評分知識庫項目與問題的相關性
  * @param {string|Array} question - 使用者問題
  * @param {Object} entry - 知識庫項目
- * @param {string} entry.q - 項目問題
- * @param {string} entry.kw - 項目關鍵字
+ * @param {string} [entry.q] - 項目問題
+ * @param {string} [entry.kw] - 項目關鍵字
+ * @param {string} [entry.a] - 項目回答
  * @returns {number} 相關性分數
  */
 export function scoreEntry(question, entry) {
@@ -120,6 +121,15 @@ export function topK(brainEngine, question, limit) {
 /**
  * 初始化 WebLLM 引擎
  * @param {Object} [setting={}] - LLM 設定
+ * @param {string} [setting.llmModel] - LLM 模型名稱
+ * @param {number} [setting.LLMMaxTokens] - LLM 最大 token 數
+ * @param {boolean} [setting.LLMIsStream] - 是否使用串流
+ * @param {Function} [setting.onLoading] - 載入中回呼
+ * @param {Function} [setting.onLoadProgress] - 載入進度回呼
+ * @param {Function} [setting.onLoaded] - 載入完成回呼
+ * @param {Function} [setting.onLoadError] - 載入錯誤回呼
+ * @param {Function} [setting.onChatting] - 對話回呼
+ * @param {Function} [setting.onStreamChatting] - 串流對話回呼
  * @param {Object} brain - 大腦引擎實例
  * @returns {Object} WebLLM 實例
  */
@@ -314,6 +324,20 @@ export async function getWelcomeText(brainEngine) {
 /**
  * 初始化 AI 供應商連線 (後端 API)
  * @param {Object} [setting={}] - AI 供應商設定
+ * @param {string} [setting.providerBaseUrl] - AI 供應商 Base URL
+ * @param {string} [setting.providerPingUrl] - AI 供應商 Ping URL
+ * @param {string} [setting.providerChatUrl] - AI 供應商 Chat URL
+ * @param {string} [setting.providerModel] - AI 供應商模型名稱
+ * @param {Function} [setting.providerCreatedFetchSetting] - 建立 Fetch 設定回呼
+ * @param {Function} [setting.providerCreatedFetchPayload] - 建立 Fetch 負載回呼
+ * @param {Function} [setting.providerResponesFormat] - 回應格式化回呼
+ * @param {number} [setting.providerMaxTokens] - AI 供應商最大 token 數
+ * @param {boolean} [setting.providerIsStream] - 是否使用串流
+ * @param {Function} [setting.onConnecting] - 連線中回呼
+ * @param {Function} [setting.onConnected] - 連線完成回呼
+ * @param {Function} [setting.onError] - 錯誤回呼
+ * @param {Function} [setting.onChatting] - 對話回呼
+ * @param {Function} [setting.onStreamChatting] - 串流對話回呼
  * @returns {Promise<Object>} AI 供應商實例
  */
 export async function initAiProvider(setting = {}) {
@@ -606,6 +630,40 @@ export function classifyEmotion(text) {
 /**
  * 初始化大腦引擎核心
  * @param {Object} [setting={}] - 大腦引擎設定
+ * @param {string} [setting.llmModel] - LLM 模型名稱
+ * @param {Array} [setting.knowledge] - 網站知識庫
+ * @param {string} [setting.knowledgeUrl] - 網站知識庫 URL
+ * @param {Array} [setting.companionKnowledge] - 陪伴模式知識庫
+ * @param {string} [setting.companionKnowledgeUrl] - 陪伴模式知識庫 URL
+ * @param {Function} [setting.companionFallback] - 陪伴模式後備處理
+ * @param {string} [setting.aiProviderModel] - AI 供應商模型
+ * @param {string} [setting.aiProviderBaseUrl] - AI 供應商 Base URL
+ * @param {string|Function} [setting.welcomeText] - 歡迎詞
+ * @param {string|Function} [setting.companionWelcomeText] - 陪伴模式歡迎詞
+ * @param {string|Function} [setting.assistantWelcomeText] - 助理模式歡迎詞
+ * @param {number} [setting.LLMMaxTokens] - LLM 最大 token 數
+ * @param {boolean} [setting.LLMIsStream] - LLM 是否串流
+ * @param {Function} [setting.onLlmLoading] - LLM 載入中回呼
+ * @param {Function} [setting.onLlmLoadProgress] - LLM 載入進度回呼
+ * @param {Function} [setting.onLlmLoaded] - LLM 載入完成回呼
+ * @param {Function} [setting.onLlmLoadError] - LLM 載入錯誤回呼
+ * @param {Function} [setting.onLlmChatting] - LLM 對話回呼
+ * @param {Function} [setting.onLlmStreamChatting] - LLM 串流對話回呼
+ * @param {Function} [setting.onAiProviderConnecting] - AI 連線中回呼
+ * @param {Function} [setting.onAiProviderConnected] - AI 連線完成回呼
+ * @param {Function} [setting.onAiProviderError] - AI 錯誤回呼
+ * @param {Function} [setting.onAiProviderChatting] - AI 對話回呼
+ * @param {Function} [setting.onAiProviderStreamChatting] - AI 串流對話回呼
+ * @param {Function} [setting.onAddChatMessage] - 新增訊息回呼
+ * @param {Function} [setting.onUpdateChatMessage] - 更新訊息回呼
+ * @param {Function} [setting.onChatHistoryChanged] - 歷史變更回呼
+ * @param {Function} [setting.aiProviderCreatedFetchSetting] - AI 建立 Fetch 設定
+ * @param {Function} [setting.aiProviderCreatedFetchPayload] - AI 建立 Fetch 負載
+ * @param {string} [setting.aiProviderPingUrl] - AI Ping URL
+ * @param {string} [setting.aiProviderChatUrl] - AI Chat URL
+ * @param {number} [setting.aiProviderMaxTokens] - AI 最大 token 數
+ * @param {boolean} [setting.aiProviderIsStream] - AI 是否串流
+ * @param {Function} [setting.buildLLMMessages] - 建立 LLM 訊息回呼
  * @returns {Promise<Object>} 大腦引擎實例
  */
 export async function initBrainEngine(setting = {}) {
@@ -1023,6 +1081,10 @@ export function handleThinking(brainEngine, rawQuestion) {
  * @param {string} role - 角色 ('user'|'assistant')
  * @param {string} text - 訊息內容
  * @param {Object} [options={}] - 額外選項設定
+ * @param {string} [options.id] - 訊息 ID
+ * @param {boolean} [options.streaming] - 是否為串流中
+ * @param {Object} [options.pendingTool] - 待處理的工具
+ * @param {Array} [options.pendingChoices] - 待處理的選項
  * @returns {string} 訊息 ID
  */
 export function addChatMessage(brainEngine, role, text, options = {}) {
