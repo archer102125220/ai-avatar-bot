@@ -23,7 +23,7 @@ export function createBaseStore(initialState = {}) {
     }
 
     // Only notify if something actually changed
-    if (hasChanges) {
+    if (hasChanges === true) {
       subscribers.forEach((listener) => {
         listener(state, prevState);
       });
@@ -40,7 +40,7 @@ export function createBaseStore(initialState = {}) {
     let listener;
 
     // Usage 1: Subscribe to all changes
-    if (typeof selector === 'function' && !cb) {
+    if (typeof selector === 'function' && typeof cb !== 'function') {
       listener = selector;
     }
     // Usage 2: Subscribe to a specific string key

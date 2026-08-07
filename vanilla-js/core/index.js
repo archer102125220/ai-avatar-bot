@@ -32,7 +32,9 @@ import '../style/style.scss';
 export * from './constants';
 
 export async function initAvatarBot(optiopns = {}) {
-  if (typeof window !== 'object') return;
+  if (typeof window !== 'object') {
+    return;
+  }
 
   function callOptionEvent(eventName, ...args) {
     if (typeof optiopns[eventName] === 'function') {
@@ -71,15 +73,26 @@ export async function initAvatarBot(optiopns = {}) {
     throw new Error('container must be an HTMLElement');
   }
 
-  const safeGender =
-    gender === GENDER_MAP.female || gender === GENDER_MAP.male
-      ? gender
-      : DEFAULT_GENDER;
-  const safeNeuralVoice =
-    neuralVoice ||
-    (safeGender === GENDER_MAP.female
-      ? DEFAULT_FEMALE_NEURAL_VOICE
-      : DEFAULT_MALE_NEURAL_VOICE);
+  let safeGender = DEFAULT_GENDER;
+  if (gender === GENDER_MAP.female || gender === GENDER_MAP.male) {
+    safeGender = gender;
+  }
+
+  let safeNeuralVoice = neuralVoice;
+  if (typeof neuralVoice !== 'string' || neuralVoice === '') {
+    if (safeGender === GENDER_MAP.female) {
+      safeNeuralVoice = DEFAULT_FEMALE_NEURAL_VOICE;
+    } else {
+      safeNeuralVoice = DEFAULT_MALE_NEURAL_VOICE;
+    }
+  }
+
+  let initialMinimal = false;
+  if (isIframe === true) {
+    initialMinimal = false;
+  } else if (isMinimal === true) {
+    initialMinimal = true;
+  }
 
   let uiDom = null;
 
@@ -138,7 +151,7 @@ export async function initAvatarBot(optiopns = {}) {
       return isIframe;
     },
 
-    _isMinimal: isIframe === true ? false : isMinimal || false,
+    _isMinimal: initialMinimal,
     get isMinimal() {
       return this._isMinimal;
     },
@@ -277,10 +290,11 @@ export async function initAvatarBot(optiopns = {}) {
           btnLlmEl.removeAttribute('css-llm-on');
         }
         btnLlmEl.setAttribute('aria-pressed', String(ok === true));
-        btnLlmEl.title =
-          ok === true
-            ? 'AI 伺服器：已連線 ' + aiProvider.model
-            : 'AI 伺服器連不上（檢查 AI 伺服器是否在跑 / CORS）';
+        if (ok === true) {
+          btnLlmEl.title = 'AI 伺服器：已連線 ' + aiProvider.model;
+        } else {
+          btnLlmEl.title = 'AI 伺服器連不上（檢查 AI 伺服器是否在跑 / CORS）';
+        }
       }
       if (ok === true) {
         setTimeout(() => {
@@ -395,7 +409,7 @@ export async function initAvatarBot(optiopns = {}) {
     },
     onSetHistoryOpen(isOpen) {
       if (uiDom.historyPanelEl instanceof HTMLElement) {
-        if (isOpen) {
+        if (isOpen === true) {
           uiDom.historyPanelEl.setAttribute('css-is-open', 'true');
         } else {
           uiDom.historyPanelEl.removeAttribute('css-is-open');
@@ -472,10 +486,16 @@ export async function initAvatarBot(optiopns = {}) {
         engineButtonEl.style.display = '';
         if (typeof engineButtonEl.onclick !== 'function') {
           engineButtonEl.onclick = () => {
-            aiAvatarWidget.skinEngine.engineMode =
+            if (
+              aiAvatarWidget.skinEngine.engineMode ===
               ENGINE_MODE_MAP.threeDimensional
-                ? ENGINE_MODE_MAP.twoDimensional
-                : ENGINE_MODE_MAP.threeDimensional;
+            ) {
+              aiAvatarWidget.skinEngine.engineMode =
+                ENGINE_MODE_MAP.twoDimensional;
+            } else {
+              aiAvatarWidget.skinEngine.engineMode =
+                ENGINE_MODE_MAP.threeDimensional;
+            }
           };
         }
       }
@@ -484,16 +504,20 @@ export async function initAvatarBot(optiopns = {}) {
     },
     onModelChangeStart(newEngineMode) {
       if (uiDom.engineButtonEl instanceof HTMLElement) {
-        uiDom.engineButtonEl.textContent =
-          newEngineMode === ENGINE_MODE_MAP.threeDimensional ? '3D' : '2D';
+        if (newEngineMode === ENGINE_MODE_MAP.threeDimensional) {
+          uiDom.engineButtonEl.textContent = '3D';
+        } else {
+          uiDom.engineButtonEl.textContent = '2D';
+        }
       }
       callOptionEvent.call(this, 'onModelChangeStart', newEngineMode);
     },
     onModelChangeEnd() {
-      uiDom.engineButtonEl.textContent =
-        skinEngine.engineMode === ENGINE_MODE_MAP.threeDimensional
-          ? '3D'
-          : '2D';
+      if (skinEngine.engineMode === ENGINE_MODE_MAP.threeDimensional) {
+        uiDom.engineButtonEl.textContent = '3D';
+      } else {
+        uiDom.engineButtonEl.textContent = '2D';
+      }
 
       skinEngine.avatarModel.on('hit', () => speechEngine.onTap());
       if (skinEngine.engineMode === ENGINE_MODE_MAP.threeDimensional) {
@@ -527,7 +551,10 @@ export async function initAvatarBot(optiopns = {}) {
   );
 
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && aiAvatarWidget.speechEngine.convoOn) {
+    if (
+      document.hidden === true &&
+      aiAvatarWidget.speechEngine.convoOn === true
+    ) {
       aiAvatarWidget.speechEngine.stopVoiceSession(
         '頁面進入背景，即時語音已停止。'
       );

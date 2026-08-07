@@ -40,7 +40,10 @@ export function loadUMD() {
           new Promise((resolve, reject) => {
             const script = document.createElement('script');
             script.src = cdnDependencie.src;
-            if (cdnDependencie.id) {
+            if (
+              typeof cdnDependencie.id === 'string' &&
+              cdnDependencie.id !== ''
+            ) {
               script.id = cdnDependencie.id;
             }
             script.onload = resolve;
@@ -127,7 +130,10 @@ async function bootAvatar(skinEngine, modelUrl) {
 
     // 關掉 Live2D 模型自帶的（日文）動作語音 — 只保留我們自己的 TTS（兩者來源不同，互不影響）
     try {
-      if (window.PIXI.live2d.SoundManager) {
+      if (
+        typeof window.PIXI.live2d.SoundManager === 'object' &&
+        window.PIXI.live2d.SoundManager !== null
+      ) {
         window.PIXI.live2d.SoundManager.volume = 0;
       }
     } catch (_error) {}
@@ -167,7 +173,7 @@ async function bootAvatar(skinEngine, modelUrl) {
     try {
       const groups = skinEngine.avatarModel.internalModel.settings.groups || [];
       const g = groups.find((x) => (x.Name || '').toLowerCase() === 'lipsync');
-      if (g?.Ids?.length) {
+      if (Array.isArray(g?.Ids) && g.Ids.length > 0) {
         skinEngine.lipIds = g.Ids;
       }
     } catch (_error) {}
@@ -312,7 +318,9 @@ async function bootVRM(skinEngine, setting = {}) {
     let my = 0; // 游標相對位置 -1..1
     const onMove = (event) => {
       const stageElClientRect = stageEl.getBoundingClientRect();
-      if (!stageElClientRect.width) return;
+      if (stageElClientRect.width === 0) {
+        return;
+      }
       mx = Math.max(
         -1,
         Math.min(
@@ -380,7 +388,7 @@ async function bootVRM(skinEngine, setting = {}) {
     scene.add(vrm.scene);
 
     try {
-      if (vrm.lookAt) {
+      if (typeof vrm.lookAt === 'object' && vrm.lookAt !== null) {
         vrm.lookAt.target = lookTarget;
       }
     } catch (_e) {} // 眼睛跟著滑鼠
@@ -397,7 +405,7 @@ async function bootVRM(skinEngine, setting = {}) {
           try {
             const gg = await loader.loadAsync(file);
             const a = gg.userData.vrmAnimations && gg.userData.vrmAnimations[0];
-            if (!a) {
+            if (a === undefined || a === null) {
               continue;
             }
             const act = mixer.clipAction(
@@ -421,14 +429,14 @@ async function bootVRM(skinEngine, setting = {}) {
           }
         });
         skinEngine.gesture3D = playGesture; // 對外 hook：思考等時機可從對話流程觸發
-        if (gestureActions.wave) {
+        if (typeof gestureActions.wave !== 'undefined') {
           setTimeout(() => playGesture('wave'), 800); // 出場招呼
         }
         idleBreak = setInterval(() => {
           // 待機變化：偶爾環顧/放鬆，不死板
           if (
-            !waving &&
-            !skinEngine.getState().isSpeaking &&
+            waving === false &&
+            skinEngine.getState().isSpeaking !== true &&
             Math.random() < 0.65
           ) {
             playGesture(Math.random() < 0.5 ? 'look' : 'relax');
@@ -446,7 +454,9 @@ async function bootVRM(skinEngine, setting = {}) {
     function playGesture(name) {
       // 播一個手勢（期間 mixer 控身體），平時用程序化站姿
       const act = gestureActions[name];
-      if (!act || waving) return; // 一次一個，播放中不打斷
+      if (act === undefined || act === null || waving === true) {
+        return; // 一次一個，播放中不打斷
+      }
       waving = true;
       currentGesture = act;
       act.reset();
@@ -466,8 +476,8 @@ async function bootVRM(skinEngine, setting = {}) {
 
       const delta = clock.getDelta();
       const elapsedTime = clock.elapsedTime;
-      if (vrm) {
-        if (mixer) {
+      if (typeof vrm === 'object' && vrm !== null) {
+        if (typeof mixer === 'object' && mixer !== null) {
           mixer.update(delta); // 揮手時 mixer 控身體
         }
         const expressionManager = vrm.expressionManager;
@@ -505,13 +515,15 @@ async function bootVRM(skinEngine, setting = {}) {
 
         // ①情緒表情：慢慢 ease 進／出；換情緒時把舊的歸零，缺這個 preset 的模型自動 no-op
         if (
-          expressionManager &&
+          typeof expressionManager === 'object' &&
+          expressionManager !== null &&
           (skinEngine.emo.target > 0 ||
             skinEngine.emo.weight > 0.005 ||
-            skinEngine.emo.applied)
+            (typeof skinEngine.emo.applied === 'string' && skinEngine.emo.applied !== ''))
         ) {
           if (
-            skinEngine.emo.applied &&
+            typeof skinEngine.emo.applied === 'string' &&
+            skinEngine.emo.applied !== '' &&
             skinEngine.emo.applied !== skinEngine.emo.name
           ) {
             try {
@@ -524,7 +536,7 @@ async function bootVRM(skinEngine, setting = {}) {
             Math.min(1, delta * 4);
           if (skinEngine.emo.weight <= 0.005 && skinEngine.emo.target === 0) {
             skinEngine.emo.weight = 0;
-            if (skinEngine.emo.applied) {
+            if (typeof skinEngine.emo.applied === 'string' && skinEngine.emo.applied !== '') {
               try {
                 expressionManager.setValue(skinEngine.emo.applied, 0);
               } catch (_error) {}
@@ -570,11 +582,11 @@ async function bootVRM(skinEngine, setting = {}) {
           }
           if (lUA) lUA.rotation.z = armL;
           if (rUA) rUA.rotation.z = armR;
-          if (sp) {
+          if (typeof sp === 'object' && sp !== null) {
             sp.rotation.x = spX;
             sp.rotation.y = spY;
           }
-          if (hd) {
+          if (typeof hd === 'object' && hd !== null) {
             hd.rotation.y = hdY;
             hd.rotation.x = hdX;
           }
@@ -606,7 +618,7 @@ async function bootVRM(skinEngine, setting = {}) {
       },
       setPaused(value) {
         paused = !!value;
-        if (!paused && alive && !renderRaf) {
+        if (paused === false && alive === true && renderRaf === 0) {
           clock.getDelta();
           animationLoop();
         }
@@ -626,7 +638,7 @@ async function bootVRM(skinEngine, setting = {}) {
           }
         } catch (_error) {}
         try {
-          if (vrm) {
+          if (typeof vrm === 'object' && vrm !== null) {
             VRMUtils.deepDispose(vrm.scene);
           }
         } catch (_error) {} // 釋放 3D 幾何/材質，避免殘骸與 WebGL context 累積
@@ -669,9 +681,9 @@ function createCanvas(skinEngine = null) {
 function initSkinMode(skinEngine = null) {
   const startMode =
     skinEngine.startMode ||
-    (skinEngine.has2D
+    (skinEngine.has2D === true
       ? ENGINE_MODE_MAP.twoDimensional
-      : skinEngine.has3D
+      : skinEngine.has3D === true
         ? ENGINE_MODE_MAP.threeDimensional
         : ENGINE_MODE_MAP.twoDimensional);
 
@@ -738,19 +750,19 @@ export function initSkinEngine(setting = {}) {
   }
 
   const safeModelUrl =
-    modelUrl ||
+    (typeof modelUrl === 'string' && modelUrl !== '') ? modelUrl :
     (setting.gender === GENDER_MAP.female
       ? DEFAULT_FEMALE_MODEL_URL
       : DEFAULT_MALE_MODEL_URL);
 
   const safeGesture2D =
-    gesture2D ||
+    typeof gesture2D === 'function' ? gesture2D :
     ([DEFAULT_FEMALE_MODEL_URL, DEFAULT_MALE_MODEL_URL].includes(safeModelUrl)
       ? defaultGesture2D
       : null);
 
   const safeVrmUrl =
-    vrmUrl || (/\.vrm($|\?)/i.test(safeModelUrl) ? safeModelUrl : '');
+    (typeof vrmUrl === 'string' && vrmUrl !== '') ? vrmUrl : (/\.vrm($|\?)/i.test(safeModelUrl) ? safeModelUrl : '');
 
   const store = createBaseStore({
     gender: setting.gender || DEFAULT_GENDER,

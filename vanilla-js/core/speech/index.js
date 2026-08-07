@@ -62,7 +62,7 @@ async function fetchTTSBuffer(speechEngine, text) {
       '&text=' +
       encodeURIComponent(text)
   );
-  if (!response.ok) {
+  if (response.ok === false) {
     throw new Error('http ' + response.status);
   }
   const respArrayBuffer = await response.arrayBuffer();
@@ -75,11 +75,11 @@ async function fetchTTSBuffer(speechEngine, text) {
 // speech.js
 function prefetchSpeech(speechEngine, sid) {
   // 只預抓最前面 2 句（在途 ≤2），護後端限流
-  if (sid !== speechEngine.speakSeq || speechEngine.neuralDisabled) {
+  if (sid !== speechEngine.speakSeq || speechEngine.neuralDisabled === true) {
     return;
   }
   for (const item of speechEngine.speechQ.slice(0, 2)) {
-    if (!item.prep && !item.err) {
+    if (item.prep == null && item.err == null) {
       item.prep = fetchTTSBuffer(speechEngine, item.text).catch((e) => {
         item.err = e;
         return null;
@@ -101,9 +101,12 @@ function playBuffer(speechEngine, audioBuf, done) {
   speechEngine.currentSource = src;
   speechEngine.useAudioMouth = true;
   speechEngine.isSpeaking = true;
-  if (!speechEngine.tapDone) {
+  if (speechEngine.tapDone !== true) {
     speechEngine.tapDone = true;
-    if (speechEngine.avatarModel) {
+    if (
+      typeof speechEngine.avatarModel === 'object' &&
+      speechEngine.avatarModel !== null
+    ) {
       try {
         speechEngine.avatarModel.motion('Tap');
       } catch (_error) {}
@@ -151,8 +154,8 @@ function splitSentences(text) {
   let buf = '';
   for (const ch of String(text || '')) {
     buf += ch;
-    if (/[。！？!?；;\n…]/.test(ch)) {
-      if (buf.trim()) {
+    if (/[。！？!?；;\n…]/.test(ch) === true) {
+      if (buf.trim() !== '') {
         out.push(buf.trim());
       }
       buf = '';
@@ -168,13 +171,13 @@ function splitSentences(text) {
       }
     }
   }
-  if (buf.trim()) {
+  if (buf.trim() !== '') {
     out.push(buf.trim());
   }
   const merged = []; // 太短的碎句併進前一句（太短的 TTS 不自然、請求也多）
   for (const s of out) {
     if (
-      merged.length &&
+      merged.length > 0 &&
       (s.length < 6 || merged[merged.length - 1].length < 6)
     ) {
       merged[merged.length - 1] += s;
@@ -197,11 +200,13 @@ function splitSentences(text) {
 // speech.js
 function handleNeuralFail(speechEngine, e) {
   const msg = e?.message || '';
-  if (/http 429/.test(msg)) {
+  if (/http 429/.test(msg) === true) {
     console.warn('TTS 被限流，這句退瀏覽器語音');
     return;
   } // 429 是暫時的，別鎖死神經語音
-  if (/http 4\d\d|Failed to fetch|NetworkError|Load failed/i.test(msg)) {
+  if (
+    /http 4\d\d|Failed to fetch|NetworkError|Load failed/i.test(msg) === true
+  ) {
     speechEngine.neuralDisabled = true; // 結構性失敗(無後端/CORS/被擋)→不再試
   }
   console.warn('神經語音失敗，退回瀏覽器語音：', msg);
@@ -233,7 +238,7 @@ function speakBrowserChunk(speechEngine, text, sid, done) {
   };
   let fin = false;
   const finish = () => {
-    if (fin) {
+    if (fin === true) {
       return;
     }
     fin = true;
@@ -255,9 +260,12 @@ function speakBrowserChunk(speechEngine, text, sid, done) {
     speechSynthesis.speak(utterance);
     speechEngine.isSpeaking = true;
     speechEngine.mouthTarget = 0.7;
-    if (!speechEngine.tapDone) {
+    if (speechEngine.tapDone !== true) {
       speechEngine.tapDone = true;
-      if (speechEngine.avatarModel) {
+      if (
+        typeof speechEngine.avatarModel === 'object' &&
+        speechEngine.avatarModel !== null
+      ) {
         try {
           speechEngine.avatarModel.motion('Tap');
         } catch (_error) {}
@@ -266,7 +274,7 @@ function speakBrowserChunk(speechEngine, text, sid, done) {
     clearTimeout(speechEngine.speakBrowserTimer);
     speechEngine.speakBrowserTimer = setTimeout(finish, estMs); // 保底：時間到閉嘴＋換下一句，不依賴事件
   };
-  if (speechSynthesis.speaking || speechSynthesis.pending) {
+  if (speechSynthesis.speaking === true || speechSynthesis.pending === true) {
     speechSynthesis.cancel();
     setTimeout(fire, 120);
   } else {
@@ -657,7 +665,7 @@ export function initSpeechEngine(setting = {}) {
   }
 
   // speech.js
-  if ('speechSynthesis' in window) {
+  if ('speechSynthesis' in window === true) {
     speechSynthesis.onvoiceschanged = () => {
       if (speechEngine.ttVoice === null) {
         speechEngine.ttVoice = loadVoice(speechEngine.gender);
@@ -671,10 +679,10 @@ export function initSpeechEngine(setting = {}) {
 
 // ================== EXTRACTED FROM index.js ==================
 function computeMouth(speechEngine) {
-  if (speechEngine.isSpeaking && speechEngine.useAudioMouth) {
+  if (speechEngine.isSpeaking === true && speechEngine.useAudioMouth === true) {
     speechEngine.mouthValue +=
       (speechEngine.audioMouth - speechEngine.mouthValue) * 0.5; // 神經語音：跟真實音量精準對嘴
-  } else if (speechEngine.isSpeaking) {
+  } else if (speechEngine.isSpeaking === true) {
     const t = performance.now() / 1000;
     speechEngine.mouthValue =
       0.12 + 0.83 * speechEngine.mouthTarget * Math.abs(Math.sin(t * 9)); // 瀏覽器語音：假開合
@@ -692,11 +700,11 @@ function drainSentences(speechEngine, state, force) {
   while ((i = state.buf.search(/[。！？!?；;\n…]/)) >= 0) {
     const s = state.buf.slice(0, i + 1).trim();
     state.buf = state.buf.slice(i + 1);
-    if (s) {
+    if (s !== '') {
       out.push(s);
     }
   }
-  if (force && state.buf.trim()) {
+  if (force === true && state.buf.trim() !== '') {
     out.push(state.buf.trim());
     state.buf = '';
   }
@@ -725,7 +733,10 @@ function stopSpeaking(speechEngine) {
     cancelAnimationFrame(speechEngine.currentFps);
     speechEngine.currentFps = 0;
   }
-  if (speechEngine.currentSource) {
+  if (
+    typeof speechEngine.currentSource === 'object' &&
+    speechEngine.currentSource !== null
+  ) {
     try {
       speechEngine.currentSource.onended = null;
       speechEngine.currentSource.stop();
@@ -791,7 +802,7 @@ function pushSpeech(speechEngine, sid, text, options) {
     return;
   }
   const safeText = String(text || '').trim();
-  if (!safeText) {
+  if (safeText === '') {
     return;
   }
   speechEngine.speechQ.push({
@@ -849,8 +860,8 @@ async function pumpSpeech(speechEngine, sid) {
     return;
   }
   const item = speechEngine.speechQ.shift();
-  if (!item) {
-    if (speechEngine.speechEnded) {
+  if (item === undefined) {
+    if (speechEngine.speechEnded === true) {
       speechEngine.skin.gestureName = 'neutral';
       onUtteranceEnd(speechEngine);
     }
@@ -869,7 +880,7 @@ async function pumpSpeech(speechEngine, sid) {
   if (
     item.instant &&
     item.text === getGreetingText() &&
-    !speechEngine.tapGreetingBuffer
+    speechEngine.tapGreetingBuffer == null
   ) {
     preloadTapGreeting(speechEngine);
     speakBrowserChunk(speechEngine, item.text, sid, done);
@@ -877,8 +888,8 @@ async function pumpSpeech(speechEngine, sid) {
   }
 
   let buf = null;
-  if (!speechEngine.neuralDisabled && !item.err) {
-    if (!item.prep) {
+  if (speechEngine.neuralDisabled !== true && item.err == null) {
+    if (item.prep == null) {
       item.prep = fetchTTSBuffer(item.text).catch((e) => {
         item.err = e;
         return null;
@@ -889,11 +900,11 @@ async function pumpSpeech(speechEngine, sid) {
   if (sid !== speechEngine.speakSeq) {
     return; // 等音檔期間被新的說話打斷 → 整條放棄
   }
-  if (buf) {
+  if (buf != null) {
     prefetchSpeech(speechEngine, sid);
     playBuffer(speechEngine, buf, done);
   } else {
-    if (item.err) {
+    if (item.err != null) {
       handleNeuralFail(speechEngine, item.err);
     }
     speakBrowserChunk(speechEngine, item.text, sid, done);
@@ -914,26 +925,32 @@ async function handleUser(speechEngine, text = '') {
   }
 
   if (
-    text &&
-    speechEngine.tools.pendingToolConfirmation &&
+    text !== '' &&
+    typeof speechEngine.tools.pendingToolConfirmation === 'string' &&
+    speechEngine.tools.pendingToolConfirmation !== '' &&
     speechEngine.tools.continueToolConfirmation(text)
-  )
+  ) {
     return;
+  }
   if (
-    text &&
-    speechEngine.tools.pendingToolChoice &&
+    text !== '' &&
+    typeof speechEngine.tools.pendingToolChoice === 'object' &&
+    speechEngine.tools.pendingToolChoice !== null &&
     speechEngine.tools.continueToolChoice(text)
-  )
+  ) {
     return;
+  }
   if (
-    text &&
-    speechEngine.tools.pendingToolInput &&
+    text !== '' &&
+    typeof speechEngine.tools.pendingToolInput === 'object' &&
+    speechEngine.tools.pendingToolInput !== null &&
     speechEngine.tools.continueToolInput(text)
-  )
+  ) {
     return;
+  }
 
-  if (speechEngine.brain.mem.isCompanion && text) {
-    if (/忘記我|清除記憶|forget me/i.test(text)) {
+  if (speechEngine.brain.mem.isCompanion === true && text !== '') {
+    if (/忘記我|清除記憶|forget me/i.test(text) === true) {
       speechEngine.brain.mem.wipe();
       speechEngine.spokenAudioText = '好，我把記憶都清掉了，我們重新認識吧！';
       return;
@@ -943,12 +960,15 @@ async function handleUser(speechEngine, text = '') {
   }
 
   const routedTool = speechEngine.tools.routeHostTool(text);
-  if (routedTool.ambiguous && routedTool.ambiguous.length) {
+  if (
+    Array.isArray(routedTool.ambiguous) === true &&
+    routedTool.ambiguous.length > 0
+  ) {
     speechEngine.isProcessing = false;
     speechEngine.tools.offerToolChoices(text, routedTool.ambiguous);
     return;
   }
-  if (routedTool.match) {
+  if (typeof routedTool.match === 'object' && routedTool.match !== null) {
     speechEngine.isProcessing = false;
     speechEngine.tools.prepareTool(
       routedTool.match.tool,
@@ -962,7 +982,11 @@ async function handleUser(speechEngine, text = '') {
   // speechEngine.isSpeaking = true;
   speechEngine.isProcessing = true; // 回答完成前不要自動重開麥（onUtteranceEnd 會清）
 
-  if (speechEngine.skin && speechEngine.skin.gestureName !== undefined) {
+  if (
+    typeof speechEngine.skin === 'object' &&
+    speechEngine.skin !== null &&
+    speechEngine.skin.gestureName !== undefined
+  ) {
     speechEngine.skin.gestureName = 'thinking';
   }
 
@@ -970,9 +994,19 @@ async function handleUser(speechEngine, text = '') {
 }
 
 async function ensureMicMonitor(speechEngine) {
-  if (speechEngine.micStream) return;
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)
+  if (
+    typeof speechEngine.micStream === 'object' &&
+    speechEngine.micStream !== null
+  ) {
+    return;
+  }
+  if (
+    typeof navigator.mediaDevices !== 'object' ||
+    navigator.mediaDevices === null ||
+    typeof navigator.mediaDevices.getUserMedia !== 'function'
+  ) {
     throw new Error('media-not-supported');
+  }
 
   speechEngine.micStream = await navigator.mediaDevices.getUserMedia({
     audio: {
@@ -1007,7 +1041,12 @@ async function ensureMicMonitor(speechEngine) {
 }
 
 function monitorMicLevel(speechEngine) {
-  if (!speechEngine.micAnalyser || !speechEngine.micData) {
+  if (
+    typeof speechEngine.micAnalyser !== 'object' ||
+    speechEngine.micAnalyser === null ||
+    typeof speechEngine.micData !== 'object' ||
+    speechEngine.micData === null
+  ) {
     return;
   }
   speechEngine.micAnalyser.getByteTimeDomainData(speechEngine.micData);
@@ -1043,8 +1082,8 @@ function monitorMicLevel(speechEngine) {
     (speechEngine.assistantSpeechStartedAt || performance.now());
 
   if (
-    speechEngine.convoOn &&
-    assistantActive &&
+    speechEngine.convoOn === true &&
+    assistantActive === true &&
     speechDuration > 550 &&
     rms > threshold
   ) {
@@ -1066,17 +1105,19 @@ function monitorMicLevel(speechEngine) {
 }
 
 function stopMicMonitor(speechEngine) {
-  if (speechEngine.micRaf) cancelAnimationFrame(speechEngine.micRaf);
+  if (typeof speechEngine.micRaf === 'number' && speechEngine.micRaf > 0) {
+    cancelAnimationFrame(speechEngine.micRaf);
+  }
   speechEngine.micRaf = 0;
 
-  if (speechEngine.micStream) {
+  if (typeof speechEngine.micStream === 'object' && speechEngine.micStream !== null) {
     speechEngine.micStream.getTracks().forEach((track) => track.stop());
   }
   speechEngine.micStream = null;
   speechEngine.micAnalyser = null;
   speechEngine.micData = null;
 
-  if (speechEngine.micAudioCtx) {
+  if (typeof speechEngine.micAudioCtx === 'object' && speechEngine.micAudioCtx !== null) {
     try {
       speechEngine.micAudioCtx.close();
     } catch (_e) {}
@@ -1113,7 +1154,7 @@ function stopVoiceSession(speechEngine, message) {
   if (typeof speechEngine.onVoiceStatusChanged === 'function') {
     speechEngine.onVoiceStatusChanged(false, '', '', 0);
   }
-  if (message) {
+  if (typeof message === 'string' && message !== '') {
     speechEngine.spokenDisplayText = message;
   }
 }
@@ -1142,7 +1183,7 @@ function interruptForVoice(speechEngine) {
   }
 
   setTimeout(() => {
-    if (speechEngine.convoOn && !speechEngine.isListening) {
+    if (speechEngine.convoOn === true && speechEngine.isListening !== true) {
       startListening(speechEngine);
     }
   }, 100);
@@ -1167,18 +1208,18 @@ async function startListening(speechEngine) {
 
   const SafeSpeechRecognition =
     window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SafeSpeechRecognition) {
+  if (SafeSpeechRecognition == null) {
     speechEngine.spokenAudioText =
       '你的瀏覽器不支援語音辨識，建議用 Chrome 開喔。';
     speechEngine.convoOn = false;
     return;
   }
-  if (speechEngine.isListening && speechEngine.recognition) {
+  if (speechEngine.isListening === true && typeof speechEngine.recognition === 'object' && speechEngine.recognition !== null) {
     speechEngine.recognition.stop();
     return;
   }
 
-  if (!speechEngine.micStream) {
+  if (typeof speechEngine.micStream !== 'object' || speechEngine.micStream === null) {
     setMic(speechEngine, false);
     if (typeof speechEngine.onVoiceStatusChanged === 'function') {
       speechEngine.onVoiceStatusChanged(
@@ -1191,7 +1232,7 @@ async function startListening(speechEngine) {
   }
   try {
     await ensureMicMonitor(speechEngine);
-    if (speechEngine.isSpeechPlaying || speechEngine.isProcessing) {
+    if (speechEngine.isSpeechPlaying === true || speechEngine.isProcessing === true) {
       stopSpeaking(speechEngine);
     }
   } catch (e) {
@@ -1235,18 +1276,23 @@ async function startListening(speechEngine) {
     let finalText = '',
       interimText = '';
     for (const result of event.results) {
-      if (result.isFinal) finalText += result[0].transcript + ' ';
-      else interimText += result[0].transcript + ' ';
+      if (result.isFinal === true) {
+        finalText += result[0].transcript + ' ';
+      } else {
+        interimText += result[0].transcript + ' ';
+      }
     }
     const txt = (finalText + interimText).trim();
-    if (!txt) return;
+    if (txt === '') {
+      return;
+    }
 
     speechEngine.noSpeechRuns = 0;
-    speechEngine.spokenDisplayText = '你：' + txt + (interimText ? '…' : '');
+    speechEngine.spokenDisplayText = '你：' + txt + (interimText !== '' ? '…' : '');
     if (typeof speechEngine.onVoiceStatusChanged === 'function') {
       speechEngine.onVoiceStatusChanged(
         speechEngine.convoOn,
-        interimText ? '正在辨識：' + txt : '收到語音，準備送出…',
+        interimText !== '' ? '正在辨識：' + txt : '收到語音，準備送出…',
         'listening',
         0
       );
@@ -1256,14 +1302,16 @@ async function startListening(speechEngine) {
     speechEngine.recognitionSilenceTimer = setTimeout(
       () => {
         try {
-          if (speechEngine.recognition) speechEngine.recognition.stop();
+          if (typeof speechEngine.recognition === 'object' && speechEngine.recognition !== null) {
+            speechEngine.recognition.stop();
+          }
         } catch (_error) {}
       },
-      interimText ? 900 : 420
+      interimText !== '' ? 900 : 420
     );
 
     const last = event.results[event.results.length - 1];
-    if (last.isFinal) {
+    if (last.isFinal === true) {
       handleUser(speechEngine, txt);
     }
   };
@@ -1300,9 +1348,9 @@ async function startListening(speechEngine) {
     // 連續對話：靜默結束（沒觸發回答）→ 自動再聽；連 3 次沒聲音就休息，避免無限開麥
     if (
       speechEngine.convoOn === true &&
-      !speechEngine.isProcessing &&
-      !speechEngine.isSpeaking &&
-      !speechEngine.isSpeechPlaying
+      speechEngine.isProcessing !== true &&
+      speechEngine.isSpeaking !== true &&
+      speechEngine.isSpeechPlaying !== true
     ) {
       if (++speechEngine.noSpeechRuns >= 3) {
         stopVoiceSession(
@@ -1314,10 +1362,10 @@ async function startListening(speechEngine) {
       setTimeout(() => {
         if (
           speechEngine.convoOn === true &&
-          !speechEngine.isListening &&
-          !speechEngine.isSpeaking &&
-          !speechEngine.isSpeechPlaying &&
-          !speechEngine.isProcessing
+          speechEngine.isListening !== true &&
+          speechEngine.isSpeaking !== true &&
+          speechEngine.isSpeechPlaying !== true &&
+          speechEngine.isProcessing !== true
         ) {
           startListening(speechEngine);
         }
@@ -1340,7 +1388,7 @@ function onTap(speechEngine) {
   setTimeout(() => {
     speechEngine.onTapTimer = false;
   }, 400);
-  if (speechEngine.skin.avatarModel) {
+  if (typeof speechEngine.skin.avatarModel === 'object' && speechEngine.skin.avatarModel !== null) {
     try {
       speechEngine.skin.avatarModel.motion('Tap');
     } catch (_error) {}
@@ -1358,7 +1406,7 @@ function onTap(speechEngine) {
     greeting = speechEngine.greeting;
   } else if (speechEngine.avatarMode === AVATAR_MODE_MAP.companion) {
     greeting =
-      (speechEngine.brain.mem.data.name
+      (typeof speechEngine.brain.mem.data.name === 'string' && speechEngine.brain.mem.data.name !== ''
         ? speechEngine.brain.mem.data.name + '～'
         : '你好～') + '想聊什麼都可以，點 💬 我們就開始！';
 
@@ -1390,29 +1438,35 @@ function onTap(speechEngine) {
 }
 
 function getGreetingText(speechEngine) {
-  if (speechEngine.greeting) {
+  if (typeof speechEngine.greeting === 'function') {
     const text = speechEngine.greeting();
-    if (text) return text;
+    if (typeof text === 'string' && text !== '') {
+      return text;
+    }
   }
 
   if (speechEngine.avatarMode === AVATAR_MODE_MAP.companion) {
-    if (speechEngine.companionGreeting) {
+    if (speechEngine.companionGreeting != null) {
       if (typeof speechEngine.companionGreeting === 'function') {
         const text = speechEngine.companionGreeting();
-        if (text) return text;
+        if (typeof text === 'string' && text !== '') {
+          return text;
+        }
       } else {
         return speechEngine.companionGreeting;
       }
     }
     const name = speechEngine.brain?.mem?.data?.name || '';
     return (
-      (name ? name + '～' : '你好～') + '想聊什麼都可以，點 💬 我們就開始！'
+      (name !== '' ? name + '～' : '你好～') + '想聊什麼都可以，點 💬 我們就開始！'
     );
   } else {
-    if (speechEngine.assistantGreeting) {
+    if (speechEngine.assistantGreeting != null) {
       if (typeof speechEngine.assistantGreeting === 'function') {
         const text = speechEngine.assistantGreeting();
-        if (text) return text;
+        if (typeof text === 'string' && text !== '') {
+          return text;
+        }
       } else {
         return speechEngine.assistantGreeting;
       }
@@ -1425,13 +1479,15 @@ function getGreetingText(speechEngine) {
 }
 
 function preloadTapGreeting(speechEngine) {
-  if (speechEngine.neuralDisabled) return Promise.resolve(null);
+  if (speechEngine.neuralDisabled === true) {
+    return Promise.resolve(null);
+  }
 
   const text = getGreetingText(speechEngine);
   const key = speechEngine.neuralVoice + '\n' + text;
 
   if (
-    speechEngine.tapGreetingPrep &&
+    speechEngine.tapGreetingPrep != null &&
     speechEngine.tapGreetingCacheKey === key
   ) {
     return speechEngine.tapGreetingPrep;
@@ -1484,7 +1540,7 @@ function setLocale(speechEngine, locale) {
     ) || 'zh-TW';
   speechEngine.currentLocale = matched;
   // Note: Only fallback neural voice if the developer didn't set a hardcoded voice in config
-  if (!speechEngine.config?.voice) {
+  if (typeof speechEngine.config?.voice !== 'string' || speechEngine.config?.voice === '') {
     speechEngine.neuralVoice = localeVoice(matched);
   }
 
@@ -1492,7 +1548,7 @@ function setLocale(speechEngine, locale) {
     speechEngine.onLanguageChanged(matched, localeLabel(matched));
   }
 
-  if (speechEngine.recognition) {
+  if (typeof speechEngine.recognition === 'object' && speechEngine.recognition !== null) {
     speechEngine.recognition.lang = matched;
   }
 

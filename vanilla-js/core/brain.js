@@ -47,12 +47,12 @@ export function bigrams(s) {
 export function similarity(query, text) {
   const A = bigrams(query);
   const B = new Set(bigrams(text));
-  if (!A.length || !B.size) {
+  if (A.length === 0 || B.size === 0) {
     return 0;
   }
   let hit = 0;
   for (const x of A) {
-    if (B.has(x)) {
+    if (B.has(x) === true) {
       hit++;
     }
   }
@@ -72,7 +72,7 @@ export function scoreEntry(question, e) {
   let score = Math.max(similarity(safeQ, targetQ), similarity(safeQ, targetKw));
   const terms = targetKw.split(/\s+/).filter(Boolean);
   for (const item of terms) {
-    if (item.length >= 2 && safeQ.includes(item)) {
+    if (item.length >= 2 && safeQ.includes(item) === true) {
       score = Math.max(score, 0.5 + item.length * 0.04);
     }
   }
@@ -166,8 +166,12 @@ export function initLLM(setting = {}, brain) {
       };
     },
     async load() {
-      if (engine) return engine;
-      if (loadingPromise) return loadingPromise;
+      if (typeof engine === 'object' && engine !== null) {
+        return engine;
+      }
+      if (loadingPromise instanceof Promise === true) {
+        return loadingPromise;
+      }
       this.state = STATE_MAP.LOADING;
       this.onLoading();
 
@@ -195,11 +199,11 @@ export function initLLM(setting = {}, brain) {
       return loadingPromise;
     },
     async chat(messages, onDelta) {
-      if (!engine) {
+      if (typeof engine !== 'object' || engine === null) {
         return null;
       }
 
-      if (!onDelta || this.isStream === false) {
+      if (typeof onDelta !== 'function' || this.isStream === false) {
         const result = await engine.chat.completions.create({
           messages,
           temperature: 0.4,
@@ -220,7 +224,7 @@ export function initLLM(setting = {}, brain) {
       let fullResponse = '';
       for await (const chunk of stream) {
         const content = chunk?.choices?.[0]?.delta?.content;
-        if (content) {
+        if (typeof content === 'string' && content !== '') {
           fullResponse += content;
           onDelta(content, fullResponse, llm, brain);
           this.onStreamChatting(content, fullResponse, brain);
@@ -351,10 +355,10 @@ export async function initAiProvider(setting = {}) {
     },
 
     model: providerModel || DEFAULT_AI_PROVIDER_MODEL,
-    enabled: !!providerBaseUrl,
+    enabled: typeof providerBaseUrl === 'string' && providerBaseUrl !== '',
     ready: false,
     async ping(fetchSetting = null) {
-      if (!this.enabled) {
+      if (this.enabled === false) {
         return false;
       }
       try {
@@ -473,7 +477,7 @@ export function initMEM({ avatarMode }) {
       }
       try {
         const localData = JSON.parse(localStorage.getItem(this.key) || 'null');
-        if (typeof localData === 'object') {
+        if (typeof localData === 'object' && localData !== null) {
           this.data = Object.assign(this.data, localData);
         }
       } catch (_error) {}
@@ -490,7 +494,11 @@ export function initMEM({ avatarMode }) {
       } catch (_error) {}
     },
     addTurn(role, content) {
-      if (this.isCompanion === false || !content) {
+      if (
+        this.isCompanion === false ||
+        typeof content !== 'string' ||
+        content === ''
+      ) {
         return;
       }
       this.data.history.push({ role, content: String(content).slice(0, 200) });
@@ -506,7 +514,7 @@ export function initMEM({ avatarMode }) {
       const m = /(?:我叫|我是|叫我)\s*([^\s，。、,.!！?？的]{1,10})/.exec(
         text || ''
       );
-      if (m && !/誰|什麼|不知|沒有/.test(m[1])) {
+      if (m !== null && /誰|什麼|不知|沒有/.test(m[1]) === false) {
         this.data.name = m[1];
         this.save();
       }
@@ -535,13 +543,13 @@ export function classifyEmotion(text) {
   const happy = countPattern(
     /哈|笑|開心|太好了|好耶|讚|恭喜|歡迎|謝謝|沒問題|完成|成功|一起|囉|喔！|🎉|😊|👋/g
   );
-  if (surprised && surprised >= Math.max(happy, sad)) {
+  if (surprised > 0 && surprised >= Math.max(happy, sad)) {
     return 'surprised';
   }
   if (sad > happy) {
     return 'sad';
   }
-  if (happy) {
+  if (happy > 0) {
     return 'happy';
   }
   return 'neutral';
@@ -844,7 +852,12 @@ export async function initBrainEngine(seting = {}) {
 }
 
 export function setEmotionFromText(brainEngine, text) {
-  if (brainEngine && brainEngine.skin) {
+  if (
+    typeof brainEngine === 'object' &&
+    brainEngine !== null &&
+    typeof brainEngine.skin === 'object' &&
+    brainEngine.skin !== null
+  ) {
     brainEngine.skin.gestureName = classifyEmotion(text);
   }
 }
@@ -891,7 +904,7 @@ export function brainEngineCompanionFallback(brainEngine, question) {
 
 export function handleThinking(brainEngine, rawQuestion) {
   const question = (rawQuestion || '').trim();
-  if (!question) {
+  if (question === '') {
     return '我好像沒聽清楚，可以再說一次嗎？';
   }
   const site = bestOf(brainEngine.knowledge, question);
@@ -933,7 +946,9 @@ export function addChatMessage(brainEngine, role, text, options = {}) {
     pendingChoices: options.pendingChoices || null
   };
   brainEngine.chatLog.push(item);
-  if (brainEngine.chatLog.length > 80) brainEngine.chatLog.shift();
+  if (brainEngine.chatLog.length > 80) {
+    brainEngine.chatLog.shift();
+  }
 
   if (typeof brainEngine.onAddChatMessage === 'function') {
     brainEngine.onAddChatMessage(item);
@@ -946,7 +961,7 @@ export function addChatMessage(brainEngine, role, text, options = {}) {
 
 export function updateChatMessage(brainEngine, id, text, streaming) {
   const item = brainEngine.chatLog.find((m) => m.id === id);
-  if (!item) {
+  if (item === undefined) {
     return addChatMessage(brainEngine, 'assistant', text, { id, streaming });
   }
   item.text = String(text || '').slice(0, 4000);
@@ -971,7 +986,7 @@ export async function aiProviderLLMBrain(brainEngine, question) {
     const out = await brainEngine.aiProvider.chat(
       brainEngine.defaultBuildLLMMessages(question)
     );
-    if (out?.trim?.()) {
+    if (typeof out === 'string' && out.trim() !== '') {
       return sayAnswer(brainEngine, out.trim());
     }
     throw new Error('AI Provider response is empty');
@@ -1043,7 +1058,7 @@ export async function webLLMBrain(brainEngine, question) {
         }
       }
     );
-    if (out?.trim?.()) {
+    if (typeof out === 'string' && out.trim() !== '') {
       brainEngine.mem.addTurn('assistant', out.trim());
       updateChatMessage(brainEngine, streamMessageId, out.trim(), false);
       if (sid && sid === brainEngine.speech.speakSeq) {
@@ -1071,7 +1086,7 @@ export async function webLLMBrain(brainEngine, question) {
 
 export async function handleAnswer(brainEngine, question) {
   const safeQuestion = (question || '').trim();
-  if (!safeQuestion) {
+  if (safeQuestion === '') {
     brainEngine.speech.spokenAudioText = '我好像沒聽清楚，可以再說一次嗎？';
     return;
   }
@@ -1093,7 +1108,9 @@ export async function handleAnswer(brainEngine, question) {
 }
 
 export function sayAnswer(brainEngine, text) {
-  if (!text) return;
+  if (typeof text !== 'string' || text === '') {
+    return;
+  }
   brainEngine.mem.addTurn('assistant', text);
   addChatMessage(brainEngine, 'assistant', text);
   brainEngine.speech.speak(text);

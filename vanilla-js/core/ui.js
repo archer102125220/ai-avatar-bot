@@ -242,7 +242,7 @@ export function initUi(container, stageEl) {
     updateVoiceStatus(convoOn, text, state, level) {
       if (convoOn === true) {
         voiceLiveEl.setAttribute('css-is-active', 'true');
-        if (state) {
+        if (typeof state === 'string' && state !== '') {
           voiceLiveEl.setAttribute('css-state', state);
         } else {
           voiceLiveEl.removeAttribute('css-state');
@@ -251,10 +251,10 @@ export function initUi(container, stageEl) {
         voiceLiveEl.removeAttribute('css-is-active');
         voiceLiveEl.removeAttribute('css-state');
       }
-      if (voiceStatusEl && text !== undefined) {
+      if (voiceStatusEl instanceof HTMLElement && text !== undefined) {
         voiceStatusEl.textContent = text || '即時語音待命';
       }
-      if (typeof level === 'number' && voiceLevelEl) {
+      if (typeof level === 'number' && voiceLevelEl instanceof HTMLElement) {
         voiceLevelEl.style.width = Math.max(0, Math.min(100, level)) + '%';
       }
     },
@@ -276,7 +276,7 @@ export function initUi(container, stageEl) {
             ? '◌ 對話中'
             : '🎙️ 即時';
 
-      if (suggestionsEl) {
+      if (suggestionsEl instanceof HTMLElement) {
         suggestionsEl.style.display =
           isListening === true || convoOn === true ? 'none' : 'flex';
       }
@@ -333,8 +333,15 @@ export function initUi(container, stageEl) {
 }
 
 export function copyText(text) {
-  if (navigator.clipboard && navigator.clipboard.writeText)
+  if (
+    typeof navigator === 'object' &&
+    navigator !== null &&
+    typeof navigator.clipboard === 'object' &&
+    navigator.clipboard !== null &&
+    typeof navigator.clipboard.writeText === 'function'
+  ) {
     return navigator.clipboard.writeText(text);
+  }
   const box = document.createElement('textarea');
   box.value = text;
   box.style.position = 'fixed';
@@ -389,13 +396,16 @@ export function setHistoryOpen(context, open) {
 
 export function renderHistory(context) {
   const list = context.uiDom.historyPanelEl?.querySelector('#history-list');
-  if (!list) {
+  if (list instanceof HTMLElement === false) {
     return;
   }
 
   list.replaceChildren();
 
-  if (!context.brainEngine.chatLog || !context.brainEngine.chatLog.length) {
+  if (
+    Array.isArray(context.brainEngine.chatLog) === false ||
+    context.brainEngine.chatLog.length === 0
+  ) {
     const empty = document.createElement('div');
     empty.className = 'history-empty';
     empty.textContent = '還沒有對話。問我一個問題，紀錄會出現在這裡。';
@@ -412,7 +422,7 @@ export function renderHistory(context) {
     msg.textContent = item.text || (item.streaming ? '…' : '');
     row.appendChild(msg);
 
-    if (item.pendingTool) {
+    if (typeof item.pendingTool !== 'undefined' && item.pendingTool !== null) {
       const confirm = document.createElement('div');
       confirm.className = 'history-confirm';
       const yes = document.createElement('button');
@@ -429,7 +439,10 @@ export function renderHistory(context) {
 
       confirm.append(yes, no);
       row.appendChild(confirm);
-    } else if (item.pendingChoices && item.pendingChoices.length) {
+    } else if (
+      Array.isArray(item.pendingChoices) &&
+      item.pendingChoices.length > 0
+    ) {
       const choices = document.createElement('div');
       choices.className = 'history-confirm';
       item.pendingChoices.forEach((choice, index) => {
@@ -443,7 +456,12 @@ export function renderHistory(context) {
       row.appendChild(choices);
     }
 
-    if (item.role === 'assistant' && item.text && !item.streaming) {
+    if (
+      item.role === 'assistant' &&
+      typeof item.text === 'string' &&
+      item.text !== '' &&
+      item.streaming !== true
+    ) {
       const tools = document.createElement('div');
       tools.className = 'history-tools';
       const copy = document.createElement('button');
@@ -570,7 +588,11 @@ export function bindTyping(context = null) {
   };
   context.uiDom.sendButtonEl.onclick = send;
   typeInput.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && !event.isComposing && event.keyCode !== 229) {
+    if (
+      event.key === 'Enter' &&
+      event.isComposing !== true &&
+      event.keyCode !== 229
+    ) {
       event.preventDefault();
       send();
     }
@@ -601,9 +623,9 @@ export function bindUiEvent(context = null) {
     uiDom.micButtonEl.onclick = () => {
       if (context.avatarMode === 'companion') {
         const isIdle =
-          !context.speechEngine.isListening &&
-          !context.speechEngine.isProcessing;
-        if (isIdle) {
+          context.speechEngine.isListening !== true &&
+          context.speechEngine.isProcessing !== true;
+        if (isIdle === true) {
           context.speechEngine.convoOn = true;
           context.speechEngine.noSpeechRuns = 0;
           context.speechEngine.startListening();
@@ -615,13 +637,14 @@ export function bindUiEvent(context = null) {
       }
 
       // 非 companion 模式
-      if (context.speechEngine.isSpeaking) {
+      if (context.speechEngine.isSpeaking === true) {
         context.speechEngine.interruptForVoice();
         context.speechEngine.startListening();
       } else {
         const isActive =
-          context.speechEngine.isListening || context.speechEngine.isProcessing;
-        if (isActive) {
+          context.speechEngine.isListening === true ||
+          context.speechEngine.isProcessing === true;
+        if (isActive === true) {
           context.speechEngine.stopVoiceSession('即時語音對話已結束。');
         } else {
           context.speechEngine.startListening();
@@ -689,10 +712,10 @@ export function bindUiEvent(context = null) {
     const btnHistoryClear =
       uiDom.historyPanelEl.querySelector('#btn-history-clear');
 
-    if (btnHistoryClose) {
+    if (btnHistoryClose instanceof HTMLElement) {
       btnHistoryClose.onclick = () => setHistoryOpen(context, false);
     }
-    if (btnHistoryClear) {
+    if (btnHistoryClear instanceof HTMLElement) {
       btnHistoryClear.onclick = () => {
         context.brainEngine.chatLog.length = 0;
         renderHistory(context);
@@ -711,8 +734,8 @@ export function bindUiEvent(context = null) {
           context.brainEngine.aiProvider.ready ||
           (await context.brainEngine.aiProvider.ping());
         // el.textContent = ok ? '🧠本機' : '🧠✗';
-        el.textContent = ok ? '🧠✓' : '🧠✗';
-        if (ok) {
+        el.textContent = ok === true ? '🧠✓' : '🧠✗';
+        if (ok === true) {
           el.setAttribute('css-llm-on', 'true');
         } else {
           el.removeAttribute('css-llm-on');
