@@ -24,7 +24,8 @@ export function initUi(container, stageEl) {
   const historyPanelEl = document.createElement('section');
   historyPanelEl.setAttribute('id', 'history-panel');
   historyPanelEl.setAttribute('aria-label', '聊天紀錄');
-  historyPanelEl.setAttribute('aria-hidden', 'true');
+  // historyPanelEl.setAttribute('aria-hidden', 'true');
+  historyPanelEl.inert = true;
 
   const historyHead = document.createElement('div');
   historyHead.setAttribute('class', 'history-head');
@@ -359,7 +360,7 @@ export function setHistoryOpen(context, open) {
     } else {
       panel.removeAttribute('css-is-open');
     }
-    panel.setAttribute('aria-hidden', String(!open));
+    panel.inert = !open;
     btn.setAttribute('aria-expanded', String(!!open));
   }
 
