@@ -562,5 +562,11 @@ export function initSpeechEngine(setting = {}) {
     speechEngine.ttVoice = loadVoice(speechEngine.gender);
   }
 
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden === true && speechEngine.convoOn === true) {
+      speechEngine.stopVoiceSession('頁面進入背景，即時語音已停止。');
+    }
+  });
+
   return speechEngine;
 }

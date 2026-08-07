@@ -584,7 +584,8 @@ export async function initBrainEngine(seting = {}) {
     aiProviderPingUrl,
     aiProviderChatUrl,
     aiProviderMaxTokens,
-    aiProviderIsStream
+    aiProviderIsStream,
+    buildLLMMessages
   } = seting;
 
   let llm = null;
@@ -691,6 +692,10 @@ export async function initBrainEngine(seting = {}) {
         this._assistantWelcomeText = newAssistantWelcomeText;
       }
     },
+
+    buildLLMMessages: typeof buildLLMMessages === 'function'
+      ? buildLLMMessages
+      : (question) => defaultBuildLLMMessages(brainEngine, question),
 
     defaultBuildLLMMessages: (question) =>
       defaultBuildLLMMessages(brainEngine, question),
@@ -974,7 +979,7 @@ export async function aiProviderLLMBrain(brainEngine, question) {
     }
 
     const out = await brainEngine.aiProvider.chat(
-      brainEngine.defaultBuildLLMMessages(question)
+      brainEngine.buildLLMMessages(question)
     );
     if (typeof out === 'string' && out.trim() !== '') {
       return sayAnswer(brainEngine, out.trim());
@@ -1027,7 +1032,7 @@ export async function webLLMBrain(brainEngine, question) {
     const st = { buf: '' };
     const streamMessageId = 'stream-' + Date.now();
     const out = await brainEngine.llm.chat(
-      brainEngine.defaultBuildLLMMessages(question),
+      brainEngine.buildLLMMessages(question),
       (delta, sofar) => {
         brainEngine.speech.spokenDisplayText = sofar; // 邊生成邊更新字幕
         updateChatMessage(brainEngine, streamMessageId, sofar, true);

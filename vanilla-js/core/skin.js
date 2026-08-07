@@ -11,6 +11,55 @@ import {
   DEFAULT_MALE_MODEL_URL
 } from './constants';
 
+/**
+ * @typedef {Object} CustomSkinEngine
+ * @property {HTMLElement} stageEl - 渲染的容器元素
+ * @property {boolean} has2D - 是否支援 2D
+ * @property {boolean} has3D - 是否支援 3D
+ * @property {string} engineMode - 目前的模式 (2D/3D)
+ * @property {Object} avatarModel - 模型實例，需實作 .on('hit', cb)
+ * @property {Object} renderer - 渲染器，需包含 .canvas 以及 .playGesture()
+ * @property {function(string): void} setGender - 切換性別的方法
+ * @property {function(File): void} loadVRMFile - 載入模型檔案的方法
+ */
+export function validateSkinEngine(engine) {
+  const missing = [];
+
+  if (!engine) {
+    missing.push('engine instance');
+  } else {
+    if (typeof engine.setGender !== 'function') {
+      missing.push('setGender()');
+    }
+    if (typeof engine.loadVRMFile !== 'function') {
+      missing.push('loadVRMFile()');
+    }
+    if (typeof engine.has2D !== 'boolean') {
+      missing.push('has2D');
+    }
+    if (typeof engine.has3D !== 'boolean') {
+      missing.push('has3D');
+    }
+    if (!engine.stageEl) {
+      missing.push('stageEl');
+    }
+    if (!engine.renderer?.canvas) {
+      missing.push('renderer.canvas');
+    }
+    if (typeof engine.renderer?.playGesture !== 'function') {
+      missing.push('renderer.playGesture()');
+    }
+    if (typeof engine.avatarModel?.on !== 'function') {
+      missing.push('avatarModel.on()');
+    }
+  }
+
+  return {
+    isValid: missing.length === 0,
+    missing
+  };
+}
+
 // 2D 引擎相依（pixi + live2d）改成「用到才載」，3D 模式就不會下載 Live2D
 export function loadUMD() {
   const cdnDependencieUrlArray = [
