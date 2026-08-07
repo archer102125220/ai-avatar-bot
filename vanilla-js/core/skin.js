@@ -12,7 +12,7 @@ import {
 } from './constants';
 
 /**
- * @typedef {Object} CustomSkinEngine
+ * @typedef {Object} SkinEngine
  * @property {HTMLElement} stageEl - 渲染的容器元素
  * @property {boolean} has2D - 是否支援 2D
  * @property {boolean} has3D - 是否支援 3D
@@ -22,10 +22,16 @@ import {
  * @property {function(string): void} setGender - 切換性別的方法
  * @property {function(File): void} loadVRMFile - 載入模型檔案的方法
  */
+
+/**
+ * 驗證傳入的引擎物件是否符合 SkinEngine 介面規範。
+ * @param {SkinEngine} engine - 準備驗證的引擎實例。
+ * @returns {{isValid: boolean, missing: string[]}} 包含驗證結果 (isValid) 以及缺少的屬性陣列 (missing) 的物件。
+ */
 export function validateSkinEngine(engine) {
   const missing = [];
 
-  if (!engine) {
+  if (typeof engine !== 'object' || engine === null) {
     missing.push('engine instance');
   } else {
     if (typeof engine.setGender !== 'function') {
@@ -40,10 +46,10 @@ export function validateSkinEngine(engine) {
     if (typeof engine.has3D !== 'boolean') {
       missing.push('has3D');
     }
-    if (!engine.stageEl) {
+    if (engine.stageEl instanceof HTMLElement === false) {
       missing.push('stageEl');
     }
-    if (!engine.renderer?.canvas) {
+    if (engine.renderer?.canvas instanceof HTMLElement === false) {
       missing.push('renderer.canvas');
     }
     if (typeof engine.renderer?.playGesture !== 'function') {
@@ -61,6 +67,10 @@ export function validateSkinEngine(engine) {
 }
 
 // 2D 引擎相依（pixi + live2d）改成「用到才載」，3D 模式就不會下載 Live2D
+/**
+ * 動態載入 2D 引擎所需的 UMD 相依套件（pixi.js 與 live2d）。
+ * @returns {Promise<void>} 所有的相依套件載入完成後會 resolve 的 Promise。
+ */
 export function loadUMD() {
   const cdnDependencieUrlArray = [
     {
@@ -105,6 +115,12 @@ export function loadUMD() {
   return window.__cdnDependenciePromise__;
 }
 
+/**
+ * 根據虛擬人物的性別，執行預設的 2D 手勢（情緒表情）。
+ * @param {SkinEngine} [skinEngine=null] - 引擎實例。
+ * @param {string} emotionName - 準備表達的情緒名稱（例如：'neutral'、'happy'）。
+ * @returns {Promise<void>}
+ */
 export async function defaultGesture2D(skinEngine = null, emotionName) {
   // f00 微笑眨眼
   // f01 （與f00很像）
@@ -148,6 +164,12 @@ export async function defaultGesture2D(skinEngine = null, emotionName) {
 }
 
 // ===== 2D 皮：Live2D 載入 + 對嘴 =====
+/**
+ * 初始化並啟動 2D Live2D 虛擬人物模型。
+ * @param {SkinEngine} skinEngine - 引擎實例。
+ * @param {string} modelUrl - Live2D 模型檔案的 URL。
+ * @returns {Promise<{ canvas: HTMLCanvasElement, avatarModel: Object, pixiApp: Object, dispose: Function }|void>} 初始化後的 2D 渲染器實例，發生錯誤時則為 void。
+ */
 async function bootAvatar(skinEngine, modelUrl) {
   const stageEl = skinEngine?.stageEl;
   if (stageEl instanceof HTMLElement === false) {
@@ -185,9 +207,11 @@ async function bootAvatar(skinEngine, modelUrl) {
     } catch (_error) {}
     try {
       const motions =
-        (skinEngine.avatarModel.internalModel.settings &&
-          skinEngine.avatarModel.internalModel.settings.motions) ||
-        {};
+        typeof skinEngine.avatarModel.internalModel.settings?.motions ===
+          'object' &&
+        skinEngine.avatarModel.internalModel.settings.motions !== null
+          ? skinEngine.avatarModel.internalModel.settings.motions
+          : {};
       for (const groupName of Object.keys(motions)) {
         (motions[groupName] || []).forEach((data) => {
           delete data.Sound;
@@ -197,6 +221,10 @@ async function bootAvatar(skinEngine, modelUrl) {
     } catch (_error) {}
 
     const safeFitMode = skinEngine.fitMode || DEFAULT_FIT_MODE;
+    /**
+     * 根據設定的模式 (fitMode) 調整 2D 虛擬人的縮放與位置，使其適應畫布尺寸。
+     * 若模式為 HALF，則會放大並將位置下移以呈現半身特寫。
+     */
     function fit() {
       const width = pixiApp.renderer.width;
       const height = pixiApp.renderer.height;
@@ -293,8 +321,13 @@ async function bootAvatar(skinEngine, modelUrl) {
   }
 }
 
-// TODO: 深入研究怎麼移除 aiAvatarWidget ，讓 function 更乾淨
 // ===== 3D 皮：VRM（three + three-vrm，ESM 動態 import）=====
+/**
+ * 初始化並啟動 3D VRM 虛擬人物模型。
+ * @param {SkinEngine} skinEngine - 引擎實例。
+ * @param {Object} [setting={}] - VRM 手勢與行為的設定物件。
+ * @returns {Promise<{ gltf: Object, vrm: Object, TAP_GESTURES: string[], canvas: HTMLCanvasElement, playGesture: Function, setPaused: Function, dispose: Function }|void>} 初始化後的 3D 渲染器實例，發生錯誤時則為 void。
+ */
 async function bootVRM(skinEngine, setting = {}) {
   const stageEl = skinEngine?.stageEl;
   const {
@@ -303,7 +336,8 @@ async function bootVRM(skinEngine, setting = {}) {
     thinking = '',
     look = '',
     relax = '',
-    surprised = ''
+    surprised = '',
+    vrmaRootPath = ''
   } = setting;
   try {
     if (stageEl instanceof HTMLElement === false) {
@@ -315,18 +349,21 @@ async function bootVRM(skinEngine, setting = {}) {
     const { VRMAnimationLoaderPlugin, createVRMAnimationClip } =
       await import('@pixiv/three-vrm-animation');
     // const vrmaRootPath = 'https://cdn.jsdelivr.net/gh/tk256ailab/vrm-viewer@main/VRMA/';
-    const vrmaRootPath = '/avatar-skin/3d-model/vrma/';
+    const safeVrmaRootPath =
+      typeof vrmaRootPath === 'string' && vrmaRootPath !== ''
+        ? vrmaRootPath
+        : '/avatar-skin/3d-model/vrma/';
     const GESTURES = {
       // 情境手勢 + 待機變化（body-only，不碰嘴）`
-      wave: wave || vrmaRootPath + 'Goodbye.vrma',
+      wave: wave || safeVrmaRootPath + 'Goodbye.vrma',
       // bow:
       //   bow ||
       //   'https://cdn.jsdelivr.net/gh/hirokazuniimoto/virtual-avatar-sdk@main/assets/animations/quick_formal_bow.vrma',
-      bow: bow || vrmaRootPath + 'quick_formal_bow.vrma',
-      thinking: thinking || vrmaRootPath + 'Thinking.vrma',
-      look: look || vrmaRootPath + 'LookAround.vrma',
-      relax: relax || vrmaRootPath + 'Relax.vrma',
-      surprised: surprised || vrmaRootPath + 'Surprised.vrma' // ①情緒用：驚訝的小反應（不在點擊問候清單裡）
+      bow: bow || safeVrmaRootPath + 'quick_formal_bow.vrma',
+      thinking: thinking || safeVrmaRootPath + 'Thinking.vrma',
+      look: look || safeVrmaRootPath + 'LookAround.vrma',
+      relax: relax || safeVrmaRootPath + 'Relax.vrma',
+      surprised: surprised || safeVrmaRootPath + 'Surprised.vrma' // ①情緒用：驚訝的小反應（不在點擊問候清單裡）
     };
     const TAP_GESTURES = ['wave', 'bow']; // 點一下隨機：揮手/鞠躬問候（歡迎感）
 
@@ -361,14 +398,14 @@ async function bootVRM(skinEngine, setting = {}) {
     scene.add(key, fill, new THREE.AmbientLight(0xffffff, 0.38));
     const lookTarget = new THREE.Object3D();
     scene.add(lookTarget); // lookAt 目標：跟著滑鼠
-    let mx = 0;
-    let my = 0; // 游標相對位置 -1..1
+    let cursorX = 0;
+    let cursorY = 0; // 游標相對位置 -1..1
     const onMove = (event) => {
       const stageElClientRect = stageEl.getBoundingClientRect();
       if (stageElClientRect.width === 0) {
         return;
       }
-      mx = Math.max(
+      cursorX = Math.max(
         -1,
         Math.min(
           1,
@@ -377,7 +414,7 @@ async function bootVRM(skinEngine, setting = {}) {
             1
         )
       );
-      my = Math.max(
+      cursorY = Math.max(
         -1,
         Math.min(
           1,
@@ -390,7 +427,7 @@ async function bootVRM(skinEngine, setting = {}) {
     stageEl.addEventListener('pointermove', onMove);
 
     let nextBlink = 2 + Math.random() * 3;
-    let blinkT = -1;
+    let blinkTime = -1;
     let mixer = null;
     let waving = false;
     const BLINK = 0.12;
@@ -442,26 +479,34 @@ async function bootVRM(skinEngine, setting = {}) {
 
     // VRMA 情境手勢庫（body-only，不碰嘴）：點擊/出場揮手、思考托腮、待機變化(環顧/放鬆)
     await (async () => {
-      const bodyOnly = (cl) => {
-        cl.tracks = cl.tracks.filter((tr) => /\.quaternion$/.test(tr.name));
-        return cl;
+      /**
+       * 過濾動畫軌道，僅保留骨架旋轉 (quaternion)，過濾掉位移與表情軌道，避免與程序化動畫衝突。
+       * @param {THREE.AnimationClip} clip - 原始的 AnimationClip。
+       * @returns {THREE.AnimationClip} 過濾後只剩旋轉軌道的 AnimationClip。
+       */
+      const bodyOnly = (clip) => {
+        clip.tracks = clip.tracks.filter((track) =>
+          /\.quaternion$/.test(track.name)
+        );
+        return clip;
       }; // 只留骨架旋轉、剝臉部表情與位移
       try {
         mixer = new THREE.AnimationMixer(vrm.scene);
         for (const [name, file] of Object.entries(GESTURES)) {
           try {
-            const gg = await loader.loadAsync(file);
-            const anim =
-              gg.userData.vrmAnimations && gg.userData.vrmAnimations[0];
-            if (anim === undefined || anim === null) {
+            const gestureGltf = await loader.loadAsync(file);
+            const vrmAnimation =
+              gestureGltf.userData.vrmAnimations &&
+              gestureGltf.userData.vrmAnimations[0];
+            if (vrmAnimation === undefined || vrmAnimation === null) {
               continue;
             }
-            const act = mixer.clipAction(
-              bodyOnly(createVRMAnimationClip(anim, vrm))
+            const clipAction = mixer.clipAction(
+              bodyOnly(createVRMAnimationClip(vrmAnimation, vrm))
             );
-            act.setLoop(THREE.LoopOnce, 1);
-            act.clampWhenFinished = true;
-            gestureActions[name] = act;
+            clipAction.setLoop(THREE.LoopOnce, 1);
+            clipAction.clampWhenFinished = true;
+            gestureActions[name] = clipAction;
           } catch (error) {
             console.warn('VRMA ' + name + ' 載入失敗：', error?.message);
           }
@@ -499,22 +544,32 @@ async function bootVRM(skinEngine, setting = {}) {
       skinEngine.onMounted();
     }
 
+    /**
+     * 播放指定的 3D 手勢動畫 (例如揮手、鞠躬)。
+     * 播放期間會將 waving 設為 true 避免被程序化站姿打斷。
+     * @param {string} name - 要播放的手勢動作名稱對應鍵值。
+     */
     function playGesture(name) {
       // 播一個手勢（期間 mixer 控身體），平時用程序化站姿
-      const act = gestureActions[name];
-      if (act === undefined || act === null || waving === true) {
+      const clipAction = gestureActions[name];
+      if (clipAction === undefined || clipAction === null || waving === true) {
         return; // 一次一個，播放中不打斷
       }
       waving = true;
-      currentGesture = act;
-      act.reset();
-      act.setEffectiveWeight(1);
-      act.play(); // 硬切，不 fadeIn（fade 低權重會露出 bind T-pose）
+      currentGesture = clipAction;
+      clipAction.reset();
+      clipAction.setEffectiveWeight(1);
+      clipAction.play(); // 硬切，不 fadeIn（fade 低權重會露出 bind T-pose）
     }
 
     let alive = true;
     let paused = false;
     let renderRaf = 0;
+    /**
+     * 3D 虛擬人的核心渲染與動畫更新迴圈 (Animation Loop)。
+     * 負責計算 delta time，更新 AnimationMixer (手勢)、表情 (對嘴/眨眼/情緒)，
+     * 以及待機/說話時的程序化細微動作 (呼吸、轉頭、手部擺動)，最後呼叫 render 重繪畫面。
+     */
     function animationLoop() {
       if (alive !== true || paused === true) {
         renderRaf = 0;
@@ -543,20 +598,20 @@ async function bootVRM(skinEngine, setting = {}) {
             }
           })();
         }
-        if (blinkT < 0) {
+        if (blinkTime < 0) {
           nextBlink -= delta;
           if (nextBlink <= 0) {
-            blinkT = 0;
+            blinkTime = 0;
             nextBlink = 2 + Math.random() * 4;
           }
         } else {
-          blinkT += delta / BLINK;
+          blinkTime += delta / BLINK;
           expressionManager.setValue(
             'blink',
-            Math.sin(Math.min(blinkT, 1) * Math.PI)
+            Math.sin(Math.min(blinkTime, 1) * Math.PI)
           );
-          if (blinkT >= 1) {
-            blinkT = -1;
+          if (blinkTime >= 1) {
+            blinkTime = -1;
             expressionManager.setValue('blink', 0);
           }
         }
@@ -596,11 +651,12 @@ async function bootVRM(skinEngine, setting = {}) {
             }
           } else if (skinEngine.emo.name !== 'neutral') {
             try {
-              const ex = expressionManager.getExpression
+              const expression = expressionManager.getExpression
                 ? expressionManager.getExpression(skinEngine.emo.name)
                 : null;
               const weight =
-                ex?.overrideMouth && String(ex.overrideMouth) !== 'none'
+                expression?.overrideMouth &&
+                String(expression.overrideMouth) !== 'none'
                   ? Math.min(skinEngine.emo.weight, 0.4)
                   : skinEngine.emo.weight; // 別把對嘴蓋死
               expressionManager.setValue(skinEngine.emo.name, weight);
@@ -609,38 +665,45 @@ async function bootVRM(skinEngine, setting = {}) {
           }
         }
 
-        lookTarget.position.set(mx * 0.9, 1.42 - my * 0.55, 1.6); // 眼睛 lookAt 目標跟游標（永遠更新）
-        if (!waving) {
+        lookTarget.position.set(cursorX * 0.9, 1.42 - cursorY * 0.55, 1.6); // 眼睛 lookAt 目標跟游標（永遠更新）
+        if (waving === false) {
           // 待機：直立、手放下、輕呼吸、頭跟游標
           const humanoid = vrm.humanoid;
-          const lUA = humanoid.getNormalizedBoneNode('leftUpperArm');
-          const rUA = humanoid.getNormalizedBoneNode('rightUpperArm');
-          const sp = humanoid.getNormalizedBoneNode('spine');
-          const hd = humanoid.getNormalizedBoneNode('head');
-          let armL = 1.15 * armSign;
-          let armR = -1.15 * armSign;
-          const spX = Math.sin(elapsedTime * 0.9) * 0.018;
-          let spY = Math.sin(elapsedTime * 0.5) * 0.012;
-          let hdY = mx * 0.3;
-          let hdX = my * 0.12 + Math.sin(elapsedTime * 0.5) * 0.01;
+          const leftUpperArmNode =
+            humanoid.getNormalizedBoneNode('leftUpperArm');
+          const rightUpperArmNode =
+            humanoid.getNormalizedBoneNode('rightUpperArm');
+          const spineNode = humanoid.getNormalizedBoneNode('spine');
+          const headNode = humanoid.getNormalizedBoneNode('head');
+          let leftArmRotationZ = 1.15 * armSign;
+          let rightArmRotationZ = -1.15 * armSign;
+          const spineRotationX = Math.sin(elapsedTime * 0.9) * 0.018;
+          let spineRotationY = Math.sin(elapsedTime * 0.5) * 0.012;
+          let headRotationY = cursorX * 0.3;
+          let headRotationX =
+            cursorY * 0.12 + Math.sin(elapsedTime * 0.5) * 0.01;
           if (skinEngine.getState().isSpeaking === true) {
             // 講話時：身體/頭/手持續小動作（疊在站姿上）
-            const ts = elapsedTime * 3.0;
-            spY += Math.sin(ts) * 0.03;
-            hdX += Math.abs(Math.sin(ts * 0.9)) * 0.045; // 點頭
-            hdY += Math.sin(ts * 0.55) * 0.05; // 轉頭
-            armL += Math.sin(ts * 0.7) * 0.06; // 手臂比劃
-            armR -= Math.sin(ts * 0.62) * 0.06;
+            const speechTime = elapsedTime * 3.0;
+            spineRotationY += Math.sin(speechTime) * 0.03;
+            headRotationX += Math.abs(Math.sin(speechTime * 0.9)) * 0.045; // 點頭
+            headRotationY += Math.sin(speechTime * 0.55) * 0.05; // 轉頭
+            leftArmRotationZ += Math.sin(speechTime * 0.7) * 0.06; // 手臂比劃
+            rightArmRotationZ -= Math.sin(speechTime * 0.62) * 0.06;
           }
-          if (lUA) lUA.rotation.z = armL;
-          if (rUA) rUA.rotation.z = armR;
-          if (typeof sp === 'object' && sp !== null) {
-            sp.rotation.x = spX;
-            sp.rotation.y = spY;
+          if (leftUpperArmNode) {
+            leftUpperArmNode.rotation.z = leftArmRotationZ;
           }
-          if (typeof hd === 'object' && hd !== null) {
-            hd.rotation.y = hdY;
-            hd.rotation.x = hdX;
+          if (rightUpperArmNode) {
+            rightUpperArmNode.rotation.z = rightArmRotationZ;
+          }
+          if (typeof spineNode === 'object' && spineNode !== null) {
+            spineNode.rotation.x = spineRotationX;
+            spineNode.rotation.y = spineRotationY;
+          }
+          if (typeof headNode === 'object' && headNode !== null) {
+            headNode.rotation.y = headRotationY;
+            headNode.rotation.x = headRotationX;
           }
         }
         vrm.update(delta); // 套用骨架/表情/springbone
@@ -650,9 +713,6 @@ async function bootVRM(skinEngine, setting = {}) {
     renderRaf = requestAnimationFrame(animationLoop);
 
     return {
-      get skinEngine() {
-        return skinEngine;
-      },
       get gltf() {
         return gltf;
       },
@@ -713,6 +773,12 @@ async function bootVRM(skinEngine, setting = {}) {
 }
 
 // ===== 引擎切換外殼：每個引擎建自己的 canvas、回傳 dispose；切換＝dispose 舊的再 boot 新的 =====
+/**
+ * 建立一個全新的 canvas 元素並插入到舞台 (stage) 中準備進行渲染。
+ * @param {SkinEngine} [skinEngine=null] - 引擎實例。
+ * @returns {HTMLCanvasElement} 新建立的 canvas 元素。
+ * @throws {Error} 如果 stageEl 不是一個 HTMLElement 時會拋出錯誤。
+ */
 function createCanvas(skinEngine = null) {
   const stageEl = skinEngine?.stageEl;
   if (stageEl instanceof HTMLElement === false) {
@@ -728,6 +794,10 @@ function createCanvas(skinEngine = null) {
   return newCanvas;
 }
 
+/**
+ * 判斷並初始化皮 (skin) 引擎的起始渲染模式（2D 或 3D）。
+ * @param {SkinEngine} [skinEngine=null] - 引擎實例。
+ */
 function initSkinMode(skinEngine = null) {
   const startMode =
     skinEngine.startMode ||
@@ -742,6 +812,11 @@ function initSkinMode(skinEngine = null) {
 }
 
 // ===== 拖放自己的 VRM：把 .vrm 拖到角色上就直接換成你的 3D 角色（零改 code）=====
+/**
+ * 載入使用者自行提供的自訂 VRM 檔案。
+ * @param {SkinEngine} [skinEngine=null] - 引擎實例。
+ * @param {File} file - 準備載入的 VRM 檔案。
+ */
 function loadVRMFile(skinEngine = null, file) {
   const stageEl = skinEngine?.stageEl;
   if (stageEl instanceof HTMLElement === false) {
@@ -777,6 +852,30 @@ function loadVRMFile(skinEngine = null, file) {
   skinEngine.engineMode = ENGINE_MODE_MAP.threeDimensional;
 }
 
+/**
+ * 初始化並建立新的皮 (skin) 引擎實例的工廠函式。
+ * @param {Object} [setting={}] - 引擎的設定選項。
+ * @param {HTMLElement} setting.stageEl - 用來渲染虛擬人物的容器 DOM 元素。
+ * @param {string} [setting.modelUrl] - 2D 模型檔案的 URL。
+ * @param {string} [setting.startMode] - 初始渲染模式（2D / 3D）。
+ * @param {string} [setting.fitMode] - 2D 模型的初始適應模式 (fit mode)。
+ * @param {string} [setting.vrmUrl] - 3D VRM 模型檔案的 URL。
+ * @param {Function} [setting.gesture2D] - 自訂的 2D 手勢處理函式。
+ * @param {Function} [setting.computeMouth] - 用於計算嘴型數值的函式。
+ * @param {Function} [setting.onThreeDimensionalError] - 初始化 3D 發生錯誤時的回呼函式。
+ * @param {Function} [setting.onTwoDimensionalError] - 初始化 2D 發生錯誤時的回呼函式。
+ * @param {Function} [setting.VRMFileChangeFail] - 載入自訂 VRM 檔案失敗時的回呼函式。
+ * @param {Function} [setting.VRMFileChangeSuccess] - 載入自訂 VRM 檔案成功時的回呼函式。
+ * @param {Function} [setting.onMounted] - 虛擬人物掛載成功時的回呼函式。
+ * @param {string} [setting.gender] - 虛擬人物的性別。
+ * @param {Function} [setting.onGesture] - 手勢開始播放時的回呼函式。
+ * @param {Function} [setting.onGestureError] - 手勢播放失敗時的回呼函式。
+ * @param {Function} [setting.onGestureEnd] - 手勢播放結束時的回呼函式。
+ * @param {Function} [setting.onModelChange] - 引擎模式準備切換時的回呼函式。
+ * @param {Function} [setting.onModelChangeEnd] - 引擎模式切換完畢時的回呼函式。
+ * @param {Function} [setting.onModelChangeError] - 引擎模式切換發生錯誤時的回呼函式。
+ * @returns {SkinEngine|void} 建立完成的引擎實例，發生錯誤時則為 void。
+ */
 export function initSkinEngine(setting = {}) {
   const {
     stageEl,
