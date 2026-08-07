@@ -138,14 +138,14 @@ async function bootAvatar(skinEngine, modelUrl) {
       }
     } catch (_error) {}
     try {
-      const ms =
+      const motions =
         (skinEngine.avatarModel.internalModel.settings &&
           skinEngine.avatarModel.internalModel.settings.motions) ||
         {};
-      for (const g of Object.keys(ms)) {
-        (ms[g] || []).forEach((d) => {
-          delete d.Sound;
-          delete d.sound;
+      for (const groupName of Object.keys(motions)) {
+        (motions[groupName] || []).forEach((data) => {
+          delete data.Sound;
+          delete data.sound;
         });
       }
     } catch (_error) {}
@@ -157,10 +157,10 @@ async function bootAvatar(skinEngine, modelUrl) {
       const nativeH = skinEngine.avatarModel?.internalModel?.height || 1000;
       if (safeFitMode === FIT_MODE_MAP.HALF) {
         const ZOOM = 1.9; // 放大倍率：越大越近（半身越緊）
-        const s = (height / nativeH) * 0.95 * ZOOM;
-        skinEngine.avatarModel.scale.set(s);
+        const scale = (height / nativeH) * 0.95 * ZOOM;
+        skinEngine.avatarModel.scale.set(scale);
         skinEngine.avatarModel.x = width / 2;
-        skinEngine.avatarModel.y = nativeH * s + height * 0.04; // 腳推到畫面外、頭留 4% 上緣
+        skinEngine.avatarModel.y = nativeH * scale + height * 0.04; // 腳推到畫面外、頭留 4% 上緣
       } else {
         skinEngine.avatarModel.scale.set((height / nativeH) * 0.95);
         skinEngine.avatarModel.x = width / 2;
@@ -172,9 +172,9 @@ async function bootAvatar(skinEngine, modelUrl) {
 
     try {
       const groups = skinEngine.avatarModel.internalModel.settings.groups || [];
-      const g = groups.find((x) => (x.Name || '').toLowerCase() === 'lipsync');
-      if (Array.isArray(g?.Ids) && g.Ids.length > 0) {
-        skinEngine.lipIds = g.Ids;
+      const lipsyncGroup = groups.find((x) => (x.Name || '').toLowerCase() === 'lipsync');
+      if (Array.isArray(lipsyncGroup?.Ids) && lipsyncGroup.Ids.length > 0) {
+        skinEngine.lipIds = lipsyncGroup.Ids;
       }
     } catch (_error) {}
 
@@ -352,8 +352,8 @@ async function bootVRM(skinEngine, setting = {}) {
     let idleBreak = 0;
     const clock = new THREE.Clock();
     const loader = new GLTFLoader();
-    loader.register((p) => new VRMLoaderPlugin(p));
-    loader.register((p) => new VRMAnimationLoaderPlugin(p)); // 同一個 loader 也能讀 .vrma
+    loader.register((parser) => new VRMLoaderPlugin(parser));
+    loader.register((parser) => new VRMAnimationLoaderPlugin(parser)); // 同一個 loader 也能讀 .vrma
     const gltf = await new Promise((resolve, reject) =>
       loader.load(
         skinEngine.vrmUrl,
@@ -382,8 +382,8 @@ async function bootVRM(skinEngine, setting = {}) {
 
     // VRM0 被 rotateVRM0 轉 180°，手臂 z 旋轉方向會相反；VRM1 不轉 → 用版本決定正負號
     const armSign = String(vrm.meta && vrm.meta.metaVersion) === '1' ? -1 : 1;
-    vrm.scene.traverse((o) => {
-      o.frustumCulled = false;
+    vrm.scene.traverse((obj) => {
+      obj.frustumCulled = false;
     });
     scene.add(vrm.scene);
 
@@ -404,12 +404,12 @@ async function bootVRM(skinEngine, setting = {}) {
         for (const [name, file] of Object.entries(GESTURES)) {
           try {
             const gg = await loader.loadAsync(file);
-            const a = gg.userData.vrmAnimations && gg.userData.vrmAnimations[0];
-            if (a === undefined || a === null) {
+            const anim = gg.userData.vrmAnimations && gg.userData.vrmAnimations[0];
+            if (anim === undefined || anim === null) {
               continue;
             }
             const act = mixer.clipAction(
-              bodyOnly(createVRMAnimationClip(a, vrm))
+              bodyOnly(createVRMAnimationClip(anim, vrm))
             );
             act.setLoop(THREE.LoopOnce, 1);
             act.clampWhenFinished = true;

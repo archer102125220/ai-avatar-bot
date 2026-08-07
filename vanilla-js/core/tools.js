@@ -43,9 +43,11 @@ export function similarity(a, b) {
 
 export function normaliseSchema(schema) {
   if (
-    typeof schema !== 'object' || schema === null ||
+    typeof schema !== 'object' ||
+    schema === null ||
     schema.type !== 'object' ||
-    typeof schema.properties !== 'object' || schema.properties === null
+    typeof schema.properties !== 'object' ||
+    schema.properties === null
   ) {
     return { type: 'object', properties: {}, required: [] };
   }
@@ -134,10 +136,16 @@ export function normaliseTool(tool) {
 }
 
 export function scoreTool(tool, query) {
-  const q = normal(query);
+  const normalizedQuery = normal(query);
   if (
-    typeof q !== 'string' || q === '' ||
-    tool.excludeKeywords.some((item) => typeof item === 'string' && item !== '' && q.includes(normal(item)))
+    typeof normalizedQuery !== 'string' ||
+    normalizedQuery === '' ||
+    tool.excludeKeywords.some(
+      (item) =>
+        typeof item === 'string' &&
+        item !== '' &&
+        normalizedQuery.includes(normal(item))
+    )
   ) {
     return { score: 0, reason: 'excluded' };
   }
@@ -148,28 +156,30 @@ export function scoreTool(tool, query) {
     if (typeof key !== 'string' || key === '') {
       return;
     }
-    const current = q.includes(key)
+    const current = normalizedQuery.includes(key)
       ? Math.min(0.92, 0.62 + key.length * 0.035)
-      : similarity(q, key) * 0.62;
+      : similarity(normalizedQuery, key) * 0.62;
     if (current > score) {
       score = current;
-      reason = q.includes(key) ? `keyword:${keyword}` : 'keyword-similarity';
+      reason = normalizedQuery.includes(key)
+        ? `keyword:${keyword}`
+        : 'keyword-similarity';
     }
   });
   tool.examples.forEach((example) => {
-    const sim = similarity(q, example);
+    const sim = similarity(normalizedQuery, example);
     const current = 0.18 + sim * 0.72;
     if (sim >= 0.28 && current > score) {
       score = current;
       reason = 'example';
     }
   });
-  const labelSimilarity = similarity(q, tool.label);
+  const labelSimilarity = similarity(normalizedQuery, tool.label);
   if (labelSimilarity >= 0.3 && 0.16 + labelSimilarity * 0.65 > score) {
     score = 0.16 + labelSimilarity * 0.65;
     reason = 'label';
   }
-  const descriptionSimilarity = similarity(q, tool.description);
+  const descriptionSimilarity = similarity(normalizedQuery, tool.description);
   if (
     descriptionSimilarity >= 0.34 &&
     0.1 + descriptionSimilarity * 0.52 > score
@@ -219,10 +229,20 @@ function findPrefixed(query, prefixes) {
 }
 
 function valueForProperty(name, property, query, context, allowWhole) {
-  if (typeof property.contextKey === 'string' && property.contextKey !== '' && typeof context === 'object' && context !== null && context[property.contextKey] != null) {
+  if (
+    typeof property.contextKey === 'string' &&
+    property.contextKey !== '' &&
+    typeof context === 'object' &&
+    context !== null &&
+    context[property.contextKey] != null
+  ) {
     return context[property.contextKey];
   }
-  if (typeof context === 'object' && context !== null && context[name] != null) {
+  if (
+    typeof context === 'object' &&
+    context !== null &&
+    context[name] != null
+  ) {
     return context[name];
   }
 
@@ -353,7 +373,10 @@ export function validate(schema, input) {
       }
     }
 
-    if (Array.isArray(property.enum) === true && property.enum.indexOf(String(value)) < 0) {
+    if (
+      Array.isArray(property.enum) === true &&
+      property.enum.indexOf(String(value)) < 0
+    ) {
       errors.push(`${name} 不在允許選項內`);
     }
 
@@ -386,7 +409,11 @@ export function extract(tool, query, context, existing, onlyNames, allowWhole) {
       ? onlyNames
       : Object.keys(properties);
   names.forEach((name) => {
-    if (typeof properties[name] !== 'object' || properties[name] === null || args[name] != null) {
+    if (
+      typeof properties[name] !== 'object' ||
+      properties[name] === null ||
+      args[name] != null
+    ) {
       return;
     }
     const value = valueForProperty(
@@ -470,7 +497,10 @@ export function initToolsEngine(setting = {}) {
   }
 
   function continueToolInput(text) {
-    if (typeof toolsEngine.pendingToolInput !== 'object' || toolsEngine.pendingToolInput === null) {
+    if (
+      typeof toolsEngine.pendingToolInput !== 'object' ||
+      toolsEngine.pendingToolInput === null
+    ) {
       return false;
     }
     if (/^(取消|不要|算了|cancel)$/i.test(String(text || '').trim())) {
@@ -544,7 +574,10 @@ export function initToolsEngine(setting = {}) {
   }
 
   function continueToolChoice(text) {
-    if (typeof toolsEngine.pendingToolChoice !== 'object' || toolsEngine.pendingToolChoice === null) {
+    if (
+      typeof toolsEngine.pendingToolChoice !== 'object' ||
+      toolsEngine.pendingToolChoice === null
+    ) {
       return false;
     }
     if (/^(取消|不要|算了|cancel)$/i.test(String(text || '').trim())) {
@@ -608,7 +641,12 @@ export function initToolsEngine(setting = {}) {
     const item = setting
       .getBrain()
       .chatLog.find((entry) => entry.id === messageId);
-    if (typeof item !== 'object' || item === null || !Array.isArray(item.pendingChoices) || item.pendingChoices[index] === undefined) {
+    if (
+      typeof item !== 'object' ||
+      item === null ||
+      !Array.isArray(item.pendingChoices) ||
+      item.pendingChoices[index] === undefined
+    ) {
       return;
     }
     const selected = item.pendingChoices[index];
@@ -679,8 +717,13 @@ export function initToolsEngine(setting = {}) {
   }
 
   function executePendingTool(messageId) {
-    const item = setting.getBrain().chatLog.find((m) => m.id === messageId);
-    if (typeof item !== 'object' || item === null || typeof item.pendingTool !== 'object' || item.pendingTool === null) {
+    const item = setting.getBrain().chatLog.find((msg) => msg.id === messageId);
+    if (
+      typeof item !== 'object' ||
+      item === null ||
+      typeof item.pendingTool !== 'object' ||
+      item.pendingTool === null
+    ) {
       return;
     }
     const pending = item.pendingTool;
@@ -696,8 +739,13 @@ export function initToolsEngine(setting = {}) {
   }
 
   function cancelPendingTool(messageId) {
-    const item = setting.getBrain().chatLog.find((m) => m.id === messageId);
-    if (typeof item !== 'object' || item === null || typeof item.pendingTool !== 'object' || item.pendingTool === null) {
+    const item = setting.getBrain().chatLog.find((msg) => msg.id === messageId);
+    if (
+      typeof item !== 'object' ||
+      item === null ||
+      typeof item.pendingTool !== 'object' ||
+      item.pendingTool === null
+    ) {
       return;
     }
     item.pendingTool = null;
@@ -714,7 +762,10 @@ export function initToolsEngine(setting = {}) {
   }
 
   function continueToolConfirmation(text) {
-    if (typeof toolsEngine.pendingToolConfirmation !== 'string' || toolsEngine.pendingToolConfirmation === '') {
+    if (
+      typeof toolsEngine.pendingToolConfirmation !== 'string' ||
+      toolsEngine.pendingToolConfirmation === ''
+    ) {
       return false;
     }
     const answer = String(text || '').trim();
@@ -741,7 +792,9 @@ export function initToolsEngine(setting = {}) {
       d.ok === false
         ? `執行失敗：${String(d.error || '未知錯誤')}`
         : String(d.message || '已完成。');
-    const existing = setting.getBrain().chatLog.find((m) => m.id === d.callId);
+    const existing = setting
+      .getBrain()
+      .chatLog.find((msg) => msg.id === d.callId);
 
     if (typeof existing === 'object' && existing !== null) {
       if (typeof toolsEngine.onUpdateChatMessage === 'function') {

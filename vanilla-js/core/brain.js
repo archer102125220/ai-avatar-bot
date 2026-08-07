@@ -33,30 +33,30 @@ export async function handleGetKnowledge(knowledgeUrl = '') {
 // 中文不好斷詞，改用「字元 bigram（相鄰兩字）」相似度，對中文很有效、又不用任何函式庫。
 export function bigrams(s) {
   s = (s || '').toLowerCase().replace(/[\s，。、？！,.?!~～]/g, '');
-  const g = [];
+  const grams = [];
   for (let i = 0; i < s.length - 1; i++) {
-    g.push(s.slice(i, i + 2));
+    grams.push(s.slice(i, i + 2));
   }
   if (s.length === 1) {
-    g.push(s);
+    grams.push(s);
   }
-  return g;
+  return grams;
 }
 
 // brain.js
 export function similarity(query, text) {
-  const A = bigrams(query);
-  const B = new Set(bigrams(text));
-  if (A.length === 0 || B.size === 0) {
+  const queryBigrams = bigrams(query);
+  const textBigramsSet = new Set(bigrams(text));
+  if (queryBigrams.length === 0 || textBigramsSet.size === 0) {
     return 0;
   }
   let hit = 0;
-  for (const x of A) {
-    if (B.has(x) === true) {
+  for (const gram of queryBigrams) {
+    if (textBigramsSet.has(gram) === true) {
       hit++;
     }
   }
-  return hit / Math.sqrt(A.length * B.size);
+  return hit / Math.sqrt(queryBigrams.length * textBigramsSet.size);
 }
 
 // brain.js
@@ -84,11 +84,11 @@ export function topK(brainEngine, question, k) {
   const knowledge = brainEngine?.knowledge || [];
 
   return knowledge
-    .map((e) => ({ e, s: scoreEntry(question, e) }))
-    .sort((a, b) => b.s - a.s)
+    .map((entry) => ({ entry, score: scoreEntry(question, entry) }))
+    .sort((a, b) => b.score - a.score)
     .slice(0, k)
-    .filter((x) => x.s > 0.05)
-    .map((x) => x.e);
+    .filter((item) => item.score > 0.05)
+    .map((item) => item.entry);
 }
 
 // brain.js
@@ -179,9 +179,9 @@ export function initLLM(setting = {}, brain) {
         try {
           const webllm = await import('@mlc-ai/web-llm'); // 動態載入：只有按下🧠才抓這包函式庫
           engine = await webllm.CreateMLCEngine(llmModel, {
-            initProgressCallback: (p) => {
-              this.progress = p.progress || 0;
-              this.onLoadProgress(p);
+            initProgressCallback: (progressInfo) => {
+              this.progress = progressInfo.progress || 0;
+              this.onLoadProgress(progressInfo);
             }
           });
 
@@ -511,11 +511,11 @@ export function initMEM({ avatarMode }) {
       if (this.isCompanion === false) {
         return;
       }
-      const m = /(?:我叫|我是|叫我)\s*([^\s，。、,.!！?？的]{1,10})/.exec(
+      const match = /(?:我叫|我是|叫我)\s*([^\s，。、,.!！?？的]{1,10})/.exec(
         text || ''
       );
-      if (m !== null && /誰|什麼|不知|沒有/.test(m[1]) === false) {
-        this.data.name = m[1];
+      if (match !== null && /誰|什麼|不知|沒有/.test(match[1]) === false) {
+        this.data.name = match[1];
         this.save();
       }
     },
@@ -864,16 +864,16 @@ export function setEmotionFromText(brainEngine, text) {
 
 // 檢索式回答（零金鑰、即時、永遠可用的後備）
 export function bestOf(knowledgeList = [], question) {
-  let e = null;
-  let s = 0;
-  for (const x of knowledgeList || []) {
-    const v = scoreEntry(question, x);
-    if (v > s) {
-      s = v;
-      e = x;
+  let bestEntry = null;
+  let bestScore = 0;
+  for (const entry of knowledgeList || []) {
+    const score = scoreEntry(question, entry);
+    if (score > bestScore) {
+      bestScore = score;
+      bestEntry = entry;
     }
   }
-  return { e, s };
+  return { entry: bestEntry, score: bestScore };
 }
 
 export function brainEngineCompanionFallback(brainEngine, question) {
@@ -911,16 +911,16 @@ export function handleThinking(brainEngine, rawQuestion) {
   if (brainEngine.avatarMode === AVATAR_MODE_MAP.companion) {
     // 陪伴模式：聊天題給陪聊腦、網站/產品題照答
     const chat = bestOf(brainEngine.companionKnowledge, question);
-    if (chat.e && chat.s >= 0.16 && chat.s + 0.05 >= site.s) {
-      return chat.e.a;
+    if (chat.entry && chat.score >= 0.16 && chat.score + 0.05 >= site.score) {
+      return chat.entry.a;
     }
-    if (site.e && site.s >= 0.16) {
-      return site.e.a;
+    if (site.entry && site.score >= 0.16) {
+      return site.entry.a;
     }
     return brainEngineCompanionFallback(brainEngine, question);
   }
-  if (site.e && site.s >= 0.16) {
-    return site.e.a;
+  if (site.entry && site.score >= 0.16) {
+    return site.entry.a;
   }
 
   if (typeof brainEngine.assistantFallbackContext === 'function') {
@@ -960,7 +960,7 @@ export function addChatMessage(brainEngine, role, text, options = {}) {
 }
 
 export function updateChatMessage(brainEngine, id, text, streaming) {
-  const item = brainEngine.chatLog.find((m) => m.id === id);
+  const item = brainEngine.chatLog.find((msg) => msg.id === id);
   if (item === undefined) {
     return addChatMessage(brainEngine, 'assistant', text, { id, streaming });
   }
@@ -998,7 +998,7 @@ export async function aiProviderLLMBrain(brainEngine, question) {
 
 export function defaultBuildLLMMessages(brainEngine, question) {
   const context = topK(brainEngine, question, 3)
-    .map((e) => 'Q：' + e.q + '\nA：' + e.a)
+    .map((entry) => 'Q：' + entry.q + '\nA：' + entry.a)
     .join('\n---\n');
   const RAG =
     '優先依據【參考資料】回答；資料沒有的就用常識簡短回應，不確定就老實說不知道。\n\n【參考資料】\n' +

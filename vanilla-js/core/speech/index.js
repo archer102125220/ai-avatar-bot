@@ -80,8 +80,8 @@ function prefetchSpeech(speechEngine, sid) {
   }
   for (const item of speechEngine.speechQ.slice(0, 2)) {
     if (item.prep == null && item.err == null) {
-      item.prep = fetchTTSBuffer(speechEngine, item.text).catch((e) => {
-        item.err = e;
+      item.prep = fetchTTSBuffer(speechEngine, item.text).catch((error) => {
+        item.err = error;
         return null;
       });
     }
@@ -119,8 +119,8 @@ function playBuffer(speechEngine, audioBuf, done) {
     analyser.getByteTimeDomainData(data);
     let sum = 0;
     for (let i = 0; i < data.length; i++) {
-      const v = (data[i] - 128) / 128;
-      sum += v * v;
+      const normalizedSample = (data[i] - 128) / 128;
+      sum += normalizedSample * normalizedSample;
     }
     speechEngine.audioMouth = Math.min(1, Math.sqrt(sum / data.length) * 3.4); // RMS 音量 → 開口
     speechEngine.currentFps = requestAnimationFrame(audioLoop);
@@ -683,9 +683,9 @@ function computeMouth(speechEngine) {
     speechEngine.mouthValue +=
       (speechEngine.audioMouth - speechEngine.mouthValue) * 0.5; // 神經語音：跟真實音量精準對嘴
   } else if (speechEngine.isSpeaking === true) {
-    const t = performance.now() / 1000;
+    const timeNow = performance.now() / 1000;
     speechEngine.mouthValue =
-      0.12 + 0.83 * speechEngine.mouthTarget * Math.abs(Math.sin(t * 9)); // 瀏覽器語音：假開合
+      0.12 + 0.83 * speechEngine.mouthTarget * Math.abs(Math.sin(timeNow * 9)); // 瀏覽器語音：假開合
   } else {
     speechEngine.mouthValue = Math.max(0, speechEngine.mouthValue - 0.18);
   }
@@ -698,10 +698,10 @@ function drainSentences(speechEngine, state, force) {
   const out = [];
   let i;
   while ((i = state.buf.search(/[。！？!?；;\n…]/)) >= 0) {
-    const s = state.buf.slice(0, i + 1).trim();
+    const sentence = state.buf.slice(0, i + 1).trim();
     state.buf = state.buf.slice(i + 1);
-    if (s !== '') {
-      out.push(s);
+    if (sentence !== '') {
+      out.push(sentence);
     }
   }
   if (force === true && state.buf.trim() !== '') {
@@ -890,8 +890,8 @@ async function pumpSpeech(speechEngine, sid) {
   let buf = null;
   if (speechEngine.neuralDisabled !== true && item.err == null) {
     if (item.prep == null) {
-      item.prep = fetchTTSBuffer(item.text).catch((e) => {
-        item.err = e;
+      item.prep = fetchTTSBuffer(item.text).catch((error) => {
+        item.err = error;
         return null;
       });
     }
@@ -1536,7 +1536,7 @@ function localeVoice(locale) {
 function setLocale(speechEngine, locale) {
   const matched =
     ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'].find(
-      (l) => l.toLowerCase() === (locale || '').toLowerCase()
+      (loc) => loc.toLowerCase() === (locale || '').toLowerCase()
     ) || 'zh-TW';
   speechEngine.currentLocale = matched;
   // Note: Only fallback neural voice if the developer didn't set a hardcoded voice in config
