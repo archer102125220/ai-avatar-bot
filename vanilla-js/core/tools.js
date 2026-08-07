@@ -1,46 +1,78 @@
+/**
+ * 將輸入值轉換為字串，去除前後空白，並限制最大長度。
+ * @param {any} value - 要處理的值
+ * @param {number} [max=240] - 字串的最大長度，預設為 240
+ * @returns {string} 處理後的字串
+ */
 function text(value, max) {
   return String(value || '')
     .trim()
     .slice(0, max || 240);
 }
 
+/**
+ * 將輸入值標準化：轉小寫、去除常見標點符號與空白，長度限制為 1200。
+ * @param {any} value - 要標準化的值
+ * @returns {string} 標準化後的字串
+ */
 function normal(value) {
   return text(value, 1200)
     .toLowerCase()
     .replace(/[\s，。、！？,.!?：:；;()（）]+/g, '');
 }
 
+/**
+ * 轉義正則表達式中的特殊字元，以避免語法錯誤或非預期的比對。
+ * @param {string|any} value - 需轉義的字串
+ * @returns {string} 轉義後的字串
+ */
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/**
+ * 將字串轉換為二元字元組 (Bigrams) 陣列，用於字串相似度計算。
+ * @param {any} value - 要處理的字串
+ * @returns {string[]} 二元字元組陣列
+ */
 function bigrams(value) {
   const input = normal(value);
-  const out = [];
+  const bigramList = [];
   if (input.length === 1) {
     return [input];
   }
-  for (let i = 0; i < input.length - 1; i++) {
-    out.push(input.slice(i, i + 2));
+  for (let index = 0; index < input.length - 1; index++) {
+    bigramList.push(input.slice(index, index + 2));
   }
-  return out;
+  return bigramList;
 }
 
-export function similarity(a, b) {
-  const aa = bigrams(a);
-  const bb = new Set(bigrams(b));
-  if (aa.length === 0 || bb.size === 0) {
+/**
+ * 計算兩個字串基於二元字元組 (Bigrams) 的相似度。
+ * @param {string} a - 第一個字串
+ * @param {string} b - 第二個字串
+ * @returns {number} 相似度分數，範圍為 0 到 1
+ */
+export function similarity(sourceString, targetString) {
+  const sourceBigrams = bigrams(sourceString);
+  const targetBigrams = new Set(bigrams(targetString));
+  if (sourceBigrams.length === 0 || targetBigrams.size === 0) {
     return 0;
   }
   let hits = 0;
-  aa.forEach((item) => {
-    if (bb.has(item) === true) {
+  sourceBigrams.forEach((item) => {
+    if (targetBigrams.has(item) === true) {
       hits++;
     }
   });
-  return hits / Math.sqrt(aa.length * bb.size);
+  return hits / Math.sqrt(sourceBigrams.length * targetBigrams.size);
 }
 
+/**
+ * 標準化工具的輸入綱要 (Schema)，確保其格式與屬性符合預期。
+ * @param {object} schema - 原始的輸入綱要
+ * @returns {object} 標準化後的輸入綱要
+ */
 export function normaliseSchema(schema) {
   if (
     typeof schema !== 'object' ||
@@ -101,6 +133,11 @@ export function normaliseSchema(schema) {
   return { type: 'object', properties, required };
 }
 
+/**
+ * 標準化工具定義物件，補齊預設值並確保格式正確。
+ * @param {object} tool - 原始的工具定義物件
+ * @returns {object} 標準化後的工具定義物件
+ */
 export function normaliseTool(tool) {
   tool = tool || {};
   return {
@@ -135,6 +172,12 @@ export function normaliseTool(tool) {
   };
 }
 
+/**
+ * 根據使用者的輸入 (Query)，為指定的工具進行評分，評估其適用性。
+ * @param {object} tool - 要評分的工具定義物件 (需先標準化)
+ * @param {string} query - 使用者的輸入查詢
+ * @returns {{score: number, reason: string}} 包含分數 (0-1) 與評分原因的物件
+ */
 export function scoreTool(tool, query) {
   const normalizedQuery = normal(query);
   if (
@@ -167,9 +210,9 @@ export function scoreTool(tool, query) {
     }
   });
   tool.examples.forEach((example) => {
-    const sim = similarity(normalizedQuery, example);
-    const current = 0.18 + sim * 0.72;
-    if (sim >= 0.28 && current > score) {
+    const similarityScore = similarity(normalizedQuery, example);
+    const current = 0.18 + similarityScore * 0.72;
+    if (similarityScore >= 0.28 && current > score) {
       score = current;
       reason = 'example';
     }
@@ -191,6 +234,12 @@ export function scoreTool(tool, query) {
   return { score, reason: reason || 'none' };
 }
 
+/**
+ * 根據使用者輸入，在多個工具中路由出最適合的工具與候選名單。
+ * @param {object[]} tools - 可用的工具清單
+ * @param {string} query - 使用者的輸入查詢
+ * @returns {{match: object|null, ambiguous: object[], candidates: object[]}} 路由結果，包含最佳匹配、模糊匹配選項與所有候選工具
+ */
 export function route(tools, query) {
   const candidates = (Array.isArray(tools) ? tools : [])
     .map(normaliseTool)
@@ -200,7 +249,11 @@ export function route(tools, query) {
       return { tool, score: scored.score, reason: scored.reason };
     })
     .filter((item) => item.score >= item.tool.routeThreshold)
-    .sort((a, b) => b.score - a.score || b.tool.priority - a.tool.priority);
+    .sort(
+      (candidateA, candidateB) =>
+        candidateB.score - candidateA.score ||
+        candidateB.tool.priority - candidateA.tool.priority
+    );
 
   const top = candidates[0] || null;
   const second = candidates[1] || null;
@@ -213,10 +266,16 @@ export function route(tools, query) {
   };
 }
 
+/**
+ * 從查詢字串中，尋找符合指定前綴 (Prefixes) 之後的內容。
+ * @param {string} query - 使用者查詢字串
+ * @param {string[]} prefixes - 允許的前綴陣列
+ * @returns {string} 匹配到的內容，若無則為空字串
+ */
 function findPrefixed(query, prefixes) {
-  for (let i = 0; i < prefixes.length; i++) {
+  for (let index = 0; index < prefixes.length; index++) {
     const re = new RegExp(
-      escapeRegExp(prefixes[i]) +
+      escapeRegExp(prefixes[index]) +
         '\\s*(?:是|為|=|:|：)?\\s*([^，。！？,!?]{1,120})',
       'i'
     );
@@ -228,6 +287,15 @@ function findPrefixed(query, prefixes) {
   return '';
 }
 
+/**
+ * 根據屬性定義，從查詢字串或上下文中提取出該屬性的值。
+ * @param {string} name - 屬性名稱
+ * @param {object} property - 屬性定義
+ * @param {string} query - 使用者查詢字串
+ * @param {object} context - 上下文資料物件
+ * @param {boolean} allowWhole - 是否允許將整個查詢作為字串值
+ * @returns {any} 提取出的屬性值，若無則為 undefined
+ */
 function valueForProperty(name, property, query, context, allowWhole) {
   if (
     typeof property.contextKey === 'string' &&
@@ -313,6 +381,12 @@ function valueForProperty(name, property, query, context, allowWhole) {
   return undefined;
 }
 
+/**
+ * 驗證輸入資料是否符合指定的綱要 (Schema)。
+ * @param {object} schema - 工具的輸入綱要
+ * @param {object} input - 要驗證的輸入資料
+ * @returns {{ok: boolean, args: object, errors: string[]}} 驗證結果，包含是否成功、有效的參數及錯誤訊息陣列
+ */
 export function validate(schema, input) {
   schema = normaliseSchema(schema);
   input =
@@ -392,6 +466,16 @@ export function validate(schema, input) {
   return { ok: errors.length === 0, args, errors };
 }
 
+/**
+ * 從使用者的查詢中提取並驗證工具所需的參數。
+ * @param {object} tool - 目標工具定義
+ * @param {string} query - 使用者的輸入查詢
+ * @param {object} [context] - 上下文資料
+ * @param {object} [existing] - 已存在的參數
+ * @param {string[]} [onlyNames] - 限制只提取指定的參數名稱
+ * @param {boolean} [allowWhole] - 是否允許單一字串參數吸收整個查詢
+ * @returns {{args: object, missing: string[], errors: string[]}} 提取結果，包含成功提取的參數、缺失的必填參數及驗證錯誤
+ */
 export function extract(tool, query, context, existing, onlyNames, allowWhole) {
   tool = normaliseTool(tool);
   existing = existing && typeof existing === 'object' ? existing : {};
@@ -443,6 +527,12 @@ export function extract(tool, query, context, existing, onlyNames, allowWhole) {
   };
 }
 
+/**
+ * 產生工具參數的中文摘要，用於與使用者確認。
+ * @param {object} tool - 工具定義
+ * @param {object} args - 工具的參數物件
+ * @returns {string} 中文參數摘要字串，以頓號分隔
+ */
 export function argumentSummary(tool, args) {
   tool = normaliseTool(tool);
   args = args || {};
@@ -454,6 +544,12 @@ export function argumentSummary(tool, args) {
     .join('、');
 }
 
+/**
+ * 初始化並建立工具執行引擎 (Tools Engine)。
+ * 處理工具路由、參數收集、使用者互動 (補齊參數、選擇模糊工具、確認執行) 及最終執行邏輯。
+ * @param {object} [setting={}] - 引擎設定物件，包含回呼函數與狀態讀取器
+ * @returns {object} 工具引擎實體 (Tools Engine Instance)
+ */
 export function initToolsEngine(setting = {}) {
   function routeHostTool(text) {
     return route(toolsEngine.HOST_TOOLS, text);
@@ -787,14 +883,14 @@ export function initToolsEngine(setting = {}) {
     return true;
   }
 
-  function handleToolResult(d) {
+  function handleToolResult(resultData) {
     const text =
-      d.ok === false
-        ? `執行失敗：${String(d.error || '未知錯誤')}`
-        : String(d.message || '已完成。');
+      resultData.ok === false
+        ? `執行失敗：${String(resultData.error || '未知錯誤')}`
+        : String(resultData.message || '已完成。');
     const existing = setting
       .getBrain()
-      .chatLog.find((msg) => msg.id === d.callId);
+      .chatLog.find((msg) => msg.id === resultData.callId);
 
     if (typeof existing === 'object' && existing !== null) {
       if (typeof toolsEngine.onUpdateChatMessage === 'function') {
