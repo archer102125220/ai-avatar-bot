@@ -11,7 +11,6 @@ import {
   DEFAULT_MALE_MODEL_URL
 } from './constants';
 
-// skin.js
 // 2D 引擎相依（pixi + live2d）改成「用到才載」，3D 模式就不會下載 Live2D
 export function loadUMD() {
   const cdnDependencieUrlArray = [
@@ -57,7 +56,6 @@ export function loadUMD() {
   return window.__cdnDependenciePromise__;
 }
 
-// skin.js
 export async function defaultGesture2D(skinEngine = null, emotionName) {
   // f00 微笑眨眼
   // f01 （與f00很像）
@@ -100,7 +98,6 @@ export async function defaultGesture2D(skinEngine = null, emotionName) {
   }
 }
 
-// skin.js
 // ===== 2D 皮：Live2D 載入 + 對嘴 =====
 async function bootAvatar(skinEngine, modelUrl) {
   const stageEl = skinEngine?.stageEl;
@@ -172,7 +169,9 @@ async function bootAvatar(skinEngine, modelUrl) {
 
     try {
       const groups = skinEngine.avatarModel.internalModel.settings.groups || [];
-      const lipsyncGroup = groups.find((x) => (x.Name || '').toLowerCase() === 'lipsync');
+      const lipsyncGroup = groups.find(
+        (x) => (x.Name || '').toLowerCase() === 'lipsync'
+      );
       if (Array.isArray(lipsyncGroup?.Ids) && lipsyncGroup.Ids.length > 0) {
         skinEngine.lipIds = lipsyncGroup.Ids;
       }
@@ -245,7 +244,6 @@ async function bootAvatar(skinEngine, modelUrl) {
   }
 }
 
-// skin.js
 // TODO: 深入研究怎麼移除 aiAvatarWidget ，讓 function 更乾淨
 // ===== 3D 皮：VRM（three + three-vrm，ESM 動態 import）=====
 async function bootVRM(skinEngine, setting = {}) {
@@ -404,7 +402,8 @@ async function bootVRM(skinEngine, setting = {}) {
         for (const [name, file] of Object.entries(GESTURES)) {
           try {
             const gg = await loader.loadAsync(file);
-            const anim = gg.userData.vrmAnimations && gg.userData.vrmAnimations[0];
+            const anim =
+              gg.userData.vrmAnimations && gg.userData.vrmAnimations[0];
             if (anim === undefined || anim === null) {
               continue;
             }
@@ -519,7 +518,8 @@ async function bootVRM(skinEngine, setting = {}) {
           expressionManager !== null &&
           (skinEngine.emo.target > 0 ||
             skinEngine.emo.weight > 0.005 ||
-            (typeof skinEngine.emo.applied === 'string' && skinEngine.emo.applied !== ''))
+            (typeof skinEngine.emo.applied === 'string' &&
+              skinEngine.emo.applied !== ''))
         ) {
           if (
             typeof skinEngine.emo.applied === 'string' &&
@@ -536,7 +536,10 @@ async function bootVRM(skinEngine, setting = {}) {
             Math.min(1, delta * 4);
           if (skinEngine.emo.weight <= 0.005 && skinEngine.emo.target === 0) {
             skinEngine.emo.weight = 0;
-            if (typeof skinEngine.emo.applied === 'string' && skinEngine.emo.applied !== '') {
+            if (
+              typeof skinEngine.emo.applied === 'string' &&
+              skinEngine.emo.applied !== ''
+            ) {
               try {
                 expressionManager.setValue(skinEngine.emo.applied, 0);
               } catch (_error) {}
@@ -660,7 +663,6 @@ async function bootVRM(skinEngine, setting = {}) {
   }
 }
 
-// skin.js
 // ===== 引擎切換外殼：每個引擎建自己的 canvas、回傳 dispose；切換＝dispose 舊的再 boot 新的 =====
 function createCanvas(skinEngine = null) {
   const stageEl = skinEngine?.stageEl;
@@ -677,7 +679,6 @@ function createCanvas(skinEngine = null) {
   return newCanvas;
 }
 
-// skin.js
 function initSkinMode(skinEngine = null) {
   const startMode =
     skinEngine.startMode ||
@@ -691,7 +692,6 @@ function initSkinMode(skinEngine = null) {
   skinEngine.engineMode = startMode;
 }
 
-// skin.js
 // ===== 拖放自己的 VRM：把 .vrm 拖到角色上就直接換成你的 3D 角色（零改 code）=====
 function loadVRMFile(skinEngine = null, file) {
   const stageEl = skinEngine?.stageEl;
@@ -750,19 +750,27 @@ export function initSkinEngine(setting = {}) {
   }
 
   const safeModelUrl =
-    (typeof modelUrl === 'string' && modelUrl !== '') ? modelUrl :
-    (setting.gender === GENDER_MAP.female
-      ? DEFAULT_FEMALE_MODEL_URL
-      : DEFAULT_MALE_MODEL_URL);
+    typeof modelUrl === 'string' && modelUrl !== ''
+      ? modelUrl
+      : setting.gender === GENDER_MAP.female
+        ? DEFAULT_FEMALE_MODEL_URL
+        : DEFAULT_MALE_MODEL_URL;
 
   const safeGesture2D =
-    typeof gesture2D === 'function' ? gesture2D :
-    ([DEFAULT_FEMALE_MODEL_URL, DEFAULT_MALE_MODEL_URL].includes(safeModelUrl)
-      ? defaultGesture2D
-      : null);
+    typeof gesture2D === 'function'
+      ? gesture2D
+      : [DEFAULT_FEMALE_MODEL_URL, DEFAULT_MALE_MODEL_URL].includes(
+            safeModelUrl
+          )
+        ? defaultGesture2D
+        : null;
 
   const safeVrmUrl =
-    (typeof vrmUrl === 'string' && vrmUrl !== '') ? vrmUrl : (/\.vrm($|\?)/i.test(safeModelUrl) ? safeModelUrl : '');
+    typeof vrmUrl === 'string' && vrmUrl !== ''
+      ? vrmUrl
+      : /\.vrm($|\?)/i.test(safeModelUrl)
+        ? safeModelUrl
+        : '';
 
   const store = createBaseStore({
     gender: setting.gender || DEFAULT_GENDER,

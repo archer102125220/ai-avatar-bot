@@ -7,7 +7,6 @@ import {
   DEFAULT_AI_PROVIDER_MODEL
 } from './constants';
 
-// brain.js
 export async function handleGetKnowledge(knowledgeUrl = '') {
   try {
     if (typeof knowledgeUrl === 'string' && knowledgeUrl !== '') {
@@ -28,7 +27,6 @@ export async function handleGetKnowledge(knowledgeUrl = '') {
   return [];
 }
 
-// brain.js
 // ===== 大腦：M4 檢索 + M4b（WebLLM）生成 =====
 // 中文不好斷詞，改用「字元 bigram（相鄰兩字）」相似度，對中文很有效、又不用任何函式庫。
 export function bigrams(s) {
@@ -43,7 +41,6 @@ export function bigrams(s) {
   return grams;
 }
 
-// brain.js
 export function similarity(query, text) {
   const queryBigrams = bigrams(query);
   const textBigramsSet = new Set(bigrams(text));
@@ -59,7 +56,6 @@ export function similarity(query, text) {
   return hit / Math.sqrt(queryBigrams.length * textBigramsSet.size);
 }
 
-// brain.js
 export function scoreEntry(question, e) {
   const safeQ =
     typeof question === 'string'
@@ -79,7 +75,6 @@ export function scoreEntry(question, e) {
   return score;
 }
 
-// brain.js
 export function topK(brainEngine, question, k) {
   const knowledge = brainEngine?.knowledge || [];
 
@@ -91,7 +86,6 @@ export function topK(brainEngine, question, k) {
     .map((item) => item.entry);
 }
 
-// brain.js
 export function initLLM(setting = {}, brain) {
   const {
     llmModel = DEFAULT_LLM_MODEL,
@@ -239,7 +233,6 @@ export function initLLM(setting = {}, brain) {
   return llm;
 }
 
-// brain.js
 export async function getWelcomeText(brainEngine) {
   let welcomeText =
     '點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋';
@@ -276,7 +269,6 @@ export async function getWelcomeText(brainEngine) {
   return welcomeText;
 }
 
-// brain.js
 export async function initAiProvider(setting = {}) {
   const {
     providerBaseUrl = '',
@@ -463,7 +455,6 @@ export async function initAiProvider(setting = {}) {
   return aiProvider;
 }
 
-// brain.js
 export function initMEM({ avatarMode }) {
   // 記憶（陪伴模式限定）：只存訪客自己瀏覽器的 localStorage，零後端、不上傳；說「忘記我」即清除
   const mem = {
@@ -531,7 +522,6 @@ export function initMEM({ avatarMode }) {
   return mem;
 }
 
-// brain.js
 // 從回答文字粗判情緒（規則式、零成本；驚訝 > 難過 > 開心 > 中性）
 export function classifyEmotion(text) {
   const safeText = String(text || '');

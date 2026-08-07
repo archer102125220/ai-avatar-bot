@@ -1,4 +1,3 @@
-// ui.js
 export function initUi(container, stageEl) {
   if (container instanceof HTMLElement === false) {
     console.error('[aiAvatar initUi] container is not an HTMLElement');

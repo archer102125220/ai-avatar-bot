@@ -8,7 +8,6 @@ import {
 } from '../constants';
 import { createBaseStore } from '../store';
 
-// speech.js
 // ===== TTS：開口說話 + 對嘴 =====
 function loadVoice(gender) {
   const voices = speechSynthesis.getVoices();
@@ -41,7 +40,6 @@ function loadVoice(gender) {
   );
 }
 
-// speech.js
 // edge-tts 神經語音：抓 /api/tts 的 MP3 → AudioBuffer（給佇列預抓用）
 async function fetchTTSBuffer(speechEngine, text) {
   const safeAudioContext = window.AudioContext || window.webkitAudioContext;
@@ -72,7 +70,6 @@ async function fetchTTSBuffer(speechEngine, text) {
   return speechEngine.audioCtx.decodeAudioData(respArrayBuffer);
 }
 
-// speech.js
 function prefetchSpeech(speechEngine, sid) {
   // 只預抓最前面 2 句（在途 ≤2），護後端限流
   if (sid !== speechEngine.speakSeq || speechEngine.neuralDisabled === true) {
@@ -88,7 +85,6 @@ function prefetchSpeech(speechEngine, sid) {
   }
 }
 
-// speech.js
 // 播一句（Web Audio + AnalyserNode 以「實際音量」驅動嘴型），播完呼叫 done 換下一句
 function playBuffer(speechEngine, audioBuf, done) {
   const src = speechEngine.audioCtx.createBufferSource();
@@ -147,7 +143,6 @@ function playBuffer(speechEngine, audioBuf, done) {
   src.start(0);
 }
 
-// speech.js
 // 整段文字 → 句子陣列（TTS 逐句抓、邊講邊抓下一句，長答案不用等整段）
 function splitSentences(text) {
   const out = [];
@@ -197,7 +192,6 @@ function splitSentences(text) {
   return merged;
 }
 
-// speech.js
 function handleNeuralFail(speechEngine, e) {
   const msg = e?.message || '';
   if (/http 429/.test(msg) === true) {
@@ -212,7 +206,6 @@ function handleNeuralFail(speechEngine, e) {
   console.warn('神經語音失敗，退回瀏覽器語音：', msg);
 }
 
-// speech.js
 // 後備：瀏覽器內建語音(Yating) 逐句版。對嘴用「估時長」驅動，不靠 speechSynthesis.speaking 輪詢
 // （Chrome 在 cancel 後常回報失準 → 第二次說話嘴巴就不動了）
 function speakBrowserChunk(speechEngine, text, sid, done) {
@@ -664,7 +657,6 @@ export function initSpeechEngine(setting = {}) {
     speechEngine.assistantGreeting = setting.assistantGreeting;
   }
 
-  // speech.js
   if ('speechSynthesis' in window === true) {
     speechSynthesis.onvoiceschanged = () => {
       if (speechEngine.ttVoice === null) {
@@ -692,7 +684,6 @@ function computeMouth(speechEngine) {
   return speechEngine.mouthValue;
 }
 
-// speech.js
 // 串流版切句：state.buf 累積 token，切得出完整句就吐出（force＝收尾把殘句也吐）
 function drainSentences(speechEngine, state, force) {
   const out = [];
@@ -711,7 +702,6 @@ function drainSentences(speechEngine, state, force) {
   return out;
 }
 
-// speech.js
 // 中止目前正在講的（逐句佇列 + 神經語音音檔 + 瀏覽器 TTS + 對嘴），給「點第二下打斷第一下」用
 function stopSpeaking(speechEngine) {
   speechEngine.speakSeq++; // 作廢所有在跑的逐句鏈（pump 看序號就會停）
@@ -750,7 +740,6 @@ function stopSpeaking(speechEngine) {
   speechEngine.skin.gestureName = 'neutral';
 }
 
-// speech.js
 // 對外入口：整段文字 → 切句進逐句佇列（②講第 1 句時預抓第 2 句 → 長答案幾乎立刻開口）
 function speak(speechEngine, text, options) {
   if (speechEngine.container instanceof HTMLElement === false) {
@@ -775,7 +764,6 @@ function speak(speechEngine, text, options) {
   endSpeech(speechEngine, sid);
 }
 
-// speech.js
 // ===== ②逐句開講引擎：一次一個 session；句子依序講，神經語音在背景先抓下一句 =====
 function beginSpeech(speechEngine) {
   stopSpeaking(speechEngine); // 打斷上一段（含清佇列、表情回中性）
@@ -796,7 +784,7 @@ function beginSpeech(speechEngine) {
   speechEngine.tapDone = false;
   return ++speechEngine.speakSeq;
 }
-// speech.js
+
 function pushSpeech(speechEngine, sid, text, options) {
   if (sid !== speechEngine.speakSeq) {
     return;
@@ -814,7 +802,7 @@ function pushSpeech(speechEngine, sid, text, options) {
   prefetchSpeech(speechEngine, sid);
   pumpSpeech(speechEngine, sid);
 }
-// speech.js
+
 function endSpeech(speechEngine, sid) {
   if (sid === speechEngine.speakSeq) {
     speechEngine.speechEnded = true;
@@ -824,7 +812,6 @@ function endSpeech(speechEngine, sid) {
   }
 }
 
-// speech.js
 function onUtteranceEnd(speechEngine) {
   speechEngine.isProcessing = false;
   if (
@@ -854,7 +841,6 @@ function onUtteranceEnd(speechEngine) {
   }
 }
 
-// speech.js
 async function pumpSpeech(speechEngine, sid) {
   if (speechEngine.isSpeechPlaying || sid !== speechEngine.speakSeq) {
     return;
@@ -911,7 +897,6 @@ async function pumpSpeech(speechEngine, sid) {
   }
 }
 
-// speech.js | brain.js
 async function handleUser(speechEngine, text = '') {
   const rootContainer = speechEngine.container;
   if (rootContainer instanceof HTMLElement === false) {
@@ -1110,14 +1095,20 @@ function stopMicMonitor(speechEngine) {
   }
   speechEngine.micRaf = 0;
 
-  if (typeof speechEngine.micStream === 'object' && speechEngine.micStream !== null) {
+  if (
+    typeof speechEngine.micStream === 'object' &&
+    speechEngine.micStream !== null
+  ) {
     speechEngine.micStream.getTracks().forEach((track) => track.stop());
   }
   speechEngine.micStream = null;
   speechEngine.micAnalyser = null;
   speechEngine.micData = null;
 
-  if (typeof speechEngine.micAudioCtx === 'object' && speechEngine.micAudioCtx !== null) {
+  if (
+    typeof speechEngine.micAudioCtx === 'object' &&
+    speechEngine.micAudioCtx !== null
+  ) {
     try {
       speechEngine.micAudioCtx.close();
     } catch (_e) {}
@@ -1196,7 +1187,6 @@ function setMic(speechEngine, isListening = false) {
   }
 }
 
-// speech.js | brain.js
 async function startListening(speechEngine) {
   const rootContainer = speechEngine.container;
   if (rootContainer instanceof HTMLElement === false) {
@@ -1214,12 +1204,19 @@ async function startListening(speechEngine) {
     speechEngine.convoOn = false;
     return;
   }
-  if (speechEngine.isListening === true && typeof speechEngine.recognition === 'object' && speechEngine.recognition !== null) {
+  if (
+    speechEngine.isListening === true &&
+    typeof speechEngine.recognition === 'object' &&
+    speechEngine.recognition !== null
+  ) {
     speechEngine.recognition.stop();
     return;
   }
 
-  if (typeof speechEngine.micStream !== 'object' || speechEngine.micStream === null) {
+  if (
+    typeof speechEngine.micStream !== 'object' ||
+    speechEngine.micStream === null
+  ) {
     setMic(speechEngine, false);
     if (typeof speechEngine.onVoiceStatusChanged === 'function') {
       speechEngine.onVoiceStatusChanged(
@@ -1232,7 +1229,10 @@ async function startListening(speechEngine) {
   }
   try {
     await ensureMicMonitor(speechEngine);
-    if (speechEngine.isSpeechPlaying === true || speechEngine.isProcessing === true) {
+    if (
+      speechEngine.isSpeechPlaying === true ||
+      speechEngine.isProcessing === true
+    ) {
       stopSpeaking(speechEngine);
     }
   } catch (e) {
@@ -1288,7 +1288,8 @@ async function startListening(speechEngine) {
     }
 
     speechEngine.noSpeechRuns = 0;
-    speechEngine.spokenDisplayText = '你：' + txt + (interimText !== '' ? '…' : '');
+    speechEngine.spokenDisplayText =
+      '你：' + txt + (interimText !== '' ? '…' : '');
     if (typeof speechEngine.onVoiceStatusChanged === 'function') {
       speechEngine.onVoiceStatusChanged(
         speechEngine.convoOn,
@@ -1302,7 +1303,10 @@ async function startListening(speechEngine) {
     speechEngine.recognitionSilenceTimer = setTimeout(
       () => {
         try {
-          if (typeof speechEngine.recognition === 'object' && speechEngine.recognition !== null) {
+          if (
+            typeof speechEngine.recognition === 'object' &&
+            speechEngine.recognition !== null
+          ) {
             speechEngine.recognition.stop();
           }
         } catch (_error) {}
@@ -1377,7 +1381,6 @@ async function startListening(speechEngine) {
   } catch (_error) {}
 }
 
-// speech.js | brain.js | skin.js
 // TODO: onTap 留在這份檔案，畢竟有複雜交互的邏輯，但是內部的邏輯要再深入研究是否應該細部拆分出去
 // onTap 內主要就呼叫那些被細拆的邏輯
 function onTap(speechEngine) {
@@ -1388,7 +1391,10 @@ function onTap(speechEngine) {
   setTimeout(() => {
     speechEngine.onTapTimer = false;
   }, 400);
-  if (typeof speechEngine.skin.avatarModel === 'object' && speechEngine.skin.avatarModel !== null) {
+  if (
+    typeof speechEngine.skin.avatarModel === 'object' &&
+    speechEngine.skin.avatarModel !== null
+  ) {
     try {
       speechEngine.skin.avatarModel.motion('Tap');
     } catch (_error) {}
@@ -1406,7 +1412,8 @@ function onTap(speechEngine) {
     greeting = speechEngine.greeting;
   } else if (speechEngine.avatarMode === AVATAR_MODE_MAP.companion) {
     greeting =
-      (typeof speechEngine.brain.mem.data.name === 'string' && speechEngine.brain.mem.data.name !== ''
+      (typeof speechEngine.brain.mem.data.name === 'string' &&
+      speechEngine.brain.mem.data.name !== ''
         ? speechEngine.brain.mem.data.name + '～'
         : '你好～') + '想聊什麼都可以，點 💬 我們就開始！';
 
@@ -1458,7 +1465,8 @@ function getGreetingText(speechEngine) {
     }
     const name = speechEngine.brain?.mem?.data?.name || '';
     return (
-      (name !== '' ? name + '～' : '你好～') + '想聊什麼都可以，點 💬 我們就開始！'
+      (name !== '' ? name + '～' : '你好～') +
+      '想聊什麼都可以，點 💬 我們就開始！'
     );
   } else {
     if (speechEngine.assistantGreeting != null) {
@@ -1540,7 +1548,10 @@ function setLocale(speechEngine, locale) {
     ) || 'zh-TW';
   speechEngine.currentLocale = matched;
   // Note: Only fallback neural voice if the developer didn't set a hardcoded voice in config
-  if (typeof speechEngine.config?.voice !== 'string' || speechEngine.config?.voice === '') {
+  if (
+    typeof speechEngine.config?.voice !== 'string' ||
+    speechEngine.config?.voice === ''
+  ) {
     speechEngine.neuralVoice = localeVoice(matched);
   }
 
@@ -1548,7 +1559,10 @@ function setLocale(speechEngine, locale) {
     speechEngine.onLanguageChanged(matched, localeLabel(matched));
   }
 
-  if (typeof speechEngine.recognition === 'object' && speechEngine.recognition !== null) {
+  if (
+    typeof speechEngine.recognition === 'object' &&
+    speechEngine.recognition !== null
+  ) {
     speechEngine.recognition.lang = matched;
   }
 
