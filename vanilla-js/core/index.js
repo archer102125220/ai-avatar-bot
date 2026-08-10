@@ -1,4 +1,4 @@
-import { initBrainEngine } from './brain';
+import { initBrainEngine, validateBrainEngine } from './brain';
 import { initSkinEngine, validateSkinEngine } from './skin';
 import { initSpeechEngine } from './speech';
 import {
@@ -24,18 +24,20 @@ import {
   bindUiEvent,
   initSkinModeChangeButton
 } from './ui';
-import { initToolsEngine } from './tools';
+import { initToolsEngine, validateToolsEngine } from './tools';
 import { createBaseStore } from './store';
 
 import '../style/style.scss';
 
 export * from './constants';
 
-export { validateSkinEngine };
+export { validateSkinEngine, validateToolsEngine, validateBrainEngine };
 
 /**
  * @typedef {Object} CustomEnginesConfig
  * @property {Function|Object} [skin] - 自訂 Skin Engine 的建構函式或實例。
+ * @property {Function|Object} [tools] - 自訂 Tools Engine 的建構函式或實例。
+ * @property {Function|Object} [brain] - 自訂 Brain Engine 的建構函式或實例。
  */
 
 /**
@@ -259,6 +261,8 @@ export async function initAvatarBot(optiopns = {}) {
       return aiAvatarWidget.brainEngine.setEmotionFromText;
     },
 
+    handleUser: (text) => handleUser(text),
+
     get isIframe() {
       return isIframe;
     },
@@ -477,7 +481,7 @@ export async function initAvatarBot(optiopns = {}) {
     speechEngine.spokenAudioText = greeting;
   }
 
-  brainEngine = await initBrainEngine({
+  const brainOptions = {
     llmModel,
     avatarMode,
     knowledgeUrl,
@@ -628,7 +632,41 @@ export async function initAvatarBot(optiopns = {}) {
       
       callOptionEvent.call(this, 'onSpeakingEnd');
     }
-  });
+  };
+
+  let useCustomBrainEngine = false;
+
+  if (
+    typeof customEngines.brain === 'function' ||
+    (typeof customEngines.brain === 'object' && customEngines.brain !== null)
+  ) {
+    try {
+      const customInstance =
+        typeof customEngines.brain === 'function'
+          ? await customEngines.brain(brainOptions)
+          : customEngines.brain;
+
+      const validation = validateBrainEngine(customInstance);
+      if (validation.isValid === true) {
+        brainEngine = customInstance;
+        useCustomBrainEngine = true;
+      } else {
+        console.error(
+          `[AvatarBot] 自訂 brainEngine 驗證失敗，缺少以下實作: ${validation.missing.join(', ')}。將退回使用預設引擎。`
+        );
+      }
+    } catch (error) {
+      console.error(
+        `[AvatarBot] 初始化自訂 brainEngine 發生錯誤:`,
+        error,
+        `將退回使用預設引擎。`
+      );
+    }
+  }
+
+  if (useCustomBrainEngine === false) {
+    brainEngine = await initBrainEngine(brainOptions);
+  }
 
   // --- Orchestrator Setup ---
   speechEngine = await initSpeechEngine({
@@ -689,7 +727,7 @@ export async function initAvatarBot(optiopns = {}) {
     }
   });
 
-  toolsEngine = initToolsEngine({
+  const toolsOptions = {
     onToolCall: (pending) => {
       callOptionEvent.call(this, 'onToolCall', pending, aiAvatarWidget);
     },
@@ -724,7 +762,44 @@ export async function initAvatarBot(optiopns = {}) {
       }
       callOptionEvent.call(this, 'onSpokenAudioPlayNow', text);
     },
-  });
+    getChatLog: () => brainEngine?.chatLog || [],
+    getChatSeq: () => brainEngine?.chatSeq || 0,
+    isConvoOn: () => speechEngine?.convoOn || false
+  };
+
+  let useCustomToolsEngine = false;
+
+  if (
+    typeof customEngines.tools === 'function' ||
+    (typeof customEngines.tools === 'object' && customEngines.tools !== null)
+  ) {
+    try {
+      const customInstance =
+        typeof customEngines.tools === 'function'
+          ? await customEngines.tools(toolsOptions)
+          : customEngines.tools;
+
+      const validation = validateToolsEngine(customInstance);
+      if (validation.isValid === true) {
+        toolsEngine = customInstance;
+        useCustomToolsEngine = true;
+      } else {
+        console.error(
+          `[AvatarBot] 自訂 toolsEngine 驗證失敗，缺少以下實作: ${validation.missing.join(', ')}。將退回使用預設引擎。`
+        );
+      }
+    } catch (error) {
+      console.error(
+        `[AvatarBot] 初始化自訂 toolsEngine 發生錯誤:`,
+        error,
+        `將退回使用預設引擎。`
+      );
+    }
+  }
+
+  if (useCustomToolsEngine === false) {
+    toolsEngine = initToolsEngine(toolsOptions);
+  }
 
   let useCustomSkinEngine = false;
 

@@ -646,7 +646,7 @@ export function renderSuggestions(context = null) {
     button.classList.add('sugg');
     button.textContent = suggestion;
     button.onclick = () => {
-      context.speechEngine.handleUser(suggestion.replace(/？$/, ''));
+      context.handleUser(suggestion.replace(/？$/, ''));
     };
     suggestions.appendChild(button);
   });
@@ -672,7 +672,7 @@ export function bindTyping(context = null) {
       return;
     }
     typeInput.value = '';
-    context.speechEngine.handleUser(text);
+    context.handleUser(text);
   };
   context.uiDom.sendButtonEl.onclick = send;
   typeInput.addEventListener('keydown', (event) => {

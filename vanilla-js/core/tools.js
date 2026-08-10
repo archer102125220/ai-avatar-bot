@@ -1070,3 +1070,34 @@ export function initToolsEngine(setting = {}) {
 
   return toolsEngine;
 }
+
+/**
+ * 驗證自訂 Tools Engine 是否實作了必要的介面
+ * @param {object} engine - 待驗證的引擎實例
+ * @returns {{isValid: boolean, missing: string[]}} 驗證結果與缺少的實作名稱
+ */
+export function validateToolsEngine(engine) {
+  if (typeof engine !== 'object' || engine === null) {
+    return { isValid: false, missing: ['engine object'] };
+  }
+  const required = [
+    'routeHostTool',
+    'prepareTool',
+    'continueToolInput',
+    'offerToolChoices',
+    'continueToolChoice',
+    'chooseTool',
+    'offerHostTool',
+    'executePendingTool',
+    'cancelPendingTool',
+    'continueToolConfirmation',
+    'handleToolResult'
+  ];
+  const missing = [];
+  required.forEach((key) => {
+    if (typeof engine[key] !== 'function') {
+      missing.push(key);
+    }
+  });
+  return { isValid: missing.length === 0, missing };
+}

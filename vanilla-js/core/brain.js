@@ -1437,3 +1437,42 @@ export function sayAnswer(brainEngine, text) {
     brainEngine.onSpokenAudioPlayNow(text);
   }
 }
+
+/**
+ * 驗證自訂 Brain Engine 是否實作了必要的介面
+ * @param {object} engine - 待驗證的引擎實例
+ * @returns {{isValid: boolean, missing: string[]}} 驗證結果與缺少的實作名稱
+ */
+export function validateBrainEngine(engine) {
+  if (typeof engine !== 'object' || engine === null) {
+    return { isValid: false, missing: ['engine object'] };
+  }
+  const requiredMethods = [
+    'addChatMessage',
+    'updateChatMessage',
+    'handleAnswer',
+    'getWelcomeText',
+    'buildLLMMessages',
+    'classifyEmotion',
+    'setEmotionFromText'
+  ];
+  const requiredProps = [
+    'mem',
+    'llm',
+    'aiProvider',
+    'chatLog',
+    'chatSeq'
+  ];
+  const missing = [];
+  requiredMethods.forEach((key) => {
+    if (typeof engine[key] !== 'function') {
+      missing.push(`${key}()`);
+    }
+  });
+  requiredProps.forEach((key) => {
+    if (engine[key] === undefined) {
+      missing.push(key);
+    }
+  });
+  return { isValid: missing.length === 0, missing };
+}
