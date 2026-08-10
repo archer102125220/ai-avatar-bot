@@ -1,5 +1,11 @@
 import { createBaseStore } from '../store';
 
+/**
+ * 驗證傳入的語音轉文字 (STT) 引擎是否實作了必要的方法與屬性。
+ *
+ * @param {Object} engine - 欲驗證的 STT 引擎實例。
+ * @returns {{ isValid: boolean, missing: string[] }} 包含驗證結果及缺失的方法或屬性列表。
+ */
 export function validateSTTEngine(engine) {
   const missing = [];
   if (typeof engine !== 'object' || engine === null) {
@@ -15,6 +21,34 @@ export function validateSTTEngine(engine) {
   return { isValid: missing.length === 0, missing };
 }
 
+/**
+ * 語音轉文字 (STT) 引擎的初始化選項。
+ * 
+ * @typedef {Object} STTEngineOptions
+ * @property {function(string, boolean, boolean): void} [onResult] - 當辨識出文字時的處理函數 (文字, 是否為最終結果, 是否為暫時結果)。
+ * @property {function(number, boolean, string, number): void} [onMicLevel] - 麥克風音量監聽回調 (RMS, 是否顯示UI, 狀態字串, 振幅)。
+ * @property {function(): void} [onBargeIn] - 當使用者插話 (Barge-In) 時的處理函數。
+ * @property {function(string, boolean): void} [onError] - 發生錯誤時的處理函數 (錯誤訊息, 是否因權限不足)。
+ * @property {function(boolean, string, boolean): void} [onStatusChange] - 狀態變更時的處理函數 (是否聆聽中, 狀態訊息, 是否被中斷)。
+ * @property {function(): void} [onNoSpeechAbort] - 連續未接收到聲音導致中止時的處理函數。
+ * @property {function(): boolean} [getAssistantActive] - 取得助理是否處於活動狀態 (說話或處理中)。
+ * @property {function(): number} [getSpeechDuration] - 取得目前的發言持續時間 (毫秒)。
+ * @property {function(): boolean} [getConvoOn] - 取得是否開啟即時對話功能。
+ */
+
+/**
+ * 建立並初始化預設的語音轉文字 (STT) 引擎，負責管理麥克風權限、音量分析與瀏覽器內建語音辨識 (Web Speech API)。
+ *
+ * @param {STTEngineOptions} [options={}] - 初始化設定與回調函數。
+ * @returns {{
+ *   subscribe: Function,
+ *   getState: Function,
+ *   setState: Function,
+ *   isListening: boolean,
+ *   startListening: function(): Promise<void>,
+ *   stopListening: function(): void
+ * }} 包含狀態管理與操作方法的 STT 引擎實例。
+ */
 export function initDefaultSTTEngine(options = {}) {
   const {
     onResult, // function(text, isFinal, isInterim)

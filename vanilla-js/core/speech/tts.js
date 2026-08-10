@@ -1,6 +1,12 @@
 import { GENDER_MAP } from '../constants';
 import { createBaseStore } from '../store';
 
+/**
+ * 驗證傳入的語音合成 (TTS) 引擎是否實作了必要的方法與屬性。
+ *
+ * @param {Object} engine - 欲驗證的 TTS 引擎實例。
+ * @returns {{ isValid: boolean, missing: string[] }} 包含驗證結果及缺失的方法或屬性列表。
+ */
 export function validateTTSEngine(engine) {
   const missing = [];
   if (typeof engine !== 'object' || engine === null) {
@@ -18,6 +24,13 @@ export function validateTTSEngine(engine) {
   return { isValid: missing.length === 0, missing };
 }
 
+/**
+ * 根據指定性別載入適用的瀏覽器原生語音 (SpeechSynthesisVoice)。
+ * 會優先尋找特定名稱的高品質語音，若無則依序退回尋找符合語言特徵的預設語音。
+ *
+ * @param {string} gender - 性別標識，參考 GENDER_MAP (例如: 'male', 'female')。
+ * @returns {SpeechSynthesisVoice|null} 匹配到的語音物件，如果找不到則回傳 null。
+ */
 export function loadVoice(gender) {
   const voices = speechSynthesis.getVoices();
   const pick = (targetVoice) =>
@@ -48,6 +61,13 @@ export function loadVoice(gender) {
   );
 }
 
+/**
+ * 將長篇文本切割成適合語音合成播放的短句陣列。
+ * 會根據標點符號與長度限制進行智慧斷句，並嘗試合併過短的片段。
+ *
+ * @param {string} text - 欲切割的完整文本。
+ * @returns {string[]} 切割後的短句陣列。
+ */
 export function splitSentences(text) {
   const out = [];
   let buf = '';
@@ -90,6 +110,12 @@ export function splitSentences(text) {
   return merged;
 }
 
+/**
+ * 根據傳入的語系代碼，取得對應的神經網路語音模型名稱 (Neural Voice)。
+ *
+ * @param {string} locale - 語系代碼 (例如: 'zh-TW', 'en-US')。
+ * @returns {string} 預設的神經網路語音模型名稱。
+ */
 export function localeVoice(locale) {
   return /^en/i.test(locale)
     ? 'en-US-JennyNeural'
@@ -101,6 +127,37 @@ export function localeVoice(locale) {
 }
 
 
+/**
+ * 語音合成 (TTS) 引擎的初始化選項。
+ * 
+ * @typedef {Object} TTSEngineOptions
+ * @property {string} [ttsEndpoint=''] - 神經網路語音合成 API 的端點網址。
+ * @property {string} [neuralVoice=''] - 欲使用的神經網路語音模型名稱。
+ * @property {string} [gender=GENDER_MAP.female] - 預設性別。
+ * @property {function(): void} [onSpeakStart] - 當開始播放語音時的處理函數。
+ * @property {function(): void} [onSpeakEnd] - 當播放語音結束時的處理函數。
+ * @property {function(string): void} [onSpokenDisplayTextChange] - 當正在播放的文字內容改變時的處理函數。
+ */
+
+/**
+ * 建立並初始化預設的語音合成 (TTS) 引擎，負責管理神經網路語音 (Web API) 與瀏覽器原生語音的播放與排程。
+ * 支援分段載入與嘴型同步計算。
+ *
+ * @param {TTSEngineOptions} [options={}] - 初始化設定與回調函數。
+ * @returns {{
+ *   subscribe: Function,
+ *   getState: Function,
+ *   setState: Function,
+ *   isSpeaking: boolean,
+ *   isMuted: boolean,
+ *   speak: function(string, Object=): void,
+ *   stop: function(): void,
+ *   computeMouth: function(): number,
+ *   setGender: function(string): void,
+ *   setLocale: function(string): void,
+ *   preloadTapGreeting: function(string): Promise<any>
+ * }} 包含狀態管理與播放控制方法的 TTS 引擎實例。
+ */
 export function initDefaultTTSEngine(options = {}) {
   const {
     ttsEndpoint = '',
