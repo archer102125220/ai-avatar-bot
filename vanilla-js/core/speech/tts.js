@@ -283,7 +283,8 @@ export function initDefaultTTSEngine(options = {}) {
     computeMouth() {
       const state = store.getState();
       if (this.isSpeaking === true && state.useAudioMouth === true) {
-        state.mouthValue += (state.audioMouth - state.mouthValue) * 0.5;
+        // 降低 smoothing 係數 (0.5 -> 0.25)，讓嘴唇開合更平滑，不會閃爍太快
+        state.mouthValue += (state.audioMouth - state.mouthValue) * 0.25;
       } else if (this.isSpeaking === true) {
         const timeNow = performance.now() / 1000;
         state.mouthValue =
@@ -407,7 +408,8 @@ export function initDefaultTTSEngine(options = {}) {
         const normalizedSample = (data[i] - 128) / 128;
         sum += normalizedSample * normalizedSample;
       }
-      state.audioMouth = Math.min(1, Math.sqrt(sum / data.length) * 3.4);
+      // 提高音量乘數 (3.4 -> 4.5)，讓嘴巴張得更大
+      state.audioMouth = Math.min(1, Math.sqrt(sum / data.length) * 4.5);
       state.currentFps = requestAnimationFrame(audioLoop);
     }
     state.currentFps = requestAnimationFrame(audioLoop);
