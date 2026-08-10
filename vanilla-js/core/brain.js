@@ -137,7 +137,7 @@ import {
  * @property {Function} [onAddChatMessage] - 新增訊息回呼
  * @property {Function} [onUpdateChatMessage] - 更新訊息回呼
  * @property {Function} [onChatHistoryChanged] - 歷史變更回呼
- * @property {Function} [onSpeak] - 播放文字回呼
+ * @property {Function} [onSpokenAudioPlayNow] - 播放文字回呼
  * @property {Function} [onSpokenDisplayTextChange] - 字幕變更回呼
  * @property {Function} [onSpokenAudioTextChange] - 語音錯誤提示回呼
  * @property {Function} [onEmotionChange] - 情緒變更回呼
@@ -181,7 +181,7 @@ import {
  * @property {Function} onAddChatMessage - 新增對話訊息回呼
  * @property {Function} onUpdateChatMessage - 更新對話訊息回呼
  * @property {Function} onChatHistoryChanged - 歷史對話變更回呼
- * @property {Function} onSpeak - 播放文字回呼
+ * @property {Function} onSpokenAudioPlayNow - 播放文字回呼
  * @property {Function} onSpokenDisplayTextChange - 字幕變更回呼
  * @property {Function} onSpokenAudioTextChange - 語音錯誤提示回呼
  * @property {Function} onEmotionChange - 情緒變更回呼
@@ -838,7 +838,7 @@ export async function initBrainEngine(setting = {}) {
     onAddChatMessage,
     onUpdateChatMessage,
     onChatHistoryChanged,
-    onSpeak,
+    onSpokenAudioPlayNow,
     onSpokenDisplayTextChange,
     onSpokenAudioTextChange,
     onEmotionChange,
@@ -918,7 +918,7 @@ export async function initBrainEngine(setting = {}) {
     onAddChatMessage: onAddChatMessage || null,
     onUpdateChatMessage: onUpdateChatMessage || null,
     onChatHistoryChanged: onChatHistoryChanged || null,
-    onSpeak: onSpeak || null,
+    onSpokenAudioPlayNow: onSpokenAudioPlayNow || null,
     onSpokenDisplayTextChange: onSpokenDisplayTextChange || null,
     onSpokenAudioTextChange: onSpokenAudioTextChange || null,
     onEmotionChange: onEmotionChange || null,
@@ -1433,7 +1433,7 @@ export function sayAnswer(brainEngine, text) {
   }
   brainEngine.mem.addTurn('assistant', text);
   addChatMessage(brainEngine, 'assistant', text);
-  if (typeof brainEngine.onSpeak === 'function') {
-    brainEngine.onSpeak(text);
+  if (typeof brainEngine.onSpokenAudioPlayNow === 'function') {
+    brainEngine.onSpokenAudioPlayNow(text);
   }
 }

@@ -642,7 +642,7 @@ export function argumentSummary(tool, args) {
  * @property {function} [onUpdateChatMessage] - 更新對話訊息的回呼函數
  * @property {function} [onSetHistoryOpen] - 設定歷史紀錄面板開啟狀態的回呼函數
  * @property {function} [onRenderHistory] - 觸發重新渲染歷史紀錄的回呼函數
- * @property {function} [onSpeak] - 語音播放回呼函數
+ * @property {function} [onSpokenAudioPlayNow] - 語音播放回呼函數
  * @property {function} [onToolCall] - 工具準備執行時的回呼函數
  * @property {function(): Array<object>} getChatLog - 取得對話紀錄陣列
  * @property {function(): number} getChatSeq - 取得目前對話序號
@@ -659,7 +659,7 @@ export function argumentSummary(tool, args) {
  * @property {function} onUpdateChatMessage - 來自 setting 的對應方法
  * @property {function} onSetHistoryOpen - 來自 setting 的對應方法
  * @property {function} onRenderHistory - 來自 setting 的對應方法
- * @property {function} onSpeak - 來自 setting 的對應方法
+ * @property {function} onSpokenAudioPlayNow - 來自 setting 的對應方法
  * @property {function(string): ToolRouteResult} routeHostTool - 路由宿主工具
  * @property {function(ToolDefinition, string, string): string} parameterPrompt - 產生補齊參數的提示語
  * @property {function(ToolDefinition, string, object, Record<string, any>): void} prepareTool - 準備執行工具
@@ -713,8 +713,8 @@ export function initToolsEngine(setting = {}) {
       if (typeof toolsEngine.onAddChatMessage === 'function') {
         toolsEngine.onAddChatMessage('assistant', prompt, { source: 'tool' });
       }
-      if (typeof toolsEngine.onSpeak === 'function') {
-        toolsEngine.onSpeak(prompt);
+      if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
+        toolsEngine.onSpokenAudioPlayNow(prompt);
       }
       return;
     }
@@ -735,8 +735,8 @@ export function initToolsEngine(setting = {}) {
       if (typeof toolsEngine.onAddChatMessage === 'function') {
         toolsEngine.onAddChatMessage('assistant', message, { source: 'tool' });
       }
-      if (typeof toolsEngine.onSpeak === 'function') {
-        toolsEngine.onSpeak(message);
+      if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
+        toolsEngine.onSpokenAudioPlayNow(message);
       }
       return true;
     }
@@ -761,8 +761,8 @@ export function initToolsEngine(setting = {}) {
       if (typeof toolsEngine.onAddChatMessage === 'function') {
         toolsEngine.onAddChatMessage('assistant', prompt, { source: 'tool' });
       }
-      if (typeof toolsEngine.onSpeak === 'function') {
-        toolsEngine.onSpeak(prompt);
+      if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
+        toolsEngine.onSpokenAudioPlayNow(prompt);
       }
       return true;
     }
@@ -794,8 +794,8 @@ export function initToolsEngine(setting = {}) {
     if (typeof toolsEngine.onSetHistoryOpen === 'function') {
       toolsEngine.onSetHistoryOpen(true);
     }
-    if (typeof toolsEngine.onSpeak === 'function') {
-      toolsEngine.onSpeak(message);
+    if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
+      toolsEngine.onSpokenAudioPlayNow(message);
     }
   }
 
@@ -821,8 +821,8 @@ export function initToolsEngine(setting = {}) {
         toolsEngine.onRenderHistory();
       }
       const message = '好的，已取消這個操作。';
-      if (typeof toolsEngine.onSpeak === 'function') {
-        toolsEngine.onSpeak(message);
+      if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
+        toolsEngine.onSpokenAudioPlayNow(message);
       }
       return true;
     }
@@ -856,8 +856,8 @@ export function initToolsEngine(setting = {}) {
     if (typeof toolsEngine.onAddChatMessage === 'function') {
       toolsEngine.onAddChatMessage('assistant', prompt, { source: 'tool' });
     }
-    if (typeof toolsEngine.onSpeak === 'function') {
-      toolsEngine.onSpeak(prompt);
+    if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
+      toolsEngine.onSpokenAudioPlayNow(prompt);
     }
     return true;
   }
@@ -922,8 +922,8 @@ export function initToolsEngine(setting = {}) {
       if (typeof toolsEngine.onSetHistoryOpen === 'function') {
         toolsEngine.onSetHistoryOpen(true);
       }
-      if (typeof toolsEngine.onSpeak === 'function') {
-        toolsEngine.onSpeak(confirmation);
+      if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
+        toolsEngine.onSpokenAudioPlayNow(confirmation);
       }
     } else {
       if (typeof toolsEngine.onAddChatMessage === 'function') {
@@ -978,8 +978,8 @@ export function initToolsEngine(setting = {}) {
       toolsEngine.onRenderHistory();
     }
     if (typeof setting.isConvoOn === 'function' && setting.isConvoOn() === true) {
-      if (typeof toolsEngine.onSpeak === 'function') {
-        toolsEngine.onSpeak('好的，已取消。');
+      if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
+        toolsEngine.onSpokenAudioPlayNow('好的，已取消。');
       }
     }
   }
@@ -1004,8 +1004,8 @@ export function initToolsEngine(setting = {}) {
     if (typeof toolsEngine.onAddChatMessage === 'function') {
       toolsEngine.onAddChatMessage('assistant', prompt, { source: 'tool' });
     }
-    if (typeof toolsEngine.onSpeak === 'function') {
-      toolsEngine.onSpeak(prompt);
+    if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
+      toolsEngine.onSpokenAudioPlayNow(prompt);
     }
     return true;
   }
@@ -1027,8 +1027,8 @@ export function initToolsEngine(setting = {}) {
         toolsEngine.onAddChatMessage('assistant', text, { source: 'tool' });
       }
     }
-    if (typeof toolsEngine.onSpeak === 'function') {
-      toolsEngine.onSpeak(text);
+    if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
+      toolsEngine.onSpokenAudioPlayNow(text);
     }
   }
 
@@ -1050,8 +1050,8 @@ export function initToolsEngine(setting = {}) {
     get onRenderHistory() {
       return setting.onRenderHistory;
     },
-    get onSpeak() {
-      return setting.onSpeak;
+    get onSpokenAudioPlayNow() {
+      return setting.onSpokenAudioPlayNow;
     },
 
     routeHostTool,

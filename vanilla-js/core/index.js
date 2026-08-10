@@ -93,7 +93,8 @@ export { validateSkinEngine };
  * @property {Function} [onToolCall] - 觸發外部工具 (Tool Call) 時的回呼函式
  * @property {Function} [onSetHistoryOpen] - 開關歷史紀錄面板時的回呼函式
  * @property {Function} [onRenderHistory] - 歷史紀錄渲染更新時的回呼函式
- * @property {Function} [onSpeak] - 觸發發音時的回呼函式
+ * @property {Function} [onSpokenAudioPlayNow] - 觸發發音時的回呼函式
+ * @property {Function} [onSpokenDisplayTextChange] - 語音介面顯示文字的回呼函式
  * @property {Function} [onThreeDimensionalError] - 3D 引擎發生錯誤時的回呼函式
  * @property {Function} [onTwoDimensionalError] - 2D 引擎發生錯誤時的回呼函式
  * @property {Function} [VRMFileChangeFail] - 替換 VRM 模型檔案失敗時的回呼函式
@@ -585,9 +586,9 @@ export async function initAvatarBot(optiopns = {}) {
       // 這邊可以讓開發者自行註冊或給未來的全域事件處理用
       callOptionEvent.call(this, 'onChatHistoryChanged', chatLog);
     },
-    onSpeak(text) {
+    onSpokenAudioPlayNow(text) {
       speechEngine.speak(text);
-      callOptionEvent.call(this, 'onSpeak', text);
+      callOptionEvent.call(this, 'onSpokenAudioPlayNow', text);
     },
     onSpokenDisplayTextChange(text) {
       speechEngine.spokenDisplayText = text;
@@ -717,10 +718,12 @@ export async function initAvatarBot(optiopns = {}) {
       renderHistory(aiAvatarWidget);
       callOptionEvent.call(this, 'onRenderHistory');
     },
-    onSpeak(text) {
-      speechEngine.speak(text);
-      callOptionEvent.call(this, 'onSpeak', text);
-    }
+    onSpokenAudioPlayNow(text) {
+      if (speechEngine) {
+        speechEngine.speak(text);
+      }
+      callOptionEvent.call(this, 'onSpokenAudioPlayNow', text);
+    },
   });
 
   let useCustomSkinEngine = false;
