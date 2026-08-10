@@ -1,4 +1,39 @@
 /**
+ * @typedef {object} ToolSchemaProperty
+ * @property {string} type - 屬性型別 (如 'string', 'number', 'boolean')
+ * @property {string} title - 屬性名稱標題
+ * @property {string} description - 屬性描述
+ * @property {string} contextKey - 上下文中對應的鍵值
+ * @property {string} format - 格式限制 (如 'email', 'url', 'phone', 'contact')
+ * @property {string[]} prefixes - 允許的前綴陣列
+ * @property {string[]} [enum] - 允許的列舉值
+ * @property {number} [minimum] - 數值下限
+ * @property {number} [maximum] - 數值上限
+ * @property {number} maxLength - 字串最大長度
+ */
+
+/**
+ * @typedef {object} ToolSchema
+ * @property {string} type - 類型，通常為 'object'
+ * @property {Record<string, ToolSchemaProperty>} properties - 屬性定義集合
+ * @property {string[]} required - 必填屬性名稱陣列
+ */
+
+/**
+ * @typedef {object} ToolDefinition
+ * @property {string} name - 工具名稱
+ * @property {string} label - 工具顯示名稱
+ * @property {string} description - 工具描述
+ * @property {string[]} keywords - 觸發工具的關鍵字
+ * @property {string[]} examples - 觸發工具的範例語句
+ * @property {string[]} excludeKeywords - 排除的關鍵字
+ * @property {number} priority - 工具優先權 (-10 ~ 10)
+ * @property {number} routeThreshold - 路由的門檻分數 (0.15 ~ 0.95)
+ * @property {boolean} requiresConfirmation - 執行前是否需要確認
+ * @property {ToolSchema} inputSchema - 工具參數的輸入綱要
+ */
+
+/**
  * 將輸入值轉換為字串，去除前後空白，並限制最大長度。
  * @param {any} value - 要處理的值
  * @param {number} [max=240] - 字串的最大長度，預設為 240
@@ -70,8 +105,8 @@ export function similarity(sourceString, targetString) {
 
 /**
  * 標準化工具的輸入綱要 (Schema)，確保其格式與屬性符合預期。
- * @param {object} schema - 原始的輸入綱要
- * @returns {object} 標準化後的輸入綱要
+ * @param {object|ToolSchema} schema - 原始的輸入綱要
+ * @returns {ToolSchema} 標準化後的輸入綱要
  */
 export function normaliseSchema(schema) {
   if (
@@ -135,8 +170,8 @@ export function normaliseSchema(schema) {
 
 /**
  * 標準化工具定義物件，補齊預設值並確保格式正確。
- * @param {object} tool - 原始的工具定義物件
- * @returns {object} 標準化後的工具定義物件
+ * @param {object|ToolDefinition} tool - 原始的工具定義物件
+ * @returns {ToolDefinition} 標準化後的工具定義物件
  */
 export function normaliseTool(tool) {
   tool = tool || {};
@@ -173,10 +208,16 @@ export function normaliseTool(tool) {
 }
 
 /**
+ * @typedef {object} ToolScoreResult
+ * @property {number} score - 評分分數 (0-1)
+ * @property {string} reason - 評分原因 (如 keyword, example, label, description 等)
+ */
+
+/**
  * 根據使用者的輸入 (Query)，為指定的工具進行評分，評估其適用性。
- * @param {object} tool - 要評分的工具定義物件 (需先標準化)
+ * @param {ToolDefinition} tool - 要評分的工具定義物件 (需先標準化)
  * @param {string} query - 使用者的輸入查詢
- * @returns {{score: number, reason: string}} 包含分數 (0-1) 與評分原因的物件
+ * @returns {ToolScoreResult} 包含分數 (0-1) 與評分原因的物件
  */
 export function scoreTool(tool, query) {
   const normalizedQuery = normal(query);
@@ -235,10 +276,24 @@ export function scoreTool(tool, query) {
 }
 
 /**
+ * @typedef {object} ToolRouteCandidate
+ * @property {ToolDefinition} tool - 候選工具
+ * @property {number} score - 評分分數
+ * @property {string} reason - 評分原因
+ */
+
+/**
+ * @typedef {object} ToolRouteResult
+ * @property {ToolRouteCandidate|null} match - 最佳匹配工具
+ * @property {ToolRouteCandidate[]} ambiguous - 模糊匹配選項
+ * @property {ToolRouteCandidate[]} candidates - 所有候選工具
+ */
+
+/**
  * 根據使用者輸入，在多個工具中路由出最適合的工具與候選名單。
- * @param {object[]} tools - 可用的工具清單
+ * @param {Array<object|ToolDefinition>} tools - 可用的工具清單
  * @param {string} query - 使用者的輸入查詢
- * @returns {{match: object|null, ambiguous: object[], candidates: object[]}} 路由結果，包含最佳匹配、模糊匹配選項與所有候選工具
+ * @returns {ToolRouteResult} 路由結果，包含最佳匹配、模糊匹配選項與所有候選工具
  */
 export function route(tools, query) {
   const candidates = (Array.isArray(tools) ? tools : [])
@@ -290,9 +345,9 @@ function findPrefixed(query, prefixes) {
 /**
  * 根據屬性定義，從查詢字串或上下文中提取出該屬性的值。
  * @param {string} name - 屬性名稱
- * @param {object} property - 屬性定義
+ * @param {ToolSchemaProperty} property - 屬性定義
  * @param {string} query - 使用者查詢字串
- * @param {object} context - 上下文資料物件
+ * @param {Record<string, any>} context - 上下文資料物件
  * @param {boolean} allowWhole - 是否允許將整個查詢作為字串值
  * @returns {any} 提取出的屬性值，若無則為 undefined
  */
@@ -382,10 +437,17 @@ function valueForProperty(name, property, query, context, allowWhole) {
 }
 
 /**
+ * @typedef {object} ToolValidationResult
+ * @property {boolean} ok - 驗證是否成功
+ * @property {Record<string, any>} args - 驗證通過的參數
+ * @property {string[]} errors - 錯誤訊息陣列
+ */
+
+/**
  * 驗證輸入資料是否符合指定的綱要 (Schema)。
- * @param {object} schema - 工具的輸入綱要
- * @param {object} input - 要驗證的輸入資料
- * @returns {{ok: boolean, args: object, errors: string[]}} 驗證結果，包含是否成功、有效的參數及錯誤訊息陣列
+ * @param {object|ToolSchema} schema - 工具的輸入綱要
+ * @param {Record<string, any>} input - 要驗證的輸入資料
+ * @returns {ToolValidationResult} 驗證結果，包含是否成功、有效的參數及錯誤訊息陣列
  */
 export function validate(schema, input) {
   schema = normaliseSchema(schema);
@@ -467,14 +529,21 @@ export function validate(schema, input) {
 }
 
 /**
+ * @typedef {object} ToolExtractResult
+ * @property {Record<string, any>} args - 成功提取的參數
+ * @property {string[]} missing - 缺失的必填參數名稱
+ * @property {string[]} errors - 驗證錯誤訊息陣列
+ */
+
+/**
  * 從使用者的查詢中提取並驗證工具所需的參數。
- * @param {object} tool - 目標工具定義
+ * @param {object|ToolDefinition} tool - 目標工具定義
  * @param {string} query - 使用者的輸入查詢
- * @param {object} [context] - 上下文資料
- * @param {object} [existing] - 已存在的參數
+ * @param {Record<string, any>} [context] - 上下文資料
+ * @param {Record<string, any>} [existing] - 已存在的參數
  * @param {string[]} [onlyNames] - 限制只提取指定的參數名稱
  * @param {boolean} [allowWhole] - 是否允許單一字串參數吸收整個查詢
- * @returns {{args: object, missing: string[], errors: string[]}} 提取結果，包含成功提取的參數、缺失的必填參數及驗證錯誤
+ * @returns {ToolExtractResult} 提取結果，包含成功提取的參數、缺失的必填參數及驗證錯誤
  */
 export function extract(tool, query, context, existing, onlyNames, allowWhole) {
   tool = normaliseTool(tool);
@@ -529,8 +598,8 @@ export function extract(tool, query, context, existing, onlyNames, allowWhole) {
 
 /**
  * 產生工具參數的中文摘要，用於與使用者確認。
- * @param {object} tool - 工具定義
- * @param {object} args - 工具的參數物件
+ * @param {object|ToolDefinition} tool - 工具定義
+ * @param {Record<string, any>} args - 工具的參數物件
  * @returns {string} 中文參數摘要字串，以頓號分隔
  */
 export function argumentSummary(tool, args) {
@@ -545,10 +614,70 @@ export function argumentSummary(tool, args) {
 }
 
 /**
+ * @typedef {object} PendingToolInput
+ * @property {ToolDefinition} tool - 執行中的工具
+ * @property {string} query - 使用者查詢字串
+ * @property {object} routeMeta - 路由相關資訊
+ * @property {Record<string, any>} args - 目前已收集的參數
+ * @property {string[]} missing - 尚未收集的必填參數
+ */
+
+/**
+ * @typedef {object} PendingToolChoice
+ * @property {string} messageId - 選擇訊息的 ID
+ * @property {ToolRouteCandidate[]} choices - 提供給使用者的選項清單
+ */
+
+/**
+ * @typedef {object} ToolResultData
+ * @property {boolean} [ok] - 執行是否成功
+ * @property {string} [error] - 錯誤訊息
+ * @property {string} [message] - 成功訊息
+ * @property {string} callId - 呼叫 ID
+ */
+
+/**
+ * @typedef {object} ToolsEngineSetting
+ * @property {function} [onAddChatMessage] - 新增對話訊息的回呼函數
+ * @property {function} [onUpdateChatMessage] - 更新對話訊息的回呼函數
+ * @property {function} [onSetHistoryOpen] - 設定歷史紀錄面板開啟狀態的回呼函數
+ * @property {function} [onRenderHistory] - 觸發重新渲染歷史紀錄的回呼函數
+ * @property {function} [onSpeak] - 語音播放回呼函數
+ * @property {function} [onToolCall] - 工具準備執行時的回呼函數
+ * @property {function} getBrain - 取得 Brain 實體
+ * @property {function} getSpeech - 取得 Speech 實體
+ */
+
+/**
+ * @typedef {object} ToolsEngine
+ * @property {ToolDefinition[]} HOST_TOOLS - 註冊的宿主工具清單
+ * @property {PendingToolInput | null} pendingToolInput - 待補齊參數的工具狀態
+ * @property {PendingToolChoice | null} pendingToolChoice - 待選擇的模糊匹配狀態
+ * @property {string | null} pendingToolConfirmation - 待確認執行的工具訊息 ID
+ * @property {function} onAddChatMessage - 來自 setting 的對應方法
+ * @property {function} onUpdateChatMessage - 來自 setting 的對應方法
+ * @property {function} onSetHistoryOpen - 來自 setting 的對應方法
+ * @property {function} onRenderHistory - 來自 setting 的對應方法
+ * @property {function} onSpeak - 來自 setting 的對應方法
+ * @property {function(string): ToolRouteResult} routeHostTool - 路由宿主工具
+ * @property {function(ToolDefinition, string, string): string} parameterPrompt - 產生補齊參數的提示語
+ * @property {function(ToolDefinition, string, object, Record<string, any>): void} prepareTool - 準備執行工具
+ * @property {function(string): boolean} continueToolInput - 繼續處理工具參數輸入
+ * @property {function(string, ToolRouteCandidate[]): void} offerToolChoices - 處理工具模糊匹配
+ * @property {function(string): boolean} continueToolChoice - 繼續處理工具選擇
+ * @property {function(string, number): void} chooseTool - 選擇工具
+ * @property {function(ToolDefinition, string, object, Record<string, any>): void} offerHostTool - 準備確認執行宿主工具
+ * @property {function(string): void} executePendingTool - 執行待確認工具
+ * @property {function(string): void} cancelPendingTool - 取消待確認工具
+ * @property {function(string): boolean} continueToolConfirmation - 繼續處理確認結果
+ * @property {function(ToolResultData): void} handleToolResult - 處理工具執行完畢的回應
+ */
+
+/**
  * 初始化並建立工具執行引擎 (Tools Engine)。
  * 處理工具路由、參數收集、使用者互動 (補齊參數、選擇模糊工具、確認執行) 及最終執行邏輯。
- * @param {object} [setting={}] - 引擎設定物件，包含回呼函數與狀態讀取器
- * @returns {object} 工具引擎實體 (Tools Engine Instance)
+ * @param {ToolsEngineSetting} [setting={}] - 引擎設定物件，包含回呼函數與狀態讀取器
+ * @returns {ToolsEngine} 工具引擎實體 (Tools Engine Instance)
  */
 export function initToolsEngine(setting = {}) {
   function routeHostTool(text) {
