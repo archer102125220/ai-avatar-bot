@@ -258,21 +258,38 @@ async function bootAvatar(skinEngine, modelUrl) {
     try {
       const core = skinEngine.avatarModel.internalModel.coreModel;
       const origUpdate = core.update.bind(core);
+      let lastMouthValue = 0;
+      let isComputingMouth = false;
       core.update = function () {
-        if (typeof skinEngine.computeMouth === 'function') {
-          const mouthValue = skinEngine.computeMouth(skinEngine); // 共用嘴型計算（與 3D 同一套）
-          if (typeof mouthValue !== 'number') {
-            console.error(
-              '[AiAvatar] skinEngine.computeMouth must return a number'
-            );
-          } else {
-            for (const id of skinEngine.lipIds) {
-              try {
-                core.setParameterValueById(id, mouthValue);
-              } catch (_error) {}
-            }
+        if (
+          typeof skinEngine.computeMouth === 'function' &&
+          isComputingMouth === false
+        ) {
+          const result = skinEngine.computeMouth(skinEngine); // 共用嘴型計算（與 3D 同一套）
+
+          if (result instanceof Promise) {
+            isComputingMouth = true;
+            result
+              .then((val) => {
+                if (typeof val === 'number') {
+                  lastMouthValue = val;
+                }
+              })
+              .catch(() => {})
+              .finally(() => {
+                isComputingMouth = false;
+              });
+          } else if (typeof result === 'number') {
+            lastMouthValue = result;
           }
         }
+
+        for (const id of skinEngine.lipIds) {
+          try {
+            core.setParameterValueById(id, lastMouthValue);
+          } catch (_error) {}
+        }
+
         return origUpdate();
       };
     } catch (_error) {}
@@ -562,6 +579,8 @@ async function bootVRM(skinEngine, setting = {}) {
     let alive = true;
     let paused = false;
     let renderRaf = 0;
+    let lastMouthValue = 0;
+    let isComputingMouth = false;
     /**
      * 3D 虛擬人的核心渲染與動畫更新迴圈 (Animation Loop)。
      * 負責計算 delta time，更新 AnimationMixer (手勢)、表情 (對嘴/眨眼/情緒)，
@@ -582,17 +601,28 @@ async function bootVRM(skinEngine, setting = {}) {
         }
         const expressionManager = vrm.expressionManager;
         // 對嘴 + 眨眼（永遠歸我們，mixer 之後 vrm.update 之前）
-        if (typeof skinEngine.computeMouth === 'function') {
-          const mouthValue = skinEngine.computeMouth(skinEngine);
+        if (
+          typeof skinEngine.computeMouth === 'function' &&
+          !isComputingMouth
+        ) {
+          const result = skinEngine.computeMouth(skinEngine);
 
-          if (typeof mouthValue !== 'number') {
-            console.error(
-              '[AiAvatar] skinEngine.computeMouth must return a number'
-            );
-          } else {
-            expressionManager.setValue('aa', mouthValue);
+          if (result instanceof Promise) {
+            isComputingMouth = true;
+            result
+              .then((val) => {
+                if (typeof val === 'number') lastMouthValue = val;
+              })
+              .catch(() => {})
+              .finally(() => {
+                isComputingMouth = false;
+              });
+          } else if (typeof result === 'number') {
+            lastMouthValue = result;
           }
         }
+
+        expressionManager.setValue('aa', lastMouthValue);
         if (blinkTime < 0) {
           nextBlink -= delta;
           if (nextBlink <= 0) {
