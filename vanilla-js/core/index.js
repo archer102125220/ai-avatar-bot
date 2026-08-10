@@ -661,6 +661,14 @@ export async function initAvatarBot(optiopns = {}) {
     });
   }
 
+  if (typeof speechEngine.subscribe === 'function') {
+    speechEngine.subscribe('isSpeaking', (val) => {
+      if (skinEngine && typeof skinEngine.setIsSpeaking === 'function') {
+        skinEngine.setIsSpeaking(val);
+      }
+    });
+  }
+
   uiDom = initUi(container, stageEl);
 
   // 初始化 UI 語音狀態

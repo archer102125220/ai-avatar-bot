@@ -260,21 +260,18 @@ async function bootAvatar(skinEngine, modelUrl) {
       const origUpdate = core.update.bind(core);
       core.update = function () {
         if (typeof skinEngine.computeMouth === 'function') {
-          (async function () {
-            const mouthValue = await skinEngine.computeMouth(skinEngine); // 共用嘴型計算（與 3D 同一套）
-
-            if (typeof mouthValue !== 'number') {
-              console.error(
-                '[AiAvatar] skinEngine.computeMouth must return a number'
-              );
-            } else {
-              for (const id of skinEngine.lipIds) {
-                try {
-                  core.setParameterValueById(id, mouthValue);
-                } catch (_error) {}
-              }
+          const mouthValue = skinEngine.computeMouth(skinEngine); // 共用嘴型計算（與 3D 同一套）
+          if (typeof mouthValue !== 'number') {
+            console.error(
+              '[AiAvatar] skinEngine.computeMouth must return a number'
+            );
+          } else {
+            for (const id of skinEngine.lipIds) {
+              try {
+                core.setParameterValueById(id, mouthValue);
+              } catch (_error) {}
             }
-          })();
+          }
         }
         return origUpdate();
       };
@@ -586,17 +583,15 @@ async function bootVRM(skinEngine, setting = {}) {
         const expressionManager = vrm.expressionManager;
         // 對嘴 + 眨眼（永遠歸我們，mixer 之後 vrm.update 之前）
         if (typeof skinEngine.computeMouth === 'function') {
-          (async function () {
-            const mouthValue = await skinEngine.computeMouth(skinEngine);
+          const mouthValue = skinEngine.computeMouth(skinEngine);
 
-            if (typeof mouthValue !== 'number') {
-              console.error(
-                '[AiAvatar] skinEngine.computeMouth must return a number'
-              );
-            } else {
-              expressionManager.setValue('aa', mouthValue);
-            }
-          })();
+          if (typeof mouthValue !== 'number') {
+            console.error(
+              '[AiAvatar] skinEngine.computeMouth must return a number'
+            );
+          } else {
+            expressionManager.setValue('aa', mouthValue);
+          }
         }
         if (blinkTime < 0) {
           nextBlink -= delta;

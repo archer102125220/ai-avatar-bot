@@ -281,6 +281,7 @@ export function initDefaultTTSEngine(options = {}) {
     },
 
     computeMouth() {
+      const state = store.getState();
       if (this.isSpeaking === true && state.useAudioMouth === true) {
         state.mouthValue += (state.audioMouth - state.mouthValue) * 0.5;
       } else if (this.isSpeaking === true) {
@@ -426,6 +427,7 @@ export function initDefaultTTSEngine(options = {}) {
   };
 
   const handleNeuralFail = (e) => {
+      const state = store.getState();
     const msg = e?.message || '';
     if (/http 429/.test(msg) === true) {
       console.warn('TTS 被限流，這句退瀏覽器語音');

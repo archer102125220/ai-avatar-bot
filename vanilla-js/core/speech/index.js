@@ -303,7 +303,7 @@ export async function initSpeechEngine(setting = {}) {
     },
 
     get isSpeaking() {
-      return ttsEngine.isSpeaking;
+      return store.getState().isSpeaking;
     },
     get isListening() {
       return sttEngine.isListening;
@@ -587,6 +587,12 @@ export async function initSpeechEngine(setting = {}) {
   }
   if (!ttsEngine) {
     ttsEngine = initDefaultTTSEngine(ttsOptions);
+  }
+
+  if (typeof ttsEngine.subscribe === 'function') {
+    ttsEngine.subscribe('isSpeaking', (val) => {
+      store.setState({ isSpeaking: val });
+    });
   }
 
   // --- STT Setup ---
