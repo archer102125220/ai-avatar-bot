@@ -8,9 +8,196 @@ import {
 } from './constants';
 
 /**
+ * 知識庫項目
+ * @typedef {Object} KnowledgeEntry
+ * @property {string} [q] - 項目問題
+ * @property {string} [kw] - 項目關鍵字
+ * @property {string} [a] - 項目回答
+ */
+
+/**
+ * WebLLM 引擎設定
+ * @typedef {Object} LLMEngineOptions
+ * @property {string} [llmModel] - LLM 模型名稱
+ * @property {number} [LLMMaxTokens] - LLM 最大 token 數
+ * @property {boolean} [LLMIsStream] - 是否使用串流
+ * @property {Function} [onLoading] - 載入中回呼
+ * @property {Function} [onLoadProgress] - 載入進度回呼
+ * @property {Function} [onLoaded] - 載入完成回呼
+ * @property {Function} [onLoadError] - 載入錯誤回呼
+ * @property {Function} [onChatting] - 對話回呼
+ * @property {Function} [onStreamChatting] - 串流對話回呼
+ */
+
+/**
+ * WebLLM 引擎實例
+ * @typedef {Object} LLMEngine
+ * @property {boolean} supported - 是否支援 GPU
+ * @property {number} state - 引擎狀態
+ * @property {number} progress - 載入進度
+ * @property {string} model - 模型名稱
+ * @property {number} maxTokens - 最大 Token 數
+ * @property {boolean} isStream - 是否為串流模式
+ * @property {Function} onLoading - 載入中回呼
+ * @property {Function} onLoadProgress - 載入進度回呼
+ * @property {Function} onLoaded - 載入完成回呼
+ * @property {Function} onLoadError - 載入錯誤回呼
+ * @property {Function} onChatting - 對話回呼
+ * @property {Function} onStreamChatting - 串流對話回呼
+ * @property {function(): Promise<LLMEngine>} load - 載入模型方法
+ * @property {function(Array, Function): Promise<string>} chat - 對話方法
+ */
+
+/**
+ * AI 供應商引擎設定
+ * @typedef {Object} AiProviderOptions
+ * @property {string} [providerBaseUrl] - AI 供應商 Base URL
+ * @property {string} [providerPingUrl] - AI 供應商 Ping URL
+ * @property {string} [providerChatUrl] - AI 供應商 Chat URL
+ * @property {string} [providerModel] - AI 供應商模型名稱
+ * @property {Function} [providerCreatedFetchSetting] - 建立 Fetch 設定回呼
+ * @property {Function} [providerCreatedFetchPayload] - 建立 Fetch 負載回呼
+ * @property {Function} [providerResponesFormat] - 回應格式化回呼
+ * @property {number} [providerMaxTokens] - AI 供應商最大 token 數
+ * @property {boolean} [providerIsStream] - 是否使用串流
+ * @property {Function} [onConnecting] - 連線中回呼
+ * @property {Function} [onConnected] - 連線完成回呼
+ * @property {Function} [onError] - 錯誤回呼
+ * @property {Function} [onChatting] - 對話回呼
+ * @property {Function} [onStreamChatting] - 串流對話回呼
+ */
+
+/**
+ * AI 供應商引擎實例
+ * @typedef {Object} AiProviderEngine
+ * @property {string} base - Base URL
+ * @property {string} pingUrl - Ping URL
+ * @property {string} chatUrl - Chat URL
+ * @property {Function} createdFetchSetting - 建立 Fetch 設定方法
+ * @property {Function} createdFetchPayload - 建立 Fetch 負載方法
+ * @property {Function} responesFormat - 回應格式化方法
+ * @property {number} maxTokens - 最大 Token 數
+ * @property {boolean} isStream - 是否為串流模式
+ * @property {Function} onConnecting - 連線中回呼
+ * @property {Function} onConnected - 連線完成回呼
+ * @property {Function} onError - 錯誤回呼
+ * @property {Function} onChatting - 對話回呼
+ * @property {Function} onStreamChatting - 串流對話回呼
+ * @property {string} model - 模型名稱
+ * @property {boolean} enabled - 是否啟用
+ * @property {boolean} ready - 是否準備就緒
+ * @property {function(Object=): Promise<boolean>} ping - 測試連線方法
+ * @property {function(Array, Object=): Promise<string>} chat - 對話方法
+ */
+
+/**
+ * 記憶體實例 (MEMEngine)
+ * @typedef {Object} MEMEngine
+ * @property {string} key - LocalStorage key
+ * @property {boolean} isCompanion - 是否為陪伴模式
+ * @property {Object} data - 記憶資料
+ * @property {string} data.name - 使用者名稱
+ * @property {number} data.visits - 訪問次數
+ * @property {number} data.last - 最後訪問時間戳
+ * @property {Array<{role: string, content: string}>} data.history - 對話歷史
+ * @property {function(): void} load - 載入記憶體
+ * @property {function(): void} save - 儲存記憶體
+ * @property {function(string, string): void} addTurn - 新增對話輪次
+ * @property {function(string): void} captureName - 擷取名稱
+ * @property {function(): void} wipe - 清除記憶
+ */
+
+/**
+ * 大腦引擎設定
+ * @typedef {Object} BrainEngineOptions
+ * @property {string} [llmModel] - LLM 模型名稱
+ * @property {Array} [knowledge] - 網站知識庫
+ * @property {string} [knowledgeUrl] - 網站知識庫 URL
+ * @property {Array} [companionKnowledge] - 陪伴模式知識庫
+ * @property {string} [companionKnowledgeUrl] - 陪伴模式知識庫 URL
+ * @property {Function} [companionFallback] - 陪伴模式後備處理
+ * @property {string} [aiProviderModel] - AI 供應商模型
+ * @property {string} [aiProviderBaseUrl] - AI 供應商 Base URL
+ * @property {string|Function} [welcomeText] - 歡迎詞
+ * @property {string|Function} [companionWelcomeText] - 陪伴模式歡迎詞
+ * @property {string|Function} [assistantWelcomeText] - 助理模式歡迎詞
+ * @property {number} [LLMMaxTokens] - LLM 最大 token 數
+ * @property {boolean} [LLMIsStream] - LLM 是否串流
+ * @property {Function} [onLlmLoading] - LLM 載入中回呼
+ * @property {Function} [onLlmLoadProgress] - LLM 載入進度回呼
+ * @property {Function} [onLlmLoaded] - LLM 載入完成回呼
+ * @property {Function} [onLlmLoadError] - LLM 載入錯誤回呼
+ * @property {Function} [onLlmChatting] - LLM 對話回呼
+ * @property {Function} [onLlmStreamChatting] - LLM 串流對話回呼
+ * @property {Function} [onAiProviderConnecting] - AI 連線中回呼
+ * @property {Function} [onAiProviderConnected] - AI 連線完成回呼
+ * @property {Function} [onAiProviderError] - AI 錯誤回呼
+ * @property {Function} [onAiProviderChatting] - AI 對話回呼
+ * @property {Function} [onAiProviderStreamChatting] - AI 串流對話回呼
+ * @property {Function} [onAddChatMessage] - 新增訊息回呼
+ * @property {Function} [onUpdateChatMessage] - 更新訊息回呼
+ * @property {Function} [onChatHistoryChanged] - 歷史變更回呼
+ * @property {Function} [aiProviderCreatedFetchSetting] - AI 建立 Fetch 設定
+ * @property {Function} [aiProviderCreatedFetchPayload] - AI 建立 Fetch 負載
+ * @property {string} [aiProviderPingUrl] - AI Ping URL
+ * @property {string} [aiProviderChatUrl] - AI Chat URL
+ * @property {number} [aiProviderMaxTokens] - AI 最大 token 數
+ * @property {boolean} [aiProviderIsStream] - AI 是否串流
+ * @property {Function} [buildLLMMessages] - 建立 LLM 訊息回呼
+ */
+
+/**
+ * 大腦引擎實例
+ * @typedef {Object} BrainEngine
+ * @property {Object} STATE_MAP - 狀態映射表
+ * @property {Object} AVATAR_MODE_MAP - 虛擬人模式映射表
+ * @property {string} DEFAULT_AVATAR_MODE - 預設虛擬人模式
+ * @property {string} DEFAULT_LLM_MODEL - 預設 LLM 模型
+ * @property {string} DEFAULT_AI_PROVIDER_MODEL - 預設 AI 供應商模型
+ * @property {string} knowledgeUrl - 知識庫 URL
+ * @property {Array<KnowledgeEntry>} knowledge - 知識庫陣列
+ * @property {string} companionKnowledgeUrl - 陪伴模式知識庫 URL
+ * @property {Function} companionFallback - 陪伴模式兜底邏輯
+ * @property {Array<KnowledgeEntry>} companionKnowledge - 陪伴模式知識庫
+ * @property {number} companionFallbackIdx - 陪伴模式兜底索引
+ * @property {Function} onLlmLoading - LLM 載入中回呼
+ * @property {Function} onLlmLoadProgress - LLM 載入進度回呼
+ * @property {Function} onLlmLoaded - LLM 載入完成回呼
+ * @property {Function} onLlmLoadError - LLM 載入錯誤回呼
+ * @property {Function} onLlmChatting - LLM 對話回呼
+ * @property {Function} onLlmStreamChatting - LLM 串流對話回呼
+ * @property {Function} onAiProviderConnecting - AI 連線中回呼
+ * @property {Function} onAiProviderConnected - AI 連線完成回呼
+ * @property {Function} onAiProviderError - AI 錯誤回呼
+ * @property {Function} onAiProviderChatting - AI 對話回呼
+ * @property {Function} onAiProviderStreamChatting - AI 串流對話回呼
+ * @property {Function} onAddChatMessage - 新增對話訊息回呼
+ * @property {Function} onUpdateChatMessage - 更新對話訊息回呼
+ * @property {Function} onChatHistoryChanged - 歷史對話變更回呼
+ * @property {Array} chatLog - 對話記錄
+ * @property {number} chatSeq - 對話流水號
+ * @property {string|Function} welcomeText - 歡迎詞
+ * @property {string|Function} companionWelcomeText - 陪伴模式歡迎詞
+ * @property {string|Function} assistantWelcomeText - 助理模式歡迎詞
+ * @property {Function} buildLLMMessages - 建構 LLM 訊息方法
+ * @property {Function} defaultBuildLLMMessages - 預設建構 LLM 訊息方法
+ * @property {Function} getWelcomeText - 取得歡迎詞方法
+ * @property {Function} classifyEmotion - 情緒分類方法
+ * @property {Function} setEmotionFromText - 設定情緒方法
+ * @property {Function} handleAnswer - 處理回答方法
+ * @property {Function} addChatMessage - 新增對話訊息方法
+ * @property {Function} updateChatMessage - 更新對話訊息方法
+ * @property {LLMEngine} llm - LLM 引擎實例
+ * @property {MEMEngine} mem - 記憶體引擎實例
+ * @property {AiProviderEngine} aiProvider - AI 供應商引擎實例
+ * @property {Object} skin - Skin 引擎實例
+ * @property {Object} speech - Speech 引擎實例
+ */
+
+/**
  * 取得知識庫內容
  * @param {string} [knowledgeUrl=''] - 知識庫的 URL
- * @returns {Promise<Array>} 知識庫陣列資料
+ * @returns {Promise<Array<KnowledgeEntry>>} 知識庫陣列資料
  */
 export async function handleGetKnowledge(knowledgeUrl = '') {
   try {
@@ -75,10 +262,7 @@ export function similarity(query, text) {
 /**
  * 評分知識庫項目與問題的相關性
  * @param {string|Array} question - 使用者問題
- * @param {Object} entry - 知識庫項目
- * @param {string} [entry.q] - 項目問題
- * @param {string} [entry.kw] - 項目關鍵字
- * @param {string} [entry.a] - 項目回答
+ * @param {KnowledgeEntry} entry - 知識庫項目
  * @returns {number} 相關性分數
  */
 export function scoreEntry(question, entry) {
@@ -102,10 +286,10 @@ export function scoreEntry(question, entry) {
 
 /**
  * 取得與問題最相關的 Top K 知識庫項目
- * @param {Object} brainEngine - 大腦引擎實例
+ * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @param {string|Array} question - 使用者問題
  * @param {number} limit - 擷取數量
- * @returns {Array} 相關的知識庫項目陣列
+ * @returns {Array<KnowledgeEntry>} 相關的知識庫項目陣列
  */
 export function topK(brainEngine, question, limit) {
   const knowledge = brainEngine?.knowledge || [];
@@ -120,18 +304,9 @@ export function topK(brainEngine, question, limit) {
 
 /**
  * 初始化 WebLLM 引擎
- * @param {Object} [setting={}] - LLM 設定
- * @param {string} [setting.llmModel] - LLM 模型名稱
- * @param {number} [setting.LLMMaxTokens] - LLM 最大 token 數
- * @param {boolean} [setting.LLMIsStream] - 是否使用串流
- * @param {Function} [setting.onLoading] - 載入中回呼
- * @param {Function} [setting.onLoadProgress] - 載入進度回呼
- * @param {Function} [setting.onLoaded] - 載入完成回呼
- * @param {Function} [setting.onLoadError] - 載入錯誤回呼
- * @param {Function} [setting.onChatting] - 對話回呼
- * @param {Function} [setting.onStreamChatting] - 串流對話回呼
- * @param {Object} brain - 大腦引擎實例
- * @returns {Object} WebLLM 實例
+ * @param {LLMEngineOptions} [setting={}] - LLM 設定
+ * @param {BrainEngine} brain - 大腦引擎實例
+ * @returns {LLMEngine} WebLLM 實例
  */
 export function initLLM(setting = {}, brain) {
   const {
@@ -282,7 +457,7 @@ export function initLLM(setting = {}, brain) {
 
 /**
  * 取得歡迎詞文字
- * @param {Object} brainEngine - 大腦引擎實例
+ * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @returns {Promise<string>} 歡迎詞
  */
 export async function getWelcomeText(brainEngine) {
@@ -323,22 +498,8 @@ export async function getWelcomeText(brainEngine) {
 
 /**
  * 初始化 AI 供應商連線 (後端 API)
- * @param {Object} [setting={}] - AI 供應商設定
- * @param {string} [setting.providerBaseUrl] - AI 供應商 Base URL
- * @param {string} [setting.providerPingUrl] - AI 供應商 Ping URL
- * @param {string} [setting.providerChatUrl] - AI 供應商 Chat URL
- * @param {string} [setting.providerModel] - AI 供應商模型名稱
- * @param {Function} [setting.providerCreatedFetchSetting] - 建立 Fetch 設定回呼
- * @param {Function} [setting.providerCreatedFetchPayload] - 建立 Fetch 負載回呼
- * @param {Function} [setting.providerResponesFormat] - 回應格式化回呼
- * @param {number} [setting.providerMaxTokens] - AI 供應商最大 token 數
- * @param {boolean} [setting.providerIsStream] - 是否使用串流
- * @param {Function} [setting.onConnecting] - 連線中回呼
- * @param {Function} [setting.onConnected] - 連線完成回呼
- * @param {Function} [setting.onError] - 錯誤回呼
- * @param {Function} [setting.onChatting] - 對話回呼
- * @param {Function} [setting.onStreamChatting] - 串流對話回呼
- * @returns {Promise<Object>} AI 供應商實例
+ * @param {AiProviderOptions} [setting={}] - AI 供應商設定
+ * @returns {Promise<AiProviderEngine>} AI 供應商實例
  */
 export async function initAiProvider(setting = {}) {
   const {
@@ -530,7 +691,7 @@ export async function initAiProvider(setting = {}) {
  * 初始化記憶體模組 (主要用於陪伴模式)
  * @param {Object} params - 參數
  * @param {string} params.avatarMode - 虛擬人模式
- * @returns {Object} 記憶體實例
+ * @returns {MEMEngine} 記憶體實例
  */
 export function initMEM({ avatarMode }) {
   // 記憶（陪伴模式限定）：只存訪客自己瀏覽器的 localStorage，零後端、不上傳；說「忘記我」即清除
@@ -629,42 +790,8 @@ export function classifyEmotion(text) {
 
 /**
  * 初始化大腦引擎核心
- * @param {Object} [setting={}] - 大腦引擎設定
- * @param {string} [setting.llmModel] - LLM 模型名稱
- * @param {Array} [setting.knowledge] - 網站知識庫
- * @param {string} [setting.knowledgeUrl] - 網站知識庫 URL
- * @param {Array} [setting.companionKnowledge] - 陪伴模式知識庫
- * @param {string} [setting.companionKnowledgeUrl] - 陪伴模式知識庫 URL
- * @param {Function} [setting.companionFallback] - 陪伴模式後備處理
- * @param {string} [setting.aiProviderModel] - AI 供應商模型
- * @param {string} [setting.aiProviderBaseUrl] - AI 供應商 Base URL
- * @param {string|Function} [setting.welcomeText] - 歡迎詞
- * @param {string|Function} [setting.companionWelcomeText] - 陪伴模式歡迎詞
- * @param {string|Function} [setting.assistantWelcomeText] - 助理模式歡迎詞
- * @param {number} [setting.LLMMaxTokens] - LLM 最大 token 數
- * @param {boolean} [setting.LLMIsStream] - LLM 是否串流
- * @param {Function} [setting.onLlmLoading] - LLM 載入中回呼
- * @param {Function} [setting.onLlmLoadProgress] - LLM 載入進度回呼
- * @param {Function} [setting.onLlmLoaded] - LLM 載入完成回呼
- * @param {Function} [setting.onLlmLoadError] - LLM 載入錯誤回呼
- * @param {Function} [setting.onLlmChatting] - LLM 對話回呼
- * @param {Function} [setting.onLlmStreamChatting] - LLM 串流對話回呼
- * @param {Function} [setting.onAiProviderConnecting] - AI 連線中回呼
- * @param {Function} [setting.onAiProviderConnected] - AI 連線完成回呼
- * @param {Function} [setting.onAiProviderError] - AI 錯誤回呼
- * @param {Function} [setting.onAiProviderChatting] - AI 對話回呼
- * @param {Function} [setting.onAiProviderStreamChatting] - AI 串流對話回呼
- * @param {Function} [setting.onAddChatMessage] - 新增訊息回呼
- * @param {Function} [setting.onUpdateChatMessage] - 更新訊息回呼
- * @param {Function} [setting.onChatHistoryChanged] - 歷史變更回呼
- * @param {Function} [setting.aiProviderCreatedFetchSetting] - AI 建立 Fetch 設定
- * @param {Function} [setting.aiProviderCreatedFetchPayload] - AI 建立 Fetch 負載
- * @param {string} [setting.aiProviderPingUrl] - AI Ping URL
- * @param {string} [setting.aiProviderChatUrl] - AI Chat URL
- * @param {number} [setting.aiProviderMaxTokens] - AI 最大 token 數
- * @param {boolean} [setting.aiProviderIsStream] - AI 是否串流
- * @param {Function} [setting.buildLLMMessages] - 建立 LLM 訊息回呼
- * @returns {Promise<Object>} 大腦引擎實例
+ * @param {BrainEngineOptions} [setting={}] - 大腦引擎設定
+ * @returns {Promise<BrainEngine>} 大腦引擎實例
  */
 export async function initBrainEngine(setting = {}) {
   const {
@@ -969,7 +1096,7 @@ export async function initBrainEngine(setting = {}) {
 
 /**
  * 根據文字設定虛擬人情緒動作
- * @param {Object} brainEngine - 大腦引擎實例
+ * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @param {string} text - 回應文字
  */
 export function setEmotionFromText(brainEngine, text) {
@@ -986,9 +1113,9 @@ export function setEmotionFromText(brainEngine, text) {
 // 檢索式回答（零金鑰、即時、永遠可用的後備）
 /**
  * 找出知識庫中得分最高的項目
- * @param {Array} [knowledgeList=[]] - 知識庫陣列
+ * @param {Array<KnowledgeEntry>} [knowledgeList=[]] - 知識庫陣列
  * @param {string} question - 使用者問題
- * @returns {Object} 最佳符合項目與分數 { entry, score }
+ * @returns {{entry: KnowledgeEntry|null, score: number}} 最佳符合項目與分數 { entry, score }
  */
 export function bestOf(knowledgeList = [], question) {
   let bestEntry = null;
@@ -1005,7 +1132,7 @@ export function bestOf(knowledgeList = [], question) {
 
 /**
  * 陪伴模式的預設兜底回覆
- * @param {Object} brainEngine - 大腦引擎實例
+ * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @param {string} question - 使用者問題
  * @returns {string} 兜底回覆文字
  */
@@ -1037,7 +1164,7 @@ export function brainEngineCompanionFallback(brainEngine, question) {
 
 /**
  * 處理問題的檢索思考邏輯
- * @param {Object} brainEngine - 大腦引擎實例
+ * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @param {string} rawQuestion - 原始使用者問題
  * @returns {string} 回答文字
  */
@@ -1077,7 +1204,7 @@ export function handleThinking(brainEngine, rawQuestion) {
 
 /**
  * 新增對話訊息至歷史紀錄
- * @param {Object} brainEngine - 大腦引擎實例
+ * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @param {string} role - 角色 ('user'|'assistant')
  * @param {string} text - 訊息內容
  * @param {Object} [options={}] - 額外選項設定
@@ -1112,7 +1239,7 @@ export function addChatMessage(brainEngine, role, text, options = {}) {
 
 /**
  * 更新歷史對話紀錄中的訊息
- * @param {Object} brainEngine - 大腦引擎實例
+ * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @param {string} id - 訊息 ID
  * @param {string} text - 更新後的文字
  * @param {boolean} streaming - 是否為串流狀態中
@@ -1136,7 +1263,7 @@ export function updateChatMessage(brainEngine, id, text, streaming) {
 
 /**
  * 透過後端 AI 供應商回答問題
- * @param {Object} brainEngine - 大腦引擎實例
+ * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @param {string} question - 使用者問題
  * @returns {Promise<void>}
  */
@@ -1163,9 +1290,9 @@ export async function aiProviderLLMBrain(brainEngine, question) {
 
 /**
  * 預設的 LLM 訊息建構方法
- * @param {Object} brainEngine - 大腦引擎實例
+ * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @param {string} question - 使用者問題
- * @returns {Array} LLM 對話訊息陣列
+ * @returns {Array<{role: string, content: string}>} LLM 對話訊息陣列
  */
 export function defaultBuildLLMMessages(brainEngine, question) {
   const context = topK(brainEngine, question, 3)
@@ -1196,7 +1323,7 @@ export function defaultBuildLLMMessages(brainEngine, question) {
 
 /**
  * 透過瀏覽器端 WebLLM 引擎回答問題
- * @param {Object} brainEngine - 大腦引擎實例
+ * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @param {string} question - 使用者問題
  * @returns {Promise<void>}
  */
@@ -1263,7 +1390,7 @@ export async function webLLMBrain(brainEngine, question) {
 
 /**
  * 綜合處理回答流程 (AI Provider -> WebLLM -> 檢索後備)
- * @param {Object} brainEngine - 大腦引擎實例
+ * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @param {string} question - 使用者問題
  * @returns {Promise<void>}
  */
@@ -1292,7 +1419,7 @@ export async function handleAnswer(brainEngine, question) {
 
 /**
  * 輸出回答 (記錄、顯示、發聲)
- * @param {Object} brainEngine - 大腦引擎實例
+ * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @param {string} text - 回答內容
  */
 export function sayAnswer(brainEngine, text) {
