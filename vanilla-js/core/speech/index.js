@@ -214,24 +214,9 @@ export async function initSpeechEngine(setting = {}) {
     neuralVoice,
     speakSeq: 0,
     ttsMuted: false,
-    get convoOn() {
-      return store.getState().convoOn;
-    },
-    set convoOn(val) {
-      store.setState({ convoOn: val });
-    },
-    get isProcessing() {
-      return store.getState().isProcessing;
-    },
-    set isProcessing(val) {
-      store.setState({ isProcessing: val });
-    },
-    get assistantSpeechStartedAt() {
-      return store.getState().assistantSpeechStartedAt;
-    },
-    set assistantSpeechStartedAt(val) {
-      store.setState({ assistantSpeechStartedAt: val });
-    },
+    convoOn: false,
+    isProcessing: false,
+    assistantSpeechStartedAt: 0,
     greeting: null,
     companionGreeting: null,
     assistantGreeting: null
@@ -331,9 +316,24 @@ export async function initSpeechEngine(setting = {}) {
       store.setState({ ttsMuted: newTtsMuted });
     },
 
-    convoOn: false,
-    isProcessing: false,
-    assistantSpeechStartedAt: 0,
+    get convoOn() {
+      return store.getState().convoOn;
+    },
+    set convoOn(val) {
+      store.setState({ convoOn: val });
+    },
+    get isProcessing() {
+      return store.getState().isProcessing;
+    },
+    set isProcessing(val) {
+      store.setState({ isProcessing: val });
+    },
+    get assistantSpeechStartedAt() {
+      return store.getState().assistantSpeechStartedAt;
+    },
+    set assistantSpeechStartedAt(val) {
+      store.setState({ assistantSpeechStartedAt: val });
+    },
 
     get spokenDisplayText() {
       return store.getState().spokenDisplayText;
