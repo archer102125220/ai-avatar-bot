@@ -670,9 +670,15 @@ export async function initAiProvider(setting = {}) {
           this.base + (this.chatUrl || '/chat/completions'),
           fetchSetting
         );
-        // if (response.ok !== true) {
-        //   throw new Error('http ' + response.status);
-        // }
+
+        if (response.ok !== true) {
+          let errorMsg = `HTTP ${response.status} ${response.statusText}`;
+          try {
+            const errorText = await response.text();
+            if (errorText) errorMsg += ` - ${errorText}`;
+          } catch (_e) {}
+          throw new Error(errorMsg);
+        }
 
         console.log({ response });
 
@@ -1307,7 +1313,9 @@ export async function aiProviderLLMBrain(brainEngine, question) {
     if (typeof out === 'string' && out.trim() !== '') {
       return sayAnswer(brainEngine, out.trim());
     }
-    throw new Error('AI Provider response is empty');
+    throw new Error(
+      'AI Provider 回應為空或格式錯誤 (response is empty or malformed)'
+    );
   } catch (error) {
     console.warn('AI Provider error', error);
     throw error;

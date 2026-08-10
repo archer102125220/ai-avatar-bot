@@ -341,6 +341,7 @@ export async function initAvatarBot(optiopns = {}) {
 
   const stageEl = document.createElement('div');
   stageEl.setAttribute('id', 'stage');
+  uiDom = initUi(container, stageEl);
 
   let streamSpeechId = 0;
   const streamSpeechState = { buf: '' };
@@ -964,8 +965,6 @@ export async function initAvatarBot(optiopns = {}) {
       }
     });
   }
-
-  uiDom = initUi(container, stageEl);
 
   // 初始化 UI 語音狀態
   uiDom.updateVoiceStatus(

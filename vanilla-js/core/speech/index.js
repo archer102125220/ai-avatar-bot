@@ -103,9 +103,20 @@ export async function initSpeechEngine(setting = {}) {
     assistantSpeechStartedAt: 0
   });
 
+  let spokenDisplayTextTimer = null;
   store.subscribe('spokenDisplayText', (val) => {
     if (typeof setting.onSpokenDisplayTextChange === 'function') {
       setting.onSpokenDisplayTextChange(val);
+    }
+    if (spokenDisplayTextTimer) {
+      clearTimeout(spokenDisplayTextTimer);
+    }
+    if (val !== '') {
+      spokenDisplayTextTimer = setTimeout(() => {
+        if (typeof setting.onSpokenDisplayTextTimeout === 'function') {
+          setting.onSpokenDisplayTextTimeout();
+        }
+      }, 6000);
     }
   });
 
@@ -387,9 +398,7 @@ export async function initSpeechEngine(setting = {}) {
     neuralVoice: neuralVoice,
     gender: speechEngine.gender,
     onSpeakStart: () => {
-      if (typeof setting.onTapAvatar === 'function') {
-        setting.onTapAvatar();
-      }
+      // 移除誤植的 onTapAvatar 呼叫，避免中斷正常回答並播放歡迎詞
     },
     onSpeakEnd: () => {
       if (typeof speechEngine._onTTSSpeakEnd === 'function') {
