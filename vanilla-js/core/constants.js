@@ -1,40 +1,34 @@
 /**
- * @typedef {Object} StateMap
- * @property {'idle'} IDLE - 閒置狀態
- * @property {'loading'} LOADING - 載入中狀態
- * @property {'ready'} READY - 準備就緒狀態
- * @property {'error'} ERROR - 發生錯誤狀態
- */
-
-/**
  * 虛擬形象狀態映射表。
- * @type {StateMap}
+ * @readonly
+ * @enum {string}
  */
 export const STATE_MAP = {
+  /** 閒置狀態 */
   IDLE: 'idle',
+  /** 載入中狀態 */
   LOADING: 'loading',
+  /** 準備就緒狀態 */
   READY: 'ready',
+  /** 發生錯誤狀態 */
   ERROR: 'error'
 };
 
 /**
- * @typedef {Object} AvatarModeMap
- * @property {'companion'} companion - 陪伴模式
- * @property {'assistant'} assistant - 助理模式
- */
-
-/**
  * 虛擬形象角色模式映射表。
- * @type {AvatarModeMap}
+ * @readonly
+ * @enum {string}
  */
 export const AVATAR_MODE_MAP = {
+  /** 陪伴模式 */
   companion: 'companion',
+  /** 助理模式 */
   assistant: 'assistant'
 };
 
 /**
  * 預設虛擬形象模式。
- * @type {string}
+ * @type {AVATAR_MODE_MAP}
  */
 export const DEFAULT_AVATAR_MODE = AVATAR_MODE_MAP.assistant;
 
@@ -51,82 +45,70 @@ export const DEFAULT_LLM_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 export const DEFAULT_AI_PROVIDER_MODEL = 'qwen2.5:latest';
 
 /**
- * @typedef {Object} EmoTargetMap
- * @property {0.65} happy - 快樂情緒的目標值
- * @property {0.6} surprised - 驚訝情緒的目標值
- * @property {0.5} sad - 悲傷情緒的目標值
- */
-
-/**
  * 情緒目標值映射表。
- * @type {EmoTargetMap}
+ * @readonly
+ * @enum {number}
  */
 export const EMO_TARGET_MAP = {
+  /** 快樂情緒的目標值 */
   happy: 0.65,
+  /** 驚訝情緒的目標值 */
   surprised: 0.6,
+  /** 悲傷情緒的目標值 */
   sad: 0.5
 };
 
 /**
- * @typedef {Object} EngineModeMap
- * @property {'2d'} twoDimensional - 2D 渲染引擎模式
- * @property {'3d'} threeDimensional - 3D 渲染引擎模式
- */
-
-/**
  * 虛擬形象渲染引擎模式映射表。
- * @type {EngineModeMap}
+ * @readonly
+ * @enum {string}
  */
 export const ENGINE_MODE_MAP = {
+  /** 2D 渲染引擎模式 */
   twoDimensional: '2d',
+  /** 3D 渲染引擎模式 */
   threeDimensional: '3d'
 };
 
 /**
  * 預設啟動的渲染引擎模式。
- * @type {string}
+ * @type {ENGINE_MODE_MAP}
  */
 export const DEFALUT_START_MODE = ENGINE_MODE_MAP.twoDimensional;
 
 /**
- * @typedef {Object} FitModeMap
- * @property {'half'} HALF - 半身顯示模式
- * @property {'full'} FULL - 全身顯示模式
- */
-
-/**
  * 畫面顯示比例模式映射表。
- * @type {FitModeMap}
+ * @readonly
+ * @enum {string}
  */
 export const FIT_MODE_MAP = {
+  /** 半身顯示模式 */
   HALF: 'half',
+  /** 全身顯示模式 */
   FULL: 'full'
 };
 
 /**
  * 預設畫面顯示比例模式。
- * @type {string}
+ * @type {FIT_MODE_MAP}
  */
 export const DEFAULT_FIT_MODE = FIT_MODE_MAP.HALF;
 
 /**
- * @typedef {Object} GenderMap
- * @property {'female'} female - 女性
- * @property {'male'} male - 男性
- */
-
-/**
  * 性別選項映射表。
- * @type {GenderMap}
+ * @readonly
+ * @enum {string}
  */
 export const GENDER_MAP = {
+  /** 女性 */
   female: 'female',
+  /** 男性 */
   male: 'male'
 };
 
 /**
  * 預設性別。
- * @type {string}
+ * @type {GENDER_MAP}
  */
 export const DEFAULT_GENDER = GENDER_MAP.female;
 
