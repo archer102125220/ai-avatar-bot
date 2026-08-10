@@ -1,10 +1,16 @@
 import { createBaseStore } from '../store';
 
 /**
+ * @typedef {Object} STTEngineValidationResult
+ * @property {boolean} isValid - 標示引擎是否實作了所有必要的方法與屬性。
+ * @property {string[]} missing - 缺失的方法或屬性名稱列表。
+ */
+
+/**
  * 驗證傳入的語音轉文字 (STT) 引擎是否實作了必要的方法與屬性。
  *
- * @param {Object} engine - 欲驗證的 STT 引擎實例。
- * @returns {{ isValid: boolean, missing: string[] }} 包含驗證結果及缺失的方法或屬性列表。
+ * @param {Object|null|undefined} engine - 欲驗證的 STT 引擎實例。
+ * @returns {STTEngineValidationResult} 包含驗證結果及缺失的方法或屬性列表。
  */
 export function validateSTTEngine(engine) {
   const missing = [];
@@ -22,32 +28,55 @@ export function validateSTTEngine(engine) {
 }
 
 /**
+ * 語音轉文字 (STT) 引擎的內部狀態。
+ * 
+ * @typedef {Object} STTEngineState
+ * @property {MediaStream|null} micStream - 麥克風音訊串流。
+ * @property {AudioContext|null} micAudioCtx - 音訊上下文。
+ * @property {AnalyserNode|null} micAnalyser - 音訊分析節點。
+ * @property {Uint8Array|null} micData - 音訊頻率資料。
+ * @property {number} micNoiseFloor - 麥克風底噪位準。
+ * @property {number} voiceFrames - 連續偵測到語音的幀數。
+ * @property {number} lastBargeIn - 上次插話的時間戳記。
+ * @property {number} micRaf - RequestAnimationFrame 的 ID。
+ * @property {Object|null} recognition - Web Speech API 辨識實例 (SpeechRecognition)。
+ * @property {number|null} recognitionSilenceTimer - 靜音超時計時器 ID。
+ * @property {boolean} isListening - 是否正在聆聽。
+ * @property {number} noSpeechRuns - 連續未偵測到語音的次數。
+ */
+
+/**
  * 語音轉文字 (STT) 引擎的初始化選項。
  * 
  * @typedef {Object} STTEngineOptions
- * @property {function(string, boolean, boolean): void} [onResult] - 當辨識出文字時的處理函數 (文字, 是否為最終結果, 是否為暫時結果)。
- * @property {function(number, boolean, string, number): void} [onMicLevel] - 麥克風音量監聽回調 (RMS, 是否顯示UI, 狀態字串, 振幅)。
- * @property {function(): void} [onBargeIn] - 當使用者插話 (Barge-In) 時的處理函數。
- * @property {function(string, boolean): void} [onError] - 發生錯誤時的處理函數 (錯誤訊息, 是否因權限不足)。
- * @property {function(boolean, string, boolean): void} [onStatusChange] - 狀態變更時的處理函數 (是否聆聽中, 狀態訊息, 是否被中斷)。
- * @property {function(): void} [onNoSpeechAbort] - 連續未接收到聲音導致中止時的處理函數。
- * @property {function(): boolean} [getAssistantActive] - 取得助理是否處於活動狀態 (說話或處理中)。
- * @property {function(): number} [getSpeechDuration] - 取得目前的發言持續時間 (毫秒)。
- * @property {function(): boolean} [getConvoOn] - 取得是否開啟即時對話功能。
+ * @property {(text: string, isFinal: boolean, isInterim: boolean) => void} [onResult] - 當辨識出文字時的處理函數。
+ * @property {(rms: number, showVoiceUI: boolean, stateString: string, levelAmp: number) => void} [onMicLevel] - 麥克風音量監聽回調。
+ * @property {() => void} [onBargeIn] - 當使用者插話 (Barge-In) 時的處理函數。
+ * @property {(errorMessage: string, isNotAllowed: boolean) => void} [onError] - 發生錯誤時的處理函數。
+ * @property {(isListening: boolean, statusMessage?: string, isAborted?: boolean) => void} [onStatusChange] - 狀態變更時的處理函數。
+ * @property {() => void} [onNoSpeechAbort] - 連續未接收到聲音導致中止時的處理函數。
+ * @property {() => boolean} [getAssistantActive] - 取得助理是否處於活動狀態 (說話或處理中)。
+ * @property {() => number} [getSpeechDuration] - 取得目前的發言持續時間 (毫秒)。
+ * @property {() => boolean} [getConvoOn] - 取得是否開啟即時對話功能。
+ */
+
+/**
+ * 預設語音轉文字 (STT) 引擎實例。
+ *
+ * @typedef {Object} STTEngineInstance
+ * @property {(listener: (state: STTEngineState) => void) => (() => void)} subscribe - 訂閱引擎內部狀態變更的函數，回傳取消訂閱的函數。
+ * @property {() => STTEngineState} getState - 取得目前引擎內部狀態。
+ * @property {(newState: Partial<STTEngineState>) => void} setState - 更新引擎內部狀態。
+ * @property {boolean} isListening - 標示目前是否正在聆聽語音。
+ * @property {() => Promise<void>} startListening - 啟動語音辨識與麥克風監聽。
+ * @property {() => void} stopListening - 停止語音辨識與麥克風監聽。
  */
 
 /**
  * 建立並初始化預設的語音轉文字 (STT) 引擎，負責管理麥克風權限、音量分析與瀏覽器內建語音辨識 (Web Speech API)。
  *
  * @param {STTEngineOptions} [options={}] - 初始化設定與回調函數。
- * @returns {{
- *   subscribe: Function,
- *   getState: Function,
- *   setState: Function,
- *   isListening: boolean,
- *   startListening: function(): Promise<void>,
- *   stopListening: function(): void
- * }} 包含狀態管理與操作方法的 STT 引擎實例。
+ * @returns {STTEngineInstance} 包含狀態管理與操作方法的 STT 引擎實例。
  */
 export function initDefaultSTTEngine(options = {}) {
   const {
