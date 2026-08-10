@@ -206,7 +206,57 @@ export async function initSpeechEngine(setting = {}) {
 
   const store = createBaseStore({
     isSpeaking: false,
-    isListening: false
+    isListening: false,
+    spokenDisplayText: '',
+    spokenAudioText: '',
+    gender: setting.getGender ? setting.getGender() : GENDER_MAP.female,
+    ttsEndpoint: ttsEndpoint || DEFAULT_TTS_ENDPOINT,
+    neuralVoice,
+    speakSeq: 0,
+    ttsMuted: false,
+    get convoOn() {
+      return store.getState().convoOn;
+    },
+    set convoOn(val) {
+      store.setState({ convoOn: val });
+    },
+    get isProcessing() {
+      return store.getState().isProcessing;
+    },
+    set isProcessing(val) {
+      store.setState({ isProcessing: val });
+    },
+    get assistantSpeechStartedAt() {
+      return store.getState().assistantSpeechStartedAt;
+    },
+    set assistantSpeechStartedAt(val) {
+      store.setState({ assistantSpeechStartedAt: val });
+    },
+    greeting: null,
+    companionGreeting: null,
+    assistantGreeting: null
+  });
+
+  store.subscribe('spokenDisplayText', (val) => {
+    if (typeof setting.onSpokenDisplayTextChange === 'function') {
+      setting.onSpokenDisplayTextChange(val);
+    }
+  });
+
+  store.subscribe('gender', (val) => {
+    ttsEngine.setGender(val);
+  });
+
+  store.subscribe('ttsMuted', (val) => {
+    ttsEngine.isMuted = val;
+  });
+
+  store.subscribe('spokenAudioText', (val) => {
+    store.setState({ spokenDisplayText: val });
+    if (typeof setting.onSpeaking === 'function') {
+      setting.onSpeaking(val);
+    }
+    speechEngine.speak(val);
   });
 
   const speechEngine = {
@@ -226,13 +276,11 @@ export async function initSpeechEngine(setting = {}) {
     get tools() {
       return setting.getTools ? setting.getTools() : null;
     },
-    _gender: setting.getGender ? setting.getGender() : GENDER_MAP.female,
     get gender() {
-      return this._gender;
+      return store.getState().gender;
     },
     setGender(newGender) {
-      this._gender = newGender;
-      ttsEngine.setGender(newGender);
+      store.setState({ gender: newGender });
     },
     get avatarMode() {
       return setting.getAvatarMode ? setting.getAvatarMode() : null;
@@ -248,28 +296,25 @@ export async function initSpeechEngine(setting = {}) {
     onMicStateChanged: setting.onMicStateChanged,
     onLanguageChanged: setting.onLanguageChanged,
 
-    _ttsEndpoint: ttsEndpoint || DEFAULT_TTS_ENDPOINT,
     get ttsEndpoint() {
-      return this._ttsEndpoint;
+      return store.getState().ttsEndpoint;
     },
     set ttsEndpoint(val) {
-      this._ttsEndpoint = val;
+      store.setState({ ttsEndpoint: val });
     },
 
-    _neuralVoice: neuralVoice,
     get neuralVoice() {
-      return this._neuralVoice;
+      return store.getState().neuralVoice;
     },
     set neuralVoice(val) {
-      this._neuralVoice = val;
+      store.setState({ neuralVoice: val });
     },
 
-    _speakSeq: 0,
     get speakSeq() {
-      return this._speakSeq;
+      return store.getState().speakSeq;
     },
     set speakSeq(newSpeakSeq) {
-      this._speakSeq = newSpeakSeq;
+      store.setState({ speakSeq: newSpeakSeq });
     },
 
     get isSpeaking() {
@@ -279,28 +324,22 @@ export async function initSpeechEngine(setting = {}) {
       return sttEngine.isListening;
     },
 
-    _ttsMuted: false,
     get ttsMuted() {
-      return this._ttsMuted;
+      return store.getState().ttsMuted;
     },
     set ttsMuted(newTtsMuted) {
-      this._ttsMuted = newTtsMuted;
-      ttsEngine.isMuted = newTtsMuted;
+      store.setState({ ttsMuted: newTtsMuted });
     },
 
     convoOn: false,
     isProcessing: false,
     assistantSpeechStartedAt: 0,
 
-    _spokenDisplayText: '',
     get spokenDisplayText() {
-      return this._spokenDisplayText;
+      return store.getState().spokenDisplayText;
     },
     set spokenDisplayText(newSpeakingLabel) {
-      this._spokenDisplayText = newSpeakingLabel;
-      if (typeof setting.onSpokenDisplayTextChange === 'function') {
-        setting.onSpokenDisplayTextChange(newSpeakingLabel);
-      }
+      store.setState({ spokenDisplayText: newSpeakingLabel });
     },
 
     speak: (text, options) => {
@@ -308,17 +347,11 @@ export async function initSpeechEngine(setting = {}) {
       ttsEngine.speak(text, options);
     },
 
-    _spokenAudioText: '',
     get spokenAudioText() {
-      return this._spokenAudioText;
+      return store.getState().spokenAudioText;
     },
     set spokenAudioText(newSpeakingSounds) {
-      this._spokenAudioText = newSpeakingSounds;
-      this.spokenDisplayText = newSpeakingSounds;
-      if (typeof setting.onSpeaking === 'function') {
-        setting.onSpeaking(newSpeakingSounds);
-      }
-      speechEngine.speak(newSpeakingSounds);
+      store.setState({ spokenAudioText: newSpeakingSounds });
     },
 
     stopSpeaking: () => {
@@ -472,28 +505,25 @@ export async function initSpeechEngine(setting = {}) {
 
     handleUser: (text) => handleUser(speechEngine, text),
 
-    _greeting: null,
     get greeting() {
-      return this._greeting;
+      return store.getState().greeting;
     },
     set greeting(val) {
-      this._greeting = val;
+      store.setState({ greeting: val });
     },
 
-    _companionGreeting: null,
     get companionGreeting() {
-      return this._companionGreeting;
+      return store.getState().companionGreeting;
     },
     set companionGreeting(val) {
-      this._companionGreeting = val;
+      store.setState({ companionGreeting: val });
     },
 
-    _assistantGreeting: null,
     get assistantGreeting() {
-      return this._assistantGreeting;
+      return store.getState().assistantGreeting;
     },
     set assistantGreeting(val) {
-      this._assistantGreeting = val;
+      store.setState({ assistantGreeting: val });
     }
   };
 
