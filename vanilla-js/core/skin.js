@@ -265,23 +265,18 @@ async function bootAvatar(skinEngine, modelUrl) {
           typeof skinEngine.computeMouth === 'function' &&
           isComputingMouth === false
         ) {
-          const result = skinEngine.computeMouth(skinEngine); // 共用嘴型計算（與 3D 同一套）
-
-          if (result instanceof Promise) {
-            isComputingMouth = true;
-            result
-              .then((val) => {
-                if (typeof val === 'number') {
-                  lastMouthValue = val;
-                }
-              })
-              .catch(() => {})
-              .finally(() => {
-                isComputingMouth = false;
-              });
-          } else if (typeof result === 'number') {
-            lastMouthValue = result;
-          }
+          isComputingMouth = true;
+          (async function () {
+            try {
+              const val = await skinEngine.computeMouth(skinEngine);
+              if (typeof val === 'number') {
+                lastMouthValue = val;
+              }
+            } catch (_error) {
+            } finally {
+              isComputingMouth = false;
+            }
+          })();
         }
 
         for (const id of skinEngine.lipIds) {
