@@ -337,6 +337,145 @@ export async function initAvatarBot(optiopns = {}) {
   const stageEl = document.createElement('div');
   stageEl.setAttribute('id', 'stage');
 
+  let streamSpeechId = 0;
+  const streamSpeechState = { buf: '' };
+
+  function handleUser(text = '') {
+    if (typeof text === 'string' && text !== '') {
+      brainEngine.addChatMessage('user', text);
+      speechEngine.spokenDisplayText = '你：' + text;
+    }
+
+    if (
+      text !== '' &&
+      typeof toolsEngine.pendingToolConfirmation === 'string' &&
+      toolsEngine.pendingToolConfirmation !== '' &&
+      toolsEngine.continueToolConfirmation(text)
+    ) {
+      return;
+    }
+    if (
+      text !== '' &&
+      typeof toolsEngine.pendingToolChoice === 'object' &&
+      toolsEngine.pendingToolChoice !== null &&
+      toolsEngine.continueToolChoice(text)
+    ) {
+      return;
+    }
+    if (
+      text !== '' &&
+      typeof toolsEngine.pendingToolInput === 'object' &&
+      toolsEngine.pendingToolInput !== null &&
+      toolsEngine.continueToolInput(text)
+    ) {
+      return;
+    }
+
+    if (brainEngine.mem.isCompanion === true && text !== '') {
+      if (/忘記我|清除記憶|forget me/i.test(text) === true) {
+        brainEngine.mem.wipe();
+        speechEngine.spokenAudioText = '好，我把記憶都清掉了，我們重新認識吧！';
+        return;
+      }
+      brainEngine.mem.captureName(text);
+      brainEngine.mem.addTurn('user', text);
+    }
+
+    const routedTool = toolsEngine.routeHostTool(text);
+    if (
+      Array.isArray(routedTool.ambiguous) === true &&
+      routedTool.ambiguous.length > 0
+    ) {
+      speechEngine.isProcessing = false;
+      toolsEngine.offerToolChoices(text, routedTool.ambiguous);
+      return;
+    }
+    if (typeof routedTool.match === 'object' && routedTool.match !== null) {
+      speechEngine.isProcessing = false;
+      toolsEngine.prepareTool(
+        routedTool.match.tool,
+        text,
+        { confidence: routedTool.match.score, reason: routedTool.match.reason },
+        {}
+      );
+      return;
+    }
+
+    speechEngine.isProcessing = true;
+
+    if (
+      typeof skinEngine === 'object' &&
+      skinEngine !== null &&
+      skinEngine.gestureName !== undefined
+    ) {
+      skinEngine.gestureName = 'thinking';
+    }
+
+    brainEngine.handleAnswer(text);
+  }
+
+  function onTapAvatar() {
+    if (speechEngine.onTapTimer === true) {
+      return;
+    }
+    speechEngine.onTapTimer = true;
+    setTimeout(() => {
+      speechEngine.onTapTimer = false;
+    }, 400);
+    
+    if (
+      typeof skinEngine.avatarModel === 'object' &&
+      skinEngine.avatarModel !== null
+    ) {
+      try {
+        skinEngine.avatarModel.motion('Tap');
+      } catch (_error) {}
+    }
+
+    let greeting = '你好～';
+
+    if (typeof optiopns.greeting === 'function') {
+      greeting = optiopns.greeting({
+        isCompanion: brainEngine.mem.isCompanion,
+        visits: brainEngine.mem.data.visits,
+        name: brainEngine.mem.data.name
+      });
+    } else if (typeof optiopns.greeting === 'string') {
+      greeting = optiopns.greeting;
+    } else if (avatarMode === AVATAR_MODE_MAP.companion) {
+      greeting =
+        (typeof brainEngine.mem.data.name === 'string' &&
+        brainEngine.mem.data.name !== ''
+          ? brainEngine.mem.data.name + '～'
+          : '你好～') + '想聊什麼都可以，點 💬 我們就開始！';
+
+      if (typeof optiopns.companionGreeting === 'function') {
+        greeting = optiopns.companionGreeting({
+          isCompanion: brainEngine.mem.isCompanion,
+          visits: brainEngine.mem.data.visits,
+          name: brainEngine.mem.data.name
+        });
+      } else if (typeof optiopns.companionGreeting === 'string') {
+        greeting = optiopns.companionGreeting;
+      }
+    } else if (avatarMode === AVATAR_MODE_MAP.assistant) {
+      greeting =
+        '你好～我是可以嵌入任何網站的語音虛擬人，問我怎麼安裝、怎麼換成你的角色都行！';
+
+      if (typeof optiopns.assistantGreeting === 'function') {
+        greeting = optiopns.assistantGreeting({
+          isCompanion: brainEngine.mem.isCompanion,
+          visits: brainEngine.mem.data.visits,
+          name: brainEngine.mem.data.name
+        });
+      } else if (typeof optiopns.assistantGreeting === 'string') {
+        greeting = optiopns.assistantGreeting;
+      }
+    }
+
+    speechEngine.spokenAudioText = greeting;
+  }
+
   brainEngine = await initBrainEngine({
     llmModel,
     avatarMode,
@@ -446,8 +585,48 @@ export async function initAvatarBot(optiopns = {}) {
       // 這邊可以讓開發者自行註冊或給未來的全域事件處理用
       callOptionEvent.call(this, 'onChatHistoryChanged', chatLog);
     },
-    getSkin: () => skinEngine,
-    getSpeech: () => speechEngine
+    onSpeak(text) {
+      speechEngine.speak(text);
+      callOptionEvent.call(this, 'onSpeak', text);
+    },
+    onSpokenDisplayTextChange(text) {
+      speechEngine.spokenDisplayText = text;
+    },
+    onSpokenAudioTextChange(text) {
+      speechEngine.spokenAudioText = text;
+    },
+    onEmotionChange(emotion) {
+      if (skinEngine && skinEngine.gestureName !== undefined) {
+        skinEngine.gestureName = emotion;
+      }
+    },
+    onStreamStart() {
+      streamSpeechId = speechEngine.ttsMuted ? 0 : speechEngine.beginSpeech();
+      streamSpeechState.buf = '';
+    },
+    onStreamChunk(delta) {
+      if (streamSpeechId !== 0) {
+        if (streamSpeechId !== speechEngine.speakSeq) {
+          return;
+        }
+        streamSpeechState.buf += delta;
+        for (const sentence of speechEngine.drainSentences(streamSpeechState, false)) {
+          speechEngine.pushSpeech(streamSpeechId, sentence);
+        }
+      }
+    },
+    onStreamEnd(fullText) {
+      if (streamSpeechId !== 0 && streamSpeechId === speechEngine.speakSeq) {
+        for (const sentence of speechEngine.drainSentences(streamSpeechState, true)) {
+          speechEngine.pushSpeech(streamSpeechId, sentence);
+        }
+        speechEngine.endSpeech(streamSpeechId);
+      } else if (streamSpeechId === 0) {
+        speechEngine.onUtteranceEnd();
+      }
+      
+      callOptionEvent.call(this, 'onSpeakingEnd');
+    }
   });
 
   // --- Orchestrator Setup ---
@@ -456,9 +635,6 @@ export async function initAvatarBot(optiopns = {}) {
     ttsEndpoint: ttsEndpoint || DEFAULT_TTS_ENDPOINT,
     neuralVoice: safeNeuralVoice,
     getGender: () => rootStore.getState().gender,
-    greeting: optiopns.greeting,
-    companionGreeting: optiopns.companionGreeting,
-    assistantGreeting: optiopns.assistantGreeting,
     onSpokenDisplayTextChange(newSpeakingLabel) {
       uiDom.bubbleEl.textContent = newSpeakingLabel;
       uiDom.bubbleEl.setAttribute('css-is-show', 'true');
@@ -488,17 +664,16 @@ export async function initAvatarBot(optiopns = {}) {
         level
       );
     },
-    getSkin: () => skinEngine,
-    getBrain: () => brainEngine,
-    getTools: () => toolsEngine,
-    getAvatarMode: () => avatarMode,
-    getAvatarModel: () => skinEngine.avatarModel,
-    setEmotionFromText: (text) => {
-      if (typeof brainEngine?.setEmotionFromText === 'function') {
-        brainEngine.setEmotionFromText(text);
+    getContainer: () => container,
+    onUserInput: (text) => handleUser(text),
+    onTapAvatar: () => onTapAvatar(),
+    onInterrupt: () => {
+      if (typeof brainEngine?.llm?.controller?.abort === 'function') {
+        try {
+          brainEngine.llm.controller.abort();
+        } catch (_error) {}
       }
     },
-    getContainer: () => container,
     onLanguageChanged(locale, localeLabel) {
       if (uiDom.langButtonEl instanceof HTMLButtonElement) {
         uiDom.langButtonEl.textContent = localeLabel;
@@ -514,8 +689,6 @@ export async function initAvatarBot(optiopns = {}) {
   });
 
   toolsEngine = initToolsEngine({
-    getBrain: () => brainEngine,
-    getSpeech: () => speechEngine,
     onToolCall: (pending) => {
       callOptionEvent.call(this, 'onToolCall', pending, aiAvatarWidget);
     },
@@ -675,7 +848,7 @@ export async function initAvatarBot(optiopns = {}) {
           uiDom.engineButtonEl.textContent = '2D';
         }
 
-        skinEngine.avatarModel.on('hit', () => speechEngine.onTap());
+        skinEngine.avatarModel.on('hit', () => speechEngine.triggerTap());
         if (skinEngine.engineMode === ENGINE_MODE_MAP.threeDimensional) {
           skinEngine.renderer.canvas.addEventListener('pointerdown', () => {
             skinEngine.renderer.playGesture(
@@ -685,11 +858,11 @@ export async function initAvatarBot(optiopns = {}) {
                 )
               ]
             );
-            speechEngine.onTap();
+            speechEngine.triggerTap();
           });
         } else {
           skinEngine.renderer.canvas.addEventListener('pointerdown', () =>
-            speechEngine.onTap()
+            speechEngine.triggerTap()
           );
         }
         callOptionEvent.call(this, 'onModelChangeEnd');

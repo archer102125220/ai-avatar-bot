@@ -137,6 +137,13 @@ import {
  * @property {Function} [onAddChatMessage] - 新增訊息回呼
  * @property {Function} [onUpdateChatMessage] - 更新訊息回呼
  * @property {Function} [onChatHistoryChanged] - 歷史變更回呼
+ * @property {Function} [onSpeak] - 播放文字回呼
+ * @property {Function} [onSpokenDisplayTextChange] - 字幕變更回呼
+ * @property {Function} [onSpokenAudioTextChange] - 語音錯誤提示回呼
+ * @property {Function} [onEmotionChange] - 情緒變更回呼
+ * @property {Function} [onStreamStart] - 串流開始回呼
+ * @property {Function} [onStreamChunk] - 串流片段回呼
+ * @property {Function} [onStreamEnd] - 串流結束回呼
  * @property {Function} [aiProviderCreatedFetchSetting] - AI 建立 Fetch 設定
  * @property {Function} [aiProviderCreatedFetchPayload] - AI 建立 Fetch 負載
  * @property {string} [aiProviderPingUrl] - AI Ping URL
@@ -174,6 +181,13 @@ import {
  * @property {Function} onAddChatMessage - 新增對話訊息回呼
  * @property {Function} onUpdateChatMessage - 更新對話訊息回呼
  * @property {Function} onChatHistoryChanged - 歷史對話變更回呼
+ * @property {Function} onSpeak - 播放文字回呼
+ * @property {Function} onSpokenDisplayTextChange - 字幕變更回呼
+ * @property {Function} onSpokenAudioTextChange - 語音錯誤提示回呼
+ * @property {Function} onEmotionChange - 情緒變更回呼
+ * @property {Function} onStreamStart - 串流開始回呼
+ * @property {Function} onStreamChunk - 串流片段回呼
+ * @property {Function} onStreamEnd - 串流結束回呼
  * @property {Array} chatLog - 對話記錄
  * @property {number} chatSeq - 對話流水號
  * @property {string|Function} welcomeText - 歡迎詞
@@ -190,8 +204,6 @@ import {
  * @property {LLMEngine} llm - LLM 引擎實例
  * @property {MEMEngine} mem - 記憶體引擎實例
  * @property {AiProviderEngine} aiProvider - AI 供應商引擎實例
- * @property {Object} skin - Skin 引擎實例
- * @property {Object} speech - Speech 引擎實例
  */
 
 /**
@@ -826,6 +838,13 @@ export async function initBrainEngine(setting = {}) {
     onAddChatMessage,
     onUpdateChatMessage,
     onChatHistoryChanged,
+    onSpeak,
+    onSpokenDisplayTextChange,
+    onSpokenAudioTextChange,
+    onEmotionChange,
+    onStreamStart,
+    onStreamChunk,
+    onStreamEnd,
 
     aiProviderCreatedFetchSetting,
     aiProviderCreatedFetchPayload,
@@ -899,6 +918,13 @@ export async function initBrainEngine(setting = {}) {
     onAddChatMessage: onAddChatMessage || null,
     onUpdateChatMessage: onUpdateChatMessage || null,
     onChatHistoryChanged: onChatHistoryChanged || null,
+    onSpeak: onSpeak || null,
+    onSpokenDisplayTextChange: onSpokenDisplayTextChange || null,
+    onSpokenAudioTextChange: onSpokenAudioTextChange || null,
+    onEmotionChange: onEmotionChange || null,
+    onStreamStart: onStreamStart || null,
+    onStreamChunk: onStreamChunk || null,
+    onStreamEnd: onStreamEnd || null,
 
     chatLog: [],
     chatSeq: 0,
@@ -965,12 +991,6 @@ export async function initBrainEngine(setting = {}) {
     },
     get aiProvider() {
       return aiProvider;
-    },
-    get skin() {
-      return setting.getSkin ? setting.getSkin() : null;
-    },
-    get speech() {
-      return setting.getSpeech ? setting.getSpeech() : null;
     }
   };
 
@@ -1100,13 +1120,8 @@ export async function initBrainEngine(setting = {}) {
  * @param {string} text - 回應文字
  */
 export function setEmotionFromText(brainEngine, text) {
-  if (
-    typeof brainEngine === 'object' &&
-    brainEngine !== null &&
-    typeof brainEngine.skin === 'object' &&
-    brainEngine.skin !== null
-  ) {
-    brainEngine.skin.gestureName = classifyEmotion(text);
+  if (typeof brainEngine.onEmotionChange === 'function') {
+    brainEngine.onEmotionChange(classifyEmotion(text));
   }
 }
 
@@ -1269,10 +1284,11 @@ export function updateChatMessage(brainEngine, id, text, streaming) {
  */
 export async function aiProviderLLMBrain(brainEngine, question) {
   try {
-    brainEngine.speech.spokenDisplayText = '讓我想想…';
-
-    if (typeof brainEngine.skin === 'object' && brainEngine.skin !== null) {
-      brainEngine.skin.gestureName = 'thinking';
+    if (typeof brainEngine.onSpokenDisplayTextChange === 'function') {
+      brainEngine.onSpokenDisplayTextChange('讓我想想…');
+    }
+    if (typeof brainEngine.onEmotionChange === 'function') {
+      brainEngine.onEmotionChange('thinking');
     }
 
     const out = await brainEngine.aiProvider.chat(
@@ -1329,57 +1345,44 @@ export function defaultBuildLLMMessages(brainEngine, question) {
  */
 export async function webLLMBrain(brainEngine, question) {
   try {
-    brainEngine.speech.spokenDisplayText = '讓我想想…';
-
-    if (typeof brainEngine.skin === 'object' && brainEngine.skin !== null) {
-      brainEngine.skin.gestureName = 'thinking';
+    if (typeof brainEngine.onSpokenDisplayTextChange === 'function') {
+      brainEngine.onSpokenDisplayTextChange('讓我想想…');
+    }
+    if (typeof brainEngine.onEmotionChange === 'function') {
+      brainEngine.onEmotionChange('thinking');
     }
 
-    const speechId = brainEngine.speech.ttsMuted
-      ? 0
-      : brainEngine.speech.beginSpeech(); // 靜音時只更新字幕、不進語音佇列
-    const speechState = { buf: '' };
+    if (typeof brainEngine.onStreamStart === 'function') {
+      brainEngine.onStreamStart();
+    }
+    
     const streamMessageId = 'stream-' + Date.now();
     const out = await brainEngine.llm.chat(
       brainEngine.buildLLMMessages(question),
       (delta, sofar) => {
-        brainEngine.speech.spokenDisplayText = sofar; // 邊生成邊更新字幕
-        updateChatMessage(brainEngine, streamMessageId, sofar, true);
-
-        // Always evaluate emotion from text during stream, even if TTS is muted
-        if (speechId === 0 || speechId === brainEngine.speech.speakSeq) {
-          brainEngine.setEmotionFromText(sofar);
+        if (typeof brainEngine.onSpokenDisplayTextChange === 'function') {
+          brainEngine.onSpokenDisplayTextChange(sofar);
         }
-
-        if (speechId !== 0) {
-          if (speechId !== brainEngine.speech.speakSeq) {
-            return; // 中途被打斷 → 剩下的只當字幕
-          }
-          speechState.buf += delta;
-          for (const sentence of brainEngine.speech.drainSentences(speechState, false)) {
-            brainEngine.speech.pushSpeech(speechId, sentence);
-          }
+        updateChatMessage(brainEngine, streamMessageId, sofar, true);
+        brainEngine.setEmotionFromText(sofar);
+        
+        if (typeof brainEngine.onStreamChunk === 'function') {
+          brainEngine.onStreamChunk(delta);
         }
       }
     );
     if (typeof out === 'string' && out.trim() !== '') {
       brainEngine.mem.addTurn('assistant', out.trim());
       updateChatMessage(brainEngine, streamMessageId, out.trim(), false);
-      if (speechId !== 0 && speechId === brainEngine.speech.speakSeq) {
-        for (const sentence of brainEngine.speech.drainSentences(speechState, true)) {
-          brainEngine.speech.pushSpeech(speechId, sentence);
-        }
-        brainEngine.speech.endSpeech(speechId);
-      } else if (speechId === 0) {
-        brainEngine.speech.onUtteranceEnd(); // 靜音：沒有語音收尾 → 手動觸發對話迴圈 hook
-      }
-      if (typeof brainEngine?.speech?.onSpeakingEnd === 'function') {
-        brainEngine.speech.onSpeakingEnd(out.trim());
+      
+      if (typeof brainEngine.onStreamEnd === 'function') {
+        brainEngine.onStreamEnd(out.trim());
       }
       return;
     }
-    if (speechId !== 0) {
-      brainEngine.speech.endSpeech(speechId); // 空回答：收掉這條 session，往下走檢索
+    
+    if (typeof brainEngine.onStreamEnd === 'function') {
+      brainEngine.onStreamEnd('');
     }
     throw new Error('WebLLM response is empty');
   } catch (error) {
@@ -1397,7 +1400,9 @@ export async function webLLMBrain(brainEngine, question) {
 export async function handleAnswer(brainEngine, question) {
   const safeQuestion = (question || '').trim();
   if (safeQuestion === '') {
-    brainEngine.speech.spokenAudioText = '我好像沒聽清楚，可以再說一次嗎？';
+    if (typeof brainEngine.onSpokenAudioTextChange === 'function') {
+      brainEngine.onSpokenAudioTextChange('我好像沒聽清楚，可以再說一次嗎？');
+    }
     return;
   }
   try {
@@ -1428,5 +1433,7 @@ export function sayAnswer(brainEngine, text) {
   }
   brainEngine.mem.addTurn('assistant', text);
   addChatMessage(brainEngine, 'assistant', text);
-  brainEngine.speech.speak(text);
+  if (typeof brainEngine.onSpeak === 'function') {
+    brainEngine.onSpeak(text);
+  }
 }

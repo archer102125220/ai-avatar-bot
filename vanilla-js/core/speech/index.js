@@ -1,8 +1,7 @@
 // TODO: 等到環境可以測試麥克風跟喇叭時，要徹底測過這份檔案內部的所有機制有沒有因為重構而出問題
 import {
   DEFAULT_TTS_ENDPOINT,
-  GENDER_MAP,
-  AVATAR_MODE_MAP
+  GENDER_MAP
 } from '../constants';
 import { createBaseStore } from '../store';
 import { initDefaultSTTEngine, validateSTTEngine } from './stt';
@@ -17,14 +16,8 @@ export { validateTTSEngine, validateSTTEngine };
  * @property {function(string, function): function} subscribe - 訂閱狀態變更 (例如: 'spokenDisplayText', 'gender' 等)。
  * @property {function(): Object} getState - 取得當前所有內部狀態。
  * @property {function(Object): void} setState - 覆寫或更新部分狀態。
- * @property {Object|null} skin - 目前的 Skin (UI/視覺) 實例。
- * @property {Object|null} brain - 目前的 Brain (大腦/LLM) 實例。
- * @property {Object|null} avatarModel - 目前的 Avatar 3D 模型實例。
- * @property {Object|null} tools - 目前的 Tools (外部工具) 實例。
  * @property {string} gender - 目前設定的性別 (例如: 'female', 'male')。
  * @property {function(string): void} setGender - 設定語音性別。
- * @property {string|null} avatarMode - 目前的虛擬人模式 (Companion 或 Assistant)。
- * @property {function(string): void} [setEmotionFromText] - 從文字中分析並設定情感的函數。
  * @property {HTMLElement|null} container - 虛擬人的根容器 DOM 元素。
  * @property {function(boolean, string, string, number): void} [onVoiceStatusChanged] - 語音狀態變更回調。
  * @property {function(boolean, boolean): void} [onMicStateChanged] - 麥克風開關狀態變更回調。
@@ -36,7 +29,7 @@ export { validateTTSEngine, validateSTTEngine };
  * @property {boolean} isListening - 目前是否正在接收麥克風音訊 (STT 聆聽中)。
  * @property {boolean} ttsMuted - 語音合成是否靜音。
  * @property {boolean} convoOn - 是否處於連續對話模式。
- * @property {boolean} isProcessing - 是否正在處理中 (例如等待 LLM 回應，此時不應聆聽)。
+ * @property {boolean} isProcessing - 是否正在處理中。
  * @property {number} assistantSpeechStartedAt - 助理開始說話的時間戳。
  * @property {string} spokenDisplayText - 目前在畫面上顯示的對話字幕。
  * @property {string} spokenAudioText - 最新準備或正在轉換為語音的純文字。
@@ -44,7 +37,7 @@ export { validateTTSEngine, validateSTTEngine };
  * @property {function(): void} stopSpeaking - 停止當前的語音播放。
  * @property {function(): void} interruptForVoice - 打斷當前助理的回應 (包含中斷 LLM) 並進入聆聽狀態。
  * @property {function(): Array<number>} computeMouth - 計算並回傳當前語音對應的嘴型資料 (Viseme)。
- * @property {function(): void} onTap - 處理使用者點擊虛擬人的互動事件。
+ * @property {function(): void} triggerTap - 觸發使用者點擊虛擬人的互動事件。
  * @property {function(string=): void} stopVoiceSession - 停止即時語音對話工作階段。
  * @property {function(boolean): void} setMic - 設定並通知麥克風開關狀態變更。
  * @property {function(): void} startListening - 開始透過麥克風聆聽語音輸入。
@@ -60,184 +53,16 @@ export { validateTTSEngine, validateSTTEngine };
  * @property {boolean} _speechEndedFlag - [內部屬性] 標記目前文字流是否已全部生成完畢。
  * @property {function(number): void} endSpeech - 標記特定序號的語音流文字生成結束。
  * @property {function(): void} onUtteranceEnd - 整段語音完全結束的處理邏輯 (解除 processing 狀態)。
- * @property {function(string): Promise<void>} handleUser - 處理使用者輸入的文字。
- * @property {string|function} greeting - 預設問候語或動態生成問候語的函數。
- * @property {string|function} companionGreeting - 陪伴模式的問候語。
- * @property {string|function} assistantGreeting - 助理模式的問候語。
  */
 
 /**
- * 處理使用者輸入的文字訊息。
- * 會檢查是否有等待中的工具操作 (Tool Confirmation/Choice/Input)，
- * 若有則轉交工具引擎處理。同時負責更新對話紀錄與觸發 LLM 大腦生成回應。
- *
- * @param {SpeechEngine} speechEngine - 語音引擎與狀態管理的實例。
- * @param {string} [text=''] - 使用者輸入的文字。
- * @returns {Promise<void>}
- */
-export async function handleUser(speechEngine, text = '') {
-  const rootContainer = speechEngine.container;
-  if (rootContainer instanceof HTMLElement === false) {
-    console.error('[aiAvatar handleUser] rootContainer is not an HTMLElement');
-    return;
-  }
-
-  if (typeof text === 'string' && text !== '') {
-    speechEngine.brain.addChatMessage('user', text);
-    speechEngine.spokenDisplayText = '你：' + text;
-  }
-
-  if (
-    text !== '' &&
-    typeof speechEngine.tools.pendingToolConfirmation === 'string' &&
-    speechEngine.tools.pendingToolConfirmation !== '' &&
-    speechEngine.tools.continueToolConfirmation(text)
-  ) {
-    return;
-  }
-  if (
-    text !== '' &&
-    typeof speechEngine.tools.pendingToolChoice === 'object' &&
-    speechEngine.tools.pendingToolChoice !== null &&
-    speechEngine.tools.continueToolChoice(text)
-  ) {
-    return;
-  }
-  if (
-    text !== '' &&
-    typeof speechEngine.tools.pendingToolInput === 'object' &&
-    speechEngine.tools.pendingToolInput !== null &&
-    speechEngine.tools.continueToolInput(text)
-  ) {
-    return;
-  }
-
-  if (speechEngine.brain.mem.isCompanion === true && text !== '') {
-    if (/忘記我|清除記憶|forget me/i.test(text) === true) {
-      speechEngine.brain.mem.wipe();
-      speechEngine.spokenAudioText = '好，我把記憶都清掉了，我們重新認識吧！';
-      return;
-    }
-    speechEngine.brain.mem.captureName(text);
-    speechEngine.brain.mem.addTurn('user', text);
-  }
-
-  const routedTool = speechEngine.tools.routeHostTool(text);
-  if (
-    Array.isArray(routedTool.ambiguous) === true &&
-    routedTool.ambiguous.length > 0
-  ) {
-    speechEngine.isProcessing = false;
-    speechEngine.tools.offerToolChoices(text, routedTool.ambiguous);
-    return;
-  }
-  if (typeof routedTool.match === 'object' && routedTool.match !== null) {
-    speechEngine.isProcessing = false;
-    speechEngine.tools.prepareTool(
-      routedTool.match.tool,
-      text,
-      { confidence: routedTool.match.score, reason: routedTool.match.reason },
-      {}
-    );
-    return;
-  }
-
-  speechEngine.isProcessing = true;
-
-  if (
-    typeof speechEngine.skin === 'object' &&
-    speechEngine.skin !== null &&
-    speechEngine.skin.gestureName !== undefined
-  ) {
-    speechEngine.skin.gestureName = 'thinking';
-  }
-
-  speechEngine.brain.handleAnswer(text);
-}
-
-/**
- * 處理使用者點擊虛擬人 (Avatar) 的互動事件。
- * 包含點擊冷卻時間控制、觸發 3D 模型動作，以及根據目前模式生成並播放問候語。
- *
- * @param {SpeechEngine} speechEngine - 語音引擎與狀態管理的實例。
- */
-export function onTap(speechEngine) {
-  if (speechEngine.onTapTimer === true) {
-    return;
-  }
-  speechEngine.onTapTimer = true;
-  setTimeout(() => {
-    speechEngine.onTapTimer = false;
-  }, 400);
-  if (
-    typeof speechEngine.skin.avatarModel === 'object' &&
-    speechEngine.skin.avatarModel !== null
-  ) {
-    try {
-      speechEngine.skin.avatarModel.motion('Tap');
-    } catch (_error) {}
-  }
-
-  let greeting = '你好～';
-
-  if (typeof speechEngine.greeting === 'function') {
-    greeting = speechEngine.greeting({
-      isCompanion: speechEngine.brain.mem.isCompanion,
-      visits: speechEngine.brain.mem.data.visits,
-      name: speechEngine.brain.mem.data.name
-    });
-  } else if (typeof speechEngine.greeting === 'string') {
-    greeting = speechEngine.greeting;
-  } else if (speechEngine.avatarMode === AVATAR_MODE_MAP.companion) {
-    greeting =
-      (typeof speechEngine.brain.mem.data.name === 'string' &&
-      speechEngine.brain.mem.data.name !== ''
-        ? speechEngine.brain.mem.data.name + '～'
-        : '你好～') + '想聊什麼都可以，點 💬 我們就開始！';
-
-    if (typeof speechEngine.companionGreeting === 'function') {
-      greeting = speechEngine.companionGreeting({
-        isCompanion: speechEngine.brain.mem.isCompanion,
-        visits: speechEngine.brain.mem.data.visits,
-        name: speechEngine.brain.mem.data.name
-      });
-    } else if (typeof speechEngine.companionGreeting === 'string') {
-      greeting = speechEngine.companionGreeting;
-    }
-  } else if (speechEngine.avatarMode === AVATAR_MODE_MAP.assistant) {
-    greeting =
-      '你好～我是可以嵌入任何網站的語音虛擬人，問我怎麼安裝、怎麼換成你的角色都行！';
-
-    if (typeof speechEngine.assistantGreeting === 'function') {
-      greeting = speechEngine.assistantGreeting({
-        isCompanion: speechEngine.brain.mem.isCompanion,
-        visits: speechEngine.brain.mem.data.visits,
-        name: speechEngine.brain.mem.data.name
-      });
-    } else if (typeof speechEngine.assistantGreeting === 'string') {
-      greeting = speechEngine.assistantGreeting;
-    }
-  }
-
-  speechEngine.spokenAudioText = greeting;
-}
-
-/**
- * 語音引擎初始化選項。
- *
  * @typedef {Object} SpeechEngineOptions
  * @property {Object} [customEngines={}] - 開發者自訂注入的 STT 與 TTS 引擎實例。
  * @property {Object|function(Object): Object} [customEngines.stt] - 自訂的 STT 引擎或其初始化函數。
  * @property {Object|function(Object): Object} [customEngines.tts] - 自訂的 TTS 引擎或其初始化函數。
  * @property {string} [ttsEndpoint] - 神經網路語音合成的 API 端點。
  * @property {string} [neuralVoice] - 指定的神經網路語音模型名稱。
- * @property {function(): Object} [getSkin] - 取得目前的 Skin 實例。
- * @property {function(): Object} [getBrain] - 取得目前的 Brain (大腦/LLM) 實例。
- * @property {function(): Object} [getAvatarModel] - 取得目前的 AvatarModel (3D 虛擬人模型) 實例。
- * @property {function(): Object} [getTools] - 取得目前的 Tools (外部工具) 實例。
  * @property {function(): string} [getGender] - 取得目前的性別。
- * @property {function(): string} [getAvatarMode] - 取得目前的虛擬人模式 (Companion 或 Assistant)。
- * @property {function(string): void} [setEmotionFromText] - 從文字中分析並設定情感的函數。
  * @property {function(): HTMLElement} [getContainer] - 取得根容器元素。
  * @property {function(boolean, string, string, number): void} [onVoiceStatusChanged] - 語音狀態改變的回調。
  * @property {function(boolean, boolean): void} [onMicStateChanged] - 麥克風開關狀態改變的回調 (isListening, convoOn)。
@@ -245,9 +70,9 @@ export function onTap(speechEngine) {
  * @property {function(string): void} [onSpokenDisplayTextChange] - 語音文字改變的回調。
  * @property {function(string): void} [onSpeaking] - 語音準備播放的回調。
  * @property {function(): void} [onSpeakingEnd] - 語音播放完全結束的回調。
- * @property {function|string} [greeting] - 預設問候語。
- * @property {function|string} [companionGreeting] - 陪伴模式的問候語。
- * @property {function|string} [assistantGreeting] - 助理模式的問候語。
+ * @property {function(string): void} [onUserInput] - 使用者文字輸入回調。
+ * @property {function(): void} [onTapAvatar] - 使用者點擊虛擬人回調。
+ * @property {function(): void} [onInterrupt] - 語音被打斷的回調。
  */
 
 /**
@@ -275,10 +100,7 @@ export async function initSpeechEngine(setting = {}) {
     ttsMuted: false,
     convoOn: false,
     isProcessing: false,
-    assistantSpeechStartedAt: 0,
-    greeting: null,
-    companionGreeting: null,
-    assistantGreeting: null
+    assistantSpeechStartedAt: 0
   });
 
   store.subscribe('spokenDisplayText', (val) => {
@@ -308,29 +130,11 @@ export async function initSpeechEngine(setting = {}) {
     getState: store.getState,
     setState: store.setState,
 
-    get skin() {
-      return setting.getSkin ? setting.getSkin() : null;
-    },
-    get brain() {
-      return setting.getBrain ? setting.getBrain() : null;
-    },
-    get avatarModel() {
-      return setting.getAvatarModel ? setting.getAvatarModel() : null;
-    },
-    get tools() {
-      return setting.getTools ? setting.getTools() : null;
-    },
     get gender() {
       return store.getState().gender;
     },
     setGender(newGender) {
       store.setState({ gender: newGender });
-    },
-    get avatarMode() {
-      return setting.getAvatarMode ? setting.getAvatarMode() : null;
-    },
-    get setEmotionFromText() {
-      return setting.setEmotionFromText;
     },
     get container() {
       return setting.getContainer ? setting.getContainer() : null;
@@ -420,10 +224,8 @@ export async function initSpeechEngine(setting = {}) {
 
     interruptForVoice: () => {
       speechEngine.speakSeq++;
-      if (typeof speechEngine.brain?.llm?.controller?.abort === 'function') {
-        try {
-          speechEngine.brain.llm.controller.abort();
-        } catch (_error) {}
+      if (typeof setting.onInterrupt === 'function') {
+        setting.onInterrupt();
       }
       speechEngine.stopSpeaking();
       speechEngine.isProcessing = false;
@@ -444,7 +246,11 @@ export async function initSpeechEngine(setting = {}) {
 
     computeMouth: () => ttsEngine.computeMouth(),
 
-    onTap: () => onTap(speechEngine),
+    triggerTap: () => {
+      if (typeof setting.onTapAvatar === 'function') {
+        setting.onTapAvatar();
+      }
+    },
 
     stopVoiceSession: (message) => {
       speechEngine.convoOn = false;
@@ -567,40 +373,7 @@ export async function initSpeechEngine(setting = {}) {
       }
     },
 
-    handleUser: (text) => handleUser(speechEngine, text),
-
-    get greeting() {
-      return store.getState().greeting;
-    },
-    set greeting(val) {
-      store.setState({ greeting: val });
-    },
-
-    get companionGreeting() {
-      return store.getState().companionGreeting;
-    },
-    set companionGreeting(val) {
-      store.setState({ companionGreeting: val });
-    },
-
-    get assistantGreeting() {
-      return store.getState().assistantGreeting;
-    },
-    set assistantGreeting(val) {
-      store.setState({ assistantGreeting: val });
-    }
   };
-
-  if (typeof setting.greeting === 'function')
-    speechEngine.greeting = setting.greeting.bind();
-  if (typeof setting.companionGreeting === 'function')
-    speechEngine.companionGreeting = setting.companionGreeting.bind();
-  else if (typeof setting.companionGreeting === 'string')
-    speechEngine.companionGreeting = setting.companionGreeting;
-  if (typeof setting.assistantGreeting === 'function')
-    speechEngine.assistantGreeting = setting.assistantGreeting.bind();
-  else if (typeof setting.assistantGreeting === 'string')
-    speechEngine.assistantGreeting = setting.assistantGreeting;
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden === true && speechEngine.convoOn === true) {
@@ -614,11 +387,8 @@ export async function initSpeechEngine(setting = {}) {
     neuralVoice: neuralVoice,
     gender: speechEngine.gender,
     onSpeakStart: () => {
-      // Tap motion trigger when speaking starts
-      if (typeof speechEngine.skin?.avatarModel?.motion === 'function') {
-        try {
-          speechEngine.skin.avatarModel.motion('Tap');
-        } catch (_e) {}
+      if (typeof setting.onTapAvatar === 'function') {
+        setting.onTapAvatar();
       }
     },
     onSpeakEnd: () => {
@@ -669,7 +439,9 @@ export async function initSpeechEngine(setting = {}) {
     getConvoOn: () => speechEngine.convoOn,
     onResult: (text, isFinal) => {
       if (isFinal) {
-        speechEngine.handleUser(text);
+        if (typeof setting.onUserInput === 'function') {
+          setting.onUserInput(text);
+        }
       } else {
         speechEngine.spokenDisplayText = '你：' + text + '…';
         if (typeof speechEngine.onVoiceStatusChanged === 'function') {

@@ -644,8 +644,9 @@ export function argumentSummary(tool, args) {
  * @property {function} [onRenderHistory] - 觸發重新渲染歷史紀錄的回呼函數
  * @property {function} [onSpeak] - 語音播放回呼函數
  * @property {function} [onToolCall] - 工具準備執行時的回呼函數
- * @property {function} getBrain - 取得 Brain 實體
- * @property {function} getSpeech - 取得 Speech 實體
+ * @property {function(): Array<object>} getChatLog - 取得對話紀錄陣列
+ * @property {function(): number} getChatSeq - 取得目前對話序號
+ * @property {function(): boolean} isConvoOn - 取得是否開啟連續對話
  */
 
 /**
@@ -782,7 +783,7 @@ export function initToolsEngine(setting = {}) {
     }
 
     if (typeof id !== 'undefined') {
-      const item = setting.getBrain().chatLog.find((entry) => entry.id === id);
+      const item = setting.getChatLog().find((entry) => entry.id === id);
       if (typeof item === 'object' && item !== null) {
         item.choiceQuery = query;
       }
@@ -807,8 +808,7 @@ export function initToolsEngine(setting = {}) {
     }
     if (/^(取消|不要|算了|cancel)$/i.test(String(text || '').trim())) {
       const item = setting
-        .getBrain()
-        .chatLog.find(
+        .getChatLog().find(
           (entry) => entry.id === toolsEngine.pendingToolChoice.messageId
         );
       if (typeof item === 'object' && item !== null) {
@@ -864,8 +864,7 @@ export function initToolsEngine(setting = {}) {
 
   function chooseTool(messageId, index) {
     const item = setting
-      .getBrain()
-      .chatLog.find((entry) => entry.id === messageId);
+      .getChatLog().find((entry) => entry.id === messageId);
     if (
       typeof item !== 'object' ||
       item === null ||
@@ -890,10 +889,9 @@ export function initToolsEngine(setting = {}) {
   }
 
   function offerHostTool(tool, query, routeMeta, args) {
-    const callId = `tool-${Date.now()}-${++setting.getBrain().chatSeq}`;
+    const callId = `tool-${Date.now()}-${setting.getChatSeq()}`;
     const history = setting
-      .getBrain()
-      .chatLog.slice(-12)
+      .getChatLog().slice(-12)
       .map((item) => ({ role: item.role, text: item.text }))
       .filter((item) => item.text);
 
@@ -942,7 +940,7 @@ export function initToolsEngine(setting = {}) {
   }
 
   function executePendingTool(messageId) {
-    const item = setting.getBrain().chatLog.find((msg) => msg.id === messageId);
+    const item = setting.getChatLog().find((msg) => msg.id === messageId);
     if (
       typeof item !== 'object' ||
       item === null ||
@@ -964,7 +962,7 @@ export function initToolsEngine(setting = {}) {
   }
 
   function cancelPendingTool(messageId) {
-    const item = setting.getBrain().chatLog.find((msg) => msg.id === messageId);
+    const item = setting.getChatLog().find((msg) => msg.id === messageId);
     if (
       typeof item !== 'object' ||
       item === null ||
@@ -979,7 +977,7 @@ export function initToolsEngine(setting = {}) {
     if (typeof toolsEngine.onRenderHistory === 'function') {
       toolsEngine.onRenderHistory();
     }
-    if (setting.getSpeech().convoOn === true) {
+    if (typeof setting.isConvoOn === 'function' && setting.isConvoOn() === true) {
       if (typeof toolsEngine.onSpeak === 'function') {
         toolsEngine.onSpeak('好的，已取消。');
       }
@@ -1018,8 +1016,7 @@ export function initToolsEngine(setting = {}) {
         ? `執行失敗：${String(resultData.error || '未知錯誤')}`
         : String(resultData.message || '已完成。');
     const existing = setting
-      .getBrain()
-      .chatLog.find((msg) => msg.id === resultData.callId);
+      .getChatLog().find((msg) => msg.id === resultData.callId);
 
     if (typeof existing === 'object' && existing !== null) {
       if (typeof toolsEngine.onUpdateChatMessage === 'function') {
