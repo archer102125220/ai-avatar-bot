@@ -135,7 +135,7 @@ export { validateSkinEngine, validateToolsEngine, validateBrainEngine };
 
 /**
  * 初始化 AI Avatar Bot 實例
- * 
+ *
  * @param {AvatarBotOptions} optiopns - 初始化設定選項
  * @returns {Promise<AiAvatarWidget|void>} 回傳初始化完成的 `AiAvatarWidget` 實例，包含操作介面、大腦、語音、皮膚等引擎的屬性與方法；如果在非瀏覽器環境下執行會回傳 undefined。
  * @throws {Error} 當傳入的 container 不是 HTMLElement 時拋出錯誤
@@ -347,6 +347,9 @@ export async function initAvatarBot(optiopns = {}) {
 
   function handleUser(text = '') {
     if (typeof text === 'string' && text !== '') {
+      if (typeof speechEngine.stopSpeaking === 'function') {
+        speechEngine.stopSpeaking();
+      }
       brainEngine.addChatMessage('user', text);
       speechEngine.spokenDisplayText = '你：' + text;
     }
@@ -427,7 +430,7 @@ export async function initAvatarBot(optiopns = {}) {
     setTimeout(() => {
       speechEngine.onTapTimer = false;
     }, 400);
-    
+
     if (
       typeof skinEngine.avatarModel === 'object' &&
       skinEngine.avatarModel !== null
@@ -615,22 +618,28 @@ export async function initAvatarBot(optiopns = {}) {
           return;
         }
         streamSpeechState.buf += delta;
-        for (const sentence of speechEngine.drainSentences(streamSpeechState, false)) {
+        for (const sentence of speechEngine.drainSentences(
+          streamSpeechState,
+          false
+        )) {
           speechEngine.pushSpeech(streamSpeechId, sentence);
         }
       }
     },
     onStreamEnd(fullText) {
       if (streamSpeechId !== 0 && streamSpeechId === speechEngine.speakSeq) {
-        for (const sentence of speechEngine.drainSentences(streamSpeechState, true)) {
+        for (const sentence of speechEngine.drainSentences(
+          streamSpeechState,
+          true
+        )) {
           speechEngine.pushSpeech(streamSpeechId, sentence);
         }
         speechEngine.endSpeech(streamSpeechId);
       } else if (streamSpeechId === 0) {
         speechEngine.onUtteranceEnd();
       }
-      
-      callOptionEvent.call(this, 'onSpeakingEnd');
+
+      callOptionEvent.call(this, 'onSpeakingEnd', fullText);
     }
   };
 

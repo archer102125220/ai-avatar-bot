@@ -277,6 +277,7 @@ export function initDefaultTTSEngine(options = {}) {
       state.speakSeq++;
       state.speechQ = [];
       state.speechEnded = true;
+      state.isSpeechPlaying = false;
       store.setState({ isSpeaking: false });
       try {
         if ('speechSynthesis' in window) speechSynthesis.cancel();
@@ -291,6 +292,7 @@ export function initDefaultTTSEngine(options = {}) {
       if (state.currentSource !== null) {
         try {
           state.currentSource.onended = null;
+          state.currentSource.disconnect();
           state.currentSource.stop();
         } catch (_error) {}
         state.currentSource = null;

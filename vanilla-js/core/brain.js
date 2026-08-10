@@ -284,9 +284,14 @@ export function scoreEntry(question, entry) {
       : Array.isArray(question)
         ? question[question.length - 1]?.content || ''
         : String(question || '');
-  const targetQuestion = typeof entry.q === 'string' ? entry.q : String(entry.q || '');
-  const targetKeyword = typeof entry.kw === 'string' ? entry.kw : String(entry.kw || '');
-  let score = Math.max(similarity(safeQuestion, targetQuestion), similarity(safeQuestion, targetKeyword));
+  const targetQuestion =
+    typeof entry.q === 'string' ? entry.q : String(entry.q || '');
+  const targetKeyword =
+    typeof entry.kw === 'string' ? entry.kw : String(entry.kw || '');
+  let score = Math.max(
+    similarity(safeQuestion, targetQuestion),
+    similarity(safeQuestion, targetKeyword)
+  );
   const terms = targetKeyword.split(/\s+/).filter(Boolean);
   for (const item of terms) {
     if (item.length >= 2 && safeQuestion.includes(item) === true) {
@@ -967,9 +972,10 @@ export async function initBrainEngine(setting = {}) {
       }
     },
 
-    buildLLMMessages: typeof buildLLMMessages === 'function'
-      ? buildLLMMessages
-      : (question) => defaultBuildLLMMessages(brainEngine, question),
+    buildLLMMessages:
+      typeof buildLLMMessages === 'function'
+        ? buildLLMMessages
+        : (question) => defaultBuildLLMMessages(brainEngine, question),
 
     defaultBuildLLMMessages: (question) =>
       defaultBuildLLMMessages(brainEngine, question),
@@ -1192,7 +1198,11 @@ export function handleThinking(brainEngine, rawQuestion) {
   if (brainEngine.avatarMode === AVATAR_MODE_MAP.companion) {
     // 陪伴模式：聊天題給陪聊腦、網站/產品題照答
     const chat = bestOf(brainEngine.companionKnowledge, question);
-    if (chat.entry !== null && chat.score >= 0.16 && chat.score + 0.05 >= site.score) {
+    if (
+      chat.entry !== null &&
+      chat.score >= 0.16 &&
+      chat.score + 0.05 >= site.score
+    ) {
       return chat.entry.a;
     }
     if (site.entry !== null && site.score >= 0.16) {
@@ -1355,7 +1365,7 @@ export async function webLLMBrain(brainEngine, question) {
     if (typeof brainEngine.onStreamStart === 'function') {
       brainEngine.onStreamStart();
     }
-    
+
     const streamMessageId = 'stream-' + Date.now();
     const out = await brainEngine.llm.chat(
       brainEngine.buildLLMMessages(question),
@@ -1365,7 +1375,7 @@ export async function webLLMBrain(brainEngine, question) {
         }
         updateChatMessage(brainEngine, streamMessageId, sofar, true);
         brainEngine.setEmotionFromText(sofar);
-        
+
         if (typeof brainEngine.onStreamChunk === 'function') {
           brainEngine.onStreamChunk(delta);
         }
@@ -1374,13 +1384,13 @@ export async function webLLMBrain(brainEngine, question) {
     if (typeof out === 'string' && out.trim() !== '') {
       brainEngine.mem.addTurn('assistant', out.trim());
       updateChatMessage(brainEngine, streamMessageId, out.trim(), false);
-      
+
       if (typeof brainEngine.onStreamEnd === 'function') {
         brainEngine.onStreamEnd(out.trim());
       }
       return;
     }
-    
+
     if (typeof brainEngine.onStreamEnd === 'function') {
       brainEngine.onStreamEnd('');
     }
@@ -1407,7 +1417,10 @@ export async function handleAnswer(brainEngine, question) {
   }
   try {
     // 1) AI 伺服器大腦（最聰明，優先；整段生成後逐句講）
-    if (brainEngine.aiProvider?.enabled === true && brainEngine.aiProvider.ready === true) {
+    if (
+      brainEngine.aiProvider?.enabled === true &&
+      brainEngine.aiProvider.ready === true
+    ) {
       return await aiProviderLLMBrain(brainEngine, question);
     }
     // 2) 瀏覽器內 WebLLM：串流 → 每切出一個完整句就丟進逐句佇列開講（首句延遲大幅縮短）
@@ -1456,13 +1469,7 @@ export function validateBrainEngine(engine) {
     'classifyEmotion',
     'setEmotionFromText'
   ];
-  const requiredProps = [
-    'mem',
-    'llm',
-    'aiProvider',
-    'chatLog',
-    'chatSeq'
-  ];
+  const requiredProps = ['mem', 'llm', 'aiProvider', 'chatLog', 'chatSeq'];
   const missing = [];
   requiredMethods.forEach((key) => {
     if (typeof engine[key] !== 'function') {
