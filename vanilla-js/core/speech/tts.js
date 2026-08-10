@@ -2,10 +2,42 @@ import { GENDER_MAP } from '../constants';
 import { createBaseStore } from '../store';
 
 /**
+ * 語音播放選項。
+ *
+ * @typedef {Object} TTSSpeakOptions
+ * @property {boolean} [instant=false] - 是否立即播放，忽略常規排程。
+ */
+
+/**
+ * 語音合成 (TTS) 引擎的介面定義。
+ *
+ * @typedef {Object} TTSEngine
+ * @property {Function} subscribe - 訂閱狀態變更的函數。
+ * @property {Function} getState - 取得當前狀態的函數。
+ * @property {Function} setState - 設定狀態的函數。
+ * @property {boolean} isSpeaking - 指示引擎是否正在播放語音。
+ * @property {boolean} isMuted - 指示引擎是否處於靜音狀態。
+ * @property {function(string, TTSSpeakOptions=): void} speak - 播放指定的文本語音。
+ * @property {function(): void} stop - 停止當前正在播放的語音。
+ * @property {function(): number} computeMouth - 計算並回傳當前的嘴型開合數值 (0~1)。
+ * @property {function(string): void} setGender - 設定語音的性別 (例如: 'male', 'female')。
+ * @property {function(string): void} setLocale - 設定語音的語系代碼 (例如: 'zh-TW', 'en-US')。
+ * @property {function(string): Promise<any>} preloadTapGreeting - 預先載入指定的歡迎詞語音。
+ */
+
+/**
+ * 驗證結果物件。
+ *
+ * @typedef {Object} TTSEngineValidationResult
+ * @property {boolean} isValid - 是否為有效的 TTS 引擎。
+ * @property {string[]} missing - 缺失的方法或屬性列表。
+ */
+
+/**
  * 驗證傳入的語音合成 (TTS) 引擎是否實作了必要的方法與屬性。
  *
- * @param {Object} engine - 欲驗證的 TTS 引擎實例。
- * @returns {{ isValid: boolean, missing: string[] }} 包含驗證結果及缺失的方法或屬性列表。
+ * @param {TTSEngine} engine - 欲驗證的 TTS 引擎實例。
+ * @returns {TTSEngineValidationResult} 包含驗證結果及缺失的方法或屬性列表。
  */
 export function validateTTSEngine(engine) {
   const missing = [];
@@ -126,10 +158,9 @@ export function localeVoice(locale) {
         : 'zh-TW-HsiaoChenNeural';
 }
 
-
 /**
  * 語音合成 (TTS) 引擎的初始化選項。
- * 
+ *
  * @typedef {Object} TTSEngineOptions
  * @property {string} [ttsEndpoint=''] - 神經網路語音合成 API 的端點網址。
  * @property {string} [neuralVoice=''] - 欲使用的神經網路語音模型名稱。
@@ -144,19 +175,7 @@ export function localeVoice(locale) {
  * 支援分段載入與嘴型同步計算。
  *
  * @param {TTSEngineOptions} [options={}] - 初始化設定與回調函數。
- * @returns {{
- *   subscribe: Function,
- *   getState: Function,
- *   setState: Function,
- *   isSpeaking: boolean,
- *   isMuted: boolean,
- *   speak: function(string, Object=): void,
- *   stop: function(): void,
- *   computeMouth: function(): number,
- *   setGender: function(string): void,
- *   setLocale: function(string): void,
- *   preloadTapGreeting: function(string): Promise<any>
- * }} 包含狀態管理與播放控制方法的 TTS 引擎實例。
+ * @returns {TTSEngine} 包含狀態管理與播放控制方法的 TTS 引擎實例。
  */
 export function initDefaultTTSEngine(options = {}) {
   const {
@@ -304,8 +323,8 @@ export function initDefaultTTSEngine(options = {}) {
         ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'].find(
           (loc) => loc.toLowerCase() === (locale || '').toLowerCase()
         ) || 'zh-TW';
-      store.setState({ 
-        locale: matched, 
+      store.setState({
+        locale: matched,
         neuralVoice: localeVoice(matched),
         ttVoice: loadVoice(store.getState().gender)
       });
@@ -429,7 +448,7 @@ export function initDefaultTTSEngine(options = {}) {
   };
 
   const handleNeuralFail = (e) => {
-      const state = store.getState();
+    const state = store.getState();
     const msg = e?.message || '';
     if (/http 429/.test(msg) === true) {
       console.warn('TTS 被限流，這句退瀏覽器語音');

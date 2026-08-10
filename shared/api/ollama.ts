@@ -51,7 +51,7 @@ export default async (req: IncomingMessage, res: ServerResponse) => {
       targetPath = '/v1/chat/completions'; // 改用 OpenAI 相容端點
     }
 
-    const proxyHeaders: Record<string, any> = {
+    const proxyHeaders: http.RequestOptions['headers'] = {
       ...req.headers,
       host: `${OLLAMA_HOST}:${OLLAMA_PORT}`
     };
