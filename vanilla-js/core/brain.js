@@ -722,7 +722,7 @@ export async function initBrainEngine(setting = {}) {
       ? companionKnowledge
       : await handleGetKnowledge(companionKnowledgeUrl);
 
-  const store = createBaseStore({
+  const _store = createBaseStore({
     // Add states here if needed in the future
   });
 

@@ -1,400 +1,333 @@
-export function setMic(speechEngine, isListening = false) {
-  if (typeof speechEngine.onMicStateChanged === 'function') {
-    speechEngine.onMicStateChanged(isListening, speechEngine.convoOn);
-  }
-}
+import { createBaseStore } from '../store';
 
-export async function ensureMicMonitor(speechEngine) {
-  if (
-    typeof speechEngine.micStream === 'object' &&
-    speechEngine.micStream !== null
-  ) {
-    return;
-  }
-  if (
-    typeof navigator.mediaDevices !== 'object' ||
-    navigator.mediaDevices === null ||
-    typeof navigator.mediaDevices.getUserMedia !== 'function'
-  ) {
-    throw new Error('media-not-supported');
-  }
-
-  speechEngine.micStream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true
-    },
-    video: false
-  });
-  speechEngine.micAudioCtx = new (
-    window.AudioContext || window.webkitAudioContext
-  )();
-  if (speechEngine.micAudioCtx.state === 'suspended') {
-    try {
-      await speechEngine.micAudioCtx.resume();
-    } catch (_e) {}
-  }
-
-  speechEngine.micAnalyser = speechEngine.micAudioCtx.createAnalyser();
-  speechEngine.micAnalyser.fftSize = 256;
-  speechEngine.micAnalyser.smoothingTimeConstant = 0.35;
-  speechEngine.micAudioCtx
-    .createMediaStreamSource(speechEngine.micStream)
-    .connect(speechEngine.micAnalyser);
-  speechEngine.micData = new Uint8Array(speechEngine.micAnalyser.fftSize);
-
-  speechEngine.micNoiseFloor = 0;
-  speechEngine.voiceFrames = 0;
-  speechEngine.lastBargeIn = 0;
-
-  monitorMicLevel(speechEngine);
-}
-
-export function monitorMicLevel(speechEngine) {
-  if (
-    typeof speechEngine.micAnalyser !== 'object' ||
-    speechEngine.micAnalyser === null ||
-    typeof speechEngine.micData !== 'object' ||
-    speechEngine.micData === null
-  ) {
-    return;
-  }
-  speechEngine.micAnalyser.getByteTimeDomainData(speechEngine.micData);
-  let sum = 0;
-  for (let i = 0; i < speechEngine.micData.length; i++) {
-    const value = (speechEngine.micData[i] - 128) / 128;
-    sum += value * value;
-  }
-  const rms = Math.sqrt(sum / speechEngine.micData.length);
-
-  const isSpeaking = speechEngine.isSpeaking || speechEngine.isSpeechPlaying;
-  const isListening = speechEngine.isListening;
-  const assistantActive = isSpeaking || speechEngine.isProcessing;
-
-  if (!assistantActive && !isListening) {
-    speechEngine.micNoiseFloor = speechEngine.micNoiseFloor * 0.96 + rms * 0.04;
-  }
-
-  const showVoiceUI = speechEngine.convoOn || isListening || assistantActive;
-
-  if (typeof speechEngine.onVoiceStatusChanged === 'function') {
-    speechEngine.onVoiceStatusChanged(
-      showVoiceUI,
-      undefined,
-      isListening ? 'listening' : isSpeaking ? 'speaking' : 'thinking',
-      rms * 650
-    );
-  }
-
-  const threshold = Math.max(0.085, speechEngine.micNoiseFloor * 5.5);
-  const speechDuration =
-    performance.now() -
-    (speechEngine.assistantSpeechStartedAt || performance.now());
-
-  if (
-    speechEngine.convoOn === true &&
-    assistantActive === true &&
-    speechDuration > 550 &&
-    rms > threshold
-  ) {
-    speechEngine.voiceFrames++;
+export function validateSTTEngine(engine) {
+  const missing = [];
+  if (typeof engine !== 'object' || engine === null) {
+    missing.push('engine instance');
   } else {
-    speechEngine.voiceFrames = Math.max(0, (speechEngine.voiceFrames || 0) - 2);
+    ['startListening', 'stopListening'].forEach((method) => {
+      if (typeof engine[method] !== 'function') missing.push(`${method}()`);
+    });
+    ['isListening'].forEach((prop) => {
+      if (!(prop in engine)) missing.push(prop);
+    });
   }
-
-  if (
-    speechEngine.voiceFrames >= 9 &&
-    performance.now() - speechEngine.lastBargeIn > 1400
-  ) {
-    interruptForVoice(speechEngine);
-  }
-
-  speechEngine.micRaf = requestAnimationFrame(() =>
-    monitorMicLevel(speechEngine)
-  );
+  return { isValid: missing.length === 0, missing };
 }
 
-export function stopMicMonitor(speechEngine) {
-  if (typeof speechEngine.micRaf === 'number' && speechEngine.micRaf > 0) {
-    cancelAnimationFrame(speechEngine.micRaf);
-  }
-  speechEngine.micRaf = 0;
+export function initDefaultSTTEngine(options = {}) {
+  const {
+    onResult, // function(text, isFinal, isInterim)
+    onMicLevel, // function(rms, showVoiceUI, stateString, levelAmp)
+    onBargeIn, // function()
+    onError, // function(errorMessage, isNotAllowed)
+    onStatusChange, // function(isListening, statusMessage, isAborted)
+    onNoSpeechAbort, // function()
+    getAssistantActive, // function() => boolean
+    getSpeechDuration, // function() => number
+    getConvoOn, // function() => boolean
+  } = options;
 
-  if (
-    typeof speechEngine.micStream === 'object' &&
-    speechEngine.micStream !== null
-  ) {
-    speechEngine.micStream.getTracks().forEach((track) => track.stop());
-  }
-  speechEngine.micStream = null;
-  speechEngine.micAnalyser = null;
-  speechEngine.micData = null;
+  const store = createBaseStore({
+    micStream: null,
+    micAudioCtx: null,
+    micAnalyser: null,
+    micData: null,
+    micNoiseFloor: 0,
+    voiceFrames: 0,
+    lastBargeIn: 0,
+    micRaf: 0,
+    recognition: null,
+    recognitionSilenceTimer: null,
+    isListening: false,
+    noSpeechRuns: 0
+  });
 
-  if (
-    typeof speechEngine.micAudioCtx === 'object' &&
-    speechEngine.micAudioCtx !== null
-  ) {
-    try {
-      speechEngine.micAudioCtx.close();
-    } catch (_e) {}
-  }
-  speechEngine.micAudioCtx = null;
-  if (typeof speechEngine.onVoiceStatusChanged === 'function') {
-    speechEngine.onVoiceStatusChanged(
-      speechEngine.convoOn,
-      undefined,
-      undefined,
-      0
-    );
-  }
-}
+  const state = store.getState();
 
-export function stopVoiceSession(speechEngine, message) {
-  speechEngine.convoOn = false;
-  clearTimeout(speechEngine.recognitionSilenceTimer);
-  speechEngine.recognitionText = '';
-  speechEngine.recognitionSubmitted = true;
-  speechEngine.recognitionError = 'aborted';
-  try {
-    if (typeof speechEngine?.recognition?.abort === 'function') {
-      speechEngine.recognition.abort();
-    }
-  } catch (_error) {}
-  speechEngine.recognition = null;
-  speechEngine.isListening = false;
-  speechEngine.isProcessing = false;
-  speechEngine.stopSpeaking();
-  setMic(speechEngine, false);
-  stopMicMonitor(speechEngine);
-
-  if (typeof speechEngine.onVoiceStatusChanged === 'function') {
-    speechEngine.onVoiceStatusChanged(false, '', '', 0);
-  }
-  if (typeof message === 'string' && message !== '') {
-    speechEngine.spokenDisplayText = message;
-  }
-}
-
-export function interruptForVoice(speechEngine) {
-  speechEngine.lastBargeIn = performance.now();
-  speechEngine.voiceFrames = 0;
-
-  speechEngine.speakSeq++;
-  if (typeof speechEngine.brain?.llm?.controller?.abort === 'function') {
-    try {
-      speechEngine.brain.llm.controller.abort();
-    } catch (_error) {}
-  }
-
-  speechEngine.stopSpeaking();
-  speechEngine.isProcessing = false;
-
-  if (typeof speechEngine.onVoiceStatusChanged === 'function') {
-    speechEngine.onVoiceStatusChanged(
-      speechEngine.convoOn,
-      '已停止回答，請繼續說…',
-      'listening',
-      0
-    );
-  }
-
-  setTimeout(() => {
-    if (speechEngine.convoOn === true && speechEngine.isListening !== true) {
-      startListening(speechEngine);
-    }
-  }, 100);
-}
-
-export async function startListening(speechEngine) {
-  const rootContainer = speechEngine.container;
-  if (rootContainer instanceof HTMLElement === false) {
-    console.error(
-      '[aiAvatar startListening] rootContainer is not an HTMLElement'
-    );
-    return;
-  }
-
-  const SafeSpeechRecognition =
-    window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (SafeSpeechRecognition == null) {
-    speechEngine.spokenAudioText =
-      '你的瀏覽器不支援語音辨識，建議用 Chrome 開喔。';
-    speechEngine.convoOn = false;
-    return;
-  }
-  if (
-    speechEngine.isListening === true &&
-    typeof speechEngine.recognition === 'object' &&
-    speechEngine.recognition !== null
-  ) {
-    speechEngine.recognition.stop();
-    return;
-  }
-
-  if (
-    typeof speechEngine.micStream !== 'object' ||
-    speechEngine.micStream === null
-  ) {
-    setMic(speechEngine, false);
-    if (typeof speechEngine.onVoiceStatusChanged === 'function') {
-      speechEngine.onVoiceStatusChanged(
-        true,
-        '正在取得麥克風權限…',
-        'thinking',
-        0
-      );
-    }
-  }
-  try {
-    await ensureMicMonitor(speechEngine);
-    if (
-      speechEngine.isSpeechPlaying === true ||
-      speechEngine.isProcessing === true
-    ) {
-      speechEngine.stopSpeaking();
-    }
-  } catch (e) {
-    speechEngine.convoOn = false;
-    setMic(speechEngine, false);
-    const message = '無法啟動語音功能，請檢查麥克風與瀏覽器設定。';
-    speechEngine.spokenAudioText = message;
-    if (typeof speechEngine.onVoiceStatusChanged === 'function') {
-      speechEngine.onVoiceStatusChanged(true, message, '', 0);
-    }
-    console.warn('mic monitor error', e);
-    return;
-  }
-
-  try {
-    speechEngine.recognition = new SafeSpeechRecognition();
-  } catch (error) {
-    speechEngine.spokenAudioText = '語音辨識啟動失敗：' + error.message;
-    speechEngine.convoOn = false;
-    return;
-  }
-
-  speechEngine.recognitionSilenceTimer = null;
-  speechEngine.recognition.lang = 'zh-TW';
-  speechEngine.recognition.interimResults = true;
-  speechEngine.recognition.continuous = true;
-  speechEngine.recognition.maxAlternatives = 1;
-  speechEngine.recognition.onstart = () => {
-    speechEngine.isListening = true;
-    setMic(speechEngine, true);
-    if (typeof speechEngine.onVoiceStatusChanged === 'function') {
-      speechEngine.onVoiceStatusChanged(
-        true,
-        '請說話，可以隨時插話…',
-        'listening',
-        0
-      );
+  const setMic = (isListening) => {
+    state.isListening = isListening;
+    store.setState({ isListening });
+    if (typeof onStatusChange === 'function') {
+      onStatusChange(isListening);
     }
   };
-  speechEngine.recognition.onresult = (event) => {
-    let finalText = '',
-      interimText = '';
-    for (const result of event.results) {
-      if (result.isFinal === true) {
-        finalText += result[0].transcript + ' ';
-      } else {
-        interimText += result[0].transcript + ' ';
-      }
-    }
-    const txt = (finalText + interimText).trim();
-    if (txt === '') {
+
+  const monitorMicLevel = () => {
+    if (
+      typeof state.micAnalyser !== 'object' ||
+      state.micAnalyser === null ||
+      typeof state.micData !== 'object' ||
+      state.micData === null
+    ) {
       return;
     }
+    state.micAnalyser.getByteTimeDomainData(state.micData);
+    let sum = 0;
+    for (let i = 0; i < state.micData.length; i++) {
+      const value = (state.micData[i] - 128) / 128;
+      sum += value * value;
+    }
+    const rms = Math.sqrt(sum / state.micData.length);
 
-    speechEngine.noSpeechRuns = 0;
-    speechEngine.spokenDisplayText =
-      '你：' + txt + (interimText !== '' ? '…' : '');
-    if (typeof speechEngine.onVoiceStatusChanged === 'function') {
-      speechEngine.onVoiceStatusChanged(
-        speechEngine.convoOn,
-        interimText !== '' ? '正在辨識：' + txt : '收到語音，準備送出…',
-        'listening',
-        0
-      );
+    const isListening = state.isListening;
+    const convoOn = typeof getConvoOn === 'function' ? getConvoOn() : false;
+    const assistantActive = typeof getAssistantActive === 'function' ? getAssistantActive() : false;
+
+    if (!assistantActive && !isListening) {
+      state.micNoiseFloor = state.micNoiseFloor * 0.96 + rms * 0.04;
     }
 
-    clearTimeout(speechEngine.recognitionSilenceTimer);
-    speechEngine.recognitionSilenceTimer = setTimeout(
-      () => {
-        try {
-          if (
-            typeof speechEngine.recognition === 'object' &&
-            speechEngine.recognition !== null
-          ) {
-            speechEngine.recognition.stop();
-          }
-        } catch (_error) {}
+    const showVoiceUI = convoOn || isListening || assistantActive;
+    const stateString = isListening ? 'listening' : (assistantActive ? 'speaking' : 'thinking');
+
+    if (typeof onMicLevel === 'function') {
+      onMicLevel(rms, showVoiceUI, stateString, rms * 650);
+    }
+
+    const threshold = Math.max(0.085, state.micNoiseFloor * 5.5);
+    const speechDuration = typeof getSpeechDuration === 'function' ? getSpeechDuration() : 0;
+
+    if (
+      convoOn === true &&
+      assistantActive === true &&
+      speechDuration > 550 &&
+      rms > threshold
+    ) {
+      state.voiceFrames++;
+    } else {
+      state.voiceFrames = Math.max(0, (state.voiceFrames || 0) - 2);
+    }
+
+    if (
+      state.voiceFrames >= 9 &&
+      performance.now() - state.lastBargeIn > 1400
+    ) {
+      state.lastBargeIn = performance.now();
+      state.voiceFrames = 0;
+      if (typeof onBargeIn === 'function') onBargeIn();
+    }
+
+    state.micRaf = requestAnimationFrame(monitorMicLevel);
+  };
+
+  const ensureMicMonitor = async () => {
+    if (typeof state.micStream === 'object' && state.micStream !== null) {
+      return;
+    }
+    if (
+      typeof navigator.mediaDevices !== 'object' ||
+      navigator.mediaDevices === null ||
+      typeof navigator.mediaDevices.getUserMedia !== 'function'
+    ) {
+      throw new Error('media-not-supported');
+    }
+
+    state.micStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
       },
-      interimText !== '' ? 900 : 420
-    );
-
-    const last = event.results[event.results.length - 1];
-    if (last.isFinal === true) {
-      speechEngine.handleUser(txt);
-    }
-  };
-  speechEngine.recognition.onerror = (event) => {
-    speechEngine.isListening = false;
-    setMic(speechEngine, false);
-    if (event.error === 'not-allowed') {
-      speechEngine.convoOn = false;
-      speechEngine.spokenDisplayText = '我需要麥克風權限才能聽你說話喔。';
-      stopMicMonitor(speechEngine);
-      if (typeof speechEngine.onVoiceStatusChanged === 'function') {
-        speechEngine.onVoiceStatusChanged(
-          speechEngine.convoOn,
-          '麥克風權限被拒絕',
-          '',
-          0
-        );
-      }
-      return;
-    }
-    if (event.error === 'aborted') {
-      return; // 手動中止不需顯示錯誤，保留 stopVoiceSession 寫入的文字
-    }
-    if (speechEngine.convoOn === true && event.error === 'no-speech') {
-      return; // 交給 onend 的續聽邏輯
+      video: false
+    });
+    state.micAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (state.micAudioCtx.state === 'suspended') {
+      try {
+        await state.micAudioCtx.resume();
+      } catch (_e) {}
     }
 
-    speechEngine.spokenDisplayText =
-      '沒聽清楚（' + event.error + '），再試一次。';
+    state.micAnalyser = state.micAudioCtx.createAnalyser();
+    state.micAnalyser.fftSize = 256;
+    state.micAnalyser.smoothingTimeConstant = 0.35;
+    state.micAudioCtx
+      .createMediaStreamSource(state.micStream)
+      .connect(state.micAnalyser);
+    state.micData = new Uint8Array(state.micAnalyser.fftSize);
+
+    state.micNoiseFloor = 0;
+    state.voiceFrames = 0;
+    state.lastBargeIn = 0;
+
+    monitorMicLevel();
   };
-  speechEngine.recognition.onend = () => {
-    speechEngine.isListening = false;
-    setMic(speechEngine, false);
-    // 連續對話：靜默結束（沒觸發回答）→ 自動再聽；連 3 次沒聲音就休息，避免無限開麥
-    if (
-      speechEngine.convoOn === true &&
-      speechEngine.isProcessing !== true &&
-      speechEngine.isSpeaking !== true &&
-      speechEngine.isSpeechPlaying !== true
-    ) {
-      if (++speechEngine.noSpeechRuns >= 3) {
-        speechEngine.stopVoiceSession(
-          '連續幾次沒有聽到聲音，即時對話已暫停。'
-        );
+
+  const stopMicMonitor = () => {
+    if (typeof state.micRaf === 'number' && state.micRaf > 0) {
+      cancelAnimationFrame(state.micRaf);
+    }
+    state.micRaf = 0;
+
+    if (typeof state.micStream === 'object' && state.micStream !== null) {
+      state.micStream.getTracks().forEach((track) => track.stop());
+    }
+    state.micStream = null;
+    state.micAnalyser = null;
+    state.micData = null;
+
+    if (typeof state.micAudioCtx === 'object' && state.micAudioCtx !== null) {
+      try {
+        state.micAudioCtx.close();
+      } catch (_e) {}
+    }
+    state.micAudioCtx = null;
+    if (typeof onMicLevel === 'function') {
+      const convoOn = typeof getConvoOn === 'function' ? getConvoOn() : false;
+      onMicLevel(0, convoOn, '', 0);
+    }
+  };
+
+  const engine = {
+    subscribe: store.subscribe,
+    getState: store.getState,
+    setState: store.setState,
+
+    get isListening() {
+      return state.isListening;
+    },
+
+    async startListening() {
+      const SafeSpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SafeSpeechRecognition == null) {
+        if (typeof onError === 'function') {
+          onError('你的瀏覽器不支援語音辨識，建議用 Chrome 開喔。', false);
+        }
         return;
       }
-      setTimeout(() => {
-        if (
-          speechEngine.convoOn === true &&
-          speechEngine.isListening !== true &&
-          speechEngine.isSpeaking !== true &&
-          speechEngine.isSpeechPlaying !== true &&
-          speechEngine.isProcessing !== true
-        ) {
-          startListening(speechEngine);
+
+      if (this.isListening && state.recognition) {
+        state.recognition.stop();
+        return;
+      }
+
+      if (!state.micStream) {
+        setMic(false);
+        if (typeof onStatusChange === 'function') {
+          onStatusChange(false, '正在取得麥克風權限…');
         }
-      }, 350);
+      }
+
+      try {
+        await ensureMicMonitor();
+      } catch (e) {
+        setMic(false);
+        if (typeof onError === 'function') {
+          onError('無法啟動語音功能，請檢查麥克風與瀏覽器設定。', false);
+        }
+        console.warn('mic monitor error', e);
+        return;
+      }
+
+      try {
+        state.recognition = new SafeSpeechRecognition();
+      } catch (error) {
+        if (typeof onError === 'function') {
+          onError('語音辨識啟動失敗：' + error.message, false);
+        }
+        return;
+      }
+
+      state.recognitionSilenceTimer = null;
+      state.recognition.lang = 'zh-TW';
+      state.recognition.interimResults = true;
+      state.recognition.continuous = true;
+      state.recognition.maxAlternatives = 1;
+
+      state.recognition.onstart = () => {
+        setMic(true);
+        if (typeof onStatusChange === 'function') {
+          onStatusChange(true, '請說話，可以隨時插話…');
+        }
+      };
+
+      state.recognition.onresult = (event) => {
+        let finalText = '', interimText = '';
+        for (const result of event.results) {
+          if (result.isFinal) {
+            finalText += result[0].transcript + ' ';
+          } else {
+            interimText += result[0].transcript + ' ';
+          }
+        }
+        const txt = (finalText + interimText).trim();
+        if (txt === '') return;
+
+        state.noSpeechRuns = 0;
+        if (typeof onResult === 'function') {
+          const last = event.results[event.results.length - 1];
+          onResult(txt, last.isFinal, interimText !== '');
+        }
+
+        clearTimeout(state.recognitionSilenceTimer);
+        state.recognitionSilenceTimer = setTimeout(() => {
+          try {
+            if (state.recognition) state.recognition.stop();
+          } catch (_error) {}
+        }, interimText !== '' ? 900 : 420);
+      };
+
+      state.recognition.onerror = (event) => {
+        setMic(false);
+        if (event.error === 'not-allowed') {
+          stopMicMonitor();
+          if (typeof onError === 'function') {
+            onError('我需要麥克風權限才能聽你說話喔。', true);
+          }
+          return;
+        }
+        if (event.error === 'aborted') {
+          if (typeof onStatusChange === 'function') {
+             onStatusChange(false, '', true);
+          }
+          return;
+        }
+        const convoOn = typeof getConvoOn === 'function' ? getConvoOn() : false;
+        if (convoOn && event.error === 'no-speech') {
+          return; // handled in onend
+        }
+        if (typeof onError === 'function') {
+          onError('沒聽清楚（' + event.error + '），再試一次。', false);
+        }
+      };
+
+      state.recognition.onend = () => {
+        setMic(false);
+        const convoOn = typeof getConvoOn === 'function' ? getConvoOn() : false;
+        const assistantActive = typeof getAssistantActive === 'function' ? getAssistantActive() : false;
+        
+        if (convoOn && !assistantActive) {
+          if (++state.noSpeechRuns >= 3) {
+            if (typeof onNoSpeechAbort === 'function') onNoSpeechAbort();
+            return;
+          }
+          setTimeout(() => {
+            const currentConvo = typeof getConvoOn === 'function' ? getConvoOn() : false;
+            const currentActive = typeof getAssistantActive === 'function' ? getAssistantActive() : false;
+            if (currentConvo && !this.isListening && !currentActive) {
+              this.startListening();
+            }
+          }, 350);
+        }
+      };
+
+      try {
+        state.recognition.start();
+      } catch (_error) {}
+    },
+
+    stopListening() {
+      clearTimeout(state.recognitionSilenceTimer);
+      try {
+        if (typeof state.recognition?.abort === 'function') {
+          state.recognition.abort();
+        }
+      } catch (_error) {}
+      state.recognition = null;
+      setMic(false);
+      stopMicMonitor();
     }
   };
-  try {
-    speechEngine.recognition.start();
-  } catch (_error) {}
+
+  return engine;
 }

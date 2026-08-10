@@ -1,33 +1,13 @@
-// TODO: 等到環境可以測試麥克風跟喇叭時，要徹底測過這份檔案內部的所有機制有沒有因為重構而出問題
 import {
   DEFAULT_TTS_ENDPOINT,
   GENDER_MAP,
-  AVATAR_MODE_MAP,
-  DEFAULT_FEMALE_NEURAL_VOICE,
-  DEFAULT_MALE_NEURAL_VOICE
+  AVATAR_MODE_MAP
 } from '../constants';
 import { createBaseStore } from '../store';
-import {
-  loadVoice,
-  fetchTTSBuffer,
-  computeMouth,
-  drainSentences,
-  stopSpeaking,
-  speak,
-  beginSpeech,
-  pushSpeech,
-  endSpeech,
-  onUtteranceEnd,
-  pumpSpeech,
-  preloadTapGreeting,
-  setLocale
-} from './tts.js';
-import {
-  setMic,
-  stopVoiceSession,
-  interruptForVoice,
-  startListening
-} from './stt.js';
+import { initDefaultSTTEngine, validateSTTEngine } from './stt';
+import { splitSentences, initDefaultTTSEngine, validateTTSEngine } from './tts';
+
+export { validateTTSEngine, validateSTTEngine };
 
 export async function handleUser(speechEngine, text = '') {
   const rootContainer = speechEngine.container;
@@ -96,8 +76,7 @@ export async function handleUser(speechEngine, text = '') {
     return;
   }
 
-  // speechEngine.isSpeaking = true;
-  speechEngine.isProcessing = true; // 回答完成前不要自動重開麥（onUtteranceEnd 會清）
+  speechEngine.isProcessing = true;
 
   if (
     typeof speechEngine.skin === 'object' &&
@@ -112,7 +91,7 @@ export async function handleUser(speechEngine, text = '') {
 
 export function onTap(speechEngine) {
   if (speechEngine.onTapTimer === true) {
-    return; // 去抖：hit 事件與 pointerdown 可能同時觸發
+    return;
   }
   speechEngine.onTapTimer = true;
   setTimeout(() => {
@@ -171,8 +150,10 @@ export function onTap(speechEngine) {
   speechEngine.spokenAudioText = greeting;
 }
 
-export function initSpeechEngine(setting = {}) {
-  const { ttsEndpoint, neuralVoice } = setting;
+export async function initSpeechEngine(setting = {}) {
+  const { customEngines = {}, ttsEndpoint, neuralVoice } = setting;
+  let sttEngine = null;
+  let ttsEngine = null;
 
   const store = createBaseStore({
     isSpeaking: false,
@@ -202,12 +183,7 @@ export function initSpeechEngine(setting = {}) {
     },
     setGender(newGender) {
       this._gender = newGender;
-      if (newGender === GENDER_MAP.female) {
-        this.neuralVoice = DEFAULT_FEMALE_NEURAL_VOICE;
-      } else if (newGender === GENDER_MAP.male) {
-        this.neuralVoice = DEFAULT_MALE_NEURAL_VOICE;
-      }
-      this.ttVoice = null;
+      ttsEngine.setGender(newGender);
     },
     get avatarMode() {
       return setting.getAvatarMode ? setting.getAvatarMode() : null;
@@ -218,28 +194,25 @@ export function initSpeechEngine(setting = {}) {
     get container() {
       return setting.getContainer ? setting.getContainer() : null;
     },
+
     onVoiceStatusChanged: setting.onVoiceStatusChanged,
     onMicStateChanged: setting.onMicStateChanged,
     onLanguageChanged: setting.onLanguageChanged,
 
-    _mouthTarget: 0.7, // 可能要歸在 skin ?
-    get mouthTarget() {
-      return this._mouthTarget;
+    _ttsEndpoint: ttsEndpoint || DEFAULT_TTS_ENDPOINT,
+    get ttsEndpoint() {
+      return this._ttsEndpoint;
     },
-    set mouthTarget(newMouthTarget) {
-      if (typeof newMouthTarget === 'number' || newMouthTarget === null) {
-        this._mouthTarget = newMouthTarget;
-      }
+    set ttsEndpoint(val) {
+      this._ttsEndpoint = val;
     },
 
-    _mouthValue: 0, // 可能要歸在 skin ?
-    get mouthValue() {
-      return this._mouthValue;
+    _neuralVoice: neuralVoice,
+    get neuralVoice() {
+      return this._neuralVoice;
     },
-    set mouthValue(newMouthValue) {
-      if (typeof newMouthValue === 'number' || newMouthValue === null) {
-        this._mouthValue = newMouthValue;
-      }
+    set neuralVoice(val) {
+      this._neuralVoice = val;
     },
 
     _speakSeq: 0,
@@ -247,74 +220,14 @@ export function initSpeechEngine(setting = {}) {
       return this._speakSeq;
     },
     set speakSeq(newSpeakSeq) {
-      if (typeof newSpeakSeq === 'number' || newSpeakSeq === null) {
-        this._speakSeq = newSpeakSeq;
-      }
-    },
-
-    get fetchTTSBuffer() {
-      return function _fetchTTSBuffer() {
-        return fetchTTSBuffer(speechEngine, ...arguments);
-      };
-    },
-
-    // ②逐句開講的佇列狀態（var：這檔案有「宣告前就被呼叫」的前例，避 TDZ）
-    speechQ: [],
-    speechEnded: false,
-    isSpeechPlaying: false,
-    tapDone: false,
-
-    speakBrowserTimer: 0,
-    spokenDisplayTextTimer: 0,
-
-    // 控制「點第二下打斷第一下」
-    _currentFps: 0,
-    get currentFps() {
-      return this._currentFps;
-    },
-    set currentFps(newCurrentFps) {
-      if (typeof newCurrentFps === 'number' || newCurrentFps === null) {
-        this._currentFps = newCurrentFps;
-      }
-    },
-
-    _currentSource: null,
-    get currentSource() {
-      return this._currentSource;
-    },
-    set currentSource(newCurrentSource) {
-      if (typeof newCurrentSource === 'object') {
-        this._currentSource = newCurrentSource;
-      }
+      this._speakSeq = newSpeakSeq;
     },
 
     get isSpeaking() {
-      return store.getState().isSpeaking;
+      return ttsEngine.isSpeaking;
     },
-    set isSpeaking(newIsSpeaking) {
-      if (typeof newIsSpeaking === 'boolean' || newIsSpeaking === null) {
-        store.setState({ isSpeaking: newIsSpeaking });
-      }
-    },
-
-    _useAudioMouth: false,
-    get useAudioMouth() {
-      return this._useAudioMouth;
-    },
-    set useAudioMouth(newUseAudioMouth) {
-      if (typeof newUseAudioMouth === 'boolean' || newUseAudioMouth === null) {
-        this._newUseAudioMouth = newUseAudioMouth;
-      }
-    },
-
-    _audioMouth: 0,
-    get audioMouth() {
-      return this._audioMouth;
-    },
-    set audioMouth(newAudioMouth) {
-      if (typeof newAudioMouth === 'number' || newAudioMouth === null) {
-        this._audioMouth = newAudioMouth;
-      }
+    get isListening() {
+      return sttEngine.isListening;
     },
 
     _ttsMuted: false,
@@ -322,251 +235,377 @@ export function initSpeechEngine(setting = {}) {
       return this._ttsMuted;
     },
     set ttsMuted(newTtsMuted) {
-      if (typeof newTtsMuted === 'boolean' || newTtsMuted === null) {
-        this._ttsMuted = newTtsMuted;
-      }
+      this._ttsMuted = newTtsMuted;
+      ttsEngine.isMuted = newTtsMuted;
     },
 
-    // 連續對話（陪伴模式）：她講完 → 自動重開麥。她講話期間不開麥（會聽到自己的聲音）
     convoOn: false,
-    noSpeechRuns: 0,
-
-    get isListening() {
-      return store.getState().isListening;
-    },
-    set isListening(newIsListening) {
-      if (typeof newIsListening === 'boolean' || newIsListening === null) {
-        store.setState({ isListening: newIsListening });
-      }
-    },
-
-    // 抓不到神經語音後端就鎖定瀏覽器語音，避免每句打 404
-    _neuralDisabled: false,
-    get neuralDisabled() {
-      return this._neuralDisabled;
-    },
-    set neuralDisabled(newNeuralDisabled) {
-      if (
-        typeof newNeuralDisabled === 'boolean' ||
-        newNeuralDisabled === null
-      ) {
-        this._neuralDisabled = newNeuralDisabled;
-      }
-    },
-
-    _audioCtx: null,
-    get audioCtx() {
-      return this._audioCtx;
-    },
-    set audioCtx(newAudioCtx = null) {
-      if (typeof newAudioCtx === 'object') {
-        this._audioCtx = newAudioCtx;
-      }
-    },
-
-    _ttsEndpoint: ttsEndpoint || DEFAULT_TTS_ENDPOINT,
-    get ttsEndpoint() {
-      return this._ttsEndpoint;
-    },
-    set ttsEndpoint(newTtsEndpoint = '') {
-      if (typeof newTtsEndpoint === 'string' && newTtsEndpoint !== '') {
-        this._ttsEndpoint = newTtsEndpoint;
-      }
-    },
-
-    _neuralVoice: neuralVoice,
-    get neuralVoice() {
-      return this._neuralVoice; // 神經語音
-    },
-    set neuralVoice(newNeuralVoice = '') {
-      if (typeof newNeuralVoice === 'string' || newNeuralVoice === null) {
-        this._neuralVoice = newNeuralVoice;
-      }
-    },
-
-    _ttVoice: null,
-    get ttVoice() {
-      return this._ttVoice;
-    },
-    set ttVoice(newTtVoice) {
-      if (typeof newTtVoice === 'object') {
-        this._ttVoice = newTtVoice;
-      }
-    },
-
-    _ttsRate: 1.0,
-    get ttsRate() {
-      return this._ttsRate;
-    },
-    set ttsRate(newTtsRate) {
-      if (typeof newTtsRate === 'number' || newTtsRate === null) {
-        this._ttsRate = newTtsRate;
-      }
-    },
+    isProcessing: false,
+    assistantSpeechStartedAt: 0,
 
     _spokenDisplayText: '',
     get spokenDisplayText() {
       return this._spokenDisplayText;
     },
     set spokenDisplayText(newSpeakingLabel) {
-      if (typeof newSpeakingLabel === 'string' || newSpeakingLabel === null) {
-        this._spokenDisplayText = newSpeakingLabel;
-
-        if (typeof this.onSpokenDisplayTextChange === 'function') {
-          this.onSpokenDisplayTextChange(newSpeakingLabel);
-        }
+      this._spokenDisplayText = newSpeakingLabel;
+      if (typeof setting.onSpokenDisplayTextChange === 'function') {
+        setting.onSpokenDisplayTextChange(newSpeakingLabel);
       }
     },
-    speak: (text, options) =>
-      speak(speechEngine, String(text || '').slice(0, 600), options),
+
+    speak: (text, options) => {
+      speechEngine.assistantSpeechStartedAt = performance.now();
+      ttsEngine.speak(text, options);
+    },
+
     _spokenAudioText: '',
     get spokenAudioText() {
       return this._spokenAudioText;
     },
     set spokenAudioText(newSpeakingSounds) {
-      if (typeof newSpeakingSounds === 'string' || newSpeakingSounds === null) {
-        this._spokenAudioText = newSpeakingSounds;
-
-        this.spokenDisplayText = newSpeakingSounds;
-        if (typeof this.onSpeaking === 'function') {
-          this.onSpeaking(newSpeakingSounds);
-        }
-        this.speak(newSpeakingSounds);
+      this._spokenAudioText = newSpeakingSounds;
+      this.spokenDisplayText = newSpeakingSounds;
+      if (typeof setting.onSpeaking === 'function') {
+        setting.onSpeaking(newSpeakingSounds);
       }
+      speechEngine.speak(newSpeakingSounds);
     },
 
-    _recognition: null,
-    get recognition() {
-      return this._recognition;
+    stopSpeaking: () => {
+      speechEngine.speakSeq++;
+      ttsEngine.stop();
     },
-    set recognition(newRecognition) {
-      if (typeof newRecognition === 'object') {
-        this._recognition = newRecognition;
+
+    interruptForVoice: () => {
+      speechEngine.speakSeq++;
+      if (typeof speechEngine.brain?.llm?.controller?.abort === 'function') {
+        try {
+          speechEngine.brain.llm.controller.abort();
+        } catch (_error) {}
       }
-    },
-
-    get onSpeaking() {
-      return function _onSpeaking(text, ...args) {
-        if (typeof setting.onSpeaking === 'function') {
-          return setting.onSpeaking(text, ...args);
-        }
-      };
-    },
-    get onSpeakingEnd() {
-      return function _onSpeakingEnd(text, ...args) {
-        if (typeof setting.onSpeakingEnd === 'function') {
-          return setting.onSpeakingEnd(text, ...args);
-        }
-      };
-    },
-    get onSpokenDisplayTextChange() {
-      return function _onSpokenDisplayTextChange(newSpeakingLabel, ...args) {
-        clearTimeout(this.spokenDisplayTextTimer);
-        this.spokenDisplayTextTimer = setTimeout(
-          () => this.onSpokenDisplayTextTimeout(),
-          6000
+      speechEngine.stopSpeaking();
+      speechEngine.isProcessing = false;
+      if (typeof speechEngine.onVoiceStatusChanged === 'function') {
+        speechEngine.onVoiceStatusChanged(
+          speechEngine.convoOn,
+          '已停止回答，請繼續說…',
+          'listening',
+          0
         );
-
-        if (typeof setting.onSpokenDisplayTextChange === 'function') {
-          return setting.onSpokenDisplayTextChange(newSpeakingLabel, ...args);
+      }
+      setTimeout(() => {
+        if (speechEngine.convoOn === true && !speechEngine.isListening) {
+          speechEngine.startListening();
         }
-      };
-    },
-    get onSpokenDisplayTextTimeout() {
-      return function _onSpokenDisplayTextTimeout(...args) {
-        if (typeof setting.onSpokenDisplayTextTimeout === 'function') {
-          return setting.onSpokenDisplayTextTimeout(...args);
-        }
-      };
+      }, 100);
     },
 
-    stopSpeaking: () => stopSpeaking(speechEngine),
-    interruptForVoice: () => interruptForVoice(speechEngine),
-    computeMouth: () => computeMouth(speechEngine),
+    computeMouth: () => ttsEngine.computeMouth(),
+
     onTap: () => onTap(speechEngine),
-    stopVoiceSession: (message) => stopVoiceSession(speechEngine, message),
-    setMic: (isListening) => setMic(speechEngine, isListening),
-    startListening: () => startListening(speechEngine),
-    preloadTapGreeting: () => preloadTapGreeting(speechEngine),
-    setLocale: (locale) => setLocale(speechEngine, locale),
-    pumpSpeech: (sid) => pumpSpeech(speechEngine, sid),
-    handleUser: (text) => handleUser(speechEngine, text),
-    beginSpeech: () => beginSpeech(speechEngine),
-    pushSpeech: (sid, text, options) =>
-      pushSpeech(speechEngine, sid, text, options),
-    endSpeech: (sid) => endSpeech(speechEngine, sid),
-    onUtteranceEnd: () => onUtteranceEnd(speechEngine),
-    drainSentences: (state, force) =>
-      drainSentences(speechEngine, state, force),
 
-    _greeting: null, // function
+    stopVoiceSession: (message) => {
+      speechEngine.convoOn = false;
+      speechEngine.isProcessing = false;
+      speechEngine.stopSpeaking();
+      sttEngine.stopListening();
+      if (typeof speechEngine.onVoiceStatusChanged === 'function') {
+        speechEngine.onVoiceStatusChanged(false, '', '', 0);
+      }
+      if (typeof message === 'string' && message !== '') {
+        speechEngine.spokenDisplayText = message;
+      }
+    },
+
+    setMic: (isListening) => {
+      if (typeof speechEngine.onMicStateChanged === 'function') {
+        speechEngine.onMicStateChanged(isListening, speechEngine.convoOn);
+      }
+    },
+
+    startListening: () => {
+      if (speechEngine.isSpeaking || speechEngine.isProcessing) {
+        speechEngine.stopSpeaking();
+      }
+      sttEngine.startListening();
+    },
+
+    preloadTapGreeting: (text) => {
+      if (typeof ttsEngine.preloadTapGreeting === 'function') {
+        return ttsEngine.preloadTapGreeting(text);
+      }
+    },
+
+    setLocale: (locale) => {
+      ttsEngine.setLocale(locale);
+      if (typeof speechEngine.onLanguageChanged === 'function') {
+        let label = '語音預設';
+        if (/en/i.test(locale)) label = '英文 (English)';
+        else if (/ja/i.test(locale)) label = '日文 (日本語)';
+        else if (/ko/i.test(locale)) label = '韓文 (한국어)';
+        else if (/zh/i.test(locale)) label = '繁體中文';
+        speechEngine.onLanguageChanged(locale, label);
+      }
+    },
+
+    _speechBuf: '',
+    _speechQueue: [],
+
+    drainSentences: (state, force) => {
+      const parts = splitSentences(state.buf);
+      if (parts.length > 1 || (force && parts.length > 0)) {
+        const out = force ? parts : parts.slice(0, parts.length - 1);
+        state.buf = force ? '' : parts[parts.length - 1];
+        return out;
+      }
+      return [];
+    },
+
+    beginSpeech: () => {
+      speechEngine.stopSpeaking();
+      speechEngine._speechBuf = '';
+      speechEngine._speechQueue = [];
+      speechEngine.speakSeq++;
+      return speechEngine.speakSeq;
+    },
+
+    pushSpeech: (sid, text, options) => {
+      if (sid !== speechEngine.speakSeq) return;
+      speechEngine._speechBuf += text;
+      speechEngine._speechQueue.push(text);
+
+      if (!ttsEngine.isSpeaking) {
+        speechEngine._playNextQueue(sid, options);
+      }
+    },
+
+    _playNextQueue: (sid, options) => {
+      if (sid !== speechEngine.speakSeq) return;
+      if (speechEngine._speechQueue.length > 0) {
+        const sentence = speechEngine._speechQueue.shift();
+        speechEngine.speak(sentence, options);
+      } else {
+        if (speechEngine._speechEndedFlag) {
+          speechEngine.onUtteranceEnd();
+        }
+      }
+    },
+
+    _onTTSSpeakEnd: () => {
+      if (speechEngine._speechQueue.length > 0) {
+        speechEngine._playNextQueue(speechEngine.speakSeq, {});
+      } else if (speechEngine._speechEndedFlag) {
+        speechEngine.onUtteranceEnd();
+      } else {
+        if (typeof setting.onSpeakingEnd === 'function') {
+          setting.onSpeakingEnd();
+        }
+      }
+    },
+
+    _speechEndedFlag: false,
+    endSpeech: (sid) => {
+      if (sid !== speechEngine.speakSeq) return;
+      speechEngine._speechEndedFlag = true;
+      if (!ttsEngine.isSpeaking && speechEngine._speechQueue.length === 0) {
+        speechEngine.onUtteranceEnd();
+      }
+    },
+
+    onUtteranceEnd: () => {
+      speechEngine.isProcessing = false;
+      speechEngine._speechEndedFlag = false;
+      if (speechEngine.convoOn && !speechEngine.isListening) {
+        speechEngine.startListening();
+      }
+    },
+
+    handleUser: (text) => handleUser(speechEngine, text),
+
+    _greeting: null,
     get greeting() {
       return this._greeting;
     },
-    set greeting(newGreeting) {
-      if (typeof newGreeting === 'function' || newGreeting === null) {
-        this._greeting = newGreeting;
-      }
+    set greeting(val) {
+      this._greeting = val;
     },
 
-    _companionGreeting: null, // function | string
+    _companionGreeting: null,
     get companionGreeting() {
       return this._companionGreeting;
     },
-    set companionGreeting(newCompanionGreeting) {
-      if (
-        typeof newCompanionGreeting === 'function' ||
-        typeof newCompanionGreeting === 'string' ||
-        newCompanionGreeting === null
-      ) {
-        this._companionGreeting = newCompanionGreeting;
-      }
+    set companionGreeting(val) {
+      this._companionGreeting = val;
     },
 
-    _assistantGreeting: null, // function | string
+    _assistantGreeting: null,
     get assistantGreeting() {
       return this._assistantGreeting;
     },
-    set assistantGreeting(newAssistantGreeting) {
-      if (
-        typeof newAssistantGreeting === 'function' ||
-        typeof newAssistantGreeting === 'string' ||
-        newAssistantGreeting === null
-      ) {
-        this._assistantGreeting = newAssistantGreeting;
-      }
-    },
-    isProcessing: false
+    set assistantGreeting(val) {
+      this._assistantGreeting = val;
+    }
   };
 
-  if (typeof setting.greeting === 'function') {
+  if (typeof setting.greeting === 'function')
     speechEngine.greeting = setting.greeting.bind();
-  }
-  if (typeof setting.companionGreeting === 'function') {
+  if (typeof setting.companionGreeting === 'function')
     speechEngine.companionGreeting = setting.companionGreeting.bind();
-  } else if (typeof setting.companionGreeting === 'string') {
+  else if (typeof setting.companionGreeting === 'string')
     speechEngine.companionGreeting = setting.companionGreeting;
-  }
-  if (typeof setting.assistantGreeting === 'function') {
+  if (typeof setting.assistantGreeting === 'function')
     speechEngine.assistantGreeting = setting.assistantGreeting.bind();
-  } else if (typeof setting.assistantGreeting === 'string') {
+  else if (typeof setting.assistantGreeting === 'string')
     speechEngine.assistantGreeting = setting.assistantGreeting;
-  }
-
-  if ('speechSynthesis' in window === true) {
-    speechSynthesis.onvoiceschanged = () => {
-      if (speechEngine.ttVoice === null) {
-        speechEngine.ttVoice = loadVoice(speechEngine.gender);
-      }
-    };
-    speechEngine.ttVoice = loadVoice(speechEngine.gender);
-  }
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden === true && speechEngine.convoOn === true) {
       speechEngine.stopVoiceSession('頁面進入背景，即時語音已停止。');
     }
   });
+
+  // --- TTS Setup ---
+  const ttsOptions = {
+    ttsEndpoint: ttsEndpoint || DEFAULT_TTS_ENDPOINT,
+    neuralVoice: neuralVoice,
+    gender: speechEngine.gender,
+    onSpeakStart: () => {
+      // Tap motion trigger when speaking starts
+      if (typeof speechEngine.skin?.avatarModel?.motion === 'function') {
+        try {
+          speechEngine.skin.avatarModel.motion('Tap');
+        } catch (_e) {}
+      }
+    },
+    onSpeakEnd: () => {
+      if (typeof speechEngine._onTTSSpeakEnd === 'function') {
+        speechEngine._onTTSSpeakEnd();
+      }
+    },
+    onSpokenDisplayTextChange: (text) => {
+      speechEngine.spokenDisplayText = text;
+    }
+  };
+
+  if (typeof customEngines?.tts !== 'undefined' && customEngines.tts !== null) {
+    try {
+      const customInstance =
+        typeof customEngines.tts === 'function'
+          ? await customEngines.tts(ttsOptions)
+          : customEngines.tts;
+      const validation = validateTTSEngine(customInstance);
+      if (validation.isValid) {
+        ttsEngine = customInstance;
+      } else {
+        console.error(
+          `[AvatarBot] 自訂 ttsEngine 驗證失敗，缺少以下實作: ${validation.missing.join(', ')}。將退回使用預設引擎。`
+        );
+      }
+    } catch (e) {
+      console.error('[AvatarBot] 初始化自訂 ttsEngine 發生錯誤:', e);
+    }
+  }
+  if (!ttsEngine) {
+    ttsEngine = initDefaultTTSEngine(ttsOptions);
+  }
+
+  // --- STT Setup ---
+  const sttOptions = {
+    getAssistantActive: () =>
+      speechEngine.isSpeaking || speechEngine.isProcessing,
+    getSpeechDuration: () =>
+      performance.now() -
+      (speechEngine.assistantSpeechStartedAt || performance.now()),
+    getConvoOn: () => speechEngine.convoOn,
+    onResult: (text, isFinal) => {
+      if (isFinal) {
+        speechEngine.handleUser(text);
+      } else {
+        speechEngine.spokenDisplayText = '你：' + text + '…';
+        if (typeof speechEngine.onVoiceStatusChanged === 'function') {
+          speechEngine.onVoiceStatusChanged(
+            speechEngine.convoOn,
+            '正在辨識：' + text,
+            'listening',
+            0
+          );
+        }
+      }
+    },
+    onMicLevel: (rms, showVoiceUI, stateString, levelAmp) => {
+      if (typeof speechEngine.onVoiceStatusChanged === 'function') {
+        speechEngine.onVoiceStatusChanged(
+          showVoiceUI,
+          undefined,
+          stateString,
+          levelAmp
+        );
+      }
+    },
+    onBargeIn: () => {
+      if (typeof speechEngine.interruptForVoice === 'function') {
+        speechEngine.interruptForVoice();
+      }
+    },
+    onError: (errorMessage, isNotAllowed) => {
+      if (isNotAllowed) {
+        speechEngine.convoOn = false;
+        speechEngine.spokenDisplayText = errorMessage;
+        if (typeof speechEngine.onVoiceStatusChanged === 'function') {
+          speechEngine.onVoiceStatusChanged(
+            speechEngine.convoOn,
+            '麥克風權限被拒絕',
+            '',
+            0
+          );
+        }
+      } else {
+        speechEngine.spokenDisplayText = errorMessage;
+      }
+    },
+    onStatusChange: (isListening, statusMessage) => {
+      if (typeof speechEngine.onMicStateChanged === 'function') {
+        speechEngine.onMicStateChanged(isListening, speechEngine.convoOn);
+      }
+      if (
+        statusMessage &&
+        typeof speechEngine.onVoiceStatusChanged === 'function'
+      ) {
+        speechEngine.onVoiceStatusChanged(
+          speechEngine.convoOn,
+          statusMessage,
+          isListening ? 'listening' : 'thinking',
+          0
+        );
+      }
+    },
+    onNoSpeechAbort: () => {
+      speechEngine.stopVoiceSession('連續幾次沒有聽到聲音，即時對話已暫停。');
+    }
+  };
+
+  if (typeof customEngines?.stt !== 'undefined' && customEngines.stt !== null) {
+    try {
+      const customInstance =
+        typeof customEngines.stt === 'function'
+          ? await customEngines.stt(sttOptions)
+          : customEngines.stt;
+      const validation = validateSTTEngine(customInstance);
+      if (validation.isValid) {
+        sttEngine = customInstance;
+      } else {
+        console.error(
+          `[AvatarBot] 自訂 sttEngine 驗證失敗，缺少以下實作: ${validation.missing.join(', ')}。將退回使用預設引擎。`
+        );
+      }
+    } catch (e) {
+      console.error('[AvatarBot] 初始化自訂 sttEngine 發生錯誤:', e);
+    }
+  }
+  if (!sttEngine) {
+    sttEngine = initDefaultSTTEngine(sttOptions);
+  }
 
   return speechEngine;
 }

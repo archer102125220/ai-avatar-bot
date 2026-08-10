@@ -346,7 +346,9 @@ export async function initAvatarBot(optiopns = {}) {
     getSpeech: () => speechEngine
   });
 
-  speechEngine = initSpeechEngine({
+  // --- Orchestrator Setup ---
+  speechEngine = await initSpeechEngine({
+    customEngines,
     ttsEndpoint: ttsEndpoint || DEFAULT_TTS_ENDPOINT,
     neuralVoice: safeNeuralVoice,
     getGender: () => rootStore.getState().gender,
@@ -398,6 +400,12 @@ export async function initAvatarBot(optiopns = {}) {
         uiDom.langButtonEl.textContent = localeLabel;
       }
       callOptionEvent.call(this, 'onLanguageChanged', locale, localeLabel);
+    },
+    onSpeaking: (text) => {
+      callOptionEvent.call(this, 'onSpeaking', text);
+    },
+    onSpeakingEnd: () => {
+      callOptionEvent.call(this, 'onSpeakingEnd');
     }
   });
 
