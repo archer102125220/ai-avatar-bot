@@ -1,3 +1,9 @@
+/**
+ * 初始化使用者介面元件並附加至指定的容器中。
+ * @param {HTMLElement} container - 要容納虛擬人助理的主要容器元素。
+ * @param {HTMLElement} stageEl - 3D 或 2D 虛擬人所在的舞台元素。
+ * @returns {Object|void} 包含各種 UI DOM 元素及控制方法的物件，若參數無效則回傳 undefined。
+ */
 export function initUi(container, stageEl) {
   if (container instanceof HTMLElement === false) {
     console.error('[aiAvatar initUi] container is not an HTMLElement');
@@ -331,6 +337,11 @@ export function initUi(container, stageEl) {
   return uiDom;
 }
 
+/**
+ * 複製指定文字到系統剪貼簿。
+ * @param {string} text - 要複製的文字內容。
+ * @returns {Promise<void>} 複製完成後解析的 Promise。
+ */
 export function copyText(text) {
   if (
     typeof navigator === 'object' &&
@@ -355,6 +366,11 @@ export function copyText(text) {
   return Promise.resolve();
 }
 
+/**
+ * 設定聊天紀錄面板的開關狀態。
+ * @param {Object} context - 應用程式的共用狀態與參考（需包含 uiDom, speechEngine 等）。
+ * @param {boolean} open - true 表示開啟面板，false 表示關閉。
+ */
 export function setHistoryOpen(context, open) {
   const panel = context.uiDom.historyPanelEl;
   const btn = context.uiDom.historyButtonEl;
@@ -393,6 +409,10 @@ export function setHistoryOpen(context, open) {
   }
 }
 
+/**
+ * 渲染或更新聊天紀錄列表。
+ * @param {Object} context - 應用程式的共用狀態與參考（需包含 uiDom, brainEngine 等）。
+ */
 export function renderHistory(context) {
   const list = context.uiDom.historyPanelEl?.querySelector('#history-list');
   if (list instanceof HTMLElement === false) {
@@ -491,6 +511,12 @@ export function renderHistory(context) {
   list.scrollTop = list.scrollHeight;
 }
 
+/**
+ * 根據傳入的 2D 與 3D 模型設定，初始化切換引擎模式的按鈕。
+ * @param {Object|null} context - 應用程式的共用狀態與參考（需包含 uiDom, skinEngine 等）。
+ * @param {string} has2D - 2D 模型的資源路徑。
+ * @param {string} has3D - 3D 模型的資源路徑。
+ */
 export function initSkinModeChangeButton(context = null, has2D, has3D) {
   const engineButtonEl = context?.uiDom?.engineButtonEl;
   if (engineButtonEl instanceof HTMLElement === false) {
@@ -518,6 +544,11 @@ export function initSkinModeChangeButton(context = null, has2D, has3D) {
   }
 }
 
+/**
+ * 渲染建議對話選項。
+ * 會根據使用者設定或助理模式（companion/assistant）顯示預設的建議選項。
+ * @param {Object|null} context - 應用程式的共用狀態與參考。
+ */
 export function renderSuggestions(context = null) {
   const suggestions = context.uiDom.suggestionsEl;
   if (suggestions instanceof HTMLElement === false) {
@@ -568,6 +599,11 @@ export function renderSuggestions(context = null) {
   });
 }
 
+/**
+ * 綁定文字輸入框與發送按鈕的事件。
+ * 處理使用者的文字輸入並觸發對話引擎。
+ * @param {Object|null} context - 應用程式的共用狀態與參考。
+ */
 export function bindTyping(context = null) {
   const typeInput = context?.uiDom?.questionInputEl;
   if (typeInput instanceof HTMLElement === false) {
@@ -598,6 +634,11 @@ export function bindTyping(context = null) {
   });
 }
 
+/**
+ * 綁定所有 UI 控制按鈕的點擊事件。
+ * 包含語音、靜音、語速、語言切換、大腦（LLM）狀態等互動邏輯。
+ * @param {Object|null} context - 應用程式的共用狀態與參考。
+ */
 export function bindUiEvent(context = null) {
   const uiDom = context?.uiDom || {};
 
