@@ -49,8 +49,8 @@ function bigrams(value) {
 
 /**
  * 計算兩個字串基於二元字元組 (Bigrams) 的相似度。
- * @param {string} a - 第一個字串
- * @param {string} b - 第二個字串
+ * @param {string} sourceString - 第一個字串
+ * @param {string} targetString - 第二個字串
  * @returns {number} 相似度分數，範圍為 0 到 1
  */
 export function similarity(sourceString, targetString) {
