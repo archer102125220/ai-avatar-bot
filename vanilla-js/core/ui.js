@@ -1,8 +1,61 @@
 /**
+ * 虛擬人前端 UI 元素的集合與相關控制方法
+ * @typedef {Object} UiDom
+ * @property {HTMLElement} stageEl - 3D 或 2D 虛擬人所在的舞台元素
+ * @property {HTMLElement} bubbleEl - 對話泡泡元素
+ * @property {HTMLElement} suggestionsEl - 建議對話容器元素
+ * @property {HTMLElement} historyPanelEl - 聊天紀錄面板元素
+ * @property {HTMLElement} voiceLiveEl - 語音即時狀態元素
+ * @property {HTMLElement} voiceStatusEl - 語音狀態文字元素
+ * @property {HTMLElement} voiceLevelEl - 語音音量條元素
+ * @property {function(boolean, string=, string=, number=): void} updateVoiceStatus - 更新語音狀態 (convoOn, text, state, level)
+ * @property {function(boolean, boolean, boolean=): void} updateMicState - 更新麥克風按鈕狀態 (isListening, convoOn, isCompanion)
+ * @property {HTMLElement} controlBarEl - 控制列容器
+ * @property {HTMLElement} dockRow1El - 控制列第一排（文字輸入列）
+ * @property {HTMLElement} dockRow2El - 控制列第二排（功能按鈕列）
+ * @property {HTMLElement} questionInputEl - 文字輸入框
+ * @property {HTMLElement} sendButtonEl - 送出按鈕
+ * @property {HTMLElement} micButtonEl - 麥克風按鈕
+ * @property {HTMLElement} engineButtonEl - 2D/3D 切換按鈕
+ * @property {HTMLElement} muteButtonEl - 靜音按鈕
+ * @property {HTMLElement} btnLlmEl - AI 大腦啟用按鈕
+ * @property {HTMLElement} speedButtonEl - 語速調整按鈕
+ * @property {HTMLElement} langButtonEl - 語言切換按鈕
+ * @property {HTMLElement} historyButtonEl - 聊天紀錄按鈕
+ * @property {HTMLElement} closeButtonEl - 關閉按鈕
+ * @property {HTMLElement} directWarnEl - 直接開啟警告提示元素
+ * @property {HTMLElement} minimalEl - 最小化時的喚醒按鈕
+ * @property {boolean} onTapTimer - 點擊計時器狀態
+ */
+
+/**
+ * 傳遞給 UI 模組的應用程式狀態與參考集合
+ * @typedef {Object} UiContext
+ * @property {UiDom} uiDom - UI DOM 元素與控制方法
+ * @property {Object} [speechEngine] - 語音引擎實例
+ * @property {Object} [brainEngine] - AI 大腦引擎實例
+ * @property {Object} [toolsEngine] - 工具引擎實例
+ * @property {Object} [skinEngine] - 外觀引擎實例
+ * @property {string[]} [suggestedQuestions] - 建議對話列表
+ * @property {string} [suggestedTitle] - 建議對話標題
+ * @property {string[]} [companionSuggestedQuestions] - 陪伴模式的建議對話列表
+ * @property {string} [companionSuggestedTitle] - 陪伴模式的建議對話標題
+ * @property {string[]} [assistantSuggestedQuestions] - 助理模式的建議對話列表
+ * @property {string} [assistantSuggestedTitle] - 助理模式的建議對話標題
+ * @property {string} [avatarMode] - 虛擬人模式 ('companion' | 'assistant')
+ * @property {Object} [AVATAR_MODE_MAP] - 虛擬人模式常數對應表
+ * @property {Object} [ENGINE_MODE_MAP] - 引擎模式常數對應表
+ * @property {Object} [STATE_MAP] - 狀態常數對應表
+ * @property {boolean} [isMinimal] - 是否處於最小化狀態
+ * @property {boolean} [isIframe] - 是否在 iframe 中執行
+ * @property {function} [onMinimalTrigger] - 最小化觸發回呼函數
+ */
+
+/**
  * 初始化使用者介面元件並附加至指定的容器中。
  * @param {HTMLElement} container - 要容納虛擬人助理的主要容器元素。
  * @param {HTMLElement} stageEl - 3D 或 2D 虛擬人所在的舞台元素。
- * @returns {Object|void} 包含各種 UI DOM 元素及控制方法的物件，若參數無效則回傳 undefined。
+ * @returns {UiDom|void} 包含各種 UI DOM 元素及控制方法的物件，若參數無效則回傳 undefined。
  */
 export function initUi(container, stageEl) {
   if (container instanceof HTMLElement === false) {
@@ -368,7 +421,7 @@ export function copyText(text) {
 
 /**
  * 設定聊天紀錄面板的開關狀態。
- * @param {Object} context - 應用程式的共用狀態與參考（需包含 uiDom, speechEngine 等）。
+ * @param {UiContext} context - 應用程式的共用狀態與參考（需包含 uiDom, speechEngine 等）。
  * @param {boolean} open - true 表示開啟面板，false 表示關閉。
  */
 export function setHistoryOpen(context, open) {
@@ -411,7 +464,7 @@ export function setHistoryOpen(context, open) {
 
 /**
  * 渲染或更新聊天紀錄列表。
- * @param {Object} context - 應用程式的共用狀態與參考（需包含 uiDom, brainEngine 等）。
+ * @param {UiContext} context - 應用程式的共用狀態與參考（需包含 uiDom, brainEngine 等）。
  */
 export function renderHistory(context) {
   const list = context.uiDom.historyPanelEl?.querySelector('#history-list');
@@ -513,7 +566,7 @@ export function renderHistory(context) {
 
 /**
  * 根據傳入的 2D 與 3D 模型設定，初始化切換引擎模式的按鈕。
- * @param {Object|null} context - 應用程式的共用狀態與參考（需包含 uiDom, skinEngine 等）。
+ * @param {UiContext|null} context - 應用程式的共用狀態與參考（需包含 uiDom, skinEngine 等）。
  * @param {string} has2D - 2D 模型的資源路徑。
  * @param {string} has3D - 3D 模型的資源路徑。
  */
@@ -547,7 +600,7 @@ export function initSkinModeChangeButton(context = null, has2D, has3D) {
 /**
  * 渲染建議對話選項。
  * 會根據使用者設定或助理模式（companion/assistant）顯示預設的建議選項。
- * @param {Object|null} context - 應用程式的共用狀態與參考。
+ * @param {UiContext|null} context - 應用程式的共用狀態與參考。
  */
 export function renderSuggestions(context = null) {
   const suggestions = context.uiDom.suggestionsEl;
@@ -602,7 +655,7 @@ export function renderSuggestions(context = null) {
 /**
  * 綁定文字輸入框與發送按鈕的事件。
  * 處理使用者的文字輸入並觸發對話引擎。
- * @param {Object|null} context - 應用程式的共用狀態與參考。
+ * @param {UiContext|null} context - 應用程式的共用狀態與參考。
  */
 export function bindTyping(context = null) {
   const typeInput = context?.uiDom?.questionInputEl;
@@ -637,7 +690,7 @@ export function bindTyping(context = null) {
 /**
  * 綁定所有 UI 控制按鈕的點擊事件。
  * 包含語音、靜音、語速、語言切換、大腦（LLM）狀態等互動邏輯。
- * @param {Object|null} context - 應用程式的共用狀態與參考。
+ * @param {UiContext|null} context - 應用程式的共用狀態與參考。
  */
 export function bindUiEvent(context = null) {
   const uiDom = context?.uiDom || {};
