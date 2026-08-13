@@ -1,8 +1,5 @@
 // TODO: 等到環境可以測試麥克風跟喇叭時，要徹底測過這份檔案內部的所有機制有沒有因為重構而出問題
-import {
-  DEFAULT_TTS_ENDPOINT,
-  GENDER_MAP
-} from '../constants';
+import { DEFAULT_TTS_ENDPOINT, GENDER_MAP } from '../constants';
 import { createBaseStore } from '../store';
 import { initDefaultSTTEngine, validateSTTEngine } from './stt';
 import { splitSentences, initDefaultTTSEngine, validateTTSEngine } from './tts';
@@ -300,13 +297,13 @@ export async function initSpeechEngine(setting = {}) {
       if (typeof speechEngine.onLanguageChanged === 'function') {
         let label = '語音預設';
         if (/en/i.test(locale)) {
-          label = '英文 (English)';
+          label = 'English';
         } else if (/ja/i.test(locale)) {
-          label = '日文 (日本語)';
+          label = '日本語';
         } else if (/ko/i.test(locale)) {
-          label = '韓文 (한국어)';
+          label = '한국어';
         } else if (/zh/i.test(locale)) {
-          label = '繁體中文';
+          label = '中文';
         }
         speechEngine.onLanguageChanged(locale, label);
       }
@@ -382,8 +379,7 @@ export async function initSpeechEngine(setting = {}) {
       if (speechEngine.convoOn && !speechEngine.isListening) {
         speechEngine.startListening();
       }
-    },
-
+    }
   };
 
   document.addEventListener('visibilitychange', () => {
