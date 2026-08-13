@@ -150,6 +150,11 @@ import {
  * @property {string} [aiProviderChatUrl] - AI Chat URL
  * @property {number} [aiProviderMaxTokens] - AI 最大 token 數
  * @property {boolean} [aiProviderIsStream] - AI 是否串流
+ * @property {string} [locale] - 語系設定 (例如 'zh-TW', 'en-US', 'ja-JP', 'ko-KR')
+ * @property {string|Function} [systemContextTemplate] - 助理模式系統提示詞模板
+ * @property {string|Function} [companionSystemContextTemplate] - 陪伴模式系統提示詞模板
+ * @property {string|Function} [ragTemplate] - RAG 參考資料模板
+ * @property {string|Function} [languageRule] - 多語系回答規則提示詞
  * @property {Function} [buildLLMMessages] - 建立 LLM 訊息回呼
  */
 
@@ -197,6 +202,11 @@ import {
  * @property {Function} defaultBuildLLMMessages - 預設建構 LLM 訊息方法
  * @property {Function} getWelcomeText - 取得歡迎詞方法
  * @property {Function} classifyEmotion - 情緒分類方法
+ * @property {string} locale - 語系設定
+ * @property {string|Function} systemContextTemplate - 助理模式系統提示詞模板
+ * @property {string|Function} companionSystemContextTemplate - 陪伴模式系統提示詞模板
+ * @property {string|Function} ragTemplate - RAG 參考資料模板
+ * @property {string|Function} languageRule - 多語系回答規則提示詞
  * @property {Function} setEmotionFromText - 設定情緒方法
  * @property {Function} handleAnswer - 處理回答方法
  * @property {Function} addChatMessage - 新增對話訊息方法
@@ -863,7 +873,12 @@ export async function initBrainEngine(setting = {}) {
     aiProviderChatUrl,
     aiProviderMaxTokens,
     aiProviderIsStream,
-    buildLLMMessages
+    buildLLMMessages,
+    locale = 'zh-TW',
+    systemContextTemplate,
+    companionSystemContextTemplate,
+    ragTemplate,
+    languageRule
   } = setting;
 
   let llm = null;
@@ -939,6 +954,12 @@ export async function initBrainEngine(setting = {}) {
 
     chatLog: [],
     chatSeq: 0,
+    
+    locale,
+    systemContextTemplate,
+    companionSystemContextTemplate,
+    ragTemplate,
+    languageRule,
 
     _welcomeText: null,
     get welcomeText() {
@@ -1332,19 +1353,49 @@ export function defaultBuildLLMMessages(brainEngine, question) {
   const context = topK(brainEngine, question, 3)
     .map((entry) => 'Q：' + entry.q + '\nA：' + entry.a)
     .join('\n---\n');
-  const RAG =
-    '優先依據【參考資料】回答；資料沒有的就用常識簡短回應，不確定就老實說不知道。\n\n【參考資料】\n' +
-    (context || '（無）');
-  const systemContext =
-    brainEngine?.avatarMode === AVATAR_MODE_MAP.companion
-      ? '你是這個網站的陪伴型語音虛擬人，親切、口語、繁體中文、每次最多兩三句。你記得訪客先前的對話' +
-        (brainEngine?.mem?.data?.name
-          ? '，訪客叫「' + brainEngine.mem.data.name + '」，可自然稱呼'
-          : '') +
-        '。' +
-        RAG
-      : '你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請用繁體中文、口語、最多兩三句話簡短回答。' +
-        RAG;
+
+  let defaultLanguageRule;
+  switch ((brainEngine.locale || '').toLowerCase()) {
+    case 'en-us':
+      defaultLanguageRule = 'Please answer in concise, natural English.';
+      break;
+    case 'ja-jp':
+      defaultLanguageRule = '自然で簡潔な日本語で回答してください。';
+      break;
+    case 'ko-kr':
+      defaultLanguageRule = '자연스럽고 간결한 한국어로 답변해 주세요.';
+      break;
+    default:
+      defaultLanguageRule = '請使用自然、簡短的繁體中文回答。';
+  }
+
+  const languageRuleText = typeof brainEngine.languageRule === 'function'
+    ? brainEngine.languageRule(brainEngine)
+    : (brainEngine.languageRule || defaultLanguageRule);
+
+  const RAG = typeof brainEngine.ragTemplate === 'function'
+    ? brainEngine.ragTemplate(brainEngine, context)
+    : (brainEngine.ragTemplate || '優先依據【參考資料】回答；資料沒有的就用常識簡短回應，不確定就老實說不知道。\n\n【參考資料】\n{{context}}').replace('{{context}}', context || '（無）');
+
+  let systemContext;
+  if (brainEngine?.avatarMode === AVATAR_MODE_MAP.companion) {
+    const nameStr = brainEngine?.mem?.data?.name ? '，訪客叫「' + brainEngine.mem.data.name + '」，可自然稱呼' : '';
+    const companionTemplate = typeof brainEngine.companionSystemContextTemplate === 'function'
+      ? brainEngine.companionSystemContextTemplate(brainEngine, RAG, languageRuleText, nameStr)
+      : (brainEngine.companionSystemContextTemplate || '你是這個網站的陪伴型語音虛擬人，親切、口語、繁體中文、每次最多兩三句。你記得訪客先前的對話{{name_placeholder}}。{{RAG}}\n{{languageRule}}')
+          .replace('{{name_placeholder}}', nameStr)
+          .replace('{{RAG}}', RAG)
+          .replace('{{languageRule}}', languageRuleText);
+    systemContext = companionTemplate;
+  } else {
+    const assistantTemplate = typeof brainEngine.systemContextTemplate === 'function'
+      ? brainEngine.systemContextTemplate(brainEngine, RAG, languageRuleText)
+      : (brainEngine.systemContextTemplate || '你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請口語、最多兩三句話簡短回答。{{RAG}}\n{{languageRule}}')
+          .replace('{{RAG}}', RAG)
+          .replace('{{languageRule}}', languageRuleText);
+    systemContext = assistantTemplate;
+  }
+
   const msgs = [{ role: 'system', content: systemContext }];
   if (brainEngine?.mem?.isCompanion === true) {
     for (const historyItem of brainEngine.mem.data.history) {

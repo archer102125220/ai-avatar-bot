@@ -66,9 +66,14 @@ export { validateSkinEngine, validateToolsEngine, validateBrainEngine };
  * @property {Record<string, any>} [gesture2D] - 2D 模型使用的姿態資料
  * @property {boolean} [isMinimal=false] - 是否以極簡模式 (Minimal UI) 啟動
  * @property {boolean} [isIframe=false] - 是否在 Iframe 中執行
+ * @property {string} [locale='zh-TW'] - 語系設定 (例如 'zh-TW', 'en-US', 'ja-JP', 'ko-KR')
  * @property {string} [gender=''] - 預設性別設定
  * @property {Array<string|Record<string, any>>} [companionFallback=[]] - 陪伴模式的備用對話回覆 (Fallback) 清單
  * @property {CustomEnginesConfig} [customEngines={}] - 自訂引擎 (例如自訂 skin 引擎) 的設定物件
+ * @property {string|Function} [systemContextTemplate] - 助理模式系統提示詞模板
+ * @property {string|Function} [companionSystemContextTemplate] - 陪伴模式系統提示詞模板
+ * @property {string|Function} [ragTemplate] - RAG 參考資料模板
+ * @property {string|Function} [languageRule] - 多語系回答規則提示詞
  * @property {Function} [buildLLMMessages] - 自訂組裝 LLM 訊息格式的函式
  * @property {string} [welcomeText] - 通用歡迎詞文字
  * @property {string} [companionWelcomeText] - 陪伴模式專用歡迎詞文字
@@ -176,9 +181,14 @@ export async function initAvatarBot(optiopns = {}) {
     gesture2D,
     isMinimal = false,
     isIframe = false,
+    locale = 'zh-TW',
     gender = '',
     companionFallback = [],
-    customEngines = {}
+    customEngines = {},
+    systemContextTemplate,
+    companionSystemContextTemplate,
+    ragTemplate,
+    languageRule
   } = optiopns;
 
   if (container instanceof HTMLElement === false) {
@@ -502,6 +512,12 @@ export async function initAvatarBot(optiopns = {}) {
     aiProviderMaxTokens,
     aiProviderStream,
     buildLLMMessages: optiopns.buildLLMMessages,
+
+    locale,
+    systemContextTemplate,
+    companionSystemContextTemplate,
+    ragTemplate,
+    languageRule,
 
     welcomeText: optiopns.welcomeText,
     companionWelcomeText: optiopns.companionWelcomeText,
