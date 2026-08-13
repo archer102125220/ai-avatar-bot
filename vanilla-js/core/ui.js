@@ -778,8 +778,10 @@ export function bindUiEvent(context = null) {
   if (uiDom.langButtonEl instanceof HTMLElement) {
     uiDom.langButtonEl.onclick = () => {
       const locales = ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'];
-      const current = context.speechEngine.currentLocale || 'zh-TW';
+      const current = context.locale || 'zh-TW';
       const next = locales[(locales.indexOf(current) + 1) % locales.length];
+      
+      context.locale = next;
       context.speechEngine.setLocale(next);
 
       let msg = '語言：繁體中文';
