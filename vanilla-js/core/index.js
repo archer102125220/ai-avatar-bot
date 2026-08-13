@@ -68,6 +68,9 @@ export { validateSkinEngine, validateToolsEngine, validateBrainEngine };
  * @property {boolean} [isIframe=false] - 是否在 Iframe 中執行
  * @property {string} [locale='zh-TW'] - 語系設定 (例如 'zh-TW', 'en-US', 'ja-JP', 'ko-KR')
  * @property {string} [gender=''] - 預設性別設定
+ * @property {string} [brainGender=null] - 專屬大腦引擎（用語）的性別設定
+ * @property {string} [speechGender=null] - 專屬語音引擎（音色）的性別設定
+ * @property {string} [skinGender=null] - 專屬外觀引擎（模型外表）的性別設定
  * @property {Array<string|Record<string, any>>} [companionFallback=[]] - 陪伴模式的備用對話回覆 (Fallback) 清單
  * @property {CustomEnginesConfig} [customEngines={}] - 自訂引擎 (例如自訂 skin 引擎) 的設定物件
  * @property {string|Function} [systemContextTemplate] - 助理模式系統提示詞模板
@@ -128,10 +131,13 @@ export { validateSkinEngine, validateToolsEngine, validateBrainEngine };
  * @property {Function} setEmotionFromText - 根據文字設定情感的函式
  * @property {boolean} isIframe - 是否在 Iframe 內
  * @property {boolean} isMinimal - 是否處於極簡模式
+ * @property {string} gender - 目前性別
+ * @property {string|null} brainGender - 大腦引擎性別設定
+ * @property {string|null} speechGender - 語音引擎性別設定
+ * @property {string|null} skinGender - 外觀引擎性別設定
+ * @property {string} avatarMode - 目前 Avatar 模式
  * @property {Function} showMinimalEl - 顯示極簡模式元素的函式
  * @property {Function} hiddenMinimalEl - 隱藏極簡模式元素的函式
- * @property {string} gender - 目前性別
- * @property {string} avatarMode - 目前 Avatar 模式
  * @property {any} brainEngine - AI 大腦引擎實例
  * @property {any} speechEngine - 語音引擎實例
  * @property {any} skinEngine - Skin (模型與畫面) 引擎實例
