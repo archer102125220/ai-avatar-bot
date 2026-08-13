@@ -297,13 +297,13 @@ export async function initSpeechEngine(setting = {}) {
       if (typeof speechEngine.onLanguageChanged === 'function') {
         let label = '語音預設';
         if (/en/i.test(locale)) {
-          label = 'English';
+          label = '英文 (English)';
         } else if (/ja/i.test(locale)) {
-          label = '日本語';
+          label = '日文 (日本語)';
         } else if (/ko/i.test(locale)) {
-          label = '한국어';
+          label = '韓文 (한국어)';
         } else if (/zh/i.test(locale)) {
-          label = '中文';
+          label = '繁體中文';
         }
         speechEngine.onLanguageChanged(locale, label);
       }
