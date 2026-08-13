@@ -203,6 +203,7 @@ import {
  * @property {Function} getWelcomeText - 取得歡迎詞方法
  * @property {Function} classifyEmotion - 情緒分類方法
  * @property {string} locale - 語系設定
+ * @property {Function} setLocale - 設定語系方法
  * @property {string|Function} systemContextTemplate - 助理模式系統提示詞模板
  * @property {string|Function} companionSystemContextTemplate - 陪伴模式系統提示詞模板
  * @property {string|Function} ragTemplate - RAG 參考資料模板
@@ -960,6 +961,10 @@ export async function initBrainEngine(setting = {}) {
     companionSystemContextTemplate,
     ragTemplate,
     languageRule,
+
+    setLocale: (newLocale) => {
+      brainEngine.locale = newLocale;
+    },
 
     _welcomeText: null,
     get welcomeText() {

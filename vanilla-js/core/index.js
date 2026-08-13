@@ -362,8 +362,11 @@ export async function initAvatarBot(optiopns = {}) {
   });
 
   rootStore.subscribe('locale', (newLocale) => {
-    if (aiAvatarWidget.brainEngine) {
-      aiAvatarWidget.brainEngine.locale = newLocale;
+    if (typeof aiAvatarWidget.brainEngine?.setLocale === 'function') {
+      aiAvatarWidget.brainEngine.setLocale(newLocale);
+    }
+    if (typeof aiAvatarWidget.speechEngine?.setLocale === 'function') {
+      aiAvatarWidget.speechEngine.setLocale(newLocale);
     }
   });
 

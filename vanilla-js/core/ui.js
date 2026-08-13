@@ -782,7 +782,6 @@ export function bindUiEvent(context = null) {
       const next = locales[(locales.indexOf(current) + 1) % locales.length];
       
       context.locale = next;
-      context.speechEngine.setLocale(next);
 
       let msg = '語言：繁體中文';
       if (next === 'en-US') msg = 'Language: English';
