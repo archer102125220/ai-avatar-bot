@@ -183,6 +183,9 @@ export async function initAvatarBot(optiopns = {}) {
     isIframe = false,
     locale = 'zh-TW',
     gender = '',
+    brainGender = null,
+    speechGender = null,
+    skinGender = null,
     companionFallback = [],
     customEngines = {},
     systemContextTemplate,
@@ -227,6 +230,18 @@ export async function initAvatarBot(optiopns = {}) {
 
   const rootStore = createBaseStore({
     gender: safeGender,
+    brainGender:
+      brainGender && Object.values(GENDER_MAP).includes(brainGender)
+        ? brainGender
+        : null,
+    speechGender:
+      speechGender && Object.values(GENDER_MAP).includes(speechGender)
+        ? speechGender
+        : null,
+    skinGender:
+      skinGender && Object.values(GENDER_MAP).includes(skinGender)
+        ? skinGender
+        : null,
     avatarMode: avatarMode || DEFAULT_AVATAR_MODE,
     locale: locale || 'zh-TW'
   });
@@ -325,6 +340,33 @@ export async function initAvatarBot(optiopns = {}) {
       }
     },
 
+    get brainGender() {
+      return rootStore.getState().brainGender;
+    },
+    set brainGender(newGender = null) {
+      if (newGender === null || Object.values(GENDER_MAP).includes(newGender)) {
+        rootStore.setState({ brainGender: newGender });
+      }
+    },
+
+    get speechGender() {
+      return rootStore.getState().speechGender;
+    },
+    set speechGender(newGender = null) {
+      if (newGender === null || Object.values(GENDER_MAP).includes(newGender)) {
+        rootStore.setState({ speechGender: newGender });
+      }
+    },
+
+    get skinGender() {
+      return rootStore.getState().skinGender;
+    },
+    set skinGender(newGender = null) {
+      if (newGender === null || Object.values(GENDER_MAP).includes(newGender)) {
+        rootStore.setState({ skinGender: newGender });
+      }
+    },
+
     get locale() {
       return rootStore.getState().locale;
     },
@@ -359,14 +401,48 @@ export async function initAvatarBot(optiopns = {}) {
   };
 
   rootStore.subscribe('gender', (newGender) => {
-    if (typeof aiAvatarWidget.brainEngine?.setGender === 'function') {
+    const state = rootStore.getState();
+    if (
+      state.brainGender === null &&
+      typeof aiAvatarWidget.brainEngine?.setGender === 'function'
+    ) {
       aiAvatarWidget.brainEngine.setGender(newGender);
     }
-    if (typeof aiAvatarWidget.speechEngine?.setGender === 'function') {
+    if (
+      state.speechGender === null &&
+      typeof aiAvatarWidget.speechEngine?.setGender === 'function'
+    ) {
       aiAvatarWidget.speechEngine.setGender(newGender);
     }
-    if (typeof aiAvatarWidget.skinEngine?.setGender === 'function') {
+    if (
+      state.skinGender === null &&
+      typeof aiAvatarWidget.skinEngine?.setGender === 'function'
+    ) {
       aiAvatarWidget.skinEngine.setGender(newGender);
+    }
+  });
+
+  rootStore.subscribe('brainGender', (newBrainGender) => {
+    const state = rootStore.getState();
+    const resolvedGender = newBrainGender || state.gender;
+    if (typeof aiAvatarWidget.brainEngine?.setGender === 'function') {
+      aiAvatarWidget.brainEngine.setGender(resolvedGender);
+    }
+  });
+
+  rootStore.subscribe('speechGender', (newSpeechGender) => {
+    const state = rootStore.getState();
+    const resolvedGender = newSpeechGender || state.gender;
+    if (typeof aiAvatarWidget.speechEngine?.setGender === 'function') {
+      aiAvatarWidget.speechEngine.setGender(resolvedGender);
+    }
+  });
+
+  rootStore.subscribe('skinGender', (newSkinGender) => {
+    const state = rootStore.getState();
+    const resolvedGender = newSkinGender || state.gender;
+    if (typeof aiAvatarWidget.skinEngine?.setGender === 'function') {
+      aiAvatarWidget.skinEngine.setGender(resolvedGender);
     }
   });
 
@@ -542,7 +618,7 @@ export async function initAvatarBot(optiopns = {}) {
     buildLLMMessages: optiopns.buildLLMMessages,
 
     locale: rootStore.getState().locale,
-    gender: rootStore.getState().gender,
+    gender: rootStore.getState().brainGender || rootStore.getState().gender,
     systemContextTemplate,
     companionSystemContextTemplate,
     ragTemplate,
@@ -735,7 +811,8 @@ export async function initAvatarBot(optiopns = {}) {
     },
     ttsEndpoint: ttsEndpoint || DEFAULT_TTS_ENDPOINT,
     neuralVoice: safeNeuralVoice,
-    getGender: () => rootStore.getState().gender,
+    getGender: () =>
+      rootStore.getState().speechGender || rootStore.getState().gender,
     onSpokenDisplayTextChange(newSpeakingLabel) {
       uiDom.bubbleEl.textContent = newSpeakingLabel;
       uiDom.bubbleEl.setAttribute('css-is-show', 'true');
@@ -906,7 +983,7 @@ export async function initAvatarBot(optiopns = {}) {
       vrmUrl,
       gesture2D,
       get gender() {
-        return rootStore.getState().gender;
+        return rootStore.getState().skinGender || rootStore.getState().gender;
       },
       computeMouth() {
         return aiAvatarWidget.speechEngine.computeMouth();
