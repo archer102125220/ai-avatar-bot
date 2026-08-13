@@ -858,11 +858,17 @@ export async function initAvatarBot(optiopns = {}) {
         } catch (_error) {}
       }
     },
-    onLanguageChanged(locale, localeLabel) {
+    onLanguageChanged(locale, localeLabel, shortLabel) {
       if (uiDom.langButtonEl instanceof HTMLButtonElement) {
-        uiDom.langButtonEl.textContent = localeLabel;
+        uiDom.langButtonEl.textContent = shortLabel || localeLabel;
       }
-      callOptionEvent.call(this, 'onLanguageChanged', locale, localeLabel);
+      callOptionEvent.call(
+        this,
+        'onLanguageChanged',
+        locale,
+        localeLabel,
+        shortLabel
+      );
     },
     onSpeaking: (text) => {
       callOptionEvent.call(this, 'onSpeaking', text);

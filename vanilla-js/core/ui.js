@@ -222,7 +222,7 @@ export function initUi(container, stageEl) {
   langButtonEl.setAttribute('id', 'btn-lang');
   langButtonEl.setAttribute('aria-label', '切換對話語言');
   langButtonEl.classList.add('ctrl');
-  langButtonEl.textContent = '中';
+  langButtonEl.textContent = '中文';
 
   const historyButtonEl = document.createElement('button');
   historyButtonEl.setAttribute('id', 'btn-history');
