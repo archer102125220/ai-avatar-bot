@@ -38,6 +38,8 @@ export { validateSkinEngine, validateToolsEngine, validateBrainEngine };
  * @property {Function|Object} [skin] - 自訂 Skin Engine 的建構函式或實例。
  * @property {Function|Object} [tools] - 自訂 Tools Engine 的建構函式或實例。
  * @property {Function|Object} [brain] - 自訂 Brain Engine 的建構函式或實例。
+ * @property {Function|Object} [stt] - 自訂 STT (語音辨識) 引擎的建構函式或實例。
+ * @property {Function|Object} [tts] - 自訂 TTS (語音合成) 引擎的建構函式或實例。
  */
 
 /**
@@ -680,7 +682,10 @@ export async function initAvatarBot(optiopns = {}) {
 
   // --- Orchestrator Setup ---
   speechEngine = await initSpeechEngine({
-    customEngines,
+    customEngines: {
+      tts: customEngines.tts,
+      stt: customEngines.stt
+    },
     ttsEndpoint: ttsEndpoint || DEFAULT_TTS_ENDPOINT,
     neuralVoice: safeNeuralVoice,
     getGender: () => rootStore.getState().gender,
