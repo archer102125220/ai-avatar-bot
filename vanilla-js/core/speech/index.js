@@ -97,7 +97,8 @@ export async function initSpeechEngine(setting = {}) {
     ttsMuted: false,
     convoOn: false,
     isProcessing: false,
-    assistantSpeechStartedAt: 0
+    assistantSpeechStartedAt: 0,
+    locale: setting.locale || 'zh-TW'
   });
 
   let spokenDisplayTextTimer = null;
@@ -119,6 +120,15 @@ export async function initSpeechEngine(setting = {}) {
 
   store.subscribe('gender', (val) => {
     ttsEngine.setGender(val);
+  });
+
+  store.subscribe('locale', (val) => {
+    if (sttEngine && typeof sttEngine.setLocale === 'function') {
+      sttEngine.setLocale(val);
+    }
+    if (ttsEngine && typeof ttsEngine.setLocale === 'function') {
+      ttsEngine.setLocale(val);
+    }
   });
 
   store.subscribe('ttsMuted', (val) => {
@@ -292,8 +302,11 @@ export async function initSpeechEngine(setting = {}) {
       }
     },
 
+    get locale() {
+      return store.getState().locale;
+    },
     setLocale: (locale) => {
-      ttsEngine.setLocale(locale);
+      store.setState({ locale });
       if (typeof speechEngine.onLanguageChanged === 'function') {
         let label = '語音預設';
         let shortLabel = '';
@@ -441,6 +454,7 @@ export async function initSpeechEngine(setting = {}) {
 
   // --- STT Setup ---
   const sttOptions = {
+    locale: store.getState().locale,
     getAssistantActive: () =>
       speechEngine.isSpeaking || speechEngine.isProcessing,
     getSpeechDuration: () =>

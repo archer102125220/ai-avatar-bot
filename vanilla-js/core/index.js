@@ -817,6 +817,7 @@ export async function initAvatarBot(optiopns = {}) {
     },
     ttsEndpoint: ttsEndpoint || DEFAULT_TTS_ENDPOINT,
     neuralVoice: safeNeuralVoice,
+    locale: rootStore.getState().locale,
     getGender: () =>
       rootStore.getState().speechGender || rootStore.getState().gender,
     onSpokenDisplayTextChange(newSpeakingLabel) {

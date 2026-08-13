@@ -103,7 +103,8 @@ export function initDefaultSTTEngine(options = {}) {
     recognition: null,
     recognitionSilenceTimer: null,
     isListening: false,
-    noSpeechRuns: 0
+    noSpeechRuns: 0,
+    locale: options.locale || 'zh-TW'
   });
 
   const state = store.getState();
@@ -246,6 +247,11 @@ export function initDefaultSTTEngine(options = {}) {
     getState: store.getState,
     setState: store.setState,
 
+    setLocale(newLocale) {
+      state.locale = newLocale;
+      store.setState({ locale: newLocale });
+    },
+
     get isListening() {
       return state.isListening;
     },
@@ -292,7 +298,7 @@ export function initDefaultSTTEngine(options = {}) {
       }
 
       state.recognitionSilenceTimer = null;
-      state.recognition.lang = 'zh-TW';
+      state.recognition.lang = state.locale || 'zh-TW';
       state.recognition.interimResults = true;
       state.recognition.continuous = true;
       state.recognition.maxAlternatives = 1;
