@@ -780,13 +780,17 @@ export function bindUiEvent(context = null) {
       const locales = ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'];
       const current = context.locale || 'zh-TW';
       const next = locales[(locales.indexOf(current) + 1) % locales.length];
-      
+
       context.locale = next;
 
       let msg = '語言：繁體中文';
-      if (next === 'en-US') msg = 'Language: English';
-      else if (next === 'ja-JP') msg = '言語：日本語';
-      else if (next === 'ko-KR') msg = '언어: 한국어';
+      if (next === 'en-US') {
+        msg = 'Language: English';
+      } else if (next === 'ja-JP') {
+        msg = '言語：日本語';
+      } else if (next === 'ko-KR') {
+        msg = '언어: 한국어';
+      }
 
       context.speechEngine.spokenDisplayText = msg;
     };
