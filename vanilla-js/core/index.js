@@ -188,6 +188,7 @@ export async function initAvatarBot(optiopns = {}) {
     systemContextTemplate,
     companionSystemContextTemplate,
     ragTemplate,
+    customContext,
     languageRule
   } = optiopns;
 
@@ -536,6 +537,7 @@ export async function initAvatarBot(optiopns = {}) {
     systemContextTemplate,
     companionSystemContextTemplate,
     ragTemplate,
+    customContext,
     languageRule,
 
     welcomeText: optiopns.welcomeText,

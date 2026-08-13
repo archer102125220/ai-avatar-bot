@@ -880,6 +880,7 @@ export async function initBrainEngine(setting = {}) {
     systemContextTemplate,
     companionSystemContextTemplate,
     ragTemplate,
+    customContext,
     languageRule
   } = setting;
 
@@ -961,7 +962,7 @@ export async function initBrainEngine(setting = {}) {
     systemContextTemplate,
     companionSystemContextTemplate,
     ragTemplate,
-    customContext: null,
+    customContext: customContext || null,
     languageRule,
 
     setLocale: (newLocale) => {
