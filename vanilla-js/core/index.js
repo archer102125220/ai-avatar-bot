@@ -225,7 +225,8 @@ export async function initAvatarBot(optiopns = {}) {
 
   const rootStore = createBaseStore({
     gender: safeGender,
-    avatarMode: avatarMode || DEFAULT_AVATAR_MODE
+    avatarMode: avatarMode || DEFAULT_AVATAR_MODE,
+    locale: locale || 'zh-TW'
   });
 
   const aiAvatarWidget = {
@@ -322,6 +323,15 @@ export async function initAvatarBot(optiopns = {}) {
       }
     },
 
+    get locale() {
+      return rootStore.getState().locale;
+    },
+    set locale(newLocale = '') {
+      if (typeof newLocale === 'string' && newLocale !== '') {
+        rootStore.setState({ locale: newLocale });
+      }
+    },
+
     get avatarMode() {
       return rootStore.getState().avatarMode;
     },
@@ -349,6 +359,12 @@ export async function initAvatarBot(optiopns = {}) {
   rootStore.subscribe('gender', (newGender) => {
     aiAvatarWidget.speechEngine.setGender(newGender);
     aiAvatarWidget.skinEngine.setGender(newGender);
+  });
+
+  rootStore.subscribe('locale', (newLocale) => {
+    if (aiAvatarWidget.brainEngine) {
+      aiAvatarWidget.brainEngine.locale = newLocale;
+    }
   });
 
   const stageEl = document.createElement('div');
@@ -513,7 +529,7 @@ export async function initAvatarBot(optiopns = {}) {
     aiProviderStream,
     buildLLMMessages: optiopns.buildLLMMessages,
 
-    locale,
+    locale: rootStore.getState().locale,
     systemContextTemplate,
     companionSystemContextTemplate,
     ragTemplate,
