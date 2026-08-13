@@ -189,7 +189,8 @@ export async function initAvatarBot(optiopns = {}) {
     companionSystemContextTemplate,
     ragTemplate,
     customContext,
-    languageRule
+    languageRule,
+    genderRule
   } = optiopns;
 
   if (container instanceof HTMLElement === false) {
@@ -358,8 +359,15 @@ export async function initAvatarBot(optiopns = {}) {
   };
 
   rootStore.subscribe('gender', (newGender) => {
-    aiAvatarWidget.speechEngine.setGender(newGender);
-    aiAvatarWidget.skinEngine.setGender(newGender);
+    if (typeof aiAvatarWidget.brainEngine?.setGender === 'function') {
+      aiAvatarWidget.brainEngine.setGender(newGender);
+    }
+    if (typeof aiAvatarWidget.speechEngine?.setGender === 'function') {
+      aiAvatarWidget.speechEngine.setGender(newGender);
+    }
+    if (typeof aiAvatarWidget.skinEngine?.setGender === 'function') {
+      aiAvatarWidget.skinEngine.setGender(newGender);
+    }
   });
 
   rootStore.subscribe('locale', (newLocale) => {
@@ -534,11 +542,13 @@ export async function initAvatarBot(optiopns = {}) {
     buildLLMMessages: optiopns.buildLLMMessages,
 
     locale: rootStore.getState().locale,
+    gender: rootStore.getState().gender,
     systemContextTemplate,
     companionSystemContextTemplate,
     ragTemplate,
     customContext,
     languageRule,
+    genderRule,
 
     welcomeText: optiopns.welcomeText,
     companionWelcomeText: optiopns.companionWelcomeText,

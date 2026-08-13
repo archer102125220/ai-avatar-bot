@@ -209,6 +209,9 @@ import {
  * @property {string|Function} ragTemplate - RAG 參考資料模板
  * @property {Object} customContext - 附加自訂上下文資訊
  * @property {string|Function} languageRule - 多語系回答規則提示詞
+ * @property {string} gender - 虛擬人角色性別
+ * @property {Function} setGender - 設定性別方法
+ * @property {string|Function} genderRule - 針對性別的額外提示詞規則
  * @property {Function} setEmotionFromText - 設定情緒方法
  * @property {Function} handleAnswer - 處理回答方法
  * @property {Function} addChatMessage - 新增對話訊息方法
@@ -881,7 +884,9 @@ export async function initBrainEngine(setting = {}) {
     companionSystemContextTemplate,
     ragTemplate,
     customContext,
-    languageRule
+    languageRule,
+    gender,
+    genderRule
   } = setting;
 
   let llm = null;
@@ -964,6 +969,12 @@ export async function initBrainEngine(setting = {}) {
     ragTemplate,
     customContext: customContext || null,
     languageRule,
+    gender,
+    genderRule,
+
+    setGender: (newGender) => {
+      brainEngine.gender = newGender;
+    },
 
     setLocale: (newLocale) => {
       brainEngine.locale = newLocale;
@@ -1381,6 +1392,19 @@ export function defaultBuildLLMMessages(brainEngine, question) {
     ? brainEngine.languageRule(brainEngine)
     : (brainEngine.languageRule || defaultLanguageRule);
 
+  let defaultGenderRule = '';
+  if (brainEngine.gender === 'female') {
+    defaultGenderRule = '你是一名女性，請使用女性化的用語，並保持溫柔、親切的語氣。';
+  } else if (brainEngine.gender === 'male') {
+    defaultGenderRule = '你是一名男性，請使用男性化的用語，並保持自信、沉穩的語氣。';
+  }
+
+  const genderRuleText = typeof brainEngine.genderRule === 'function'
+    ? brainEngine.genderRule(brainEngine)
+    : (brainEngine.genderRule || defaultGenderRule);
+
+  const styleRuleText = [languageRuleText, genderRuleText].filter(Boolean).join(' ');
+
   let customContextText = '';
   if (brainEngine.customContext && typeof brainEngine.customContext === 'object') {
     const keys = Object.keys(brainEngine.customContext);
@@ -1399,18 +1423,20 @@ export function defaultBuildLLMMessages(brainEngine, question) {
   if (brainEngine?.avatarMode === AVATAR_MODE_MAP.companion) {
     const nameStr = brainEngine?.mem?.data?.name ? '，訪客叫「' + brainEngine.mem.data.name + '」，可自然稱呼' : '';
     const companionTemplate = typeof brainEngine.companionSystemContextTemplate === 'function'
-      ? brainEngine.companionSystemContextTemplate(brainEngine, RAG, languageRuleText, nameStr)
-      : (brainEngine.companionSystemContextTemplate || '你是這個網站的陪伴型語音虛擬人，親切、口語、繁體中文、每次最多兩三句。你記得訪客先前的對話{{name_placeholder}}。{{RAG}}\n{{languageRule}}')
+      ? brainEngine.companionSystemContextTemplate(brainEngine, RAG, styleRuleText, nameStr)
+      : (brainEngine.companionSystemContextTemplate || '你是這個網站的陪伴型語音虛擬人，親切、口語、繁體中文、每次最多兩三句。你記得訪客先前的對話{{name_placeholder}}。{{RAG}}\n{{styleRule}}')
           .replace('{{name_placeholder}}', nameStr)
           .replace('{{RAG}}', RAG)
-          .replace('{{languageRule}}', languageRuleText);
+          .replace('{{styleRule}}', styleRuleText)
+          .replace('{{languageRule}}', styleRuleText); // Fallback for old templates
     systemContext = companionTemplate;
   } else {
     const assistantTemplate = typeof brainEngine.systemContextTemplate === 'function'
-      ? brainEngine.systemContextTemplate(brainEngine, RAG, languageRuleText)
-      : (brainEngine.systemContextTemplate || '你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請口語、最多兩三句話簡短回答。{{RAG}}\n{{languageRule}}')
+      ? brainEngine.systemContextTemplate(brainEngine, RAG, styleRuleText)
+      : (brainEngine.systemContextTemplate || '你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請口語、最多兩三句話簡短回答。{{RAG}}\n{{styleRule}}')
           .replace('{{RAG}}', RAG)
-          .replace('{{languageRule}}', languageRuleText);
+          .replace('{{styleRule}}', styleRuleText)
+          .replace('{{languageRule}}', styleRuleText); // Fallback for old templates
     systemContext = assistantTemplate;
   }
 
