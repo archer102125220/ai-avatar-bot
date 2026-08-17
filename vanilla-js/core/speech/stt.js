@@ -242,14 +242,70 @@ export function initDefaultSTTEngine(options = {}) {
     }
   };
 
+const DEFAULT_STT_MESSAGES = {
+  'zh-TW': {
+    unsupported: '你的瀏覽器不支援語音辨識，建議用 Chrome 開喔。',
+    requestPermission: '正在取得麥克風權限…',
+    micError: '無法啟動語音功能，請檢查麥克風與瀏覽器設定。',
+    startFailed: '語音辨識啟動失敗：{error}',
+    listening: '請說話，可以隨時插話…',
+    permissionDenied: '我需要麥克風權限才能聽你說話喔。',
+    noSpeech: '沒聽清楚（{error}），再試一次。'
+  },
+  'en-US': {
+    unsupported: 'Your browser does not support speech recognition. Chrome is recommended.',
+    requestPermission: 'Requesting microphone permission...',
+    micError: 'Unable to start voice service. Please check microphone permissions and browser settings.',
+    startFailed: 'Failed to start speech recognition: {error}',
+    listening: 'Please speak, you can interrupt anytime...',
+    permissionDenied: 'Microphone permission is required to listen.',
+    noSpeech: "Didn't catch that ({error}), please try again."
+  },
+  'ja-JP': {
+    unsupported: 'お使いのブラウザは音声認識に対応していません。Chromeをお勧めします。',
+    requestPermission: 'マイクの権限を取得中…',
+    micError: '音声機能を開始できません。マイクの許可と設定を確認してください。',
+    startFailed: '音声認識の開始に失敗しました：{error}',
+    listening: '話しかけてください。いつでも遮って話せます…',
+    permissionDenied: 'マイクの権限が必要です。',
+    noSpeech: '聞き取れませんでした（{error}）、もう一度お試しください。'
+  },
+  'ko-KR': {
+    unsupported: '현재 브라우저는 음성 인식을 지원하지 않습니다. Chrome 브라우저를 권장합니다.',
+    requestPermission: '마이크 권한 요청 중…',
+    micError: '음성 기능을 시작할 수 없습니다. 마이크 권한과 브라우저 설정을 확인해 주세요.',
+    startFailed: '음성 인식 시작 실패: {error}',
+    listening: '말씀해 주세요. 언제든 중간에 말씀하셔도 됩니다…',
+    permissionDenied: '말씀을 듣기 위해 마이크 권한이 필요합니다.',
+    noSpeech: '잘 듣지 못했습니다 ({error}), 다시 시도해 주세요.'
+  }
+};
+
+function getSttMessage(locale, key, params = {}) {
+  const currentLocale = locale || 'zh-TW';
+  const dict = DEFAULT_STT_MESSAGES[currentLocale] || DEFAULT_STT_MESSAGES['zh-TW'] || {};
+  let msg = dict[key] || DEFAULT_STT_MESSAGES['zh-TW']?.[key] || key;
+  for (const k in params) {
+    msg = msg.replace(new RegExp(`\\{${k}\\}`, 'g'), String(params[k]));
+  }
+  return msg;
+}
+
   const engine = {
     subscribe: store.subscribe,
     getState: store.getState,
     setState: store.setState,
 
+    get locale() {
+      return state.locale || store.getState().locale || 'zh-TW';
+    },
+
     setLocale(newLocale) {
       state.locale = newLocale;
       store.setState({ locale: newLocale });
+      if (state.recognition) {
+        state.recognition.lang = newLocale || 'zh-TW';
+      }
     },
 
     get isListening() {
@@ -260,7 +316,7 @@ export function initDefaultSTTEngine(options = {}) {
       const SafeSpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SafeSpeechRecognition == null) {
         if (typeof onError === 'function') {
-          onError('你的瀏覽器不支援語音辨識，建議用 Chrome 開喔。', false);
+          onError(getSttMessage(state.locale, 'unsupported'), false);
         }
         return;
       }
@@ -273,7 +329,7 @@ export function initDefaultSTTEngine(options = {}) {
       if (!state.micStream) {
         setMic(false);
         if (typeof onStatusChange === 'function') {
-          onStatusChange(false, '正在取得麥克風權限…');
+          onStatusChange(false, getSttMessage(state.locale, 'requestPermission'));
         }
       }
 
@@ -282,7 +338,7 @@ export function initDefaultSTTEngine(options = {}) {
       } catch (e) {
         setMic(false);
         if (typeof onError === 'function') {
-          onError('無法啟動語音功能，請檢查麥克風與瀏覽器設定。', false);
+          onError(getSttMessage(state.locale, 'micError'), false);
         }
         console.warn('mic monitor error', e);
         return;
@@ -292,7 +348,7 @@ export function initDefaultSTTEngine(options = {}) {
         state.recognition = new SafeSpeechRecognition();
       } catch (error) {
         if (typeof onError === 'function') {
-          onError('語音辨識啟動失敗：' + error.message, false);
+          onError(getSttMessage(state.locale, 'startFailed', { error: error.message }), false);
         }
         return;
       }
@@ -306,7 +362,7 @@ export function initDefaultSTTEngine(options = {}) {
       state.recognition.onstart = () => {
         setMic(true);
         if (typeof onStatusChange === 'function') {
-          onStatusChange(true, '請說話，可以隨時插話…');
+          onStatusChange(true, getSttMessage(state.locale, 'listening'));
         }
       };
 
@@ -341,7 +397,7 @@ export function initDefaultSTTEngine(options = {}) {
         if (event.error === 'not-allowed') {
           stopMicMonitor();
           if (typeof onError === 'function') {
-            onError('我需要麥克風權限才能聽你說話喔。', true);
+            onError(getSttMessage(state.locale, 'permissionDenied'), true);
           }
           return;
         }
@@ -356,7 +412,7 @@ export function initDefaultSTTEngine(options = {}) {
           return; // handled in onend
         }
         if (typeof onError === 'function') {
-          onError('沒聽清楚（' + event.error + '），再試一次。', false);
+          onError(getSttMessage(state.locale, 'noSpeech', { error: event.error }), false);
         }
       };
 

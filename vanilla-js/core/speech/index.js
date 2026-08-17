@@ -4,7 +4,13 @@ import { createBaseStore } from '../store';
 import { initDefaultSTTEngine, validateSTTEngine } from './stt';
 import { splitSentences, initDefaultTTSEngine, validateTTSEngine } from './tts';
 
-export { validateTTSEngine, validateSTTEngine };
+export {
+  validateTTSEngine,
+  validateSTTEngine,
+  initDefaultSTTEngine,
+  initDefaultTTSEngine,
+  splitSentences
+};
 
 /**
  * 語音引擎實例，作為 STT 與 TTS 的中央統籌，並負責整合事件與串接 LLM 回應。
@@ -411,6 +417,7 @@ export async function initSpeechEngine(setting = {}) {
     ttsEndpoint: ttsEndpoint || DEFAULT_TTS_ENDPOINT,
     neuralVoice: neuralVoice,
     gender: speechEngine.gender,
+    locale: store.getState().locale,
     onSpeakStart: () => {
       // 移除誤植的 onTapAvatar 呼叫，避免中斷正常回答並播放歡迎詞
     },

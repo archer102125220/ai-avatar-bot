@@ -57,13 +57,21 @@ export function validateTTSEngine(engine) {
 }
 
 /**
- * 根據指定性別載入適用的瀏覽器原生語音 (SpeechSynthesisVoice)。
+ * 根據指定性別與語系載入適用的瀏覽器原生語音 (SpeechSynthesisVoice)。
  * 會優先尋找特定名稱的高品質語音，若無則依序退回尋找符合語言特徵的預設語音。
  *
  * @param {string} gender - 性別標識，參考 GENDER_MAP (例如: 'male', 'female')。
+ * @param {string} [locale='zh-TW'] - 語系代碼 (例如: 'zh-TW', 'en-US', 'ja-JP', 'ko-KR')。
  * @returns {SpeechSynthesisVoice|null} 匹配到的語音物件，如果找不到則回傳 null。
  */
-export function loadVoice(gender) {
+export function loadVoice(gender, locale = 'zh-TW') {
+  if (
+    typeof speechSynthesis !== 'object' ||
+    speechSynthesis === null ||
+    typeof speechSynthesis.getVoices !== 'function'
+  ) {
+    return null;
+  }
   const voices = speechSynthesis.getVoices();
   const pick = (targetVoice) =>
     voices.find(
@@ -72,7 +80,57 @@ export function loadVoice(gender) {
         !/Google/i.test(voice.name)
     );
 
+  const loc = (locale || 'zh-TW').toLowerCase();
   let broswerVoice = null;
+
+  if (loc.startsWith('en')) {
+    if (gender === GENDER_MAP.male) {
+      broswerVoice = pick(/(Guy|Christopher|Eric|Davis).*en/i);
+    } else if (gender === GENDER_MAP.female) {
+      broswerVoice = pick(/(Jenny|Aria|Sara|Zira).*en/i);
+    }
+    return (
+      broswerVoice ||
+      pick(/Microsoft.*en/i) ||
+      pick(/en[-_]US/i) ||
+      pick(/^en/i) ||
+      voices.find((voice) => /en/i.test(voice.lang)) ||
+      null
+    );
+  }
+
+  if (loc.startsWith('ja')) {
+    if (gender === GENDER_MAP.male) {
+      broswerVoice = pick(/(Keita|Daichi|Ichiro).*ja/i);
+    } else if (gender === GENDER_MAP.female) {
+      broswerVoice = pick(/(Nanami|Ayumi|Haruka).*ja/i);
+    }
+    return (
+      broswerVoice ||
+      pick(/Microsoft.*ja/i) ||
+      pick(/ja[-_]JP/i) ||
+      pick(/^ja/i) ||
+      voices.find((voice) => /ja/i.test(voice.lang)) ||
+      null
+    );
+  }
+
+  if (loc.startsWith('ko')) {
+    if (gender === GENDER_MAP.male) {
+      broswerVoice = pick(/(InJoon|GookMin).*ko/i);
+    } else if (gender === GENDER_MAP.female) {
+      broswerVoice = pick(/(SunHi|Heami).*ko/i);
+    }
+    return (
+      broswerVoice ||
+      pick(/Microsoft.*ko/i) ||
+      pick(/ko[-_]KR/i) ||
+      pick(/^ko/i) ||
+      voices.find((voice) => /ko/i.test(voice.lang)) ||
+      null
+    );
+  }
+
   if (gender === GENDER_MAP.male) {
     broswerVoice = pick(
       /(YunJhe|YunJian|YunXia|雲哲|雲健|雲夏|Zhiwei|志偉).*zh/i
@@ -182,6 +240,7 @@ export function initDefaultTTSEngine(options = {}) {
     ttsEndpoint = '',
     neuralVoice = '',
     gender = GENDER_MAP.female,
+    locale = 'zh-TW',
     onSpeakStart, // function(text)
     onSpeakEnd, // function()
     onSpokenDisplayTextChange // function(text)
@@ -191,7 +250,7 @@ export function initDefaultTTSEngine(options = {}) {
     ttsEndpoint,
     neuralVoice,
     gender,
-    locale: 'zh-TW',
+    locale,
     isSpeaking: false,
     isMuted: false,
     speechQ: [],
@@ -317,7 +376,14 @@ export function initDefaultTTSEngine(options = {}) {
     },
 
     setGender(newGender) {
-      store.setState({ gender: newGender, ttVoice: null });
+      store.setState({
+        gender: newGender,
+        ttVoice: loadVoice(newGender, store.getState().locale)
+      });
+    },
+
+    get locale() {
+      return store.getState().locale || 'zh-TW';
     },
 
     setLocale(locale) {
@@ -328,7 +394,7 @@ export function initDefaultTTSEngine(options = {}) {
       store.setState({
         locale: matched,
         neuralVoice: localeVoice(matched),
-        ttVoice: loadVoice(store.getState().gender)
+        ttVoice: loadVoice(store.getState().gender, matched)
       });
     },
 

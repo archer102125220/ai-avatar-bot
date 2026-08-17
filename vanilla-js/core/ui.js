@@ -51,6 +51,50 @@
  * @property {function} [onMinimalTrigger] - 最小化觸發回呼函數
  */
 
+import { resolveLocalized, SUPPORTED_LOCALES } from './i18n';
+
+/**
+ * 遍歷並更新容器內所有帶有 data-i18n 屬性的 UI 元素。
+ * @param {HTMLElement} container - 包含 UI 元素的容器
+ * @param {Object} i18nEngine - 多語系引擎實例
+ */
+export function updateUIStrings(container, i18nEngine) {
+  if (
+    container instanceof HTMLElement === false ||
+    typeof i18nEngine?.t !== 'function'
+  ) {
+    return;
+  }
+
+  container.querySelectorAll('[data-i18n]').forEach((el) => {
+    const key = el.getAttribute('data-i18n');
+    if (typeof key === 'string' && key !== '') {
+      el.textContent = i18nEngine.t(key);
+    }
+  });
+
+  container.querySelectorAll('[data-i18n-html]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-html');
+    if (typeof key === 'string' && key !== '') {
+      el.innerHTML = i18nEngine.t(key);
+    }
+  });
+
+  container.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (typeof key === 'string' && key !== '') {
+      el.setAttribute('placeholder', i18nEngine.t(key));
+    }
+  });
+
+  container.querySelectorAll('[data-i18n-aria]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-aria');
+    if (typeof key === 'string' && key !== '') {
+      el.setAttribute('aria-label', i18nEngine.t(key));
+    }
+  });
+}
+
 /**
  * 初始化使用者介面元件並附加至指定的容器中。
  * @param {HTMLElement} container - 要容納虛擬人助理的主要容器元素。
@@ -82,28 +126,32 @@ export function initUi(container, stageEl) {
   const historyPanelEl = document.createElement('section');
   historyPanelEl.setAttribute('id', 'history-panel');
   historyPanelEl.setAttribute('aria-label', '聊天紀錄');
-  // historyPanelEl.setAttribute('aria-hidden', 'true');
+  historyPanelEl.setAttribute('data-i18n-aria', 'ui.history.title');
   historyPanelEl.inert = true;
 
   const historyHead = document.createElement('div');
   historyHead.setAttribute('class', 'history-head');
   const historyTitle = document.createElement('p');
   historyTitle.setAttribute('class', 'history-title');
+  historyTitle.setAttribute('data-i18n', 'ui.history.title');
   historyTitle.textContent = '聊天紀錄';
   const historyNote = document.createElement('span');
   historyNote.setAttribute('class', 'history-note');
+  historyNote.setAttribute('data-i18n', 'ui.history.note');
   historyNote.textContent = '只保留在這次開啟期間';
   historyTitle.appendChild(historyNote);
   const historyClear = document.createElement('button');
   historyClear.setAttribute('class', 'history-action');
   historyClear.setAttribute('id', 'btn-history-clear');
   historyClear.setAttribute('type', 'button');
+  historyClear.setAttribute('data-i18n', 'ui.history.clear');
   historyClear.textContent = '清除';
   const historyClose = document.createElement('button');
   historyClose.setAttribute('class', 'history-action');
   historyClose.setAttribute('id', 'btn-history-close');
   historyClose.setAttribute('type', 'button');
   historyClose.setAttribute('aria-label', '關閉聊天紀錄');
+  historyClose.setAttribute('data-i18n-aria', 'ui.history.closeAria');
   historyClose.textContent = '✕';
   historyHead.appendChild(historyTitle);
   historyHead.appendChild(historyClear);
@@ -130,6 +178,7 @@ export function initUi(container, stageEl) {
 
   const voiceStatusEl = document.createElement('span');
   voiceStatusEl.setAttribute('id', 'voice-status');
+  voiceStatusEl.setAttribute('data-i18n', 'ui.voice.standby');
   voiceStatusEl.textContent = '即時語音待命';
 
   const voiceMeterEl = document.createElement('span');
@@ -151,14 +200,17 @@ export function initUi(container, stageEl) {
   questionInputEl.setAttribute('id', 'type-input');
   questionInputEl.setAttribute('type', 'text');
   questionInputEl.setAttribute('placeholder', '打字問我也可以…');
+  questionInputEl.setAttribute('data-i18n-placeholder', 'ui.input.placeholder');
   questionInputEl.setAttribute('maxlength', '200');
   questionInputEl.setAttribute('aria-label', '輸入文字問題');
+  questionInputEl.setAttribute('data-i18n-aria', 'ui.input.ariaLabel');
 
   const sendButtonEl = document.createElement('button');
   sendButtonEl.setAttribute('id', 'btn-send');
   sendButtonEl.classList.add('ctrl');
   sendButtonEl.classList.add('primary');
   sendButtonEl.setAttribute('aria-label', '送出文字問題');
+  sendButtonEl.setAttribute('data-i18n-aria', 'ui.send.ariaLabel');
   const sendButtonSpan = document.createElement('span');
   sendButtonSpan.setAttribute('aria-hidden', 'true');
   sendButtonSpan.textContent = '➤';
@@ -168,10 +220,12 @@ export function initUi(container, stageEl) {
   dockRow2El.classList.add('dock-row');
   dockRow2El.setAttribute('role', 'toolbar');
   dockRow2El.setAttribute('aria-label', '虛擬人控制列');
+  dockRow2El.setAttribute('data-i18n-aria', 'ui.toolbar.ariaLabel');
 
   const micButtonEl = document.createElement('button');
   micButtonEl.setAttribute('id', 'btn-mic');
   micButtonEl.setAttribute('aria-label', '開始即時語音對話');
+  micButtonEl.setAttribute('data-i18n-aria', 'ui.mic.ariaLabel');
   micButtonEl.setAttribute('aria-pressed', 'false');
   micButtonEl.classList.add('ctrl');
   micButtonEl.classList.add('primary');
@@ -184,6 +238,7 @@ export function initUi(container, stageEl) {
   const engineButtonEl = document.createElement('button');
   engineButtonEl.setAttribute('id', 'btn-engine');
   engineButtonEl.setAttribute('aria-label', '切換 2D / 3D 角色');
+  engineButtonEl.setAttribute('data-i18n-aria', 'ui.engine.ariaLabel');
   engineButtonEl.classList.add('ctrl');
   engineButtonEl.style.display = 'none';
   engineButtonEl.textContent = '2D／3D';
@@ -191,6 +246,7 @@ export function initUi(container, stageEl) {
   const muteButtonEl = document.createElement('button');
   muteButtonEl.setAttribute('id', 'btn-mute');
   muteButtonEl.setAttribute('aria-label', '靜音');
+  muteButtonEl.setAttribute('data-i18n-aria', 'ui.mute.ariaLabel');
   muteButtonEl.setAttribute('aria-pressed', 'false');
   muteButtonEl.classList.add('ctrl');
   const muteButtonSpanEl = document.createElement('span');
@@ -200,7 +256,11 @@ export function initUi(container, stageEl) {
 
   const btnLlmEl = document.createElement('button');
   btnLlmEl.setAttribute('id', 'btn-llm');
-  btnLlmEl.setAttribute('aria-label', '啟用瀏覽器內 AI 大腦（首次需下載模型）');
+  btnLlmEl.setAttribute(
+    'aria-label',
+    '啟用瀏覽器內 AI 大腦（首次需下載模型）'
+  );
+  btnLlmEl.setAttribute('data-i18n-aria', 'ui.llm.ariaLabel');
   btnLlmEl.setAttribute('aria-pressed', 'false');
   btnLlmEl.classList.add('ctrl');
   const btnLlmSpanEl = document.createElement('span');
@@ -211,6 +271,7 @@ export function initUi(container, stageEl) {
   const speedButtonEl = document.createElement('button');
   speedButtonEl.setAttribute('id', 'btn-speed');
   speedButtonEl.setAttribute('aria-label', '調整語速');
+  speedButtonEl.setAttribute('data-i18n-aria', 'ui.speed.ariaLabel');
   speedButtonEl.setAttribute('aria-pressed', 'false');
   speedButtonEl.classList.add('ctrl');
   const speedButtonSpanEl = document.createElement('span');
@@ -221,12 +282,15 @@ export function initUi(container, stageEl) {
   const langButtonEl = document.createElement('button');
   langButtonEl.setAttribute('id', 'btn-lang');
   langButtonEl.setAttribute('aria-label', '切換對話語言');
+  langButtonEl.setAttribute('data-i18n-aria', 'ui.lang.ariaLabel');
+  langButtonEl.setAttribute('data-i18n', 'ui.lang.buttonText');
   langButtonEl.classList.add('ctrl');
   langButtonEl.textContent = '中文';
 
   const historyButtonEl = document.createElement('button');
   historyButtonEl.setAttribute('id', 'btn-history');
   historyButtonEl.setAttribute('aria-label', '開啟聊天紀錄');
+  historyButtonEl.setAttribute('data-i18n-aria', 'ui.history.ariaLabel');
   historyButtonEl.setAttribute('aria-expanded', 'false');
   historyButtonEl.classList.add('ctrl');
   const historyButtonSpanEl = document.createElement('span');
@@ -237,6 +301,7 @@ export function initUi(container, stageEl) {
   const closeButtonEl = document.createElement('button');
   closeButtonEl.setAttribute('id', 'btn-close');
   closeButtonEl.setAttribute('aria-label', '收起助理');
+  closeButtonEl.setAttribute('data-i18n-aria', 'ui.close.ariaLabel');
   closeButtonEl.classList.add('ctrl');
   const closeButtonSpanEl = document.createElement('span');
   closeButtonSpanEl.setAttribute('aria-hidden', 'true');
@@ -245,12 +310,14 @@ export function initUi(container, stageEl) {
 
   const directWarnEl = document.createElement('p');
   directWarnEl.setAttribute('id', 'direct-warn');
+  directWarnEl.setAttribute('data-i18n-html', 'ui.directWarn');
   directWarnEl.textContent = '請透過 <code>embed.js</code> 載入此元件。';
 
   const minimalEl = document.createElement('button');
   minimalEl.type = 'button';
   minimalEl.className = 'aw-minimal';
   minimalEl.setAttribute('aria-label', '開啟 AI 虛擬人助理');
+  minimalEl.setAttribute('data-i18n-aria', 'ui.minimal.ariaLabel');
   minimalEl.textContent = '💬';
 
   container.appendChild(minimalEl);
@@ -297,7 +364,7 @@ export function initUi(container, stageEl) {
     get voiceLevelEl() {
       return voiceLevelEl;
     },
-    updateVoiceStatus(convoOn, text, state, level) {
+    updateVoiceStatus(convoOn, text, state, level, i18nEngine) {
       if (convoOn === true) {
         voiceLiveEl.setAttribute('css-is-active', 'true');
         if (typeof state === 'string' && state !== '') {
@@ -310,13 +377,17 @@ export function initUi(container, stageEl) {
         voiceLiveEl.removeAttribute('css-state');
       }
       if (voiceStatusEl instanceof HTMLElement && text !== undefined) {
-        voiceStatusEl.textContent = text || '即時語音待命';
+        voiceStatusEl.textContent =
+          text ||
+          (typeof i18nEngine?.t === 'function'
+            ? i18nEngine.t('ui.voice.standby')
+            : '即時語音待命');
       }
       if (typeof level === 'number' && voiceLevelEl instanceof HTMLElement) {
         voiceLevelEl.style.width = Math.max(0, Math.min(100, level)) + '%';
       }
     },
-    updateMicState(isListening, convoOn, isCompanion) {
+    updateMicState(isListening, convoOn, isCompanion, i18nEngine) {
       if (isListening === true) {
         micButtonEl.setAttribute('css-state', 'listening');
       } else {
@@ -325,14 +396,17 @@ export function initUi(container, stageEl) {
 
       micButtonEl.setAttribute('aria-pressed', String(!!convoOn));
 
+      const t = (k, d) =>
+        typeof i18nEngine?.t === 'function' ? i18nEngine.t(k) : d;
+
       micButtonEl.textContent =
         isListening === true
           ? isCompanion === true
-            ? '● 對話中'
-            : '● 聆聽中'
+            ? t('ui.mic.chatting', '● 對話中')
+            : t('ui.mic.listening', '● 聆聽中')
           : convoOn === true
-            ? '◌ 對話中'
-            : '🎙️ 即時';
+            ? t('ui.mic.convoStandby', '◌ 對話中')
+            : t('ui.mic.live', '🎙️ 即時');
 
       if (suggestionsEl instanceof HTMLElement) {
         suggestionsEl.style.display =
@@ -472,6 +546,9 @@ export function renderHistory(context) {
     return;
   }
 
+  const t = (k, d) =>
+    typeof context.i18nEngine?.t === 'function' ? context.i18nEngine.t(k) : d;
+
   list.replaceChildren();
 
   if (
@@ -480,7 +557,10 @@ export function renderHistory(context) {
   ) {
     const empty = document.createElement('div');
     empty.className = 'history-empty';
-    empty.textContent = '還沒有對話。問我一個問題，紀錄會出現在這裡。';
+    empty.textContent = t(
+      'ui.history.empty',
+      '還沒有對話。問我一個問題，紀錄會出現在這裡。'
+    );
     list.appendChild(empty);
     return;
   }
@@ -500,11 +580,11 @@ export function renderHistory(context) {
       const yes = document.createElement('button');
       yes.type = 'button';
       yes.className = 'confirm';
-      yes.textContent = '確認執行';
+      yes.textContent = t('ui.history.confirm', '確認執行');
       const no = document.createElement('button');
       no.type = 'button';
       no.className = 'cancel';
-      no.textContent = '取消';
+      no.textContent = t('ui.history.cancel', '取消');
 
       yes.onclick = () => context.toolsEngine.executePendingTool(item.id);
       no.onclick = () => context.toolsEngine.cancelPendingTool(item.id);
@@ -539,15 +619,18 @@ export function renderHistory(context) {
       const copy = document.createElement('button');
       copy.type = 'button';
       copy.className = 'history-tool';
-      copy.textContent = '複製';
+      copy.textContent = t('ui.history.copy', '複製');
       const replay = document.createElement('button');
       replay.type = 'button';
       replay.className = 'history-tool';
-      replay.textContent = '重播';
+      replay.textContent = t('ui.history.replay', '重播');
 
       copy.onclick = () => {
         copyText(item.text).then(() => {
-          context.speechEngine.spokenDisplayText = '已複製回答';
+          context.speechEngine.spokenDisplayText = t(
+            'ui.history.copied',
+            '已複製回答'
+          );
         });
       };
       replay.onclick = () => {
@@ -603,7 +686,7 @@ export function initSkinModeChangeButton(context = null, has2D, has3D) {
  * @param {UiContext|null} context - 應用程式的共用狀態與參考。
  */
 export function renderSuggestions(context = null) {
-  const suggestions = context.uiDom.suggestionsEl;
+  const suggestions = context?.uiDom?.suggestionsEl;
   if (suggestions instanceof HTMLElement === false) {
     console.warn(
       '[aiAvatar renderSuggestions] context.suggestionsEl is not an HTMLElement'
@@ -611,45 +694,170 @@ export function renderSuggestions(context = null) {
     return;
   }
 
-  const SUGGESTIONS =
-    Array.isArray(context.suggestedQuestions) &&
+  suggestions.replaceChildren();
+
+  const locale = context?.locale || context?.i18nEngine?.locale || 'zh-TW';
+  const fnArgs = { locale, avatarMode: context?.avatarMode };
+
+  let defaultSuggestions = [
+    '怎麼安裝？',
+    '怎麼換成我的角色？',
+    '要不要錢？',
+    '麥克風怎麼用？',
+    '我可以說什麼？'
+  ];
+
+  if (/en/i.test(locale)) {
+    defaultSuggestions = [
+      'How to install?',
+      'How to change character?',
+      'Is it free?',
+      'How to use mic?',
+      'What can I say?'
+    ];
+  } else if (/ja/i.test(locale)) {
+    defaultSuggestions = [
+      'どうやって設置する？',
+      'アバターの変更方法は？',
+      '料金はかかる？',
+      'マイクの使い方は？',
+      '何を聞ける？'
+    ];
+  } else if (/ko/i.test(locale)) {
+    defaultSuggestions = [
+      '어떻게 설치하나요?',
+      '캐릭터를 바꾸려면?',
+      '무료인가요?',
+      '마이크는 어떻게 쓰나요?',
+      '무엇을 물어볼 수 있나요?'
+    ];
+  }
+
+  let defaultCompanionSuggestions = [
+    '今天過得好嗎？',
+    '跟我聊聊天',
+    '說個笑話',
+    '你會記得我嗎？'
+  ];
+  if (/en/i.test(locale)) {
+    defaultCompanionSuggestions = [
+      'How is your day?',
+      'Chat with me',
+      'Tell a joke',
+      'Will you remember me?'
+    ];
+  } else if (/ja/i.test(locale)) {
+    defaultCompanionSuggestions = [
+      '今日の調子はどう？',
+      'お話ししよう',
+      '面白い話をして',
+      '私のこと覚えてる？'
+    ];
+  } else if (/ko/i.test(locale)) {
+    defaultCompanionSuggestions = [
+      '오늘 기분 어때?',
+      '나랑 이야기하자',
+      '재미있는 이야기 해줘',
+      '나 기억해?'
+    ];
+  }
+
+  let SUGGESTIONS;
+  if (
+    Array.isArray(context?.suggestedQuestions) &&
     context.suggestedQuestions.length > 0
-      ? context.suggestedQuestions
-      : context.avatarMode === context.AVATAR_MODE_MAP.companion
-        ? Array.isArray(context.companionSuggestedQuestions) &&
-          context.companionSuggestedQuestions.length > 0
-          ? context.companionSuggestedQuestions
-          : ['今天過得好嗎？', '跟我聊聊天', '說個笑話', '你會記得我嗎？']
-        : Array.isArray(context.assistantSuggestedQuestions) &&
-            context.assistantSuggestedQuestions.length > 0
-          ? context.assistantSuggestedQuestions
-          : [
-              '怎麼安裝？',
-              '怎麼換成我的角色？',
-              '要不要錢？',
-              '麥克風怎麼用？',
-              '我可以說什麼？'
-            ];
+  ) {
+    SUGGESTIONS = context.suggestedQuestions;
+  } else if (
+    typeof context?.suggestedQuestions === 'object' &&
+    context.suggestedQuestions !== null
+  ) {
+    SUGGESTIONS = resolveLocalized(
+      context.suggestedQuestions,
+      locale,
+      defaultSuggestions,
+      fnArgs
+    );
+  } else if (context?.avatarMode === context?.AVATAR_MODE_MAP?.companion) {
+    SUGGESTIONS = resolveLocalized(
+      context?.companionSuggestedQuestions,
+      locale,
+      defaultCompanionSuggestions,
+      fnArgs
+    );
+  } else {
+    SUGGESTIONS = resolveLocalized(
+      context?.assistantSuggestedQuestions,
+      locale,
+      defaultSuggestions,
+      fnArgs
+    );
+  }
+
+  let defaultTitle = '💬 你可以問我：';
+  if (/en/i.test(locale)) {
+    defaultTitle = '💬 You can ask me:';
+  } else if (/ja/i.test(locale)) {
+    defaultTitle = '💬 よくある質問：';
+  } else if (/ko/i.test(locale)) {
+    defaultTitle = '💬 이런 질문을 해보세요:';
+  }
+
+  let defaultCompanionTitle = '💬 可以跟我聊：';
+  if (/en/i.test(locale)) {
+    defaultCompanionTitle = '💬 Chat with me about:';
+  } else if (/ja/i.test(locale)) {
+    defaultCompanionTitle = '💬 こんな話題で話せます：';
+  } else if (/ko/i.test(locale)) {
+    defaultCompanionTitle = '💬 저와 이런 이야기를 해보세요:';
+  }
+
+  let titleText;
+  if (
+    typeof context?.suggestedTitle !== 'undefined' &&
+    context?.suggestedTitle !== null
+  ) {
+    titleText = resolveLocalized(
+      context.suggestedTitle,
+      locale,
+      defaultTitle,
+      fnArgs
+    );
+  } else if (context?.avatarMode === context?.AVATAR_MODE_MAP?.companion) {
+    titleText = resolveLocalized(
+      context?.companionSuggestedTitle,
+      locale,
+      defaultCompanionTitle,
+      fnArgs
+    );
+  } else {
+    titleText = resolveLocalized(
+      context?.assistantSuggestedTitle,
+      locale,
+      defaultTitle,
+      fnArgs
+    );
+  }
 
   const label = document.createElement('p');
   label.classList.add('sg-label');
-  label.textContent =
-    context.suggestedTitle ||
-    (context.avatarMode === context.AVATAR_MODE_MAP.companion
-      ? context.companionSuggestedTitle || '💬 可以跟我聊：'
-      : context.assistantSuggestedTitle || '💬 你可以問我：');
+  label.textContent = titleText;
 
   suggestions.appendChild(label);
-  SUGGESTIONS.forEach((suggestion) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.classList.add('sugg');
-    button.textContent = suggestion;
-    button.onclick = () => {
-      context.handleUser(suggestion.replace(/？$/, ''));
-    };
-    suggestions.appendChild(button);
-  });
+  if (Array.isArray(SUGGESTIONS)) {
+    SUGGESTIONS.forEach((suggestion) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.classList.add('sugg');
+      button.textContent = suggestion;
+      button.onclick = () => {
+        if (typeof context?.handleUser === 'function') {
+          context.handleUser(suggestion.replace(/？$/, ''));
+        }
+      };
+      suggestions.appendChild(button);
+    });
+  }
 }
 
 /**
@@ -775,24 +983,33 @@ export function bindUiEvent(context = null) {
     };
   }
 
-  if (uiDom.langButtonEl instanceof HTMLElement) {
+    if (uiDom.langButtonEl instanceof HTMLElement) {
     uiDom.langButtonEl.onclick = () => {
-      const locales = ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'];
-      const current = context.locale || 'zh-TW';
+      const locales = SUPPORTED_LOCALES || ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'];
+      const current = context.locale || context.i18nEngine?.locale || 'zh-TW';
       const next = locales[(locales.indexOf(current) + 1) % locales.length];
 
-      context.locale = next;
-
-      let msg = '語言：繁體中文';
-      if (next === 'en-US') {
-        msg = 'Language: English';
-      } else if (next === 'ja-JP') {
-        msg = '言語：日本語';
-      } else if (next === 'ko-KR') {
-        msg = '언어: 한국어';
+      if (
+        context.i18nEngine &&
+        typeof context.i18nEngine.setLocale === 'function'
+      ) {
+        context.i18nEngine.setLocale(next);
+      } else {
+        context.locale = next;
       }
 
-      context.speechEngine.spokenDisplayText = msg;
+      if (context.speechEngine) {
+        context.speechEngine.spokenDisplayText =
+          typeof context.i18nEngine?.t === 'function'
+            ? context.i18nEngine.t('ui.lang.statusText')
+            : next === 'en-US'
+              ? 'Language: English'
+              : next === 'ja-JP'
+                ? '言語：日本語'
+                : next === 'ko-KR'
+                  ? '언어: 한국어'
+                  : '語言：繁體中文';
+      }
     };
   }
 
