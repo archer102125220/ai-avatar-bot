@@ -697,7 +697,7 @@ export function renderSuggestions(context = null) {
   suggestions.replaceChildren();
 
   const locale = context?.locale || context?.i18nEngine?.locale || 'zh-TW';
-  const fnArgs = { locale, avatarMode: context?.avatarMode };
+  const templateContext = { locale, avatarMode: context?.avatarMode };
 
   let defaultSuggestions = [
     '怎麼安裝？',
@@ -776,21 +776,21 @@ export function renderSuggestions(context = null) {
       context.suggestedQuestions,
       locale,
       defaultSuggestions,
-      fnArgs
+      templateContext
     );
   } else if (context?.avatarMode === context?.AVATAR_MODE_MAP?.companion) {
     SUGGESTIONS = resolveLocalized(
       context?.companionSuggestedQuestions,
       locale,
       defaultCompanionSuggestions,
-      fnArgs
+      templateContext
     );
   } else {
     SUGGESTIONS = resolveLocalized(
       context?.assistantSuggestedQuestions,
       locale,
       defaultSuggestions,
-      fnArgs
+      templateContext
     );
   }
 
@@ -821,21 +821,21 @@ export function renderSuggestions(context = null) {
       context.suggestedTitle,
       locale,
       defaultTitle,
-      fnArgs
+      templateContext
     );
   } else if (context?.avatarMode === context?.AVATAR_MODE_MAP?.companion) {
     titleText = resolveLocalized(
       context?.companionSuggestedTitle,
       locale,
       defaultCompanionTitle,
-      fnArgs
+      templateContext
     );
   } else {
     titleText = resolveLocalized(
       context?.assistantSuggestedTitle,
       locale,
       defaultTitle,
-      fnArgs
+      templateContext
     );
   }
 

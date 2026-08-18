@@ -122,7 +122,7 @@ export * from './tools';
 
 /**
  * @typedef {Object} AiAvatarWidget
- * @property {AvatarBotOptions} optiopns - 傳入的初始化設定選項
+ * @property {AvatarBotOptions} options - 傳入的初始化設定選項
  * @property {string} DEFAULT_LLM_MODEL - 預設的 LLM 模型名稱
  * @property {Record<string, string>} STATE_MAP - 狀態映射表
  * @property {Record<string, string>} ENGINE_MODE_MAP - 引擎模式映射表
@@ -154,18 +154,18 @@ export * from './tools';
 /**
  * 初始化 AI Avatar Bot 實例
  *
- * @param {AvatarBotOptions} optiopns - 初始化設定選項
+ * @param {AvatarBotOptions} options - 初始化設定選項
  * @returns {Promise<AiAvatarWidget|void>} 回傳初始化完成的 `AiAvatarWidget` 實例，包含操作介面、大腦、語音、皮膚等引擎的屬性與方法；如果在非瀏覽器環境下執行會回傳 undefined。
  * @throws {Error} 當傳入的 container 不是 HTMLElement 時拋出錯誤
  */
-export async function initAvatarBot(optiopns = {}) {
+export async function initAvatarBot(options = {}) {
   if (typeof window !== 'object') {
     return;
   }
 
   function callOptionEvent(eventName, ...args) {
-    if (typeof optiopns[eventName] === 'function') {
-      return optiopns[eventName].call(this, ...args);
+    if (typeof options[eventName] === 'function') {
+      return options[eventName].call(this, ...args);
     }
   }
 
@@ -205,7 +205,7 @@ export async function initAvatarBot(optiopns = {}) {
     customContext,
     languageRule,
     genderRule
-  } = optiopns;
+  } = options;
 
   if (container instanceof HTMLElement === false) {
     throw new Error('container must be an HTMLElement');
@@ -248,13 +248,13 @@ export async function initAvatarBot(optiopns = {}) {
       typeof customEngines.i18n === 'function'
         ? customEngines.i18n({
             locale: locale || 'zh-TW',
-            messages: optiopns.i18nMessages
+            messages: options.i18nMessages
           })
         : customEngines.i18n;
   } else {
     i18nEngine = initI18nEngine({
       locale: locale || 'zh-TW',
-      messages: optiopns.i18nMessages
+      messages: options.i18nMessages
     });
   }
 
@@ -277,8 +277,11 @@ export async function initAvatarBot(optiopns = {}) {
   });
 
   const aiAvatarWidget = {
+    get options() {
+      return options;
+    },
     get optiopns() {
-      return optiopns;
+      return options;
     },
 
     get DEFAULT_LLM_MODEL() {
@@ -494,7 +497,7 @@ export async function initAvatarBot(optiopns = {}) {
   });
 
   if (i18nEngine && typeof i18nEngine.subscribe === 'function') {
-    i18nEngine.subscribe('locale', (newLocale, labels) => {
+    i18nEngine.subscribe('locale', (newLocale, localeLabels) => {
       rootStore.setState({ locale: newLocale });
       if (typeof aiAvatarWidget.brainEngine?.setLocale === 'function') {
         aiAvatarWidget.brainEngine.setLocale(newLocale);
@@ -506,14 +509,14 @@ export async function initAvatarBot(optiopns = {}) {
       renderSuggestions(aiAvatarWidget);
       if (uiDom?.langButtonEl instanceof HTMLButtonElement) {
         uiDom.langButtonEl.textContent =
-          labels?.shortLabel || labels?.label || newLocale;
+          localeLabels?.shortLabel || localeLabels?.label || newLocale;
       }
       callOptionEvent.call(
         aiAvatarWidget,
         'onLanguageChanged',
         newLocale,
-        labels?.label,
-        labels?.shortLabel
+        localeLabels?.label,
+        localeLabels?.shortLabel
       );
     });
   }
@@ -523,7 +526,7 @@ export async function initAvatarBot(optiopns = {}) {
   uiDom = initUi(container, stageEl);
 
   let streamSpeechId = 0;
-  const streamSpeechState = { buf: '' };
+  const streamSpeechState = { sentenceBuffer: '', buf: '' };
 
   function handleUser(text = '') {
     if (typeof text === 'string' && text !== '') {
@@ -629,7 +632,7 @@ export async function initAvatarBot(optiopns = {}) {
     let greeting = '你好～';
     const currentLocale =
       i18nEngine?.locale || rootStore.getState().locale || 'zh-TW';
-    const fnArgs = {
+    const templateContext = {
       isCompanion: brainEngine?.mem?.isCompanion,
       visits: brainEngine?.mem?.data?.visits,
       name: brainEngine?.mem?.data?.name,
@@ -637,14 +640,14 @@ export async function initAvatarBot(optiopns = {}) {
     };
 
     if (
-      typeof optiopns.greeting !== 'undefined' &&
-      optiopns.greeting !== null
+      typeof options.greeting !== 'undefined' &&
+      options.greeting !== null
     ) {
       greeting = resolveLocalized(
-        optiopns.greeting,
+        options.greeting,
         currentLocale,
         '你好～',
-        fnArgs
+        templateContext
       );
     } else if (avatarMode === AVATAR_MODE_MAP.companion) {
       let defaultCompGreeting;
@@ -675,10 +678,10 @@ export async function initAvatarBot(optiopns = {}) {
       }
 
       greeting = resolveLocalized(
-        optiopns.companionGreeting,
+        options.companionGreeting,
         currentLocale,
         defaultCompGreeting,
-        fnArgs
+        templateContext
       );
     } else if (avatarMode === AVATAR_MODE_MAP.assistant) {
       let defaultAssistantGreeting =
@@ -695,10 +698,10 @@ export async function initAvatarBot(optiopns = {}) {
       }
 
       greeting = resolveLocalized(
-        optiopns.assistantGreeting,
+        options.assistantGreeting,
         currentLocale,
         defaultAssistantGreeting,
-        fnArgs
+        templateContext
       );
     }
 
@@ -719,7 +722,7 @@ export async function initAvatarBot(optiopns = {}) {
     aiProviderCreatedFetchPayload,
     aiProviderMaxTokens,
     aiProviderStream,
-    buildLLMMessages: optiopns.buildLLMMessages,
+    buildLLMMessages: options.buildLLMMessages,
 
     i18nEngine,
     locale: i18nEngine?.locale || rootStore.getState().locale,
@@ -731,9 +734,9 @@ export async function initAvatarBot(optiopns = {}) {
     languageRule,
     genderRule,
 
-    welcomeText: optiopns.welcomeText,
-    companionWelcomeText: optiopns.companionWelcomeText,
-    assistantWelcomeText: optiopns.assistantWelcomeText,
+    welcomeText: options.welcomeText,
+    companionWelcomeText: options.companionWelcomeText,
+    assistantWelcomeText: options.assistantWelcomeText,
 
     onLlmLoading() {
       aiAvatarWidget.speechEngine.spokenDisplayText =
@@ -742,12 +745,13 @@ export async function initAvatarBot(optiopns = {}) {
           : '開始下載 AI 大腦（約 1GB，只需第一次）…';
       callOptionEvent.call(this, 'onLlmLoading');
     },
-    onLlmLoadProgress(p) {
+    onLlmLoadProgress(loadProgress) {
       uiDom.btnLlmEl.textContent =
-        '🧠 ' + Math.round((p.progress || 0) * 100) + '%';
-      callOptionEvent.call(this, 'onLlmLoadProgress', p);
+        '🧠 ' + Math.round((loadProgress?.progress || 0) * 100) + '%';
+      callOptionEvent.call(this, 'onLlmLoadProgress', loadProgress);
     },
     onLlmLoaded() {
+
       uiDom.btnLlmEl.textContent = '🧠✓';
       uiDom.btnLlmEl.setAttribute('css-llm-on', 'true');
       const loadedMsg =
@@ -864,14 +868,16 @@ export async function initAvatarBot(optiopns = {}) {
     },
     onStreamStart() {
       streamSpeechId = speechEngine.ttsMuted ? 0 : speechEngine.beginSpeech();
+      streamSpeechState.sentenceBuffer = '';
       streamSpeechState.buf = '';
     },
-    onStreamChunk(delta) {
+    onStreamChunk(chunkDelta) {
       if (streamSpeechId !== 0) {
         if (streamSpeechId !== speechEngine.speakSeq) {
           return;
         }
-        streamSpeechState.buf += delta;
+        streamSpeechState.sentenceBuffer += chunkDelta;
+        streamSpeechState.buf += chunkDelta;
         for (const sentence of speechEngine.drainSentences(
           streamSpeechState,
           false
@@ -1223,9 +1229,9 @@ export async function initAvatarBot(optiopns = {}) {
   }
 
   if (typeof speechEngine.subscribe === 'function') {
-    speechEngine.subscribe('isSpeaking', (val) => {
+    speechEngine.subscribe('isSpeaking', (isSpeaking) => {
       if (skinEngine && typeof skinEngine.setIsSpeaking === 'function') {
-        skinEngine.setIsSpeaking(val);
+        skinEngine.setIsSpeaking(isSpeaking);
       }
     });
   }
@@ -1238,13 +1244,13 @@ export async function initAvatarBot(optiopns = {}) {
     0
   );
 
-  if (typeof optiopns.onReady === 'function') {
-    aiAvatarWidget.onReady = optiopns.onReady.bind(aiAvatarWidget);
+  if (typeof options.onReady === 'function') {
+    aiAvatarWidget.onReady = options.onReady.bind(aiAvatarWidget);
   }
 
-  if (typeof optiopns.onMinimalTrigger === 'function') {
+  if (typeof options.onMinimalTrigger === 'function') {
     aiAvatarWidget.onMinimalTrigger =
-      optiopns.onMinimalTrigger.bind(aiAvatarWidget);
+      options.onMinimalTrigger.bind(aiAvatarWidget);
   }
 
   initSkinModeChangeButton(aiAvatarWidget, skinEngine.has2D, skinEngine.has3D);

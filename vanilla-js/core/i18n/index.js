@@ -22,26 +22,39 @@ export const defaultLocales = {
  * @param {T | Record<string, T> | ((args: any) => T)} [value] - 欲解析的值、多語系物件或函式。
  * @param {string} [locale=DEFAULT_LOCALE] - 當前語系代碼。
  * @param {T | ((args: any) => T)} [fallbackValue] - 當解析不到時的回退值或回退函式。
- * @param {any} [fnArgs={}] - 傳遞給函式的參數物件。
+ * @param {any} [templateContext={}] - 傳遞給函式的上下文參數物件。
  * @returns {T} 解析後的最終值。
  */
-export function resolveLocalized(value, locale = DEFAULT_LOCALE, fallbackValue = undefined, fnArgs = {}) {
+export function resolveLocalized(
+  value,
+  locale = DEFAULT_LOCALE,
+  fallbackValue = undefined,
+  templateContext = {}
+) {
   if (typeof value === 'function') {
-    return value(fnArgs);
+    return value(templateContext);
   }
 
-  if (typeof value === 'object' && value !== null && Array.isArray(value) === false) {
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    Array.isArray(value) === false
+  ) {
     if (typeof value[locale] !== 'undefined') {
-      return typeof value[locale] === 'function' ? value[locale](fnArgs) : value[locale];
+      return typeof value[locale] === 'function'
+        ? value[locale](templateContext)
+        : value[locale];
     }
     if (typeof value[DEFAULT_LOCALE] !== 'undefined') {
       return typeof value[DEFAULT_LOCALE] === 'function'
-        ? value[DEFAULT_LOCALE](fnArgs)
+        ? value[DEFAULT_LOCALE](templateContext)
         : value[DEFAULT_LOCALE];
     }
     const firstKey = Object.keys(value)[0];
     if (typeof firstKey === 'string' && firstKey !== '') {
-      return typeof value[firstKey] === 'function' ? value[firstKey](fnArgs) : value[firstKey];
+      return typeof value[firstKey] === 'function'
+        ? value[firstKey](templateContext)
+        : value[firstKey];
     }
   }
 
@@ -50,7 +63,7 @@ export function resolveLocalized(value, locale = DEFAULT_LOCALE, fallbackValue =
   }
 
   if (typeof fallbackValue === 'function') {
-    return fallbackValue(fnArgs);
+    return fallbackValue(templateContext);
   }
 
   return fallbackValue;
@@ -146,22 +159,22 @@ export function initI18nEngine(options = {}) {
     const dict =
       state.messages[currentLocale] || state.messages[DEFAULT_LOCALE] || {};
 
-    let val = getFromDict(dict, key);
-    if (typeof val === 'undefined') {
-      val = getFromDict(state.messages[DEFAULT_LOCALE], key) ?? key;
+    let messageValue = getFromDict(dict, key);
+    if (typeof messageValue === 'undefined') {
+      messageValue = getFromDict(state.messages[DEFAULT_LOCALE], key) ?? key;
     }
 
-    if (typeof val === 'string') {
-      return formatParams(val, params);
+    if (typeof messageValue === 'string') {
+      return formatParams(messageValue, params);
     }
 
-    if (Array.isArray(val) === true) {
-      return val.map((item) =>
+    if (Array.isArray(messageValue) === true) {
+      return messageValue.map((item) =>
         typeof item === 'string' ? formatParams(item, params) : item
       );
     }
 
-    return val;
+    return messageValue;
   }
 
   /**
@@ -203,8 +216,13 @@ export function initI18nEngine(options = {}) {
     setLocale,
     addMessages,
     formatParams,
-    resolveLocalized: (value, fallbackValue, fnArgs) =>
-      resolveLocalized(value, store.getState().locale, fallbackValue, fnArgs),
+    resolveLocalized: (value, fallbackValue, templateContext) =>
+      resolveLocalized(
+        value,
+        store.getState().locale,
+        fallbackValue,
+        templateContext
+      ),
 
     get locale() {
       return store.getState().locale;
@@ -229,11 +247,11 @@ export function initI18nEngine(options = {}) {
     subscribe(key, listener) {
       if (key === 'locale') {
         return store.subscribe('locale', (newLocale, prevLocale) => {
-          const labels = LOCALE_LABELS[newLocale] || {
+          const localeLabels = LOCALE_LABELS[newLocale] || {
             label: newLocale,
             shortLabel: newLocale
           };
-          listener(newLocale, labels, prevLocale);
+          listener(newLocale, localeLabels, prevLocale);
         });
       }
       return store.subscribe(key, listener);

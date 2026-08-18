@@ -375,13 +375,13 @@ function getSttMessage(locale, key, params = {}) {
             interimText += result[0].transcript + ' ';
           }
         }
-        const txt = (finalText + interimText).trim();
-        if (txt === '') return;
+        const recognizedText = (finalText + interimText).trim();
+        if (recognizedText === '') return;
 
         state.noSpeechRuns = 0;
         if (typeof onResult === 'function') {
-          const last = event.results[event.results.length - 1];
-          onResult(txt, last.isFinal, interimText !== '');
+          const lastResult = event.results[event.results.length - 1];
+          onResult(recognizedText, lastResult.isFinal, interimText !== '');
         }
 
         clearTimeout(state.recognitionSilenceTimer);

@@ -108,14 +108,14 @@ export async function initSpeechEngine(setting = {}) {
   });
 
   let spokenDisplayTextTimer = null;
-  store.subscribe('spokenDisplayText', (val) => {
+  store.subscribe('spokenDisplayText', (displayText) => {
     if (typeof setting.onSpokenDisplayTextChange === 'function') {
-      setting.onSpokenDisplayTextChange(val);
+      setting.onSpokenDisplayTextChange(displayText);
     }
     if (spokenDisplayTextTimer) {
       clearTimeout(spokenDisplayTextTimer);
     }
-    if (val !== '') {
+    if (displayText !== '') {
       spokenDisplayTextTimer = setTimeout(() => {
         if (typeof setting.onSpokenDisplayTextTimeout === 'function') {
           setting.onSpokenDisplayTextTimeout();
@@ -124,29 +124,29 @@ export async function initSpeechEngine(setting = {}) {
     }
   });
 
-  store.subscribe('gender', (val) => {
-    ttsEngine.setGender(val);
+  store.subscribe('gender', (newGender) => {
+    ttsEngine.setGender(newGender);
   });
 
-  store.subscribe('locale', (val) => {
+  store.subscribe('locale', (newLocale) => {
     if (sttEngine && typeof sttEngine.setLocale === 'function') {
-      sttEngine.setLocale(val);
+      sttEngine.setLocale(newLocale);
     }
     if (ttsEngine && typeof ttsEngine.setLocale === 'function') {
-      ttsEngine.setLocale(val);
+      ttsEngine.setLocale(newLocale);
     }
   });
 
-  store.subscribe('ttsMuted', (val) => {
-    ttsEngine.isMuted = val;
+  store.subscribe('ttsMuted', (isMuted) => {
+    ttsEngine.isMuted = isMuted;
   });
 
-  store.subscribe('spokenAudioText', (val) => {
-    store.setState({ spokenDisplayText: val });
+  store.subscribe('spokenAudioText', (audioText) => {
+    store.setState({ spokenDisplayText: audioText });
     if (typeof setting.onSpeaking === 'function') {
-      setting.onSpeaking(val);
+      setting.onSpeaking(audioText);
     }
-    speechEngine.speak(val);
+    speechEngine.speak(audioText);
   });
 
   const speechEngine = {
@@ -333,39 +333,52 @@ export async function initSpeechEngine(setting = {}) {
       }
     },
 
-    _speechBuf: '',
+    _speechBuffer: '',
+    get _speechBuf() {
+      return this._speechBuffer;
+    },
+    set _speechBuf(val) {
+      this._speechBuffer = val;
+    },
     _speechQueue: [],
 
     drainSentences: (state, force) => {
-      const parts = splitSentences(state.buf);
+      const bufferText =
+        typeof state.sentenceBuffer === 'string'
+          ? state.sentenceBuffer
+          : state.buf || '';
+      const parts = splitSentences(bufferText);
       if (parts.length > 1 || (force && parts.length > 0)) {
-        const out = force ? parts : parts.slice(0, parts.length - 1);
-        state.buf = force ? '' : parts[parts.length - 1];
-        return out;
+        const remaining = force ? '' : parts[parts.length - 1];
+        if (typeof state.sentenceBuffer === 'string') {
+          state.sentenceBuffer = remaining;
+        }
+        state.buf = remaining;
+        return force ? parts : parts.slice(0, parts.length - 1);
       }
       return [];
     },
 
     beginSpeech: () => {
       speechEngine.stopSpeaking();
-      speechEngine._speechBuf = '';
+      speechEngine._speechBuffer = '';
       speechEngine._speechQueue = [];
       speechEngine.speakSeq++;
       return speechEngine.speakSeq;
     },
 
-    pushSpeech: (sid, text, options) => {
-      if (sid !== speechEngine.speakSeq) return;
-      speechEngine._speechBuf += text;
+    pushSpeech: (speechSequenceId, text, options) => {
+      if (speechSequenceId !== speechEngine.speakSeq) return;
+      speechEngine._speechBuffer += text;
       speechEngine._speechQueue.push(text);
 
       if (!ttsEngine.isSpeaking) {
-        speechEngine._playNextQueue(sid, options);
+        speechEngine._playNextQueue(speechSequenceId, options);
       }
     },
 
-    _playNextQueue: (sid, options) => {
-      if (sid !== speechEngine.speakSeq) return;
+    _playNextQueue: (speechSequenceId, options) => {
+      if (speechSequenceId !== speechEngine.speakSeq) return;
       if (speechEngine._speechQueue.length > 0) {
         const sentence = speechEngine._speechQueue.shift();
         speechEngine.speak(sentence, options);
@@ -389,8 +402,8 @@ export async function initSpeechEngine(setting = {}) {
     },
 
     _speechEndedFlag: false,
-    endSpeech: (sid) => {
-      if (sid !== speechEngine.speakSeq) return;
+    endSpeech: (speechSequenceId) => {
+      if (speechSequenceId !== speechEngine.speakSeq) return;
       speechEngine._speechEndedFlag = true;
       if (!ttsEngine.isSpeaking && speechEngine._speechQueue.length === 0) {
         speechEngine.onUtteranceEnd();

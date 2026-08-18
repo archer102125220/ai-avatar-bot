@@ -495,7 +495,7 @@ export function initLLM(setting = {}, brain) {
  */
 export async function getWelcomeText(brainEngine) {
   const locale = brainEngine?.locale || 'zh-TW';
-  const fnArgs = {
+  const templateContext = {
     isCompanion: brainEngine?.mem?.isCompanion,
     visits: brainEngine?.mem?.data?.visits,
     name: brainEngine?.mem?.data?.name,
@@ -510,7 +510,7 @@ export async function getWelcomeText(brainEngine) {
       brainEngine.welcomeText,
       locale,
       undefined,
-      fnArgs
+      templateContext
     );
     if (res instanceof Promise) return await res;
     if (typeof res !== 'undefined') return res;
@@ -525,7 +525,7 @@ export async function getWelcomeText(brainEngine) {
         brainEngine.companionWelcomeText,
         locale,
         undefined,
-        fnArgs
+        templateContext
       );
       if (res instanceof Promise) return await res;
       if (typeof res !== 'undefined') return res;
@@ -583,7 +583,7 @@ export async function getWelcomeText(brainEngine) {
       brainEngine.assistantWelcomeText,
       locale,
       undefined,
-      fnArgs
+      templateContext
     );
     if (res instanceof Promise) return await res;
     if (typeof res !== 'undefined') return res;
@@ -1266,7 +1266,7 @@ export function bestOf(knowledgeList = [], question) {
 export function brainEngineCompanionFallback(brainEngine, question) {
   const locale = brainEngine?.locale || 'zh-TW';
   const name = brainEngine?.mem?.data?.name || '';
-  const fnArgs = { question, name, locale };
+  const templateContext = { question, name, locale };
 
   if (
     typeof brainEngine?.companionFallbackContext !== 'undefined' &&
@@ -1276,7 +1276,7 @@ export function brainEngineCompanionFallback(brainEngine, question) {
       brainEngine.companionFallbackContext,
       locale,
       undefined,
-      fnArgs
+      templateContext
     );
     if (typeof res === 'string') return res;
   }
@@ -1319,7 +1319,7 @@ export function brainEngineCompanionFallback(brainEngine, question) {
     brainEngine?.companionFallback,
     locale,
     defaultList,
-    fnArgs
+    templateContext
   );
   const companionFallbackList =
     Array.isArray(rawList) && rawList.length > 0 ? rawList : defaultList;
@@ -1498,11 +1498,11 @@ export async function aiProviderLLMBrain(brainEngine, question) {
       brainEngine.onEmotionChange('thinking');
     }
 
-    const out = await brainEngine.aiProvider.chat(
+    const chatResponse = await brainEngine.aiProvider.chat(
       brainEngine.buildLLMMessages(question)
     );
-    if (typeof out === 'string' && out.trim() !== '') {
-      return sayAnswer(brainEngine, out.trim());
+    if (typeof chatResponse === 'string' && chatResponse.trim() !== '') {
+      return sayAnswer(brainEngine, chatResponse.trim());
     }
     throw new Error(
       'AI Provider 回應為空或格式錯誤 (response is empty or malformed)'
@@ -1753,26 +1753,36 @@ export async function webLLMBrain(brainEngine, question) {
     }
 
     const streamMessageId = 'stream-' + Date.now();
-    const out = await brainEngine.llm.chat(
+    const chatResponse = await brainEngine.llm.chat(
       brainEngine.buildLLMMessages(question),
-      (delta, sofar) => {
+      (chunkDelta, accumulatedText) => {
         if (typeof brainEngine.onSpokenDisplayTextChange === 'function') {
-          brainEngine.onSpokenDisplayTextChange(sofar);
+          brainEngine.onSpokenDisplayTextChange(accumulatedText);
         }
-        updateChatMessage(brainEngine, streamMessageId, sofar, true);
-        brainEngine.setEmotionFromText(sofar);
+        updateChatMessage(
+          brainEngine,
+          streamMessageId,
+          accumulatedText,
+          true
+        );
+        brainEngine.setEmotionFromText(accumulatedText);
 
         if (typeof brainEngine.onStreamChunk === 'function') {
-          brainEngine.onStreamChunk(delta);
+          brainEngine.onStreamChunk(chunkDelta);
         }
       }
     );
-    if (typeof out === 'string' && out.trim() !== '') {
-      brainEngine.mem.addTurn('assistant', out.trim());
-      updateChatMessage(brainEngine, streamMessageId, out.trim(), false);
+    if (typeof chatResponse === 'string' && chatResponse.trim() !== '') {
+      brainEngine.mem.addTurn('assistant', chatResponse.trim());
+      updateChatMessage(
+        brainEngine,
+        streamMessageId,
+        chatResponse.trim(),
+        false
+      );
 
       if (typeof brainEngine.onStreamEnd === 'function') {
-        brainEngine.onStreamEnd(out.trim());
+        brainEngine.onStreamEnd(chatResponse.trim());
       }
       return;
     }
