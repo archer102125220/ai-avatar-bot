@@ -1,7 +1,7 @@
 // TODO: 等到環境可以測試麥克風跟喇叭時，要徹底測過這份檔案內部的所有機制有沒有因為重構而出問題
 import { DEFAULT_TTS_ENDPOINT, GENDER_MAP } from '../constants';
 import { createBaseStore } from '../store';
-import { initDefaultSTTEngine, validateSTTEngine } from './stt';
+import { getSttMessage, initDefaultSTTEngine, validateSTTEngine } from './stt';
 import { splitSentences, initDefaultTTSEngine, validateTTSEngine } from './tts';
 
 export {
@@ -9,7 +9,8 @@ export {
   validateSTTEngine,
   initDefaultSTTEngine,
   initDefaultTTSEngine,
-  splitSentences
+  splitSentences,
+  getSttMessage
 };
 
 /**
@@ -421,7 +422,9 @@ export async function initSpeechEngine(setting = {}) {
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden === true && speechEngine.convoOn === true) {
-      speechEngine.stopVoiceSession('頁面進入背景，即時語音已停止。');
+      speechEngine.stopVoiceSession(
+        getSttMessage(speechEngine.locale, 'bgStop')
+      );
     }
   });
 
@@ -546,7 +549,9 @@ export async function initSpeechEngine(setting = {}) {
       }
     },
     onNoSpeechAbort: () => {
-      speechEngine.stopVoiceSession('連續幾次沒有聽到聲音，即時對話已暫停。');
+      speechEngine.stopVoiceSession(
+        getSttMessage(speechEngine.locale, 'noSpeechAbort')
+      );
     }
   };
 

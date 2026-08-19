@@ -9,6 +9,7 @@ export default {
   'ui.history.cancel': 'Cancel',
   'ui.history.copy': 'Copy',
   'ui.history.copied': 'Answer copied',
+  'ui.history.cleared': 'Chat history cleared for this session',
   'ui.history.replay': 'Replay',
   'ui.voice.standby': 'Voice Standby',
   'ui.input.placeholder': 'Type a question here...',
@@ -43,6 +44,8 @@ export default {
   'speech.permissionDenied': 'Microphone permission is required to listen.',
   'speech.noSpeech': "Didn't catch that ({error}), please try again.",
   'speech.sessionEnded': 'Voice session ended.',
+  'speech.bgStop': 'Page entered background, voice session stopped.',
+  'speech.noSpeechAbort': 'No speech detected multiple times, voice session paused.',
 
   // AI Brain Status & Messages
   'brain.llm.loading': 'Downloading AI Brain (~1GB, first time only)...',

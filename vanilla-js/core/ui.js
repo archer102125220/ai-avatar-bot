@@ -99,9 +99,10 @@ export function updateUIStrings(container, i18nEngine) {
  * 初始化使用者介面元件並附加至指定的容器中。
  * @param {HTMLElement} container - 要容納虛擬人助理的主要容器元素。
  * @param {HTMLElement} stageEl - 3D 或 2D 虛擬人所在的舞台元素。
+ * @param {Object} [i18nEngine] - 多語系引擎實例。
  * @returns {UiDom|void} 包含各種 UI DOM 元素及控制方法的物件，若參數無效則回傳 undefined。
  */
-export function initUi(container, stageEl) {
+export function initUi(container, stageEl, i18nEngine = null) {
   if (container instanceof HTMLElement === false) {
     console.error('[aiAvatar initUi] container is not an HTMLElement');
     return;
@@ -110,6 +111,11 @@ export function initUi(container, stageEl) {
     console.error('[aiAvatar initUi] stageEl is not an HTMLElement');
     return;
   }
+
+  let currentListening = false;
+  let currentConvoOn = false;
+  let currentIsCompanion = false;
+  let currentI18nEngine = i18nEngine;
 
   if (
     ['relative', 'absolute', 'fixed'].includes(
@@ -224,16 +230,20 @@ export function initUi(container, stageEl) {
 
   const micButtonEl = document.createElement('button');
   micButtonEl.setAttribute('id', 'btn-mic');
-  micButtonEl.setAttribute('aria-label', '開始即時語音對話');
+  micButtonEl.setAttribute(
+    'aria-label',
+    typeof currentI18nEngine?.t === 'function'
+      ? currentI18nEngine.t('ui.mic.ariaLabel')
+      : '開始即時語音對話'
+  );
   micButtonEl.setAttribute('data-i18n-aria', 'ui.mic.ariaLabel');
   micButtonEl.setAttribute('aria-pressed', 'false');
   micButtonEl.classList.add('ctrl');
   micButtonEl.classList.add('primary');
-  const micButtonSpanEl = document.createElement('span');
-  micButtonSpanEl.setAttribute('aria-hidden', 'true');
-  micButtonSpanEl.textContent = '🎙️';
-  micButtonEl.appendChild(micButtonSpanEl);
-  micButtonEl.appendChild(document.createTextNode(' 即時'));
+  micButtonEl.textContent =
+    typeof currentI18nEngine?.t === 'function'
+      ? currentI18nEngine.t('ui.mic.live')
+      : '🎙️ 即時';
 
   const engineButtonEl = document.createElement('button');
   engineButtonEl.setAttribute('id', 'btn-engine');
@@ -364,7 +374,10 @@ export function initUi(container, stageEl) {
     get voiceLevelEl() {
       return voiceLevelEl;
     },
-    updateVoiceStatus(convoOn, text, state, level, i18nEngine) {
+    updateVoiceStatus(convoOn, text, state, level, i18n) {
+      if (typeof i18n === 'object' && i18n !== null) {
+        currentI18nEngine = i18n;
+      }
       if (convoOn === true) {
         voiceLiveEl.setAttribute('css-is-active', 'true');
         if (typeof state === 'string' && state !== '') {
@@ -379,38 +392,51 @@ export function initUi(container, stageEl) {
       if (voiceStatusEl instanceof HTMLElement && text !== undefined) {
         voiceStatusEl.textContent =
           text ||
-          (typeof i18nEngine?.t === 'function'
-            ? i18nEngine.t('ui.voice.standby')
+          (typeof currentI18nEngine?.t === 'function'
+            ? currentI18nEngine.t('ui.voice.standby')
             : '即時語音待命');
       }
       if (typeof level === 'number' && voiceLevelEl instanceof HTMLElement) {
         voiceLevelEl.style.width = Math.max(0, Math.min(100, level)) + '%';
       }
     },
-    updateMicState(isListening, convoOn, isCompanion, i18nEngine) {
-      if (isListening === true) {
+    updateMicState(isListening, convoOn, isCompanion, i18n) {
+      if (typeof isListening === 'boolean') {
+        currentListening = isListening;
+      }
+      if (typeof convoOn === 'boolean') {
+        currentConvoOn = convoOn;
+      }
+      if (typeof isCompanion === 'boolean') {
+        currentIsCompanion = isCompanion;
+      }
+      if (typeof i18n === 'object' && i18n !== null) {
+        currentI18nEngine = i18n;
+      }
+
+      if (currentListening === true) {
         micButtonEl.setAttribute('css-state', 'listening');
       } else {
         micButtonEl.removeAttribute('css-state');
       }
 
-      micButtonEl.setAttribute('aria-pressed', String(!!convoOn));
+      micButtonEl.setAttribute('aria-pressed', String(!!currentConvoOn));
 
       const t = (k, d) =>
-        typeof i18nEngine?.t === 'function' ? i18nEngine.t(k) : d;
+        typeof currentI18nEngine?.t === 'function' ? currentI18nEngine.t(k) : d;
 
       micButtonEl.textContent =
-        isListening === true
-          ? isCompanion === true
+        currentListening === true
+          ? currentIsCompanion === true
             ? t('ui.mic.chatting', '● 對話中')
             : t('ui.mic.listening', '● 聆聽中')
-          : convoOn === true
+          : currentConvoOn === true
             ? t('ui.mic.convoStandby', '◌ 對話中')
             : t('ui.mic.live', '🎙️ 即時');
 
       if (suggestionsEl instanceof HTMLElement) {
         suggestionsEl.style.display =
-          isListening === true || convoOn === true ? 'none' : 'flex';
+          currentListening === true || currentConvoOn === true ? 'none' : 'flex';
       }
     },
     get controlBarEl() {
@@ -922,6 +948,11 @@ export function bindUiEvent(context = null) {
 
   if (uiDom.micButtonEl instanceof HTMLElement) {
     uiDom.micButtonEl.onclick = () => {
+      const sessionEndedMsg =
+        typeof context.i18nEngine?.t === 'function'
+          ? context.i18nEngine.t('speech.sessionEnded')
+          : '即時語音對話已結束。';
+
       if (context.avatarMode === 'companion') {
         const isIdle =
           context.speechEngine.isListening !== true &&
@@ -932,7 +963,7 @@ export function bindUiEvent(context = null) {
           context.speechEngine.startListening();
         } else {
           context.speechEngine.convoOn = false;
-          context.speechEngine.stopVoiceSession('即時語音對話已結束。');
+          context.speechEngine.stopVoiceSession(sessionEndedMsg);
         }
         return;
       }
@@ -946,7 +977,7 @@ export function bindUiEvent(context = null) {
           context.speechEngine.isListening === true ||
           context.speechEngine.isProcessing === true;
         if (isActive === true) {
-          context.speechEngine.stopVoiceSession('即時語音對話已結束。');
+          context.speechEngine.stopVoiceSession(sessionEndedMsg);
         } else {
           context.speechEngine.startListening();
         }
@@ -964,8 +995,12 @@ export function bindUiEvent(context = null) {
         context.speechEngine.stopSpeaking(); // 立刻停掉正在播的（神經語音 + 瀏覽器語音）
       }
       context.speechEngine.spokenDisplayText = context.speechEngine.ttsMuted
-        ? '已靜音'
-        : '已開啟語音';
+        ? typeof context.i18nEngine?.t === 'function'
+          ? context.i18nEngine.t('ui.mute.muted')
+          : '已靜音'
+        : typeof context.i18nEngine?.t === 'function'
+          ? context.i18nEngine.t('ui.mute.unmuted')
+          : '已開啟語音';
     };
   }
 
@@ -979,11 +1014,15 @@ export function bindUiEvent(context = null) {
         ] || 1.0;
       el.textContent = context.speechEngine.ttsRate.toFixed(1) + '×';
       context.speechEngine.spokenDisplayText =
-        '語速：' + context.speechEngine.ttsRate.toFixed(1) + '×';
+        typeof context.i18nEngine?.t === 'function'
+          ? context.i18nEngine.t('ui.speed.text', {
+              rate: context.speechEngine.ttsRate.toFixed(1)
+            })
+          : '語速：' + context.speechEngine.ttsRate.toFixed(1) + '×';
     };
   }
 
-    if (uiDom.langButtonEl instanceof HTMLElement) {
+  if (uiDom.langButtonEl instanceof HTMLElement) {
     uiDom.langButtonEl.onclick = () => {
       const locales = SUPPORTED_LOCALES || ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'];
       const current = context.locale || context.i18nEngine?.locale || 'zh-TW';
@@ -1034,7 +1073,10 @@ export function bindUiEvent(context = null) {
       btnHistoryClear.onclick = () => {
         context.brainEngine.chatLog.length = 0;
         renderHistory(context);
-        context.speechEngine.spokenDisplayText = '已清除這次的聊天紀錄';
+        context.speechEngine.spokenDisplayText =
+          typeof context.i18nEngine?.t === 'function'
+            ? context.i18nEngine.t('ui.history.cleared')
+            : '已清除這次的聊天紀錄';
       };
     }
   }

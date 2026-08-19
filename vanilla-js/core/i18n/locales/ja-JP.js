@@ -9,6 +9,7 @@ export default {
   'ui.history.cancel': 'キャンセル',
   'ui.history.copy': 'コピー',
   'ui.history.copied': '回答をコピーしました',
+  'ui.history.cleared': '今回のチャット履歴を消去しました',
   'ui.history.replay': '再生',
   'ui.voice.standby': '音声待機中',
   'ui.input.placeholder': '質問を入力してください…',
@@ -43,6 +44,8 @@ export default {
   'speech.permissionDenied': 'マイクの権限が必要です。',
   'speech.noSpeech': '聞き取れませんでした（{error}）、もう一度お試しください。',
   'speech.sessionEnded': '音声対話が終了しました。',
+  'speech.bgStop': 'バックグラウンドに移動したため、音声対話を停止しました。',
+  'speech.noSpeechAbort': '音声が検出されなかったため、対話を一時停止しました。',
 
   // AI Brain Status & Messages
   'brain.llm.loading': 'AIブレインをダウンロード中（約1GB、初回のみ）…',

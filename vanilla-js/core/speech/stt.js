@@ -38,45 +38,109 @@ export function validateSTTEngine(engine) {
  * @property {number} micNoiseFloor - 麥克風底噪位準。
  * @property {number} voiceFrames - 連續偵測到語音的幀數。
  * @property {number} lastBargeIn - 上次插話的時間戳記。
- * @property {number} micRaf - RequestAnimationFrame 的 ID。
- * @property {Object|null} recognition - Web Speech API 辨識實例 (SpeechRecognition)。
- * @property {number|null} recognitionSilenceTimer - 靜音超時計時器 ID。
- * @property {boolean} isListening - 是否正在聆聽。
+ * @property {number} micRaf - 麥克風音量監控的 requestAnimationFrame ID。
+ * @property {SpeechRecognition|null} recognition - Web Speech API 語音辨識實例。
+ * @property {boolean} isListening - 目前是否正在聆聽語音。
+ * @property {string} locale - 當前語系代碼（例如 'zh-TW', 'en-US'）。
  * @property {number} noSpeechRuns - 連續未偵測到語音的次數。
+ * @property {number} lastRestart - 上次重啟辨識的時間戳記。
+ * @property {number} speechStartTime - 語音辨識開始的時間戳記。
+ * @property {number} interimStartTime - 臨時辨識結果開始的時間戳記。
+ * @property {string} spokenDisplayText - 目前由語音模組產生的提示文字。
+ * @property {boolean} isAborted - 是否主動中止語音辨識。
  */
 
 /**
- * 語音轉文字 (STT) 引擎的初始化選項。
- * 
  * @typedef {Object} STTEngineOptions
- * @property {(text: string, isFinal: boolean, isInterim: boolean) => void} [onResult] - 當辨識出文字時的處理函數。
- * @property {(rms: number, showVoiceUI: boolean, stateString: string, levelAmp: number) => void} [onMicLevel] - 麥克風音量監聽回調。
- * @property {() => void} [onBargeIn] - 當使用者插話 (Barge-In) 時的處理函數。
- * @property {(errorMessage: string, isNotAllowed: boolean) => void} [onError] - 發生錯誤時的處理函數。
- * @property {(isListening: boolean, statusMessage?: string, isAborted?: boolean) => void} [onStatusChange] - 狀態變更時的處理函數。
- * @property {() => void} [onNoSpeechAbort] - 連續未接收到聲音導致中止時的處理函數。
- * @property {() => boolean} [getAssistantActive] - 取得助理是否處於活動狀態 (說話或處理中)。
- * @property {() => number} [getSpeechDuration] - 取得目前的發言持續時間 (毫秒)。
- * @property {() => boolean} [getConvoOn] - 取得是否開啟即時對話功能。
+ * @property {(text: string, isFinal: boolean, isInterim: boolean) => void} [onResult] - 當取得辨識結果時的回調函數。
+ * @property {(rms: number, showVoiceUI: boolean, stateString: string, levelAmp: number) => void} [onMicLevel] - 當麥克風音量位準更新時的回調函數。
+ * @property {() => void} [onBargeIn] - 當偵測到使用者插話時的回調函數。
+ * @property {(errorMessage: string, isNotAllowed: boolean) => void} [onError] - 當語音辨識發生錯誤時的回調函數。
+ * @property {(isListening: boolean, statusMessage?: string, isAborted?: boolean) => void} [onStatusChange] - 當語音辨識狀態變更時的回調函數。
+ * @property {() => void} [onNoSpeechAbort] - 當連續多次未偵測到語音而中止時的回調函數。
+ * @property {() => boolean} [getAssistantActive] - 取得助理目前是否處於活動狀態（例如正在說話或處理中）的函數。
+ * @property {() => number} [getSpeechDuration] - 取得目前虛擬人說話持續時間的函數。
+ * @property {() => boolean} [getConvoOn] - 取得目前連續對話模式是否開啟的函數。
+ * @property {string} [locale='zh-TW'] - 初始語系代碼。
  */
 
 /**
- * 預設語音轉文字 (STT) 引擎實例。
- *
- * @typedef {Object} STTEngineInstance
- * @property {(listener: (state: STTEngineState) => void) => (() => void)} subscribe - 訂閱引擎內部狀態變更的函數，回傳取消訂閱的函數。
- * @property {() => STTEngineState} getState - 取得目前引擎內部狀態。
- * @property {(newState: Partial<STTEngineState>) => void} setState - 更新引擎內部狀態。
- * @property {boolean} isListening - 標示目前是否正在聆聽語音。
- * @property {() => Promise<void>} startListening - 啟動語音辨識與麥克風監聽。
- * @property {() => void} stopListening - 停止語音辨識與麥克風監聽。
+ * 預設 STT 引擎的多語系訊息字典。
  */
+const DEFAULT_STT_MESSAGES = {
+  'zh-TW': {
+    unsupported: '你的瀏覽器不支援語音辨識，建議用 Chrome 開喔。',
+    requestPermission: '正在取得麥克風權限…',
+    micError: '無法啟動語音功能，請檢查麥克風與瀏覽器設定。',
+    startFailed: '語音辨識啟動失敗：{error}',
+    listening: '請說話，可以隨時插話…',
+    permissionDenied: '我需要麥克風權限才能聽你說話喔。',
+    noSpeech: '沒聽清楚（{error}），再試一次。',
+    sessionEnded: '即時語音對話已結束。',
+    bgStop: '頁面進入背景，即時語音已停止。',
+    noSpeechAbort: '連續幾次沒有聽到聲音，即時對話已暫停。'
+  },
+  'en-US': {
+    unsupported: 'Your browser does not support speech recognition. Chrome is recommended.',
+    requestPermission: 'Requesting microphone permission...',
+    micError: 'Unable to start voice service. Please check microphone permissions and browser settings.',
+    startFailed: 'Failed to start speech recognition: {error}',
+    listening: 'Please speak, you can interrupt anytime...',
+    permissionDenied: 'Microphone permission is required to listen.',
+    noSpeech: "Didn't catch that ({error}), please try again.",
+    sessionEnded: 'Voice session ended.',
+    bgStop: 'Page entered background, voice session stopped.',
+    noSpeechAbort: 'No speech detected multiple times, voice session paused.'
+  },
+  'ja-JP': {
+    unsupported: 'お使いのブラウザは音声認識に対応していません。Chromeをお勧めします。',
+    requestPermission: 'マイクの権限を取得中…',
+    micError: '音声機能を開始できません。マイクの許可と設定を確認してください。',
+    startFailed: '音声認識の開始に失敗しました：{error}',
+    listening: '話しかけてください。いつでも遮って話せます…',
+    permissionDenied: 'マイクの権限が必要です。',
+    noSpeech: '聞き取れませんでした（{error}）、もう一度お試しください。',
+    sessionEnded: '音声対話が終了しました。',
+    bgStop: 'バックグラウンドに移動したため、音声対話を停止しました。',
+    noSpeechAbort: '音声が検出されなかったため、対話を一時停止しました。'
+  },
+  'ko-KR': {
+    unsupported: '현재 브라우저는 음성 인식을 지원하지 않습니다. Chrome 브라우저를 권장합니다.',
+    requestPermission: '마이크 권한 요청 중…',
+    micError: '음성 기능을 시작할 수 없습니다. 마이크 권한과 브라우저 설정을 확인해 주세요.',
+    startFailed: '음성 인식 시작 실패: {error}',
+    listening: '말씀해 주세요. 언제든 중간에 말씀하셔도 됩니다…',
+    permissionDenied: '말씀을 듣기 위해 마이크 권한이 필요합니다.',
+    noSpeech: '잘 듣지 못했습니다 ({error}), 다시 시도해 주세요.',
+    sessionEnded: '실시간 음성 대화가 종료되었습니다.',
+    bgStop: '페이지가 백그라운드로 전환되어 음성 대화가 중지되었습니다.',
+    noSpeechAbort: '여러 번 음성이 감지되지 않아 실시간 대화가 일시 중지되었습니다.'
+  }
+};
+
+/**
+ * 取得指定語系的 STT 提示訊息。
+ *
+ * @param {string} locale - 語系代碼。
+ * @param {string} key - 訊息鍵值。
+ * @param {Object} [params={}] - 替換參數。
+ * @returns {string} 格式化後的提示訊息。
+ */
+export function getSttMessage(locale, key, params = {}) {
+  const currentLocale = locale || 'zh-TW';
+  const dict = DEFAULT_STT_MESSAGES[currentLocale] || DEFAULT_STT_MESSAGES['zh-TW'] || {};
+  let msg = dict[key] || DEFAULT_STT_MESSAGES['zh-TW']?.[key] || key;
+  for (const k in params) {
+    msg = msg.replace(new RegExp(`\\{${k}\\}`, 'g'), String(params[k]));
+  }
+  return msg;
+}
 
 /**
  * 建立並初始化預設的語音轉文字 (STT) 引擎，負責管理麥克風權限、音量分析與瀏覽器內建語音辨識 (Web Speech API)。
  *
  * @param {STTEngineOptions} [options={}] - 初始化設定與回調函數。
- * @returns {STTEngineInstance} 包含狀態管理與操作方法的 STT 引擎實例。
+ * @returns {Object} 包含狀態管理與操作方法的 STT 引擎實例。
  */
 export function initDefaultSTTEngine(options = {}) {
   const {
@@ -89,6 +153,7 @@ export function initDefaultSTTEngine(options = {}) {
     getAssistantActive, // function() => boolean
     getSpeechDuration, // function() => number
     getConvoOn, // function() => boolean
+    locale = 'zh-TW'
   } = options;
 
   const store = createBaseStore({
@@ -101,21 +166,17 @@ export function initDefaultSTTEngine(options = {}) {
     lastBargeIn: 0,
     micRaf: 0,
     recognition: null,
-    recognitionSilenceTimer: null,
     isListening: false,
+    locale: locale || 'zh-TW',
     noSpeechRuns: 0,
-    locale: options.locale || 'zh-TW'
+    lastRestart: 0,
+    speechStartTime: 0,
+    interimStartTime: 0,
+    spokenDisplayText: '',
+    isAborted: false
   });
 
   const state = store.getState();
-
-  const setMic = (isListening) => {
-    state.isListening = isListening;
-    store.setState({ isListening });
-    if (typeof onStatusChange === 'function') {
-      onStatusChange(isListening);
-    }
-  };
 
   const monitorMicLevel = () => {
     if (
@@ -126,39 +187,51 @@ export function initDefaultSTTEngine(options = {}) {
     ) {
       return;
     }
-    state.micAnalyser.getByteTimeDomainData(state.micData);
+
+    state.micAnalyser.getByteFrequencyData(state.micData);
+
     let sum = 0;
-    for (let i = 0; i < state.micData.length; i++) {
-      const value = (state.micData[i] - 128) / 128;
-      sum += value * value;
+    const len = state.micData.length;
+    for (let i = 0; i < len; i++) {
+      const v = (state.micData[i] - 128) / 128;
+      sum += v * v;
     }
-    const rms = Math.sqrt(sum / state.micData.length);
+    const rms = Math.sqrt(sum / len);
 
-    const isListening = state.isListening;
+    state.micNoiseFloor =
+      typeof state.micNoiseFloor === 'number' && state.micNoiseFloor > 0
+        ? state.micNoiseFloor * 0.995 + rms * 0.005
+        : rms;
+
+    const speechThreshold = Math.max(0.06, state.micNoiseFloor * 3.5);
+    const isSpeaking = rms > speechThreshold;
+    const levelAmp = Math.min(1, rms * 8);
+
     const convoOn = typeof getConvoOn === 'function' ? getConvoOn() : false;
-    const assistantActive = typeof getAssistantActive === 'function' ? getAssistantActive() : false;
+    const showVoiceUI = convoOn === true || state.isListening === true;
 
-    if (!assistantActive && !isListening) {
-      state.micNoiseFloor = state.micNoiseFloor * 0.96 + rms * 0.04;
+    let stateString = '';
+    const isAssistantActive =
+      typeof getAssistantActive === 'function' ? getAssistantActive() : false;
+
+    if (isAssistantActive === true) {
+      stateString = 'speaking';
+    } else if (isSpeaking === true) {
+      stateString = 'user-speaking';
+    } else if (state.isListening === true) {
+      stateString = 'listening';
     }
-
-    const showVoiceUI = convoOn || isListening || assistantActive;
-    const stateString = isListening ? 'listening' : (assistantActive ? 'speaking' : 'thinking');
 
     if (typeof onMicLevel === 'function') {
-      onMicLevel(rms, showVoiceUI, stateString, rms * 650);
+      onMicLevel(rms, showVoiceUI, stateString, levelAmp);
     }
 
-    const threshold = Math.max(0.085, state.micNoiseFloor * 5.5);
-    const speechDuration = typeof getSpeechDuration === 'function' ? getSpeechDuration() : 0;
+    const speechDuration =
+      typeof getSpeechDuration === 'function' ? getSpeechDuration() : 0;
+    const immuneBargeIn = speechDuration < 1200;
 
-    if (
-      convoOn === true &&
-      assistantActive === true &&
-      speechDuration > 550 &&
-      rms > threshold
-    ) {
-      state.voiceFrames++;
+    if (isSpeaking === true && isAssistantActive === true && immuneBargeIn === false) {
+      state.voiceFrames = (state.voiceFrames || 0) + 1;
     } else {
       state.voiceFrames = Math.max(0, (state.voiceFrames || 0) - 2);
     }
@@ -242,55 +315,6 @@ export function initDefaultSTTEngine(options = {}) {
     }
   };
 
-const DEFAULT_STT_MESSAGES = {
-  'zh-TW': {
-    unsupported: '你的瀏覽器不支援語音辨識，建議用 Chrome 開喔。',
-    requestPermission: '正在取得麥克風權限…',
-    micError: '無法啟動語音功能，請檢查麥克風與瀏覽器設定。',
-    startFailed: '語音辨識啟動失敗：{error}',
-    listening: '請說話，可以隨時插話…',
-    permissionDenied: '我需要麥克風權限才能聽你說話喔。',
-    noSpeech: '沒聽清楚（{error}），再試一次。'
-  },
-  'en-US': {
-    unsupported: 'Your browser does not support speech recognition. Chrome is recommended.',
-    requestPermission: 'Requesting microphone permission...',
-    micError: 'Unable to start voice service. Please check microphone permissions and browser settings.',
-    startFailed: 'Failed to start speech recognition: {error}',
-    listening: 'Please speak, you can interrupt anytime...',
-    permissionDenied: 'Microphone permission is required to listen.',
-    noSpeech: "Didn't catch that ({error}), please try again."
-  },
-  'ja-JP': {
-    unsupported: 'お使いのブラウザは音声認識に対応していません。Chromeをお勧めします。',
-    requestPermission: 'マイクの権限を取得中…',
-    micError: '音声機能を開始できません。マイクの許可と設定を確認してください。',
-    startFailed: '音声認識の開始に失敗しました：{error}',
-    listening: '話しかけてください。いつでも遮って話せます…',
-    permissionDenied: 'マイクの権限が必要です。',
-    noSpeech: '聞き取れませんでした（{error}）、もう一度お試しください。'
-  },
-  'ko-KR': {
-    unsupported: '현재 브라우저는 음성 인식을 지원하지 않습니다. Chrome 브라우저를 권장합니다.',
-    requestPermission: '마이크 권한 요청 중…',
-    micError: '음성 기능을 시작할 수 없습니다. 마이크 권한과 브라우저 설정을 확인해 주세요.',
-    startFailed: '음성 인식 시작 실패: {error}',
-    listening: '말씀해 주세요. 언제든 중간에 말씀하셔도 됩니다…',
-    permissionDenied: '말씀을 듣기 위해 마이크 권한이 필요합니다.',
-    noSpeech: '잘 듣지 못했습니다 ({error}), 다시 시도해 주세요.'
-  }
-};
-
-function getSttMessage(locale, key, params = {}) {
-  const currentLocale = locale || 'zh-TW';
-  const dict = DEFAULT_STT_MESSAGES[currentLocale] || DEFAULT_STT_MESSAGES['zh-TW'] || {};
-  let msg = dict[key] || DEFAULT_STT_MESSAGES['zh-TW']?.[key] || key;
-  for (const k in params) {
-    msg = msg.replace(new RegExp(`\\{${k}\\}`, 'g'), String(params[k]));
-  }
-  return msg;
-}
-
   const engine = {
     subscribe: store.subscribe,
     getState: store.getState,
@@ -309,147 +333,170 @@ function getSttMessage(locale, key, params = {}) {
     },
 
     get isListening() {
-      return state.isListening;
+      return state.isListening === true;
     },
 
     async startListening() {
-      const SafeSpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SafeSpeechRecognition == null) {
-        if (typeof onError === 'function') {
-          onError(getSttMessage(state.locale, 'unsupported'), false);
-        }
+      const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      if (typeof SpeechRecognition !== 'function') {
+        const msg = getSttMessage(engine.locale, 'unsupported');
+        if (typeof onError === 'function') onError(msg, false);
         return;
       }
 
-      if (this.isListening && state.recognition) {
-        state.recognition.stop();
-        return;
-      }
-
-      if (!state.micStream) {
-        setMic(false);
-        if (typeof onStatusChange === 'function') {
-          onStatusChange(false, getSttMessage(state.locale, 'requestPermission'));
-        }
+      if (typeof state.recognition === 'object' && state.recognition !== null) {
+        try {
+          state.recognition.abort();
+        } catch (_e) {}
+        state.recognition = null;
       }
 
       try {
+        if (typeof onStatusChange === 'function') {
+          onStatusChange(false, getSttMessage(engine.locale, 'requestPermission'));
+        }
         await ensureMicMonitor();
-      } catch (e) {
-        setMic(false);
-        if (typeof onError === 'function') {
-          onError(getSttMessage(state.locale, 'micError'), false);
-        }
-        console.warn('mic monitor error', e);
+      } catch (_e) {
+        const msg = getSttMessage(engine.locale, 'micError');
+        if (typeof onError === 'function') onError(msg, true);
         return;
       }
 
-      try {
-        state.recognition = new SafeSpeechRecognition();
-      } catch (error) {
-        if (typeof onError === 'function') {
-          onError(getSttMessage(state.locale, 'startFailed', { error: error.message }), false);
-        }
-        return;
-      }
+      const rec = new SpeechRecognition();
+      rec.continuous = false;
+      rec.interimResults = true;
+      rec.lang = engine.locale || 'zh-TW';
+      rec.maxAlternatives = 1;
 
-      state.recognitionSilenceTimer = null;
-      state.recognition.lang = state.locale || 'zh-TW';
-      state.recognition.interimResults = true;
-      state.recognition.continuous = true;
-      state.recognition.maxAlternatives = 1;
-
-      state.recognition.onstart = () => {
-        setMic(true);
+      rec.onstart = () => {
+        state.isListening = true;
+        store.setState({ isListening: true });
+        state.speechStartTime = performance.now();
+        state.interimStartTime = 0;
         if (typeof onStatusChange === 'function') {
-          onStatusChange(true, getSttMessage(state.locale, 'listening'));
+          onStatusChange(true, getSttMessage(engine.locale, 'listening'));
         }
       };
 
-      state.recognition.onresult = (event) => {
-        let finalText = '', interimText = '';
-        for (const result of event.results) {
-          if (result.isFinal) {
-            finalText += result[0].transcript + ' ';
-          } else {
-            interimText += result[0].transcript + ' ';
-          }
-        }
-        const recognizedText = (finalText + interimText).trim();
-        if (recognizedText === '') return;
-
-        state.noSpeechRuns = 0;
-        if (typeof onResult === 'function') {
-          const lastResult = event.results[event.results.length - 1];
-          onResult(recognizedText, lastResult.isFinal, interimText !== '');
+      rec.onend = () => {
+        const wasListening = state.isListening;
+        state.isListening = false;
+        store.setState({ isListening: false });
+        if (typeof onStatusChange === 'function') {
+          onStatusChange(false, '', state.isAborted);
         }
 
-        clearTimeout(state.recognitionSilenceTimer);
-        state.recognitionSilenceTimer = setTimeout(() => {
-          try {
-            if (state.recognition) state.recognition.stop();
-          } catch (_error) {}
-        }, interimText !== '' ? 900 : 420);
-      };
-
-      state.recognition.onerror = (event) => {
-        setMic(false);
-        if (event.error === 'not-allowed') {
+        const convoOn = typeof getConvoOn === 'function' ? getConvoOn() : false;
+        if (convoOn === false && wasListening === true) {
           stopMicMonitor();
-          if (typeof onError === 'function') {
-            onError(getSttMessage(state.locale, 'permissionDenied'), true);
-          }
-          return;
-        }
-        if (event.error === 'aborted') {
-          if (typeof onStatusChange === 'function') {
-             onStatusChange(false, '', true);
-          }
-          return;
-        }
-        const convoOn = typeof getConvoOn === 'function' ? getConvoOn() : false;
-        if (convoOn && event.error === 'no-speech') {
-          return; // handled in onend
-        }
-        if (typeof onError === 'function') {
-          onError(getSttMessage(state.locale, 'noSpeech', { error: event.error }), false);
         }
       };
 
-      state.recognition.onend = () => {
-        setMic(false);
-        const convoOn = typeof getConvoOn === 'function' ? getConvoOn() : false;
-        const assistantActive = typeof getAssistantActive === 'function' ? getAssistantActive() : false;
-        
-        if (convoOn && !assistantActive) {
-          if (++state.noSpeechRuns >= 3) {
+      rec.onerror = (event) => {
+        const err = event.error;
+        if (err === 'aborted') return;
+
+        if (err === 'not-allowed') {
+          const msg = getSttMessage(engine.locale, 'permissionDenied');
+          if (typeof onError === 'function') onError(msg, true);
+          return;
+        }
+
+        if (err === 'no-speech') {
+          state.noSpeechRuns = (state.noSpeechRuns || 0) + 1;
+          const convoOn = typeof getConvoOn === 'function' ? getConvoOn() : false;
+          if (state.noSpeechRuns >= 4 && convoOn === true) {
             if (typeof onNoSpeechAbort === 'function') onNoSpeechAbort();
             return;
           }
-          setTimeout(() => {
-            const currentConvo = typeof getConvoOn === 'function' ? getConvoOn() : false;
-            const currentActive = typeof getAssistantActive === 'function' ? getAssistantActive() : false;
-            if (currentConvo && !this.isListening && !currentActive) {
-              this.startListening();
-            }
-          }, 350);
+        }
+
+        const msg = getSttMessage(engine.locale, 'noSpeech', { error: err });
+        if (typeof onError === 'function') onError(msg, false);
+      };
+
+      rec.onresult = (event) => {
+        let recognizedText = '';
+        let isFinal = false;
+
+        const resultsLen = event.results.length;
+        for (let i = event.resultIndex; i < resultsLen; i++) {
+          const lastResult = event.results[i];
+          if (typeof lastResult?.[0]?.transcript === 'string') {
+            recognizedText += lastResult[0].transcript;
+          }
+          if (lastResult.isFinal === true) {
+            isFinal = true;
+          }
+        }
+
+        if (recognizedText.trim() === '') return;
+
+        state.noSpeechRuns = 0;
+
+        if (isFinal === true) {
+          state.interimStartTime = 0;
+          if (typeof onResult === 'function') {
+            onResult(recognizedText, true, false);
+          }
+          return;
+        }
+
+        if (state.interimStartTime === 0) {
+          state.interimStartTime = performance.now();
+        }
+
+        const elapsed = performance.now() - state.interimStartTime;
+        if (elapsed > 2000 && recognizedText.trim().length >= 4) {
+          state.interimStartTime = 0;
+          try {
+            rec.stop();
+          } catch (_e) {}
+          if (typeof onResult === 'function') {
+            onResult(recognizedText, true, false);
+          }
+          return;
+        }
+
+        if (typeof onResult === 'function') {
+          onResult(recognizedText, false, true);
         }
       };
 
+      rec.onaudiostart = () => {};
+      rec.onspeechstart = () => {
+        state.noSpeechRuns = 0;
+      };
+      rec.onspeechend = () => {};
+      rec.onaudioend = () => {};
+
+      state.recognition = rec;
+      state.isAborted = false;
+      store.setState({ isAborted: false });
+
       try {
-        state.recognition.start();
-      } catch (_error) {}
+        rec.start();
+      } catch (e) {
+        state.isListening = false;
+        store.setState({ isListening: false });
+        const msg = getSttMessage(engine.locale, 'startFailed', { error: e.message });
+        if (typeof onError === 'function') onError(msg, false);
+      }
     },
 
     stopListening() {
-      clearTimeout(state.recognitionSilenceTimer);
-      try {
-        if (typeof state.recognition?.abort === 'function') {
+      state.isAborted = true;
+      store.setState({ isAborted: true });
+      if (typeof state.recognition === 'object' && state.recognition !== null) {
+        try {
           state.recognition.abort();
-        }
-      } catch (_error) {}
-      state.recognition = null;
-      setMic(false);
+        } catch (_e) {}
+        state.recognition = null;
+      }
+      state.isListening = false;
+      store.setState({ isListening: false });
       stopMicMonitor();
     }
   };

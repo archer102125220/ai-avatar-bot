@@ -506,6 +506,24 @@ export async function initAvatarBot(options = {}) {
         aiAvatarWidget.speechEngine.setLocale(newLocale);
       }
       updateUIStrings(container, i18nEngine);
+      if (typeof uiDom?.updateMicState === 'function') {
+        const isCompanion = avatarMode === AVATAR_MODE_MAP.companion;
+        uiDom.updateMicState(
+          aiAvatarWidget.speechEngine?.isListening,
+          aiAvatarWidget.speechEngine?.convoOn,
+          isCompanion,
+          i18nEngine
+        );
+      }
+      if (typeof uiDom?.updateVoiceStatus === 'function') {
+        uiDom.updateVoiceStatus(
+          aiAvatarWidget.speechEngine?.convoOn,
+          undefined,
+          undefined,
+          undefined,
+          i18nEngine
+        );
+      }
       renderSuggestions(aiAvatarWidget);
       if (uiDom?.langButtonEl instanceof HTMLButtonElement) {
         uiDom.langButtonEl.textContent =
@@ -523,7 +541,7 @@ export async function initAvatarBot(options = {}) {
 
   const stageEl = document.createElement('div');
   stageEl.setAttribute('id', 'stage');
-  uiDom = initUi(container, stageEl);
+  uiDom = initUi(container, stageEl, i18nEngine);
 
   let streamSpeechId = 0;
   const streamSpeechState = { sentenceBuffer: '', buf: '' };
@@ -960,13 +978,13 @@ export async function initAvatarBot(options = {}) {
     onMicStateChanged(isListening, convoOn) {
       if (typeof uiDom.updateMicState === 'function') {
         const isCompanion = avatarMode === AVATAR_MODE_MAP.companion;
-        uiDom.updateMicState(isListening, convoOn, isCompanion);
+        uiDom.updateMicState(isListening, convoOn, isCompanion, i18nEngine);
       }
       callOptionEvent.call(this, 'onMicStateChanged', isListening, convoOn);
     },
     onVoiceStatusChanged(convoOn, text, state, level) {
       if (typeof uiDom.updateVoiceStatus === 'function') {
-        uiDom.updateVoiceStatus(convoOn, text, state, level);
+        uiDom.updateVoiceStatus(convoOn, text, state, level, i18nEngine);
       }
       callOptionEvent.call(
         this,
@@ -1239,9 +1257,12 @@ export async function initAvatarBot(options = {}) {
   // 初始化 UI 語音狀態
   uiDom.updateVoiceStatus(
     aiAvatarWidget.speechEngine.convoOn,
-    '即時語音待命',
+    typeof i18nEngine?.t === 'function'
+      ? i18nEngine.t('ui.voice.standby')
+      : '即時語音待命',
     '',
-    0
+    0,
+    i18nEngine
   );
 
   if (typeof options.onReady === 'function') {

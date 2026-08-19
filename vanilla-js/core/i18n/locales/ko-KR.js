@@ -9,6 +9,7 @@ export default {
   'ui.history.cancel': '취소',
   'ui.history.copy': '복사',
   'ui.history.copied': '답변이 복사되었습니다',
+  'ui.history.cleared': '이번 대화 기록을 지웠습니다',
   'ui.history.replay': '다시 듣기',
   'ui.voice.standby': '음성 대기 중',
   'ui.input.placeholder': '질문을 입력하세요…',
@@ -43,6 +44,8 @@ export default {
   'speech.permissionDenied': '말씀을 듣기 위해 마이크 권한이 필요합니다.',
   'speech.noSpeech': '잘 듣지 못했습니다 ({error}), 다시 시도해 주세요.',
   'speech.sessionEnded': '실시간 음성 대화가 종료되었습니다.',
+  'speech.bgStop': '페이지가 백그라운드로 전환되어 음성 대화가 중지되었습니다.',
+  'speech.noSpeechAbort': '여러 번 음성이 감지되지 않아 실시간 대화가 일시 중지되었습니다.',
 
   // AI Brain Status & Messages
   'brain.llm.loading': 'AI 브레인 다운로드 중 (약 1GB, 최초 1회만)…',

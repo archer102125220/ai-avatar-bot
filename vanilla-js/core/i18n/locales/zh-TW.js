@@ -9,6 +9,7 @@ export default {
   'ui.history.cancel': '取消',
   'ui.history.copy': '複製',
   'ui.history.copied': '已複製回答',
+  'ui.history.cleared': '已清除這次的聊天紀錄',
   'ui.history.replay': '重播',
   'ui.voice.standby': '即時語音待命',
   'ui.input.placeholder': '打字問我也可以…',
@@ -43,6 +44,8 @@ export default {
   'speech.permissionDenied': '我需要麥克風權限才能聽你說話喔。',
   'speech.noSpeech': '沒聽清楚（{error}），再試一次。',
   'speech.sessionEnded': '即時語音對話已結束。',
+  'speech.bgStop': '頁面進入背景，即時語音已停止。',
+  'speech.noSpeechAbort': '連續幾次沒有聽到聲音，即時對話已暫停。',
 
   // AI 大腦 (Brain) 狀態與提示
   'brain.llm.loading': '開始下載 AI 大腦（約 1GB，只需第一次）…',
