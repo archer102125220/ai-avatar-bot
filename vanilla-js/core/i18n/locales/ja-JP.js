@@ -17,7 +17,7 @@ export default {
   'ui.send.ariaLabel': '質問を送信',
   'ui.toolbar.ariaLabel': 'アバターコントロールバー',
   'ui.mic.ariaLabel': '音声対話を開始',
-  'ui.mic.live': '🎙️ リアルタイム',
+  'ui.mic.live': '🎙️ ライブ',
   'ui.mic.listening': '● 聞き取り中',
   'ui.mic.chatting': '● 通話中',
   'ui.mic.convoStandby': '◌ 通話中',
