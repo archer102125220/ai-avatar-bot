@@ -5,8 +5,14 @@ import {
   AVATAR_MODE_MAP,
   DEFAULT_AVATAR_MODE,
   DEFAULT_LLM_MODEL,
-  DEFAULT_AI_PROVIDER_MODEL
+  DEFAULT_AI_PROVIDER_MODEL,
+  CHAT_ROLE_MAP,
+  CHAT_SOURCE_MAP,
+  TOOL_RESULT_MODE_MAP,
+  isWebLLMFunctionCallingSupported
 } from './constants';
+import { toOpenAiTools } from './tools';
+
 
 /**
  * 知識庫項目
@@ -447,43 +453,131 @@ export function initLLM(setting = {}, brain) {
 
       return loadingPromise;
     },
-    async chat(messages, onDelta) {
+    async chat(messages, onDelta, tools) {
       if (typeof engine !== 'object' || engine === null) {
         return null;
       }
 
-      if (typeof onDelta !== 'function' || this.isStream === false) {
-        const result = await engine.chat.completions.create({
-          messages,
-          temperature: 0.4,
-          max_tokens: this.maxTokens
-        });
-
-        this.onChatting(result, messages, brain);
-        return result?.choices?.[0]?.message?.content;
-      }
-
-      // 串流：邊生成邊回吐 token（逐句開講用）——首句不用等整段生成完
-      const stream = await engine.chat.completions.create({
+      const createOptions = {
         messages,
         temperature: 0.4,
-        max_tokens: this.maxTokens,
-        stream: true
-      });
-      let fullResponse = '';
-      for await (const chunk of stream) {
-        const content = chunk?.choices?.[0]?.delta?.content;
-        if (typeof content === 'string' && content !== '') {
-          fullResponse += content;
-          onDelta(content, fullResponse, llm, brain);
-          this.onStreamChatting(content, fullResponse, brain);
+        max_tokens: this.maxTokens
+      };
+
+      const supportsFunctionCalling = isWebLLMFunctionCallingSupported(
+        this.model
+      );
+
+      if (
+        supportsFunctionCalling === true &&
+        Array.isArray(tools) === true &&
+        tools.length > 0
+      ) {
+        const openAiTools = toOpenAiTools(tools);
+        if (openAiTools.length > 0) {
+          createOptions.tools = openAiTools;
         }
       }
 
-      this.onChatting(fullResponse, messages, brain);
-      return fullResponse;
+      const executeChatCompletion = async (options) => {
+        if (typeof onDelta !== 'function' || this.isStream === false) {
+          const result = await engine.chat.completions.create(options);
+          const message = result?.choices?.[0]?.message;
+          if (
+            Array.isArray(message?.tool_calls) === true &&
+            message.tool_calls.length > 0
+          ) {
+            this.onChatting(result, messages, brain);
+            return {
+              type: 'tool_calls',
+              toolCalls: message.tool_calls,
+              message
+            };
+          }
+
+          this.onChatting(result, messages, brain);
+          return message?.content;
+        }
+
+        // 串流：邊生成邊回吐 token（逐句開講用）——首句不用等整段生成完
+        const streamOptions = { ...options, stream: true };
+        const stream = await engine.chat.completions.create(streamOptions);
+        let fullResponse = '';
+        const toolCallsMap = {};
+        let hasToolCalls = false;
+
+        for await (const chunk of stream) {
+          const delta = chunk?.choices?.[0]?.delta;
+          if (
+            Array.isArray(delta?.tool_calls) === true &&
+            delta.tool_calls.length > 0
+          ) {
+            hasToolCalls = true;
+            delta.tool_calls.forEach((tc) => {
+              const idx = typeof tc.index === 'number' ? tc.index : 0;
+              if (!toolCallsMap[idx]) {
+                toolCallsMap[idx] = {
+                  id: tc.id || `call_${idx}`,
+                  type: 'function',
+                  function: { name: '', arguments: '' }
+                };
+              }
+              if (tc.id) toolCallsMap[idx].id = tc.id;
+              if (tc.function?.name) {
+                toolCallsMap[idx].function.name += tc.function.name;
+              }
+              if (tc.function?.arguments) {
+                toolCallsMap[idx].function.arguments += tc.function.arguments;
+              }
+            });
+          } else if (
+            typeof delta?.content === 'string' &&
+            delta.content !== ''
+          ) {
+            fullResponse += delta.content;
+            onDelta(delta.content, fullResponse, llm, brain);
+            this.onStreamChatting(delta.content, fullResponse, brain);
+          }
+        }
+
+        if (hasToolCalls === true) {
+          const toolCalls = Object.values(toolCallsMap);
+          const toolMessage = {
+            role: CHAT_ROLE_MAP.ASSISTANT,
+            tool_calls: toolCalls
+          };
+          this.onChatting(toolMessage, messages, brain);
+          return {
+            type: 'tool_calls',
+            toolCalls,
+            message: toolMessage
+          };
+        }
+
+        this.onChatting(fullResponse, messages, brain);
+        return fullResponse;
+      };
+
+      try {
+        return await executeChatCompletion(createOptions);
+      } catch (error) {
+        if (
+          createOptions.tools !== undefined &&
+          /not supported for ChatCompletionRequest\.tools|UnsupportedModelIdError/i.test(
+            error?.message || String(error)
+          )
+        ) {
+          console.warn(
+            `[AvatarBot] 當前 WebLLM 模型 (${this.model}) 不支援 Function Calling，已自動降級為純對話模式。若需在瀏覽器端使用 AI 工具呼叫，請改用 Hermes 系列模型（如 Hermes-2-Pro-Llama-3-8B-q4f32_1-MLC）。`
+          );
+          delete createOptions.tools;
+          return await executeChatCompletion(createOptions);
+        }
+        throw error;
+      }
     }
   };
+
 
   return llm;
 }
@@ -616,6 +710,7 @@ export async function initAiProvider(setting = {}) {
     providerCreatedFetchSetting = null,
     providerCreatedFetchPayload = null,
     providerResponesFormat = null,
+    providerExtractToolCalls = null,
 
     providerMaxTokens = 2048,
     providerIsStream = false,
@@ -640,6 +735,9 @@ export async function initAiProvider(setting = {}) {
     },
     get responesFormat() {
       return providerResponesFormat;
+    },
+    get extractToolCalls() {
+      return providerExtractToolCalls;
     },
     get maxTokens() {
       return providerMaxTokens;
@@ -707,20 +805,27 @@ export async function initAiProvider(setting = {}) {
         return false;
       }
     },
-    async chat(messages, fetchSetting) {
+    async chat(messages, fetchSetting, tools) {
       try {
         const defaultFetchSetting = {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         };
         // TODO: 調整成支援 stream 的模式
-        const defaultPaylaod = {
+        const defaultPayload = {
           model: this.model,
           messages,
           temperature: 0.4,
           max_tokens: this.maxTokens,
           stream: this.isStream
         };
+
+        if (Array.isArray(tools) === true && tools.length > 0) {
+          const openAiTools = toOpenAiTools(tools);
+          if (openAiTools.length > 0) {
+            defaultPayload.tools = openAiTools;
+          }
+        }
 
         if (typeof this.createdFetchSetting === 'function') {
           const currentFetchSetting = await this.createdFetchSetting(
@@ -729,20 +834,24 @@ export async function initAiProvider(setting = {}) {
             defaultFetchSetting,
             this
           );
-          if (typeof currentFetchSetting === 'object') {
+          if (
+            typeof currentFetchSetting === 'object' &&
+            currentFetchSetting !== null
+          ) {
             fetchSetting = currentFetchSetting;
           }
         }
 
-        if (typeof fetchSetting !== 'object') {
+        if (typeof fetchSetting !== 'object' || fetchSetting === null) {
           fetchSetting = defaultFetchSetting;
         }
 
         if (typeof this.createdFetchPayload === 'function') {
           const currentPayload = await this.createdFetchPayload(
             messages,
+            tools,
             this.model,
-            defaultPaylaod,
+            defaultPayload,
             fetchSetting,
             this
           );
@@ -752,7 +861,7 @@ export async function initAiProvider(setting = {}) {
         }
 
         if (typeof fetchSetting.body === 'undefined') {
-          fetchSetting.body = JSON.stringify(defaultPaylaod);
+          fetchSetting.body = JSON.stringify(defaultPayload);
         }
 
         const response = await fetch(
@@ -769,8 +878,6 @@ export async function initAiProvider(setting = {}) {
           throw new Error(errorMsg);
         }
 
-        console.log({ response });
-
         if (typeof this.responesFormat === 'function') {
           return await this.responesFormat(
             response,
@@ -781,8 +888,24 @@ export async function initAiProvider(setting = {}) {
         }
 
         const result = await response.json();
+        let toolCalls = null;
+        if (typeof this.extractToolCalls === 'function') {
+          toolCalls = await this.extractToolCalls(result, this);
+        } else {
+          toolCalls = result?.choices?.[0]?.message?.tool_calls || null;
+        }
 
-        console.log({ result });
+        if (Array.isArray(toolCalls) === true && toolCalls.length > 0) {
+          return {
+            type: 'tool_calls',
+            toolCalls,
+            message: result?.choices?.[0]?.message || {
+              role: CHAT_ROLE_MAP.ASSISTANT,
+              tool_calls: toolCalls
+            }
+          };
+        }
+
         return result?.choices?.[0]?.message?.content;
       } catch (error) {
         this.ready = false;
@@ -952,6 +1075,11 @@ export async function initBrainEngine(setting = {}) {
     aiProviderChatUrl,
     aiProviderMaxTokens,
     aiProviderIsStream,
+    aiProviderExtractToolCalls,
+    getTools,
+    getToolByName,
+    offerToolConfirmation,
+    executeTool,
     buildLLMMessages,
     locale = 'zh-TW',
     systemContextTemplate,
@@ -1010,6 +1138,14 @@ export async function initBrainEngine(setting = {}) {
     companionKnowledge: safeCompanionKnowledge,
     companionFallbackIdx: 0,
 
+    getTools: typeof getTools === 'function' ? getTools : () => [],
+    getToolByName: typeof getToolByName === 'function' ? getToolByName : null,
+    offerToolConfirmation:
+      typeof offerToolConfirmation === 'function'
+        ? offerToolConfirmation
+        : null,
+    executeTool: typeof executeTool === 'function' ? executeTool : null,
+
     onLlmLoading: null,
     onLlmLoadProgress: null,
     onLlmLoaded: null,
@@ -1036,7 +1172,7 @@ export async function initBrainEngine(setting = {}) {
 
     chatLog: [],
     chatSeq: 0,
-    
+
     locale,
     systemContextTemplate,
     companionSystemContextTemplate,
@@ -1205,6 +1341,7 @@ export async function initBrainEngine(setting = {}) {
     providerChatUrl: aiProviderChatUrl,
     providerMaxTokens: aiProviderMaxTokens,
     providerIsStream: aiProviderIsStream,
+    providerExtractToolCalls: aiProviderExtractToolCalls,
 
     onConnecting(...arg) {
       return brainEngine.onAiProviderConnecting?.(...arg);
@@ -1282,8 +1419,7 @@ export function brainEngineCompanionFallback(brainEngine, question) {
   }
 
   let defaultList = [
-    (name ? name + '，' : '') +
-      '這個我還不太會聊，但我想聽你說——多講一點？',
+    (name ? name + '，' : '') + '這個我還不太會聊，但我想聽你說——多講一點？',
     '嗯嗯，我在聽。後來呢？',
     '哈，這題有點考倒我了，你怎麼看？',
     '我還在學著聊這個～對了，按 🧠 開 AI 大腦，我會聊得更順喔。'
@@ -1482,6 +1618,142 @@ function getBrainMessage(brainEngine, key, params = {}) {
 }
 
 /**
+ * 處理模型發起的 tool_calls 迴圈 (執行工具 -> 確認/直接執行 -> 依 resultMode 決定是否發起第二輪總結)
+ * @param {BrainEngine} brainEngine - 大腦引擎實例
+ * @param {{type: string, toolCalls: Array, message: object}} toolCallResponse - 模型回傳的工具調用物件
+ * @param {Array<object>} initialMessages - 初次發送給模型的對話訊息
+ * @param {'aiProvider'|'webLLM'} providerType - 提供者類型
+ * @returns {Promise<void>}
+ */
+export async function handleToolCallsLoop(
+  brainEngine,
+  toolCallResponse,
+  initialMessages,
+  providerType
+) {
+  const { toolCalls, message } = toolCallResponse;
+  if (!Array.isArray(toolCalls) || toolCalls.length === 0) {
+    return;
+  }
+
+  for (const toolCall of toolCalls) {
+    const toolName = toolCall.function?.name;
+    let args;
+    try {
+      args =
+        typeof toolCall.function?.arguments === 'string'
+          ? JSON.parse(toolCall.function.arguments)
+          : toolCall.function?.arguments || {};
+    } catch (_error) {
+      args = {};
+    }
+
+    const tool =
+      typeof brainEngine.getToolByName === 'function'
+        ? brainEngine.getToolByName(toolName)
+        : null;
+
+    if (!tool) {
+      console.warn(`[AvatarBot] AI 請求呼叫未註冊的工具: ${toolName}`);
+      continue;
+    }
+
+    const resumeAiSummary = async (toolResult) => {
+      if (toolResult?.cancelled === true) {
+        return;
+      }
+      if (tool.resultMode === TOOL_RESULT_MODE_MAP.AI_SUMMARY) {
+        const updatedMessages = [
+          ...initialMessages,
+          message,
+          {
+            role: CHAT_ROLE_MAP.TOOL,
+            tool_call_id: toolCall.id,
+            content:
+              typeof toolResult === 'string'
+                ? toolResult
+                : JSON.stringify(toolResult)
+          }
+        ];
+
+        if (providerType === 'aiProvider') {
+          const secondResponse = await brainEngine.aiProvider.chat(
+            updatedMessages,
+            null,
+            []
+          );
+          if (
+            typeof secondResponse === 'string' &&
+            secondResponse.trim() !== ''
+          ) {
+            sayAnswer(brainEngine, secondResponse.trim());
+          }
+        } else if (providerType === 'webLLM') {
+          if (typeof brainEngine.onStreamStart === 'function') {
+            brainEngine.onStreamStart();
+          }
+          const streamMessageId = 'stream-' + Date.now();
+          const secondResponse = await brainEngine.llm.chat(
+            updatedMessages,
+            (chunkDelta, accumulatedText) => {
+              if (typeof brainEngine.onSpokenDisplayTextChange === 'function') {
+                brainEngine.onSpokenDisplayTextChange(accumulatedText);
+              }
+              updateChatMessage(
+                brainEngine,
+                streamMessageId,
+                accumulatedText,
+                true
+              );
+              brainEngine.setEmotionFromText(accumulatedText);
+              if (typeof brainEngine.onStreamChunk === 'function') {
+                brainEngine.onStreamChunk(chunkDelta);
+              }
+            },
+            []
+          );
+          if (
+            typeof secondResponse === 'string' &&
+            secondResponse.trim() !== ''
+          ) {
+            brainEngine.mem.addTurn('assistant', secondResponse.trim());
+            updateChatMessage(
+              brainEngine,
+              streamMessageId,
+              secondResponse.trim(),
+              false
+            );
+            if (typeof brainEngine.onStreamEnd === 'function') {
+              brainEngine.onStreamEnd(secondResponse.trim());
+            }
+          }
+        }
+      }
+    };
+
+    if (tool.requiresConfirmation === true) {
+      if (typeof brainEngine.offerToolConfirmation === 'function') {
+        brainEngine.offerToolConfirmation(tool, args, {
+          toolCallId: toolCall.id,
+          source: CHAT_SOURCE_MAP.AI,
+          pendingMessages: initialMessages,
+          onConfirmResume: resumeAiSummary
+        });
+      }
+    } else {
+      let toolResult = null;
+      if (typeof brainEngine.executeTool === 'function') {
+        toolResult = await brainEngine.executeTool(tool, args, {
+          toolCallId: toolCall.id,
+          source: CHAT_SOURCE_MAP.AI
+        });
+      }
+      await resumeAiSummary(toolResult);
+    }
+  }
+}
+
+/**
  * 透過後端 AI 供應商回答問題
  * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @param {string} question - 使用者問題
@@ -1498,9 +1770,29 @@ export async function aiProviderLLMBrain(brainEngine, question) {
       brainEngine.onEmotionChange('thinking');
     }
 
+    const messages = brainEngine.buildLLMMessages(question);
+    const tools =
+      typeof brainEngine.getTools === 'function' ? brainEngine.getTools() : [];
+
     const chatResponse = await brainEngine.aiProvider.chat(
-      brainEngine.buildLLMMessages(question)
+      messages,
+      null,
+      tools
     );
+
+    if (
+      typeof chatResponse === 'object' &&
+      chatResponse !== null &&
+      chatResponse.type === 'tool_calls'
+    ) {
+      return await handleToolCallsLoop(
+        brainEngine,
+        chatResponse,
+        messages,
+        'aiProvider'
+      );
+    }
+
     if (typeof chatResponse === 'string' && chatResponse.trim() !== '') {
       return sayAnswer(brainEngine, chatResponse.trim());
     }
@@ -1509,6 +1801,87 @@ export async function aiProviderLLMBrain(brainEngine, question) {
     );
   } catch (error) {
     console.warn('AI Provider error', error);
+    throw error;
+  }
+}
+
+/**
+ * 透過瀏覽器端 WebLLM 引擎回答問題
+ * @param {BrainEngine} brainEngine - 大腦引擎實例
+ * @param {string} question - 使用者問題
+ * @returns {Promise<void>}
+ */
+export async function webLLMBrain(brainEngine, question) {
+  try {
+    if (typeof brainEngine.onSpokenDisplayTextChange === 'function') {
+      brainEngine.onSpokenDisplayTextChange(
+        getBrainMessage(brainEngine, 'brain.thinking')
+      );
+    }
+    if (typeof brainEngine.onEmotionChange === 'function') {
+      brainEngine.onEmotionChange('thinking');
+    }
+
+    const messages = brainEngine.buildLLMMessages(question);
+    const tools =
+      typeof brainEngine.getTools === 'function' ? brainEngine.getTools() : [];
+
+    if (typeof brainEngine.onStreamStart === 'function') {
+      brainEngine.onStreamStart();
+    }
+
+    const streamMessageId = 'stream-' + Date.now();
+    const chatResponse = await brainEngine.llm.chat(
+      messages,
+      (chunkDelta, accumulatedText) => {
+        if (typeof brainEngine.onSpokenDisplayTextChange === 'function') {
+          brainEngine.onSpokenDisplayTextChange(accumulatedText);
+        }
+        updateChatMessage(brainEngine, streamMessageId, accumulatedText, true);
+        brainEngine.setEmotionFromText(accumulatedText);
+
+        if (typeof brainEngine.onStreamChunk === 'function') {
+          brainEngine.onStreamChunk(chunkDelta);
+        }
+      },
+      tools
+    );
+
+    if (
+      typeof chatResponse === 'object' &&
+      chatResponse !== null &&
+      chatResponse.type === 'tool_calls'
+    ) {
+      updateChatMessage(brainEngine, streamMessageId, '', false);
+      return await handleToolCallsLoop(
+        brainEngine,
+        chatResponse,
+        messages,
+        'webLLM'
+      );
+    }
+
+    if (typeof chatResponse === 'string' && chatResponse.trim() !== '') {
+      brainEngine.mem.addTurn('assistant', chatResponse.trim());
+      updateChatMessage(
+        brainEngine,
+        streamMessageId,
+        chatResponse.trim(),
+        false
+      );
+
+      if (typeof brainEngine.onStreamEnd === 'function') {
+        brainEngine.onStreamEnd(chatResponse.trim());
+      }
+      return;
+    }
+
+    if (typeof brainEngine.onStreamEnd === 'function') {
+      brainEngine.onStreamEnd('');
+    }
+    throw new Error('WebLLM response is empty');
+  } catch (error) {
+    console.warn('llm error', error);
     throw error;
   }
 }
@@ -1643,7 +2016,10 @@ export function defaultBuildLLMMessages(brainEngine, question) {
       ? rawRag(brainEngine, context, customContextText)
       : rawRag || defaultRag
   )
-    .replace('{{context}}', context || (locale.startsWith('en') ? '(None)' : '（無）'))
+    .replace(
+      '{{context}}',
+      context || (locale.startsWith('en') ? '(None)' : '（無）')
+    )
     .replace('{{custom}}', customContextText);
 
   let systemContext;
@@ -1729,72 +2105,6 @@ export function defaultBuildLLMMessages(brainEngine, question) {
   }
   msgs.push({ role: 'user', content: question });
   return msgs;
-}
-
-/**
- * 透過瀏覽器端 WebLLM 引擎回答問題
- * @param {BrainEngine} brainEngine - 大腦引擎實例
- * @param {string} question - 使用者問題
- * @returns {Promise<void>}
- */
-export async function webLLMBrain(brainEngine, question) {
-  try {
-    if (typeof brainEngine.onSpokenDisplayTextChange === 'function') {
-      brainEngine.onSpokenDisplayTextChange(
-        getBrainMessage(brainEngine, 'brain.thinking')
-      );
-    }
-    if (typeof brainEngine.onEmotionChange === 'function') {
-      brainEngine.onEmotionChange('thinking');
-    }
-
-    if (typeof brainEngine.onStreamStart === 'function') {
-      brainEngine.onStreamStart();
-    }
-
-    const streamMessageId = 'stream-' + Date.now();
-    const chatResponse = await brainEngine.llm.chat(
-      brainEngine.buildLLMMessages(question),
-      (chunkDelta, accumulatedText) => {
-        if (typeof brainEngine.onSpokenDisplayTextChange === 'function') {
-          brainEngine.onSpokenDisplayTextChange(accumulatedText);
-        }
-        updateChatMessage(
-          brainEngine,
-          streamMessageId,
-          accumulatedText,
-          true
-        );
-        brainEngine.setEmotionFromText(accumulatedText);
-
-        if (typeof brainEngine.onStreamChunk === 'function') {
-          brainEngine.onStreamChunk(chunkDelta);
-        }
-      }
-    );
-    if (typeof chatResponse === 'string' && chatResponse.trim() !== '') {
-      brainEngine.mem.addTurn('assistant', chatResponse.trim());
-      updateChatMessage(
-        brainEngine,
-        streamMessageId,
-        chatResponse.trim(),
-        false
-      );
-
-      if (typeof brainEngine.onStreamEnd === 'function') {
-        brainEngine.onStreamEnd(chatResponse.trim());
-      }
-      return;
-    }
-
-    if (typeof brainEngine.onStreamEnd === 'function') {
-      brainEngine.onStreamEnd('');
-    }
-    throw new Error('WebLLM response is empty');
-  } catch (error) {
-    console.warn('llm error', error);
-    throw error;
-  }
 }
 
 /**

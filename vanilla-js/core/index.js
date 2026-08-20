@@ -657,10 +657,7 @@ export async function initAvatarBot(options = {}) {
       locale: currentLocale
     };
 
-    if (
-      typeof options.greeting !== 'undefined' &&
-      options.greeting !== null
-    ) {
+    if (typeof options.greeting !== 'undefined' && options.greeting !== null) {
       greeting = resolveLocalized(
         options.greeting,
         currentLocale,
@@ -673,8 +670,7 @@ export async function initAvatarBot(options = {}) {
         defaultCompGreeting =
           (brainEngine?.mem?.data?.name
             ? brainEngine.mem.data.name + '~ '
-            : 'Hello~ ') +
-          'We can chat about anything! Click 💬 to start.';
+            : 'Hello~ ') + 'We can chat about anything! Click 💬 to start.';
       } else if (/ja/i.test(currentLocale)) {
         defaultCompGreeting =
           (brainEngine?.mem?.data?.name
@@ -685,8 +681,7 @@ export async function initAvatarBot(options = {}) {
         defaultCompGreeting =
           (brainEngine?.mem?.data?.name
             ? brainEngine.mem.data.name + '님~ '
-            : '안녕하세요~ ') +
-          '무엇이든 이야기해요! 💬를 누르면 시작해요.';
+            : '안녕하세요~ ') + '무엇이든 이야기해요! 💬를 누르면 시작해요.';
       } else {
         defaultCompGreeting =
           (typeof brainEngine?.mem?.data?.name === 'string' &&
@@ -740,6 +735,39 @@ export async function initAvatarBot(options = {}) {
     aiProviderCreatedFetchPayload,
     aiProviderMaxTokens,
     aiProviderStream,
+    aiProviderExtractToolCalls: options.aiProviderExtractToolCalls,
+    getTools: () =>
+      toolsEngine && typeof toolsEngine.getAiAvailableTools === 'function'
+        ? toolsEngine.getAiAvailableTools()
+        : [],
+    getToolByName: (name) =>
+      toolsEngine && Array.isArray(toolsEngine.HOST_TOOLS)
+        ? toolsEngine.HOST_TOOLS.find((t) => t.name === name)
+        : null,
+    offerToolConfirmation: (tool, args, toolOptions) => {
+      if (toolsEngine && typeof toolsEngine.offerHostTool === 'function') {
+        toolsEngine.offerHostTool(
+          tool,
+          '',
+          { confidence: 1, reason: 'ai_tool_call' },
+          args,
+          toolOptions
+        );
+      }
+    },
+    executeTool: async (tool, args, toolOptions) => {
+      if (
+        toolsEngine &&
+        typeof toolsEngine.executeToolDirectly === 'function'
+      ) {
+        return await toolsEngine.executeToolDirectly(
+          tool,
+          args,
+          toolOptions || { input: { context: {}, query: '' } }
+        );
+      }
+      return null;
+    },
     buildLLMMessages: options.buildLLMMessages,
 
     i18nEngine,
@@ -769,7 +797,6 @@ export async function initAvatarBot(options = {}) {
       callOptionEvent.call(this, 'onLlmLoadProgress', loadProgress);
     },
     onLlmLoaded() {
-
       uiDom.btnLlmEl.textContent = '🧠✓';
       uiDom.btnLlmEl.setAttribute('css-llm-on', 'true');
       const loadedMsg =
@@ -1026,6 +1053,8 @@ export async function initAvatarBot(options = {}) {
   });
 
   const toolsOptions = {
+    confirmationTimeoutMs:
+      options.confirmationTimeoutMs || options.toolConfirmationTimeoutMs,
     onToolCall: (pending) => {
       callOptionEvent.call(this, 'onToolCall', pending, aiAvatarWidget);
     },

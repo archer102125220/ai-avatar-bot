@@ -143,3 +143,147 @@ export const DEFAULT_FEMALE_NEURAL_VOICE = 'zh-TW-HsiaoChenNeural'; // 微軟神
  * @type {string}
  */
 export const DEFAULT_MALE_NEURAL_VOICE = 'zh-TW-YunJheNeural'; // 微軟神經語音「雲哲」
+
+/**
+ * 工具路由決策模式映射表。
+ * @readonly
+ * @enum {string}
+ */
+export const TOOL_ROUTING_MODE_MAP = {
+  /** 純前端規則比對（0 Token 消耗，< 1ms 反應） */
+  CLIENT: 'client',
+  /** 純 AI 大模型語意決策（透過 Function Calling） */
+  AI: 'ai',
+  /** 雙軌模式（前端高信心直接命中，複雜語句交由 AI 決策） */
+  HYBRID: 'hybrid'
+};
+
+/**
+ * 預設工具路由模式。
+ * @type {string}
+ */
+export const DEFAULT_TOOL_ROUTING_MODE = TOOL_ROUTING_MODE_MAP.HYBRID;
+
+/**
+ * 工具執行結果處理模式映射表。
+ * @readonly
+ * @enum {string}
+ */
+export const TOOL_RESULT_MODE_MAP = {
+  /** 將工具回傳結果送回 AI 大腦進行自然語言摘要 */
+  AI_SUMMARY: 'ai_summary',
+  /** 直接輸出/顯示工具回傳訊息，不耗費第二次 LLM Token */
+  DIRECT: 'direct'
+};
+
+/**
+ * 預設工具結果處理模式。
+ * @type {string}
+ */
+export const DEFAULT_TOOL_RESULT_MODE = TOOL_RESULT_MODE_MAP.AI_SUMMARY;
+
+/**
+ * 預設工具確認逾時時間（毫秒），預設 60 秒。
+ * @type {number}
+ */
+export const DEFAULT_TOOL_CONFIRMATION_TIMEOUT_MS = 60000;
+
+/**
+ * 工具取消或失效原因映射表。
+ * @readonly
+ * @enum {string}
+ */
+export const TOOL_CANCEL_REASON_MAP = {
+  /** 使用者主動取消（點擊取消按鈕或語音/打字說取消） */
+  USER_CANCEL: 'user_cancel',
+  /** 確認逾時失效（超過設定時限未回覆） */
+  TIMEOUT: 'timeout',
+  /** 使用者輸入新訊息而自動取消前次未完成之操作 */
+  NEW_INPUT: 'new_input',
+  /** 使用者拒絕授權或同意條款 */
+  CONSENT_DECLINED: 'consent_declined'
+};
+
+/**
+ * 工具生命週期與事件名稱映射表。
+ * @readonly
+ * @enum {string}
+ */
+export const TOOL_EVENT_MAP = {
+  /** 提議執行工具事件 */
+  OFFER: 'tool_offer',
+  /** 需使用者補填參數事件 */
+  INPUT_REQUIRED: 'tool_input_required',
+  /** 工具歧義多選事件 */
+  AMBIGUOUS: 'tool_ambiguous',
+  /** 確認執行工具事件 */
+  CONFIRM: 'tool_confirm',
+  /** 取消執行工具事件 */
+  CANCEL: 'tool_cancel',
+  /** 開始執行工具事件 */
+  EXECUTE: 'tool_execute',
+  /** 工具執行結果事件 */
+  RESULT: 'tool_result'
+};
+
+/**
+ * 工具 Schema 支援的屬性型別映射表。
+ * @readonly
+ * @enum {string}
+ */
+export const TOOL_SCHEMA_TYPE_MAP = {
+  STRING: 'string',
+  NUMBER: 'number',
+  INTEGER: 'integer',
+  BOOLEAN: 'boolean',
+  OBJECT: 'object'
+};
+
+/**
+ * 工具 Schema 支援的格式驗證映射表。
+ * @readonly
+ * @enum {string}
+ */
+export const TOOL_SCHEMA_FORMAT_MAP = {
+  EMAIL: 'email',
+  URL: 'url',
+  PHONE: 'phone',
+  CONTACT: 'contact'
+};
+
+/**
+ * 對話訊息的角色映射表。
+ * @readonly
+ * @enum {string}
+ */
+export const CHAT_ROLE_MAP = {
+  SYSTEM: 'system',
+  USER: 'user',
+  ASSISTANT: 'assistant',
+  TOOL: 'tool'
+};
+
+/**
+ * 對話訊息來源映射表。
+ * @readonly
+ * @enum {string}
+ */
+export const CHAT_SOURCE_MAP = {
+  TOOL: 'tool',
+  AI: 'ai',
+  SYSTEM: 'system'
+};
+
+/**
+ * 檢查指定的 WebLLM 模型是否支援原生 Function Calling (tools)。
+ * WebLLM 目前官方主要針對 Hermes 系列模型提供 Function Calling 支援。
+ * @param {string} model - 模型名稱
+ * @returns {boolean} 是否支援 Function Calling
+ */
+export function isWebLLMFunctionCallingSupported(model) {
+  if (typeof model !== 'string' || model === '') {
+    return false;
+  }
+  return /hermes/i.test(model);
+}
+

@@ -1,3 +1,14 @@
+import {
+  CHAT_SOURCE_MAP,
+  DEFAULT_TOOL_CONFIRMATION_TIMEOUT_MS,
+  DEFAULT_TOOL_RESULT_MODE,
+  DEFAULT_TOOL_ROUTING_MODE,
+  TOOL_CANCEL_REASON_MAP,
+  TOOL_RESULT_MODE_MAP,
+  TOOL_ROUTING_MODE_MAP,
+  TOOL_SCHEMA_TYPE_MAP
+} from './constants';
+
 /**
  * @typedef {object} ToolSchemaProperty
  * @property {string} type - 屬性型別 (如 'string', 'number', 'boolean')
@@ -30,6 +41,11 @@
  * @property {number} priority - 工具優先權 (-10 ~ 10)
  * @property {number} routeThreshold - 路由的門檻分數 (0.15 ~ 0.95)
  * @property {boolean} requiresConfirmation - 執行前是否需要確認
+ * @property {'client'|'ai'|'hybrid'} [routingMode] - 路由決策模式 (client: 純前端, ai: 純AI, hybrid: 雙軌)
+ * @property {'ai_summary'|'direct'} [resultMode] - 執行結果處理模式 (ai_summary: AI總結, direct: 直接輸出)
+ * @property {number} [confirmationTimeoutMs] - 工具確認的逾時毫秒數
+ * @property {number} [timeoutMs] - 相容舊版的逾時毫秒數
+ * @property {function(object): (Promise<any>|any)} [execute] - 工具執行函式
  * @property {ToolSchema} inputSchema - 工具參數的輸入綱要
  */
 
@@ -175,6 +191,35 @@ export function normaliseSchema(schema) {
  */
 export function normaliseTool(tool) {
   tool = tool || {};
+  const rawRoutingMode = tool.routingMode;
+  const routingMode =
+    Object.values(TOOL_ROUTING_MODE_MAP).includes(rawRoutingMode) === true
+      ? rawRoutingMode
+      : DEFAULT_TOOL_ROUTING_MODE;
+
+  const rawResultMode = tool.resultMode;
+  const resultMode =
+    Object.values(TOOL_RESULT_MODE_MAP).includes(rawResultMode) === true
+      ? rawResultMode
+      : DEFAULT_TOOL_RESULT_MODE;
+
+  let confirmationTimeoutMs = null;
+  if (
+    typeof tool.confirmationTimeoutMs === 'number' &&
+    Number.isFinite(tool.confirmationTimeoutMs) === true &&
+    tool.confirmationTimeoutMs > 0
+  ) {
+    confirmationTimeoutMs = tool.confirmationTimeoutMs;
+  } else if (
+    typeof tool.timeoutMs === 'number' &&
+    Number.isFinite(tool.timeoutMs) === true &&
+    tool.timeoutMs > 0
+  ) {
+    confirmationTimeoutMs = tool.timeoutMs;
+  }
+
+  const execute = typeof tool.execute === 'function' ? tool.execute : null;
+
   return {
     name: text(tool.name, 64).replace(/[^a-zA-Z0-9_.-]/g, ''),
     label: text(tool.label || tool.name, 80),
@@ -203,8 +248,64 @@ export function normaliseTool(tool) {
       Math.min(Number(tool.routeThreshold) || 0.34, 0.95)
     ),
     requiresConfirmation: tool.requiresConfirmation !== false,
+    routingMode,
+    resultMode,
+    confirmationTimeoutMs,
+    execute,
     inputSchema: normaliseSchema(tool.inputSchema)
   };
+}
+
+/**
+ * 取得可供 AI 大模型呼叫的工具清單 (過濾掉純前端模式的工具)
+ * @param {Array<object|ToolDefinition>} tools - 工具清單
+ * @returns {ToolDefinition[]} 可供 AI 使用的工具清單
+ */
+export function getAiAvailableTools(tools) {
+  return (Array.isArray(tools) ? tools : [])
+    .map(normaliseTool)
+    .filter(
+      (tool) =>
+        tool.name !== '' && tool.routingMode !== TOOL_ROUTING_MODE_MAP.CLIENT
+    );
+}
+
+/**
+ * 將工具定義轉換為 OpenAI 相容的 JSON Schema tools 格式
+ * @param {Array<object|ToolDefinition>} tools - 工具清單
+ * @returns {Array<object>} OpenAI 相容的 tools 陣列
+ */
+export function toOpenAiTools(tools) {
+  const aiTools = getAiAvailableTools(tools);
+  return aiTools.map((tool) => {
+    const properties = {};
+    const schemaProps = tool.inputSchema?.properties || {};
+    Object.keys(schemaProps).forEach((key) => {
+      const prop = schemaProps[key];
+      properties[key] = {
+        type: prop.type || TOOL_SCHEMA_TYPE_MAP.STRING,
+        description: prop.description || prop.title || key
+      };
+      if (Array.isArray(prop.enum) === true && prop.enum.length > 0) {
+        properties[key].enum = prop.enum;
+      }
+    });
+
+    return {
+      type: 'function',
+      function: {
+        name: tool.name,
+        description: tool.description || tool.label || tool.name,
+        parameters: {
+          type: TOOL_SCHEMA_TYPE_MAP.OBJECT,
+          properties,
+          required: Array.isArray(tool.inputSchema?.required)
+            ? tool.inputSchema.required
+            : []
+        }
+      }
+    };
+  });
 }
 
 /**
@@ -298,7 +399,10 @@ export function scoreTool(tool, query) {
 export function route(tools, query) {
   const candidates = (Array.isArray(tools) ? tools : [])
     .map(normaliseTool)
-    .filter((tool) => tool.name)
+    .filter(
+      (tool) =>
+        tool.name !== '' && tool.routingMode !== TOOL_ROUTING_MODE_MAP.AI
+    )
     .map((tool) => {
       const scored = scoreTool(tool, query);
       return { tool, score: scored.score, reason: scored.reason };
@@ -808,9 +912,8 @@ export function initToolsEngine(setting = {}) {
     }
     if (/^(取消|不要|算了|cancel)$/i.test(String(text || '').trim())) {
       const item = setting
-        .getChatLog().find(
-          (entry) => entry.id === toolsEngine.pendingToolChoice.messageId
-        );
+        .getChatLog()
+        .find((entry) => entry.id === toolsEngine.pendingToolChoice.messageId);
       if (typeof item === 'object' && item !== null) {
         item.pendingChoices = null;
         item.text = '好的，已取消。';
@@ -863,8 +966,7 @@ export function initToolsEngine(setting = {}) {
   }
 
   function chooseTool(messageId, index) {
-    const item = setting
-      .getChatLog().find((entry) => entry.id === messageId);
+    const item = setting.getChatLog().find((entry) => entry.id === messageId);
     if (
       typeof item !== 'object' ||
       item === null ||
@@ -888,24 +990,40 @@ export function initToolsEngine(setting = {}) {
     );
   }
 
-  function offerHostTool(tool, query, routeMeta, args) {
-    const callId = `tool-${Date.now()}-${setting.getChatSeq()}`;
+  function offerHostTool(tool, query, routeMeta, args, options) {
+    const callId =
+      typeof options?.callId === 'string' && options.callId !== ''
+        ? options.callId
+        : `tool-${Date.now()}-${setting.getChatSeq()}`;
     const history = setting
-      .getChatLog().slice(-12)
+      .getChatLog()
+      .slice(-12)
       .map((item) => ({ role: item.role, text: item.text }))
       .filter((item) => item.text);
+
+    const source =
+      typeof options?.source === 'string' && options.source !== ''
+        ? options.source
+        : CHAT_SOURCE_MAP.TOOL;
 
     const pending = {
       callId,
       name: tool.name,
       label: tool.label,
+      tool,
       input: {
         query,
         context: {},
         args: args || {},
         route: routeMeta || {},
         history
-      }
+      },
+      source,
+      toolCallId: options?.toolCallId || null,
+      onConfirmResume:
+        typeof options?.onConfirmResume === 'function'
+          ? options.onConfirmResume
+          : null
     };
     const summary = argumentSummary(tool, args || {});
 
@@ -915,31 +1033,90 @@ export function initToolsEngine(setting = {}) {
         toolsEngine.onAddChatMessage('assistant', confirmation, {
           id: callId,
           pendingTool: pending,
-          source: 'tool'
+          source
         });
       }
       toolsEngine.pendingToolConfirmation = callId;
+      startConfirmationTimer(callId, tool.confirmationTimeoutMs);
+
       if (typeof toolsEngine.onSetHistoryOpen === 'function') {
         toolsEngine.onSetHistoryOpen(true);
       }
       if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
         toolsEngine.onSpokenAudioPlayNow(confirmation);
       }
+      if (typeof setting.onToolOffer === 'function') {
+        setting.onToolOffer({
+          name: tool.name,
+          confirmation: true,
+          toolCallId: options?.toolCallId || null
+        });
+      }
     } else {
       if (typeof toolsEngine.onAddChatMessage === 'function') {
         toolsEngine.onAddChatMessage(
           'assistant',
           `正在執行「${tool.label}」…`,
-          { id: callId, source: 'tool' }
+          { id: callId, source }
         );
       }
-      if (typeof setting.onToolCall === 'function') {
+      if (typeof tool.execute === 'function') {
+        executeToolDirectly(tool, args || {}, pending);
+      } else if (typeof setting.onToolCall === 'function') {
         setting.onToolCall(pending);
+      }
+      if (typeof setting.onToolOffer === 'function') {
+        setting.onToolOffer({
+          name: tool.name,
+          confirmation: false,
+          toolCallId: options?.toolCallId || null
+        });
       }
     }
   }
 
+  async function executeToolDirectly(tool, args, pending) {
+    if (typeof tool?.execute !== 'function') {
+      return null;
+    }
+    try {
+      const result = await tool.execute({
+        args,
+        context: pending.input.context,
+        query: pending.input.query
+      });
+
+      if (typeof pending.onConfirmResume === 'function') {
+        pending.onConfirmResume(result);
+      } else {
+        const message =
+          typeof result === 'string' ? result : result?.message || '已完成。';
+        handleToolResult({
+          ok: true,
+          message,
+          callId: pending.callId,
+          name: tool.name
+        });
+      }
+      return result;
+    } catch (error) {
+      const errorMsg = String(error?.message || error || '執行錯誤');
+      if (typeof pending.onConfirmResume === 'function') {
+        pending.onConfirmResume({ ok: false, error: errorMsg });
+      } else {
+        handleToolResult({
+          ok: false,
+          error: errorMsg,
+          callId: pending.callId,
+          name: tool.name
+        });
+      }
+      return { ok: false, error: errorMsg };
+    }
+  }
+
   function executePendingTool(messageId) {
+    clearConfirmationTimer();
     const item = setting.getChatLog().find((msg) => msg.id === messageId);
     if (
       typeof item !== 'object' ||
@@ -956,12 +1133,23 @@ export function initToolsEngine(setting = {}) {
     if (typeof toolsEngine.onRenderHistory === 'function') {
       toolsEngine.onRenderHistory();
     }
-    if (typeof setting.onToolCall === 'function') {
+
+    if (typeof pending.tool?.execute === 'function') {
+      executeToolDirectly(pending.tool, pending.input.args, pending);
+    } else if (typeof setting.onToolCall === 'function') {
       setting.onToolCall(pending);
+    }
+
+    if (typeof setting.onToolConfirm === 'function') {
+      setting.onToolConfirm({
+        name: pending.name,
+        toolCallId: pending.toolCallId
+      });
     }
   }
 
-  function cancelPendingTool(messageId) {
+  function cancelPendingTool(messageId, options) {
+    clearConfirmationTimer();
     const item = setting.getChatLog().find((msg) => msg.id === messageId);
     if (
       typeof item !== 'object' ||
@@ -971,16 +1159,43 @@ export function initToolsEngine(setting = {}) {
     ) {
       return;
     }
+    const pending = item.pendingTool;
+    const reason = options?.reason || TOOL_CANCEL_REASON_MAP.USER_CANCEL;
     item.pendingTool = null;
     toolsEngine.pendingToolConfirmation = '';
-    item.text = '好的，已取消。';
+
+    if (reason === TOOL_CANCEL_REASON_MAP.TIMEOUT) {
+      item.text = '操作已逾時失效。';
+      item.timedOut = true;
+    } else if (reason === TOOL_CANCEL_REASON_MAP.NEW_INPUT) {
+      item.text = '已取消（已轉移話題）。';
+      item.cancelled = true;
+    } else {
+      item.text = '好的，已取消。';
+      if (
+        typeof setting.isConvoOn === 'function' &&
+        setting.isConvoOn() === true
+      ) {
+        if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
+          toolsEngine.onSpokenAudioPlayNow('好的，已取消。');
+        }
+      }
+    }
+
     if (typeof toolsEngine.onRenderHistory === 'function') {
       toolsEngine.onRenderHistory();
     }
-    if (typeof setting.isConvoOn === 'function' && setting.isConvoOn() === true) {
-      if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
-        toolsEngine.onSpokenAudioPlayNow('好的，已取消。');
-      }
+
+    if (typeof pending.onConfirmResume === 'function') {
+      pending.onConfirmResume({ cancelled: true, reason });
+    }
+
+    if (typeof setting.onToolCancel === 'function') {
+      setting.onToolCancel({
+        name: pending.name,
+        reason,
+        toolCallId: pending.toolCallId
+      });
     }
   }
 
@@ -997,17 +1212,17 @@ export function initToolsEngine(setting = {}) {
       return true;
     }
     if (/^(取消|不要|算了|否|no|cancel)$/i.test(answer)) {
-      cancelPendingTool(toolsEngine.pendingToolConfirmation);
+      cancelPendingTool(toolsEngine.pendingToolConfirmation, {
+        reason: TOOL_CANCEL_REASON_MAP.USER_CANCEL
+      });
       return true;
     }
-    const prompt = '請說「確認」或「取消」，也可以點選按鈕。';
-    if (typeof toolsEngine.onAddChatMessage === 'function') {
-      toolsEngine.onAddChatMessage('assistant', prompt, { source: 'tool' });
-    }
-    if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
-      toolsEngine.onSpokenAudioPlayNow(prompt);
-    }
-    return true;
+
+    // 若使用者輸入其他全新訊息，自動取消前次未完成之操作，並允許主流程繼續處理新訊息
+    cancelPendingTool(toolsEngine.pendingToolConfirmation, {
+      reason: TOOL_CANCEL_REASON_MAP.NEW_INPUT
+    });
+    return false;
   }
 
   function handleToolResult(resultData) {
@@ -1016,7 +1231,8 @@ export function initToolsEngine(setting = {}) {
         ? `執行失敗：${String(resultData.error || '未知錯誤')}`
         : String(resultData.message || '已完成。');
     const existing = setting
-      .getChatLog().find((msg) => msg.id === resultData.callId);
+      .getChatLog()
+      .find((msg) => msg.id === resultData.callId);
 
     if (typeof existing === 'object' && existing !== null) {
       if (typeof toolsEngine.onUpdateChatMessage === 'function') {
@@ -1024,11 +1240,47 @@ export function initToolsEngine(setting = {}) {
       }
     } else {
       if (typeof toolsEngine.onAddChatMessage === 'function') {
-        toolsEngine.onAddChatMessage('assistant', text, { source: 'tool' });
+        toolsEngine.onAddChatMessage('assistant', text, {
+          source: CHAT_SOURCE_MAP.TOOL
+        });
       }
     }
     if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
       toolsEngine.onSpokenAudioPlayNow(text);
+    }
+  }
+
+  let currentConfirmationTimeoutMs =
+    typeof setting.confirmationTimeoutMs === 'number' &&
+    Number.isFinite(setting.confirmationTimeoutMs) === true &&
+    setting.confirmationTimeoutMs > 0
+      ? setting.confirmationTimeoutMs
+      : DEFAULT_TOOL_CONFIRMATION_TIMEOUT_MS;
+
+  let confirmationTimer = null;
+
+  function clearConfirmationTimer() {
+    if (confirmationTimer !== null) {
+      clearTimeout(confirmationTimer);
+      confirmationTimer = null;
+    }
+  }
+
+  function startConfirmationTimer(messageId, timeoutMs) {
+    clearConfirmationTimer();
+    const duration =
+      typeof timeoutMs === 'number' &&
+      Number.isFinite(timeoutMs) === true &&
+      timeoutMs > 0
+        ? timeoutMs
+        : currentConfirmationTimeoutMs;
+
+    if (duration > 0) {
+      confirmationTimer = setTimeout(() => {
+        cancelPendingTool(messageId, {
+          reason: TOOL_CANCEL_REASON_MAP.TIMEOUT
+        });
+      }, duration);
     }
   }
 
@@ -1037,6 +1289,19 @@ export function initToolsEngine(setting = {}) {
     pendingToolInput: null,
     pendingToolChoice: null,
     pendingToolConfirmation: null,
+
+    get confirmationTimeoutMs() {
+      return currentConfirmationTimeoutMs;
+    },
+    set confirmationTimeoutMs(value) {
+      if (
+        typeof value === 'number' &&
+        Number.isFinite(value) === true &&
+        value > 0
+      ) {
+        currentConfirmationTimeoutMs = value;
+      }
+    },
 
     get onAddChatMessage() {
       return setting.onAddChatMessage;
@@ -1055,6 +1320,8 @@ export function initToolsEngine(setting = {}) {
     },
 
     routeHostTool,
+    getAiAvailableTools: () => getAiAvailableTools(toolsEngine.HOST_TOOLS),
+    toOpenAiTools: () => toOpenAiTools(toolsEngine.HOST_TOOLS),
     parameterPrompt,
     prepareTool,
     continueToolInput,
@@ -1065,7 +1332,8 @@ export function initToolsEngine(setting = {}) {
     executePendingTool,
     cancelPendingTool,
     continueToolConfirmation,
-    handleToolResult
+    handleToolResult,
+    executeToolDirectly
   };
 
   return toolsEngine;

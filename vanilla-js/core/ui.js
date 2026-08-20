@@ -266,10 +266,7 @@ export function initUi(container, stageEl, i18nEngine = null) {
 
   const btnLlmEl = document.createElement('button');
   btnLlmEl.setAttribute('id', 'btn-llm');
-  btnLlmEl.setAttribute(
-    'aria-label',
-    '啟用瀏覽器內 AI 大腦（首次需下載模型）'
-  );
+  btnLlmEl.setAttribute('aria-label', '啟用瀏覽器內 AI 大腦（首次需下載模型）');
   btnLlmEl.setAttribute('data-i18n-aria', 'ui.llm.ariaLabel');
   btnLlmEl.setAttribute('aria-pressed', 'false');
   btnLlmEl.classList.add('ctrl');
@@ -436,7 +433,9 @@ export function initUi(container, stageEl, i18nEngine = null) {
 
       if (suggestionsEl instanceof HTMLElement) {
         suggestionsEl.style.display =
-          currentListening === true || currentConvoOn === true ? 'none' : 'flex';
+          currentListening === true || currentConvoOn === true
+            ? 'none'
+            : 'flex';
       }
     },
     get controlBarEl() {
@@ -612,8 +611,27 @@ export function renderHistory(context) {
       no.className = 'cancel';
       no.textContent = t('ui.history.cancel', '取消');
 
-      yes.onclick = () => context.toolsEngine.executePendingTool(item.id);
-      no.onclick = () => context.toolsEngine.cancelPendingTool(item.id);
+      const isInactive =
+        item.cancelled === true ||
+        item.timedOut === true ||
+        item.executed === true;
+
+      if (isInactive === true) {
+        yes.disabled = true;
+        yes.setAttribute('disabled', 'true');
+        no.disabled = true;
+        no.setAttribute('disabled', 'true');
+        confirm.setAttribute('css-disabled', 'true');
+
+        if (item.timedOut === true) {
+          yes.textContent = t('ui.history.timedOut', '已逾時');
+        } else if (item.cancelled === true) {
+          no.textContent = t('ui.history.cancelled', '已取消');
+        }
+      } else {
+        yes.onclick = () => context.toolsEngine.executePendingTool(item.id);
+        no.onclick = () => context.toolsEngine.cancelPendingTool(item.id);
+      }
 
       confirm.append(yes, no);
       row.appendChild(confirm);
