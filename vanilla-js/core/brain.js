@@ -169,6 +169,7 @@ import { toOpenAiTools } from './tools';
  * @property {Function} [getToolByName] - 依名稱取得工具函式
  * @property {Function} [offerToolConfirmation] - 發起工具確認回呼
  * @property {Function} [executeTool] - 執行工具函式
+ * @property {Object} [i18nEngine] - i18n 國際化引擎實例 (可選，若未提供則自動使用內建字典)
  * @property {string} [locale] - 語系設定 (例如 'zh-TW', 'en-US', 'ja-JP', 'ko-KR')
  * @property {string|Function} [systemContextTemplate] - 助理模式系統提示詞模板
  * @property {string|Function} [companionSystemContextTemplate] - 陪伴模式系統提示詞模板
@@ -1276,6 +1277,7 @@ export async function initBrainEngine(setting = {}) {
     offerToolConfirmation,
     executeTool,
     buildLLMMessages,
+    i18nEngine = null,
     locale = 'zh-TW',
     systemContextTemplate,
     companionSystemContextTemplate,
@@ -1368,6 +1370,7 @@ export async function initBrainEngine(setting = {}) {
     chatLog: [],
     chatSeq: 0,
 
+    i18nEngine: i18nEngine || null,
     locale,
     systemContextTemplate,
     companionSystemContextTemplate,
