@@ -56,6 +56,20 @@ import {
  * @property {string} startMode - 起始渲染模式
  * @property {string} fitMode - 2D 尺寸適應模式
  * @property {{name: string, target: number, weight: number, applied: string}} emo - 情緒狀態物件
+ * @property {function(SkinEngine): number|Promise<number>} [computeMouth] - 計算嘴型數值的方法
+ * @property {function(): void} [onMounted] - 虛擬人物掛載完成回呼
+ * @property {function(Error, SkinEngine): void} [onThreeDimensionalError] - 3D 初始化錯誤回呼
+ * @property {function(Error, SkinEngine): void} [onTwoDimensionalError] - 2D 初始化錯誤回呼
+ * @property {function(Error): void} [VRMFileChangeFail] - 載入自訂 VRM 失敗回呼
+ * @property {function(string): void} [VRMFileChangeSuccess] - 載入自訂 VRM 成功回呼
+ * @property {function(string, SkinEngine): void} [onGesture] - 手勢開始播放回呼
+ * @property {function(Error, string, SkinEngine): void} [onGestureError] - 手勢播放錯誤回呼
+ * @property {function(string, SkinEngine): void} [onGestureEnd] - 手勢播放結束回呼
+ * @property {function(string): void} [onModelChange] - 引擎模式準備切換回呼
+ * @property {function(Renderer2D|Renderer3D, string): void} [onModelChangeEnd] - 引擎模式切換完成回呼
+ * @property {function(Error): void} [onModelChangeError] - 引擎模式切換錯誤回呼
+ * @property {boolean|null} [switching] - 是否正在切換模式中
+ * @property {string[]} [lipIds] - 2D Live2D 口型參數 ID 清單
  */
 
 /**
@@ -950,6 +964,7 @@ function loadVRMFile(skinEngine = null, file) {
  * @property {string} [startMode] - 初始渲染模式（2D / 3D）。
  * @property {string} [fitMode] - 2D 模型的初始適應模式 (fit mode)。
  * @property {string} [vrmUrl] - 3D VRM 模型檔案的 URL。
+ * @property {function(SkinEngine, string): void} [gesture3D] - 自訂的 3D 手勢處理函式。
  * @property {function(SkinEngine, string): void} [gesture2D] - 自訂的 2D 手勢處理函式。
  * @property {function(SkinEngine): number|Promise<number>} [computeMouth] - 用於計算嘴型數值的函式。
  * @property {function(Error, SkinEngine): void} [onThreeDimensionalError] - 初始化 3D 發生錯誤時的回呼函式。
