@@ -47,6 +47,7 @@ export * from './plugins';
  * @property {Function|Object} [brain] - 自訂 Brain Engine 的建構函式或實例。
  * @property {Function|Object} [stt] - 自訂 STT (語音辨識) 引擎的建構函式或實例。
  * @property {Function|Object} [tts] - 自訂 TTS (語音合成) 引擎的建構函式或實例。
+ * @property {Function|Object} [i18n] - 自訂 i18n 多語系引擎的建構函式或實例。
  */
 
 /**
@@ -58,6 +59,7 @@ export * from './plugins';
  * @property {Function|Record<string, any>} [aiProviderCreatedFetchPayload] - 自訂 Fetch 負載 (Payload) 的處理函式或負載物件
  * @property {number} [aiProviderMaxTokens] - AI 服務回應的最大 Token 數
  * @property {boolean} [aiProviderStream] - 是否啟用 AI 服務的串流 (Streaming) 回應
+ * @property {Function} [aiProviderExtractToolCalls] - AI 服務提供商自訂提取 Tool Calls 的回呼函式
  * @property {string} [neuralVoice=''] - 指定使用的神經網路語音 (Neural Voice)
  * @property {string} [knowledgeUrl=''] - 助理模式知識庫資料的 URL
  * @property {string} [companionKnowledgeUrl=''] - 陪伴模式知識庫資料的 URL
@@ -70,10 +72,12 @@ export * from './plugins';
  * @property {string} [startMode] - 初始啟動的模型模式 (2D 或 3D)
  * @property {string} [fitMode] - 模型適應容器的模式 (Fit Mode)
  * @property {string} [vrmUrl] - VRM 3D 模型檔案的 URL
+ * @property {Record<string, any>} [gesture3D] - 3D 模型使用的姿態/手勢設定資料
  * @property {Record<string, any>} [gesture2D] - 2D 模型使用的姿態資料
  * @property {boolean} [isMinimal=false] - 是否以極簡模式 (Minimal UI) 啟動
  * @property {boolean} [isIframe=false] - 是否在 Iframe 中執行
  * @property {string} [locale='zh-TW'] - 語系設定 (例如 'zh-TW', 'en-US', 'ja-JP', 'ko-KR')
+ * @property {Record<string, Record<string, string>>} [i18nMessages] - 自訂的多語系翻譯字典訊息
  * @property {string} [gender=''] - 預設性別設定
  * @property {string} [brainGender=null] - 專屬大腦引擎（用語）的性別設定
  * @property {string} [speechGender=null] - 專屬語音引擎（音色）的性別設定
@@ -83,7 +87,15 @@ export * from './plugins';
  * @property {string|Function} [systemContextTemplate] - 助理模式系統提示詞模板
  * @property {string|Function} [companionSystemContextTemplate] - 陪伴模式系統提示詞模板
  * @property {string|Function} [ragTemplate] - RAG 參考資料模板
+ * @property {Record<string, any>} [customContext] - 附加自訂上下文資訊物件 (例如使用者資料、品牌背景等)
  * @property {string|Function} [languageRule] - 多語系回答規則提示詞
+ * @property {string|Function} [genderRule] - 針對性別的額外系統提示詞規則
+ * @property {Array<Object>} [tools] - 註冊至 Host 的工具清單 (與 hostTools 相同)
+ * @property {Array<Object>} [hostTools] - 註冊至 Host 的工具清單
+ * @property {boolean} [enableEmotionTools=true] - 是否啟用內建的情緒動作工具插件
+ * @property {Object} [emotionToolsOptions] - 內建情緒工具插件的自訂選項
+ * @property {number} [confirmationTimeoutMs] - 工具確認超時毫秒數
+ * @property {number} [toolConfirmationTimeoutMs] - 工具確認超時毫秒數 (別名)
  * @property {Function} [buildLLMMessages] - 自訂組裝 LLM 訊息格式的函式
  * @property {string} [welcomeText] - 通用歡迎詞文字
  * @property {string} [companionWelcomeText] - 陪伴模式專用歡迎詞文字
@@ -93,6 +105,7 @@ export * from './plugins';
  * @property {string} [assistantGreeting] - 助理模式專用問候語音文字
  * @property {Function} [onReady] - Bot 初始化完成且掛載後的回呼函式
  * @property {Function} [onMinimalTrigger] - 切換極簡模式時的回呼函式
+ * @property {Function} [onError] - 發生錯誤時的回呼函式
  * @property {Function} [onLlmLoading] - LLM 模型開始載入時的回呼函式
  * @property {Function} [onLlmLoadProgress] - LLM 模型載入進度更新時的回呼函式
  * @property {Function} [onLlmLoaded] - LLM 模型載入完成時的回呼函式
@@ -113,7 +126,6 @@ export * from './plugins';
  * @property {Function} [onSetHistoryOpen] - 開關歷史紀錄面板時的回呼函式
  * @property {Function} [onRenderHistory] - 歷史紀錄渲染更新時的回呼函式
  * @property {Function} [onSpokenAudioPlayNow] - 觸發發音時的回呼函式
- * @property {Function} [onSpokenDisplayTextChange] - 語音介面顯示文字的回呼函式
  * @property {Function} [onThreeDimensionalError] - 3D 引擎發生錯誤時的回呼函式
  * @property {Function} [onTwoDimensionalError] - 2D 引擎發生錯誤時的回呼函式
  * @property {Function} [VRMFileChangeFail] - 替換 VRM 模型檔案失敗時的回呼函式
@@ -132,16 +144,19 @@ export * from './plugins';
  * @property {Record<string, string>} FIT_MODE_MAP - Fit 模式映射表
  * @property {HTMLElement} container - 綁定 Widget 的 HTML 容器元素
  * @property {any} uiDom - UI 相關的 DOM 元素與控制方法
+ * @property {any} i18nEngine - i18n 多語系引擎實例
  * @property {any} toolsEngine - 外部工具 (Tools) 引擎實例
  * @property {Function} buildLLMMessages - 組裝 LLM 訊息的函式
  * @property {Function} classifyEmotion - 情感分類函式
  * @property {Function} setEmotionFromText - 根據文字設定情感的函式
+ * @property {function(string): void} handleUser - 處理使用者輸入文字的主方法
  * @property {boolean} isIframe - 是否在 Iframe 內
  * @property {boolean} isMinimal - 是否處於極簡模式
  * @property {string} gender - 目前性別
  * @property {string|null} brainGender - 大腦引擎性別設定
  * @property {string|null} speechGender - 語音引擎性別設定
  * @property {string|null} skinGender - 外觀引擎性別設定
+ * @property {string} locale - 當前語系代碼
  * @property {string} avatarMode - 目前 Avatar 模式
  * @property {Function} showMinimalEl - 顯示極簡模式元素的函式
  * @property {Function} hiddenMinimalEl - 隱藏極簡模式元素的函式
@@ -156,7 +171,7 @@ export * from './plugins';
 /**
  * 初始化 AI Avatar Bot 實例
  *
- * @param {AvatarBotOptions} options - 初始化設定選項
+ * @param {AvatarBotOptions} [options={}] - 初始化設定選項
  * @returns {Promise<AiAvatarWidget|void>} 回傳初始化完成的 `AiAvatarWidget` 實例，包含操作介面、大腦、語音、皮膚等引擎的屬性與方法；如果在非瀏覽器環境下執行會回傳 undefined。
  * @throws {Error} 當傳入的 container 不是 HTMLElement 時拋出錯誤
  */
