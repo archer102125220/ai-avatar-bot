@@ -199,9 +199,9 @@ export async function defaultGesture2D(skinEngine = null, emotionName) {
 }
 
 /**
- * 執行預設的 3D 手勢動作與情緒表情。
+ * 執行預設的 3D 肢體手勢動作。
  * @param {SkinEngine} [skinEngine=null] - 引擎實例。
- * @param {string} emotionName - 準備表達的情緒或手勢名稱（例如：'happy'、'wave'、'bow'、'thinking'）。
+ * @param {string} emotionName - 準備表達的手勢動作名稱（例如：'wave'、'bow'、'thinking'、'surprised'）。
  * @returns {Promise<void>}
  */
 export async function defaultGesture3D(skinEngine = null, emotionName) {
@@ -212,17 +212,15 @@ export async function defaultGesture3D(skinEngine = null, emotionName) {
     return;
   }
 
-  // 1. 設定臉部表情 (VRM BlendShape 漸變)
-  if (typeof skinEngine.emo === 'object' && skinEngine.emo !== null) {
-    skinEngine.emo.name = emotionName;
-  }
-
-  // 2. 播放肢體手勢 (VRMA 動畫)
+  // 播放 3D 肢體手勢 (VRMA 動畫)
   if (typeof skinEngine.renderer?.playGesture === 'function') {
-    skinEngine.renderer.playGesture(emotionName);
+    try {
+      skinEngine.renderer.playGesture(emotionName);
+    } catch (error) {
+      console.error(error);
+    }
   }
 }
-
 
 // ===== 2D 皮：Live2D 載入 + 對嘴 =====
 /**

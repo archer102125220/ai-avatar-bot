@@ -81,10 +81,10 @@ export function createEmotionToolsPlugin(options = {}) {
           context?.skinEngine;
 
         if (typeof skin === 'object' && skin !== null) {
-          if (typeof skin.gesture === 'function') {
-            await skin.gesture(safeEmotion);
-          } else if (typeof skin.setEmotion === 'function') {
+          if (typeof skin.setEmotion === 'function') {
             skin.setEmotion(safeEmotion);
+          } else if (typeof skin.gesture === 'function') {
+            await skin.gesture(safeEmotion);
           }
         } else {
           console.warn(
