@@ -1234,11 +1234,24 @@ export function initSkinEngine(setting = {}) {
       }
     },
 
+    _gesture2D: safeGesture2D,
     get gesture2D() {
       return function _gesture2D(emotionName) {
-        return safeGesture2D.call(this, this, emotionName);
+        if (typeof this._gesture2D !== 'function') {
+          console.warn('2D hand movement function is not registered');
+          return () => {
+            console.warn('gesture2D is not registered');
+          };
+        }
+        return this._gesture2D.call(this, this, emotionName);
       };
     },
+    set gesture2D(newGesture2D) {
+      if (typeof newGesture2D === 'function' || newGesture2D === null) {
+        this._gesture2D = newGesture2D;
+      }
+    },
+
     get gesture() {
       if (this.engineMode === ENGINE_MODE_MAP.threeDimensional) {
         return this.gesture3D;
