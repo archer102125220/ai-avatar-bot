@@ -281,10 +281,11 @@ export const CHAT_SOURCE_MAP = {
  * @returns {boolean} 是否支援 Function Calling
  */
 export function isWebLLMFunctionCallingSupported(model) {
+  console.log({ model });
   if (typeof model !== 'string' || model === '') {
     return false;
   }
-  return /hermes/i.test(model);
+  return /hermes|Hermes/i.test(model);
 }
 
 /**
@@ -307,5 +308,3 @@ export const DEFAULT_SUPPORTED_EMOTIONS = [
  * @type {string}
  */
 export const DEFAULT_EMOTION_TOOL_NAME = 'express_emotion';
-
-

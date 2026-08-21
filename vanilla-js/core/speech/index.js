@@ -232,6 +232,9 @@ export async function initSpeechEngine(setting = {}) {
 
     speak: (text, options) => {
       speechEngine.assistantSpeechStartedAt = performance.now();
+      if (typeof text === 'string' && text.trim() !== '') {
+        speechEngine.spokenDisplayText = text.trim();
+      }
       ttsEngine.speak(text, options);
     },
 
@@ -382,7 +385,7 @@ export async function initSpeechEngine(setting = {}) {
       if (speechSequenceId !== speechEngine.speakSeq) return;
       if (speechEngine._speechQueue.length > 0) {
         const sentence = speechEngine._speechQueue.shift();
-        speechEngine.speak(sentence, options);
+        ttsEngine.speak(sentence, options);
       } else {
         if (speechEngine._speechEndedFlag) {
           speechEngine.onUtteranceEnd();
@@ -441,9 +444,6 @@ export async function initSpeechEngine(setting = {}) {
       if (typeof speechEngine._onTTSSpeakEnd === 'function') {
         speechEngine._onTTSSpeakEnd();
       }
-    },
-    onSpokenDisplayTextChange: (text) => {
-      speechEngine.spokenDisplayText = text;
     }
   };
 

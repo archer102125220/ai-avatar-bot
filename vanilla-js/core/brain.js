@@ -13,7 +13,6 @@ import {
 } from './constants';
 import { toOpenAiTools } from './tools';
 
-
 /**
  * 知識庫項目
  * @typedef {Object} KnowledgeEntry
@@ -342,6 +341,44 @@ export function topK(brainEngine, question, limit) {
 }
 
 /**
+ * 從文字中解析 XML 格式的工具調用 (<tool_call>...</tool_call>)
+ * @param {string} content - 模型產生的內容
+ * @returns {Array<object>} 解析出的 toolCalls 陣列
+ */
+export function extractToolCallsFromText(content) {
+  if (typeof content !== 'string' || content === '') {
+    return [];
+  }
+  const regex = /<tool_call>([\s\S]*?)<\/tool_call>/g;
+  const toolCalls = [];
+  let match = regex.exec(content);
+  while (match !== null) {
+    try {
+      const parsed = JSON.parse(match[1].trim());
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        typeof parsed.name === 'string'
+      ) {
+        toolCalls.push({
+          id: `call_${Date.now()}_${toolCalls.length}`,
+          type: 'function',
+          function: {
+            name: parsed.name,
+            arguments:
+              typeof parsed.arguments === 'string'
+                ? parsed.arguments
+                : JSON.stringify(parsed.arguments || {})
+          }
+        });
+      }
+    } catch (_error) {}
+    match = regex.exec(content);
+  }
+  return toolCalls;
+}
+
+/**
  * 初始化 WebLLM 引擎
  * @param {LLMEngineOptions} [setting={}] - LLM 設定
  * @param {BrainEngine} brain - 大腦引擎實例
@@ -467,6 +504,7 @@ export function initLLM(setting = {}, brain) {
       const supportsFunctionCalling = isWebLLMFunctionCallingSupported(
         this.model
       );
+      console.log({ supportsFunctionCalling });
 
       if (
         supportsFunctionCalling === true &&
@@ -476,31 +514,122 @@ export function initLLM(setting = {}, brain) {
         const openAiTools = toOpenAiTools(tools);
         if (openAiTools.length > 0) {
           createOptions.tools = openAiTools;
+
+          // WebLLM 在 Hermes Function Calling 模式下，套件內部會自動注入專屬的 <tools> system prompt，
+          // 若 request 帶有自訂的 { role: 'system' }，WebLLM 會拋出 CustomSystemPromptError。
+          // 處理方式：將 system prompt 整合至第一則 user 訊息，避免傳遞獨立的 system 訊息。
+          if (Array.isArray(messages) === true) {
+            const systemMsg = messages.find(
+              (m) => m.role === CHAT_ROLE_MAP.SYSTEM || m.role === 'system'
+            );
+            const nonSystemMsgs = messages.filter(
+              (m) => m.role !== CHAT_ROLE_MAP.SYSTEM && m.role !== 'system'
+            );
+
+            if (
+              typeof systemMsg?.content === 'string' &&
+              systemMsg.content.trim() !== ''
+            ) {
+              const firstUserIdx = nonSystemMsgs.findIndex(
+                (m) => m.role === CHAT_ROLE_MAP.USER || m.role === 'user'
+              );
+              if (firstUserIdx !== -1) {
+                createOptions.messages = nonSystemMsgs.map((m, idx) => {
+                  if (idx === firstUserIdx) {
+                    return {
+                      ...m,
+                      content: `[Instruction: ${systemMsg.content.trim()}]\n\n${m.content}`
+                    };
+                  }
+                  return m;
+                });
+              } else {
+                createOptions.messages = [
+                  {
+                    role: CHAT_ROLE_MAP.USER,
+                    content: `[Instruction: ${systemMsg.content.trim()}]`
+                  },
+                  ...nonSystemMsgs
+                ];
+              }
+            } else {
+              createOptions.messages = nonSystemMsgs;
+            }
+          }
         }
       }
 
       const executeChatCompletion = async (options) => {
-        if (typeof onDelta !== 'function' || this.isStream === false) {
-          const result = await engine.chat.completions.create(options);
+        const hasTools =
+          Array.isArray(options.tools) === true && options.tools.length > 0;
+
+        if (
+          typeof onDelta !== 'function' ||
+          this.isStream === false ||
+          hasTools === true
+        ) {
+          const normalizedOptions = {
+            ...options,
+            messages: (options.messages || []).map((m) => ({
+              ...m,
+              content: typeof m?.content === 'string' ? m.content : ''
+            }))
+          };
+          const result =
+            await engine.chat.completions.create(normalizedOptions);
           const message = result?.choices?.[0]?.message;
           if (
             Array.isArray(message?.tool_calls) === true &&
             message.tool_calls.length > 0
           ) {
+            const normalizedAssistantMessage = {
+              role: CHAT_ROLE_MAP.ASSISTANT,
+              content:
+                typeof message?.content === 'string' ? message.content : '',
+              tool_calls: message.tool_calls
+            };
             this.onChatting(result, messages, brain);
             return {
               type: 'tool_calls',
               toolCalls: message.tool_calls,
-              message
+              message: normalizedAssistantMessage
             };
           }
 
+          const rawContent = message?.content || '';
+          if (
+            Array.isArray(message?.tool_calls) === false ||
+            message.tool_calls.length === 0
+          ) {
+            const fallbackToolCalls = extractToolCallsFromText(rawContent);
+            if (fallbackToolCalls.length > 0) {
+              const normalizedAssistantMessage = {
+                role: CHAT_ROLE_MAP.ASSISTANT,
+                content: rawContent,
+                tool_calls: fallbackToolCalls
+              };
+              this.onChatting(result, messages, brain);
+              return {
+                type: 'tool_calls',
+                toolCalls: fallbackToolCalls,
+                message: normalizedAssistantMessage
+              };
+            }
+          }
+
           this.onChatting(result, messages, brain);
-          return message?.content;
+          return rawContent;
         }
 
         // 串流：邊生成邊回吐 token（逐句開講用）——首句不用等整段生成完
-        const streamOptions = { ...options, stream: true };
+        const streamOptions = {
+          ...options,
+          stream: true,
+          messages: (options.messages || []).map((m) => ({
+            ...m,
+            content: typeof m?.content === 'string' ? m.content : ''
+          }))
+        };
         const stream = await engine.chat.completions.create(streamOptions);
         let fullResponse = '';
         const toolCallsMap = {};
@@ -544,6 +673,7 @@ export function initLLM(setting = {}, brain) {
           const toolCalls = Object.values(toolCallsMap);
           const toolMessage = {
             role: CHAT_ROLE_MAP.ASSISTANT,
+            content: typeof fullResponse === 'string' ? fullResponse : '',
             tool_calls: toolCalls
           };
           this.onChatting(toolMessage, messages, brain);
@@ -554,30 +684,58 @@ export function initLLM(setting = {}, brain) {
           };
         }
 
+        const fallbackStreamToolCalls =
+          extractToolCallsFromText(fullResponse);
+        if (fallbackStreamToolCalls.length > 0) {
+          const toolMessage = {
+            role: CHAT_ROLE_MAP.ASSISTANT,
+            content: fullResponse,
+            tool_calls: fallbackStreamToolCalls
+          };
+          this.onChatting(toolMessage, messages, brain);
+          return {
+            type: 'tool_calls',
+            toolCalls: fallbackStreamToolCalls,
+            message: toolMessage
+          };
+        }
+
         this.onChatting(fullResponse, messages, brain);
         return fullResponse;
       };
 
       try {
-        return await executeChatCompletion(createOptions);
+        const response = await executeChatCompletion(createOptions);
+        if (
+          createOptions.tools !== undefined &&
+          (response === null ||
+            response === undefined ||
+            (typeof response === 'string' && response.trim() === ''))
+        ) {
+          delete createOptions.tools;
+          createOptions.messages = messages;
+          return await executeChatCompletion(createOptions);
+        }
+        return response;
       } catch (error) {
         if (
           createOptions.tools !== undefined &&
-          /not supported for ChatCompletionRequest\.tools|UnsupportedModelIdError/i.test(
+          /not supported for ChatCompletionRequest\.tools|UnsupportedModelIdError|CustomSystemPromptError/i.test(
             error?.message || String(error)
           )
         ) {
           console.warn(
-            `[AvatarBot] 當前 WebLLM 模型 (${this.model}) 不支援 Function Calling，已自動降級為純對話模式。若需在瀏覽器端使用 AI 工具呼叫，請改用 Hermes 系列模型（如 Hermes-2-Pro-Llama-3-8B-q4f32_1-MLC）。`
+            `[AvatarBot] 當前 WebLLM 模型 (${this.model}) 呼叫 Function Calling 發生錯誤，已自動降級為純對話模式。`,
+            error
           );
           delete createOptions.tools;
+          createOptions.messages = messages;
           return await executeChatCompletion(createOptions);
         }
         throw error;
       }
     }
   };
-
 
   return llm;
 }
@@ -1663,16 +1821,28 @@ export async function handleToolCallsLoop(
         return;
       }
       if (tool.resultMode === TOOL_RESULT_MODE_MAP.AI_SUMMARY) {
+        const normalizedAssistantMessage = {
+          role: CHAT_ROLE_MAP.ASSISTANT,
+          content: typeof message?.content === 'string' ? message.content : '',
+          ...(Array.isArray(message?.tool_calls)
+            ? { tool_calls: message.tool_calls }
+            : {})
+        };
+
         const updatedMessages = [
           ...initialMessages,
-          message,
+          normalizedAssistantMessage,
           {
             role: CHAT_ROLE_MAP.TOOL,
             tool_call_id: toolCall.id,
             content:
               typeof toolResult === 'string'
                 ? toolResult
-                : JSON.stringify(toolResult)
+                : JSON.stringify(
+                    typeof toolResult === 'object' && toolResult !== null
+                      ? toolResult
+                      : ''
+                  )
           }
         ];
 

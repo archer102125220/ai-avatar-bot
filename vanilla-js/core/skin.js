@@ -1025,6 +1025,15 @@ export function initSkinEngine(setting = {}) {
     isSpeaking: false
   });
 
+  let emotionAutoRestoreTimer = null;
+
+  const clearEmotionAutoRestoreTimer = () => {
+    if (emotionAutoRestoreTimer !== null) {
+      clearTimeout(emotionAutoRestoreTimer);
+      emotionAutoRestoreTimer = null;
+    }
+  };
+
   const skinEngine = {
     // --- Store Pattern Methods ---
     getState: store.getState,
@@ -1041,9 +1050,22 @@ export function initSkinEngine(setting = {}) {
     setEmotion: (val) => {
       store.setState({ emotion: val });
       skinEngine.gestureName = val;
+
+      clearEmotionAutoRestoreTimer();
+      if (typeof val === 'string' && val !== 'neutral' && val !== '') {
+        emotionAutoRestoreTimer = setTimeout(() => {
+          if (store.getState().isSpeaking !== true) {
+            skinEngine.setEmotion('neutral');
+          }
+        }, 3000);
+      }
     },
     setIsSpeaking: (val) => {
       store.setState({ isSpeaking: val });
+      if (val === false) {
+        clearEmotionAutoRestoreTimer();
+        skinEngine.setEmotion('neutral');
+      }
     },
     // ----------------------------
 

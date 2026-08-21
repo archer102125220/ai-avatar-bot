@@ -1088,7 +1088,7 @@ export function initToolsEngine(setting = {}) {
 
       if (typeof pending.onConfirmResume === 'function') {
         pending.onConfirmResume(result);
-      } else {
+      } else if (tool.resultMode !== TOOL_RESULT_MODE_MAP.AI_SUMMARY) {
         const message =
           typeof result === 'string' ? result : result?.message || '已完成。';
         handleToolResult({
@@ -1103,7 +1103,7 @@ export function initToolsEngine(setting = {}) {
       const errorMsg = String(error?.message || error || '執行錯誤');
       if (typeof pending.onConfirmResume === 'function') {
         pending.onConfirmResume({ ok: false, error: errorMsg });
-      } else {
+      } else if (tool.resultMode !== TOOL_RESULT_MODE_MAP.AI_SUMMARY) {
         handleToolResult({
           ok: false,
           error: errorMsg,

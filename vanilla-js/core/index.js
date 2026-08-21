@@ -1,6 +1,6 @@
 import { initBrainEngine, validateBrainEngine } from './brain';
 import { initSkinEngine, validateSkinEngine } from './skin';
-import { initSpeechEngine } from './speech';
+import { initSpeechEngine, splitSentences } from './speech';
 import { initI18nEngine, resolveLocalized } from './i18n';
 import {
   AVATAR_MODE_MAP,
@@ -966,11 +966,24 @@ export async function initAvatarBot(options = {}) {
     },
     onStreamEnd(fullText) {
       if (streamSpeechId !== 0 && streamSpeechId === speechEngine.speakSeq) {
-        for (const sentence of speechEngine.drainSentences(
+        const remainingSentences = speechEngine.drainSentences(
           streamSpeechState,
           true
-        )) {
-          speechEngine.pushSpeech(streamSpeechId, sentence);
+        );
+        if (
+          remainingSentences.length === 0 &&
+          (!streamSpeechState.sentenceBuffer ||
+            streamSpeechState.sentenceBuffer === '') &&
+          typeof fullText === 'string' &&
+          fullText !== ''
+        ) {
+          for (const s of splitSentences(fullText)) {
+            speechEngine.pushSpeech(streamSpeechId, s);
+          }
+        } else {
+          for (const sentence of remainingSentences) {
+            speechEngine.pushSpeech(streamSpeechId, sentence);
+          }
         }
         speechEngine.endSpeech(streamSpeechId);
       } else if (streamSpeechId === 0) {
@@ -1081,6 +1094,9 @@ export async function initAvatarBot(options = {}) {
       callOptionEvent.call(this, 'onSpeaking', text);
     },
     onSpeakingEnd: () => {
+      if (skinEngine && typeof skinEngine.setEmotion === 'function') {
+        skinEngine.setEmotion('neutral');
+      }
       callOptionEvent.call(this, 'onSpeakingEnd');
     }
   });
