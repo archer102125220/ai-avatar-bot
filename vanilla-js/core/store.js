@@ -1,5 +1,5 @@
 /**
- * @template T
+ * @template [T=Record<string, any>]
  * @typedef {Object} BaseStore
  * @property {() => T} getState - 取得目前的狀態。
  * @property {(updates: Partial<T> | ((state: T) => Partial<T>)) => void} setState - 更新狀態。
@@ -10,7 +10,7 @@
  * 建立一個簡單且相容於 Vue / React 的狀態管理工具 (Store)。
  * 提供類似 Zustand 的狀態更新機制與特定屬性訂閱功能。
  *
- * @template T
+ * @template [T=Record<string, any>]
  * @param {T} [initialState={}] - 初始狀態物件。
  * @returns {BaseStore<T>} 包含狀態操作方法的 Store 物件。
  */
@@ -58,17 +58,18 @@ export function createBaseStore(initialState = {}) {
    *
    * @example
    * // 用法 1：訂閱所有變更
-   * subscribe(state => console.log(state))
+   * subscribe((state, prevState) => console.log(state, prevState))
    * @example
    * // 用法 2：訂閱特定鍵值
-   * subscribe('gender', newGender => console.log(newGender))
+   * subscribe('gender', (newGender, prevGender) => console.log(newGender, prevGender))
    * @example
    * // 用法 3：透過選取器函式訂閱
-   * subscribe(state => state.app.gender, newGender => ...)
+   * subscribe(state => state.gender, (newGender, prevGender) => console.log(newGender, prevGender))
    *
    * @param {((state: T, prevState: T) => void) | keyof T | ((state: T) => any)} selector - 監聽器函式、狀態鍵值字串，或狀態選取器函式。
    * @param {(currentVal: any, prevVal: any) => void} [callback] - 當特定狀態變更時觸發的回呼函式（適用於用法 2 與 3）。
    * @returns {() => void} 取消訂閱的函式。
+   * @throws {Error} 當傳入無效的參數組合時拋出錯誤。
    */
   function subscribe(selector, callback) {
     let listener;
