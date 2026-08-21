@@ -19,6 +19,9 @@ import { toOpenAiTools } from './tools';
  * @property {string} [q] - 項目問題
  * @property {string} [kw] - 項目關鍵字
  * @property {string} [a] - 項目回答
+ * @property {Object} [source] - 項目來源資料
+ * @property {string} [source.title] - 來源標題
+ * @property {string} [source.url] - 來源連結
  */
 
 /**
@@ -42,6 +45,7 @@ import { toOpenAiTools } from './tools';
  * @property {number} state - 引擎狀態
  * @property {number} progress - 載入進度
  * @property {string} model - 模型名稱
+ * @property {string} [error] - 載入失敗時的錯誤訊息
  * @property {number} maxTokens - 最大 Token 數
  * @property {boolean} isStream - 是否為串流模式
  * @property {Function} onLoading - 載入中回呼
@@ -50,8 +54,8 @@ import { toOpenAiTools } from './tools';
  * @property {Function} onLoadError - 載入錯誤回呼
  * @property {Function} onChatting - 對話回呼
  * @property {Function} onStreamChatting - 串流對話回呼
- * @property {function(): Promise<LLMEngine>} load - 載入模型方法
- * @property {function(Array, Function): Promise<string>} chat - 對話方法
+ * @property {function(): Promise<any>} load - 載入模型方法
+ * @property {function(Array<Object>, Function=, Array<Object>=): Promise<string|{type: string, toolCalls: Array, message: Object}|null>} chat - 對話方法
  */
 
 /**
@@ -64,6 +68,7 @@ import { toOpenAiTools } from './tools';
  * @property {Function} [providerCreatedFetchSetting] - 建立 Fetch 設定回呼
  * @property {Function} [providerCreatedFetchPayload] - 建立 Fetch 負載回呼
  * @property {Function} [providerResponesFormat] - 回應格式化回呼
+ * @property {Function} [providerExtractToolCalls] - 提取 Tool Calls 回呼
  * @property {number} [providerMaxTokens] - AI 供應商最大 token 數
  * @property {boolean} [providerIsStream] - 是否使用串流
  * @property {Function} [onConnecting] - 連線中回呼
@@ -82,6 +87,7 @@ import { toOpenAiTools } from './tools';
  * @property {Function} createdFetchSetting - 建立 Fetch 設定方法
  * @property {Function} createdFetchPayload - 建立 Fetch 負載方法
  * @property {Function} responesFormat - 回應格式化方法
+ * @property {Function} [extractToolCalls] - 提取 Tool Calls 方法
  * @property {number} maxTokens - 最大 Token 數
  * @property {boolean} isStream - 是否為串流模式
  * @property {Function} onConnecting - 連線中回呼
@@ -93,7 +99,7 @@ import { toOpenAiTools } from './tools';
  * @property {boolean} enabled - 是否啟用
  * @property {boolean} ready - 是否準備就緒
  * @property {function(Object=): Promise<boolean>} ping - 測試連線方法
- * @property {function(Array, Object=): Promise<string>} chat - 對話方法
+ * @property {function(Array<Object>, Object=, Array<Object>=): Promise<string|{type: string, toolCalls: Array, message: Object}>} chat - 對話方法
  */
 
 /**
@@ -122,6 +128,8 @@ import { toOpenAiTools } from './tools';
  * @property {Array} [companionKnowledge] - 陪伴模式知識庫
  * @property {string} [companionKnowledgeUrl] - 陪伴模式知識庫 URL
  * @property {Function} [companionFallback] - 陪伴模式後備處理
+ * @property {string|Function} [companionFallbackContext] - 陪伴模式自訂兜底回覆內容/模板
+ * @property {string|Function} [assistantFallbackContext] - 助理模式自訂兜底回覆內容/模板
  * @property {string} [aiProviderModel] - AI 供應商模型
  * @property {string} [aiProviderBaseUrl] - AI 供應商 Base URL
  * @property {string|Function} [welcomeText] - 歡迎詞
@@ -156,11 +164,19 @@ import { toOpenAiTools } from './tools';
  * @property {string} [aiProviderChatUrl] - AI Chat URL
  * @property {number} [aiProviderMaxTokens] - AI 最大 token 數
  * @property {boolean} [aiProviderIsStream] - AI 是否串流
+ * @property {Function} [aiProviderExtractToolCalls] - AI 供應商提取 Tool Calls 回呼
+ * @property {Function} [getTools] - 取得所有工具列表函式
+ * @property {Function} [getToolByName] - 依名稱取得工具函式
+ * @property {Function} [offerToolConfirmation] - 發起工具確認回呼
+ * @property {Function} [executeTool] - 執行工具函式
  * @property {string} [locale] - 語系設定 (例如 'zh-TW', 'en-US', 'ja-JP', 'ko-KR')
  * @property {string|Function} [systemContextTemplate] - 助理模式系統提示詞模板
  * @property {string|Function} [companionSystemContextTemplate] - 陪伴模式系統提示詞模板
  * @property {string|Function} [ragTemplate] - RAG 參考資料模板
+ * @property {Object} [customContext] - 附加自訂上下文資訊
  * @property {string|Function} [languageRule] - 多語系回答規則提示詞
+ * @property {string} [gender] - 虛擬人角色性別 ('male'|'female')
+ * @property {string|Function} [genderRule] - 針對性別的額外提示詞規則
  * @property {Function} [buildLLMMessages] - 建立 LLM 訊息回呼
  */
 
@@ -172,12 +188,19 @@ import { toOpenAiTools } from './tools';
  * @property {string} DEFAULT_AVATAR_MODE - 預設虛擬人模式
  * @property {string} DEFAULT_LLM_MODEL - 預設 LLM 模型
  * @property {string} DEFAULT_AI_PROVIDER_MODEL - 預設 AI 供應商模型
+ * @property {string} [avatarMode] - 虛擬人模式 ('assistant'|'companion')
  * @property {string} knowledgeUrl - 知識庫 URL
  * @property {Array<KnowledgeEntry>} knowledge - 知識庫陣列
  * @property {string} companionKnowledgeUrl - 陪伴模式知識庫 URL
  * @property {Function} companionFallback - 陪伴模式兜底邏輯
  * @property {Array<KnowledgeEntry>} companionKnowledge - 陪伴模式知識庫
  * @property {number} companionFallbackIdx - 陪伴模式兜底索引
+ * @property {string|Function} [companionFallbackContext] - 陪伴模式自訂兜底回覆內容/模板
+ * @property {string|Function} [assistantFallbackContext] - 助理模式自訂兜底回覆內容/模板
+ * @property {Function} getTools - 取得所有工具列表函式
+ * @property {Function|null} getToolByName - 依名稱取得工具函式
+ * @property {Function|null} offerToolConfirmation - 發起工具確認回呼
+ * @property {Function|null} executeTool - 執行工具函式
  * @property {Function} onLlmLoading - LLM 載入中回呼
  * @property {Function} onLlmLoadProgress - LLM 載入進度回呼
  * @property {Function} onLlmLoaded - LLM 載入完成回呼
@@ -213,15 +236,16 @@ import { toOpenAiTools } from './tools';
  * @property {string|Function} systemContextTemplate - 助理模式系統提示詞模板
  * @property {string|Function} companionSystemContextTemplate - 陪伴模式系統提示詞模板
  * @property {string|Function} ragTemplate - RAG 參考資料模板
- * @property {Object} customContext - 附加自訂上下文資訊
+ * @property {Object} [customContext] - 附加自訂上下文資訊
  * @property {string|Function} languageRule - 多語系回答規則提示詞
- * @property {string} gender - 虛擬人角色性別
+ * @property {string} [gender] - 虛擬人角色性別
  * @property {Function} setGender - 設定性別方法
- * @property {string|Function} genderRule - 針對性別的額外提示詞規則
+ * @property {string|Function} [genderRule] - 針對性別的額外提示詞規則
  * @property {Function} setEmotionFromText - 設定情緒方法
  * @property {Function} handleAnswer - 處理回答方法
  * @property {Function} addChatMessage - 新增對話訊息方法
  * @property {Function} updateChatMessage - 更新對話訊息方法
+ * @property {Object} [i18nEngine] - i18n 國際化引擎實例
  * @property {LLMEngine} llm - LLM 引擎實例
  * @property {MEMEngine} mem - 記憶體引擎實例
  * @property {AiProviderEngine} aiProvider - AI 供應商引擎實例
@@ -381,7 +405,7 @@ export function extractToolCallsFromText(content) {
 /**
  * 初始化 WebLLM 引擎
  * @param {LLMEngineOptions} [setting={}] - LLM 設定
- * @param {BrainEngine} brain - 大腦引擎實例
+ * @param {BrainEngine} [brain] - 大腦引擎實例
  * @returns {LLMEngine} WebLLM 實例
  */
 export function initLLM(setting = {}, brain) {
@@ -1775,6 +1799,13 @@ export function updateChatMessage(brainEngine, id, text, streaming) {
   return item.id;
 }
 
+/**
+ * 取得大腦內部多語系字串
+ * @param {BrainEngine} brainEngine - 大腦引擎實例
+ * @param {string} key - 翻譯鍵值
+ * @param {Object} [params={}] - 替換參數
+ * @returns {string} 翻譯後的字串
+ */
 function getBrainMessage(brainEngine, key, params = {}) {
   if (typeof brainEngine?.i18nEngine?.t === 'function') {
     return brainEngine.i18nEngine.t(key, params);
