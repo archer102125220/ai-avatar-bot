@@ -198,6 +198,32 @@ export async function defaultGesture2D(skinEngine = null, emotionName) {
   }
 }
 
+/**
+ * 執行預設的 3D 手勢動作與情緒表情。
+ * @param {SkinEngine} [skinEngine=null] - 引擎實例。
+ * @param {string} emotionName - 準備表達的情緒或手勢名稱（例如：'happy'、'wave'、'bow'、'thinking'）。
+ * @returns {Promise<void>}
+ */
+export async function defaultGesture3D(skinEngine = null, emotionName) {
+  if (typeof skinEngine !== 'object' || skinEngine === null) {
+    return;
+  }
+  if (typeof emotionName !== 'string' || emotionName === '') {
+    return;
+  }
+
+  // 1. 設定臉部表情 (VRM BlendShape 漸變)
+  if (typeof skinEngine.emo === 'object' && skinEngine.emo !== null) {
+    skinEngine.emo.name = emotionName;
+  }
+
+  // 2. 播放肢體手勢 (VRMA 動畫)
+  if (typeof skinEngine.renderer?.playGesture === 'function') {
+    skinEngine.renderer.playGesture(emotionName);
+  }
+}
+
+
 // ===== 2D 皮：Live2D 載入 + 對嘴 =====
 /**
  * 初始化並啟動 2D Live2D 虛擬人物模型。
@@ -577,7 +603,6 @@ async function bootVRM(skinEngine, setting = {}) {
             waving = false;
           }
         });
-        skinEngine.gesture3D = playGesture; // 對外 hook：思考等時機可從對話流程觸發
         if (typeof gestureActions.wave !== 'undefined') {
           setTimeout(() => playGesture('wave'), 800); // 出場招呼
         }
@@ -955,6 +980,7 @@ export function initSkinEngine(setting = {}) {
     startMode = DEFALUT_START_MODE,
     fitMode = DEFAULT_FIT_MODE,
     vrmUrl = '',
+    gesture3D = null,
     gesture2D = null,
     computeMouth = null,
     onThreeDimensionalError,
@@ -975,6 +1001,9 @@ export function initSkinEngine(setting = {}) {
       : setting.gender === GENDER_MAP.female
         ? DEFAULT_FEMALE_MODEL_URL
         : DEFAULT_MALE_MODEL_URL;
+
+  const safeGesture3D =
+    typeof gesture3D === 'function' ? gesture3D : defaultGesture3D;
 
   const safeGesture2D =
     typeof gesture2D === 'function'
@@ -1223,10 +1252,17 @@ export function initSkinEngine(setting = {}) {
       }
     },
 
-    // 3D 手勢觸發 hook（bootVRM 設定；2D 模式為 null → 自動 no-op）
-    _gesture3D: null,
+    _gesture3D: safeGesture3D,
     get gesture3D() {
-      return this._gesture3D;
+      return function _gesture3D(emotionName) {
+        if (typeof this._gesture3D !== 'function') {
+          console.warn('3D hand movement function is not registered');
+          return () => {
+            console.warn('gesture3D is not registered');
+          };
+        }
+        return this._gesture3D.call(this, this, emotionName);
+      };
     },
     set gesture3D(newGesture3D) {
       if (typeof newGesture3D === 'function' || newGesture3D === null) {

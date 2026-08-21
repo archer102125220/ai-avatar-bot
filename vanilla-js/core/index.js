@@ -27,6 +27,7 @@ import {
   updateUIStrings
 } from './ui';
 import { initToolsEngine, validateToolsEngine } from './tools';
+import { createEmotionToolsPlugin } from './plugins';
 import { createBaseStore } from './store';
 
 import '../style/style.scss';
@@ -37,6 +38,7 @@ export * from './brain';
 export * from './speech';
 export * from './skin';
 export * from './tools';
+export * from './plugins';
 
 /**
  * @typedef {Object} CustomEnginesConfig
@@ -189,6 +191,7 @@ export async function initAvatarBot(options = {}) {
     startMode,
     fitMode,
     vrmUrl,
+    gesture3D,
     gesture2D,
     isMinimal = false,
     isIframe = false,
@@ -611,7 +614,14 @@ export async function initAvatarBot(options = {}) {
         routedTool.match.tool,
         text,
         { confidence: routedTool.match.score, reason: routedTool.match.reason },
-        {}
+        {
+          skinEngine,
+          brainEngine,
+          speechEngine,
+          aiAvatarWidget,
+          store: rootStore,
+          i18nEngine
+        }
       );
       return;
     }
@@ -760,10 +770,33 @@ export async function initAvatarBot(options = {}) {
         toolsEngine &&
         typeof toolsEngine.executeToolDirectly === 'function'
       ) {
+        const defaultContext = {
+          skinEngine,
+          brainEngine,
+          speechEngine,
+          aiAvatarWidget,
+          store: rootStore,
+          i18nEngine
+        };
+        const resolvedOptions =
+          typeof toolOptions === 'object' && toolOptions !== null
+            ? {
+                ...toolOptions,
+                input: {
+                  ...toolOptions.input,
+                  context: {
+                    ...defaultContext,
+                    ...(toolOptions.input?.context || {})
+                  },
+                  query: toolOptions.input?.query || ''
+                }
+              }
+            : { input: { context: defaultContext, query: '' } };
+
         return await toolsEngine.executeToolDirectly(
           tool,
           args,
-          toolOptions || { input: { context: {}, query: '' } }
+          resolvedOptions
         );
       }
       return null;
@@ -1128,6 +1161,21 @@ export async function initAvatarBot(options = {}) {
     toolsEngine = initToolsEngine(toolsOptions);
   }
 
+  const customTools = Array.isArray(options.tools)
+    ? options.tools
+    : Array.isArray(options.hostTools)
+      ? options.hostTools
+      : [];
+
+  const emotionTools =
+    options.enableEmotionTools !== false
+      ? createEmotionToolsPlugin(options.emotionToolsOptions || {})
+      : [];
+
+  if (Array.isArray(toolsEngine?.HOST_TOOLS)) {
+    toolsEngine.HOST_TOOLS = [...customTools, ...emotionTools];
+  }
+
   let useCustomSkinEngine = false;
 
   if (
@@ -1169,10 +1217,12 @@ export async function initAvatarBot(options = {}) {
       startMode,
       fitMode,
       vrmUrl,
+      gesture3D,
       gesture2D,
       get gender() {
         return rootStore.getState().skinGender || rootStore.getState().gender;
       },
+
       computeMouth() {
         return aiAvatarWidget.speechEngine.computeMouth();
       },

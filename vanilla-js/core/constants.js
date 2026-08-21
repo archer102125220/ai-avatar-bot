@@ -287,3 +287,25 @@ export function isWebLLMFunctionCallingSupported(model) {
   return /hermes/i.test(model);
 }
 
+/**
+ * 預設支援的人像情緒與手勢動作清單。
+ * @type {string[]}
+ */
+export const DEFAULT_SUPPORTED_EMOTIONS = [
+  'happy',
+  'surprised',
+  'sad',
+  'thinking',
+  'neutral',
+  'wave',
+  'bow',
+  'relax'
+];
+
+/**
+ * 預設情緒工具名稱。
+ * @type {string}
+ */
+export const DEFAULT_EMOTION_TOOL_NAME = 'express_emotion';
+
+
