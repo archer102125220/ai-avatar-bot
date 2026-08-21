@@ -66,6 +66,8 @@ export default {
   'brain.aiProvider.connectedMsg':
     'AI 서버 브레인({model})에 연결되었습니다 🧠 무엇이든 물어보세요!',
   'brain.thinking': '생각 중이에요…',
+  'brain.toolExecutionError':
+    '죄송합니다, 처리 중 문제가 발생했습니다. 다시 시도해 주세요.',
   'brain.notClear': '잘 듣지 못했어요. 다시 한 번 말씀해 주시겠어요?',
   'brain.wipeMemory': '기억을 모두 지웠습니다. 다시 인사해요!',
   'brain.userPrefix': '나: {text}',

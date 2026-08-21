@@ -66,6 +66,8 @@ export default {
   'brain.aiProvider.connectedMsg':
     'AIサーバーブレイン（{model}）に接続しました🧠 何でも聞いてください！',
   'brain.thinking': '考え中…',
+  'brain.toolExecutionError':
+    '申し訳ありません、処理中に問題が発生しました。もう一度お試しください。',
   'brain.notClear':
     'うまく聞き取れませんでした。もう一度言っていただけますか？',
   'brain.wipeMemory': '記憶を消去しました。また新しくお話ししましょう！',

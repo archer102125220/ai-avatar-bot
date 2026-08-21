@@ -59,6 +59,7 @@ export default {
   'brain.aiProvider.connectedMsg':
     '已接上 AI 伺服器大腦（{model}）🧠 問我問題吧！',
   'brain.thinking': '讓我想想…',
+  'brain.toolExecutionError': '抱歉，處理過程中發生了一些狀況，請再試一次。',
   'brain.notClear': '我好像沒聽清楚，可以再說一次嗎？',
   'brain.wipeMemory': '好，我把記憶都清掉了，我們重新認識吧！',
   'brain.userPrefix': '你：{text}',

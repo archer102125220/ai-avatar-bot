@@ -684,8 +684,7 @@ export function initLLM(setting = {}, brain) {
           };
         }
 
-        const fallbackStreamToolCalls =
-          extractToolCallsFromText(fullResponse);
+        const fallbackStreamToolCalls = extractToolCallsFromText(fullResponse);
         if (fallbackStreamToolCalls.length > 0) {
           const toolMessage = {
             role: CHAT_ROLE_MAP.ASSISTANT,
@@ -1053,18 +1052,32 @@ export async function initAiProvider(setting = {}) {
           toolCalls = result?.choices?.[0]?.message?.tool_calls || null;
         }
 
+        const rawContent = result?.choices?.[0]?.message?.content || '';
+        if (
+          (toolCalls === null ||
+            (Array.isArray(toolCalls) && toolCalls.length === 0)) &&
+          typeof rawContent === 'string' &&
+          rawContent !== ''
+        ) {
+          const fallbackToolCalls = extractToolCallsFromText(rawContent);
+          if (fallbackToolCalls.length > 0) {
+            toolCalls = fallbackToolCalls;
+          }
+        }
+
         if (Array.isArray(toolCalls) === true && toolCalls.length > 0) {
           return {
             type: 'tool_calls',
             toolCalls,
             message: result?.choices?.[0]?.message || {
               role: CHAT_ROLE_MAP.ASSISTANT,
+              content: rawContent,
               tool_calls: toolCalls
             }
           };
         }
 
-        return result?.choices?.[0]?.message?.content;
+        return rawContent;
       } catch (error) {
         this.ready = false;
         throw error;
@@ -1821,6 +1834,9 @@ export async function handleToolCallsLoop(
         return;
       }
       if (tool.resultMode === TOOL_RESULT_MODE_MAP.AI_SUMMARY) {
+        const initialAssistantContent =
+          typeof message?.content === 'string' ? message.content.trim() : '';
+
         const normalizedAssistantMessage = {
           role: CHAT_ROLE_MAP.ASSISTANT,
           content: typeof message?.content === 'string' ? message.content : '',
@@ -1852,11 +1868,50 @@ export async function handleToolCallsLoop(
             null,
             []
           );
-          if (
-            typeof secondResponse === 'string' &&
-            secondResponse.trim() !== ''
-          ) {
-            sayAnswer(brainEngine, secondResponse.trim());
+          let finalText =
+            typeof secondResponse === 'string' && secondResponse.trim() !== ''
+              ? secondResponse.trim()
+              : initialAssistantContent;
+
+          if (finalText === '') {
+            if (process.env.NODE_ENV === 'development') {
+              console.warn(
+                `[AvatarBot] AI 工具「${tool.name}」執行後，模型第一輪與第二輪皆未產生文字回覆。`,
+                {
+                  toolName: tool.name,
+                  args,
+                  toolResult,
+                  initialAssistantContent,
+                  secondResponse
+                }
+              );
+            }
+            if (
+              toolResult?.ok === false &&
+              typeof toolResult?.error === 'string' &&
+              toolResult.error !== ''
+            ) {
+              finalText = toolResult.error;
+            } else if (
+              typeof toolResult === 'string' &&
+              toolResult.trim() !== ''
+            ) {
+              finalText = toolResult.trim();
+            } else if (
+              typeof toolResult?.message === 'string' &&
+              toolResult.message.trim() !== ''
+            ) {
+              finalText = toolResult.message.trim();
+            } else {
+              finalText = getBrainMessage(
+                brainEngine,
+                'brain.toolExecutionError'
+              );
+            }
+          }
+
+          if (finalText !== '') {
+            sayAnswer(brainEngine, finalText);
           }
         } else if (providerType === 'webLLM') {
           if (typeof brainEngine.onStreamStart === 'function') {
@@ -1882,19 +1937,51 @@ export async function handleToolCallsLoop(
             },
             []
           );
-          if (
-            typeof secondResponse === 'string' &&
-            secondResponse.trim() !== ''
-          ) {
-            brainEngine.mem.addTurn('assistant', secondResponse.trim());
-            updateChatMessage(
-              brainEngine,
-              streamMessageId,
-              secondResponse.trim(),
-              false
+          let finalText =
+            typeof secondResponse === 'string' && secondResponse.trim() !== ''
+              ? secondResponse.trim()
+              : initialAssistantContent;
+
+          if (finalText === '') {
+            console.warn(
+              `[AvatarBot] AI 工具「${tool.name}」執行後，模型第一輪與第二輪皆未產生文字回覆。`,
+              {
+                toolName: tool.name,
+                args,
+                toolResult,
+                initialAssistantContent,
+                secondResponse
+              }
             );
+            if (
+              toolResult?.ok === false &&
+              typeof toolResult?.error === 'string' &&
+              toolResult.error !== ''
+            ) {
+              finalText = toolResult.error;
+            } else if (
+              typeof toolResult === 'string' &&
+              toolResult.trim() !== ''
+            ) {
+              finalText = toolResult.trim();
+            } else if (
+              typeof toolResult?.message === 'string' &&
+              toolResult.message.trim() !== ''
+            ) {
+              finalText = toolResult.message.trim();
+            } else {
+              finalText = getBrainMessage(
+                brainEngine,
+                'brain.toolExecutionError'
+              );
+            }
+          }
+
+          if (finalText !== '') {
+            brainEngine.mem.addTurn('assistant', finalText);
+            updateChatMessage(brainEngine, streamMessageId, finalText, false);
             if (typeof brainEngine.onStreamEnd === 'function') {
-              brainEngine.onStreamEnd(secondResponse.trim());
+              brainEngine.onStreamEnd(finalText);
             }
           }
         }

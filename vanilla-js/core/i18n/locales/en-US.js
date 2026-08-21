@@ -65,6 +65,8 @@ export default {
   'brain.aiProvider.connectedMsg':
     'Connected to AI Server Brain ({model}) 🧠 Ask me anything!',
   'brain.thinking': 'Let me think...',
+  'brain.toolExecutionError':
+    'Sorry, something went wrong during processing. Please try again.',
   'brain.notClear': "I didn't hear that clearly, could you say it again?",
   'brain.wipeMemory': 'Memory cleared! Let us get to know each other again.',
   'brain.userPrefix': 'You: {text}',
