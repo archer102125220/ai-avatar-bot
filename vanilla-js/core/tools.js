@@ -45,7 +45,7 @@ import {
  * @property {'ai_summary'|'direct'} [resultMode] - 執行結果處理模式 (ai_summary: AI總結, direct: 直接輸出)
  * @property {number} [confirmationTimeoutMs] - 工具確認的逾時毫秒數
  * @property {number} [timeoutMs] - 相容舊版的逾時毫秒數
- * @property {function(object): (Promise<any>|any)} [execute] - 工具執行函式
+ * @property {function({args: Record<string, any>, context: any, query: string}): (Promise<any>|any)} [execute] - 工具執行函式
  * @property {ToolSchema} inputSchema - 工具參數的輸入綱要
  */
 
@@ -738,19 +738,24 @@ export function argumentSummary(tool, args) {
  * @property {string} [error] - 錯誤訊息
  * @property {string} [message] - 成功訊息
  * @property {string} callId - 呼叫 ID
+ * @property {string} [name] - 工具名稱
  */
 
 /**
  * @typedef {object} ToolsEngineSetting
+ * @property {number} [confirmationTimeoutMs] - 工具確認的逾時毫秒數
  * @property {function} [onAddChatMessage] - 新增對話訊息的回呼函數
  * @property {function} [onUpdateChatMessage] - 更新對話訊息的回呼函數
  * @property {function} [onSetHistoryOpen] - 設定歷史紀錄面板開啟狀態的回呼函數
  * @property {function} [onRenderHistory] - 觸發重新渲染歷史紀錄的回呼函數
  * @property {function} [onSpokenAudioPlayNow] - 語音播放回呼函數
  * @property {function} [onToolCall] - 工具準備執行時的回呼函數
- * @property {function(): Array<object>} getChatLog - 取得對話紀錄陣列
- * @property {function(): number} getChatSeq - 取得目前對話序號
- * @property {function(): boolean} isConvoOn - 取得是否開啟連續對話
+ * @property {(offer: object) => void} [onToolOffer] - 工具發起確認或準備執行時的回呼函式
+ * @property {(confirm: object) => void} [onToolConfirm] - 工具確認執行時的回呼函式
+ * @property {(cancel: object) => void} [onToolCancel] - 工具取消時的回呼函式
+ * @property {() => Array<object>} getChatLog - 取得對話紀錄陣列
+ * @property {() => number} getChatSeq - 取得目前對話序號
+ * @property {() => boolean} isConvoOn - 取得是否開啟連續對話
  */
 
 /**
@@ -759,23 +764,27 @@ export function argumentSummary(tool, args) {
  * @property {PendingToolInput | null} pendingToolInput - 待補齊參數的工具狀態
  * @property {PendingToolChoice | null} pendingToolChoice - 待選擇的模糊匹配狀態
  * @property {string | null} pendingToolConfirmation - 待確認執行的工具訊息 ID
+ * @property {number} confirmationTimeoutMs - 工具確認逾時毫秒數
  * @property {function} onAddChatMessage - 來自 setting 的對應方法
  * @property {function} onUpdateChatMessage - 來自 setting 的對應方法
  * @property {function} onSetHistoryOpen - 來自 setting 的對應方法
  * @property {function} onRenderHistory - 來自 setting 的對應方法
  * @property {function} onSpokenAudioPlayNow - 來自 setting 的對應方法
- * @property {function(string): ToolRouteResult} routeHostTool - 路由宿主工具
- * @property {function(ToolDefinition, string, string): string} parameterPrompt - 產生補齊參數的提示語
- * @property {function(ToolDefinition, string, object, Record<string, any>): void} prepareTool - 準備執行工具
- * @property {function(string): boolean} continueToolInput - 繼續處理工具參數輸入
- * @property {function(string, ToolRouteCandidate[]): void} offerToolChoices - 處理工具模糊匹配
- * @property {function(string): boolean} continueToolChoice - 繼續處理工具選擇
- * @property {function(string, number): void} chooseTool - 選擇工具
- * @property {function(ToolDefinition, string, object, Record<string, any>): void} offerHostTool - 準備確認執行宿主工具
- * @property {function(string): void} executePendingTool - 執行待確認工具
- * @property {function(string): void} cancelPendingTool - 取消待確認工具
- * @property {function(string): boolean} continueToolConfirmation - 繼續處理確認結果
- * @property {function(ToolResultData): void} handleToolResult - 處理工具執行完畢的回應
+ * @property {(text: string) => ToolRouteResult} routeHostTool - 路由宿主工具
+ * @property {() => ToolDefinition[]} getAiAvailableTools - 取得可供 AI 呼叫的工具清單
+ * @property {() => Array<object>} toOpenAiTools - 取得 OpenAI 相容 tools 格式清單
+ * @property {(tool: ToolDefinition, name: string, errorText?: string) => string} parameterPrompt - 產生補齊參數的提示語
+ * @property {(tool: ToolDefinition, query: string, routeMeta?: object, existingArgs?: Record<string, any>) => void} prepareTool - 準備執行工具
+ * @property {(text: string) => boolean} continueToolInput - 繼續處理工具參數輸入
+ * @property {(query: string, candidates: ToolRouteCandidate[]) => void} offerToolChoices - 處理工具模糊匹配
+ * @property {(text: string) => boolean} continueToolChoice - 繼續處理工具選擇
+ * @property {(messageId: string, index: number) => void} chooseTool - 選擇工具
+ * @property {(tool: ToolDefinition, query: string, routeMeta?: object, args?: Record<string, any>, options?: object) => void} offerHostTool - 準備確認執行宿主工具
+ * @property {(messageId: string) => void} executePendingTool - 執行待確認工具
+ * @property {(messageId: string, options?: { reason?: string }) => void} cancelPendingTool - 取消待確認工具
+ * @property {(text: string) => boolean} continueToolConfirmation - 繼續處理確認結果
+ * @property {(resultData: ToolResultData) => void} handleToolResult - 處理工具執行完畢的回應
+ * @property {(tool: ToolDefinition, args: Record<string, any>, pending: object) => Promise<any>} executeToolDirectly - 直接執行工具
  */
 
 /**
