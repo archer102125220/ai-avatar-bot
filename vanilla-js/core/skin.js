@@ -17,7 +17,7 @@ import {
  * @property {HTMLCanvasElement} canvas - 渲染用畫布
  * @property {Object} avatarModel - Live2D 模型實例
  * @property {Object} pixiApp - PIXI Application 實例
- * @property {function(): void} dispose - 清除並釋放記憶體的方法
+ * @property {() => void} dispose - 清除並釋放記憶體的方法
  */
 
 /**
@@ -27,9 +27,9 @@ import {
  * @property {Object} vrm - 建立的 VRM 模型物件
  * @property {string[]} TAP_GESTURES - 支援的點擊手勢清單
  * @property {HTMLCanvasElement} canvas - 渲染用畫布
- * @property {function(string): void} playGesture - 播放指定手勢的方法
- * @property {function(boolean): void} setPaused - 暫停或恢復渲染的方法
- * @property {function(): void} dispose - 清除並釋放記憶體的方法
+ * @property {(gestureName: string) => void} playGesture - 播放指定手勢的方法
+ * @property {(paused: boolean) => void} setPaused - 暫停或恢復渲染的方法
+ * @property {() => void} dispose - 清除並釋放記憶體的方法
  */
 
 /**
@@ -40,34 +40,34 @@ import {
  * @property {string} engineMode - 目前的模式 (2D/3D)
  * @property {Object} avatarModel - 模型實例，需實作 .on('hit', cb)
  * @property {Renderer2D|Renderer3D|null} renderer - 渲染器實例
- * @property {function(string): void} setGender - 切換性別的方法
- * @property {function(File): void} loadVRMFile - 載入模型檔案的方法
- * @property {function(): Object} getState - 取得狀態的方法
- * @property {function(Function): void} subscribe - 訂閱狀態更新的方法
- * @property {function(string): void} setEmotion - 設定情緒的方法
- * @property {function(boolean): void} setIsSpeaking - 設定說話狀態的方法
+ * @property {(gender: string) => void} setGender - 切換性別的方法
+ * @property {(file: File) => void} loadVRMFile - 載入模型檔案的方法
+ * @property {() => Object} getState - 取得狀態的方法
+ * @property {(listener: Function) => () => void} subscribe - 訂閱狀態更新的方法
+ * @property {(emotion: string) => void} setEmotion - 設定情緒的方法
+ * @property {(isSpeaking: boolean) => void} setIsSpeaking - 設定說話狀態的方法
  * @property {string} gender - 虛擬人物性別
  * @property {string} modelUrl - 2D 模型網址
  * @property {string} vrmUrl - 3D 模型網址
- * @property {function(string): void} gesture3D - 3D 手勢方法
- * @property {function(string): void} gesture2D - 2D 手勢方法
- * @property {function(string): Promise<void>} gesture - 根據模式執行手勢的方法
+ * @property {(emotionName: string) => void} gesture3D - 3D 手勢方法
+ * @property {(emotionName: string) => void} gesture2D - 2D 手勢方法
+ * @property {(emotionName: string) => Promise<void>} gesture - 根據模式執行手勢的方法
  * @property {string} gestureName - 當前手勢名稱
  * @property {string} startMode - 起始渲染模式
  * @property {string} fitMode - 2D 尺寸適應模式
  * @property {{name: string, target: number, weight: number, applied: string}} emo - 情緒狀態物件
- * @property {function(SkinEngine): number|Promise<number>} [computeMouth] - 計算嘴型數值的方法
- * @property {function(): void} [onMounted] - 虛擬人物掛載完成回呼
- * @property {function(Error, SkinEngine): void} [onThreeDimensionalError] - 3D 初始化錯誤回呼
- * @property {function(Error, SkinEngine): void} [onTwoDimensionalError] - 2D 初始化錯誤回呼
- * @property {function(Error): void} [VRMFileChangeFail] - 載入自訂 VRM 失敗回呼
- * @property {function(string): void} [VRMFileChangeSuccess] - 載入自訂 VRM 成功回呼
- * @property {function(string, SkinEngine): void} [onGesture] - 手勢開始播放回呼
- * @property {function(Error, string, SkinEngine): void} [onGestureError] - 手勢播放錯誤回呼
- * @property {function(string, SkinEngine): void} [onGestureEnd] - 手勢播放結束回呼
- * @property {function(string): void} [onModelChange] - 引擎模式準備切換回呼
- * @property {function(Renderer2D|Renderer3D, string): void} [onModelChangeEnd] - 引擎模式切換完成回呼
- * @property {function(Error): void} [onModelChangeError] - 引擎模式切換錯誤回呼
+ * @property {(skinEngine: SkinEngine) => number|Promise<number>} [computeMouth] - 計算嘴型數值的方法
+ * @property {() => void} [onMounted] - 虛擬人物掛載完成回呼
+ * @property {(error: Error, skinEngine: SkinEngine) => void} [onThreeDimensionalError] - 3D 初始化錯誤回呼
+ * @property {(error: Error, skinEngine: SkinEngine) => void} [onTwoDimensionalError] - 2D 初始化錯誤回呼
+ * @property {(error: Error) => void} [VRMFileChangeFail] - 載入自訂 VRM 失敗回呼
+ * @property {(vrmUrl: string) => void} [VRMFileChangeSuccess] - 載入自訂 VRM 成功回呼
+ * @property {(gestureName: string, skinEngine: SkinEngine) => void} [onGesture] - 手勢開始播放回呼
+ * @property {(error: Error, gestureName: string, skinEngine: SkinEngine) => void} [onGestureError] - 手勢播放錯誤回呼
+ * @property {(gestureName: string, skinEngine: SkinEngine) => void} [onGestureEnd] - 手勢播放結束回呼
+ * @property {(mode: string) => void} [onModelChange] - 引擎模式準備切換回呼
+ * @property {(renderer: Renderer2D|Renderer3D, mode: string) => void} [onModelChangeEnd] - 引擎模式切換完成回呼
+ * @property {(error: Error) => void} [onModelChangeError] - 引擎模式切換錯誤回呼
  * @property {boolean|null} [switching] - 是否正在切換模式中
  * @property {string[]} [lipIds] - 2D Live2D 口型參數 ID 清單
  */
@@ -964,21 +964,21 @@ function loadVRMFile(skinEngine = null, file) {
  * @property {string} [startMode] - 初始渲染模式（2D / 3D）。
  * @property {string} [fitMode] - 2D 模型的初始適應模式 (fit mode)。
  * @property {string} [vrmUrl] - 3D VRM 模型檔案的 URL。
- * @property {function(SkinEngine, string): void} [gesture3D] - 自訂的 3D 手勢處理函式。
- * @property {function(SkinEngine, string): void} [gesture2D] - 自訂的 2D 手勢處理函式。
- * @property {function(SkinEngine): number|Promise<number>} [computeMouth] - 用於計算嘴型數值的函式。
- * @property {function(Error, SkinEngine): void} [onThreeDimensionalError] - 初始化 3D 發生錯誤時的回呼函式。
- * @property {function(Error, SkinEngine): void} [onTwoDimensionalError] - 初始化 2D 發生錯誤時的回呼函式。
- * @property {function(Error): void} [VRMFileChangeFail] - 載入自訂 VRM 檔案失敗時的回呼函式。
- * @property {function(string): void} [VRMFileChangeSuccess] - 載入自訂 VRM 檔案成功時的回呼函式。
- * @property {function(): void} [onMounted] - 虛擬人物掛載成功時的回呼函式。
+ * @property {(skinEngine: SkinEngine, emotionName: string) => void} [gesture3D] - 自訂的 3D 手勢處理函式。
+ * @property {(skinEngine: SkinEngine, emotionName: string) => void} [gesture2D] - 自訂的 2D 手勢處理函式。
+ * @property {(skinEngine: SkinEngine) => number|Promise<number>} [computeMouth] - 用於計算嘴型數值的函式。
+ * @property {(error: Error, skinEngine: SkinEngine) => void} [onThreeDimensionalError] - 初始化 3D 發生錯誤時的回呼函式。
+ * @property {(error: Error, skinEngine: SkinEngine) => void} [onTwoDimensionalError] - 初始化 2D 發生錯誤時的回呼函式。
+ * @property {(error: Error) => void} [VRMFileChangeFail] - 載入自訂 VRM 檔案失敗時的回呼函式。
+ * @property {(vrmUrl: string) => void} [VRMFileChangeSuccess] - 載入自訂 VRM 檔案成功時的回呼函式。
+ * @property {() => void} [onMounted] - 虛擬人物掛載成功時的回呼函式。
  * @property {string} [gender] - 虛擬人物的性別。
- * @property {function(string, SkinEngine): void} [onGesture] - 手勢開始播放時的回呼函式。
- * @property {function(Error, string, SkinEngine): void} [onGestureError] - 手勢播放失敗時的回呼函式。
- * @property {function(string, SkinEngine): void} [onGestureEnd] - 手勢播放結束時的回呼函式。
- * @property {function(string): void} [onModelChange] - 引擎模式準備切換時的回呼函式。
- * @property {function(Renderer2D|Renderer3D, string): void} [onModelChangeEnd] - 引擎模式切換完畢時的回呼函式。
- * @property {function(Error): void} [onModelChangeError] - 引擎模式切換發生錯誤時的回呼函式。
+ * @property {(gestureName: string, skinEngine: SkinEngine) => void} [onGesture] - 手勢開始播放時的回呼函式。
+ * @property {(error: Error, gestureName: string, skinEngine: SkinEngine) => void} [onGestureError] - 手勢播放失敗時的回呼函式。
+ * @property {(gestureName: string, skinEngine: SkinEngine) => void} [onGestureEnd] - 手勢播放結束時的回呼函式。
+ * @property {(mode: string) => void} [onModelChange] - 引擎模式準備切換時的回呼函式。
+ * @property {(renderer: Renderer2D|Renderer3D, mode: string) => void} [onModelChangeEnd] - 引擎模式切換完畢時的回呼函式。
+ * @property {(error: Error) => void} [onModelChangeError] - 引擎模式切換發生錯誤時的回呼函式。
  */
 
 /**

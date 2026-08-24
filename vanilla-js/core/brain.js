@@ -54,8 +54,8 @@ import { toOpenAiTools } from './tools';
  * @property {Function} onLoadError - 載入錯誤回呼
  * @property {Function} onChatting - 對話回呼
  * @property {Function} onStreamChatting - 串流對話回呼
- * @property {function(): Promise<any>} load - 載入模型方法
- * @property {function(Array<Object>, Function=, Array<Object>=): Promise<string|{type: string, toolCalls: Array, message: Object}|null>} chat - 對話方法
+ * @property {() => Promise<any>} load - 載入模型方法
+ * @property {(messages: Array<Object>, onStreamChunk?: Function, tools?: Array<Object>) => Promise<string|{type: string, toolCalls: Array, message: Object}|null>} chat - 對話方法
  */
 
 /**
@@ -98,8 +98,8 @@ import { toOpenAiTools } from './tools';
  * @property {string} model - 模型名稱
  * @property {boolean} enabled - 是否啟用
  * @property {boolean} ready - 是否準備就緒
- * @property {function(Object=): Promise<boolean>} ping - 測試連線方法
- * @property {function(Array<Object>, Object=, Array<Object>=): Promise<string|{type: string, toolCalls: Array, message: Object}>} chat - 對話方法
+ * @property {(payload?: Object) => Promise<boolean>} ping - 測試連線方法
+ * @property {(messages: Array<Object>, options?: Object, tools?: Array<Object>) => Promise<string|{type: string, toolCalls: Array, message: Object}>} chat - 對話方法
  */
 
 /**
@@ -112,11 +112,11 @@ import { toOpenAiTools } from './tools';
  * @property {number} data.visits - 訪問次數
  * @property {number} data.last - 最後訪問時間戳
  * @property {Array<{role: string, content: string}>} data.history - 對話歷史
- * @property {function(): void} load - 載入記憶體
- * @property {function(): void} save - 儲存記憶體
- * @property {function(string, string): void} addTurn - 新增對話輪次
- * @property {function(string): void} captureName - 擷取名稱
- * @property {function(): void} wipe - 清除記憶
+ * @property {() => void} load - 載入記憶體
+ * @property {() => void} save - 儲存記憶體
+ * @property {(role: string, content: string) => void} addTurn - 新增對話輪次
+ * @property {(name: string) => void} captureName - 擷取名稱
+ * @property {() => void} wipe - 清除記憶
  */
 
 /**

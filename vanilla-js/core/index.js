@@ -149,7 +149,7 @@ export * from './plugins';
  * @property {Function} buildLLMMessages - 組裝 LLM 訊息的函式
  * @property {Function} classifyEmotion - 情感分類函式
  * @property {Function} setEmotionFromText - 根據文字設定情感的函式
- * @property {function(string): void} handleUser - 處理使用者輸入文字的主方法
+ * @property {(text: string) => Promise<void>|void} handleUser - 處理使用者輸入文字的主方法
  * @property {boolean} isIframe - 是否在 Iframe 內
  * @property {boolean} isMinimal - 是否處於極簡模式
  * @property {string} gender - 目前性別
