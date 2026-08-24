@@ -100,13 +100,38 @@ function getFromDict(dict, key) {
 }
 
 /**
+ * @typedef {Object} I18nEngineOptions
+ * @property {string} [locale=DEFAULT_LOCALE] - 預設語系代碼。
+ * @property {Record<string, Record<string, any>>} [messages={}] - 自訂/覆寫的語系字典。
+ * @property {((key: string, params?: Record<string, any>) => any)} [t] - 自訂外部翻譯函式。
+ */
+
+/**
+ * @typedef {Object} I18nEngineState
+ * @property {string} locale - 當前語系代碼。
+ * @property {Record<string, Record<string, any>>} messages - 當前所有載入的字典資料。
+ */
+
+/**
+ * @typedef {Object} I18nEngine
+ * @property {((key: string, params?: Record<string, any>) => any)} t - 翻譯指定鍵值。
+ * @property {((newLocale: string) => void)} setLocale - 動態切換語系。
+ * @property {((locale: string, newMessages: Record<string, any>) => void)} addMessages - 動態新增或覆寫語系字典內容。
+ * @property {typeof formatParams} formatParams - 格式化變數標記。
+ * @property {<T>(value: T | Record<string, T> | ((args: any) => T), fallbackValue?: T | ((args: any) => T), templateContext?: any) => T} resolveLocalized - 使用當前語系解析多語系值。
+ * @property {string} locale - 當前語系代碼。
+ * @property {Record<string, Record<string, any>>} messages - 所有載入的字典資料。
+ * @property {{label: string, shortLabel: string}} labels - 當前語系的顯示標籤資訊。
+ * @property {(selector: any, callback?: Function) => () => void} subscribe - 訂閱狀態變更。
+ * @property {() => I18nEngineState} getState - 取得內部狀態。
+ * @property {(updates: Partial<I18nEngineState> | ((state: I18nEngineState) => Partial<I18nEngineState>)) => void} setState - 覆寫或更新部分狀態。
+ */
+
+/**
  * 初始化獨立的多語系引擎 (i18nEngine)。
  *
- * @param {Object} [options={}] - 初始化選項。
- * @param {string} [options.locale=DEFAULT_LOCALE] - 預設語系代碼。
- * @param {Record<string, Record<string, any>>} [options.messages={}] - 自訂/覆寫的語系字典。
- * @param {Function} [options.t] - 自訂外部翻譯函式。
- * @returns {Object} i18nEngine 實例。
+ * @param {I18nEngineOptions} [options={}] - 初始化選項。
+ * @returns {I18nEngine} i18nEngine 實例。
  */
 export function initI18nEngine(options = {}) {
   const initialLocale =
