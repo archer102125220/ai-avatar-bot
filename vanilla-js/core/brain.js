@@ -1126,7 +1126,7 @@ export async function initAiProvider(setting = {}) {
  */
 export function initMEM({ avatarMode }) {
   // 記憶（陪伴模式限定）：只存訪客自己瀏覽器的 localStorage，零後端、不上傳；說「忘記我」即清除
-  const mem = {
+  const MEMEngine = {
     key: 'avatar-widget-mem',
     // on: avatarMode === AVATAR_MODE_MAP.companion,
     isCompanion: avatarMode === AVATAR_MODE_MAP.companion,
@@ -1186,9 +1186,9 @@ export function initMEM({ avatarMode }) {
       } catch (_error) {}
     }
   };
-  mem.load();
+  MEMEngine.load();
 
-  return mem;
+  return MEMEngine;
 }
 
 // 從回答文字粗判情緒（規則式、零成本；驚訝 > 難過 > 開心 > 中性）
