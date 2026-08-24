@@ -17,15 +17,15 @@ export {
  * 語音引擎實例，作為 STT 與 TTS 的中央統籌，並負責整合事件與串接 LLM 回應。
  *
  * @typedef {Object} SpeechEngine
- * @property {function(string, function): function} subscribe - 訂閱狀態變更 (例如: 'spokenDisplayText', 'gender' 等)。
- * @property {function(): Object} getState - 取得當前所有內部狀態。
- * @property {function(Object): void} setState - 覆寫或更新部分狀態。
+ * @property {(selector: any, callback?: Function) => () => void} subscribe - 訂閱狀態變更 (例如: 'spokenDisplayText', 'gender' 等)。
+ * @property {() => Object} getState - 取得當前所有內部狀態。
+ * @property {(updates: Object | ((state: Object) => Object)) => void} setState - 覆寫或更新部分狀態。
  * @property {string} gender - 目前設定的性別 (例如: 'female', 'male')。
- * @property {function(string): void} setGender - 設定語音性別。
+ * @property {(gender: string) => void} setGender - 設定語音性別。
  * @property {HTMLElement|null} container - 虛擬人的根容器 DOM 元素。
- * @property {function(boolean, string, string, number): void} [onVoiceStatusChanged] - 語音狀態變更回調。
- * @property {function(boolean, boolean): void} [onMicStateChanged] - 麥克風開關狀態變更回調。
- * @property {function(string, string): void} [onLanguageChanged] - 語言變更回調。
+ * @property {(convoOn: boolean, text: string, state: string, level: number) => void} [onVoiceStatusChanged] - 語音狀態變更回調。
+ * @property {(isListening: boolean, convoOn: boolean) => void} [onMicStateChanged] - 麥克風開關狀態變更回調。
+ * @property {(locale: string, label: string, shortLabel?: string) => void} [onLanguageChanged] - 語言變更回調。
  * @property {string} ttsEndpoint - 神經網路語音合成的 API 端點。
  * @property {string} neuralVoice - 指定的神經網路語音模型名稱。
  * @property {number} speakSeq - 目前語音播放的序列號，用於追蹤最新的語音播放。
@@ -37,46 +37,49 @@ export {
  * @property {number} assistantSpeechStartedAt - 助理開始說話的時間戳。
  * @property {string} spokenDisplayText - 目前在畫面上顯示的對話字幕。
  * @property {string} spokenAudioText - 最新準備或正在轉換為語音的純文字。
- * @property {function(string, Object=): void} speak - 將指定文字轉換為語音並播放。
- * @property {function(): void} stopSpeaking - 停止當前的語音播放。
- * @property {function(): void} interruptForVoice - 打斷當前助理的回應 (包含中斷 LLM) 並進入聆聽狀態。
- * @property {function(): Array<number>} computeMouth - 計算並回傳當前語音對應的嘴型資料 (Viseme)。
- * @property {function(): void} triggerTap - 觸發使用者點擊虛擬人的互動事件。
- * @property {function(string=): void} stopVoiceSession - 停止即時語音對話工作階段。
- * @property {function(boolean): void} setMic - 設定並通知麥克風開關狀態變更。
- * @property {function(): void} startListening - 開始透過麥克風聆聽語音輸入。
- * @property {function(string): Promise<void>|void} preloadTapGreeting - 預載點擊時的問候語音。
- * @property {function(string): void} setLocale - 設定 STT/TTS 語言與地區 (例如 'zh-TW', 'en-US')。
+ * @property {(text: string, options?: Object) => void} speak - 將指定文字轉換為語音並播放。
+ * @property {() => void} stopSpeaking - 停止當前的語音播放。
+ * @property {() => void} interruptForVoice - 打斷當前助理的回應 (包含中斷 LLM) 並進入聆聽狀態。
+ * @property {() => Array<number>} computeMouth - 計算並回傳當前語音對應的嘴型資料 (Viseme)。
+ * @property {() => void} triggerTap - 觸發使用者點擊虛擬人的互動事件。
+ * @property {(message?: string) => void} stopVoiceSession - 停止即時語音對話工作階段。
+ * @property {(isListening: boolean) => void} setMic - 設定並通知麥克風開關狀態變更。
+ * @property {() => void} startListening - 開始透過麥克風聆聽語音輸入。
+ * @property {(text: string) => Promise<void>|void} preloadTapGreeting - 預載點擊時的問候語音。
+ * @property {string} locale - 當前語系與地區 (例如 'zh-TW', 'en-US')。
+ * @property {(locale: string) => void} setLocale - 設定 STT/TTS 語言與地區 (例如 'zh-TW', 'en-US')。
  * @property {string} _speechBuf - [內部屬性] 語音文字緩衝區。
  * @property {Array<string>} _speechQueue - [內部屬性] 語音句子播放佇列。
- * @property {function(Object, boolean=): Array<string>} drainSentences - [內部方法] 從狀態緩衝區提取完整句子。
- * @property {function(): number} beginSpeech - 標記開始一段新的語音生成，回傳新的 speakSeq。
- * @property {function(number, string, Object=): void} pushSpeech - 將文字片段推入語音佇列並依序播放。
- * @property {function(number, Object=): void} _playNextQueue - [內部方法] 播放佇列中的下一段語音。
- * @property {function(): void} _onTTSSpeakEnd - [內部方法] TTS 單句播放結束的回調處理。
+ * @property {(state: Object, force?: boolean) => Array<string>} drainSentences - [內部方法] 從狀態緩衝區提取完整句子。
+ * @property {() => number} beginSpeech - 標記開始一段新的語音生成，回傳新的 speakSeq。
+ * @property {(speechSequenceId: number, text: string, options?: Object) => void} pushSpeech - 將文字片段推入語音佇列並依序播放。
+ * @property {(speechSequenceId: number, options?: Object) => void} _playNextQueue - [內部方法] 播放佇列中的下一段語音。
+ * @property {() => void} _onTTSSpeakEnd - [內部方法] TTS 單句播放結束的回調處理。
  * @property {boolean} _speechEndedFlag - [內部屬性] 標記目前文字流是否已全部生成完畢。
- * @property {function(number): void} endSpeech - 標記特定序號的語音流文字生成結束。
- * @property {function(): void} onUtteranceEnd - 整段語音完全結束的處理邏輯 (解除 processing 狀態)。
+ * @property {(speechSequenceId: number) => void} endSpeech - 標記特定序號的語音流文字生成結束。
+ * @property {() => void} onUtteranceEnd - 整段語音完全結束的處理邏輯 (解除 processing 狀態)。
  */
 
 /**
  * @typedef {Object} SpeechEngineOptions
  * @property {Object} [customEngines={}] - 開發者自訂注入的 STT 與 TTS 引擎實例。
- * @property {Object|function(Object): Object} [customEngines.stt] - 自訂的 STT 引擎或其初始化函數。
- * @property {Object|function(Object): Object} [customEngines.tts] - 自訂的 TTS 引擎或其初始化函數。
+ * @property {Object|((options: Object) => Promise<Object>|Object)} [customEngines.stt] - 自訂的 STT 引擎或其初始化函數。
+ * @property {Object|((options: Object) => Promise<Object>|Object)} [customEngines.tts] - 自訂的 TTS 引擎或其初始化函數。
  * @property {string} [ttsEndpoint] - 神經網路語音合成的 API 端點。
  * @property {string} [neuralVoice] - 指定的神經網路語音模型名稱。
- * @property {function(): string} [getGender] - 取得目前的性別。
- * @property {function(): HTMLElement} [getContainer] - 取得根容器元素。
- * @property {function(boolean, string, string, number): void} [onVoiceStatusChanged] - 語音狀態改變的回調。
- * @property {function(boolean, boolean): void} [onMicStateChanged] - 麥克風開關狀態改變的回調 (isListening, convoOn)。
- * @property {function(string, string): void} [onLanguageChanged] - 語言改變的回調 (locale, label)。
- * @property {function(string): void} [onSpokenDisplayTextChange] - 語音文字改變的回調。
- * @property {function(string): void} [onSpeaking] - 語音準備播放的回調。
- * @property {function(): void} [onSpeakingEnd] - 語音播放完全結束的回調。
- * @property {function(string): void} [onUserInput] - 使用者文字輸入回調。
- * @property {function(): void} [onTapAvatar] - 使用者點擊虛擬人回調。
- * @property {function(): void} [onInterrupt] - 語音被打斷的回調。
+ * @property {string} [locale] - 初始語系設定 (例如 'zh-TW')。
+ * @property {() => string} [getGender] - 取得目前的性別。
+ * @property {() => HTMLElement} [getContainer] - 取得根容器元素。
+ * @property {(convoOn: boolean, text: string, state: string, level: number) => void} [onVoiceStatusChanged] - 語音狀態改變的回調。
+ * @property {(isListening: boolean, convoOn: boolean) => void} [onMicStateChanged] - 麥克風開關狀態改變的回調 (isListening, convoOn)。
+ * @property {(locale: string, label: string, shortLabel?: string) => void} [onLanguageChanged] - 語言改變的回調 (locale, label, shortLabel)。
+ * @property {(displayText: string) => void} [onSpokenDisplayTextChange] - 語音文字改變的回調。
+ * @property {() => void} [onSpokenDisplayTextTimeout] - 語音文字氣泡顯示逾時的回調。
+ * @property {(audioText: string) => void} [onSpeaking] - 語音準備播放的回調。
+ * @property {() => void} [onSpeakingEnd] - 語音播放完全結束的回調。
+ * @property {(text: string) => void} [onUserInput] - 使用者文字輸入回調。
+ * @property {() => void} [onTapAvatar] - 使用者點擊虛擬人回調。
+ * @property {() => void} [onInterrupt] - 語音被打斷的回調。
  */
 
 /**

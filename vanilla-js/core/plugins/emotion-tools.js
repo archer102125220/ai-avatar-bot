@@ -7,16 +7,23 @@ import {
 } from '../constants';
 
 /**
+ * 情緒工具插件的配置選項。
+ * 
+ * @typedef {Object} EmotionToolsPluginOptions
+ * @property {(() => Object|null)} [getSkinEngine=null] - 獨立使用時提供 skinEngine 實例的函式。
+ * @property {string[]} [emotions=DEFAULT_SUPPORTED_EMOTIONS] - 支援的情緒或手勢清單。
+ * @property {string} [toolName=DEFAULT_EMOTION_TOOL_NAME] - 工具名稱。
+ * @property {string} [description] - 工具說明（供 LLM 理解調用時機）。
+ * @property {'ai'|'client'|'hybrid'|string} [routingMode=TOOL_ROUTING_MODE_MAP.AI] - 路由模式（'ai' | 'client' | 'hybrid'）。
+ * @property {'ai_summary'|'direct'|string} [resultMode=TOOL_RESULT_MODE_MAP.AI_SUMMARY] - 結果處理模式（'ai_summary' | 'direct'）。
+ * @property {((emotion: string, context?: Object) => void)} [onEmotionTrigger=null] - 情緒觸發時的回呼函式。
+ */
+
+/**
  * 建立情緒與動作控制工具插件的工廠函式。
- * @param {Object} [options={}] - 插件配置選項。
- * @param {Function} [options.getSkinEngine=null] - 獨立使用時提供 skinEngine 實例的函式。
- * @param {string[]} [options.emotions=DEFAULT_SUPPORTED_EMOTIONS] - 支援的情緒或手勢清單。
- * @param {string} [options.toolName=DEFAULT_EMOTION_TOOL_NAME] - 工具名稱。
- * @param {string} [options.description] - 工具說明（供 LLM 理解調用時機）。
- * @param {string} [options.routingMode=TOOL_ROUTING_MODE_MAP.AI] - 路由模式（'ai' | 'client' | 'hybrid'）。
- * @param {string} [options.resultMode=TOOL_RESULT_MODE_MAP.AI_SUMMARY] - 結果處理模式（'ai_summary' | 'direct'）。
- * @param {Function} [options.onEmotionTrigger=null] - 情緒觸發時的回呼函式 (emotion, context) => void。
- * @returns {Array<import('../tools').ToolDefinition>} 註冊的工具定義陣列。
+ *
+ * @param {EmotionToolsPluginOptions} [options={}] - 插件配置選項。
+ * @returns {import('../tools').ToolDefinition[]} 註冊的工具定義陣列。
  */
 export function createEmotionToolsPlugin(options = {}) {
   const {

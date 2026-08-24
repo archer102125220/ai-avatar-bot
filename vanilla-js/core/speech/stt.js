@@ -137,10 +137,24 @@ export function getSttMessage(locale, key, params = {}) {
 }
 
 /**
+ * 語音轉文字 (STT) 引擎實例介面。
+ * 
+ * @typedef {Object} STTEngine
+ * @property {(selector: any, callback?: Function) => () => void} subscribe - 訂閱狀態變更。
+ * @property {() => STTEngineState} getState - 取得當前所有內部狀態。
+ * @property {(updates: Partial<STTEngineState> | ((state: STTEngineState) => Partial<STTEngineState>)) => void} setState - 覆寫或更新部分狀態。
+ * @property {string} locale - 當前語系代碼（例如 'zh-TW', 'en-US'）。
+ * @property {(newLocale: string) => void} setLocale - 設定 STT 語系。
+ * @property {boolean} isListening - 目前是否正在聆聽語音。
+ * @property {() => Promise<void>} startListening - 開始聆聽語音輸入。
+ * @property {() => void} stopListening - 停止聆聽語音輸入。
+ */
+
+/**
  * 建立並初始化預設的語音轉文字 (STT) 引擎，負責管理麥克風權限、音量分析與瀏覽器內建語音辨識 (Web Speech API)。
  *
  * @param {STTEngineOptions} [options={}] - 初始化設定與回調函數。
- * @returns {Object} 包含狀態管理與操作方法的 STT 引擎實例。
+ * @returns {STTEngine} 包含狀態管理與操作方法的 STT 引擎實例。
  */
 export function initDefaultSTTEngine(options = {}) {
   const {

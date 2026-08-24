@@ -9,20 +9,39 @@ import { createBaseStore } from '../store';
  */
 
 /**
+ * 語音合成 (TTS) 引擎內部狀態定義。
+ *
+ * @typedef {Object} TTSEngineState
+ * @property {string} ttsEndpoint - 神經網路語音合成 API 的端點網址。
+ * @property {string} neuralVoice - 欲使用的神經網路語音模型名稱。
+ * @property {string} gender - 語音性別。
+ * @property {string} locale - 語系代碼。
+ * @property {boolean} isSpeaking - 是否正在播放語音。
+ * @property {boolean} isMuted - 是否處於靜音狀態。
+ * @property {Array<{text: string, prep: Promise<AudioBuffer>|null, err: any, instant: boolean}>} speechQ - 語音播放佇列。
+ * @property {number} ttsRate - 語音播放速率。
+ * @property {number} mouthTarget - 嘴型開合目標值。
+ * @property {number} mouthValue - 當前平滑後的嘴型開合數值 (0~1)。
+ * @property {number} audioMouth - 音訊即時能量對應的嘴型開合數值。
+ * @property {boolean} useAudioMouth - 是否使用即時音訊能量計算嘴型。
+ */
+
+/**
  * 語音合成 (TTS) 引擎的介面定義。
  *
  * @typedef {Object} TTSEngine
- * @property {Function} subscribe - 訂閱狀態變更的函數。
- * @property {Function} getState - 取得當前狀態的函數。
- * @property {Function} setState - 設定狀態的函數。
+ * @property {(selector: any, callback?: Function) => () => void} subscribe - 訂閱狀態變更的函數。
+ * @property {() => TTSEngineState} getState - 取得當前狀態的函數。
+ * @property {(updates: Partial<TTSEngineState> | ((state: TTSEngineState) => Partial<TTSEngineState>)) => void} setState - 設定狀態的函數。
  * @property {boolean} isSpeaking - 指示引擎是否正在播放語音。
  * @property {boolean} isMuted - 指示引擎是否處於靜音狀態。
- * @property {function(string, TTSSpeakOptions=): void} speak - 播放指定的文本語音。
- * @property {function(): void} stop - 停止當前正在播放的語音。
- * @property {function(): number} computeMouth - 計算並回傳當前的嘴型開合數值 (0~1)。
- * @property {function(string): void} setGender - 設定語音的性別 (例如: 'male', 'female')。
- * @property {function(string): void} setLocale - 設定語音的語系代碼 (例如: 'zh-TW', 'en-US')。
- * @property {function(string): Promise<any>} preloadTapGreeting - 預先載入指定的歡迎詞語音。
+ * @property {string} locale - 當前語系代碼 (例如: 'zh-TW', 'en-US')。
+ * @property {(text: string, options?: TTSSpeakOptions) => void} speak - 播放指定的文本語音。
+ * @property {() => void} stop - 停止當前正在播放的語音。
+ * @property {() => number} computeMouth - 計算並回傳當前的嘴型開合數值 (0~1)。
+ * @property {(newGender: string) => void} setGender - 設定語音的性別 (例如: 'male', 'female')。
+ * @property {(locale: string) => void} setLocale - 設定語音的語系代碼 (例如: 'zh-TW', 'en-US')。
+ * @property {(text: string) => Promise<AudioBuffer|null>} preloadTapGreeting - 預先載入指定的歡迎詞語音。
  */
 
 /**
@@ -36,7 +55,7 @@ import { createBaseStore } from '../store';
 /**
  * 驗證傳入的語音合成 (TTS) 引擎是否實作了必要的方法與屬性。
  *
- * @param {TTSEngine} engine - 欲驗證的 TTS 引擎實例。
+ * @param {TTSEngine|Object|null|undefined} engine - 欲驗證的 TTS 引擎實例。
  * @returns {TTSEngineValidationResult} 包含驗證結果及缺失的方法或屬性列表。
  */
 export function validateTTSEngine(engine) {
@@ -223,9 +242,10 @@ export function localeVoice(locale) {
  * @property {string} [ttsEndpoint=''] - 神經網路語音合成 API 的端點網址。
  * @property {string} [neuralVoice=''] - 欲使用的神經網路語音模型名稱。
  * @property {string} [gender=GENDER_MAP.female] - 預設性別。
- * @property {function(): void} [onSpeakStart] - 當開始播放語音時的處理函數。
- * @property {function(): void} [onSpeakEnd] - 當播放語音結束時的處理函數。
- * @property {function(string): void} [onSpokenDisplayTextChange] - 當正在播放的文字內容改變時的處理函數。
+ * @property {string} [locale='zh-TW'] - 預設語系代碼。
+ * @property {() => void} [onSpeakStart] - 當開始播放語音時的處理函數。
+ * @property {() => void} [onSpeakEnd] - 當播放語音結束時的處理函數。
+ * @property {(text: string) => void} [onSpokenDisplayTextChange] - 當正在播放的文字內容改變時的處理函數。
  */
 
 /**
