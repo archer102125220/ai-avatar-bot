@@ -28,7 +28,7 @@ export const AVATAR_MODE_MAP = {
 
 /**
  * 預設虛擬形象模式。
- * @type {AVATAR_MODE_MAP}
+ * @type {'companion'|'assistant'}
  */
 export const DEFAULT_AVATAR_MODE = AVATAR_MODE_MAP.assistant;
 
@@ -72,7 +72,7 @@ export const ENGINE_MODE_MAP = {
 
 /**
  * 預設啟動的渲染引擎模式。
- * @type {ENGINE_MODE_MAP}
+ * @type {'2d'|'3d'}
  */
 export const DEFALUT_START_MODE = ENGINE_MODE_MAP.twoDimensional;
 
@@ -90,7 +90,7 @@ export const FIT_MODE_MAP = {
 
 /**
  * 預設畫面顯示比例模式。
- * @type {FIT_MODE_MAP}
+ * @type {'half'|'full'}
  */
 export const DEFAULT_FIT_MODE = FIT_MODE_MAP.HALF;
 
@@ -108,7 +108,7 @@ export const GENDER_MAP = {
 
 /**
  * 預設性別。
- * @type {GENDER_MAP}
+ * @type {'female'|'male'}
  */
 export const DEFAULT_GENDER = GENDER_MAP.female;
 
@@ -281,7 +281,6 @@ export const CHAT_SOURCE_MAP = {
  * @returns {boolean} 是否支援 Function Calling
  */
 export function isWebLLMFunctionCallingSupported(model) {
-  console.log({ model });
   if (typeof model !== 'string' || model === '') {
     return false;
   }

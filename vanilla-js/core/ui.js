@@ -8,8 +8,8 @@
  * @property {HTMLElement} voiceLiveEl - 語音即時狀態元素
  * @property {HTMLElement} voiceStatusEl - 語音狀態文字元素
  * @property {HTMLElement} voiceLevelEl - 語音音量條元素
- * @property {function(boolean, string=, string=, number=): void} updateVoiceStatus - 更新語音狀態 (convoOn, text, state, level)
- * @property {function(boolean, boolean, boolean=): void} updateMicState - 更新麥克風按鈕狀態 (isListening, convoOn, isCompanion)
+ * @property {(convoOn: boolean, text?: string, state?: string, level?: number, i18n?: Object) => void} updateVoiceStatus - 更新語音狀態 (convoOn, text, state, level, i18n)
+ * @property {(isListening: boolean, convoOn: boolean, isCompanion?: boolean, i18n?: Object) => void} updateMicState - 更新麥克風按鈕狀態 (isListening, convoOn, isCompanion, i18n)
  * @property {HTMLElement} controlBarEl - 控制列容器
  * @property {HTMLElement} dockRow1El - 控制列第一排（文字輸入列）
  * @property {HTMLElement} dockRow2El - 控制列第二排（功能按鈕列）
@@ -36,6 +36,8 @@
  * @property {Object} [brainEngine] - AI 大腦引擎實例
  * @property {Object} [toolsEngine] - 工具引擎實例
  * @property {Object} [skinEngine] - 外觀引擎實例
+ * @property {Object} [i18nEngine] - 多語系引擎實例
+ * @property {string} [locale] - 當前語系代碼
  * @property {string[]} [suggestedQuestions] - 建議對話列表
  * @property {string} [suggestedTitle] - 建議對話標題
  * @property {string[]} [companionSuggestedQuestions] - 陪伴模式的建議對話列表
@@ -48,7 +50,8 @@
  * @property {Object} [STATE_MAP] - 狀態常數對應表
  * @property {boolean} [isMinimal] - 是否處於最小化狀態
  * @property {boolean} [isIframe] - 是否在 iframe 中執行
- * @property {function} [onMinimalTrigger] - 最小化觸發回呼函數
+ * @property {(text: string) => Promise<void>|void} [handleUser] - 處理使用者輸入文字的主方法
+ * @property {(isMinimal: boolean, context: UiContext) => void} [onMinimalTrigger] - 最小化觸發回呼函數
  */
 
 import { resolveLocalized, SUPPORTED_LOCALES } from './i18n';
