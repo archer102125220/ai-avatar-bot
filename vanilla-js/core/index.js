@@ -61,6 +61,7 @@ export * from './plugins';
 /**
  * @typedef {Object} AvatarBotOptions
  * @property {HTMLElement} [container=null] - 綁定 Widget 的 HTML 容器元素
+ * @property {boolean} [enableAiProvider] - 是否啟用 AI 服務提供商
  * @property {string} [aiProviderBaseUrl=''] - AI 服務提供商的 API 基礎 URL
  * @property {string} [aiProviderModel=DEFAULT_AI_PROVIDER_MODEL] - 使用的 AI 服務模型名稱
  * @property {Function|RequestInit} [aiProviderCreatedFetchSetting] - 自訂 Fetch 設定的處理函式或設定物件
@@ -157,6 +158,7 @@ export * from './plugins';
  * @property {Record<string, string>} FIT_MODE_MAP - Fit 模式映射表
  * @property {Array<string>} availableModes - 目前可用角色模式清單
  * @property {boolean} enableMemory - 目前是否啟用記憶體
+ * @property {boolean} enableAiProvider - 目前是否啟用 AI 服務提供商
  * @property {HTMLElement} container - 綁定 Widget 的 HTML 容器元素
  * @property {any} uiDom - UI 相關的 DOM 元素與控制方法
  * @property {any} i18nEngine - i18n 多語系引擎實例
@@ -203,6 +205,7 @@ export async function initAvatarBot(options = {}) {
 
   const {
     container = null,
+    enableAiProvider,
     aiProviderBaseUrl = '',
     aiProviderModel = DEFAULT_AI_PROVIDER_MODEL,
     aiProviderCreatedFetchSetting,
@@ -326,6 +329,10 @@ export async function initAvatarBot(options = {}) {
     avatarMode: targetAvatarMode,
     enableMemory:
       typeof enableMemory === 'boolean' ? enableMemory : DEFAULT_ENABLE_MEMORY,
+    enableAiProvider:
+      typeof enableAiProvider === 'boolean'
+        ? enableAiProvider
+        : typeof aiProviderBaseUrl === 'string' && aiProviderBaseUrl !== '',
     modes: typeof modes === 'object' && modes !== null ? modes : {},
     locale: i18nEngine?.locale || locale || 'zh-TW'
   });
@@ -512,6 +519,25 @@ export async function initAvatarBot(options = {}) {
       }
     },
 
+    get enableAiProvider() {
+      return (
+        brainEngine?.enableAiProvider ??
+        rootStore.getState().enableAiProvider ??
+        false
+      );
+    },
+    set enableAiProvider(enabled) {
+      if (typeof enabled === 'boolean') {
+        rootStore.setState({ enableAiProvider: enabled });
+        if (
+          brainEngine !== null &&
+          typeof brainEngine === 'object'
+        ) {
+          brainEngine.enableAiProvider = enabled;
+        }
+      }
+    },
+
     get brainEngine() {
       return brainEngine;
     },
@@ -548,6 +574,15 @@ export async function initAvatarBot(options = {}) {
       aiAvatarWidget.brainEngine?.memoryEngine !== null
     ) {
       aiAvatarWidget.brainEngine.memoryEngine.enabled = newEnableMemory;
+    }
+  });
+
+  rootStore.subscribe('enableAiProvider', (newEnableAiProvider) => {
+    if (
+      typeof aiAvatarWidget.brainEngine === 'object' &&
+      aiAvatarWidget.brainEngine !== null
+    ) {
+      aiAvatarWidget.brainEngine.enableAiProvider = newEnableAiProvider;
     }
   });
 
@@ -857,6 +892,7 @@ export async function initAvatarBot(options = {}) {
     llmModel,
     avatarMode: rootStore.getState().avatarMode,
     enableMemory: rootStore.getState().enableMemory,
+    enableAiProvider: rootStore.getState().enableAiProvider,
     maxHistoryTurns,
     memoryKey,
     memoryAdapter,

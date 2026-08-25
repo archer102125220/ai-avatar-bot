@@ -64,6 +64,9 @@ import { toOpenAiTools } from './tools';
 /**
  * AI 供應商引擎設定
  * @typedef {Object} AiProviderOptions
+ * @property {boolean} [enableAiProvider] - 是否啟用 AI 供應商模組（開關）
+ * @property {boolean} [providerEnabled] - 是否啟用 AI 供應商模組（別名）
+ * @property {boolean} [enabled] - 是否啟用 AI 供應商模組（別名）
  * @property {string} [providerBaseUrl] - AI 供應商 Base URL
  * @property {string} [providerPingUrl] - AI 供應商 Ping URL
  * @property {string} [providerChatUrl] - AI 供應商 Chat URL
@@ -141,6 +144,7 @@ import { toOpenAiTools } from './tools';
  * @property {Function} [companionFallback] - 陪伴模式後備處理
  * @property {string|Function} [companionFallbackContext] - 陪伴模式自訂兜底回覆內容/模板
  * @property {string|Function} [assistantFallbackContext] - 助理模式自訂兜底回覆內容/模板
+ * @property {boolean} [enableAiProvider] - 是否啟用 AI 供應商模組（開關）
  * @property {string} [aiProviderModel] - AI 供應商模型
  * @property {string} [aiProviderBaseUrl] - AI 供應商 Base URL
  * @property {string|Function} [welcomeText] - 歡迎詞
@@ -204,6 +208,7 @@ import { toOpenAiTools } from './tools';
  * @property {Record<string, Object>} modes - 自訂模式設定表
  * @property {Array<string>} availableModes - 可用角色模式清單
  * @property {boolean} enableMemory - 是否啟用記憶體
+ * @property {boolean} enableAiProvider - 是否啟用 AI 供應商
  * @property {string} knowledgeUrl - 知識庫 URL
  * @property {Array<KnowledgeEntry>} knowledge - 知識庫陣列
  * @property {string} companionKnowledgeUrl - 陪伴模式知識庫 URL
@@ -932,6 +937,9 @@ export async function getWelcomeText(brainEngine) {
  */
 export async function initAiProvider(setting = {}) {
   const {
+    enableAiProvider,
+    providerEnabled,
+    enabled,
     providerBaseUrl = '',
     providerPingUrl = '',
     providerChatUrl = '',
@@ -950,6 +958,19 @@ export async function initAiProvider(setting = {}) {
     onChatting = null,
     onStreamChatting = null
   } = setting;
+
+  let isEnabled;
+  if (typeof enableAiProvider === 'boolean') {
+    isEnabled = enableAiProvider;
+  } else if (typeof providerEnabled === 'boolean') {
+    isEnabled = providerEnabled;
+  } else if (typeof enabled === 'boolean') {
+    isEnabled = enabled;
+  } else {
+    isEnabled =
+      typeof providerBaseUrl === 'string' && providerBaseUrl !== '';
+  }
+  let _enabled = isEnabled;
 
   const aiProvider = {
     base: providerBaseUrl,
@@ -1012,15 +1033,13 @@ export async function initAiProvider(setting = {}) {
     },
 
     model: providerModel || DEFAULT_AI_PROVIDER_MODEL,
-    _enabled: false,
     get enabled() {
-      return (
-        this._enabled ||
-        (typeof providerBaseUrl === 'string' && providerBaseUrl !== '')
-      );
+      return _enabled;
     },
     set enabled(value) {
-      this._enabled = value;
+      if (typeof value === 'boolean') {
+        _enabled = value;
+      }
     },
     ready: false,
     async ping(fetchSetting = null) {
@@ -1355,6 +1374,7 @@ export async function initBrainEngine(setting = {}) {
     companionKnowledge = [],
     companionKnowledgeUrl,
     companionFallback,
+    enableAiProvider,
     aiProviderModel,
     aiProviderBaseUrl,
 
@@ -1572,6 +1592,19 @@ export async function initBrainEngine(setting = {}) {
         memoryEngine.enabled = enabled;
       }
     },
+    get enableAiProvider() {
+      return (
+        aiProvider?.enabled ??
+        (typeof enableAiProvider === 'boolean'
+          ? enableAiProvider
+          : typeof aiProviderBaseUrl === 'string' && aiProviderBaseUrl !== '')
+      );
+    },
+    set enableAiProvider(enabled) {
+      if (typeof enabled === 'boolean' && aiProvider !== null) {
+        aiProvider.enabled = enabled;
+      }
+    },
     get aiProvider() {
       return aiProvider;
     },
@@ -1684,6 +1717,7 @@ export async function initBrainEngine(setting = {}) {
     memoryAdapter
   });
   aiProvider = await initAiProvider({
+    enableAiProvider,
     providerModel: aiProviderModel,
     providerBaseUrl: aiProviderBaseUrl,
 
