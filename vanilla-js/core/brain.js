@@ -2670,20 +2670,31 @@ export async function handleAnswer(brainEngine, question) {
     }
     return;
   }
-  try {
-    // 1) AI 伺服器大腦（最聰明，優先；整段生成後逐句講）
-    if (
-      brainEngine.aiProvider?.enabled === true &&
-      brainEngine.aiProvider.ready === true
-    ) {
+  // 1) AI 伺服器大腦（最聰明，優先；整段生成後逐句講）
+  if (
+    brainEngine.aiProvider?.enabled === true &&
+    brainEngine.aiProvider.ready === true
+  ) {
+    try {
       return await aiProviderLLMBrain(brainEngine, question);
+    } catch (error) {
+      console.warn(
+        '[handleAnswer] AI Provider 呼叫失敗，嘗試降級至 WebLLM 或檢索式後備：',
+        error
+      );
     }
-    // 2) 瀏覽器內 WebLLM：串流 → 每切出一個完整句就丟進逐句佇列開講（首句延遲大幅縮短）
-    if (brainEngine.llm?.state === brainEngine.STATE_MAP.READY) {
+  }
+
+  // 2) 瀏覽器內 WebLLM：串流 → 每切出一個完整句就丟進逐句佇列開講（首句延遲大幅縮短）
+  if (brainEngine.llm?.state === brainEngine.STATE_MAP.READY) {
+    try {
       return await webLLMBrain(brainEngine, question);
+    } catch (error) {
+      console.warn(
+        '[handleAnswer] WebLLM 呼叫失敗，嘗試降級至檢索式後備：',
+        error
+      );
     }
-  } catch (_error) {
-    console.error(_error);
   }
 
   // 3) 檢索式後備（零金鑰、永遠可用）
