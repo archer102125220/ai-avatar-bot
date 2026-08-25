@@ -120,11 +120,11 @@ export * from './compression.js';
  */
 
 /**
- * 記憶體實例 (memoryEngine)
- * @typedef {Object} memoryEngine
+ * 記憶模組實例 (MemoryInstance)
+ * @typedef {Object} MemoryInstance
  * @property {string} key - 本機儲存或識別鍵名
- * @property {boolean} enabled - 是否啟用記憶體模組
- * @property {boolean} isCompanion - 是否啟用記憶體 (向下相容別名)
+ * @property {boolean} enabled - 是否啟用記憶模組
+ * @property {boolean} isCompanion - 是否啟用記憶 (向下相容別名)
  * @property {number} maxHistoryTurns - 保留最大歷史對話輪數
  * @property {Object} adapter - 儲存轉接器實例
  * @property {Object} data - 記憶資料
@@ -132,8 +132,10 @@ export * from './compression.js';
  * @property {number} data.visits - 訪問次數
  * @property {number} data.last - 最後訪問時間戳
  * @property {Array<{role: string, content: string}>} data.history - 對話歷史
- * @property {() => void} load - 載入記憶體
- * @property {() => void} save - 儲存記憶體
+ * @property {string} [data.summary] - 滾動對話摘要
+ * @property {number} [data.lastSummarizedTurnIndex] - 上次摘要時的輪次索引
+ * @property {() => void} load - 載入記憶
+ * @property {() => void} save - 儲存記憶
  * @property {(role: string, content: string) => void} addTurn - 新增對話輪次
  * @property {(name: string) => void} captureName - 擷取名稱
  * @property {() => void} wipe - 清除記憶
@@ -285,7 +287,7 @@ export * from './compression.js';
  * @property {Function} updateChatMessage - 更新對話訊息方法
  * @property {Object} [i18nEngine] - i18n 國際化引擎實例
  * @property {LLMEngine} llm - LLM 引擎實例
- * @property {memoryEngine} memoryEngine - 記憶體引擎實例
+ * @property {MemoryInstance} memory - 記憶模組實例
  * @property {AiProviderEngine} aiProvider - AI 供應商引擎實例
  * @property {Object} [compression] - 上下文壓縮設定
  */
@@ -810,10 +812,10 @@ export function initLLM(setting = {}, brain) {
 export async function getWelcomeText(brainEngine) {
   const locale = brainEngine?.locale || 'zh-TW';
   const templateContext = {
-    isMemoryEnabled: brainEngine?.memoryEngine?.enabled,
+    isMemoryEnabled: brainEngine?.memory?.enabled,
     isCompanion: brainEngine?.avatarMode === AVATAR_MODE_MAP.companion,
-    visits: brainEngine?.memoryEngine?.data?.visits,
-    name: brainEngine?.memoryEngine?.data?.name,
+    visits: brainEngine?.memory?.data?.visits,
+    name: brainEngine?.memory?.data?.name,
     locale
   };
 
@@ -873,13 +875,13 @@ export async function getWelcomeText(brainEngine) {
         return resolvedCompanionWelcomeText;
       }
     }
-    if (brainEngine?.memoryEngine?.data?.visits > 1) {
-      const name = brainEngine.memoryEngine.data.name;
+    if (brainEngine?.memory?.data?.visits > 1) {
+      const name = brainEngine.memory.data.name;
       if (/en/i.test(locale)) {
         return (
           (name ? name + ', ' : '') +
           'welcome back! This is our ' +
-          brainEngine.memoryEngine.data.visits +
+          brainEngine.memory.data.visits +
           'th visit! Click 💬 to continue chatting.'
         );
       }
@@ -887,7 +889,7 @@ export async function getWelcomeText(brainEngine) {
         return (
           (name ? name + 'さん、' : '') +
           'おかえりなさい！' +
-          brainEngine.memoryEngine.data.visits +
+          brainEngine.memory.data.visits +
           '回目の訪問ですね！💬 を押して続きをお話ししましょう。'
         );
       }
@@ -895,14 +897,14 @@ export async function getWelcomeText(brainEngine) {
         return (
           (name ? name + '님, ' : '') +
           '다시 오신 것을 환영해요! 벌써 ' +
-          brainEngine.memoryEngine.data.visits +
+          brainEngine.memory.data.visits +
           '번째 만남이네요! 💬를 눌러 대화를 이어가요.'
         );
       }
       return (
         (name ? name + '，' : '') +
         '歡迎回來～這是我們第 ' +
-        brainEngine.memoryEngine.data.visits +
+        brainEngine.memory.data.visits +
         ' 次見面！點 💬 繼續聊，我記得我們聊過什麼喔'
       );
     }
@@ -1213,16 +1215,16 @@ export async function initAiProvider(setting = {}) {
 }
 
 /**
- * 初始化記憶體模組
+ * 初始化記憶模組
  * @param {Object} [params={}] - 參數
  * @param {string} [params.avatarMode=DEFAULT_AVATAR_MODE] - 虛擬人模式
- * @param {boolean} [params.enableMemory=DEFAULT_ENABLE_MEMORY] - 是否啟用記憶體
- * @param {string} [params.memoryKey=DEFAULT_MEMORY_KEY] - 記憶體儲存 Key
+ * @param {boolean} [params.enableMemory=DEFAULT_ENABLE_MEMORY] - 是否啟用記憶模組
+ * @param {string} [params.memoryKey=DEFAULT_MEMORY_KEY] - 記憶模組儲存 Key
  * @param {number} [params.maxHistoryTurns=DEFAULT_MAX_HISTORY_TURNS] - 保留最大輪數
  * @param {Object} [params.memoryAdapter] - 自訂儲存轉接器
- * @returns {memoryEngine} 記憶體實例
+ * @returns {MemoryInstance} 記憶模組實例
  */
-export function initMemoryEngine({
+export function initMemory({
   avatarMode = DEFAULT_AVATAR_MODE,
   enableMemory = DEFAULT_ENABLE_MEMORY,
   memoryKey = DEFAULT_MEMORY_KEY,
@@ -1265,7 +1267,7 @@ export function initMemoryEngine({
       ? memoryAdapter
       : defaultLocalStorageAdapter;
 
-  const memoryEngine = {
+  const memory = {
     key:
       typeof memoryKey === 'string' && memoryKey !== ''
         ? memoryKey
@@ -1361,9 +1363,9 @@ export function initMemoryEngine({
     }
   };
 
-  memoryEngine.load();
+  memory.load();
 
-  return memoryEngine;
+  return memory;
 }
 
 // 從回答文字粗判情緒（規則式、零成本；驚訝 > 難過 > 開心 > 中性）
@@ -1476,7 +1478,7 @@ export async function initBrainEngine(setting = {}) {
   } = setting;
 
   let llm = null;
-  let memoryEngine = null;
+  let memory = null;
   let aiProvider = null;
 
   const safeKnowledge =
@@ -1633,15 +1635,15 @@ export async function initBrainEngine(setting = {}) {
     get llm() {
       return llm;
     },
-    get memoryEngine() {
-      return memoryEngine;
+    get memory() {
+      return memory;
     },
     get enableMemory() {
-      return memoryEngine?.enabled ?? DEFAULT_ENABLE_MEMORY;
+      return memory?.enabled ?? DEFAULT_ENABLE_MEMORY;
     },
     set enableMemory(enabled) {
-      if (typeof enabled === 'boolean' && memoryEngine !== null) {
-        memoryEngine.enabled = enabled;
+      if (typeof enabled === 'boolean' && memory !== null) {
+        memory.enabled = enabled;
       }
     },
     get enableAiProvider() {
@@ -1766,7 +1768,7 @@ export async function initBrainEngine(setting = {}) {
     },
     brainEngine
   );
-  memoryEngine = initMemoryEngine({
+  memory = initMemory({
     avatarMode: brainEngine.avatarMode,
     enableMemory:
       typeof enableMemory === 'boolean' ? enableMemory : DEFAULT_ENABLE_MEMORY,
@@ -1855,7 +1857,7 @@ export function bestOf(knowledgeList = [], question) {
  */
 export function brainEngineCompanionFallback(brainEngine, question) {
   const locale = brainEngine?.locale || 'zh-TW';
-  const name = brainEngine?.memoryEngine?.data?.name || '';
+  const name = brainEngine?.memory?.data?.name || '';
   const templateContext = { question, name, locale };
 
   if (
@@ -2308,7 +2310,7 @@ export async function handleToolCallsLoop(
           }
 
           if (finalText !== '') {
-            brainEngine.memoryEngine.addTurn('assistant', finalText);
+            brainEngine.memory.addTurn('assistant', finalText);
             updateChatMessage(brainEngine, streamMessageId, finalText, false);
             if (typeof brainEngine.onStreamEnd === 'function') {
               brainEngine.onStreamEnd(finalText);
@@ -2456,7 +2458,7 @@ export async function webLLMBrain(brainEngine, question) {
     }
 
     if (typeof chatResponse === 'string' && chatResponse.trim() !== '') {
-      brainEngine.memoryEngine.addTurn('assistant', chatResponse.trim());
+      brainEngine.memory.addTurn('assistant', chatResponse.trim());
       updateChatMessage(
         brainEngine,
         streamMessageId,
@@ -2651,16 +2653,16 @@ export function defaultBuildLLMMessages(
     systemContext = customPromptTemplate;
   } else if (currentAvatarMode === AVATAR_MODE_MAP.companion) {
     let nameStr = '';
-    if (brainEngine?.memoryEngine?.data?.name) {
+    if (brainEngine?.memory?.data?.name) {
       if (/en/i.test(locale)) {
-        nameStr = `, visitor's name is "${brainEngine.memoryEngine.data.name}"`;
+        nameStr = `, visitor's name is "${brainEngine.memory.data.name}"`;
       } else if (/ja/i.test(locale)) {
-        nameStr = `、訪問者の名前は「${brainEngine.memoryEngine.data.name}」です`;
+        nameStr = `、訪問者の名前は「${brainEngine.memory.data.name}」です`;
       } else if (/ko/i.test(locale)) {
-        nameStr = `, 방문자의 이름은 "${brainEngine.memoryEngine.data.name}"입니다`;
+        nameStr = `, 방문자의 이름은 "${brainEngine.memory.data.name}"입니다`;
       } else {
         nameStr =
-          '，訪客叫「' + brainEngine.memoryEngine.data.name + '」，可自然稱呼';
+          '，訪客叫「' + brainEngine.memory.data.name + '」，可自然稱呼';
       }
     }
 
@@ -2725,9 +2727,9 @@ export function defaultBuildLLMMessages(
   }
 
   const history =
-    brainEngine?.memoryEngine?.enabled === true &&
-    Array.isArray(brainEngine.memoryEngine.data?.history)
-      ? [...brainEngine.memoryEngine.data.history]
+    brainEngine?.memory?.enabled === true &&
+    Array.isArray(brainEngine.memory.data?.history)
+      ? [...brainEngine.memory.data.history]
       : [];
 
   const rawMessages = [{ role: 'system', content: systemContext }];
@@ -2751,7 +2753,7 @@ export function defaultBuildLLMMessages(
     systemPrompt: systemContext,
     history,
     latestQuestion: question,
-    memoryData: brainEngine?.memoryEngine?.data || {},
+    memoryData: brainEngine?.memory?.data || {},
     provider: engineType,
     engineType,
     model: currentModel,
@@ -2858,7 +2860,7 @@ export async function maybeTriggerRollingSummary(brainEngine) {
   if (
     typeof brainEngine !== 'object' ||
     brainEngine === null ||
-    brainEngine.memoryEngine?.enabled !== true ||
+    brainEngine.memory?.enabled !== true ||
     brainEngine._isSummarizing === true
   ) {
     return;
@@ -2879,7 +2881,7 @@ export async function maybeTriggerRollingSummary(brainEngine) {
     return;
   }
 
-  const history = brainEngine.memoryEngine.data.history || [];
+  const history = brainEngine.memory.data.history || [];
   const threshold =
     typeof compressionOptions.summaryThresholdTurns === 'number' &&
     compressionOptions.summaryThresholdTurns > 0
@@ -2887,8 +2889,8 @@ export async function maybeTriggerRollingSummary(brainEngine) {
       : DEFAULT_SUMMARY_THRESHOLD_TURNS;
 
   const lastIndex =
-    typeof brainEngine.memoryEngine.data.lastSummarizedTurnIndex === 'number'
-      ? brainEngine.memoryEngine.data.lastSummarizedTurnIndex
+    typeof brainEngine.memory.data.lastSummarizedTurnIndex === 'number'
+      ? brainEngine.memory.data.lastSummarizedTurnIndex
       : 0;
   const unsummarizedCount = history.length - lastIndex;
 
@@ -2903,7 +2905,7 @@ export async function maybeTriggerRollingSummary(brainEngine) {
   // 使用 setTimeout 確保摘要在背景執行，不阻礙任何當前任務
   setTimeout(async () => {
     try {
-      const oldSummary = brainEngine.memoryEngine.data.summary || '';
+      const oldSummary = brainEngine.memory.data.summary || '';
       const newTurns = history.slice(lastIndex);
 
       let llmChat = null;
@@ -2942,9 +2944,9 @@ export async function maybeTriggerRollingSummary(brainEngine) {
       });
 
       if (typeof newSummary === 'string' && newSummary.trim() !== '') {
-        brainEngine.memoryEngine.data.summary = newSummary.trim();
-        brainEngine.memoryEngine.data.lastSummarizedTurnIndex = history.length;
-        brainEngine.memoryEngine.save();
+        brainEngine.memory.data.summary = newSummary.trim();
+        brainEngine.memory.data.lastSummarizedTurnIndex = history.length;
+        brainEngine.memory.save();
 
         if (typeof brainEngine.onSummaryUpdated === 'function') {
           brainEngine.onSummaryUpdated(newSummary.trim());
@@ -2970,7 +2972,7 @@ export function sayAnswer(brainEngine, text) {
   if (typeof text !== 'string' || text === '') {
     return;
   }
-  brainEngine.memoryEngine.addTurn('assistant', text);
+  brainEngine.memory.addTurn('assistant', text);
   addChatMessage(brainEngine, 'assistant', text);
   if (typeof brainEngine.onSpokenAudioPlayNow === 'function') {
     brainEngine.onSpokenAudioPlayNow(text);
@@ -2997,7 +2999,7 @@ export function validateBrainEngine(engine) {
     'setEmotionFromText'
   ];
   const requiredProps = [
-    'memoryEngine',
+    'memory',
     'llm',
     'aiProvider',
     'chatLog',

@@ -63,7 +63,7 @@ const aiAvatarWidget = await initAvatarBot({
 
 專為 Web 數位人打造的智能上下文管理管線，防止長對話爆 Token 或導致 WebGPU 顯存溢出 (OOM)：
 
-*   **雙層非破壞性架構**：記憶體層 (`memoryEngine`) 完整保存使用者真實輸入（不再硬切 200 字）；傳輸層依推論引擎動態精算字元預算由新到舊截取完整對話輪次。
+*   **雙層非破壞性架構**：記憶層 (`memory`) 完整保存使用者真實輸入（不再硬切 200 字）；傳輸層依推論引擎動態精算字元預算由新到舊截取完整對話輪次。
 *   **階層式雙軌預算 (Cascading Limits)**：自動區分本機端 WebLLM（輕量省顯存）與遠端 AI Provider 伺服器（高容量）。
 *   **安全成對修剪 (Safe Tool Call Pruning)**：自動校驗並剔除孤立的 `role: 'tool'` 訊息，確保 Function Calling 在任何壓縮邊界下 100% 遵守 API 規範。
 *   **開放自訂壓縮器 (Custom Compressor Hook)**：支援傳入同步或非同步 `customCompressor(context)` 函式，並內建錯誤防禦性降級 (Fail-safe Fallback)。

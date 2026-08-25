@@ -64,7 +64,7 @@ const aiAvatarWidget = await initAvatarBot({
 
 An intelligent context management pipeline designed specifically for Web AI Avatars, preventing context overflow and WebGPU VRAM Out-of-Memory (OOM):
 
-*   **Two-tier Non-destructive Storage**: The memory tier (`memoryEngine`) preserves the user's authentic history in full (no destructive hard slicing); the transport tier dynamically budgets characters and turns from newest to oldest.
+*   **Two-tier Non-destructive Storage**: The memory tier (`memory`) preserves the user's authentic history in full (no destructive hard slicing); the transport tier dynamically budgets characters and turns from newest to oldest.
 *   **Cascading Dual-Track Budget**: Automatically differentiates between lightweight client-side WebLLM and high-capacity remote AI providers.
 *   **Safe Tool Call Pruning**: Automatically validates and purges orphan `role: 'tool'` messages to guarantee strict Function Calling schema compliance.
 *   **Custom Compressor Hook**: Allows developers to supply custom synchronous or asynchronous `customCompressor(context)` functions with built-in fail-safe automatic fallback.

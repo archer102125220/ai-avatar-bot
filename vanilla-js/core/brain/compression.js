@@ -364,7 +364,7 @@ export function slidingWindowCompressor({
  * @property {string} systemPrompt - 當前解析後的 System Prompt (包含 Persona, RAG 知識庫)
  * @property {Array<{role: string, content: string}>} [history] - 原始歷史對話紀錄
  * @property {string} [latestQuestion] - 使用者當前最新的輸入問題
- * @property {Record<string, any>} [memoryData] - 當前記憶體狀態資料 (例如 name, visits, custom profile)
+ * @property {Record<string, any>} [memoryData] - 當前記憶狀態資料 (例如 name, visits, custom profile)
  * @property {'aiProvider'|'webLLM'|string} [provider] - 當前推論引擎
  * @property {'aiProvider'|'webLLM'|string} [engineType] - 當前推論引擎 (別名)
  * @property {string} [model] - 當前使用的模型名稱
@@ -526,7 +526,7 @@ export function rollingSummaryCompressor({
  * @param {string} [context.systemPrompt] - 系統提示詞
  * @param {Array<{role: string, content: string}>} [context.history] - 原始歷史對話紀錄
  * @param {string} [context.latestQuestion] - 使用者當前最新輸入問題
- * @param {Record<string, any>} [context.memoryData] - 當前記憶體資料
+ * @param {Record<string, any>} [context.memoryData] - 當前記憶資料
  * @param {string} [context.provider] - 推論引擎提供者類型
  * @param {string} [context.engineType] - 推論引擎類型
  * @param {string} [context.model] - 當前模型名稱
