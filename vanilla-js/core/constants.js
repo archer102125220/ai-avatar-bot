@@ -96,6 +96,24 @@ export const DEFAULT_AI_PROVIDER_MAX_TURNS = 8;
 export const DEFAULT_AI_PROVIDER_MAX_CHARS = 6000;
 
 /**
+ * 預設滾動摘要觸發輪數門檻（每累積達此輪數則在背景觸發摘要更新）。
+ * @type {number}
+ */
+export const DEFAULT_SUMMARY_THRESHOLD_TURNS = 4;
+
+/**
+ * 預設滾動摘要模式下保留的最新完整對話輪數。
+ * @type {number}
+ */
+export const DEFAULT_SUMMARY_RECENT_TURNS = 2;
+
+/**
+ * 預設摘要文字長度上限（字元）。
+ * @type {number}
+ */
+export const DEFAULT_SUMMARY_MAX_CHARS = 1000;
+
+/**
  * 預設本機 LocalStorage 記憶體儲存鍵名。
  * @type {string}
  */

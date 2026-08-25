@@ -7,6 +7,8 @@ import {
   DEFAULT_AI_PROVIDER_MAX_TURNS,
   DEFAULT_AI_PROVIDER_MAX_CHARS,
   DEFAULT_MAX_HISTORY_TURNS,
+  DEFAULT_SUMMARY_RECENT_TURNS,
+  DEFAULT_SUMMARY_MAX_CHARS,
   CHAT_ROLE_MAP,
   BRAIN_ENGINE_TYPE_MAP
 } from '../constants.js';
@@ -291,12 +293,8 @@ export function slidingWindowCompressor({
     rawHistory.push(msg);
   }
 
-  // 若外部有給定 systemPrompt 且 messages 中無 system message，則建立
-  if (
-    systemMsg === null &&
-    typeof systemPrompt === 'string' &&
-    systemPrompt !== ''
-  ) {
+  // 若外部有給定 systemPrompt，優先以外部給定之 systemPrompt 為準；否則沿用 messages 中的 systemMsg
+  if (typeof systemPrompt === 'string' && systemPrompt !== '') {
     systemMsg = { role: CHAT_ROLE_MAP.SYSTEM, content: systemPrompt };
   }
 
@@ -379,6 +377,148 @@ export function slidingWindowCompressor({
  */
 
 /**
+ * 產生滾動對話摘要 (Rolling Summary Generator)
+ *
+ * @param {Object} params
+ * @param {string} [params.oldSummary=''] - 前一次的摘要內容
+ * @param {Array<{role: string, content: string}>} params.newTurns - 待摘要的對話輪次列表
+ * @param {string} [params.locale='zh-TW'] - 語言環境
+ * @param {Function} [params.llmChat=null] - 呼叫 LLM 進行摘要之回呼函式 (非同步)
+ * @param {Function} [params.customGenerator=null] - 自訂摘要產生函式
+ * @returns {Promise<string>} 產生的精煉摘要字串
+ */
+export async function generateRollingSummary({
+  oldSummary = '',
+  newTurns = [],
+  locale = 'zh-TW',
+  llmChat = null,
+  customGenerator = null
+}) {
+  if (Array.isArray(newTurns) === false || newTurns.length === 0) {
+    return oldSummary;
+  }
+
+  // 1. 若有提供自訂摘要產生器
+  if (typeof customGenerator === 'function') {
+    try {
+      const customRes = await customGenerator({ oldSummary, newTurns, locale });
+      if (typeof customRes === 'string' && customRes.trim() !== '') {
+        return customRes.trim();
+      }
+    } catch (err) {
+      console.warn(
+        '[generateRollingSummary] customGenerator failed, falling back:',
+        err
+      );
+    }
+  }
+
+  // 格式化新對話
+  const formattedTurns = newTurns
+    .map(
+      (m) =>
+        `${m.role === CHAT_ROLE_MAP.USER || m.role === 'user' ? '使用者' : 'AI'}: ${m.content}`
+    )
+    .join('\n');
+
+  // 2. 若提供 LLM chat 介面，使用輕量 Prompt 進行非同步精煉摘要
+  if (typeof llmChat === 'function') {
+    try {
+      const summaryPrompt = [
+        {
+          role: CHAT_ROLE_MAP.SYSTEM,
+          content:
+            '你是一個專業對話記憶管理助手。請將以下對話歷史精煉為一段簡短摘要備忘錄（約 100~200 字），保留使用者偏好、核心事實、重要名詞與決定，不要寒暄與廢話。'
+        },
+        {
+          role: CHAT_ROLE_MAP.USER,
+          content: `【前情摘要】\n${oldSummary !== '' ? oldSummary : '（無前情摘要）'}\n\n【新增對話】\n${formattedTurns}\n\n請輸出合併精煉後的最新摘要備忘錄：`
+        }
+      ];
+      const summaryResult = await llmChat(summaryPrompt);
+      if (typeof summaryResult === 'string' && summaryResult.trim() !== '') {
+        return summaryResult.trim();
+      }
+    } catch (err) {
+      console.warn(
+        '[generateRollingSummary] LLM chat summary failed, using fallback heuristic:',
+        err
+      );
+    }
+  }
+
+  // 3. Fallback Heuristic 簡易抽取式摘要（當無 LLM 或 API 失敗時保證不中斷）
+  const extractedPoints = newTurns
+    .filter((m) => typeof m.content === 'string' && m.content.trim() !== '')
+    .map((m) => {
+      const isUser = m.role === CHAT_ROLE_MAP.USER || m.role === 'user';
+      const prefix = isUser === true ? '問' : '答';
+      const clean = m.content.replace(/\s+/g, ' ').slice(0, 60);
+      return `${prefix}: ${clean}`;
+    })
+    .slice(-4);
+
+  const fallbackSummary = [oldSummary !== '' ? oldSummary : '', ...extractedPoints]
+    .filter(Boolean)
+    .join('； ')
+    .slice(-DEFAULT_SUMMARY_MAX_CHARS);
+
+  return fallbackSummary;
+}
+
+/**
+ * 滾動摘要壓縮器 (Rolling Summary Compressor)
+ * 將歷史摘要作為前情提要注入 System Prompt，並保留最新 N 輪對話
+ *
+ * @param {Object} options
+ * @param {Array<Object>} options.messages - 原始完整訊息列表
+ * @param {string} [options.systemPrompt=''] - 原始系統提示詞
+ * @param {string} [options.summary=''] - 歷史累積摘要
+ * @param {number} [options.recentTurnsCount=DEFAULT_SUMMARY_RECENT_TURNS] - 保留最新對話輪數
+ * @param {number} [options.maxTotalChars=DEFAULT_MAX_TOTAL_CHARS] - 總字元預算
+ * @returns {Array<Object>} 壓縮後的訊息列表
+ */
+export function rollingSummaryCompressor({
+  messages,
+  systemPrompt = '',
+  summary = '',
+  recentTurnsCount = DEFAULT_SUMMARY_RECENT_TURNS,
+  maxTotalChars = DEFAULT_MAX_TOTAL_CHARS
+}) {
+  if (Array.isArray(messages) === false || messages.length === 0) {
+    return [];
+  }
+
+  // 1. 若有給定 systemPrompt 則使用之，否則從 messages 提取原有 system message
+  const originalSystem =
+    typeof systemPrompt === 'string' && systemPrompt !== ''
+      ? systemPrompt
+      : messages.find(
+          (m) => m.role === CHAT_ROLE_MAP.SYSTEM || m.role === 'system'
+        )?.content || '';
+
+  let enhancedSystemPrompt = originalSystem;
+  if (typeof summary === 'string' && summary.trim() !== '') {
+    const summaryBlock = `\n\n【歷史對話前情備忘 / Context Summary】\n${summary.trim()}`;
+    if (
+      enhancedSystemPrompt.includes(
+        '【歷史對話前情備忘 / Context Summary】'
+      ) === false
+    ) {
+      enhancedSystemPrompt = `${enhancedSystemPrompt}${summaryBlock}`;
+    }
+  }
+
+  // 2. 套用滑動窗口截取最近 recentTurnsCount 輪
+  return slidingWindowCompressor({
+    messages,
+    systemPrompt: enhancedSystemPrompt,
+    maxTurns: recentTurnsCount,
+    maxTotalChars
+  });
+}
+
+/**
  * 綜合上下文壓縮調度器 (Context Compression Pipeline)
  *
  * @param {Object} context - 上下文物件
@@ -438,14 +578,37 @@ export async function compressContext({
         return sanitizeToolCalls(customResult);
       }
       console.warn(
-        '[compressContext] customCompressor returned invalid messages array, falling back to sliding-window.'
+        '[compressContext] customCompressor returned invalid messages array, falling back to strategy pipeline.'
       );
     } catch (error) {
       console.warn(
-        '[compressContext] customCompressor execution failed, falling back to sliding-window:',
+        '[compressContext] customCompressor execution failed, falling back to strategy pipeline:',
         error
       );
     }
+  }
+
+  // 若策略為 ROLLING_SUMMARY，執行滾動摘要壓縮
+  if (limits.strategy === COMPRESSION_STRATEGY_MAP.ROLLING_SUMMARY) {
+    const summary =
+      typeof memoryData?.summary === 'string'
+        ? memoryData.summary
+        : typeof compressionOptions?.summary === 'string'
+          ? compressionOptions.summary
+          : '';
+    const recentTurnsCount =
+      typeof compressionOptions?.recentTurns === 'number' &&
+      compressionOptions.recentTurns > 0
+        ? compressionOptions.recentTurns
+        : DEFAULT_SUMMARY_RECENT_TURNS;
+
+    return rollingSummaryCompressor({
+      messages,
+      systemPrompt,
+      summary,
+      recentTurnsCount,
+      maxTotalChars: limits.maxTotalChars
+    });
   }
 
   // 預設執行滑動窗口壓縮

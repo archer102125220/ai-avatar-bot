@@ -8,16 +8,22 @@ import {
   DEFAULT_AI_PROVIDER_MODEL,
   DEFAULT_ENABLE_MEMORY,
   DEFAULT_MAX_HISTORY_TURNS,
+  DEFAULT_SUMMARY_THRESHOLD_TURNS,
   DEFAULT_MEMORY_KEY,
   CHAT_ROLE_MAP,
   CHAT_SOURCE_MAP,
   TOOL_RESULT_MODE_MAP,
+  COMPRESSION_STRATEGY_MAP,
   BRAIN_ENGINE_TYPE_MAP,
   BRAIN_FALLBACK_TYPE_MAP,
   isWebLLMFunctionCallingSupported
 } from '../constants.js';
 import { toOpenAiTools } from '../tools.js';
-import { compressContext } from './compression.js';
+import {
+  compressContext,
+  resolveCompressionLimits,
+  generateRollingSummary
+} from './compression.js';
 
 export * from './compression.js';
 
@@ -1278,7 +1284,14 @@ export function initMemoryEngine({
         ? maxHistoryTurns
         : DEFAULT_MAX_HISTORY_TURNS,
     adapter,
-    data: { name: '', visits: 0, last: 0, history: [] },
+    data: {
+      name: '',
+      visits: 0,
+      last: 0,
+      history: [],
+      summary: '',
+      lastSummarizedTurnIndex: 0
+    },
 
     load() {
       if (this.enabled === false) {
@@ -1334,7 +1347,14 @@ export function initMemoryEngine({
     },
 
     wipe() {
-      this.data = { name: '', visits: 1, last: 0, history: [] };
+      this.data = {
+        name: '',
+        visits: 1,
+        last: 0,
+        history: [],
+        summary: '',
+        lastSummarizedTurnIndex: 0
+      };
       try {
         this.adapter.wipe(this.key);
       } catch (_error) {}
@@ -1426,6 +1446,7 @@ export async function initBrainEngine(setting = {}) {
     onSpokenDisplayTextChange,
     onSpokenAudioTextChange,
     onEmotionChange,
+    onSummaryUpdated,
     onStreamStart,
     onStreamChunk,
     onStreamEnd,
@@ -1535,6 +1556,7 @@ export async function initBrainEngine(setting = {}) {
     onSpokenDisplayTextChange: onSpokenDisplayTextChange || null,
     onSpokenAudioTextChange: onSpokenAudioTextChange || null,
     onEmotionChange: onEmotionChange || null,
+    onSummaryUpdated: onSummaryUpdated || null,
     onStreamStart: onStreamStart || null,
     onStreamChunk: onStreamChunk || null,
     onStreamEnd: onStreamEnd || null,
@@ -1601,6 +1623,8 @@ export async function initBrainEngine(setting = {}) {
     classifyEmotion: classifyEmotion,
     setEmotionFromText: (text) => setEmotionFromText(brainEngine, text),
     handleAnswer: (question) => handleAnswer(brainEngine, question),
+    sayAnswer: (text) => sayAnswer(brainEngine, text),
+    maybeTriggerRollingSummary: () => maybeTriggerRollingSummary(brainEngine),
     addChatMessage: (role, text, options) =>
       addChatMessage(brainEngine, role, text, options),
     updateChatMessage: (id, text, streaming) =>
@@ -2289,6 +2313,7 @@ export async function handleToolCallsLoop(
             if (typeof brainEngine.onStreamEnd === 'function') {
               brainEngine.onStreamEnd(finalText);
             }
+            maybeTriggerRollingSummary(brainEngine);
           }
         }
       }
@@ -2442,6 +2467,7 @@ export async function webLLMBrain(brainEngine, question) {
       if (typeof brainEngine.onStreamEnd === 'function') {
         brainEngine.onStreamEnd(chatResponse.trim());
       }
+      maybeTriggerRollingSummary(brainEngine);
       return;
     }
 
@@ -2823,6 +2849,119 @@ export async function handleAnswer(brainEngine, question) {
 }
 
 /**
+ * 檢查並觸發背景非同步滾動摘要更新 (Non-blocking Background Summarization)
+ *
+ * @param {BrainEngine} brainEngine - 大腦引擎實例
+ * @returns {Promise<void>}
+ */
+export async function maybeTriggerRollingSummary(brainEngine) {
+  if (
+    typeof brainEngine !== 'object' ||
+    brainEngine === null ||
+    brainEngine.memoryEngine?.enabled !== true ||
+    brainEngine._isSummarizing === true
+  ) {
+    return;
+  }
+
+  const compressionOptions = brainEngine.compression || {};
+  const currentEngineType =
+    brainEngine.aiProvider?.enabled === true &&
+    brainEngine.aiProvider.ready === true
+      ? BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER
+      : BRAIN_ENGINE_TYPE_MAP.WEB_LLM;
+
+  const limits = resolveCompressionLimits(
+    compressionOptions,
+    currentEngineType
+  );
+  if (limits.strategy !== COMPRESSION_STRATEGY_MAP.ROLLING_SUMMARY) {
+    return;
+  }
+
+  const history = brainEngine.memoryEngine.data.history || [];
+  const threshold =
+    typeof compressionOptions.summaryThresholdTurns === 'number' &&
+    compressionOptions.summaryThresholdTurns > 0
+      ? compressionOptions.summaryThresholdTurns
+      : DEFAULT_SUMMARY_THRESHOLD_TURNS;
+
+  const lastIndex =
+    typeof brainEngine.memoryEngine.data.lastSummarizedTurnIndex === 'number'
+      ? brainEngine.memoryEngine.data.lastSummarizedTurnIndex
+      : 0;
+  const unsummarizedCount = history.length - lastIndex;
+
+  // 每 2 則訊息 (user + assistant) 視為一整輪
+  const unsummarizedTurns = Math.floor(unsummarizedCount / 2);
+  if (unsummarizedTurns < threshold) {
+    return;
+  }
+
+  brainEngine._isSummarizing = true;
+
+  // 使用 setTimeout 確保摘要在背景執行，不阻礙任何當前任務
+  setTimeout(async () => {
+    try {
+      const oldSummary = brainEngine.memoryEngine.data.summary || '';
+      const newTurns = history.slice(lastIndex);
+
+      let llmChat = null;
+      if (
+        brainEngine.aiProvider?.enabled === true &&
+        brainEngine.aiProvider.ready === true &&
+        typeof brainEngine.aiProvider.chat === 'function'
+      ) {
+        llmChat = async (promptMsgs) => {
+          const res = await brainEngine.aiProvider.chat(promptMsgs);
+          return typeof res === 'string'
+            ? res
+            : typeof res?.content === 'string'
+              ? res.content
+              : '';
+        };
+      } else if (
+        brainEngine.llm?.state === STATE_MAP.READY &&
+        typeof brainEngine.llm?.engine?.chat?.completions?.create === 'function'
+      ) {
+        llmChat = async (promptMsgs) => {
+          const res = await brainEngine.llm.engine.chat.completions.create({
+            messages: promptMsgs,
+            temperature: 0.3
+          });
+          return res?.choices?.[0]?.message?.content || '';
+        };
+      }
+
+      const newSummary = await generateRollingSummary({
+        oldSummary,
+        newTurns,
+        locale: brainEngine.locale,
+        llmChat,
+        customGenerator: compressionOptions.summaryGenerator
+      });
+
+      if (typeof newSummary === 'string' && newSummary.trim() !== '') {
+        brainEngine.memoryEngine.data.summary = newSummary.trim();
+        brainEngine.memoryEngine.data.lastSummarizedTurnIndex = history.length;
+        brainEngine.memoryEngine.save();
+
+        if (typeof brainEngine.onSummaryUpdated === 'function') {
+          brainEngine.onSummaryUpdated(newSummary.trim());
+        }
+      }
+    } catch (err) {
+      console.warn(
+        '[maybeTriggerRollingSummary] Background summarization failed:',
+        err
+      );
+    } finally {
+      brainEngine._isSummarizing = false;
+    }
+  }, 50);
+}
+
+/**
  * 輸出回答 (記錄、顯示、發聲)
  * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @param {string} text - 回答內容
@@ -2836,6 +2975,7 @@ export function sayAnswer(brainEngine, text) {
   if (typeof brainEngine.onSpokenAudioPlayNow === 'function') {
     brainEngine.onSpokenAudioPlayNow(text);
   }
+  maybeTriggerRollingSummary(brainEngine);
 }
 
 /**

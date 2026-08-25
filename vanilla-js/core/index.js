@@ -141,6 +141,7 @@ export * from './plugins';
  * @property {Function} [onLanguageChanged] - 介面語言變更時的回呼函式
  * @property {Function} [onSpeaking] - 開始播放語音時的回呼函式
  * @property {Function} [onSpeakingEnd] - 語音播放結束時的回呼函式
+ * @property {Function} [onSummaryUpdated] - 滾動對話摘要更新時的回呼函式 (summary)
  * @property {Function} [onBrainFallback] - 大腦引擎降級時觸發的回呼函式 (fromEngine, toEngine, error)
  * @property {Function} [onToolCall] - 觸發外部工具 (Tool Call) 時的回呼函式
  * @property {Function} [onSetHistoryOpen] - 開關歷史紀錄面板時的回呼函式
@@ -1152,6 +1153,9 @@ export async function initAvatarBot(options = {}) {
         _fetchSetting,
         aiProvider
       );
+    },
+    onSummaryUpdated(summary) {
+      callOptionEvent.call(this, 'onSummaryUpdated', summary);
     },
     onAddChatMessage(item) {
       if (
