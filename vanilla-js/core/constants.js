@@ -45,6 +45,57 @@ export const DEFAULT_ENABLE_MEMORY = true;
 export const DEFAULT_MAX_HISTORY_TURNS = 6;
 
 /**
+ * 上下文壓縮策略映射表。
+ * @readonly
+ * @enum {string}
+ */
+export const COMPRESSION_STRATEGY_MAP = {
+  /** 滑動窗口壓縮策略（依輪數與字元預算由新到舊截取完整對話輪次） */
+  SLIDING_WINDOW: 'sliding-window',
+  /** 滾動摘要壓縮策略（背景自動摘要對話重點注入系統提示詞） */
+  ROLLING_SUMMARY: 'rolling-summary',
+  /** 直通模式（不壓縮，全量傳遞） */
+  NONE: 'none'
+};
+
+/**
+ * 預設上下文壓縮策略。
+ * @type {'sliding-window'|'rolling-summary'|'none'}
+ */
+export const DEFAULT_COMPRESSION_STRATEGY =
+  COMPRESSION_STRATEGY_MAP.SLIDING_WINDOW;
+
+/**
+ * 預設全域上下文總字元預算上限。
+ * @type {number}
+ */
+export const DEFAULT_MAX_TOTAL_CHARS = 4000;
+
+/**
+ * 預設端側 WebLLM 引擎最大對話輪數（嚴格控制顯存）。
+ * @type {number}
+ */
+export const DEFAULT_WEB_LLM_MAX_TURNS = 3;
+
+/**
+ * 預設端側 WebLLM 引擎最大字元預算上限。
+ * @type {number}
+ */
+export const DEFAULT_WEB_LLM_MAX_CHARS = 1500;
+
+/**
+ * 預設雲端 AI Provider 伺服器最大對話輪數。
+ * @type {number}
+ */
+export const DEFAULT_AI_PROVIDER_MAX_TURNS = 8;
+
+/**
+ * 預設雲端 AI Provider 伺服器最大字元預算上限。
+ * @type {number}
+ */
+export const DEFAULT_AI_PROVIDER_MAX_CHARS = 6000;
+
+/**
  * 預設本機 LocalStorage 記憶體儲存鍵名。
  * @type {string}
  */

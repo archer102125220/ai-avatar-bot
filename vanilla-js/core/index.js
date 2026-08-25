@@ -249,6 +249,7 @@ export async function initAvatarBot(options = {}) {
     skinGender = null,
     companionFallback = [],
     customEngines = {},
+    compression = {},
     systemContextTemplate,
     companionSystemContextTemplate,
     ragTemplate,
@@ -1055,6 +1056,7 @@ export async function initAvatarBot(options = {}) {
     customContext,
     languageRule,
     genderRule,
+    compression: options.compression || options.brain?.compression || compression,
 
     welcomeText: options.welcomeText,
     companionWelcomeText: options.companionWelcomeText,
