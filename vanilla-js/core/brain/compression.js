@@ -360,28 +360,62 @@ export function slidingWindowCompressor({
 }
 
 /**
+ * 上下文壓縮上下文參數
+ * @typedef {Object} CompressContext
+ * @property {Array<Object>} messages - 原始即將送出的完整訊息陣列 (包含 system, history, current user)
+ * @property {string} systemPrompt - 當前解析後的 System Prompt (包含 Persona, RAG 知識庫)
+ * @property {Array<{role: string, content: string}>} [history] - 原始歷史對話紀錄
+ * @property {string} [latestQuestion] - 使用者當前最新的輸入問題
+ * @property {Record<string, any>} [memoryData] - 當前記憶體狀態資料 (例如 name, visits, custom profile)
+ * @property {'aiProvider'|'webLLM'|string} [provider] - 當前推論引擎
+ * @property {'aiProvider'|'webLLM'|string} [engineType] - 當前推論引擎 (別名)
+ * @property {string} [model] - 當前使用的模型名稱
+ * @property {ResolvedCompressionLimits} limits - 當前引擎解析後的上限限制
+ */
+
+/**
+ * 自訂壓縮器回呼函式
+ * @typedef {(context: CompressContext) => Promise<Array<Object>>|Array<Object>} CustomCompressor
+ */
+
+/**
  * 綜合上下文壓縮調度器 (Context Compression Pipeline)
  *
  * @param {Object} context - 上下文物件
  * @param {Array<Object>} context.messages - 原始完整訊息列表
  * @param {string} [context.systemPrompt] - 系統提示詞
+ * @param {Array<{role: string, content: string}>} [context.history] - 原始歷史對話紀錄
+ * @param {string} [context.latestQuestion] - 使用者當前最新輸入問題
+ * @param {Record<string, any>} [context.memoryData] - 當前記憶體資料
+ * @param {string} [context.provider] - 推論引擎提供者類型
  * @param {string} [context.engineType] - 推論引擎類型
+ * @param {string} [context.model] - 當前模型名稱
  * @param {Object} [context.compressionOptions] - 壓縮設定
  * @returns {Promise<Array<Object>>|Array<Object>} 壓縮後的訊息列表
  */
 export async function compressContext({
   messages,
   systemPrompt = '',
+  history = [],
+  latestQuestion = '',
+  memoryData = {},
+  provider = BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER,
   engineType = BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER,
+  model = '',
   compressionOptions = {}
 }) {
   if (Array.isArray(messages) === false || messages.length === 0) {
     return [];
   }
 
-  const limits = resolveCompressionLimits(compressionOptions, engineType);
+  const effectiveEngineType =
+    engineType || provider || BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER;
+  const limits = resolveCompressionLimits(
+    compressionOptions,
+    effectiveEngineType
+  );
 
-  // 若策略為 NONE，直接直通返回
+  // 若策略為 NONE，直接直通返回 (經 sanitizeToolCalls 確保無孤立 Tool 訊息)
   if (limits.strategy === COMPRESSION_STRATEGY_MAP.NONE) {
     return sanitizeToolCalls(messages);
   }
@@ -392,7 +426,12 @@ export async function compressContext({
       const customResult = await compressionOptions.customCompressor({
         messages,
         systemPrompt,
-        engineType,
+        history,
+        latestQuestion,
+        memoryData,
+        provider: effectiveEngineType,
+        engineType: effectiveEngineType,
+        model,
         limits
       });
       if (Array.isArray(customResult) === true && customResult.length > 0) {

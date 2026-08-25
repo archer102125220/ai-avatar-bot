@@ -17,10 +17,7 @@ import {
   isWebLLMFunctionCallingSupported
 } from '../constants.js';
 import { toOpenAiTools } from '../tools.js';
-import {
-  resolveCompressionLimits,
-  slidingWindowCompressor
-} from './compression.js';
+import { compressContext } from './compression.js';
 
 export * from './compression.js';
 
@@ -2336,7 +2333,7 @@ export async function aiProviderLLMBrain(brainEngine, question) {
       brainEngine.onEmotionChange('thinking');
     }
 
-    const messages = brainEngine.buildLLMMessages(
+    const messages = await brainEngine.buildLLMMessages(
       question,
       BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER
     );
@@ -2391,7 +2388,7 @@ export async function webLLMBrain(brainEngine, question) {
       brainEngine.onEmotionChange('thinking');
     }
 
-    const messages = brainEngine.buildLLMMessages(
+    const messages = await brainEngine.buildLLMMessages(
       question,
       BRAIN_ENGINE_TYPE_MAP.WEB_LLM
     );
@@ -2701,29 +2698,38 @@ export function defaultBuildLLMMessages(
     systemContext = assistantTemplate;
   }
 
+  const history =
+    brainEngine?.memoryEngine?.enabled === true &&
+    Array.isArray(brainEngine.memoryEngine.data?.history)
+      ? [...brainEngine.memoryEngine.data.history]
+      : [];
+
   const rawMessages = [{ role: 'system', content: systemContext }];
-  if (brainEngine?.memoryEngine?.enabled === true) {
-    for (const historyItem of brainEngine.memoryEngine.data.history) {
-      rawMessages.push({
-        role: historyItem.role,
-        content: historyItem.content
-      });
-    }
+  for (const historyItem of history) {
+    rawMessages.push({
+      role: historyItem.role,
+      content: historyItem.content
+    });
   }
   rawMessages.push({ role: 'user', content: question });
 
-  // 取得當前引擎的限制設定
-  const limits = resolveCompressionLimits(
-    brainEngine.compression,
-    engineType
-  );
+  const isWebLLM = engineType === BRAIN_ENGINE_TYPE_MAP.WEB_LLM;
+  const currentModel =
+    isWebLLM === true
+      ? brainEngine.llm?.model || ''
+      : brainEngine.aiProvider?.model || '';
 
-  // 執行滑動窗口壓縮管線
-  return slidingWindowCompressor({
+  // 執行綜合上下文壓縮管線（支援自訂 customCompressor 與 sliding-window）
+  return compressContext({
     messages: rawMessages,
     systemPrompt: systemContext,
-    maxTurns: limits.maxTurns,
-    maxTotalChars: limits.maxTotalChars
+    history,
+    latestQuestion: question,
+    memoryData: brainEngine?.memoryEngine?.data || {},
+    provider: engineType,
+    engineType,
+    model: currentModel,
+    compressionOptions: brainEngine.compression
   });
 }
 

@@ -102,6 +102,7 @@ export * from './plugins';
  * @property {string} [skinGender=null] - 專屬外觀引擎（模型外表）的性別設定
  * @property {Array<string|Record<string, any>>} [companionFallback=[]] - 陪伴模式的備用對話回覆 (Fallback) 清單
  * @property {CustomEnginesConfig} [customEngines={}] - 自訂引擎 (例如自訂 skin 引擎) 的設定物件
+ * @property {Object} [compression={}] - 上下文壓縮設定 (包含 strategy, maxTurns, maxTotalChars, webLlm, aiProvider, customCompressor)
  * @property {string|Function} [systemContextTemplate] - 助理模式系統提示詞模板
  * @property {string|Function} [companionSystemContextTemplate] - 陪伴模式系統提示詞模板
  * @property {string|Function} [ragTemplate] - RAG 參考資料模板
