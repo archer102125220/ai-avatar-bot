@@ -6,6 +6,9 @@ import {
   DEFAULT_AVATAR_MODE,
   DEFAULT_LLM_MODEL,
   DEFAULT_AI_PROVIDER_MODEL,
+  DEFAULT_ENABLE_MEMORY,
+  DEFAULT_MAX_HISTORY_TURNS,
+  DEFAULT_MEMORY_KEY,
   CHAT_ROLE_MAP,
   CHAT_SOURCE_MAP,
   TOOL_RESULT_MODE_MAP,
@@ -105,8 +108,11 @@ import { toOpenAiTools } from './tools';
 /**
  * 記憶體實例 (MEMEngine)
  * @typedef {Object} MEMEngine
- * @property {string} key - LocalStorage key
- * @property {boolean} isCompanion - 是否為陪伴模式
+ * @property {string} key - 本機儲存或識別鍵名
+ * @property {boolean} enabled - 是否啟用記憶體模組
+ * @property {boolean} isCompanion - 是否啟用記憶體 (向下相容別名)
+ * @property {number} maxHistoryTurns - 保留最大歷史對話輪數
+ * @property {Object} adapter - 儲存轉接器實例
  * @property {Object} data - 記憶資料
  * @property {string} data.name - 使用者名稱
  * @property {number} data.visits - 訪問次數
@@ -122,6 +128,10 @@ import { toOpenAiTools } from './tools';
 /**
  * 大腦引擎設定
  * @typedef {Object} BrainEngineOptions
+ * @property {boolean} [enableMemory=DEFAULT_ENABLE_MEMORY] - 是否啟用記憶體模組
+ * @property {number} [maxHistoryTurns=DEFAULT_MAX_HISTORY_TURNS] - 保留最大歷史對話輪數
+ * @property {string} [memoryKey=DEFAULT_MEMORY_KEY] - 記憶體儲存鍵名
+ * @property {Object} [memoryAdapter] - 自訂儲存轉接器實例
  * @property {string} [llmModel] - LLM 模型名稱
  * @property {Array} [knowledge] - 網站知識庫
  * @property {string} [knowledgeUrl] - 網站知識庫 URL
@@ -190,6 +200,7 @@ import { toOpenAiTools } from './tools';
  * @property {string} DEFAULT_LLM_MODEL - 預設 LLM 模型
  * @property {string} DEFAULT_AI_PROVIDER_MODEL - 預設 AI 供應商模型
  * @property {string} [avatarMode] - 虛擬人模式 ('assistant'|'companion')
+ * @property {boolean} enableMemory - 是否啟用記憶體
  * @property {string} knowledgeUrl - 知識庫 URL
  * @property {Array<KnowledgeEntry>} knowledge - 知識庫陣列
  * @property {string} companionKnowledgeUrl - 陪伴模式知識庫 URL
@@ -249,6 +260,7 @@ import { toOpenAiTools } from './tools';
  * @property {Object} [i18nEngine] - i18n 國際化引擎實例
  * @property {LLMEngine} llm - LLM 引擎實例
  * @property {MEMEngine} mem - 記憶體引擎實例
+ * @property {MEMEngine} memoryEngine - 記憶體引擎實例 (別名)
  * @property {AiProviderEngine} aiProvider - AI 供應商引擎實例
  */
 
@@ -772,7 +784,8 @@ export function initLLM(setting = {}, brain) {
 export async function getWelcomeText(brainEngine) {
   const locale = brainEngine?.locale || 'zh-TW';
   const templateContext = {
-    isCompanion: brainEngine?.mem?.isCompanion,
+    isMemoryEnabled: brainEngine?.mem?.enabled,
+    isCompanion: brainEngine?.avatarMode === AVATAR_MODE_MAP.companion,
     visits: brainEngine?.mem?.data?.visits,
     name: brainEngine?.mem?.data?.name,
     locale
@@ -782,14 +795,18 @@ export async function getWelcomeText(brainEngine) {
     typeof brainEngine?.welcomeText !== 'undefined' &&
     brainEngine?.welcomeText !== null
   ) {
-    const res = resolveLocalized(
+    const resolvedWelcomeText = resolveLocalized(
       brainEngine.welcomeText,
       locale,
       undefined,
       templateContext
     );
-    if (res instanceof Promise) return await res;
-    if (typeof res !== 'undefined') return res;
+    if (resolvedWelcomeText instanceof Promise) {
+      return await resolvedWelcomeText;
+    }
+    if (typeof resolvedWelcomeText !== 'undefined') {
+      return resolvedWelcomeText;
+    }
   }
 
   if (brainEngine?.avatarMode === AVATAR_MODE_MAP.companion) {
@@ -797,14 +814,18 @@ export async function getWelcomeText(brainEngine) {
       typeof brainEngine?.companionWelcomeText !== 'undefined' &&
       brainEngine?.companionWelcomeText !== null
     ) {
-      const res = resolveLocalized(
+      const resolvedCompanionWelcomeText = resolveLocalized(
         brainEngine.companionWelcomeText,
         locale,
         undefined,
         templateContext
       );
-      if (res instanceof Promise) return await res;
-      if (typeof res !== 'undefined') return res;
+      if (resolvedCompanionWelcomeText instanceof Promise) {
+        return await resolvedCompanionWelcomeText;
+      }
+      if (typeof resolvedCompanionWelcomeText !== 'undefined') {
+        return resolvedCompanionWelcomeText;
+      }
     }
     if (brainEngine?.mem?.data?.visits > 1) {
       const name = brainEngine.mem.data.name;
@@ -855,14 +876,18 @@ export async function getWelcomeText(brainEngine) {
     typeof brainEngine?.assistantWelcomeText !== 'undefined' &&
     brainEngine?.assistantWelcomeText !== null
   ) {
-    const res = resolveLocalized(
+    const resolvedAssistantWelcomeText = resolveLocalized(
       brainEngine.assistantWelcomeText,
       locale,
       undefined,
       templateContext
     );
-    if (res instanceof Promise) return await res;
-    if (typeof res !== 'undefined') return res;
+    if (resolvedAssistantWelcomeText instanceof Promise) {
+      return await resolvedAssistantWelcomeText;
+    }
+    if (typeof resolvedAssistantWelcomeText !== 'undefined') {
+      return resolvedAssistantWelcomeText;
+    }
   }
 
   if (/en/i.test(locale)) {
@@ -1119,24 +1144,85 @@ export async function initAiProvider(setting = {}) {
 }
 
 /**
- * 初始化記憶體模組 (主要用於陪伴模式)
- * @param {Object} params - 參數
- * @param {string} params.avatarMode - 虛擬人模式
+ * 初始化記憶體模組
+ * @param {Object} [params={}] - 參數
+ * @param {string} [params.avatarMode=DEFAULT_AVATAR_MODE] - 虛擬人模式
+ * @param {boolean} [params.enableMemory=DEFAULT_ENABLE_MEMORY] - 是否啟用記憶體
+ * @param {string} [params.memoryKey=DEFAULT_MEMORY_KEY] - 記憶體儲存 Key
+ * @param {number} [params.maxHistoryTurns=DEFAULT_MAX_HISTORY_TURNS] - 保留最大輪數
+ * @param {Object} [params.memoryAdapter] - 自訂儲存轉接器
  * @returns {MEMEngine} 記憶體實例
  */
-export function initMEM({ avatarMode }) {
-  // 記憶（陪伴模式限定）：只存訪客自己瀏覽器的 localStorage，零後端、不上傳；說「忘記我」即清除
+export function initMEM({
+  avatarMode = DEFAULT_AVATAR_MODE,
+  enableMemory = DEFAULT_ENABLE_MEMORY,
+  memoryKey = DEFAULT_MEMORY_KEY,
+  maxHistoryTurns = DEFAULT_MAX_HISTORY_TURNS,
+  memoryAdapter = null
+} = {}) {
+  const isEnabled =
+    typeof enableMemory === 'boolean'
+      ? enableMemory
+      : avatarMode === AVATAR_MODE_MAP.companion;
+
+  const defaultLocalStorageAdapter = {
+    load(storageKey) {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const rawData = localStorage.getItem(storageKey);
+          return rawData !== null ? JSON.parse(rawData) : null;
+        }
+      } catch (_error) {}
+      return null;
+    },
+    save(storageKey, data) {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(storageKey, JSON.stringify(data));
+        }
+      } catch (_error) {}
+    },
+    wipe(storageKey) {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem(storageKey);
+        }
+      } catch (_error) {}
+    }
+  };
+
+  const adapter =
+    typeof memoryAdapter === 'object' && memoryAdapter !== null
+      ? memoryAdapter
+      : defaultLocalStorageAdapter;
+
   const MEMEngine = {
-    key: 'avatar-widget-mem',
-    // on: avatarMode === AVATAR_MODE_MAP.companion,
-    isCompanion: avatarMode === AVATAR_MODE_MAP.companion,
+    key:
+      typeof memoryKey === 'string' && memoryKey !== ''
+        ? memoryKey
+        : DEFAULT_MEMORY_KEY,
+    enabled: isEnabled,
+    get isCompanion() {
+      return this.enabled;
+    },
+    set isCompanion(value) {
+      if (typeof value === 'boolean') {
+        this.enabled = value;
+      }
+    },
+    maxHistoryTurns:
+      typeof maxHistoryTurns === 'number' && maxHistoryTurns > 0
+        ? maxHistoryTurns
+        : DEFAULT_MAX_HISTORY_TURNS,
+    adapter,
     data: { name: '', visits: 0, last: 0, history: [] },
+
     load() {
-      if (this.isCompanion === false) {
+      if (this.enabled === false) {
         return;
       }
       try {
-        const localData = JSON.parse(localStorage.getItem(this.key) || 'null');
+        const localData = this.adapter.load(this.key);
         if (typeof localData === 'object' && localData !== null) {
           this.data = Object.assign(this.data, localData);
         }
@@ -1144,31 +1230,35 @@ export function initMEM({ avatarMode }) {
       this.data.visits = (this.data.visits || 0) + 1;
       this.save();
     },
+
     save() {
-      if (this.isCompanion === false) {
+      if (this.enabled === false) {
         return;
       }
       try {
         this.data.last = Date.now();
-        localStorage.setItem(this.key, JSON.stringify(this.data));
+        this.adapter.save(this.key, this.data);
       } catch (_error) {}
     },
+
     addTurn(role, content) {
       if (
-        this.isCompanion === false ||
+        this.enabled === false ||
         typeof content !== 'string' ||
         content === ''
       ) {
         return;
       }
       this.data.history.push({ role, content: String(content).slice(0, 200) });
-      if (this.data.history.length > 12) {
-        this.data.history.splice(0, this.data.history.length - 12); // 只留最近 6 輪
+      const maxHistoryItems = this.maxHistoryTurns * 2;
+      if (this.data.history.length > maxHistoryItems) {
+        this.data.history.splice(0, this.data.history.length - maxHistoryItems);
       }
       this.save();
     },
+
     captureName(text) {
-      if (this.isCompanion === false) {
+      if (this.enabled === false) {
         return;
       }
       const match = /(?:我叫|我是|叫我)\s*([^\s，。、,.!！?？的]{1,10})/.exec(
@@ -1179,13 +1269,15 @@ export function initMEM({ avatarMode }) {
         this.save();
       }
     },
+
     wipe() {
       this.data = { name: '', visits: 1, last: 0, history: [] };
       try {
-        localStorage.removeItem(this.key);
+        this.adapter.wipe(this.key);
       } catch (_error) {}
     }
   };
+
   MEMEngine.load();
 
   return MEMEngine;
@@ -1234,6 +1326,11 @@ export async function initBrainEngine(setting = {}) {
     companionFallback,
     aiProviderModel,
     aiProviderBaseUrl,
+
+    enableMemory = DEFAULT_ENABLE_MEMORY,
+    maxHistoryTurns = DEFAULT_MAX_HISTORY_TURNS,
+    memoryKey = DEFAULT_MEMORY_KEY,
+    memoryAdapter = null,
 
     welcomeText = null,
     companionWelcomeText = null,
@@ -1435,6 +1532,17 @@ export async function initBrainEngine(setting = {}) {
     get mem() {
       return mem;
     },
+    get memoryEngine() {
+      return mem;
+    },
+    get enableMemory() {
+      return mem?.enabled ?? DEFAULT_ENABLE_MEMORY;
+    },
+    set enableMemory(enabled) {
+      if (typeof enabled === 'boolean' && mem !== null) {
+        mem.enabled = enabled;
+      }
+    },
     get aiProvider() {
       return aiProvider;
     }
@@ -1528,7 +1636,14 @@ export async function initBrainEngine(setting = {}) {
     },
     brainEngine
   );
-  mem = initMEM({ avatarMode: brainEngine.avatarMode });
+  mem = initMEM({
+    avatarMode: brainEngine.avatarMode,
+    enableMemory:
+      typeof enableMemory === 'boolean' ? enableMemory : DEFAULT_ENABLE_MEMORY,
+    memoryKey,
+    maxHistoryTurns,
+    memoryAdapter
+  });
   aiProvider = await initAiProvider({
     providerModel: aiProviderModel,
     providerBaseUrl: aiProviderBaseUrl,
@@ -2388,14 +2503,14 @@ export function defaultBuildLLMMessages(brainEngine, question) {
     systemContext = assistantTemplate;
   }
 
-  const msgs = [{ role: 'system', content: systemContext }];
-  if (brainEngine?.mem?.isCompanion === true) {
+  const messages = [{ role: 'system', content: systemContext }];
+  if (brainEngine?.mem?.enabled === true) {
     for (const historyItem of brainEngine.mem.data.history) {
-      msgs.push({ role: historyItem.role, content: historyItem.content });
+      messages.push({ role: historyItem.role, content: historyItem.content });
     }
   }
-  msgs.push({ role: 'user', content: question });
-  return msgs;
+  messages.push({ role: 'user', content: question });
+  return messages;
 }
 
 /**

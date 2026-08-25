@@ -15,14 +15,14 @@ export const STATE_MAP = {
 };
 
 /**
- * 虛擬形象角色模式映射表。
+ * 虛擬形象角色模式映射表（內建人格預設包）。
  * @readonly
  * @enum {string}
  */
 export const AVATAR_MODE_MAP = {
-  /** 陪伴模式 */
+  /** 陪伴模式預設包 */
   companion: 'companion',
-  /** 助理模式 */
+  /** 助理模式預設包 */
   assistant: 'assistant'
 };
 
@@ -31,6 +31,24 @@ export const AVATAR_MODE_MAP = {
  * @type {'companion'|'assistant'}
  */
 export const DEFAULT_AVATAR_MODE = AVATAR_MODE_MAP.assistant;
+
+/**
+ * 預設是否啟用記憶體模組（多輪對話與上下文歷史）。
+ * @type {boolean}
+ */
+export const DEFAULT_ENABLE_MEMORY = true;
+
+/**
+ * 預設保留最大對話輪數（1 輪包含 1 次使用者發言與 1 次 AI 回覆）。
+ * @type {number}
+ */
+export const DEFAULT_MAX_HISTORY_TURNS = 6;
+
+/**
+ * 預設本機 LocalStorage 記憶體儲存鍵名。
+ * @type {string}
+ */
+export const DEFAULT_MEMORY_KEY = 'avatar-widget-mem';
 
 /**
  * 預設用於網頁端推論的 LLM 模型（例如 WebLLM）。
