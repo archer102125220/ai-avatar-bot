@@ -7,6 +7,9 @@ import {
   DEFAULT_AVATAR_MODE,
   DEFAULT_LLM_MODEL,
   DEFAULT_AI_PROVIDER_MODEL,
+  DEFAULT_ENABLE_MEMORY,
+  DEFAULT_MAX_HISTORY_TURNS,
+  DEFAULT_MEMORY_KEY,
   STATE_MAP,
   ENGINE_MODE_MAP,
   FIT_MODE_MAP,
@@ -51,6 +54,11 @@ export * from './plugins';
  */
 
 /**
+ * 角色模式型別：提供內建模式自動補全，同時允許自訂字串
+ * @typedef {'assistant' | 'companion' | (string & {})} AvatarMode
+ */
+
+/**
  * @typedef {Object} AvatarBotOptions
  * @property {HTMLElement} [container=null] - 綁定 Widget 的 HTML 容器元素
  * @property {string} [aiProviderBaseUrl=''] - AI 服務提供商的 API 基礎 URL
@@ -66,7 +74,12 @@ export * from './plugins';
  * @property {string} [modelUrl] - 3D 或 2D 模型的 URL
  * @property {string} [ttsEndpoint=DEFAULT_TTS_ENDPOINT] - 語音合成 (TTS) 服務端點 URL (沒設會試同站相對路徑)
  * @property {string} [llmModel=DEFAULT_LLM_MODEL] - 預設的本地/遠端語言模型 (LLM) 類型
- * @property {string} [avatarMode=DEFAULT_AVATAR_MODE] - Avatar 模式（例如：assistant, companion 等）
+ * @property {AvatarMode} [avatarMode=DEFAULT_AVATAR_MODE] - Avatar 模式（例如：assistant, companion 或自訂模式）
+ * @property {boolean} [enableMemory=DEFAULT_ENABLE_MEMORY] - 是否啟用記憶體模組（多輪對話與上下文歷史）
+ * @property {number} [maxHistoryTurns=DEFAULT_MAX_HISTORY_TURNS] - 保留最大歷史對話輪數
+ * @property {string} [memoryKey=DEFAULT_MEMORY_KEY] - 本機儲存或識別鍵名
+ * @property {Object} [memoryAdapter] - 自訂儲存轉接器實例
+ * @property {Record<string, Object>} [modes] - 宣告式自訂模式註冊表
  * @property {Record<string, any>|string} [knowledge=null] - 預載的助理模式知識庫資料，可以是 JSON 物件或字串
  * @property {Record<string, any>|string} [companionKnowledge=null] - 預載的陪伴模式知識庫資料，可以是 JSON 物件或字串
  * @property {string} [startMode] - 初始啟動的模型模式 (2D 或 3D)
@@ -142,6 +155,8 @@ export * from './plugins';
  * @property {Record<string, string>} ENGINE_MODE_MAP - 引擎模式映射表
  * @property {Record<string, string>} AVATAR_MODE_MAP - Avatar 模式映射表
  * @property {Record<string, string>} FIT_MODE_MAP - Fit 模式映射表
+ * @property {Array<string>} availableModes - 目前可用角色模式清單
+ * @property {boolean} enableMemory - 目前是否啟用記憶體
  * @property {HTMLElement} container - 綁定 Widget 的 HTML 容器元素
  * @property {any} uiDom - UI 相關的 DOM 元素與控制方法
  * @property {any} i18nEngine - i18n 多語系引擎實例
@@ -157,7 +172,7 @@ export * from './plugins';
  * @property {string|null} speechGender - 語音引擎性別設定
  * @property {string|null} skinGender - 外觀引擎性別設定
  * @property {string} locale - 當前語系代碼
- * @property {string} avatarMode - 目前 Avatar 模式
+ * @property {AvatarMode} avatarMode - 目前 Avatar 模式
  * @property {Function} showMinimalEl - 顯示極簡模式元素的函式
  * @property {Function} hiddenMinimalEl - 隱藏極簡模式元素的函式
  * @property {any} brainEngine - AI 大腦引擎實例
@@ -201,6 +216,11 @@ export async function initAvatarBot(options = {}) {
     ttsEndpoint = DEFAULT_TTS_ENDPOINT, // 沒設→試同站相對路徑；抓不到→自動退回瀏覽器語音（純前端可用）
     llmModel = DEFAULT_LLM_MODEL,
     avatarMode = DEFAULT_AVATAR_MODE,
+    enableMemory = DEFAULT_ENABLE_MEMORY,
+    maxHistoryTurns = DEFAULT_MAX_HISTORY_TURNS,
+    memoryKey = DEFAULT_MEMORY_KEY,
+    memoryAdapter = null,
+    modes = null,
     knowledge = null,
     companionKnowledge = null,
     startMode,
@@ -227,6 +247,19 @@ export async function initAvatarBot(options = {}) {
 
   if (container instanceof HTMLElement === false) {
     throw new Error('container must be an HTMLElement');
+  }
+
+  const customModeKeys =
+    typeof modes === 'object' && modes !== null ? Object.keys(modes) : [];
+  const initialAvailableModes = Array.from(
+    new Set([...Object.values(AVATAR_MODE_MAP), ...customModeKeys])
+  );
+
+  const targetAvatarMode = avatarMode || DEFAULT_AVATAR_MODE;
+  if (initialAvailableModes.includes(targetAvatarMode) === false) {
+    throw new TypeError(
+      `[ai-avatar-bot] Invalid avatarMode "${targetAvatarMode}". Expected one of: [${initialAvailableModes.join(', ')}].`
+    );
   }
 
   let safeGender = DEFAULT_GENDER;
@@ -290,7 +323,10 @@ export async function initAvatarBot(options = {}) {
       skinGender && Object.values(GENDER_MAP).includes(skinGender)
         ? skinGender
         : null,
-    avatarMode: avatarMode || DEFAULT_AVATAR_MODE,
+    avatarMode: targetAvatarMode,
+    enableMemory:
+      typeof enableMemory === 'boolean' ? enableMemory : DEFAULT_ENABLE_MEMORY,
+    modes: typeof modes === 'object' && modes !== null ? modes : {},
     locale: i18nEngine?.locale || locale || 'zh-TW'
   });
 
@@ -435,15 +471,40 @@ export async function initAvatarBot(options = {}) {
       }
     },
 
+    get availableModes() {
+      const currentModes = rootStore.getState().modes || {};
+      return Array.from(
+        new Set([...Object.values(AVATAR_MODE_MAP), ...Object.keys(currentModes)])
+      );
+    },
+
     get avatarMode() {
       return rootStore.getState().avatarMode;
     },
-    set avatarMode(newAvatarMode = '') {
-      if (typeof newAvatarMode === 'string' && newAvatarMode !== '') {
-        if (Object.values(AVATAR_MODE_MAP).includes(newAvatarMode)) {
-          rootStore.setState({ avatarMode: newAvatarMode });
-        } else {
-          rootStore.setState({ avatarMode: AVATAR_MODE_MAP.assistant });
+    set avatarMode(targetAvatarMode = '') {
+      if (typeof targetAvatarMode === 'string' && targetAvatarMode !== '') {
+        const currentAvailableModes = this.availableModes;
+        if (currentAvailableModes.includes(targetAvatarMode) === false) {
+          throw new TypeError(
+            `[ai-avatar-bot] Invalid avatarMode "${targetAvatarMode}". Expected one of: [${currentAvailableModes.join(', ')}].`
+          );
+        }
+        rootStore.setState({ avatarMode: targetAvatarMode });
+      }
+    },
+
+    get enableMemory() {
+      return (
+        brainEngine?.mem?.enabled ??
+        rootStore.getState().enableMemory ??
+        DEFAULT_ENABLE_MEMORY
+      );
+    },
+    set enableMemory(enabled) {
+      if (typeof enabled === 'boolean') {
+        rootStore.setState({ enableMemory: enabled });
+        if (brainEngine?.mem !== null && typeof brainEngine?.mem === 'object') {
+          brainEngine.mem.enabled = enabled;
         }
       }
     },
@@ -458,6 +519,34 @@ export async function initAvatarBot(options = {}) {
       return skinEngine;
     }
   };
+
+  rootStore.subscribe('avatarMode', (newAvatarMode) => {
+    if (
+      typeof aiAvatarWidget.brainEngine === 'object' &&
+      aiAvatarWidget.brainEngine !== null
+    ) {
+      aiAvatarWidget.brainEngine.avatarMode = newAvatarMode;
+    }
+    renderSuggestions(aiAvatarWidget);
+    if (typeof uiDom?.updateMicState === 'function') {
+      const isCompanion = newAvatarMode === AVATAR_MODE_MAP.companion;
+      uiDom.updateMicState(
+        aiAvatarWidget.speechEngine?.isListening,
+        aiAvatarWidget.speechEngine?.convoOn,
+        isCompanion,
+        i18nEngine
+      );
+    }
+  });
+
+  rootStore.subscribe('enableMemory', (newEnableMemory) => {
+    if (
+      typeof aiAvatarWidget.brainEngine?.mem === 'object' &&
+      aiAvatarWidget.brainEngine?.mem !== null
+    ) {
+      aiAvatarWidget.brainEngine.mem.enabled = newEnableMemory;
+    }
+  });
 
   rootStore.subscribe('gender', (newGender) => {
     const state = rootStore.getState();
@@ -525,7 +614,8 @@ export async function initAvatarBot(options = {}) {
       }
       updateUIStrings(container, i18nEngine);
       if (typeof uiDom?.updateMicState === 'function') {
-        const isCompanion = avatarMode === AVATAR_MODE_MAP.companion;
+        const isCompanion =
+          rootStore.getState().avatarMode === AVATAR_MODE_MAP.companion;
         uiDom.updateMicState(
           aiAvatarWidget.speechEngine?.isListening,
           aiAvatarWidget.speechEngine?.convoOn,
@@ -601,7 +691,7 @@ export async function initAvatarBot(options = {}) {
       return;
     }
 
-    if (brainEngine.mem.isCompanion === true && text !== '') {
+    if (brainEngine?.mem?.enabled === true && text !== '') {
       if (/忘記我|清除記憶|forget me/i.test(text) === true) {
         brainEngine.mem.wipe();
         speechEngine.spokenAudioText =
@@ -655,6 +745,7 @@ export async function initAvatarBot(options = {}) {
   }
 
   function onTapAvatar() {
+    callOptionEvent.call(aiAvatarWidget, 'onTapAvatar');
     if (speechEngine.onTapTimer === true) {
       return;
     }
@@ -675,21 +766,34 @@ export async function initAvatarBot(options = {}) {
     let greeting = '你好～';
     const currentLocale =
       i18nEngine?.locale || rootStore.getState().locale || 'zh-TW';
+    const currentAvatarMode = rootStore.getState().avatarMode;
     const templateContext = {
-      isCompanion: brainEngine?.mem?.isCompanion,
+      isMemoryEnabled: brainEngine?.mem?.enabled,
+      isCompanion: currentAvatarMode === AVATAR_MODE_MAP.companion,
       visits: brainEngine?.mem?.data?.visits,
       name: brainEngine?.mem?.data?.name,
       locale: currentLocale
     };
 
-    if (typeof options.greeting !== 'undefined' && options.greeting !== null) {
+    const currentModeConfig = options.modes?.[currentAvatarMode];
+    if (
+      typeof currentModeConfig?.greeting !== 'undefined' &&
+      currentModeConfig?.greeting !== null
+    ) {
+      greeting = resolveLocalized(
+        currentModeConfig.greeting,
+        currentLocale,
+        '你好～',
+        templateContext
+      );
+    } else if (typeof options.greeting !== 'undefined' && options.greeting !== null) {
       greeting = resolveLocalized(
         options.greeting,
         currentLocale,
         '你好～',
         templateContext
       );
-    } else if (avatarMode === AVATAR_MODE_MAP.companion) {
+    } else if (currentAvatarMode === AVATAR_MODE_MAP.companion) {
       let defaultCompGreeting;
       if (/en/i.test(currentLocale)) {
         defaultCompGreeting =
@@ -721,7 +825,7 @@ export async function initAvatarBot(options = {}) {
         defaultCompGreeting,
         templateContext
       );
-    } else if (avatarMode === AVATAR_MODE_MAP.assistant) {
+    } else if (currentAvatarMode === AVATAR_MODE_MAP.assistant) {
       let defaultAssistantGreeting =
         '你好～我是可以嵌入任何網站的語音虛擬人，問我怎麼安裝、怎麼換成你的角色都行！';
       if (/en/i.test(currentLocale)) {
@@ -748,7 +852,12 @@ export async function initAvatarBot(options = {}) {
 
   const brainOptions = {
     llmModel,
-    avatarMode,
+    avatarMode: rootStore.getState().avatarMode,
+    enableMemory: rootStore.getState().enableMemory,
+    maxHistoryTurns,
+    memoryKey,
+    memoryAdapter,
+    modes: rootStore.getState().modes,
     knowledgeUrl,
     companionKnowledgeUrl,
     knowledge,

@@ -42,8 +42,16 @@
         knowledge: KNOWLEDGE,
         companionKnowledge: COMPANION_KNOWLEDGE,
         gender: GENDER_MAP.male,
+        enableMemory: true, // 預設全面啟用多輪對話記憶（可在這設為 false 關閉）
         // avatarMode: AVATAR_MODE_MAP.companion,
         // avatarMode: AVATAR_MODE_MAP.assistant,
+        // modes: {
+        //   mentor: {
+        //     systemPrompt: '你是程式導師，以簡潔、條理清晰的方式指導架構設計。{{RAG}}\n{{styleRule}}',
+        //     welcomeText: '嗨！我是程式導師，有任何架構或開發問題隨時問我！',
+        //     greeting: '你好！今天想討論什麼技術主題呢？'
+        //   }
+        // },
 
         onReady(aiAvatar) {
           // 應在優化，作為參數的一部分傳遞歡迎詞

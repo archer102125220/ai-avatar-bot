@@ -132,6 +132,7 @@ import { toOpenAiTools } from './tools';
  * @property {number} [maxHistoryTurns=DEFAULT_MAX_HISTORY_TURNS] - 保留最大歷史對話輪數
  * @property {string} [memoryKey=DEFAULT_MEMORY_KEY] - 記憶體儲存鍵名
  * @property {Object} [memoryAdapter] - 自訂儲存轉接器實例
+ * @property {Record<string, Object>} [modes] - 宣告式自訂模式註冊表
  * @property {string} [llmModel] - LLM 模型名稱
  * @property {Array} [knowledge] - 網站知識庫
  * @property {string} [knowledgeUrl] - 網站知識庫 URL
@@ -199,7 +200,9 @@ import { toOpenAiTools } from './tools';
  * @property {string} DEFAULT_AVATAR_MODE - 預設虛擬人模式
  * @property {string} DEFAULT_LLM_MODEL - 預設 LLM 模型
  * @property {string} DEFAULT_AI_PROVIDER_MODEL - 預設 AI 供應商模型
- * @property {string} [avatarMode] - 虛擬人模式 ('assistant'|'companion')
+ * @property {string} [avatarMode] - 虛擬人模式 ('assistant'|'companion' 或自訂模式)
+ * @property {Record<string, Object>} modes - 自訂模式設定表
+ * @property {Array<string>} availableModes - 可用角色模式清單
  * @property {boolean} enableMemory - 是否啟用記憶體
  * @property {string} knowledgeUrl - 知識庫 URL
  * @property {Array<KnowledgeEntry>} knowledge - 知識庫陣列
@@ -809,6 +812,26 @@ export async function getWelcomeText(brainEngine) {
     }
   }
 
+  const currentAvatarMode = brainEngine?.avatarMode;
+  const currentCustomMode = brainEngine?.modes?.[currentAvatarMode];
+  if (
+    typeof currentCustomMode?.welcomeText !== 'undefined' &&
+    currentCustomMode?.welcomeText !== null
+  ) {
+    const resolvedCustomWelcomeText = resolveLocalized(
+      currentCustomMode.welcomeText,
+      locale,
+      undefined,
+      templateContext
+    );
+    if (resolvedCustomWelcomeText instanceof Promise) {
+      return await resolvedCustomWelcomeText;
+    }
+    if (typeof resolvedCustomWelcomeText !== 'undefined') {
+      return resolvedCustomWelcomeText;
+    }
+  }
+
   if (brainEngine?.avatarMode === AVATAR_MODE_MAP.companion) {
     if (
       typeof brainEngine?.companionWelcomeText !== 'undefined' &&
@@ -1331,6 +1354,7 @@ export async function initBrainEngine(setting = {}) {
     maxHistoryTurns = DEFAULT_MAX_HISTORY_TURNS,
     memoryKey = DEFAULT_MEMORY_KEY,
     memoryAdapter = null,
+    modes = {},
 
     welcomeText = null,
     companionWelcomeText = null,
@@ -1545,6 +1569,16 @@ export async function initBrainEngine(setting = {}) {
     },
     get aiProvider() {
       return aiProvider;
+    },
+    modes: typeof modes === 'object' && modes !== null ? modes : {},
+    get availableModes() {
+      const customModeKeys =
+        typeof this.modes === 'object' && this.modes !== null
+          ? Object.keys(this.modes)
+          : [];
+      return Array.from(
+        new Set([...Object.values(AVATAR_MODE_MAP), ...customModeKeys])
+      );
     }
   };
 
@@ -1796,8 +1830,17 @@ export function handleThinking(brainEngine, rawQuestion) {
       return '잘 듣지 못했어요. 다시 한 번 말씀해 주시겠어요?';
     return '我好像沒聽清楚，可以再說一次嗎？';
   }
-  const site = bestOf(brainEngine.knowledge, question);
-  if (brainEngine.avatarMode === AVATAR_MODE_MAP.companion) {
+  const currentAvatarMode = brainEngine?.avatarMode;
+  const currentCustomMode = brainEngine?.modes?.[currentAvatarMode];
+
+  const targetKnowledge =
+    Array.isArray(currentCustomMode?.knowledge) &&
+    currentCustomMode.knowledge.length > 0
+      ? currentCustomMode.knowledge
+      : brainEngine.knowledge;
+
+  const site = bestOf(targetKnowledge, question);
+  if (currentAvatarMode === AVATAR_MODE_MAP.companion) {
     // 陪伴模式：聊天題給陪聊腦、網站/產品題照答
     const chat = bestOf(brainEngine.companionKnowledge, question);
     if (
@@ -1814,6 +1857,31 @@ export function handleThinking(brainEngine, rawQuestion) {
   }
   if (site.entry !== null && site.score >= 0.16) {
     return site.entry.a;
+  }
+
+  if (
+    typeof currentCustomMode?.fallback !== 'undefined' &&
+    currentCustomMode?.fallback !== null
+  ) {
+    if (
+      Array.isArray(currentCustomMode.fallback) &&
+      currentCustomMode.fallback.length > 0
+    ) {
+      return (
+        currentCustomMode.fallback[
+          Math.floor(Math.random() * currentCustomMode.fallback.length)
+        ] || ''
+      );
+    }
+    const resolvedCustomFallback = resolveLocalized(
+      currentCustomMode.fallback,
+      locale,
+      undefined,
+      { question, locale }
+    );
+    if (typeof resolvedCustomFallback === 'string') {
+      return resolvedCustomFallback;
+    }
   }
 
   if (
@@ -2429,7 +2497,34 @@ export function defaultBuildLLMMessages(brainEngine, question) {
     .replace('{{custom}}', customContextText);
 
   let systemContext;
-  if (brainEngine?.avatarMode === AVATAR_MODE_MAP.companion) {
+  const currentAvatarMode = brainEngine?.avatarMode;
+  const currentCustomMode = brainEngine?.modes?.[currentAvatarMode];
+
+  if (
+    typeof currentCustomMode === 'object' &&
+    currentCustomMode !== null &&
+    (typeof currentCustomMode.systemPrompt !== 'undefined' ||
+      typeof currentCustomMode.systemContextTemplate !== 'undefined')
+  ) {
+    const rawCustomPrompt =
+      currentCustomMode.systemPrompt ||
+      currentCustomMode.systemContextTemplate;
+    const resolvedCustomPrompt = resolveLocalized(
+      rawCustomPrompt,
+      locale,
+      undefined,
+      brainEngine
+    );
+    const customPromptTemplate = (
+      typeof resolvedCustomPrompt === 'function'
+        ? resolvedCustomPrompt(brainEngine, RAG, styleRuleText)
+        : resolvedCustomPrompt || ''
+    )
+      .replace('{{RAG}}', RAG)
+      .replace('{{styleRule}}', styleRuleText)
+      .replace('{{languageRule}}', styleRuleText);
+    systemContext = customPromptTemplate;
+  } else if (currentAvatarMode === AVATAR_MODE_MAP.companion) {
     let nameStr = '';
     if (brainEngine?.mem?.data?.name) {
       if (/en/i.test(locale)) {
