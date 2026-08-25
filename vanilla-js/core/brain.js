@@ -106,8 +106,8 @@ import { toOpenAiTools } from './tools';
  */
 
 /**
- * 記憶體實例 (MEMEngine)
- * @typedef {Object} MEMEngine
+ * 記憶體實例 (memoryEngine)
+ * @typedef {Object} memoryEngine
  * @property {string} key - 本機儲存或識別鍵名
  * @property {boolean} enabled - 是否啟用記憶體模組
  * @property {boolean} isCompanion - 是否啟用記憶體 (向下相容別名)
@@ -262,8 +262,8 @@ import { toOpenAiTools } from './tools';
  * @property {Function} updateChatMessage - 更新對話訊息方法
  * @property {Object} [i18nEngine] - i18n 國際化引擎實例
  * @property {LLMEngine} llm - LLM 引擎實例
- * @property {MEMEngine} mem - 記憶體引擎實例
- * @property {MEMEngine} memoryEngine - 記憶體引擎實例 (別名)
+ * @property {memoryEngine} mem - 記憶體引擎實例
+ * @property {memoryEngine} memoryEngine - 記憶體引擎實例 (別名)
  * @property {AiProviderEngine} aiProvider - AI 供應商引擎實例
  */
 
@@ -1174,9 +1174,9 @@ export async function initAiProvider(setting = {}) {
  * @param {string} [params.memoryKey=DEFAULT_MEMORY_KEY] - 記憶體儲存 Key
  * @param {number} [params.maxHistoryTurns=DEFAULT_MAX_HISTORY_TURNS] - 保留最大輪數
  * @param {Object} [params.memoryAdapter] - 自訂儲存轉接器
- * @returns {MEMEngine} 記憶體實例
+ * @returns {memoryEngine} 記憶體實例
  */
-export function initMEM({
+export function initMemoryEngine({
   avatarMode = DEFAULT_AVATAR_MODE,
   enableMemory = DEFAULT_ENABLE_MEMORY,
   memoryKey = DEFAULT_MEMORY_KEY,
@@ -1219,7 +1219,7 @@ export function initMEM({
       ? memoryAdapter
       : defaultLocalStorageAdapter;
 
-  const MEMEngine = {
+  const memoryEngine = {
     key:
       typeof memoryKey === 'string' && memoryKey !== ''
         ? memoryKey
@@ -1301,9 +1301,9 @@ export function initMEM({
     }
   };
 
-  MEMEngine.load();
+  memoryEngine.load();
 
-  return MEMEngine;
+  return memoryEngine;
 }
 
 // 從回答文字粗判情緒（規則式、零成本；驚訝 > 難過 > 開心 > 中性）
@@ -1670,7 +1670,7 @@ export async function initBrainEngine(setting = {}) {
     },
     brainEngine
   );
-  mem = initMEM({
+  mem = initMemoryEngine({
     avatarMode: brainEngine.avatarMode,
     enableMemory:
       typeof enableMemory === 'boolean' ? enableMemory : DEFAULT_ENABLE_MEMORY,
@@ -2512,8 +2512,7 @@ export function defaultBuildLLMMessages(brainEngine, question) {
       typeof currentCustomMode.systemContextTemplate !== 'undefined')
   ) {
     const rawCustomPrompt =
-      currentCustomMode.systemPrompt ||
-      currentCustomMode.systemContextTemplate;
+      currentCustomMode.systemPrompt || currentCustomMode.systemContextTemplate;
     const resolvedCustomPrompt = resolveLocalized(
       rawCustomPrompt,
       locale,
