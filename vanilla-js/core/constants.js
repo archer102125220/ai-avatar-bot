@@ -48,7 +48,7 @@ export const DEFAULT_MAX_HISTORY_TURNS = 6;
  * 預設本機 LocalStorage 記憶體儲存鍵名。
  * @type {string}
  */
-export const DEFAULT_MEMORY_KEY = 'avatar-widget-mem';
+export const DEFAULT_MEMORY_KEY = 'avatar-widget-memory';
 
 /**
  * 預設用於網頁端推論的 LLM 模型（例如 WebLLM）。

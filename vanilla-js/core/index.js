@@ -495,7 +495,7 @@ export async function initAvatarBot(options = {}) {
 
     get enableMemory() {
       return (
-        brainEngine?.mem?.enabled ??
+        brainEngine?.memoryEngine?.enabled ??
         rootStore.getState().enableMemory ??
         DEFAULT_ENABLE_MEMORY
       );
@@ -503,8 +503,11 @@ export async function initAvatarBot(options = {}) {
     set enableMemory(enabled) {
       if (typeof enabled === 'boolean') {
         rootStore.setState({ enableMemory: enabled });
-        if (brainEngine?.mem !== null && typeof brainEngine?.mem === 'object') {
-          brainEngine.mem.enabled = enabled;
+        if (
+          brainEngine?.memoryEngine !== null &&
+          typeof brainEngine?.memoryEngine === 'object'
+        ) {
+          brainEngine.memoryEngine.enabled = enabled;
         }
       }
     },
@@ -541,10 +544,10 @@ export async function initAvatarBot(options = {}) {
 
   rootStore.subscribe('enableMemory', (newEnableMemory) => {
     if (
-      typeof aiAvatarWidget.brainEngine?.mem === 'object' &&
-      aiAvatarWidget.brainEngine?.mem !== null
+      typeof aiAvatarWidget.brainEngine?.memoryEngine === 'object' &&
+      aiAvatarWidget.brainEngine?.memoryEngine !== null
     ) {
-      aiAvatarWidget.brainEngine.mem.enabled = newEnableMemory;
+      aiAvatarWidget.brainEngine.memoryEngine.enabled = newEnableMemory;
     }
   });
 
@@ -691,17 +694,17 @@ export async function initAvatarBot(options = {}) {
       return;
     }
 
-    if (brainEngine?.mem?.enabled === true && text !== '') {
+    if (brainEngine?.memoryEngine?.enabled === true && text !== '') {
       if (/忘記我|清除記憶|forget me/i.test(text) === true) {
-        brainEngine.mem.wipe();
+        brainEngine.memoryEngine.wipe();
         speechEngine.spokenAudioText =
           typeof i18nEngine?.t === 'function'
             ? i18nEngine.t('brain.wipeMemory')
             : '好，我把記憶都清掉了，我們重新認識吧！';
         return;
       }
-      brainEngine.mem.captureName(text);
-      brainEngine.mem.addTurn('user', text);
+      brainEngine.memoryEngine.captureName(text);
+      brainEngine.memoryEngine.addTurn('user', text);
     }
 
     const routedTool = toolsEngine.routeHostTool(text);
@@ -768,10 +771,10 @@ export async function initAvatarBot(options = {}) {
       i18nEngine?.locale || rootStore.getState().locale || 'zh-TW';
     const currentAvatarMode = rootStore.getState().avatarMode;
     const templateContext = {
-      isMemoryEnabled: brainEngine?.mem?.enabled,
+      isMemoryEnabled: brainEngine?.memoryEngine?.enabled,
       isCompanion: currentAvatarMode === AVATAR_MODE_MAP.companion,
-      visits: brainEngine?.mem?.data?.visits,
-      name: brainEngine?.mem?.data?.name,
+      visits: brainEngine?.memoryEngine?.data?.visits,
+      name: brainEngine?.memoryEngine?.data?.name,
       locale: currentLocale
     };
 
@@ -797,25 +800,25 @@ export async function initAvatarBot(options = {}) {
       let defaultCompGreeting;
       if (/en/i.test(currentLocale)) {
         defaultCompGreeting =
-          (brainEngine?.mem?.data?.name
-            ? brainEngine.mem.data.name + '~ '
+          (brainEngine?.memoryEngine?.data?.name
+            ? brainEngine.memoryEngine.data.name + '~ '
             : 'Hello~ ') + 'We can chat about anything! Click 💬 to start.';
       } else if (/ja/i.test(currentLocale)) {
         defaultCompGreeting =
-          (brainEngine?.mem?.data?.name
-            ? brainEngine.mem.data.name + 'さん〜 '
+          (brainEngine?.memoryEngine?.data?.name
+            ? brainEngine.memoryEngine.data.name + 'さん〜 '
             : 'こんにちは〜 ') +
           '何でもお話ししましょう！💬 を押してスタートです。';
       } else if (/ko/i.test(currentLocale)) {
         defaultCompGreeting =
-          (brainEngine?.mem?.data?.name
-            ? brainEngine.mem.data.name + '님~ '
+          (brainEngine?.memoryEngine?.data?.name
+            ? brainEngine.memoryEngine.data.name + '님~ '
             : '안녕하세요~ ') + '무엇이든 이야기해요! 💬를 누르면 시작해요.';
       } else {
         defaultCompGreeting =
-          (typeof brainEngine?.mem?.data?.name === 'string' &&
-          brainEngine.mem.data.name !== ''
-            ? brainEngine.mem.data.name + '～'
+          (typeof brainEngine?.memoryEngine?.data?.name === 'string' &&
+          brainEngine.memoryEngine.data.name !== ''
+            ? brainEngine.memoryEngine.data.name + '～'
             : '你好～') + '想聊什麼都可以，點 💬 我們就開始！';
       }
 

@@ -262,8 +262,7 @@ import { toOpenAiTools } from './tools';
  * @property {Function} updateChatMessage - 更新對話訊息方法
  * @property {Object} [i18nEngine] - i18n 國際化引擎實例
  * @property {LLMEngine} llm - LLM 引擎實例
- * @property {memoryEngine} mem - 記憶體引擎實例
- * @property {memoryEngine} memoryEngine - 記憶體引擎實例 (別名)
+ * @property {memoryEngine} memoryEngine - 記憶體引擎實例
  * @property {AiProviderEngine} aiProvider - AI 供應商引擎實例
  */
 
@@ -787,10 +786,10 @@ export function initLLM(setting = {}, brain) {
 export async function getWelcomeText(brainEngine) {
   const locale = brainEngine?.locale || 'zh-TW';
   const templateContext = {
-    isMemoryEnabled: brainEngine?.mem?.enabled,
+    isMemoryEnabled: brainEngine?.memoryEngine?.enabled,
     isCompanion: brainEngine?.avatarMode === AVATAR_MODE_MAP.companion,
-    visits: brainEngine?.mem?.data?.visits,
-    name: brainEngine?.mem?.data?.name,
+    visits: brainEngine?.memoryEngine?.data?.visits,
+    name: brainEngine?.memoryEngine?.data?.name,
     locale
   };
 
@@ -850,13 +849,13 @@ export async function getWelcomeText(brainEngine) {
         return resolvedCompanionWelcomeText;
       }
     }
-    if (brainEngine?.mem?.data?.visits > 1) {
-      const name = brainEngine.mem.data.name;
+    if (brainEngine?.memoryEngine?.data?.visits > 1) {
+      const name = brainEngine.memoryEngine.data.name;
       if (/en/i.test(locale)) {
         return (
           (name ? name + ', ' : '') +
           'welcome back! This is our ' +
-          brainEngine.mem.data.visits +
+          brainEngine.memoryEngine.data.visits +
           'th visit! Click 💬 to continue chatting.'
         );
       }
@@ -864,7 +863,7 @@ export async function getWelcomeText(brainEngine) {
         return (
           (name ? name + 'さん、' : '') +
           'おかえりなさい！' +
-          brainEngine.mem.data.visits +
+          brainEngine.memoryEngine.data.visits +
           '回目の訪問ですね！💬 を押して続きをお話ししましょう。'
         );
       }
@@ -872,14 +871,14 @@ export async function getWelcomeText(brainEngine) {
         return (
           (name ? name + '님, ' : '') +
           '다시 오신 것을 환영해요! 벌써 ' +
-          brainEngine.mem.data.visits +
+          brainEngine.memoryEngine.data.visits +
           '번째 만남이네요! 💬를 눌러 대화를 이어가요.'
         );
       }
       return (
         (name ? name + '，' : '') +
         '歡迎回來～這是我們第 ' +
-        brainEngine.mem.data.visits +
+        brainEngine.memoryEngine.data.visits +
         ' 次見面！點 💬 繼續聊，我記得我們聊過什麼喔'
       );
     }
@@ -1410,7 +1409,7 @@ export async function initBrainEngine(setting = {}) {
   } = setting;
 
   let llm = null;
-  let mem = null;
+  let memoryEngine = null;
   let aiProvider = null;
 
   const safeKnowledge =
@@ -1553,18 +1552,15 @@ export async function initBrainEngine(setting = {}) {
     get llm() {
       return llm;
     },
-    get mem() {
-      return mem;
-    },
     get memoryEngine() {
-      return mem;
+      return memoryEngine;
     },
     get enableMemory() {
-      return mem?.enabled ?? DEFAULT_ENABLE_MEMORY;
+      return memoryEngine?.enabled ?? DEFAULT_ENABLE_MEMORY;
     },
     set enableMemory(enabled) {
-      if (typeof enabled === 'boolean' && mem !== null) {
-        mem.enabled = enabled;
+      if (typeof enabled === 'boolean' && memoryEngine !== null) {
+        memoryEngine.enabled = enabled;
       }
     },
     get aiProvider() {
@@ -1670,7 +1666,7 @@ export async function initBrainEngine(setting = {}) {
     },
     brainEngine
   );
-  mem = initMemoryEngine({
+  memoryEngine = initMemoryEngine({
     avatarMode: brainEngine.avatarMode,
     enableMemory:
       typeof enableMemory === 'boolean' ? enableMemory : DEFAULT_ENABLE_MEMORY,
@@ -1749,7 +1745,7 @@ export function bestOf(knowledgeList = [], question) {
  */
 export function brainEngineCompanionFallback(brainEngine, question) {
   const locale = brainEngine?.locale || 'zh-TW';
-  const name = brainEngine?.mem?.data?.name || '';
+  const name = brainEngine?.memoryEngine?.data?.name || '';
   const templateContext = { question, name, locale };
 
   if (
@@ -1762,7 +1758,9 @@ export function brainEngineCompanionFallback(brainEngine, question) {
       undefined,
       templateContext
     );
-    if (typeof res === 'string') return res;
+    if (typeof res === 'string') {
+      return res;
+    }
   }
 
   let defaultList = [
@@ -2200,7 +2198,7 @@ export async function handleToolCallsLoop(
           }
 
           if (finalText !== '') {
-            brainEngine.mem.addTurn('assistant', finalText);
+            brainEngine.memoryEngine.addTurn('assistant', finalText);
             updateChatMessage(brainEngine, streamMessageId, finalText, false);
             if (typeof brainEngine.onStreamEnd === 'function') {
               brainEngine.onStreamEnd(finalText);
@@ -2341,7 +2339,7 @@ export async function webLLMBrain(brainEngine, question) {
     }
 
     if (typeof chatResponse === 'string' && chatResponse.trim() !== '') {
-      brainEngine.mem.addTurn('assistant', chatResponse.trim());
+      brainEngine.memoryEngine.addTurn('assistant', chatResponse.trim());
       updateChatMessage(
         brainEngine,
         streamMessageId,
@@ -2530,15 +2528,15 @@ export function defaultBuildLLMMessages(brainEngine, question) {
     systemContext = customPromptTemplate;
   } else if (currentAvatarMode === AVATAR_MODE_MAP.companion) {
     let nameStr = '';
-    if (brainEngine?.mem?.data?.name) {
+    if (brainEngine?.memoryEngine?.data?.name) {
       if (/en/i.test(locale)) {
-        nameStr = `, visitor's name is "${brainEngine.mem.data.name}"`;
+        nameStr = `, visitor's name is "${brainEngine.memoryEngine.data.name}"`;
       } else if (/ja/i.test(locale)) {
-        nameStr = `、訪問者の名前は「${brainEngine.mem.data.name}」です`;
+        nameStr = `、訪問者の名前は「${brainEngine.memoryEngine.data.name}」です`;
       } else if (/ko/i.test(locale)) {
-        nameStr = `, 방문자의 이름은 "${brainEngine.mem.data.name}"입니다`;
+        nameStr = `, 방문자의 이름은 "${brainEngine.memoryEngine.data.name}"입니다`;
       } else {
-        nameStr = '，訪客叫「' + brainEngine.mem.data.name + '」，可自然稱呼';
+        nameStr = '，訪客叫「' + brainEngine.memoryEngine.data.name + '」，可自然稱呼';
       }
     }
 
@@ -2603,8 +2601,8 @@ export function defaultBuildLLMMessages(brainEngine, question) {
   }
 
   const messages = [{ role: 'system', content: systemContext }];
-  if (brainEngine?.mem?.enabled === true) {
-    for (const historyItem of brainEngine.mem.data.history) {
+  if (brainEngine?.memoryEngine?.enabled === true) {
+    for (const historyItem of brainEngine.memoryEngine.data.history) {
       messages.push({ role: historyItem.role, content: historyItem.content });
     }
   }
@@ -2657,7 +2655,7 @@ export function sayAnswer(brainEngine, text) {
   if (typeof text !== 'string' || text === '') {
     return;
   }
-  brainEngine.mem.addTurn('assistant', text);
+  brainEngine.memoryEngine.addTurn('assistant', text);
   addChatMessage(brainEngine, 'assistant', text);
   if (typeof brainEngine.onSpokenAudioPlayNow === 'function') {
     brainEngine.onSpokenAudioPlayNow(text);
@@ -2682,7 +2680,13 @@ export function validateBrainEngine(engine) {
     'classifyEmotion',
     'setEmotionFromText'
   ];
-  const requiredProps = ['mem', 'llm', 'aiProvider', 'chatLog', 'chatSeq'];
+  const requiredProps = [
+    'memoryEngine',
+    'llm',
+    'aiProvider',
+    'chatLog',
+    'chatSeq'
+  ];
   const missing = [];
   requiredMethods.forEach((key) => {
     if (typeof engine[key] !== 'function') {
