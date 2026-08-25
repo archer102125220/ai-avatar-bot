@@ -43,6 +43,24 @@
         companionKnowledge: COMPANION_KNOWLEDGE,
         gender: GENDER_MAP.male,
         enableMemory: true, // 預設全面啟用多輪對話記憶（可在這設為 false 關閉）
+        // 上下文壓縮與記憶預算控制 (Compression Options)
+        // compression: {
+        //   strategy: 'sliding-window', // 'sliding-window' | 'rolling-summary' | 'none'
+        //   maxTurns: 6,                // 全域預設保留輪數 (1 輪 = 1 問 + 1 答)
+        //   maxTotalChars: 4000,        // 全域字元預算上限
+        //   webLlm: {                   // 針對前端 WebLLM 端側模型個別覆寫 (節省顯存)
+        //     maxTurns: 3,
+        //     maxTotalChars: 1500
+        //   },
+        //   aiProvider: {               // 針對遠端 AI Provider 個別覆寫
+        //     maxTurns: 8,
+        //     maxTotalChars: 6000
+        //   },
+        //   // 自訂壓縮器 Hook (可自訂演算法或非同步摘要)
+        //   // customCompressor: async ({ messages, systemPrompt, history, latestQuestion, limits }) => {
+        //   //   return messages;
+        //   // }
+        // },
         // avatarMode: AVATAR_MODE_MAP.companion,
         // avatarMode: AVATAR_MODE_MAP.assistant,
         // modes: {

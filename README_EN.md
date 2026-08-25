@@ -34,22 +34,47 @@ This package will be released in multiple versions to meet different developer n
 ## 🚀 Quick Start
 
 ```javascript
-import { aiAvatarWidget } from './vanilla-js/core/index.js';
+import { initAvatarBot } from './vanilla-js/core/index.js';
 
 // Initialize and mount Widget
-aiAvatarWidget.init({
+const aiAvatarWidget = await initAvatarBot({
   container: document.getElementById('avatar-container'), // Uses built-in uiEngine by default
   avatarMode: 'assistant', // or 'companion'
-  llmModel: 'llama3', 
-  greeting: 'Hello! I am your AI assistant.'
+  llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC', 
+  greeting: 'Hello! I am your AI assistant.',
+
+  // Context Compression & Memory Budget Controls
+  compression: {
+    strategy: 'sliding-window', // 'sliding-window' | 'rolling-summary' | 'none'
+    maxTurns: 6,                // Global default turns (1 turn = 1 user + 1 assistant)
+    maxTotalChars: 4000,        // Global character budget limit
+    webLlm: {                   // Client-side WebLLM override (VRAM saving)
+      maxTurns: 3,
+      maxTotalChars: 1500
+    },
+    aiProvider: {               // Remote AI server override
+      maxTurns: 8,
+      maxTotalChars: 6000
+    }
+  }
 });
 ```
+
+## 🧠 Context Compression & Memory Management
+
+An intelligent context management pipeline designed specifically for Web AI Avatars, preventing context overflow and WebGPU VRAM Out-of-Memory (OOM):
+
+*   **Two-tier Non-destructive Storage**: The memory tier (`memoryEngine`) preserves the user's authentic history in full (no destructive hard slicing); the transport tier dynamically budgets characters and turns from newest to oldest.
+*   **Cascading Dual-Track Budget**: Automatically differentiates between lightweight client-side WebLLM and high-capacity remote AI providers.
+*   **Safe Tool Call Pruning**: Automatically validates and purges orphan `role: 'tool'` messages to guarantee strict Function Calling schema compliance.
+*   **Custom Compressor Hook**: Allows developers to supply custom synchronous or asynchronous `customCompressor(context)` functions with built-in fail-safe automatic fallback.
+*   **Rolling Summary Strategy**: Generates non-blocking background summaries when conversation turns reach a threshold, dynamically injecting them into the System Prompt.
 
 ## 🧩 Architecture & Customization
 
 > 🚧 **API Documentation in Progress**
 > 
-> The advanced architectural operations (including custom APIs for `brainEngine`, `speechEngine`, `uiEngine`, and `toolsManager`, Headless mode, and event listening mechanisms) are currently being refactored and polished.
+> The advanced architectural operations (including custom APIs for `brainEngine`, `speechEngine`, `uiEngine`, and `toolsEngine`, Headless mode, and event listening mechanisms) are currently being refactored and polished.
 > 
 > To provide the most accurate reference, detailed API documentation, property descriptions, and plugin development examples will be provided here once the underlying architecture is stable and officially released. Stay tuned!
 

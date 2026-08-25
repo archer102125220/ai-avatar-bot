@@ -33,22 +33,47 @@
 ## 🚀 快速開始 (Quick Start)
 
 ```javascript
-import { aiAvatarWidget } from './vanilla-js/core/index.js';
+import { initAvatarBot } from './vanilla-js/core/index.js';
 
 // 初始化並掛載 Widget
-aiAvatarWidget.init({
+const aiAvatarWidget = await initAvatarBot({
   container: document.getElementById('avatar-container'), // 預設使用內建 uiEngine 渲染介面
   avatarMode: 'assistant', // 或 'companion'
-  llmModel: 'llama3', 
-  greeting: '你好！我是你的 AI 助理。'
+  llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC', 
+  greeting: '你好！我是你的 AI 助理。',
+
+  // 上下文壓縮與記憶預算控制
+  compression: {
+    strategy: 'sliding-window', // 'sliding-window' | 'rolling-summary' | 'none'
+    maxTurns: 6,                // 全域預設保留輪數 (1 輪 = 1 問 + 1 答)
+    maxTotalChars: 4000,        // 全域字元預算上限
+    webLlm: {                   // 針對前端 WebLLM 端側模型個別覆寫 (節省顯存)
+      maxTurns: 3,
+      maxTotalChars: 1500
+    },
+    aiProvider: {               // 針對遠端 AI Provider 個別覆寫
+      maxTurns: 8,
+      maxTotalChars: 6000
+    }
+  }
 });
 ```
+
+## 🧠 上下文壓縮與記憶管理 (Context Compression & Memory)
+
+專為 Web 數位人打造的智能上下文管理管線，防止長對話爆 Token 或導致 WebGPU 顯存溢出 (OOM)：
+
+*   **雙層非破壞性架構**：記憶體層 (`memoryEngine`) 完整保存使用者真實輸入（不再硬切 200 字）；傳輸層依推論引擎動態精算字元預算由新到舊截取完整對話輪次。
+*   **階層式雙軌預算 (Cascading Limits)**：自動區分本機端 WebLLM（輕量省顯存）與遠端 AI Provider 伺服器（高容量）。
+*   **安全成對修剪 (Safe Tool Call Pruning)**：自動校驗並剔除孤立的 `role: 'tool'` 訊息，確保 Function Calling 在任何壓縮邊界下 100% 遵守 API 規範。
+*   **開放自訂壓縮器 (Custom Compressor Hook)**：支援傳入同步或非同步 `customCompressor(context)` 函式，並內建錯誤防禦性降級 (Fail-safe Fallback)。
+*   **滾動摘要策略 (Rolling Summary)**：對話超過門檻時於背景非阻塞生成精煉備忘錄並自動注入 System Prompt，實現長時間陪伴對話不遺忘。
 
 ## 🧩 架構與自訂 (Architecture & Customization)
 
 > 🚧 **API 文件編寫中**
 > 
-> 本專案的進階架構操作（包含 `brainEngine`, `speechEngine`, `uiEngine` 與 `toolsManager` 的客製化 API、Headless 模式以及事件監聽機制）目前正處於重構與打磨階段。
+> 本專案的進階架構操作（包含 `brainEngine`, `speechEngine`, `uiEngine` 與 `toolsEngine` 的客製化 API、Headless 模式以及事件監聽機制）目前正處於重構與打磨階段。
 > 
 > 為了提供最精準的參考，詳細的 API 文件、屬性說明與外掛開發範例，將於架構底層穩定並正式釋出後，在此處完整補充說明。敬請期待！
 
