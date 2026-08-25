@@ -17,7 +17,9 @@ import {
   DEFAULT_GENDER,
   DEFAULT_TTS_ENDPOINT,
   DEFAULT_FEMALE_NEURAL_VOICE,
-  DEFAULT_MALE_NEURAL_VOICE
+  DEFAULT_MALE_NEURAL_VOICE,
+  BRAIN_ENGINE_TYPE_MAP,
+  BRAIN_FALLBACK_TYPE_MAP
 } from './constants';
 
 import {
@@ -75,6 +77,8 @@ export * from './plugins';
  * @property {string} [modelUrl] - 3D 或 2D 模型的 URL
  * @property {string} [ttsEndpoint=DEFAULT_TTS_ENDPOINT] - 語音合成 (TTS) 服務端點 URL (沒設會試同站相對路徑)
  * @property {string} [llmModel=DEFAULT_LLM_MODEL] - 預設的本地/遠端語言模型 (LLM) 類型
+ * @property {boolean} [preloadWebLLM=false] - 是否在初始化時預先載入 WebLLM 模型
+ * @property {boolean} [autoFallbackWebLLM=true] - 當 AI Provider 故障時是否自動在背景載入 WebLLM 備援
  * @property {AvatarMode} [avatarMode=DEFAULT_AVATAR_MODE] - Avatar 模式（例如：assistant, companion 或自訂模式）
  * @property {boolean} [enableMemory=DEFAULT_ENABLE_MEMORY] - 是否啟用記憶體模組（多輪對話與上下文歷史）
  * @property {number} [maxHistoryTurns=DEFAULT_MAX_HISTORY_TURNS] - 保留最大歷史對話輪數
@@ -136,6 +140,7 @@ export * from './plugins';
  * @property {Function} [onLanguageChanged] - 介面語言變更時的回呼函式
  * @property {Function} [onSpeaking] - 開始播放語音時的回呼函式
  * @property {Function} [onSpeakingEnd] - 語音播放結束時的回呼函式
+ * @property {Function} [onBrainFallback] - 大腦引擎降級時觸發的回呼函式 (fromEngine, toEngine, error)
  * @property {Function} [onToolCall] - 觸發外部工具 (Tool Call) 時的回呼函式
  * @property {Function} [onSetHistoryOpen] - 開關歷史紀錄面板時的回呼函式
  * @property {Function} [onRenderHistory] - 歷史紀錄渲染更新時的回呼函式
@@ -159,6 +164,8 @@ export * from './plugins';
  * @property {Array<string>} availableModes - 目前可用角色模式清單
  * @property {boolean} enableMemory - 目前是否啟用記憶體
  * @property {boolean} enableAiProvider - 目前是否啟用 AI 服務提供商
+ * @property {boolean} preloadWebLLM - 是否預先載入 WebLLM 模型
+ * @property {boolean} autoFallbackWebLLM - 是否自動在背景載入 WebLLM 備援
  * @property {HTMLElement} container - 綁定 Widget 的 HTML 容器元素
  * @property {any} uiDom - UI 相關的 DOM 元素與控制方法
  * @property {any} i18nEngine - i18n 多語系引擎實例
@@ -218,6 +225,8 @@ export async function initAvatarBot(options = {}) {
     modelUrl,
     ttsEndpoint = DEFAULT_TTS_ENDPOINT, // 沒設→試同站相對路徑；抓不到→自動退回瀏覽器語音（純前端可用）
     llmModel = DEFAULT_LLM_MODEL,
+    preloadWebLLM = false,
+    autoFallbackWebLLM = true,
     avatarMode = DEFAULT_AVATAR_MODE,
     enableMemory = DEFAULT_ENABLE_MEMORY,
     maxHistoryTurns = DEFAULT_MAX_HISTORY_TURNS,
@@ -333,6 +342,9 @@ export async function initAvatarBot(options = {}) {
       typeof enableAiProvider === 'boolean'
         ? enableAiProvider
         : typeof aiProviderBaseUrl === 'string' && aiProviderBaseUrl !== '',
+    preloadWebLLM: typeof preloadWebLLM === 'boolean' ? preloadWebLLM : false,
+    autoFallbackWebLLM:
+      typeof autoFallbackWebLLM === 'boolean' ? autoFallbackWebLLM : true,
     modes: typeof modes === 'object' && modes !== null ? modes : {},
     locale: i18nEngine?.locale || locale || 'zh-TW'
   });
@@ -359,6 +371,12 @@ export async function initAvatarBot(options = {}) {
     },
     get FIT_MODE_MAP() {
       return FIT_MODE_MAP;
+    },
+    get BRAIN_ENGINE_TYPE_MAP() {
+      return BRAIN_ENGINE_TYPE_MAP;
+    },
+    get BRAIN_FALLBACK_TYPE_MAP() {
+      return BRAIN_FALLBACK_TYPE_MAP;
     },
 
     get container() {
@@ -538,6 +556,38 @@ export async function initAvatarBot(options = {}) {
       }
     },
 
+    get preloadWebLLM() {
+      return (
+        brainEngine?.preloadWebLLM ??
+        rootStore.getState().preloadWebLLM ??
+        false
+      );
+    },
+    set preloadWebLLM(val) {
+      if (typeof val === 'boolean') {
+        rootStore.setState({ preloadWebLLM: val });
+        if (brainEngine !== null && typeof brainEngine === 'object') {
+          brainEngine.preloadWebLLM = val;
+        }
+      }
+    },
+
+    get autoFallbackWebLLM() {
+      return (
+        brainEngine?.autoFallbackWebLLM ??
+        rootStore.getState().autoFallbackWebLLM ??
+        true
+      );
+    },
+    set autoFallbackWebLLM(val) {
+      if (typeof val === 'boolean') {
+        rootStore.setState({ autoFallbackWebLLM: val });
+        if (brainEngine !== null && typeof brainEngine === 'object') {
+          brainEngine.autoFallbackWebLLM = val;
+        }
+      }
+    },
+
     get brainEngine() {
       return brainEngine;
     },
@@ -583,6 +633,24 @@ export async function initAvatarBot(options = {}) {
       aiAvatarWidget.brainEngine !== null
     ) {
       aiAvatarWidget.brainEngine.enableAiProvider = newEnableAiProvider;
+    }
+  });
+
+  rootStore.subscribe('preloadWebLLM', (newPreloadWebLLM) => {
+    if (
+      typeof aiAvatarWidget.brainEngine === 'object' &&
+      aiAvatarWidget.brainEngine !== null
+    ) {
+      aiAvatarWidget.brainEngine.preloadWebLLM = newPreloadWebLLM;
+    }
+  });
+
+  rootStore.subscribe('autoFallbackWebLLM', (newAutoFallbackWebLLM) => {
+    if (
+      typeof aiAvatarWidget.brainEngine === 'object' &&
+      aiAvatarWidget.brainEngine !== null
+    ) {
+      aiAvatarWidget.brainEngine.autoFallbackWebLLM = newAutoFallbackWebLLM;
     }
   });
 
@@ -890,9 +958,21 @@ export async function initAvatarBot(options = {}) {
 
   const brainOptions = {
     llmModel,
+    preloadWebLLM: rootStore.getState().preloadWebLLM,
+    autoFallbackWebLLM: rootStore.getState().autoFallbackWebLLM,
     avatarMode: rootStore.getState().avatarMode,
     enableMemory: rootStore.getState().enableMemory,
     enableAiProvider: rootStore.getState().enableAiProvider,
+    onBrainFallback:
+      options.onBrainFallback ||
+      ((fromEngine, toEngine, error) =>
+        callOptionEvent.call(
+          aiAvatarWidget,
+          'onBrainFallback',
+          fromEngine,
+          toEngine,
+          error
+        )),
     maxHistoryTurns,
     memoryKey,
     memoryAdapter,

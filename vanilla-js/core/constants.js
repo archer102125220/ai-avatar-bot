@@ -293,6 +293,27 @@ export const CHAT_SOURCE_MAP = {
 };
 
 /**
+ * 大腦推論與降級引擎類型映射表。
+ * @readonly
+ * @enum {string}
+ */
+export const BRAIN_ENGINE_TYPE_MAP = {
+  /** 遠端 AI 伺服器提供者 (例如 Ollama, vLLM, OpenAI 相容 API) */
+  AI_PROVIDER: 'aiProvider',
+  /** 瀏覽器端 WebLLM 引擎 (WebGPU 本地推論) */
+  WEB_LLM: 'webLLM',
+  /** 本地知識庫檢索式回答 (Bigram 關鍵字比對後備) */
+  RETRIEVAL: 'retrieval'
+};
+
+/**
+ * 大腦降級引擎類型映射表（別名）。
+ * @readonly
+ * @enum {string}
+ */
+export const BRAIN_FALLBACK_TYPE_MAP = BRAIN_ENGINE_TYPE_MAP;
+
+/**
  * 檢查指定的 WebLLM 模型是否支援原生 Function Calling (tools)。
  * WebLLM 目前官方主要針對 Hermes 系列模型提供 Function Calling 支援。
  * @param {string} model - 模型名稱

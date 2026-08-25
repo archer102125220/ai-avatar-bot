@@ -12,6 +12,8 @@ import {
   CHAT_ROLE_MAP,
   CHAT_SOURCE_MAP,
   TOOL_RESULT_MODE_MAP,
+  BRAIN_ENGINE_TYPE_MAP,
+  BRAIN_FALLBACK_TYPE_MAP,
   isWebLLMFunctionCallingSupported
 } from './constants';
 import { toOpenAiTools } from './tools';
@@ -137,6 +139,8 @@ import { toOpenAiTools } from './tools';
  * @property {Object} [memoryAdapter] - 自訂儲存轉接器實例
  * @property {Record<string, Object>} [modes] - 宣告式自訂模式註冊表
  * @property {string} [llmModel] - LLM 模型名稱
+ * @property {boolean} [preloadWebLLM=false] - 是否在初始化時預先載入 WebLLM 模型
+ * @property {boolean} [autoFallbackWebLLM=true] - 當 AI Provider 故障時是否自動在背景載入 WebLLM 備援
  * @property {Array} [knowledge] - 網站知識庫
  * @property {string} [knowledgeUrl] - 網站知識庫 URL
  * @property {Array} [companionKnowledge] - 陪伴模式知識庫
@@ -194,6 +198,7 @@ import { toOpenAiTools } from './tools';
  * @property {string} [gender] - 虛擬人角色性別 ('male'|'female')
  * @property {string|Function} [genderRule] - 針對性別的額外提示詞規則
  * @property {Function} [buildLLMMessages] - 建立 LLM 訊息回呼
+ * @property {Function} [onBrainFallback] - 當大腦引擎降級時觸發的回呼函式 (fromEngine, toEngine, error)
  */
 
 /**
@@ -209,6 +214,9 @@ import { toOpenAiTools } from './tools';
  * @property {Array<string>} availableModes - 可用角色模式清單
  * @property {boolean} enableMemory - 是否啟用記憶體
  * @property {boolean} enableAiProvider - 是否啟用 AI 供應商
+ * @property {boolean} preloadWebLLM - 是否預先載入 WebLLM 模型
+ * @property {boolean} autoFallbackWebLLM - 當 AI Provider 故障時是否自動在背景載入 WebLLM 備援
+ * @property {Function|null} onBrainFallback - 當大腦引擎降級時觸發的回呼函式
  * @property {string} knowledgeUrl - 知識庫 URL
  * @property {Array<KnowledgeEntry>} knowledge - 知識庫陣列
  * @property {string} companionKnowledgeUrl - 陪伴模式知識庫 URL
@@ -1369,6 +1377,8 @@ export function classifyEmotion(text) {
 export async function initBrainEngine(setting = {}) {
   const {
     llmModel,
+    preloadWebLLM = false,
+    autoFallbackWebLLM = true,
     knowledge = [],
     knowledgeUrl,
     companionKnowledge = [],
@@ -1434,7 +1444,8 @@ export async function initBrainEngine(setting = {}) {
     customContext,
     languageRule,
     gender,
-    genderRule
+    genderRule,
+    onBrainFallback = null
   } = setting;
 
   let llm = null;
@@ -1469,6 +1480,12 @@ export async function initBrainEngine(setting = {}) {
     },
     get DEFAULT_AI_PROVIDER_MODEL() {
       return DEFAULT_AI_PROVIDER_MODEL;
+    },
+    get BRAIN_ENGINE_TYPE_MAP() {
+      return BRAIN_ENGINE_TYPE_MAP;
+    },
+    get BRAIN_FALLBACK_TYPE_MAP() {
+      return BRAIN_FALLBACK_TYPE_MAP;
     },
 
     get knowledgeUrl() {
@@ -1605,6 +1622,12 @@ export async function initBrainEngine(setting = {}) {
         aiProvider.enabled = enabled;
       }
     },
+    preloadWebLLM:
+      typeof preloadWebLLM === 'boolean' ? preloadWebLLM : false,
+    autoFallbackWebLLM:
+      typeof autoFallbackWebLLM === 'boolean' ? autoFallbackWebLLM : true,
+    onBrainFallback:
+      typeof onBrainFallback === 'function' ? onBrainFallback : null,
     get aiProvider() {
       return aiProvider;
     },
@@ -1745,6 +1768,15 @@ export async function initBrainEngine(setting = {}) {
       return brainEngine.onAiProviderStreamChatting?.(...arg);
     }
   });
+
+  if (
+    brainEngine.preloadWebLLM === true &&
+    brainEngine.llm?.supported === true
+  ) {
+    brainEngine.llm.load().catch((error) => {
+      console.warn('[initBrainEngine] Preload WebLLM failed:', error);
+    });
+  }
 
   return brainEngine;
 }
@@ -2125,7 +2157,7 @@ export async function handleToolCallsLoop(
           }
         ];
 
-        if (providerType === 'aiProvider') {
+        if (providerType === BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER) {
           const secondResponse = await brainEngine.aiProvider.chat(
             updatedMessages,
             null,
@@ -2309,7 +2341,7 @@ export async function aiProviderLLMBrain(brainEngine, question) {
         brainEngine,
         chatResponse,
         messages,
-        'aiProvider'
+        BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER
       );
     }
 
@@ -2377,7 +2409,7 @@ export async function webLLMBrain(brainEngine, question) {
         brainEngine,
         chatResponse,
         messages,
-        'webLLM'
+        BRAIN_ENGINE_TYPE_MAP.WEB_LLM
       );
     }
 
@@ -2670,6 +2702,32 @@ export async function handleAnswer(brainEngine, question) {
     }
     return;
   }
+
+  function notifyFallback(fromEngine, toEngine, error) {
+    if (typeof brainEngine.onBrainFallback === 'function') {
+      try {
+        brainEngine.onBrainFallback(fromEngine, toEngine, error);
+      } catch (e) {
+        console.error('[handleAnswer] onBrainFallback error:', e);
+      }
+    }
+  }
+
+  function triggerBackgroundWebLLMLoad() {
+    if (
+      brainEngine.autoFallbackWebLLM === true &&
+      brainEngine.llm?.supported === true &&
+      brainEngine.llm?.state === brainEngine.STATE_MAP.IDLE
+    ) {
+      brainEngine.llm.load().catch((err) => {
+        console.warn(
+          '[handleAnswer] Background WebLLM fallback loading failed:',
+          err
+        );
+      });
+    }
+  }
+
   // 1) AI 伺服器大腦（最聰明，優先；整段生成後逐句講）
   if (
     brainEngine.aiProvider?.enabled === true &&
@@ -2682,7 +2740,18 @@ export async function handleAnswer(brainEngine, question) {
         '[handleAnswer] AI Provider 呼叫失敗，嘗試降級至 WebLLM 或檢索式後備：',
         error
       );
+      triggerBackgroundWebLLMLoad();
+      const targetFallback =
+        brainEngine.llm?.state === brainEngine.STATE_MAP.READY
+          ? BRAIN_ENGINE_TYPE_MAP.WEB_LLM
+          : BRAIN_ENGINE_TYPE_MAP.RETRIEVAL;
+      notifyFallback(BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER, targetFallback, error);
     }
+  } else if (
+    brainEngine.aiProvider?.enabled === true &&
+    brainEngine.aiProvider.ready === false
+  ) {
+    triggerBackgroundWebLLMLoad();
   }
 
   // 2) 瀏覽器內 WebLLM：串流 → 每切出一個完整句就丟進逐句佇列開講（首句延遲大幅縮短）
@@ -2692,6 +2761,11 @@ export async function handleAnswer(brainEngine, question) {
     } catch (error) {
       console.warn(
         '[handleAnswer] WebLLM 呼叫失敗，嘗試降級至檢索式後備：',
+        error
+      );
+      notifyFallback(
+        BRAIN_ENGINE_TYPE_MAP.WEB_LLM,
+        BRAIN_ENGINE_TYPE_MAP.RETRIEVAL,
         error
       );
     }
