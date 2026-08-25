@@ -1822,12 +1822,15 @@ export function handleThinking(brainEngine, rawQuestion) {
   const locale = brainEngine?.locale || 'zh-TW';
   const question = (rawQuestion || '').trim();
   if (question === '') {
-    if (/en/i.test(locale))
+    if (/en/i.test(locale)) {
       return "I didn't hear that clearly, could you say it again?";
-    if (/ja/i.test(locale))
+    }
+    if (/ja/i.test(locale)) {
       return 'うまく聞き取れませんでした。もう一度言っていただけますか？';
-    if (/ko/i.test(locale))
+    }
+    if (/ko/i.test(locale)) {
       return '잘 듣지 못했어요. 다시 한 번 말씀해 주시겠어요?';
+    }
     return '我好像沒聽清楚，可以再說一次嗎？';
   }
   const currentAvatarMode = brainEngine?.avatarMode;
@@ -1894,7 +1897,9 @@ export function handleThinking(brainEngine, rawQuestion) {
       undefined,
       { question, locale }
     );
-    if (typeof res === 'string') return res;
+    if (typeof res === 'string') {
+      return res;
+    }
   }
 
   if (/en/i.test(locale)) {
