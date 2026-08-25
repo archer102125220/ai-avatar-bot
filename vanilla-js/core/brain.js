@@ -1012,7 +1012,16 @@ export async function initAiProvider(setting = {}) {
     },
 
     model: providerModel || DEFAULT_AI_PROVIDER_MODEL,
-    enabled: typeof providerBaseUrl === 'string' && providerBaseUrl !== '',
+    _enabled: false,
+    get enabled() {
+      return (
+        this._enabled ||
+        (typeof providerBaseUrl === 'string' && providerBaseUrl !== '')
+      );
+    },
+    set enabled(value) {
+      this._enabled = value;
+    },
     ready: false,
     async ping(fetchSetting = null) {
       if (this.enabled === false) {
@@ -2536,7 +2545,8 @@ export function defaultBuildLLMMessages(brainEngine, question) {
       } else if (/ko/i.test(locale)) {
         nameStr = `, 방문자의 이름은 "${brainEngine.memoryEngine.data.name}"입니다`;
       } else {
-        nameStr = '，訪客叫「' + brainEngine.memoryEngine.data.name + '」，可自然稱呼';
+        nameStr =
+          '，訪客叫「' + brainEngine.memoryEngine.data.name + '」，可自然稱呼';
       }
     }
 
