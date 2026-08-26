@@ -3,6 +3,8 @@
 [![npm version](https://img.shields.io/npm/v/ai-avatar-bot-vanilla-js.svg)](https://www.npmjs.com/package/ai-avatar-bot-vanilla-js)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+繁體中文 | [English](./README_EN.md)
+
 > 輕量、模組化、零框架依賴的網頁端 AI 虛擬數位人（2D Live2D / 3D VRM）互動 SDK。
 
 `ai-avatar-bot-vanilla-js` 專為在現代網頁中快速嵌入具備**語音互動（STT/TTS）**、**AI 大腦推論（雲端 AI / 本地 WebGPU WebLLM）**、**長對話記憶與上下文壓縮**、**外部工具調用（Function Calling）**以及**生動表情動作**的 2D/3D 虛擬數位人而設計。
