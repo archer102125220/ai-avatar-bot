@@ -19,7 +19,8 @@ import {
   DEFAULT_FEMALE_NEURAL_VOICE,
   DEFAULT_MALE_NEURAL_VOICE,
   BRAIN_ENGINE_TYPE_MAP,
-  BRAIN_FALLBACK_TYPE_MAP
+  BRAIN_FALLBACK_TYPE_MAP,
+  DEFAULT_ENABLE_MODEL_DROP
 } from './constants';
 
 import {
@@ -90,6 +91,8 @@ export * from './plugins';
  * @property {string} [startMode] - 初始啟動的模型模式 (2D 或 3D)
  * @property {string} [fitMode] - 模型適應容器的模式 (Fit Mode)
  * @property {string} [vrmUrl] - VRM 3D 模型檔案的 URL
+ * @property {boolean} [enableModelDrop=DEFAULT_ENABLE_MODEL_DROP] - 是否允許使用者拖曳 VRM 模型檔案至畫布即時換裝（預設 false 關閉）
+ * @property {boolean} [allowModelDrop] - 是否允許使用者拖曳 VRM 模型檔案至畫布即時換裝（enableModelDrop 的別名）
  * @property {Record<string, any>} [gesture3D] - 3D 模型使用的姿態/手勢設定資料
  * @property {Record<string, any>} [gesture2D] - 2D 模型使用的姿態資料
  * @property {boolean} [isMinimal=false] - 是否以極簡模式 (Minimal UI) 啟動
@@ -240,6 +243,8 @@ export async function initAvatarBot(options = {}) {
     startMode,
     fitMode,
     vrmUrl,
+    enableModelDrop = DEFAULT_ENABLE_MODEL_DROP,
+    allowModelDrop,
     gesture3D,
     gesture2D,
     isMinimal = false,
@@ -324,6 +329,13 @@ export async function initAvatarBot(options = {}) {
     });
   }
 
+  const isModelDropEnabled =
+    typeof allowModelDrop === 'boolean'
+      ? allowModelDrop
+      : typeof enableModelDrop === 'boolean'
+        ? enableModelDrop
+        : DEFAULT_ENABLE_MODEL_DROP;
+
   const rootStore = createBaseStore({
     gender: safeGender,
     brainGender:
@@ -349,7 +361,8 @@ export async function initAvatarBot(options = {}) {
     autoFallbackWebLLM:
       typeof autoFallbackWebLLM === 'boolean' ? autoFallbackWebLLM : true,
     modes: typeof modes === 'object' && modes !== null ? modes : {},
-    locale: i18nEngine?.locale || locale || 'zh-TW'
+    locale: i18nEngine?.locale || locale || 'zh-TW',
+    enableModelDrop: isModelDropEnabled
   });
 
   const aiAvatarWidget = {
@@ -587,6 +600,21 @@ export async function initAvatarBot(options = {}) {
         rootStore.setState({ autoFallbackWebLLM: val });
         if (brainEngine !== null && typeof brainEngine === 'object') {
           brainEngine.autoFallbackWebLLM = val;
+        }
+      }
+    },
+
+    get enableModelDrop() {
+      return (
+        rootStore.getState().enableModelDrop ??
+        DEFAULT_ENABLE_MODEL_DROP
+      );
+    },
+    set enableModelDrop(val) {
+      if (typeof val === 'boolean') {
+        rootStore.setState({ enableModelDrop: val });
+        if (typeof updateModelDropListeners === 'function') {
+          updateModelDropListeners(val);
         }
       }
     },
@@ -1630,18 +1658,33 @@ export async function initAvatarBot(options = {}) {
   }
   aiAvatarWidget.speechEngine.setMic(false); // 依模式套按鈕字樣（🎤 說話 / 💬 對話）
 
-  ['dragenter', 'dragover'].forEach((eventName) =>
-    container.addEventListener(eventName, (event) => {
-      event.preventDefault();
-    })
-  );
-  container.addEventListener('drop', (event) => {
+  function handleDragPrevent(event) {
+    event.preventDefault();
+  }
+
+  function handleModelDrop(event) {
     event.preventDefault();
     const file = event?.dataTransfer?.files?.[0];
     if (file instanceof window.File) {
       skinEngine.loadVRMFile(file);
     }
-  });
+  }
+
+  function updateModelDropListeners(enabled) {
+    if (enabled === true) {
+      container.addEventListener('dragenter', handleDragPrevent);
+      container.addEventListener('dragover', handleDragPrevent);
+      container.addEventListener('drop', handleModelDrop);
+    } else {
+      container.removeEventListener('dragenter', handleDragPrevent);
+      container.removeEventListener('dragover', handleDragPrevent);
+      container.removeEventListener('drop', handleModelDrop);
+    }
+  }
+
+  if (isModelDropEnabled === true) {
+    updateModelDropListeners(true);
+  }
 
   if (aiAvatarWidget.isIframe === true) {
     aiAvatarWidget.onMinimalTrigger(isMinimal, aiAvatarWidget);

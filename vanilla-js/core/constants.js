@@ -214,6 +214,12 @@ export const DEFAULT_MALE_MODEL_URL =
   '/avatar-skin/2d-model/male/natori_pro_t06.model3.json';
 
 /**
+ * 預設是否允許使用者拖曳 3D 模型檔案 (.vrm) 至畫布進行即時換裝（預設關閉以符合正式上線產品需求）。
+ * @type {boolean}
+ */
+export const DEFAULT_ENABLE_MODEL_DROP = false;
+
+/**
  * 預設語音合成 (TTS) API 終端節點。
  * @type {string}
  */
