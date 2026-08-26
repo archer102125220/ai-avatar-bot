@@ -84,7 +84,7 @@ export default {
   'prompt.gender.male':
     'You are male. Please use masculine phrasing and maintain a confident, calm tone.',
   'prompt.fallback.assistant':
-    'You asked about "{question}", right? My knowledge base does not cover this yet. You can ask me questions like "How to install?", "How to change avatar?", or "How to use mic?".',
+    'You asked about "{question}", right? My knowledge base does not cover this yet. You can ask me questions like "What is this?", "How to install to project?", "Supports 3D & custom models?", or "How does the AI Brain work?".',
   'prompt.fallback.companion': [
     '{name}I am still learning to chat about this, but I would love to hear more from you!',
     'Mhm, I am listening. What happened next?',
@@ -97,7 +97,7 @@ export default {
   'greeting.companion':
     '{name}feel free to chat about anything, click 💬 to start!',
   'greeting.assistant':
-    'Hello! I am an embeddable voice AI avatar. Feel free to ask how to install or customize me!',
+    'Hello! I am the ai-avatar-bot-vanilla-js avatar. Feel free to ask how to install, switch 3D, or use tools!',
   'welcome.assistant':
     'Hello! I am your AI assistant. How can I help you today?',
   'welcome.companion':
@@ -110,13 +110,15 @@ export default {
     'How is your day?',
     'Chat with me',
     'Tell a joke',
-    'Will you remember me?'
+    'Will you remember me?',
+    'Praise me'
   ],
   'suggestions.items.assistant': [
-    'How to install?',
-    'How to change character?',
-    'Is it free?',
-    'How to use mic?',
-    'What can I say?'
+    'What is this?',
+    'How to install to project?',
+    'Supports 3D & custom models?',
+    'How does the AI Brain work?',
+    'How to use Function Calling?',
+    'Does it require a backend?'
   ]
 };

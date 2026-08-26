@@ -747,36 +747,40 @@ export function renderSuggestions(context = null) {
   const templateContext = { locale, avatarMode: context?.avatarMode };
 
   let defaultSuggestions = [
-    '怎麼安裝？',
-    '怎麼換成我的角色？',
-    '要不要錢？',
-    '麥克風怎麼用？',
-    '我可以說什麼？'
+    '這是什麼？',
+    '怎麼安裝到專案？',
+    '支援 3D 與換角色嗎？',
+    'AI 大腦是如何運作的？',
+    '怎麼使用工具調用？',
+    '需要架後端嗎？'
   ];
 
   if (/en/i.test(locale)) {
     defaultSuggestions = [
-      'How to install?',
-      'How to change character?',
-      'Is it free?',
-      'How to use mic?',
-      'What can I say?'
+      'What is this?',
+      'How to install to project?',
+      'Supports 3D & custom models?',
+      'How does the AI Brain work?',
+      'How to use Function Calling?',
+      'Does it require a backend?'
     ];
   } else if (/ja/i.test(locale)) {
     defaultSuggestions = [
-      'どうやって設置する？',
-      'アバターの変更方法は？',
-      '料金はかかる？',
-      'マイクの使い方は？',
-      '何を聞ける？'
+      'これは何ですか？',
+      'プロジェクトへの導入方法は？',
+      '3D対応やアバター変更は？',
+      'AIブレインの仕組みは？',
+      'ツール呼び出しの使い方は？',
+      'バックエンドは必要？'
     ];
   } else if (/ko/i.test(locale)) {
     defaultSuggestions = [
-      '어떻게 설치하나요?',
-      '캐릭터를 바꾸려면?',
-      '무료인가요?',
-      '마이크는 어떻게 쓰나요?',
-      '무엇을 물어볼 수 있나요?'
+      '이것은 무엇인가요?',
+      '프로젝트에 어떻게 설치하나요?',
+      '3D 지원 및 캐릭터 변경은?',
+      'AI 브레인은 어떻게 작동하나요?',
+      '도구 호출은 어떻게 쓰나요?',
+      '백엔드가 필요한가요?'
     ];
   }
 
@@ -784,28 +788,32 @@ export function renderSuggestions(context = null) {
     '今天過得好嗎？',
     '跟我聊聊天',
     '說個笑話',
-    '你會記得我嗎？'
+    '你會記得我嗎？',
+    '誇誇我'
   ];
   if (/en/i.test(locale)) {
     defaultCompanionSuggestions = [
       'How is your day?',
       'Chat with me',
       'Tell a joke',
-      'Will you remember me?'
+      'Will you remember me?',
+      'Praise me'
     ];
   } else if (/ja/i.test(locale)) {
     defaultCompanionSuggestions = [
       '今日の調子はどう？',
       'お話ししよう',
       '面白い話をして',
-      '私のこと覚えてる？'
+      '私のこと覚えてる？',
+      '褒めて'
     ];
   } else if (/ko/i.test(locale)) {
     defaultCompanionSuggestions = [
       '오늘 기분 어때?',
       '나랑 이야기하자',
       '재미있는 이야기 해줘',
-      '나 기억해?'
+      '나 기억해?',
+      '칭찬해줘'
     ];
   }
 

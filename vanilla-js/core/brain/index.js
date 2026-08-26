@@ -1,5 +1,9 @@
 import { createBaseStore } from '../store.js';
-import { resolveLocalized, defaultLocales, formatParams } from '../i18n/index.js';
+import {
+  resolveLocalized,
+  defaultLocales,
+  formatParams
+} from '../i18n/index.js';
 import {
   STATE_MAP,
   AVATAR_MODE_MAP,
@@ -569,7 +573,6 @@ export function initLLM(setting = {}, brain) {
       const supportsFunctionCalling = isWebLLMFunctionCallingSupported(
         this.model
       );
-      console.log({ supportsFunctionCalling });
 
       if (
         supportsFunctionCalling === true &&
@@ -988,8 +991,7 @@ export async function initAiProvider(setting = {}) {
   } else if (typeof enabled === 'boolean') {
     isEnabled = enabled;
   } else {
-    isEnabled =
-      typeof providerBaseUrl === 'string' && providerBaseUrl !== '';
+    isEnabled = typeof providerBaseUrl === 'string' && providerBaseUrl !== '';
   }
   let _enabled = isEnabled;
 
@@ -1659,8 +1661,7 @@ export async function initBrainEngine(setting = {}) {
         aiProvider.enabled = enabled;
       }
     },
-    preloadWebLLM:
-      typeof preloadWebLLM === 'boolean' ? preloadWebLLM : false,
+    preloadWebLLM: typeof preloadWebLLM === 'boolean' ? preloadWebLLM : false,
     autoFallbackWebLLM:
       typeof autoFallbackWebLLM === 'boolean' ? autoFallbackWebLLM : true,
     onBrainFallback:
@@ -2016,28 +2017,28 @@ export function handleThinking(brainEngine, rawQuestion) {
     return (
       'You asked about "' +
       question +
-      '", right? My knowledge base does not cover this yet. You can ask me questions like "How to install?", "How to change avatar?", or "How to use mic?".'
+      '", right? My knowledge base does not cover this yet. You can ask me questions like "What is this?", "How to install to project?", "Supports 3D & custom models?", or "How does the AI Brain work?".'
     );
   }
   if (/ja/i.test(locale)) {
     return (
       '「' +
       question +
-      '」についてですね。知識ベースにまだ登録されていません。「インストール方法」「アバターの変更方法」「マイクの使い方」などを聞いてみてください。'
+      '」についてですね。知識ベースにまだ登録されていません。「これは何ですか？」「プロジェクトへの導入方法は？」「3D対応やアバター変更は？」「AIブレインの仕組みは？」などを聞いてみてください。'
     );
   }
   if (/ko/i.test(locale)) {
     return (
       '"' +
       question +
-      '"에 대한 질문이시군요? 지식 베이스에 아직 등록되지 않았습니다. "설치 방법", "캐릭터 변경 방법", "마이크 사용법" 등을 물어보실 수 있어요.'
+      '"에 대한 질문이시군요? 지식 베이스에 아직 등록되지 않았습니다. "이것은 무엇인가요?", "프로젝트에 어떻게 설치하나요?", "3D 지원 및 캐릭터 변경은?", "AI 브레인은 어떻게 작동하나요?" 등을 물어보실 수 있어요.'
     );
   }
 
   return (
     '你問的是「' +
     question +
-    '」對吧？這題我的知識庫還沒收錄～你可以問我「怎麼安裝」「怎麼換成我的角色」「要不要錢」「麥克風怎麼用」這些喔。'
+    '」對吧？這題我的知識庫還沒收錄～你可以問我「這是什麼」「怎麼安裝到專案」「支援 3D 與換角色嗎」「AI 大腦是如何運作的」「怎麼使用工具調用」這些喔。'
   );
 }
 
@@ -2998,13 +2999,7 @@ export function validateBrainEngine(engine) {
     'classifyEmotion',
     'setEmotionFromText'
   ];
-  const requiredProps = [
-    'memory',
-    'llm',
-    'aiProvider',
-    'chatLog',
-    'chatSeq'
-  ];
+  const requiredProps = ['memory', 'llm', 'aiProvider', 'chatLog', 'chatSeq'];
   const missing = [];
   requiredMethods.forEach((key) => {
     if (typeof engine[key] !== 'function') {

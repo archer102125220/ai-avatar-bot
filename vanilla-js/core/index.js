@@ -515,7 +515,10 @@ export async function initAvatarBot(options = {}) {
     get availableModes() {
       const currentModes = rootStore.getState().modes || {};
       return Array.from(
-        new Set([...Object.values(AVATAR_MODE_MAP), ...Object.keys(currentModes)])
+        new Set([
+          ...Object.values(AVATAR_MODE_MAP),
+          ...Object.keys(currentModes)
+        ])
       );
     },
 
@@ -563,10 +566,7 @@ export async function initAvatarBot(options = {}) {
     set enableAiProvider(enabled) {
       if (typeof enabled === 'boolean') {
         rootStore.setState({ enableAiProvider: enabled });
-        if (
-          brainEngine !== null &&
-          typeof brainEngine === 'object'
-        ) {
+        if (brainEngine !== null && typeof brainEngine === 'object') {
           brainEngine.enableAiProvider = enabled;
         }
       }
@@ -605,10 +605,7 @@ export async function initAvatarBot(options = {}) {
     },
 
     get enableModelDrop() {
-      return (
-        rootStore.getState().enableModelDrop ??
-        DEFAULT_ENABLE_MODEL_DROP
-      );
+      return rootStore.getState().enableModelDrop ?? DEFAULT_ENABLE_MODEL_DROP;
     },
     set enableModelDrop(val) {
       if (typeof val === 'boolean') {
@@ -923,7 +920,10 @@ export async function initAvatarBot(options = {}) {
         '你好～',
         templateContext
       );
-    } else if (typeof options.greeting !== 'undefined' && options.greeting !== null) {
+    } else if (
+      typeof options.greeting !== 'undefined' &&
+      options.greeting !== null
+    ) {
       greeting = resolveLocalized(
         options.greeting,
         currentLocale,
@@ -964,16 +964,16 @@ export async function initAvatarBot(options = {}) {
       );
     } else if (currentAvatarMode === AVATAR_MODE_MAP.assistant) {
       let defaultAssistantGreeting =
-        '你好～我是可以嵌入任何網站的語音虛擬人，問我怎麼安裝、怎麼換成你的角色都行！';
+        '你好～我是 ai-avatar-bot-vanilla-js 虛擬人，問我怎麼安裝、切換 3D 或工具調用都行！';
       if (/en/i.test(currentLocale)) {
         defaultAssistantGreeting =
-          'Hello~ I am an embeddable voice AI avatar widget. Ask me how to install, or customize characters!';
+          'Hello~ I am the ai-avatar-bot-vanilla-js avatar. Ask me how to install, switch 3D, or use tools!';
       } else if (/ja/i.test(currentLocale)) {
         defaultAssistantGreeting =
-          'こんにちは〜！Webサイトに埋め込み可能な音声AIアバターです。設置方法やキャラクター変更について何でも聞いてください！';
+          'こんにちは〜！ai-avatar-bot-vanilla-js アバターです。導入方法や3D切り替え、ツール機能について何でも聞いてください！';
       } else if (/ko/i.test(currentLocale)) {
         defaultAssistantGreeting =
-          '안녕하세요~ 웹사이트에 삽입 가능한 음성 AI 아바타입니다. 설치 방법이나 캐릭터 변경에 대해 무엇이든 물어보세요!';
+          '안녕하세요~ ai-avatar-bot-vanilla-js 아바타입니다. 설치 방법, 3D 전환, 도구 기능 등을 편하게 물어보세요!';
       }
 
       greeting = resolveLocalized(
@@ -1086,7 +1086,8 @@ export async function initAvatarBot(options = {}) {
     customContext,
     languageRule,
     genderRule,
-    compression: options.compression || options.brain?.compression || compression,
+    compression:
+      options.compression || options.brain?.compression || compression,
 
     welcomeText: options.welcomeText,
     companionWelcomeText: options.companionWelcomeText,
