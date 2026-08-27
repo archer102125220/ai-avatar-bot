@@ -15,11 +15,12 @@
       "require": "./dist/ai-avatar-bot.umd.cjs"
     },
     "./vite": {
-      "import": "./plugins/vite.js"
+      "import": "./plugins/vite.js",
+      "require": "./plugins/vite.cjs"
     },
     "./webpack": {
       "import": "./plugins/webpack.js",
-      "require": "./plugins/webpack.js"
+      "require": "./plugins/webpack.cjs"
     }
   },
   "scripts": {
