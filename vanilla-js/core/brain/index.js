@@ -16,7 +16,6 @@ import {
   DEFAULT_MEMORY_KEY,
   CHAT_ROLE_MAP,
   CHAT_SOURCE_MAP,
-  TOOL_RESULT_MODE_MAP,
   COMPRESSION_STRATEGY_MAP,
   BRAIN_ENGINE_TYPE_MAP,
   BRAIN_FALLBACK_TYPE_MAP,
@@ -2140,6 +2139,9 @@ export async function handleToolCallsLoop(
     return;
   }
 
+  const toolResults = [];
+  let pendingConfirmation = null;
+
   for (const toolCall of toolCalls) {
     const toolName = toolCall.function?.name;
     let args;
@@ -2159,188 +2161,193 @@ export async function handleToolCallsLoop(
 
     if (!tool) {
       console.warn(`[AvatarBot] AI 請求呼叫未註冊的工具: ${toolName}`);
+      toolResults.push({
+        toolCall,
+        tool: null,
+        args,
+        result: {
+          ok: false,
+          error: `Tool "${toolName}" is not registered or not available. Please answer the user directly.`
+        }
+      });
       continue;
     }
 
-    const resumeAiSummary = async (toolResult) => {
-      if (toolResult?.cancelled === true) {
-        return;
-      }
-      if (tool.resultMode === TOOL_RESULT_MODE_MAP.AI_SUMMARY) {
-        const initialAssistantContent =
-          typeof message?.content === 'string' ? message.content.trim() : '';
+    if (tool.requiresConfirmation === true) {
+      pendingConfirmation = { tool, toolCall, args };
+      break;
+    }
 
-        const normalizedAssistantMessage = {
-          role: CHAT_ROLE_MAP.ASSISTANT,
-          content: typeof message?.content === 'string' ? message.content : '',
-          ...(Array.isArray(message?.tool_calls)
-            ? { tool_calls: message.tool_calls }
-            : {})
-        };
+    let toolResult = null;
+    if (typeof brainEngine.executeTool === 'function') {
+      toolResult = await brainEngine.executeTool(tool, args, {
+        toolCallId: toolCall.id,
+        source: CHAT_SOURCE_MAP.AI
+      });
+    }
+    toolResults.push({ toolCall, tool, args, result: toolResult });
+  }
 
-        const updatedMessages = [
-          ...initialMessages,
-          normalizedAssistantMessage,
-          {
-            role: CHAT_ROLE_MAP.TOOL,
-            tool_call_id: toolCall.id,
-            content:
-              typeof toolResult === 'string'
-                ? toolResult
-                : JSON.stringify(
-                    typeof toolResult === 'object' && toolResult !== null
-                      ? toolResult
-                      : ''
-                  )
-          }
-        ];
+  const resumeAiSummary = async (executedResults) => {
+    if (!Array.isArray(executedResults) || executedResults.length === 0) {
+      return;
+    }
 
-        if (providerType === BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER) {
-          const secondResponse = await brainEngine.aiProvider.chat(
-            updatedMessages,
-            null,
-            []
-          );
-          let finalText =
-            typeof secondResponse === 'string' && secondResponse.trim() !== ''
-              ? secondResponse.trim()
-              : initialAssistantContent;
+    const initialAssistantContent =
+      typeof message?.content === 'string' ? message.content.trim() : '';
 
-          if (finalText === '') {
-            if (process.env.NODE_ENV === 'development') {
-              console.warn(
-                `[AvatarBot] AI 工具「${tool.name}」執行後，模型第一輪與第二輪皆未產生文字回覆。`,
-                {
-                  toolName: tool.name,
-                  args,
-                  toolResult,
-                  initialAssistantContent,
-                  secondResponse
-                }
-              );
-            }
-            if (
-              toolResult?.ok === false &&
-              typeof toolResult?.error === 'string' &&
-              toolResult.error !== ''
-            ) {
-              finalText = toolResult.error;
-            } else if (
-              typeof toolResult === 'string' &&
-              toolResult.trim() !== ''
-            ) {
-              finalText = toolResult.trim();
-            } else if (
-              typeof toolResult?.message === 'string' &&
-              toolResult.message.trim() !== ''
-            ) {
-              finalText = toolResult.message.trim();
-            } else {
-              finalText = getBrainMessage(
-                brainEngine,
-                'brain.toolExecutionError'
-              );
-            }
-          }
-
-          if (finalText !== '') {
-            sayAnswer(brainEngine, finalText);
-          }
-        } else if (providerType === 'webLLM') {
-          if (typeof brainEngine.onStreamStart === 'function') {
-            brainEngine.onStreamStart();
-          }
-          const streamMessageId = 'stream-' + Date.now();
-          const secondResponse = await brainEngine.llm.chat(
-            updatedMessages,
-            (chunkDelta, accumulatedText) => {
-              if (typeof brainEngine.onSpokenDisplayTextChange === 'function') {
-                brainEngine.onSpokenDisplayTextChange(accumulatedText);
-              }
-              updateChatMessage(
-                brainEngine,
-                streamMessageId,
-                accumulatedText,
-                true
-              );
-              brainEngine.setEmotionFromText(accumulatedText);
-              if (typeof brainEngine.onStreamChunk === 'function') {
-                brainEngine.onStreamChunk(chunkDelta);
-              }
-            },
-            []
-          );
-          let finalText =
-            typeof secondResponse === 'string' && secondResponse.trim() !== ''
-              ? secondResponse.trim()
-              : initialAssistantContent;
-
-          if (finalText === '') {
-            console.warn(
-              `[AvatarBot] AI 工具「${tool.name}」執行後，模型第一輪與第二輪皆未產生文字回覆。`,
-              {
-                toolName: tool.name,
-                args,
-                toolResult,
-                initialAssistantContent,
-                secondResponse
-              }
-            );
-            if (
-              toolResult?.ok === false &&
-              typeof toolResult?.error === 'string' &&
-              toolResult.error !== ''
-            ) {
-              finalText = toolResult.error;
-            } else if (
-              typeof toolResult === 'string' &&
-              toolResult.trim() !== ''
-            ) {
-              finalText = toolResult.trim();
-            } else if (
-              typeof toolResult?.message === 'string' &&
-              toolResult.message.trim() !== ''
-            ) {
-              finalText = toolResult.message.trim();
-            } else {
-              finalText = getBrainMessage(
-                brainEngine,
-                'brain.toolExecutionError'
-              );
-            }
-          }
-
-          if (finalText !== '') {
-            brainEngine.memory.addTurn('assistant', finalText);
-            updateChatMessage(brainEngine, streamMessageId, finalText, false);
-            if (typeof brainEngine.onStreamEnd === 'function') {
-              brainEngine.onStreamEnd(finalText);
-            }
-            maybeTriggerRollingSummary(brainEngine);
-          }
-        }
-      }
+    const normalizedAssistantMessage = {
+      role: CHAT_ROLE_MAP.ASSISTANT,
+      content: typeof message?.content === 'string' ? message.content : '',
+      ...(Array.isArray(message?.tool_calls)
+        ? { tool_calls: message.tool_calls }
+        : {})
     };
 
-    if (tool.requiresConfirmation === true) {
-      if (typeof brainEngine.offerToolConfirmation === 'function') {
-        brainEngine.offerToolConfirmation(tool, args, {
-          toolCallId: toolCall.id,
-          source: CHAT_SOURCE_MAP.AI,
-          pendingMessages: initialMessages,
-          onConfirmResume: resumeAiSummary
-        });
+    const toolMessages = executedResults.map(({ toolCall, result }) => ({
+      role: CHAT_ROLE_MAP.TOOL,
+      tool_call_id: toolCall.id,
+      content:
+        typeof result === 'string'
+          ? result
+          : JSON.stringify(
+              typeof result === 'object' && result !== null ? result : ''
+            )
+    }));
+
+    const updatedMessages = [
+      ...initialMessages,
+      normalizedAssistantMessage,
+      ...toolMessages
+    ];
+
+    if (providerType === BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER) {
+      const secondResponse = await brainEngine.aiProvider.chat(
+        updatedMessages,
+        null,
+        []
+      );
+      let finalText =
+        typeof secondResponse === 'string' && secondResponse.trim() !== ''
+          ? secondResponse.trim()
+          : initialAssistantContent;
+
+      if (finalText === '') {
+        const lastResult = executedResults[executedResults.length - 1]?.result;
+        if (
+          lastResult?.ok === false &&
+          typeof lastResult?.error === 'string' &&
+          lastResult.error !== ''
+        ) {
+          finalText = lastResult.error;
+        } else if (
+          typeof lastResult === 'string' &&
+          lastResult.trim() !== ''
+        ) {
+          finalText = lastResult.trim();
+        } else if (
+          typeof lastResult?.message === 'string' &&
+          lastResult.message.trim() !== ''
+        ) {
+          finalText = lastResult.message.trim();
+        } else {
+          finalText = getBrainMessage(
+            brainEngine,
+            'brain.toolExecutionError'
+          );
+        }
       }
-    } else {
-      let toolResult = null;
-      if (typeof brainEngine.executeTool === 'function') {
-        toolResult = await brainEngine.executeTool(tool, args, {
-          toolCallId: toolCall.id,
-          source: CHAT_SOURCE_MAP.AI
-        });
+
+      if (finalText !== '') {
+        sayAnswer(brainEngine, finalText);
       }
-      await resumeAiSummary(toolResult);
+    } else if (
+      providerType === BRAIN_ENGINE_TYPE_MAP.WEB_LLM ||
+      providerType === 'webLLM'
+    ) {
+      if (typeof brainEngine.onStreamStart === 'function') {
+        brainEngine.onStreamStart();
+      }
+      const streamMessageId = 'stream-' + Date.now();
+      const secondResponse = await brainEngine.llm.chat(
+        updatedMessages,
+        (chunkDelta, accumulatedText) => {
+          if (typeof brainEngine.onSpokenDisplayTextChange === 'function') {
+            brainEngine.onSpokenDisplayTextChange(accumulatedText);
+          }
+          updateChatMessage(
+            brainEngine,
+            streamMessageId,
+            accumulatedText,
+            true
+          );
+          brainEngine.setEmotionFromText(accumulatedText);
+          if (typeof brainEngine.onStreamChunk === 'function') {
+            brainEngine.onStreamChunk(chunkDelta);
+          }
+        },
+        []
+      );
+      let finalText =
+        typeof secondResponse === 'string' && secondResponse.trim() !== ''
+          ? secondResponse.trim()
+          : initialAssistantContent;
+
+      if (finalText === '') {
+        const lastResult = executedResults[executedResults.length - 1]?.result;
+        if (
+          lastResult?.ok === false &&
+          typeof lastResult?.error === 'string' &&
+          lastResult.error !== ''
+        ) {
+          finalText = lastResult.error;
+        } else if (
+          typeof lastResult === 'string' &&
+          lastResult.trim() !== ''
+        ) {
+          finalText = lastResult.trim();
+        } else if (
+          typeof lastResult?.message === 'string' &&
+          lastResult.message.trim() !== ''
+        ) {
+          finalText = lastResult.message.trim();
+        } else {
+          finalText = getBrainMessage(
+            brainEngine,
+            'brain.toolExecutionError'
+          );
+        }
+      }
+
+      if (finalText !== '') {
+        brainEngine.memory.addTurn('assistant', finalText);
+        updateChatMessage(brainEngine, streamMessageId, finalText, false);
+        if (typeof brainEngine.onStreamEnd === 'function') {
+          brainEngine.onStreamEnd(finalText);
+        }
+        maybeTriggerRollingSummary(brainEngine);
+      }
     }
+  };
+
+  if (pendingConfirmation !== null) {
+    const { tool, toolCall, args } = pendingConfirmation;
+    if (typeof brainEngine.offerToolConfirmation === 'function') {
+      brainEngine.offerToolConfirmation(tool, args, {
+        toolCallId: toolCall.id,
+        source: CHAT_SOURCE_MAP.AI,
+        pendingMessages: initialMessages,
+        onConfirmResume: async (confirmedResult) => {
+          if (confirmedResult?.cancelled === true) return;
+          await resumeAiSummary([
+            ...toolResults,
+            { toolCall, tool, args, result: confirmedResult }
+          ]);
+        }
+      });
+    }
+  } else {
+    await resumeAiSummary(toolResults);
   }
 }
 
