@@ -1,6 +1,6 @@
 import { initBrainEngine, validateBrainEngine } from './brain';
 import { initSkinEngine, validateSkinEngine } from './skin';
-import { initSpeechEngine, splitSentences } from './speech';
+import { initSpeechEngine } from './speech';
 import { initI18nEngine, resolveLocalized } from './i18n';
 import {
   AVATAR_MODE_MAP,
@@ -144,6 +144,7 @@ export * from './plugins';
  * @property {Function} [onLanguageChanged] - 介面語言變更時的回呼函式
  * @property {Function} [onSpeaking] - 開始播放語音時的回呼函式
  * @property {Function} [onSpeakingEnd] - 語音播放結束時的回呼函式
+ * @property {(fullText: string) => void} [onStreamEnd] - 大腦 LLM 串流文字回答生成完畢時的回呼函式 (fullText)
  * @property {Function} [onSummaryUpdated] - 滾動對話摘要更新時的回呼函式 (summary)
  * @property {Function} [onBrainFallback] - 大腦引擎降級時觸發的回呼函式 (fromEngine, toEngine, error)
  * @property {Function} [onToolCall] - 觸發外部工具 (Tool Call) 時的回呼函式
@@ -1243,33 +1244,28 @@ export async function initAvatarBot(options = {}) {
         }
       }
     },
+    /**
+     * 大腦文字串流輸出結束時的回調。
+     * 用於將殘餘字串送入語音合成佇列並宣告文字結尾，同時對外派發 onStreamEnd 事件通知開發者回答文字已生成完畢。
+     * （註：語音全部播放完畢時會另外觸發 onSpeakingEnd）。
+     *
+     * @param {string} fullText - LLM 完整回答文字內容
+     */
     onStreamEnd(fullText) {
       if (streamSpeechId !== 0 && streamSpeechId === speechEngine.speakSeq) {
         const remainingSentences = speechEngine.drainSentences(
           streamSpeechState,
           true
         );
-        if (
-          remainingSentences.length === 0 &&
-          (!streamSpeechState.sentenceBuffer ||
-            streamSpeechState.sentenceBuffer === '') &&
-          typeof fullText === 'string' &&
-          fullText !== ''
-        ) {
-          for (const s of splitSentences(fullText)) {
-            speechEngine.pushSpeech(streamSpeechId, s);
-          }
-        } else {
-          for (const sentence of remainingSentences) {
-            speechEngine.pushSpeech(streamSpeechId, sentence);
-          }
+        for (const sentence of remainingSentences) {
+          speechEngine.pushSpeech(streamSpeechId, sentence);
         }
         speechEngine.endSpeech(streamSpeechId);
       } else if (streamSpeechId === 0) {
         speechEngine.onUtteranceEnd();
       }
 
-      callOptionEvent.call(this, 'onSpeakingEnd', fullText);
+      callOptionEvent.call(this, 'onStreamEnd', fullText);
     }
   };
 

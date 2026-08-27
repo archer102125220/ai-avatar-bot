@@ -2975,6 +2975,9 @@ export function sayAnswer(brainEngine, text) {
   }
   brainEngine.memory.addTurn('assistant', text);
   addChatMessage(brainEngine, 'assistant', text);
+  if (typeof brainEngine.setEmotionFromText === 'function') {
+    brainEngine.setEmotionFromText(text);
+  }
   if (typeof brainEngine.onSpokenAudioPlayNow === 'function') {
     brainEngine.onSpokenAudioPlayNow(text);
   }

@@ -247,6 +247,7 @@ const avatarWidget = await initAvatarBot({
 | `onReady(widget)` | `widget` | 虛擬人所有引擎載入完成並掛載後觸發 |
 | `onSpeaking(text, widget)` | `text, widget` | 虛擬人開始播放語音發音時觸發 |
 | `onSpeakingEnd(widget)` | `widget` | 虛擬人語音播放結束時觸發 |
+| `onStreamEnd(fullText)` | `fullText` | 大腦 LLM 串流文字回答生成完畢時觸發 |
 | `onAddChatMessage(msg, widget)` | `msg, widget` | 新增對話訊息時觸發 |
 | `onMicStateChanged(isListening, convoOn)` | `isListening, convoOn` | 麥克風錄音狀態變更時觸發 |
 | `onVoiceStatusChanged(convoOn, text, state, level)` | 多項語音狀態 | 即時音訊音量與語音狀態變化時觸發 |

@@ -201,7 +201,7 @@ export function splitSentences(text) {
   for (const s of out) {
     if (
       merged.length > 0 &&
-      (s.length < 6 || merged[merged.length - 1].length < 6)
+      (s.length < 3 || merged[merged.length - 1].length < 3)
     ) {
       merged[merged.length - 1] += s;
     } else {
@@ -301,6 +301,8 @@ export function initDefaultTTSEngine(options = {}) {
 
   const state = store.getState();
 
+  const _ttsControllers = new Set();
+
   const engine = {
     subscribe: store.subscribe,
     getState: store.getState,
@@ -316,6 +318,37 @@ export function initDefaultTTSEngine(options = {}) {
       store.setState({ isMuted: val });
     },
 
+    beginSpeech() {
+      engine.stop();
+      state.speechQ = [];
+      state.speechEnded = false;
+      state.tapDone = false;
+      state.isSpeechPlaying = false;
+      state.useAudioMouth = false;
+      state.audioMouth = 0;
+      return ++state.speakSeq;
+    },
+
+    pushSpeech(sid, text, options = {}) {
+      if (sid !== state.speakSeq || this.isMuted === true) return;
+      const safeText = String(text || '').trim();
+      if (safeText === '') return;
+      state.speechQ.push({
+        text: safeText,
+        prep: null,
+        err: null,
+        instant: !!options.instant
+      });
+      prefetchSpeech(sid);
+      pumpSpeech(sid);
+    },
+
+    endSpeech(sid) {
+      if (sid !== state.speakSeq) return;
+      state.speechEnded = true;
+      pumpSpeech(sid);
+    },
+
     speak(text, options = {}) {
       if (this.isMuted === true) {
         if (typeof onSpeakEnd === 'function') onSpeakEnd();
@@ -323,33 +356,19 @@ export function initDefaultTTSEngine(options = {}) {
       }
 
       const safeText = String(text || '').slice(0, 600);
-      if (typeof onSpokenDisplayTextChange === 'function') {
+      if (
+        options.updateDisplay !== false &&
+        typeof onSpokenDisplayTextChange === 'function'
+      ) {
         onSpokenDisplayTextChange(safeText);
       }
 
-      this.stop();
-      store.setState({ isSpeaking: true });
-      state.speechQ = [];
-      state.speechEnded = false;
-      state.tapDone = false;
-      const sid = ++state.speakSeq;
-
+      const sid = this.beginSpeech();
       for (const sentences of splitSentences(safeText)) {
         if (sentences.trim() === '') continue;
-        state.speechQ.push({
-          text: sentences.trim(),
-          prep: null,
-          err: null,
-          instant: !!options.instant
-        });
-        prefetchSpeech(sid);
-        pumpSpeech(sid);
+        this.pushSpeech(sid, sentences.trim(), options);
       }
-
-      if (sid === state.speakSeq) {
-        state.speechEnded = true;
-        pumpSpeech(sid);
-      }
+      this.endSpeech(sid);
     },
 
     stop() {
@@ -358,6 +377,12 @@ export function initDefaultTTSEngine(options = {}) {
       state.speechEnded = true;
       state.isSpeechPlaying = false;
       store.setState({ isSpeaking: false });
+      for (const c of _ttsControllers) {
+        try {
+          c.abort();
+        } catch (_error) {}
+      }
+      _ttsControllers.clear();
       try {
         if ('speechSynthesis' in window) speechSynthesis.cancel();
       } catch (_error) {}
@@ -378,19 +403,25 @@ export function initDefaultTTSEngine(options = {}) {
       }
       state.useAudioMouth = false;
       state.audioMouth = 0;
+      state.mouthValue = 0;
     },
 
     computeMouth() {
       const state = store.getState();
       if (this.isSpeaking === true && state.useAudioMouth === true) {
-        // 降低 smoothing 係數 (0.5 -> 0.25)，讓嘴唇開合更平滑，不會閃爍太快
-        state.mouthValue += (state.audioMouth - state.mouthValue) * 0.25;
+        // 平滑開合響應：適度降低響應係數，使嘴型隨音節自然過渡，避免高頻震顫
+        const response = state.audioMouth > state.mouthValue ? 0.42 : 0.22;
+        state.mouthValue += (state.audioMouth - state.mouthValue) * response;
       } else if (this.isSpeaking === true) {
+        // 瀏覽器語音 / 備份模式：降頻至自然說話節奏 (約 1.6 次/秒)，以平滑 lerp 計算開合
         const timeNow = performance.now() / 1000;
-        state.mouthValue =
-          0.12 + 0.83 * state.mouthTarget * Math.abs(Math.sin(timeNow * 9));
+        const targetMouth =
+          0.06 +
+          0.68 * state.mouthTarget * Math.pow(Math.sin(timeNow * 5.2), 2);
+        state.mouthValue += (targetMouth - state.mouthValue) * 0.32;
       } else {
-        state.mouthValue = Math.max(0, state.mouthValue - 0.18);
+        // 停止說話時平滑淡出閉嘴
+        state.mouthValue = Math.max(0, state.mouthValue - 0.12);
       }
       return state.mouthValue;
     },
@@ -459,22 +490,33 @@ export function initDefaultTTSEngine(options = {}) {
     return curCtx;
   };
 
-  const fetchTTSBuffer = async (text) => {
+  const fetchTTSBuffer = async (text, persistent = false) => {
     const ctx = await getAudioContext();
     const state = store.getState();
+    const controller = new AbortController();
+    if (persistent !== true) {
+      _ttsControllers.add(controller);
+    }
     const sep = state.ttsEndpoint.indexOf('?') < 0 ? '?' : '&';
-    const response = await fetch(
-      state.ttsEndpoint +
-        sep +
-        'voice=' +
-        encodeURIComponent(state.neuralVoice) +
-        '&text=' +
-        encodeURIComponent(text)
-    );
-    if (response.ok === false) throw new Error('http ' + response.status);
-    const respArrayBuffer = await response.arrayBuffer();
-    if (respArrayBuffer.byteLength < 800) throw new Error('audio too small');
-    return ctx.decodeAudioData(respArrayBuffer);
+    try {
+      const response = await fetch(
+        state.ttsEndpoint +
+          sep +
+          'voice=' +
+          encodeURIComponent(state.neuralVoice) +
+          '&text=' +
+          encodeURIComponent(text),
+        { signal: controller.signal }
+      );
+      if (response.ok === false) throw new Error('http ' + response.status);
+      const respArrayBuffer = await response.arrayBuffer();
+      if (respArrayBuffer.byteLength < 800) throw new Error('audio too small');
+      return await ctx.decodeAudioData(respArrayBuffer);
+    } finally {
+      if (persistent !== true) {
+        _ttsControllers.delete(controller);
+      }
+    }
   };
 
   const prefetchSpeech = (sid) => {
@@ -494,13 +536,16 @@ export function initDefaultTTSEngine(options = {}) {
     const src = state.audioCtx.createBufferSource();
     src.buffer = audioBuf;
     const analyser = state.audioCtx.createAnalyser();
-    analyser.fftSize = 256;
+    analyser.fftSize = 128;
+    analyser.smoothingTimeConstant = 0;
     src.connect(analyser);
     analyser.connect(state.audioCtx.destination);
     const data = new Uint8Array(analyser.fftSize);
     state.currentSource = src;
     state.useAudioMouth = true;
     store.setState({ isSpeaking: true });
+    state.audioMouth = 0.12;
+    state.mouthValue = Math.max(state.mouthValue, 0.12);
 
     if (state.tapDone !== true) {
       state.tapDone = true;
@@ -515,8 +560,8 @@ export function initDefaultTTSEngine(options = {}) {
         const normalizedSample = (data[i] - 128) / 128;
         sum += normalizedSample * normalizedSample;
       }
-      // 提高音量乘數 (3.4 -> 4.5)，讓嘴巴張得更大
-      state.audioMouth = Math.min(1, Math.sqrt(sum / data.length) * 4.5);
+      const rms = Math.sqrt(sum / data.length);
+      state.audioMouth = Math.min(1, Math.max(0, (rms - 0.006) * 5.2));
       state.currentFps = requestAnimationFrame(audioLoop);
     }
     state.currentFps = requestAnimationFrame(audioLoop);

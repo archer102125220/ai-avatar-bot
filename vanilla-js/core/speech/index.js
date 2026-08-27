@@ -83,6 +83,83 @@ export {
  */
 
 /**
+ * 串流文字即時斷句方法。
+ * 監聽累積字元緩衝區，一旦出現句尾標點符號便立即切出完整句子供 TTS 排程播放。
+ * 同時具備超長子句防呆機制，若字數過長且偵測到逗號即提前斷句，大幅縮短首句語音延遲。
+ *
+ * @param {{buf?: string, sentenceBuffer?: string}} state - 包含即時文字緩衝區的狀態物件。
+ * @param {boolean} [force=false] - 是否強制輸出最後留在緩衝區內的文字（例如串流已結束）。
+ * @returns {string[]} 切出可立即發送至 TTS 合成的句子陣列。
+ */
+export function drainSentences(state, force = false) {
+  if (typeof state !== 'object' || state === null) {
+    return [];
+  }
+
+  const getBuf = () =>
+    typeof state.buf === 'string'
+      ? state.buf
+      : typeof state.sentenceBuffer === 'string'
+        ? state.sentenceBuffer
+        : '';
+
+  const setBuf = (val) => {
+    if (typeof state.buf === 'string') state.buf = val;
+    if (typeof state.sentenceBuffer === 'string') state.sentenceBuffer = val;
+  };
+
+  let buf = getBuf();
+  const out = [];
+
+  while (buf.length > 0) {
+    // 尋找句尾標點符號：中文標點 [。！？!?；;\n…\r] 或 英文句點+空白/換行
+    const match = buf.match(/[。！？!?；;\n…\r]|\.\s+/);
+    if (match && typeof match.index === 'number') {
+      const cutPos = match.index + match[0].length;
+      const sentence = buf.slice(0, cutPos).trim();
+      buf = buf.slice(cutPos);
+      if (sentence !== '') {
+        out.push(sentence);
+      }
+    } else if (buf.length >= 40) {
+      // 若長度達 40 字元仍未偵測到句號，在逗號處提前切分，避免長句子延遲發聲
+      const commaMatch = buf.match(/[，,]\s*/);
+      if (
+        commaMatch &&
+        typeof commaMatch.index === 'number' &&
+        commaMatch.index >= 12
+      ) {
+        const cutPos = commaMatch.index + commaMatch[0].length;
+        const sentence = buf.slice(0, cutPos).trim();
+        buf = buf.slice(cutPos);
+        if (sentence !== '') {
+          out.push(sentence);
+        }
+      } else if (buf.length >= 80) {
+        // 80 字元超長防呆切分
+        const sentence = buf.slice(0, 80).trim();
+        buf = buf.slice(80);
+        if (sentence !== '') {
+          out.push(sentence);
+        }
+      } else {
+        break;
+      }
+    } else {
+      break;
+    }
+  }
+
+  if (force === true && buf.trim() !== '') {
+    out.push(buf.trim());
+    buf = '';
+  }
+
+  setBuf(buf);
+  return out;
+}
+
+/**
  * 建立並初始化作為 STT 與 TTS 中央統籌的語音引擎 (Speech Orchestrator)。
  * 負責整合語音辨識、語音合成、事件派發以及串接 LLM 回應的斷句與佇列播放。
  * 支援透過 customEngines 動態抽換底層的語音轉文字 (STT) 與語音合成 (TTS) 引擎。
@@ -129,7 +206,9 @@ export async function initSpeechEngine(setting = {}) {
   });
 
   store.subscribe('gender', (newGender) => {
-    ttsEngine.setGender(newGender);
+    if (ttsEngine && typeof ttsEngine.setGender === 'function') {
+      ttsEngine.setGender(newGender);
+    }
   });
 
   store.subscribe('locale', (newLocale) => {
@@ -142,7 +221,9 @@ export async function initSpeechEngine(setting = {}) {
   });
 
   store.subscribe('ttsMuted', (isMuted) => {
-    ttsEngine.isMuted = isMuted;
+    if (ttsEngine) {
+      ttsEngine.isMuted = isMuted;
+    }
   });
 
   store.subscribe('spokenAudioText', (audioText) => {
@@ -152,6 +233,52 @@ export async function initSpeechEngine(setting = {}) {
     }
     speechEngine.speak(audioText);
   });
+
+  // --- TTS Setup ---
+  const ttsOptions = {
+    ttsEndpoint: ttsEndpoint || DEFAULT_TTS_ENDPOINT,
+    neuralVoice: neuralVoice,
+    gender: store.getState().gender,
+    locale: store.getState().locale,
+    onSpeakStart: (audioText) => {
+      if (typeof setting.onSpeaking === 'function') {
+        setting.onSpeaking(audioText);
+      }
+    },
+    onSpeakEnd: () => {
+      if (typeof speechEngine._onTTSSpeakEnd === 'function') {
+        speechEngine._onTTSSpeakEnd();
+      }
+    }
+  };
+
+  if (typeof customEngines?.tts !== 'undefined' && customEngines.tts !== null) {
+    try {
+      const customInstance =
+        typeof customEngines.tts === 'function'
+          ? await customEngines.tts(ttsOptions)
+          : customEngines.tts;
+      const validation = validateTTSEngine(customInstance);
+      if (validation.isValid) {
+        ttsEngine = customInstance;
+      } else {
+        console.error(
+          `[AvatarBot] 自訂 ttsEngine 驗證失敗，缺少以下實作: ${validation.missing.join(', ')}。將退回使用預設引擎。`
+        );
+      }
+    } catch (e) {
+      console.error('[AvatarBot] 初始化自訂 ttsEngine 發生錯誤:', e);
+    }
+  }
+  if (!ttsEngine) {
+    ttsEngine = initDefaultTTSEngine(ttsOptions);
+  }
+
+  if (typeof ttsEngine.subscribe === 'function') {
+    ttsEngine.subscribe('isSpeaking', (val) => {
+      store.setState({ isSpeaking: val });
+    });
+  }
 
   const speechEngine = {
     subscribe: store.subscribe,
@@ -197,7 +324,7 @@ export async function initSpeechEngine(setting = {}) {
       return store.getState().isSpeaking;
     },
     get isListening() {
-      return sttEngine.isListening;
+      return sttEngine ? sttEngine.isListening : false;
     },
 
     get ttsMuted() {
@@ -239,6 +366,9 @@ export async function initSpeechEngine(setting = {}) {
         speechEngine.spokenDisplayText = text.trim();
       }
       ttsEngine.speak(text, options);
+      if (typeof ttsEngine.getState === 'function') {
+        speechEngine.speakSeq = ttsEngine.getState().speakSeq;
+      }
     },
 
     get spokenAudioText() {
@@ -250,6 +380,7 @@ export async function initSpeechEngine(setting = {}) {
 
     stopSpeaking: () => {
       speechEngine.speakSeq++;
+      speechEngine._speechEndedFlag = false;
       ttsEngine.stop();
     },
 
@@ -287,7 +418,9 @@ export async function initSpeechEngine(setting = {}) {
       speechEngine.convoOn = false;
       speechEngine.isProcessing = false;
       speechEngine.stopSpeaking();
-      sttEngine.stopListening();
+      if (sttEngine && typeof sttEngine.stopListening === 'function') {
+        sttEngine.stopListening();
+      }
       if (typeof speechEngine.onVoiceStatusChanged === 'function') {
         speechEngine.onVoiceStatusChanged(false, '', '', 0);
       }
@@ -306,7 +439,9 @@ export async function initSpeechEngine(setting = {}) {
       if (speechEngine.isSpeaking || speechEngine.isProcessing) {
         speechEngine.stopSpeaking();
       }
-      sttEngine.startListening();
+      if (sttEngine && typeof sttEngine.startListening === 'function') {
+        sttEngine.startListening();
+      }
     },
 
     preloadTapGreeting: (text) => {
@@ -350,61 +485,29 @@ export async function initSpeechEngine(setting = {}) {
     _speechQueue: [],
 
     drainSentences: (state, force) => {
-      const bufferText =
-        typeof state.sentenceBuffer === 'string'
-          ? state.sentenceBuffer
-          : state.buf || '';
-      const parts = splitSentences(bufferText);
-      if (parts.length > 1 || (force && parts.length > 0)) {
-        const remaining = force ? '' : parts[parts.length - 1];
-        if (typeof state.sentenceBuffer === 'string') {
-          state.sentenceBuffer = remaining;
-        }
-        state.buf = remaining;
-        return force ? parts : parts.slice(0, parts.length - 1);
-      }
-      return [];
+      return drainSentences(state, force);
     },
 
     beginSpeech: () => {
       speechEngine.stopSpeaking();
       speechEngine._speechBuffer = '';
-      speechEngine._speechQueue = [];
-      speechEngine.speakSeq++;
+      speechEngine._speechEndedFlag = false;
+      if (typeof ttsEngine.beginSpeech === 'function') {
+        speechEngine.speakSeq = ttsEngine.beginSpeech();
+      } else {
+        speechEngine.speakSeq++;
+      }
       return speechEngine.speakSeq;
     },
 
-    pushSpeech: (speechSequenceId, text, options) => {
+    pushSpeech: (speechSequenceId, text, options = {}) => {
       if (speechSequenceId !== speechEngine.speakSeq) return;
       speechEngine._speechBuffer += text;
-      speechEngine._speechQueue.push(text);
 
-      if (!ttsEngine.isSpeaking) {
-        speechEngine._playNextQueue(speechSequenceId, options);
-      }
-    },
-
-    _playNextQueue: (speechSequenceId, options) => {
-      if (speechSequenceId !== speechEngine.speakSeq) return;
-      if (speechEngine._speechQueue.length > 0) {
-        const sentence = speechEngine._speechQueue.shift();
-        ttsEngine.speak(sentence, options);
+      if (typeof ttsEngine.pushSpeech === 'function') {
+        ttsEngine.pushSpeech(speechSequenceId, text, options);
       } else {
-        if (speechEngine._speechEndedFlag) {
-          speechEngine.onUtteranceEnd();
-        }
-      }
-    },
-
-    _onTTSSpeakEnd: () => {
-      if (speechEngine._speechQueue.length > 0) {
-        speechEngine._playNextQueue(speechEngine.speakSeq, {});
-      } else if (speechEngine._speechEndedFlag) {
-        speechEngine.onUtteranceEnd();
-      } else {
-        if (typeof setting.onSpeakingEnd === 'function') {
-          setting.onSpeakingEnd();
-        }
+        ttsEngine.speak(text, options);
       }
     },
 
@@ -412,8 +515,19 @@ export async function initSpeechEngine(setting = {}) {
     endSpeech: (speechSequenceId) => {
       if (speechSequenceId !== speechEngine.speakSeq) return;
       speechEngine._speechEndedFlag = true;
-      if (!ttsEngine.isSpeaking && speechEngine._speechQueue.length === 0) {
-        speechEngine.onUtteranceEnd();
+      if (typeof ttsEngine.endSpeech === 'function') {
+        ttsEngine.endSpeech(speechSequenceId);
+      } else {
+        if (!ttsEngine.isSpeaking) {
+          speechEngine.onUtteranceEnd();
+        }
+      }
+    },
+
+    _onTTSSpeakEnd: () => {
+      speechEngine.onUtteranceEnd();
+      if (typeof setting.onSpeakingEnd === 'function') {
+        setting.onSpeakingEnd();
       }
     },
 
@@ -433,50 +547,6 @@ export async function initSpeechEngine(setting = {}) {
       );
     }
   });
-
-  // --- TTS Setup ---
-  const ttsOptions = {
-    ttsEndpoint: ttsEndpoint || DEFAULT_TTS_ENDPOINT,
-    neuralVoice: neuralVoice,
-    gender: speechEngine.gender,
-    locale: store.getState().locale,
-    onSpeakStart: () => {
-      // 移除誤植的 onTapAvatar 呼叫，避免中斷正常回答並播放歡迎詞
-    },
-    onSpeakEnd: () => {
-      if (typeof speechEngine._onTTSSpeakEnd === 'function') {
-        speechEngine._onTTSSpeakEnd();
-      }
-    }
-  };
-
-  if (typeof customEngines?.tts !== 'undefined' && customEngines.tts !== null) {
-    try {
-      const customInstance =
-        typeof customEngines.tts === 'function'
-          ? await customEngines.tts(ttsOptions)
-          : customEngines.tts;
-      const validation = validateTTSEngine(customInstance);
-      if (validation.isValid) {
-        ttsEngine = customInstance;
-      } else {
-        console.error(
-          `[AvatarBot] 自訂 ttsEngine 驗證失敗，缺少以下實作: ${validation.missing.join(', ')}。將退回使用預設引擎。`
-        );
-      }
-    } catch (e) {
-      console.error('[AvatarBot] 初始化自訂 ttsEngine 發生錯誤:', e);
-    }
-  }
-  if (!ttsEngine) {
-    ttsEngine = initDefaultTTSEngine(ttsOptions);
-  }
-
-  if (typeof ttsEngine.subscribe === 'function') {
-    ttsEngine.subscribe('isSpeaking', (val) => {
-      store.setState({ isSpeaking: val });
-    });
-  }
 
   // --- STT Setup ---
   const sttOptions = {

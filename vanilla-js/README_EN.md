@@ -247,6 +247,7 @@ Options object accepted by `initAvatarBot(options)`:
 | `onReady(widget)` | `widget` | Triggered when all engines are loaded and mounted. |
 | `onSpeaking(text, widget)` | `text, widget` | Triggered when the avatar begins speaking audio. |
 | `onSpeakingEnd(widget)` | `widget` | Triggered when audio utterance playback finishes. |
+| `onStreamEnd(fullText)` | `fullText` | Triggered when brain LLM stream text generation completes. |
 | `onAddChatMessage(msg, widget)` | `msg, widget` | Triggered when a new chat message is added. |
 | `onMicStateChanged(isListening, convoOn)` | `isListening, convoOn` | Triggered when microphone state changes. |
 | `onVoiceStatusChanged(convoOn, text, state, level)` | Multiple state vars | Triggered when real-time voice volume/status updates. |
