@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import apiPlugin from '../shared/vite-api-plugin';
+import { avatarBotVitePlugin } from './plugins/vite';
 
 export default defineConfig({
-  plugins: [apiPlugin()],
+  plugins: [apiPlugin(), avatarBotVitePlugin()],
   publicDir: 'public',
   build: {
     lib: {

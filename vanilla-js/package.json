@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "files": [
-    "dist"
+    "dist",
+    "avatar-skin",
+    "plugins"
   ],
   "main": "./dist/ai-avatar-bot.umd.cjs",
   "module": "./dist/ai-avatar-bot.js",
@@ -11,6 +13,13 @@
     ".": {
       "import": "./dist/ai-avatar-bot.js",
       "require": "./dist/ai-avatar-bot.umd.cjs"
+    },
+    "./vite": {
+      "import": "./plugins/vite.js"
+    },
+    "./webpack": {
+      "import": "./plugins/webpack.js",
+      "require": "./plugins/webpack.js"
     }
   },
   "scripts": {

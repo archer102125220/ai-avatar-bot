@@ -26,6 +26,7 @@
   - [5. Speech Recognition & Neural TTS (Speech Engine)](#5-speech-recognition--neural-tts-speech-engine)
   - [6. Headless Mode & Custom UI Integration](#6-headless-mode--custom-ui-integration)
 - [📚 Instance API & Methods](#-instance-api--methods)
+- [🛠️ Build Tool Plugins (Vite & Webpack Offline Support)](#️-build-tool-plugins-vite--webpack-offline-support)
 - [🌐 Internationalization (i18n)](#-internationalization-i18n)
 - [📦 Third-Party Assets & Licenses](#-third-party-assets--licenses-must-read)
 - [⚠️ Risk & Limitations Disclosure](#️-risk--limitations-disclosure)
@@ -487,6 +488,42 @@ interface AiAvatarWidget {
 
 ---
 
+## 🛠️ Build Tool Plugins (Vite & Webpack Offline Support)
+
+To eliminate the need for manual file copying to `public/` after `npm install`, and to ensure that 2D/3D models and gestures load seamlessly **even in offline or air-gapped development environments**, this package includes dedicated build tool plugins for Vite and Webpack:
+
+* **Local Development (Dev Server)**: The plugin automatically intercepts `/avatar-skin/*` requests and streams the files directly from `node_modules` using Node.js file system APIs (0 external network requests, 0 online CDN dependencies).
+* **Production Build**: When building your project (`vite build` or `webpack build`), the plugin automatically copies the entire `avatar-skin` directory into your project's build output (`dist/avatar-skin/`).
+
+### 1. Vite Project Setup (Vue 3, Nuxt, Svelte, Vite React)
+
+```javascript
+// vite.config.js
+import { defineConfig } from 'vite';
+import { avatarBotVitePlugin } from 'ai-avatar-bot-vanilla-js/vite';
+
+export default defineConfig({
+  plugins: [
+    avatarBotVitePlugin() // Zero configuration! Handles local dev proxy & build output copy
+  ]
+});
+```
+
+### 2. Webpack Project Setup (Create React App, Vue CLI, Webpack 5)
+
+```javascript
+// webpack.config.js or vue.config.js
+const { AvatarBotWebpackPlugin } = require('ai-avatar-bot-vanilla-js/webpack');
+
+module.exports = {
+  plugins: [
+    new AvatarBotWebpackPlugin() // Automatically handles Webpack DevServer proxy & build copy
+  ]
+};
+```
+
+---
+
 ## 🌐 Internationalization (i18n)
 
 Built-in multi-language dictionary with dynamic locale switching:
@@ -508,13 +545,17 @@ Supported locale codes: `zh-TW` (Traditional Chinese), `zh-CN` (Simplified Chine
 
 ## 📦 Third-Party Assets & Licenses (**MUST READ**)
 
-The source code of this package is licensed under the **MIT License** (see [`LICENSE`](LICENSE)). However, this package **depends upon and references third-party libraries, proprietary runtimes, and model assets** that carry their own independent licenses and are **NOT covered by this project's MIT License**:
+The source code of this package is licensed under the **MIT License** (see [`LICENSE`](LICENSE)). However, this package **includes and references third-party libraries, proprietary runtimes, sample 2D/3D avatar models, and animation assets** that carry their own independent licenses and are **NOT covered by this project's MIT License**:
 
 | Asset / Dependency | License / Source | Commercial & Usage Notice |
 | :--- | :--- | :--- |
 | **Live2D Cubism Core** (`cubism.live2d.com`) | **Proprietary License** (Live2D Proprietary Software License) | **Non-Open Source**. Loaded dynamically via official CDN. For commercial deployment, distribution, or bundling, you must ensure compliance with Live2D official terms and obtain appropriate licenses. |
-| **Haru Sample Model** (2D Live2D default demo asset) | Live2D **Free Material License** | **For technical demonstration and testing only**. Not authorized for direct commercial product deployment. Please replace with your own legitimately licensed Live2D model for production. |
-| **3D VRM Sample Model** (`Seed-san`, etc.) | **VRM Public License 1.0** / Author terms | Governed by individual VRM creators' terms (commercial use, modification, explicit content restrictions). |
+| **Haru Sample Model** (`2d-model/female/haru_greeter_t03.*`) | Live2D **Free Material License** | **For technical demonstration and testing only**. Not authorized for direct commercial product deployment. Please replace with your own legitimately licensed Live2D model for production. |
+| **Natori Sample Model** (`2d-model/male/natori_pro_t06.*`) | Live2D **Free Material License** | **For technical demonstration and testing only**. Not authorized for direct commercial product deployment. |
+| **Shizuku Sound Files** (`2d-model/female/shizuku/sounds/*`) | Live2D **Free Material License** | Tap interaction sounds for sample testing and demonstration only. |
+| **Hatsune Miku VRM Model** (`3d-model/HatsuneMiku.vrm`) | **Piapro Character License (PCL)** (Crypton Future Media) | Character IP © Crypton Future Media, INC. **Strictly for non-commercial personal derivative / technical demo use**. Commercial exploitation is strictly prohibited without authorization. |
+| **Rockman.EXE VRM Model** (`3d-model/RockmanEXE.vrm`) | **Capcom Derivative Guidelines** (CAPCOM CO., LTD.) | Game IP © CAPCOM CO., LTD. **Strictly for non-commercial personal demonstration use**. |
+| **VRMA Animation Library** (`3d-model/vrma/*.vrma` 6 motions) | **MIT / CC-BY 4.0** (Hirokazu Niimoto / VRM Consortium) | Includes wave, bow, thinking, look around, relax, and surprised motions. Open source and free for commercial/personal use. |
 | **Pixi.js / pixi-live2d-display** | **MIT License** | Open-source 2D WebGL rendering engine and Live2D integration plugin. |
 | **Three.js / @pixiv/three-vrm** | **MIT License** | Open-source 3D WebGL renderer and VRM avatar standard library. |
 | **@mlc-ai/web-llm** (WebLLM) | **Apache-2.0** | In-browser WebGPU language model inference engine. Downloaded model weights (e.g. Qwen2.5, Hermes Llama 3.1, Gemma 2) are governed by their respective creators' license terms. |

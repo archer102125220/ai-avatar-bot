@@ -26,6 +26,7 @@
   - [5. 語音辨識與神經語音 (Speech Engine)](#5-語音辨識與神經語音-speech-engine)
   - [6. 無頭模式 (Headless Mode) 與自訂 UI](#6-無頭模式-headless-mode-與自訂-ui)
 - [📚 實例 API 與方法](#-實例-api-與方法)
+- [🛠️ 構建工具插件 (Vite & Webpack 離線開箱即用)](#️-構建工具插件-vite--webpack-離線開箱即用)
 - [🌐 多語系支援 (i18n)](#-多語系支援-i18n)
 - [📦 第三方資產與授權](#-第三方資產與授權請務必詳閱)
 - [⚠️ 風險與限制揭露](#️-風險與限制揭露)
@@ -489,6 +490,42 @@ interface AiAvatarWidget {
 
 ---
 
+## 🛠️ 構建工具插件 (Vite & Webpack 離線開箱即用)
+
+為了讓開發者在 `npm install` 之後**完全無需手動複製人像檔案至 `public`**，且在**斷網或離線開發環境下**依然能 100% 正常載入 2D/3D 模型與動作，本套件隨附專屬的 Vite 與 Webpack 外掛模組：
+
+* **本地開發階段 (Dev Server)**：插件會自動攔截 `/avatar-skin/*` 請求，由 Node.js 直接從 `node_modules` 讀取實體檔案並串流回傳給瀏覽器（完全 0 外部網路請求、0 線上 CDN 依賴）。
+* **生產打包階段 (Build)**：在執行專案構建（`vite build` 或 `webpack build`）時，插件會自動將 `avatar-skin` 完整目錄複製至最終輸出目錄 (`dist/avatar-skin/`)。
+
+### 1. Vite 專案配置 (Vue 3, Nuxt, Svelte, Vite React)
+
+```javascript
+// vite.config.js
+import { defineConfig } from 'vite';
+import { avatarBotVitePlugin } from 'ai-avatar-bot-vanilla-js/vite';
+
+export default defineConfig({
+  plugins: [
+    avatarBotVitePlugin() // 零配置！自動代理本機讀檔與打包輸出
+  ]
+});
+```
+
+### 2. Webpack 專案配置 (Create React App, Vue CLI, Webpack 5)
+
+```javascript
+// webpack.config.js 或 vue.config.js
+const { AvatarBotWebpackPlugin } = require('ai-avatar-bot-vanilla-js/webpack');
+
+module.exports = {
+  plugins: [
+    new AvatarBotWebpackPlugin() // 自動處理 Webpack DevServer 代理與打包資產拷貝
+  ]
+};
+```
+
+---
+
 ## 🌐 多語系支援 (i18n)
 
 SDK 內建多國語言介面字典，可隨時動態切換：
@@ -510,16 +547,20 @@ widget.i18nEngine.setLocale('zh-TW');
 
 ## 📦 第三方資產與授權（**請務必詳閱**）
 
-本套件原始碼本身採用 **MIT 授權**（詳見 [`LICENSE`](LICENSE)）。然而本套件**相依與引用的第三方庫、運行時核心與模型資產**各有其獨立之授權條款，**均不在本專案 MIT 授權涵蓋範圍內**。在進行商業化部署或二次散布前，請務必確認下列條款：
+本套件原始碼本身採用 **MIT 授權**（詳見 [`LICENSE`](LICENSE)）。然而本套件**隨附與引用的第三方庫、運行時核心、2D/3D 人像模型與動作資產**各有其獨立之授權條款，**均不在本專案 MIT 授權涵蓋範圍內**。在進行商業化部署或二次散布前，請務必確認下列條款：
 
 | 依賴項目 / 資產名稱 | 授權協議 / 來源 | 商業與使用注意事項 |
 | :--- | :--- | :--- |
 | **Live2D Cubism Core** (`cubism.live2d.com`) | **專有授權** (Live2D Proprietary Software License) | **非開源軟體**。本專案透過動態加載官方 CDN 核心運作，若欲商用、發行或重新包裝，使用者需自行確保遵守 Live2D 官方條款並取得適當授權。 |
-| **Haru 範例模型** (2D Live2D 預設測試資產) | Live2D **Free Material License** | **僅供技術示範與測試使用**。不可直接未經授權用於正式商業產品上線。正式產品請務必替換為自有或已取得合法授權之 Live2D 模型。 |
-| **3D VRM 範例模型** (`Seed-san` 等) | **VRM Public License 1.0** / 各作者授權 | 依各 3D VRM 創作者標註之使用規範（是否允許商用、改作、暴力/成人表現限制）。 |
+| **Haru 範例模型** (`2d-model/female/haru_greeter_t03.*`) | Live2D **Free Material License** | **僅供技術示範與測試使用**。不可直接未經授權用於正式商業產品。正式產品請替換為自有 Live2D 模型。 |
+| **Natori 範例模型** (`2d-model/male/natori_pro_t06.*`) | Live2D **Free Material License** | **僅供技術示範與測試使用**。不可直接未經授權用於正式商業產品。 |
+| **Shizuku 音效檔** (`2d-model/female/shizuku/sounds/*`) | Live2D **Free Material License** | 點擊互動音效，僅限搭配範例學習測試使用。 |
+| **初音未來 VRM 模型** (`3d-model/HatsuneMiku.vrm`) | **Piapro Character License (PCL)** (Crypton Future Media) | 屬於 Crypton 知名角色 IP。**僅限非商業個人創作/技術示範**，嚴禁任何未經授權之商業獲利行為。 |
+| **洛克人.EXE VRM 模型** (`3d-model/RockmanEXE.vrm`) | **Capcom 二次創作指引** (CAPCOM CO., LTD.) | 屬於 Capcom 知名遊戲 IP。**僅限非商業個人技術示範**，不可用於任何商業用途。 |
+| **VRMA 動作資料庫** (`3d-model/vrma/*.vrma` 共 6 款) | **MIT / CC-BY 4.0** (Hirokazu Niimoto / VRM Consortium) | 包含揮手、鞠躬、思考、東張西望、放鬆與驚訝動作，開源可自由引用與商用。 |
 | **Pixi.js / pixi-live2d-display** | **MIT License** | 開源 2D WebGL 渲染引擎與 Live2D 整合插件。 |
 | **Three.js / @pixiv/three-vrm** | **MIT License** | 開源 3D 渲染器與 VRM 角色模型標準規範庫。 |
-| **@mlc-ai/web-llm** (WebLLM) | **Apache-2.0** | 瀏覽器端 WebGPU 語言模型推論引擎。使用者下載與運行的各開源模型權重（如 Qwen2.5, Hermes Llama 3.1, Gemma 2 等）各受原創作者／機構之授權條款約束。 |
+| **@mlc-ai/web-llm** (WebLLM) | **Apache-2.0** | 瀏覽器端 WebGPU 語言模型推論引擎。使用者下載之各開源模型權重（如 Qwen2.5, Hermes Llama 3.1 等）各受原創作者之授權條款約束。 |
 
 ---
 
