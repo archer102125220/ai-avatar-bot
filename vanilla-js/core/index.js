@@ -148,6 +148,8 @@ export * from './plugins';
  * @property {Function} [onSummaryUpdated] - 滾動對話摘要更新時的回呼函式 (summary)
  * @property {Function} [onBrainFallback] - 大腦引擎降級時觸發的回呼函式 (fromEngine, toEngine, error)
  * @property {Function} [onToolCall] - 觸發外部工具 (Tool Call) 時的回呼函式
+ * @property {(info: { toolName: string, args: Object, toolCall: Object }, widget: AiAvatarWidget) => any} [onToolNotFound] - 當 AI 請求呼叫未註冊的工具時觸發的回呼函式（可回傳自訂結果供模型第二輪生成回答）
+ * @property {(info: { tool: Object, toolName: string, args: Object, toolCall: Object, error: Error }, widget: AiAvatarWidget) => any} [onToolError] - 當工具執行發生錯誤時觸發的回呼函式（可回傳自訂錯誤結果供模型生成回答）
  * @property {Function} [onSetHistoryOpen] - 開關歷史紀錄面板時的回呼函式
  * @property {Function} [onRenderHistory] - 歷史紀錄渲染更新時的回呼函式
  * @property {Function} [onSpokenAudioPlayNow] - 觸發發音時的回呼函式
@@ -1266,6 +1268,12 @@ export async function initAvatarBot(options = {}) {
       }
 
       callOptionEvent.call(this, 'onStreamEnd', fullText);
+    },
+    onToolNotFound(info) {
+      return callOptionEvent.call(this, 'onToolNotFound', info, aiAvatarWidget);
+    },
+    onToolError(info) {
+      return callOptionEvent.call(this, 'onToolError', info, aiAvatarWidget);
     }
   };
 

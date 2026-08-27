@@ -252,6 +252,8 @@ const avatarWidget = await initAvatarBot({
 | `onMicStateChanged(isListening, convoOn)` | `isListening, convoOn` | 麥克風錄音狀態變更時觸發 |
 | `onVoiceStatusChanged(convoOn, text, state, level)` | 多項語音狀態 | 即時音訊音量與語音狀態變化時觸發 |
 | `onToolCall(pendingCall, widget)` | `pendingCall, widget` | 外部工具被觸發時回呼 |
+| `onToolNotFound(info, widget)` | `info, widget` | AI 請求呼叫未註冊的工具時回呼（可回傳自訂結果供模型繼續生成） |
+| `onToolError(info, widget)` | `info, widget` | 工具執行失敗或拋出錯誤時回呼（可回傳自訂錯誤結果供模型繼續生成） |
 | `onBrainFallback(from, to, error)` | `from, to, error` | 當大腦推論引擎發生降級切換時觸發 |
 | `onError(error, widget)` | `error, widget` | 發生未預期錯誤時觸發 |
 

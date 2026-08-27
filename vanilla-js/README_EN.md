@@ -252,6 +252,8 @@ Options object accepted by `initAvatarBot(options)`:
 | `onMicStateChanged(isListening, convoOn)` | `isListening, convoOn` | Triggered when microphone state changes. |
 | `onVoiceStatusChanged(convoOn, text, state, level)` | Multiple state vars | Triggered when real-time voice volume/status updates. |
 | `onToolCall(pendingCall, widget)` | `pendingCall, widget` | Triggered when an external tool is invoked. |
+| `onToolNotFound(info, widget)` | `info, widget` | Triggered when AI calls an unregistered tool (can return custom result to model). |
+| `onToolError(info, widget)` | `info, widget` | Triggered when tool execution fails (can return custom error result to model). |
 | `onBrainFallback(from, to, error)` | `from, to, error` | Triggered when the brain engine falls back to another tier. |
 | `onError(error, widget)` | `error, widget` | Triggered on unexpected runtime errors. |
 

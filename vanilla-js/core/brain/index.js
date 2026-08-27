@@ -1475,7 +1475,9 @@ export async function initBrainEngine(setting = {}) {
     languageRule,
     gender,
     genderRule,
-    onBrainFallback = null
+    onBrainFallback = null,
+    onToolNotFound = null,
+    onToolError = null
   } = setting;
 
   let llm = null;
@@ -1563,6 +1565,8 @@ export async function initBrainEngine(setting = {}) {
     onStreamStart: onStreamStart || null,
     onStreamChunk: onStreamChunk || null,
     onStreamEnd: onStreamEnd || null,
+    onToolNotFound: onToolNotFound || null,
+    onToolError: onToolError || null,
 
     chatLog: [],
     chatSeq: 0,
@@ -2161,14 +2165,29 @@ export async function handleToolCallsLoop(
 
     if (!tool) {
       console.warn(`[AvatarBot] AI 請求呼叫未註冊的工具: ${toolName}`);
+      let customResult;
+      if (typeof brainEngine.onToolNotFound === 'function') {
+        try {
+          customResult = await brainEngine.onToolNotFound({
+            toolName,
+            args,
+            toolCall
+          });
+        } catch (hookError) {
+          console.error('[AvatarBot] onToolNotFound 回呼執行錯誤:', hookError);
+        }
+      }
       toolResults.push({
         toolCall,
         tool: null,
         args,
-        result: {
-          ok: false,
-          error: `Tool "${toolName}" is not registered or not available. Please answer the user directly.`
-        }
+        result:
+          customResult !== undefined
+            ? customResult
+            : {
+                ok: false,
+                error: `Tool "${toolName}" is not registered or not available. Please answer the user directly.`
+              }
       });
       continue;
     }
@@ -2180,10 +2199,35 @@ export async function handleToolCallsLoop(
 
     let toolResult = null;
     if (typeof brainEngine.executeTool === 'function') {
-      toolResult = await brainEngine.executeTool(tool, args, {
-        toolCallId: toolCall.id,
-        source: CHAT_SOURCE_MAP.AI
-      });
+      try {
+        toolResult = await brainEngine.executeTool(tool, args, {
+          toolCallId: toolCall.id,
+          source: CHAT_SOURCE_MAP.AI
+        });
+      } catch (execError) {
+        console.error(`[AvatarBot] 工具「${toolName}」執行時發生錯誤:`, execError);
+        let customErrorResult;
+        if (typeof brainEngine.onToolError === 'function') {
+          try {
+            customErrorResult = await brainEngine.onToolError({
+              tool,
+              toolName,
+              args,
+              toolCall,
+              error: execError
+            });
+          } catch (hookError) {
+            console.error('[AvatarBot] onToolError 回呼執行錯誤:', hookError);
+          }
+        }
+        toolResult =
+          customErrorResult !== undefined
+            ? customErrorResult
+            : {
+                ok: false,
+                error: execError?.message || 'Tool execution failed'
+              };
+      }
     }
     toolResults.push({ toolCall, tool, args, result: toolResult });
   }
