@@ -330,8 +330,8 @@ export async function handleGetKnowledge(knowledgeUrl = '') {
 export function bigrams(text) {
   text = (text || '').toLowerCase().replace(/[\s，。、？！,.?!~～]/g, '');
   const grams = [];
-  for (let i = 0; i < text.length - 1; i++) {
-    grams.push(text.slice(i, i + 2));
+  for (let charIndex = 0; charIndex < text.length - 1; charIndex++) {
+    grams.push(text.slice(charIndex, charIndex + 2));
   }
   if (text.length === 1) {
     grams.push(text);
@@ -382,9 +382,9 @@ export function scoreEntry(question, entry) {
     similarity(safeQuestion, targetKeyword)
   );
   const terms = targetKeyword.split(/\s+/).filter(Boolean);
-  for (const item of terms) {
-    if (item.length >= 2 && safeQuestion.includes(item) === true) {
-      score = Math.max(score, 0.5 + item.length * 0.04);
+  for (const term of terms) {
+    if (term.length >= 2 && safeQuestion.includes(term) === true) {
+      score = Math.max(score, 0.5 + term.length * 0.04);
     }
   }
   return score;
@@ -402,7 +402,7 @@ export function topK(brainEngine, question, limit) {
 
   return knowledge
     .map((entry) => ({ entry, score: scoreEntry(question, entry) }))
-    .sort((a, b) => b.score - a.score)
+    .sort((firstItem, secondItem) => secondItem.score - firstItem.score)
     .slice(0, limit)
     .filter((item) => item.score > 0.05)
     .map((item) => item.entry);
@@ -484,44 +484,44 @@ export function initLLM(setting = {}, brain) {
     },
 
     get onLoading() {
-      return function _onLoading(...arg) {
+      return function _onLoading(...args) {
         if (typeof onLoading === 'function') {
-          onLoading(...arg);
+          onLoading(...args);
         }
       };
     },
     get onLoadProgress() {
-      return function _onLoadProgress(...arg) {
+      return function _onLoadProgress(...args) {
         if (typeof onLoadProgress === 'function') {
-          onLoadProgress(...arg);
+          onLoadProgress(...args);
         }
       };
     },
     get onLoaded() {
-      return function _onLoaded(...arg) {
+      return function _onLoaded(...args) {
         if (typeof onLoaded === 'function') {
-          onLoaded(...arg);
+          onLoaded(...args);
         }
       };
     },
     get onLoadError() {
-      return function _onLoadError(...arg) {
+      return function _onLoadError(...args) {
         if (typeof onLoadError === 'function') {
-          onLoadError(...arg);
+          onLoadError(...args);
         }
       };
     },
     get onChatting() {
-      return function _onChating(...arg) {
+      return function _onChatting(...args) {
         if (typeof onChatting === 'function') {
-          onChatting(...arg);
+          onChatting(...args);
         }
       };
     },
     get onStreamChatting() {
-      return function _onStreamChatting(...arg) {
+      return function _onStreamChatting(...args) {
         if (typeof onStreamChatting === 'function') {
-          onStreamChatting(...arg);
+          onStreamChatting(...args);
         }
       };
     },
@@ -587,29 +587,37 @@ export function initLLM(setting = {}, brain) {
           // 處理方式：將 system prompt 整合至第一則 user 訊息，避免傳遞獨立的 system 訊息。
           if (Array.isArray(messages) === true) {
             const systemMsg = messages.find(
-              (m) => m.role === CHAT_ROLE_MAP.SYSTEM || m.role === 'system'
+              (messageItem) =>
+                messageItem.role === CHAT_ROLE_MAP.SYSTEM ||
+                messageItem.role === 'system'
             );
             const nonSystemMsgs = messages.filter(
-              (m) => m.role !== CHAT_ROLE_MAP.SYSTEM && m.role !== 'system'
+              (messageItem) =>
+                messageItem.role !== CHAT_ROLE_MAP.SYSTEM &&
+                messageItem.role !== 'system'
             );
 
             if (
               typeof systemMsg?.content === 'string' &&
               systemMsg.content.trim() !== ''
             ) {
-              const firstUserIdx = nonSystemMsgs.findIndex(
-                (m) => m.role === CHAT_ROLE_MAP.USER || m.role === 'user'
+              const firstUserIndex = nonSystemMsgs.findIndex(
+                (messageItem) =>
+                  messageItem.role === CHAT_ROLE_MAP.USER ||
+                  messageItem.role === 'user'
               );
-              if (firstUserIdx !== -1) {
-                createOptions.messages = nonSystemMsgs.map((m, idx) => {
-                  if (idx === firstUserIdx) {
-                    return {
-                      ...m,
-                      content: `[Instruction: ${systemMsg.content.trim()}]\n\n${m.content}`
-                    };
+              if (firstUserIndex !== -1) {
+                createOptions.messages = nonSystemMsgs.map(
+                  (messageItem, messageIndex) => {
+                    if (messageIndex === firstUserIndex) {
+                      return {
+                        ...messageItem,
+                        content: `[Instruction: ${systemMsg.content.trim()}]\n\n${messageItem.content}`
+                      };
+                    }
+                    return messageItem;
                   }
-                  return m;
-                });
+                );
               } else {
                 createOptions.messages = [
                   {
@@ -637,9 +645,12 @@ export function initLLM(setting = {}, brain) {
         ) {
           const normalizedOptions = {
             ...options,
-            messages: (options.messages || []).map((m) => ({
-              ...m,
-              content: typeof m?.content === 'string' ? m.content : ''
+            messages: (options.messages || []).map((messageItem) => ({
+              ...messageItem,
+              content:
+                typeof messageItem?.content === 'string'
+                  ? messageItem.content
+                  : ''
             }))
           };
           const result =
@@ -692,9 +703,12 @@ export function initLLM(setting = {}, brain) {
         const streamOptions = {
           ...options,
           stream: true,
-          messages: (options.messages || []).map((m) => ({
-            ...m,
-            content: typeof m?.content === 'string' ? m.content : ''
+          messages: (options.messages || []).map((messageItem) => ({
+            ...messageItem,
+            content:
+              typeof messageItem?.content === 'string'
+                ? messageItem.content
+                : ''
           }))
         };
         const stream = await engine.chat.completions.create(streamOptions);
@@ -709,21 +723,31 @@ export function initLLM(setting = {}, brain) {
             delta.tool_calls.length > 0
           ) {
             hasToolCalls = true;
-            delta.tool_calls.forEach((tc) => {
-              const idx = typeof tc.index === 'number' ? tc.index : 0;
-              if (!toolCallsMap[idx]) {
-                toolCallsMap[idx] = {
-                  id: tc.id || `call_${idx}`,
+            delta.tool_calls.forEach((toolCallDelta) => {
+              const callIndex =
+                typeof toolCallDelta.index === 'number'
+                  ? toolCallDelta.index
+                  : 0;
+              if (typeof toolCallsMap[callIndex] === 'undefined') {
+                toolCallsMap[callIndex] = {
+                  id: toolCallDelta.id || `call_${callIndex}`,
                   type: 'function',
                   function: { name: '', arguments: '' }
                 };
               }
-              if (tc.id) toolCallsMap[idx].id = tc.id;
-              if (tc.function?.name) {
-                toolCallsMap[idx].function.name += tc.function.name;
+              if (
+                typeof toolCallDelta.id === 'string' &&
+                toolCallDelta.id !== ''
+              ) {
+                toolCallsMap[callIndex].id = toolCallDelta.id;
               }
-              if (tc.function?.arguments) {
-                toolCallsMap[idx].function.arguments += tc.function.arguments;
+              if (typeof toolCallDelta.function?.name === 'string') {
+                toolCallsMap[callIndex].function.name +=
+                  toolCallDelta.function.name;
+              }
+              if (typeof toolCallDelta.function?.arguments === 'string') {
+                toolCallsMap[callIndex].function.arguments +=
+                  toolCallDelta.function.arguments;
               }
             });
           } else if (
@@ -877,11 +901,15 @@ export async function getWelcomeText(brainEngine) {
         return resolvedCompanionWelcomeText;
       }
     }
-    if (brainEngine?.memory?.data?.visits > 1) {
+    if (
+      typeof brainEngine?.memory?.data?.visits === 'number' &&
+      brainEngine.memory.data.visits > 1
+    ) {
       const name = brainEngine.memory.data.name;
+      const hasName = typeof name === 'string' && name !== '';
       if (/en/i.test(locale)) {
         return (
-          (name ? name + ', ' : '') +
+          (hasName ? name + ', ' : '') +
           'welcome back! This is our ' +
           brainEngine.memory.data.visits +
           'th visit! Click 💬 to continue chatting.'
@@ -889,7 +917,7 @@ export async function getWelcomeText(brainEngine) {
       }
       if (/ja/i.test(locale)) {
         return (
-          (name ? name + 'さん、' : '') +
+          (hasName ? name + 'さん、' : '') +
           'おかえりなさい！' +
           brainEngine.memory.data.visits +
           '回目の訪問ですね！💬 を押して続きをお話ししましょう。'
@@ -897,14 +925,14 @@ export async function getWelcomeText(brainEngine) {
       }
       if (/ko/i.test(locale)) {
         return (
-          (name ? name + '님, ' : '') +
+          (hasName ? name + '님, ' : '') +
           '다시 오신 것을 환영해요! 벌써 ' +
           brainEngine.memory.data.visits +
           '번째 만남이네요! 💬를 눌러 대화를 이어가요.'
         );
       }
       return (
-        (name ? name + '，' : '') +
+        (hasName ? name + '，' : '') +
         '歡迎回來～這是我們第 ' +
         brainEngine.memory.data.visits +
         ' 次見面！點 💬 繼續聊，我記得我們聊過什麼喔'
@@ -1019,37 +1047,37 @@ export async function initAiProvider(setting = {}) {
     },
 
     get onConnecting() {
-      return function _onConnecting(...arg) {
+      return function _onConnecting(...args) {
         if (typeof onConnecting === 'function') {
-          onConnecting(...arg);
+          onConnecting(...args);
         }
       };
     },
     get onConnected() {
-      return function _onConnected(...arg) {
+      return function _onConnected(...args) {
         if (typeof onConnected === 'function') {
-          onConnected(...arg);
+          onConnected(...args);
         }
       };
     },
     get onError() {
-      return function _onError(...arg) {
+      return function _onError(...args) {
         if (typeof onError === 'function') {
-          onError(...arg);
+          onError(...args);
         }
       };
     },
     get onChatting() {
-      return function _onChating(...arg) {
+      return function _onChatting(...args) {
         if (typeof onChatting === 'function') {
-          onChatting(...arg);
+          onChatting(...args);
         }
       };
     },
     get onStreamChatting() {
-      return function _onStreamChatting(...arg) {
+      return function _onStreamChatting(...args) {
         if (typeof onStreamChatting === 'function') {
-          onStreamChatting(...arg);
+          onStreamChatting(...args);
         }
       };
     },
@@ -1152,8 +1180,10 @@ export async function initAiProvider(setting = {}) {
           let errorMsg = `HTTP ${response.status} ${response.statusText}`;
           try {
             const errorText = await response.text();
-            if (errorText) errorMsg += ` - ${errorText}`;
-          } catch (_e) {}
+            if (typeof errorText === 'string' && errorText !== '') {
+              errorMsg += ` - ${errorText}`;
+            }
+          } catch (_parseError) {}
           throw new Error(errorMsg);
         }
 
@@ -1177,7 +1207,7 @@ export async function initAiProvider(setting = {}) {
         const rawContent = result?.choices?.[0]?.message?.content || '';
         if (
           (toolCalls === null ||
-            (Array.isArray(toolCalls) && toolCalls.length === 0)) &&
+            (Array.isArray(toolCalls) === true && toolCalls.length === 0)) &&
           typeof rawContent === 'string' &&
           rawContent !== ''
         ) {
@@ -1751,23 +1781,23 @@ export async function initBrainEngine(setting = {}) {
       llmModel,
       LLMMaxTokens,
       LLMIsStream,
-      onLoading(...arg) {
-        return brainEngine.onLlmLoading?.(...arg);
+      onLoading(...args) {
+        return brainEngine.onLlmLoading?.(...args);
       },
-      onLoadProgress(...arg) {
-        return brainEngine.onLlmLoadProgress?.(...arg);
+      onLoadProgress(...args) {
+        return brainEngine.onLlmLoadProgress?.(...args);
       },
-      onLoaded(...arg) {
-        return brainEngine.onLlmLoaded?.(...arg);
+      onLoaded(...args) {
+        return brainEngine.onLlmLoaded?.(...args);
       },
-      onLoadError(...arg) {
-        return brainEngine.onLlmLoadError?.(...arg);
+      onLoadError(...args) {
+        return brainEngine.onLlmLoadError?.(...args);
       },
-      onChatting(...arg) {
-        return brainEngine.onLlmChatting?.(...arg);
+      onChatting(...args) {
+        return brainEngine.onLlmChatting?.(...args);
       },
-      onStreamChatting(...arg) {
-        return brainEngine.onLlmStreamChatting?.(...arg);
+      onStreamChatting(...args) {
+        return brainEngine.onLlmStreamChatting?.(...args);
       }
     },
     brainEngine
@@ -1793,20 +1823,20 @@ export async function initBrainEngine(setting = {}) {
     providerIsStream: aiProviderIsStream,
     providerExtractToolCalls: aiProviderExtractToolCalls,
 
-    onConnecting(...arg) {
-      return brainEngine.onAiProviderConnecting?.(...arg);
+    onConnecting(...args) {
+      return brainEngine.onAiProviderConnecting?.(...args);
     },
-    onConnected(...arg) {
-      return brainEngine.onAiProviderConnected?.(...arg);
+    onConnected(...args) {
+      return brainEngine.onAiProviderConnected?.(...args);
     },
-    onError(...arg) {
-      return brainEngine.onAiProviderError?.(...arg);
+    onError(...args) {
+      return brainEngine.onAiProviderError?.(...args);
     },
-    onChatting(...arg) {
-      return brainEngine.onAiProviderChatting?.(...arg);
+    onChatting(...args) {
+      return brainEngine.onAiProviderChatting?.(...args);
     },
-    onStreamChatting(...arg) {
-      return brainEngine.onAiProviderStreamChatting?.(...arg);
+    onStreamChatting(...args) {
+      return brainEngine.onAiProviderStreamChatting?.(...args);
     }
   });
 
@@ -1868,19 +1898,20 @@ export function brainEngineCompanionFallback(brainEngine, question) {
     typeof brainEngine?.companionFallbackContext !== 'undefined' &&
     brainEngine?.companionFallbackContext !== null
   ) {
-    const res = resolveLocalized(
+    const resolvedFallbackText = resolveLocalized(
       brainEngine.companionFallbackContext,
       locale,
       undefined,
       templateContext
     );
-    if (typeof res === 'string') {
-      return res;
+    if (typeof resolvedFallbackText === 'string') {
+      return resolvedFallbackText;
     }
   }
 
+  const hasName = typeof name === 'string' && name !== '';
   let defaultList = [
-    (name ? name + '，' : '') + '這個我還不太會聊，但我想聽你說——多講一點？',
+    (hasName ? `${name}，` : '') + '這個我還不太會聊，但我想聽你說——多講一點？',
     '嗯嗯，我在聽。後來呢？',
     '哈，這題有點考倒我了，你怎麼看？',
     '我還在學著聊這個～對了，按 🧠 開 AI 大腦，我會聊得更順喔。'
@@ -1888,7 +1919,7 @@ export function brainEngineCompanionFallback(brainEngine, question) {
 
   if (/en/i.test(locale)) {
     defaultList = [
-      (name ? name + ', ' : '') +
+      (hasName ? `${name}, ` : '') +
         'I am still learning to chat about this, but I would love to hear more from you!',
       'Mhm, I am listening. What happened next?',
       'Haha, this question stumped me a bit. What do you think?',
@@ -1896,7 +1927,7 @@ export function brainEngineCompanionFallback(brainEngine, question) {
     ];
   } else if (/ja/i.test(locale)) {
     defaultList = [
-      (name ? name + 'さん、' : '') +
+      (hasName ? `${name}さん、` : '') +
         'それについてはまだ勉強中ですが、もっと詳しく聞かせてくれますか？',
       'うんうん、聞いていますよ。それからどうなりましたか？',
       'ふふ、ちょっと難しい質問ですね！あなたはどう思いますか？',
@@ -1904,11 +1935,11 @@ export function brainEngineCompanionFallback(brainEngine, question) {
     ];
   } else if (/ko/i.test(locale)) {
     defaultList = [
-      (name ? name + '님, ' : '') +
+      (hasName ? `${name}님, ` : '') +
         '그 부분은 아직 잘 모르지만, 더 자세히 이야기해 주실 수 있나요?',
       '네, 듣고 있어요. 그 다음엔 어떻게 되었나요?',
       '하하, 조금 어려운 질문이네요! 어떻게 생각하세요?',
-      '더 자연스럽게 대화하도록 배우는 중이에요~ 🧠를 눌러 AI 브레인을 켜면 더 매끄럽게 이야기할 수 있어요.'
+      '더自然스럽게 대화하도록 배우는 중이에요~ 🧠를 눌러 AI 브레인을 켜면 더 매끄럽게 이야기할 수 있어요.'
     ];
   }
 
@@ -2005,14 +2036,14 @@ export function handleThinking(brainEngine, rawQuestion) {
     typeof brainEngine.assistantFallbackContext !== 'undefined' &&
     brainEngine.assistantFallbackContext !== null
   ) {
-    const res = resolveLocalized(
+    const resolvedFallbackContext = resolveLocalized(
       brainEngine.assistantFallbackContext,
       locale,
       undefined,
       { question, locale }
     );
-    if (typeof res === 'string') {
-      return res;
+    if (typeof resolvedFallbackContext === 'string') {
+      return resolvedFallbackContext;
     }
   }
 
@@ -2062,7 +2093,7 @@ export function addChatMessage(brainEngine, role, text, options = {}) {
     id: options.id || 'm' + ++brainEngine.chatSeq,
     role: role === 'user' ? 'user' : 'assistant',
     text: String(text || '').slice(0, 4000),
-    streaming: !!options.streaming,
+    streaming: Boolean(options.streaming),
     pendingTool: options.pendingTool || null,
     pendingChoices: options.pendingChoices || null
   };
@@ -2094,7 +2125,7 @@ export function updateChatMessage(brainEngine, id, text, streaming) {
     return addChatMessage(brainEngine, 'assistant', text, { id, streaming });
   }
   item.text = String(text || '').slice(0, 4000);
-  item.streaming = !!streaming;
+  item.streaming = Boolean(streaming);
   if (typeof brainEngine.onUpdateChatMessage === 'function') {
     brainEngine.onUpdateChatMessage(item);
   }
@@ -2116,12 +2147,14 @@ function getBrainMessage(brainEngine, key, params = {}) {
     return brainEngine.i18nEngine.t(key, params);
   }
   const locale = brainEngine?.locale || 'zh-TW';
-  const dict = defaultLocales[locale] || defaultLocales['zh-TW'] || {};
-  const val = dict[key] || defaultLocales['zh-TW']?.[key] || key;
-  if (typeof val === 'string') {
-    return formatParams(val, params);
+  const localeDictionary =
+    defaultLocales[locale] || defaultLocales['zh-TW'] || {};
+  const messageValue =
+    localeDictionary[key] || defaultLocales['zh-TW']?.[key] || key;
+  if (typeof messageValue === 'string') {
+    return formatParams(messageValue, params);
   }
-  return val;
+  return messageValue;
 }
 
 /**
@@ -2139,7 +2172,7 @@ export async function handleToolCallsLoop(
   providerType
 ) {
   const { toolCalls, message } = toolCallResponse;
-  if (!Array.isArray(toolCalls) || toolCalls.length === 0) {
+  if (Array.isArray(toolCalls) === false || toolCalls.length === 0) {
     return;
   }
 
@@ -2163,7 +2196,7 @@ export async function handleToolCallsLoop(
         ? brainEngine.getToolByName(toolName)
         : null;
 
-    if (!tool) {
+    if (typeof tool !== 'object' || tool === null) {
       console.warn(`[AvatarBot] AI 請求呼叫未註冊的工具: ${toolName}`);
       let customResult;
       if (typeof brainEngine.onToolNotFound === 'function') {
@@ -2205,7 +2238,10 @@ export async function handleToolCallsLoop(
           source: CHAT_SOURCE_MAP.AI
         });
       } catch (execError) {
-        console.error(`[AvatarBot] 工具「${toolName}」執行時發生錯誤:`, execError);
+        console.error(
+          `[AvatarBot] 工具「${toolName}」執行時發生錯誤:`,
+          execError
+        );
         let customErrorResult;
         if (typeof brainEngine.onToolError === 'function') {
           try {
@@ -2233,7 +2269,10 @@ export async function handleToolCallsLoop(
   }
 
   const resumeAiSummary = async (executedResults) => {
-    if (!Array.isArray(executedResults) || executedResults.length === 0) {
+    if (
+      Array.isArray(executedResults) === false ||
+      executedResults.length === 0
+    ) {
       return;
     }
 
@@ -2284,10 +2323,7 @@ export async function handleToolCallsLoop(
           lastResult.error !== ''
         ) {
           finalText = lastResult.error;
-        } else if (
-          typeof lastResult === 'string' &&
-          lastResult.trim() !== ''
-        ) {
+        } else if (typeof lastResult === 'string' && lastResult.trim() !== '') {
           finalText = lastResult.trim();
         } else if (
           typeof lastResult?.message === 'string' &&
@@ -2295,10 +2331,7 @@ export async function handleToolCallsLoop(
         ) {
           finalText = lastResult.message.trim();
         } else {
-          finalText = getBrainMessage(
-            brainEngine,
-            'brain.toolExecutionError'
-          );
+          finalText = getBrainMessage(brainEngine, 'brain.toolExecutionError');
         }
       }
 
@@ -2345,10 +2378,7 @@ export async function handleToolCallsLoop(
           lastResult.error !== ''
         ) {
           finalText = lastResult.error;
-        } else if (
-          typeof lastResult === 'string' &&
-          lastResult.trim() !== ''
-        ) {
+        } else if (typeof lastResult === 'string' && lastResult.trim() !== '') {
           finalText = lastResult.trim();
         } else if (
           typeof lastResult?.message === 'string' &&
@@ -2356,10 +2386,7 @@ export async function handleToolCallsLoop(
         ) {
           finalText = lastResult.message.trim();
         } else {
-          finalText = getBrainMessage(
-            brainEngine,
-            'brain.toolExecutionError'
-          );
+          finalText = getBrainMessage(brainEngine, 'brain.toolExecutionError');
         }
       }
 
@@ -2382,7 +2409,9 @@ export async function handleToolCallsLoop(
         source: CHAT_SOURCE_MAP.AI,
         pendingMessages: initialMessages,
         onConfirmResume: async (confirmedResult) => {
-          if (confirmedResult?.cancelled === true) return;
+          if (confirmedResult?.cancelled === true) {
+            return;
+          }
           await resumeAiSummary([
             ...toolResults,
             { toolCall, tool, args, result: confirmedResult }
@@ -2626,17 +2655,16 @@ export function defaultBuildLLMMessages(
     brainEngine.customContext &&
     typeof brainEngine.customContext === 'object'
   ) {
-    const keys = Object.keys(brainEngine.customContext);
-    if (keys.length > 0) {
-      customContextText = keys
-        .map(
-          (k) =>
-            k +
-            '：' +
-            (Array.isArray(brainEngine.customContext[k])
-              ? brainEngine.customContext[k].join('、')
-              : String(brainEngine.customContext[k]))
-        )
+    const contextKeys = Object.keys(brainEngine.customContext);
+    if (contextKeys.length > 0) {
+      customContextText = contextKeys
+        .map((contextKey) => {
+          const contextValue = brainEngine.customContext[contextKey];
+          const formattedValue = Array.isArray(contextValue)
+            ? contextValue.join('、')
+            : String(contextValue);
+          return `${contextKey}：${formattedValue}`;
+        })
         .join('\n');
     }
   }
@@ -2834,8 +2862,8 @@ export async function handleAnswer(brainEngine, question) {
     if (typeof brainEngine.onBrainFallback === 'function') {
       try {
         brainEngine.onBrainFallback(fromEngine, toEngine, error);
-      } catch (e) {
-        console.error('[handleAnswer] onBrainFallback error:', e);
+      } catch (fallbackError) {
+        console.error('[handleAnswer] onBrainFallback error:', fallbackError);
       }
     }
   }
@@ -2846,10 +2874,10 @@ export async function handleAnswer(brainEngine, question) {
       brainEngine.llm?.supported === true &&
       brainEngine.llm?.state === brainEngine.STATE_MAP.IDLE
     ) {
-      brainEngine.llm.load().catch((err) => {
+      brainEngine.llm.load().catch((loadError) => {
         console.warn(
           '[handleAnswer] Background WebLLM fallback loading failed:',
-          err
+          loadError
         );
       });
     }
@@ -2967,11 +2995,11 @@ export async function maybeTriggerRollingSummary(brainEngine) {
         typeof brainEngine.aiProvider.chat === 'function'
       ) {
         llmChat = async (promptMsgs) => {
-          const res = await brainEngine.aiProvider.chat(promptMsgs);
-          return typeof res === 'string'
-            ? res
-            : typeof res?.content === 'string'
-              ? res.content
+          const summaryResponse = await brainEngine.aiProvider.chat(promptMsgs);
+          return typeof summaryResponse === 'string'
+            ? summaryResponse
+            : typeof summaryResponse?.content === 'string'
+              ? summaryResponse.content
               : '';
         };
       } else if (
@@ -2979,11 +3007,12 @@ export async function maybeTriggerRollingSummary(brainEngine) {
         typeof brainEngine.llm?.engine?.chat?.completions?.create === 'function'
       ) {
         llmChat = async (promptMsgs) => {
-          const res = await brainEngine.llm.engine.chat.completions.create({
-            messages: promptMsgs,
-            temperature: 0.3
-          });
-          return res?.choices?.[0]?.message?.content || '';
+          const completionResult =
+            await brainEngine.llm.engine.chat.completions.create({
+              messages: promptMsgs,
+              temperature: 0.3
+            });
+          return completionResult?.choices?.[0]?.message?.content || '';
         };
       }
 
@@ -3004,10 +3033,10 @@ export async function maybeTriggerRollingSummary(brainEngine) {
           brainEngine.onSummaryUpdated(newSummary.trim());
         }
       }
-    } catch (err) {
+    } catch (summaryError) {
       console.warn(
         '[maybeTriggerRollingSummary] Background summarization failed:',
-        err
+        summaryError
       );
     } finally {
       brainEngine._isSummarizing = false;
@@ -3055,14 +3084,14 @@ export function validateBrainEngine(engine) {
   ];
   const requiredProps = ['memory', 'llm', 'aiProvider', 'chatLog', 'chatSeq'];
   const missing = [];
-  requiredMethods.forEach((key) => {
-    if (typeof engine[key] !== 'function') {
-      missing.push(`${key}()`);
+  requiredMethods.forEach((methodName) => {
+    if (typeof engine[methodName] !== 'function') {
+      missing.push(`${methodName}()`);
     }
   });
-  requiredProps.forEach((key) => {
-    if (engine[key] === undefined) {
-      missing.push(key);
+  requiredProps.forEach((propName) => {
+    if (engine[propName] === undefined) {
+      missing.push(propName);
     }
   });
   return { isValid: missing.length === 0, missing };
