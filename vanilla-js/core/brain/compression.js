@@ -117,31 +117,31 @@ export function estimateChars(input) {
     return input.length;
   }
   if (Array.isArray(input) === true) {
-    let total = 0;
-    for (const msg of input) {
-      total += estimateChars(msg);
+    let totalChars = 0;
+    for (const message of input) {
+      totalChars += estimateChars(message);
     }
-    return total;
+    return totalChars;
   }
   if (typeof input === 'object' && input !== null) {
-    let count = 0;
+    let charCount = 0;
     if (typeof input.content === 'string') {
-      count += input.content.length;
+      charCount += input.content.length;
     }
     if (
       Array.isArray(input.tool_calls) === true &&
       input.tool_calls.length > 0
     ) {
-      for (const call of input.tool_calls) {
-        if (typeof call?.function?.arguments === 'string') {
-          count += call.function.arguments.length;
+      for (const toolCall of input.tool_calls) {
+        if (typeof toolCall?.function?.arguments === 'string') {
+          charCount += toolCall.function.arguments.length;
         }
-        if (typeof call?.function?.name === 'string') {
-          count += call.function.name.length;
+        if (typeof toolCall?.function?.name === 'string') {
+          charCount += toolCall.function.name.length;
         }
       }
     }
-    return count;
+    return charCount;
   }
   return 0;
 }
@@ -158,31 +158,32 @@ export function sanitizeToolCalls(messages) {
   }
 
   const validToolCallIds = new Set();
-  for (const msg of messages) {
+  for (const message of messages) {
     if (
-      typeof msg === 'object' &&
-      msg !== null &&
-      Array.isArray(msg.tool_calls) === true &&
-      msg.tool_calls.length > 0
+      typeof message === 'object' &&
+      message !== null &&
+      Array.isArray(message.tool_calls) === true &&
+      message.tool_calls.length > 0
     ) {
-      for (const tc of msg.tool_calls) {
-        if (typeof tc?.id === 'string' && tc.id !== '') {
-          validToolCallIds.add(tc.id);
+      for (const toolCall of message.tool_calls) {
+        if (typeof toolCall?.id === 'string' && toolCall.id !== '') {
+          validToolCallIds.add(toolCall.id);
         }
       }
     }
   }
 
-  const result = [];
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    if (typeof msg !== 'object' || msg === null) {
+  const sanitizedMessages = [];
+  for (let index = 0; index < messages.length; index++) {
+    const message = messages[index];
+    if (typeof message !== 'object' || message === null) {
       continue;
     }
 
-    const isTool = msg.role === CHAT_ROLE_MAP.TOOL || msg.role === 'tool';
+    const isTool =
+      message.role === CHAT_ROLE_MAP.TOOL || message.role === 'tool';
     if (isTool === true) {
-      const toolCallId = msg.tool_call_id;
+      const toolCallId = message.tool_call_id;
       // 若該 tool response 沒有對應的 tool_calls 發起者，則捨棄以避免 API 報錯
       if (
         typeof toolCallId !== 'string' ||
@@ -193,17 +194,17 @@ export function sanitizeToolCalls(messages) {
       }
     }
 
-    result.push(msg);
+    sanitizedMessages.push(message);
   }
 
-  return result;
+  return sanitizedMessages;
 }
 
 /**
  * 將歷史訊息陣列依問答邏輯分組為「輪次 (Turns)」
  * 一個輪次可能包含：
- * 1. 標準輪次：[userMsg, assistantMsg]
- * 2. 工具調用輪次：[userMsg, assistantToolCallMsg, toolMsg..., assistantFinalMsg]
+ * 1. 標準輪次：[userMessage, assistantMessage]
+ * 2. 工具調用輪次：[userMessage, assistantToolCallMessage, toolMessage..., assistantFinalMessage]
  * 3. 獨立訊息
  *
  * @param {Array<Object>} historyMessages - 歷史對話訊息
@@ -220,19 +221,20 @@ export function groupMessagesIntoTurns(historyMessages) {
   const turns = [];
   let currentTurn = [];
 
-  for (let i = 0; i < historyMessages.length; i++) {
-    const msg = historyMessages[i];
-    if (typeof msg !== 'object' || msg === null) {
+  for (let index = 0; index < historyMessages.length; index++) {
+    const message = historyMessages[index];
+    if (typeof message !== 'object' || message === null) {
       continue;
     }
 
-    const isUser = msg.role === CHAT_ROLE_MAP.USER || msg.role === 'user';
+    const isUser =
+      message.role === CHAT_ROLE_MAP.USER || message.role === 'user';
     // 若遇到新的 user 發言且當前 turn 已有內容，代表進入下一輪
     if (isUser === true && currentTurn.length > 0) {
       turns.push(currentTurn);
-      currentTurn = [msg];
+      currentTurn = [message];
     } else {
-      currentTurn.push(msg);
+      currentTurn.push(message);
     }
   }
 
@@ -265,43 +267,45 @@ export function slidingWindowCompressor({
   }
 
   // 1. 分離 System 訊息、最新 User 訊息與中間歷史
-  let systemMsg = null;
-  let latestUserMsg = null;
+  let systemMessage = null;
+  let latestUserMessage = null;
   const rawHistory = [];
 
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    if (typeof msg !== 'object' || msg === null) {
+  for (let index = 0; index < messages.length; index++) {
+    const message = messages[index];
+    if (typeof message !== 'object' || message === null) {
       continue;
     }
 
-    const isSystem = msg.role === CHAT_ROLE_MAP.SYSTEM || msg.role === 'system';
-    if (isSystem === true && systemMsg === null) {
-      systemMsg = msg;
+    const isSystem =
+      message.role === CHAT_ROLE_MAP.SYSTEM || message.role === 'system';
+    if (isSystem === true && systemMessage === null) {
+      systemMessage = message;
       continue;
     }
 
     // 最後一則如果是 user，作為當前發問保留
-    if (i === messages.length - 1) {
-      const isUser = msg.role === CHAT_ROLE_MAP.USER || msg.role === 'user';
+    if (index === messages.length - 1) {
+      const isUser =
+        message.role === CHAT_ROLE_MAP.USER || message.role === 'user';
       if (isUser === true) {
-        latestUserMsg = msg;
+        latestUserMessage = message;
         continue;
       }
     }
 
-    rawHistory.push(msg);
+    rawHistory.push(message);
   }
 
-  // 若外部有給定 systemPrompt，優先以外部給定之 systemPrompt 為準；否則沿用 messages 中的 systemMsg
+  // 若外部有給定 systemPrompt，優先以外部給定之 systemPrompt 為準；否則沿用 messages 中的 systemMessage
   if (typeof systemPrompt === 'string' && systemPrompt !== '') {
-    systemMsg = { role: CHAT_ROLE_MAP.SYSTEM, content: systemPrompt };
+    systemMessage = { role: CHAT_ROLE_MAP.SYSTEM, content: systemPrompt };
   }
 
   // 2. 計算固定開銷（System Prompt 與 最新 User 問題）
-  const systemChars = systemMsg !== null ? estimateChars(systemMsg) : 0;
+  const systemChars = systemMessage !== null ? estimateChars(systemMessage) : 0;
   const latestUserChars =
-    latestUserMsg !== null ? estimateChars(latestUserMsg) : 0;
+    latestUserMessage !== null ? estimateChars(latestUserMessage) : 0;
   const reservedChars = systemChars + latestUserChars;
 
   // 可用歷史預算
@@ -312,13 +316,13 @@ export function slidingWindowCompressor({
   const selectedTurns = [];
   let accumulatedChars = 0;
 
-  for (let i = turns.length - 1; i >= 0; i--) {
+  for (let turnIndex = turns.length - 1; turnIndex >= 0; turnIndex--) {
     // 檢查輪數限制
     if (selectedTurns.length >= maxTurns) {
       break;
     }
 
-    const turn = turns[i];
+    const turn = turns[turnIndex];
     const turnChars = estimateChars(turn);
 
     // 檢查字元預算限制（至少保留最新一輪如果空間許可）
@@ -336,21 +340,21 @@ export function slidingWindowCompressor({
   // 4. 平鋪選中的輪次
   const selectedHistory = [];
   for (const turn of selectedTurns) {
-    for (const msg of turn) {
-      selectedHistory.push(msg);
+    for (const message of turn) {
+      selectedHistory.push(message);
     }
   }
 
   // 5. 組裝最終 messages 陣列
   const finalMessages = [];
-  if (systemMsg !== null) {
-    finalMessages.push(systemMsg);
+  if (systemMessage !== null) {
+    finalMessages.push(systemMessage);
   }
-  for (const msg of selectedHistory) {
-    finalMessages.push(msg);
+  for (const message of selectedHistory) {
+    finalMessages.push(message);
   }
-  if (latestUserMsg !== null) {
-    finalMessages.push(latestUserMsg);
+  if (latestUserMessage !== null) {
+    finalMessages.push(latestUserMessage);
   }
 
   // 6. 安全校驗 Tool Calls
@@ -401,24 +405,31 @@ export async function generateRollingSummary({
   // 1. 若有提供自訂摘要產生器
   if (typeof customGenerator === 'function') {
     try {
-      const customRes = await customGenerator({ oldSummary, newTurns, locale });
-      if (typeof customRes === 'string' && customRes.trim() !== '') {
-        return customRes.trim();
+      const customResult = await customGenerator({
+        oldSummary,
+        newTurns,
+        locale
+      });
+      if (typeof customResult === 'string' && customResult.trim() !== '') {
+        return customResult.trim();
       }
-    } catch (err) {
+    } catch (error) {
       console.warn(
         '[generateRollingSummary] customGenerator failed, falling back:',
-        err
+        error
       );
     }
   }
 
   // 格式化新對話
   const formattedTurns = newTurns
-    .map(
-      (m) =>
-        `${m.role === CHAT_ROLE_MAP.USER || m.role === 'user' ? '使用者' : 'AI'}: ${m.content}`
-    )
+    .map((message) => {
+      const roleLabel =
+        message.role === CHAT_ROLE_MAP.USER || message.role === 'user'
+          ? '使用者'
+          : 'AI';
+      return `${roleLabel}: ${message.content}`;
+    })
     .join('\n');
 
   // 2. 若提供 LLM chat 介面，使用輕量 Prompt 進行非同步精煉摘要
@@ -439,26 +450,33 @@ export async function generateRollingSummary({
       if (typeof summaryResult === 'string' && summaryResult.trim() !== '') {
         return summaryResult.trim();
       }
-    } catch (err) {
+    } catch (error) {
       console.warn(
         '[generateRollingSummary] LLM chat summary failed, using fallback heuristic:',
-        err
+        error
       );
     }
   }
 
   // 3. Fallback Heuristic 簡易抽取式摘要（當無 LLM 或 API 失敗時保證不中斷）
   const extractedPoints = newTurns
-    .filter((m) => typeof m.content === 'string' && m.content.trim() !== '')
-    .map((m) => {
-      const isUser = m.role === CHAT_ROLE_MAP.USER || m.role === 'user';
+    .filter(
+      (message) =>
+        typeof message.content === 'string' && message.content.trim() !== ''
+    )
+    .map((message) => {
+      const isUser =
+        message.role === CHAT_ROLE_MAP.USER || message.role === 'user';
       const prefix = isUser === true ? '問' : '答';
-      const clean = m.content.replace(/\s+/g, ' ').slice(0, 60);
-      return `${prefix}: ${clean}`;
+      const cleanContent = message.content.replace(/\s+/g, ' ').slice(0, 60);
+      return `${prefix}: ${cleanContent}`;
     })
     .slice(-4);
 
-  const fallbackSummary = [oldSummary !== '' ? oldSummary : '', ...extractedPoints]
+  const fallbackSummary = [
+    oldSummary !== '' ? oldSummary : '',
+    ...extractedPoints
+  ]
     .filter(Boolean)
     .join('； ')
     .slice(-DEFAULT_SUMMARY_MAX_CHARS);
@@ -490,14 +508,15 @@ export function rollingSummaryCompressor({
   }
 
   // 1. 若有給定 systemPrompt 則使用之，否則從 messages 提取原有 system message
-  const originalSystem =
+  const originalSystemPrompt =
     typeof systemPrompt === 'string' && systemPrompt !== ''
       ? systemPrompt
       : messages.find(
-          (m) => m.role === CHAT_ROLE_MAP.SYSTEM || m.role === 'system'
+          (message) =>
+            message.role === CHAT_ROLE_MAP.SYSTEM || message.role === 'system'
         )?.content || '';
 
-  let enhancedSystemPrompt = originalSystem;
+  let enhancedSystemPrompt = originalSystemPrompt;
   if (typeof summary === 'string' && summary.trim() !== '') {
     const summaryBlock = `\n\n【歷史對話前情備忘 / Context Summary】\n${summary.trim()}`;
     if (
