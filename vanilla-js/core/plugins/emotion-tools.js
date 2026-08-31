@@ -8,7 +8,7 @@ import {
 
 /**
  * 情緒工具插件的配置選項。
- * 
+ *
  * @typedef {Object} EmotionToolsPluginOptions
  * @property {(() => Object|null)} [getSkinEngine=null] - 獨立使用時提供 skinEngine 實例的函式。
  * @property {string[]} [emotions=DEFAULT_SUPPORTED_EMOTIONS] - 支援的情緒或手勢清單。
@@ -63,35 +63,45 @@ export function createEmotionToolsPlugin(options = {}) {
         },
         required: ['emotion']
       },
-      execute: async (param1, param2) => {
-        const args =
-          typeof param1 === 'object' &&
-          param1 !== null &&
-          param1.args !== undefined
-            ? param1.args
-            : param1 || {};
-        const context =
-          typeof param1 === 'object' &&
-          param1 !== null &&
-          param1.context !== undefined
-            ? param1.context
-            : param2 || {};
+      execute: async (executionPayloadOrArgs, fallbackContext) => {
+        const isExecutionPayloadObject =
+          typeof executionPayloadOrArgs === 'object' &&
+          executionPayloadOrArgs !== null;
 
-        const emotion = args?.emotion;
+        const resolvedArgs =
+          isExecutionPayloadObject === true &&
+          executionPayloadOrArgs.args !== undefined
+            ? executionPayloadOrArgs.args
+            : isExecutionPayloadObject === true
+              ? executionPayloadOrArgs
+              : {};
+
+        const resolvedContext =
+          isExecutionPayloadObject === true &&
+          executionPayloadOrArgs.context !== undefined
+            ? executionPayloadOrArgs.context
+            : typeof fallbackContext === 'object' && fallbackContext !== null
+              ? fallbackContext
+              : {};
+
+        const emotion = resolvedArgs?.emotion;
         const safeEmotion = typeof emotion === 'string' ? emotion.trim() : '';
         if (safeEmotion === '') {
           return { success: false, reason: 'Invalid emotion' };
         }
 
-        const skin =
-          (typeof getSkinEngine === 'function' ? getSkinEngine() : null) ||
-          context?.skinEngine;
+        const skinEngineFromGetter =
+          typeof getSkinEngine === 'function' ? getSkinEngine() : null;
+        const targetSkinEngine =
+          skinEngineFromGetter !== null && skinEngineFromGetter !== undefined
+            ? skinEngineFromGetter
+            : resolvedContext?.skinEngine;
 
-        if (typeof skin === 'object' && skin !== null) {
-          if (typeof skin.setEmotion === 'function') {
-            skin.setEmotion(safeEmotion);
-          } else if (typeof skin.gesture === 'function') {
-            await skin.gesture(safeEmotion);
+        if (typeof targetSkinEngine === 'object' && targetSkinEngine !== null) {
+          if (typeof targetSkinEngine.setEmotion === 'function') {
+            targetSkinEngine.setEmotion(safeEmotion);
+          } else if (typeof targetSkinEngine.gesture === 'function') {
+            await targetSkinEngine.gesture(safeEmotion);
           }
         } else {
           console.warn(
@@ -101,7 +111,7 @@ export function createEmotionToolsPlugin(options = {}) {
         }
 
         if (typeof onEmotionTrigger === 'function') {
-          onEmotionTrigger(safeEmotion, context);
+          onEmotionTrigger(safeEmotion, resolvedContext);
         }
 
         return {
