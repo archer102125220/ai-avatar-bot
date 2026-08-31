@@ -87,23 +87,30 @@ export function formatParams(text, params = {}) {
   });
 }
 
-function getFromDict(dict, key) {
-  if (typeof dict !== 'object' || dict === null) return undefined;
-  if (typeof dict[key] !== 'undefined') return dict[key];
-  const parts = key.split('.');
-  let curr = dict;
-  for (const part of parts) {
-    if (typeof curr !== 'object' || curr === null) return undefined;
-    curr = curr[part];
+function getFromDictionary(dictionary, keyPath) {
+  if (typeof dictionary !== 'object' || dictionary === null) {
+    return undefined;
   }
-  return curr;
+  if (typeof dictionary[keyPath] !== 'undefined') {
+    return dictionary[keyPath];
+  }
+  const keySegments = keyPath.split('.');
+  let currentDictionary = dictionary;
+  for (const segment of keySegments) {
+    if (typeof currentDictionary !== 'object' || currentDictionary === null) {
+      return undefined;
+    }
+    currentDictionary = currentDictionary[segment];
+  }
+  return currentDictionary;
 }
 
 /**
  * @typedef {Object} I18nEngineOptions
  * @property {string} [locale=DEFAULT_LOCALE] - 預設語系代碼。
  * @property {Record<string, Record<string, any>>} [messages={}] - 自訂/覆寫的語系字典。
- * @property {((key: string, params?: Record<string, any>) => any)} [t] - 自訂外部翻譯函式。
+ * @property {((key: string, params?: Record<string, any>) => any)} [t] - 自訂外部翻譯函式 (簡短別名)。
+ * @property {((key: string, params?: Record<string, any>) => any)} [translate] - 自訂外部翻譯函式。
  */
 
 /**
@@ -115,6 +122,7 @@ function getFromDict(dict, key) {
 /**
  * @typedef {Object} I18nEngine
  * @property {((key: string, params?: Record<string, any>) => any)} t - 翻譯指定鍵值。
+ * @property {((key: string, params?: Record<string, any>) => any)} translate - 翻譯指定鍵值。
  * @property {((newLocale: string) => void)} setLocale - 動態切換語系。
  * @property {((locale: string, newMessages: Record<string, any>) => void)} addMessages - 動態新增或覆寫語系字典內容。
  * @property {typeof formatParams} formatParams - 格式化變數標記。
@@ -146,21 +154,26 @@ export function initI18nEngine(options = {}) {
 
   // 合併內建字典與使用者自訂字典
   const mergedMessages = {};
-  for (const loc of SUPPORTED_LOCALES) {
-    mergedMessages[loc] = {
-      ...(defaultLocales[loc] || {}),
-      ...(customMessages[loc] || {})
+  for (const supportedLocale of SUPPORTED_LOCALES) {
+    mergedMessages[supportedLocale] = {
+      ...(defaultLocales[supportedLocale] || {}),
+      ...(customMessages[supportedLocale] || {})
     };
   }
 
   // 納入其他非預設語系（例如使用者自行加入 'fr-FR' 等）
-  for (const loc in customMessages) {
-    if (SUPPORTED_LOCALES.includes(loc) === false) {
-      mergedMessages[loc] = { ...customMessages[loc] };
+  for (const customLocale in customMessages) {
+    if (SUPPORTED_LOCALES.includes(customLocale) === false) {
+      mergedMessages[customLocale] = { ...customMessages[customLocale] };
     }
   }
 
-  const customT = typeof options.t === 'function' ? options.t : null;
+  const customTranslateFunction =
+    typeof options.t === 'function'
+      ? options.t
+      : typeof options.translate === 'function'
+        ? options.translate
+        : null;
 
   const store = createBaseStore({
     locale: initialLocale,
@@ -174,19 +187,20 @@ export function initI18nEngine(options = {}) {
    * @param {Record<string, any>} [params={}] - 變數替換參數。
    * @returns {any} 翻譯後的字串或陣列。
    */
-  function t(key, params = {}) {
-    if (customT !== null) {
-      return customT(key, params);
+  function translate(key, params = {}) {
+    if (customTranslateFunction !== null) {
+      return customTranslateFunction(key, params);
     }
 
     const state = store.getState();
     const currentLocale = state.locale || DEFAULT_LOCALE;
-    const dict =
+    const dictionary =
       state.messages[currentLocale] || state.messages[DEFAULT_LOCALE] || {};
 
-    let messageValue = getFromDict(dict, key);
+    let messageValue = getFromDictionary(dictionary, key);
     if (typeof messageValue === 'undefined') {
-      messageValue = getFromDict(state.messages[DEFAULT_LOCALE], key) ?? key;
+      messageValue =
+        getFromDictionary(state.messages[DEFAULT_LOCALE], key) ?? key;
     }
 
     if (typeof messageValue === 'string') {
@@ -194,8 +208,10 @@ export function initI18nEngine(options = {}) {
     }
 
     if (Array.isArray(messageValue) === true) {
-      return messageValue.map((item) =>
-        typeof item === 'string' ? formatParams(item, params) : item
+      return messageValue.map((messageItem) =>
+        typeof messageItem === 'string'
+          ? formatParams(messageItem, params)
+          : messageItem
       );
     }
 
@@ -226,18 +242,19 @@ export function initI18nEngine(options = {}) {
       newMessages !== null
     ) {
       const state = store.getState();
-      const currentLocDict = state.messages[locale] || {};
+      const currentLocaleDictionary = state.messages[locale] || {};
       store.setState({
         messages: {
           ...state.messages,
-          [locale]: { ...currentLocDict, ...newMessages }
+          [locale]: { ...currentLocaleDictionary, ...newMessages }
         }
       });
     }
   }
 
   const i18nEngine = {
-    t,
+    t: translate,
+    translate,
     setLocale,
     addMessages,
     formatParams,
@@ -287,4 +304,3 @@ export function initI18nEngine(options = {}) {
 
   return i18nEngine;
 }
-
