@@ -38,7 +38,7 @@ import {
  * @property {boolean} has2D - 是否支援 2D
  * @property {boolean} has3D - 是否支援 3D
  * @property {string} engineMode - 目前的模式 (2D/3D)
- * @property {Object} avatarModel - 模型實例，需實作 .on('hit', cb)
+ * @property {Object} avatarModel - 模型實例，需實作 .on('hit', callback)
  * @property {Renderer2D|Renderer3D|null} renderer - 渲染器實例
  * @property {(gender: string) => void} setGender - 切換性別的方法
  * @property {(file: File) => void} loadVRMFile - 載入模型檔案的方法
@@ -121,7 +121,7 @@ export function validateSkinEngine(engine) {
  * @returns {Promise<void>} 所有的相依套件載入完成後會 resolve 的 Promise。
  */
 export function loadUMD() {
-  const cdnDependencieUrlArray = [
+  const cdnDependencyUrlArray = [
     {
       id: 'live2dcubismcore',
       src: 'https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js'
@@ -140,18 +140,18 @@ export function loadUMD() {
     return window.__cdnDependenciePromise__;
   }
 
-  window.__cdnDependenciePromise__ = cdnDependencieUrlArray.reduce(
-    (cdnDependenciePromise, cdnDependencie) =>
-      cdnDependenciePromise.then(
+  window.__cdnDependenciePromise__ = cdnDependencyUrlArray.reduce(
+    (dependencyPromise, cdnDependency) =>
+      dependencyPromise.then(
         () =>
           new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = cdnDependencie.src;
+            script.src = cdnDependency.src;
             if (
-              typeof cdnDependencie.id === 'string' &&
-              cdnDependencie.id !== ''
+              typeof cdnDependency.id === 'string' &&
+              cdnDependency.id !== ''
             ) {
-              script.id = cdnDependencie.id;
+              script.id = cdnDependency.id;
             }
             script.onload = resolve;
             script.onerror = reject;
@@ -286,9 +286,9 @@ async function bootAvatar(skinEngine, modelUrl) {
           ? skinEngine.avatarModel.internalModel.settings.motions
           : {};
       for (const groupName of Object.keys(motions)) {
-        (motions[groupName] || []).forEach((data) => {
-          delete data.Sound;
-          delete data.sound;
+        (motions[groupName] || []).forEach((motionData) => {
+          delete motionData.Sound;
+          delete motionData.sound;
         });
       }
     } catch (_error) {}
@@ -301,15 +301,16 @@ async function bootAvatar(skinEngine, modelUrl) {
     function fit() {
       const width = pixiApp.renderer.width;
       const height = pixiApp.renderer.height;
-      const nativeH = skinEngine.avatarModel?.internalModel?.height || 1000;
+      const nativeHeight =
+        skinEngine.avatarModel?.internalModel?.height || 1000;
       if (safeFitMode === FIT_MODE_MAP.HALF) {
         const ZOOM = 1.9; // 放大倍率：越大越近（半身越緊）
-        const scale = (height / nativeH) * 0.95 * ZOOM;
+        const scale = (height / nativeHeight) * 0.95 * ZOOM;
         skinEngine.avatarModel.scale.set(scale);
         skinEngine.avatarModel.x = width / 2;
-        skinEngine.avatarModel.y = nativeH * scale + height * 0.04; // 腳推到畫面外、頭留 4% 上緣
+        skinEngine.avatarModel.y = nativeHeight * scale + height * 0.04; // 腳推到畫面外、頭留 4% 上緣
       } else {
-        skinEngine.avatarModel.scale.set((height / nativeH) * 0.95);
+        skinEngine.avatarModel.scale.set((height / nativeHeight) * 0.95);
         skinEngine.avatarModel.x = width / 2;
         skinEngine.avatarModel.y = height;
       }
@@ -320,7 +321,7 @@ async function bootAvatar(skinEngine, modelUrl) {
     try {
       const groups = skinEngine.avatarModel.internalModel.settings.groups || [];
       const lipsyncGroup = groups.find(
-        (x) => (x.Name || '').toLowerCase() === 'lipsync'
+        (group) => (group.Name || '').toLowerCase() === 'lipsync'
       );
       if (Array.isArray(lipsyncGroup?.Ids) && lipsyncGroup.Ids.length > 0) {
         skinEngine.lipIds = lipsyncGroup.Ids;
@@ -330,7 +331,7 @@ async function bootAvatar(skinEngine, modelUrl) {
     // 對嘴：攔截 coreModel.update（計算頂點前的最後一刻寫入嘴巴，保證不被 motion/loadParameters 洗掉）
     try {
       const core = skinEngine.avatarModel.internalModel.coreModel;
-      const origUpdate = core.update.bind(core);
+      const originalUpdate = core.update.bind(core);
       let lastMouthValue = 0;
       let isComputingMouth = false;
       core.update = function () {
@@ -341,9 +342,9 @@ async function bootAvatar(skinEngine, modelUrl) {
           isComputingMouth = true;
           (async function () {
             try {
-              const val = await skinEngine.computeMouth(skinEngine);
-              if (typeof val === 'number') {
-                lastMouthValue = val;
+              const mouthValue = await skinEngine.computeMouth(skinEngine);
+              if (typeof mouthValue === 'number') {
+                lastMouthValue = mouthValue;
               }
             } catch (_error) {
             } finally {
@@ -352,13 +353,13 @@ async function bootAvatar(skinEngine, modelUrl) {
           })();
         }
 
-        for (const id of skinEngine.lipIds) {
+        for (const lipId of skinEngine.lipIds) {
           try {
-            core.setParameterValueById(id, lastMouthValue);
+            core.setParameterValueById(lipId, lastMouthValue);
           } catch (_error) {}
         }
 
-        return origUpdate();
+        return originalUpdate();
       };
     } catch (_error) {}
 
@@ -535,8 +536,8 @@ async function bootVRM(skinEngine, setting = {}) {
     const gltf = await new Promise((resolve, reject) =>
       loader.load(
         skinEngine.vrmUrl,
-        (gltf) => {
-          resolve(gltf);
+        (loadedGltf) => {
+          resolve(loadedGltf);
         },
         undefined,
         (error) => {
@@ -560,8 +561,8 @@ async function bootVRM(skinEngine, setting = {}) {
 
     // VRM0 被 rotateVRM0 轉 180°，手臂 z 旋轉方向會相反；VRM1 不轉 → 用版本決定正負號
     const armSign = String(vrm.meta && vrm.meta.metaVersion) === '1' ? -1 : 1;
-    vrm.scene.traverse((obj) => {
-      obj.frustumCulled = false;
+    vrm.scene.traverse((sceneObject) => {
+      sceneObject.frustumCulled = false;
     });
     scene.add(vrm.scene);
 
@@ -569,7 +570,7 @@ async function bootVRM(skinEngine, setting = {}) {
       if (typeof vrm.lookAt === 'object' && vrm.lookAt !== null) {
         vrm.lookAt.target = lookTarget;
       }
-    } catch (_e) {} // 眼睛跟著滑鼠
+    } catch (_error) {} // 眼睛跟著滑鼠
 
     // VRMA 情境手勢庫（body-only，不碰嘴）：點擊/出場揮手、思考托腮、待機變化(環顧/放鬆)
     await (async () => {
@@ -586,9 +587,9 @@ async function bootVRM(skinEngine, setting = {}) {
       }; // 只留骨架旋轉、剝臉部表情與位移
       try {
         mixer = new THREE.AnimationMixer(vrm.scene);
-        for (const [name, file] of Object.entries(GESTURES)) {
+        for (const [gestureName, gestureFilePath] of Object.entries(GESTURES)) {
           try {
-            const gestureGltf = await loader.loadAsync(file);
+            const gestureGltf = await loader.loadAsync(gestureFilePath);
             const vrmAnimation =
               gestureGltf.userData.vrmAnimations &&
               gestureGltf.userData.vrmAnimations[0];
@@ -600,9 +601,9 @@ async function bootVRM(skinEngine, setting = {}) {
             );
             clipAction.setLoop(THREE.LoopOnce, 1);
             clipAction.clampWhenFinished = true;
-            gestureActions[name] = clipAction;
+            gestureActions[gestureName] = clipAction;
           } catch (error) {
-            console.warn('VRMA ' + name + ' 載入失敗：', error?.message);
+            console.warn('VRMA ' + gestureName + ' 載入失敗：', error?.message);
           }
         }
         mixer.addEventListener('finished', (event) => {
@@ -640,11 +641,11 @@ async function bootVRM(skinEngine, setting = {}) {
     /**
      * 播放指定的 3D 手勢動畫 (例如揮手、鞠躬)。
      * 播放期間會將 waving 設為 true 避免被程序化站姿打斷。
-     * @param {string} name - 要播放的手勢動作名稱對應鍵值。
+     * @param {string} gestureName - 要播放的手勢動作名稱對應鍵值。
      */
-    function playGesture(name) {
+    function playGesture(gestureName) {
       // 播一個手勢（期間 mixer 控身體），平時用程序化站姿
-      const clipAction = gestureActions[name];
+      const clipAction = gestureActions[gestureName];
       if (clipAction === undefined || clipAction === null || waving === true) {
         return; // 一次一個，播放中不打斷
       }
@@ -682,15 +683,17 @@ async function bootVRM(skinEngine, setting = {}) {
         // 對嘴 + 眨眼（永遠歸我們，mixer 之後 vrm.update 之前）
         if (
           typeof skinEngine.computeMouth === 'function' &&
-          !isComputingMouth
+          isComputingMouth === false
         ) {
           const result = skinEngine.computeMouth(skinEngine);
 
           if (result instanceof Promise) {
             isComputingMouth = true;
             result
-              .then((val) => {
-                if (typeof val === 'number') lastMouthValue = val;
+              .then((mouthValue) => {
+                if (typeof mouthValue === 'number') {
+                  lastMouthValue = mouthValue;
+                }
               })
               .catch(() => {})
               .finally(() => {
@@ -795,10 +798,16 @@ async function bootVRM(skinEngine, setting = {}) {
             leftArmRotationZ += Math.sin(speechTime * 0.7) * 0.06; // 手臂比劃
             rightArmRotationZ -= Math.sin(speechTime * 0.62) * 0.06;
           }
-          if (leftUpperArmNode) {
+          if (
+            typeof leftUpperArmNode === 'object' &&
+            leftUpperArmNode !== null
+          ) {
             leftUpperArmNode.rotation.z = leftArmRotationZ;
           }
-          if (rightUpperArmNode) {
+          if (
+            typeof rightUpperArmNode === 'object' &&
+            rightUpperArmNode !== null
+          ) {
             rightUpperArmNode.rotation.z = rightArmRotationZ;
           }
           if (typeof spineNode === 'object' && spineNode !== null) {
@@ -832,8 +841,8 @@ async function bootVRM(skinEngine, setting = {}) {
       get playGesture() {
         return playGesture;
       },
-      setPaused(value) {
-        paused = !!value;
+      setPaused(isPaused) {
+        paused = Boolean(isPaused);
         if (paused === false && alive === true && renderRaf === 0) {
           clock.getDelta();
           animationLoop();
@@ -891,7 +900,7 @@ function createCanvas(skinEngine = null) {
 
   stageEl
     .querySelectorAll('canvas.avatar-canvas')
-    .forEach((old) => old.remove()); // 切換時保證不留舊 canvas（殘骸）
+    .forEach((oldCanvas) => oldCanvas.remove()); // 切換時保證不留舊 canvas（殘骸）
   const newCanvas = document.createElement('canvas');
   newCanvas.classList.add('avatar-canvas');
   stageEl.insertBefore(newCanvas, stageEl.firstChild); // 放最底層，UI 疊在上面
@@ -921,7 +930,7 @@ function initSkinMode(skinEngine = null) {
  * @param {SkinEngine} [skinEngine=null] - 引擎實例。
  * @param {File} file - 準備載入的 VRM 檔案。
  */
-function loadVRMFile(skinEngine = null, file) {
+function loadVRMFile(skinEngine = null, vrmFile) {
   const stageEl = skinEngine?.stageEl;
   if (stageEl instanceof HTMLElement === false) {
     console.error(
@@ -931,8 +940,8 @@ function loadVRMFile(skinEngine = null, file) {
   }
 
   if (
-    file instanceof window.File === false ||
-    /\.vrm$/i.test(file?.name || '') === false
+    vrmFile instanceof window.File === false ||
+    /\.vrm$/i.test(vrmFile?.name || '') === false
   ) {
     if (typeof skinEngine?.VRMFileChangeFail === 'function') {
       skinEngine.VRMFileChangeFail(new Error('請拖一個 .vrm 檔喔'));
@@ -947,7 +956,7 @@ function loadVRMFile(skinEngine = null, file) {
       URL.revokeObjectURL(skinEngine.vrmUrl);
     }
   } catch (_error) {}
-  skinEngine.vrmUrl = URL.createObjectURL(file);
+  skinEngine.vrmUrl = URL.createObjectURL(vrmFile);
 
   if (typeof skinEngine.VRMFileChangeSuccess === 'function') {
     skinEngine.VRMFileChangeSuccess(skinEngine.vrmUrl);
@@ -1053,21 +1062,25 @@ export function initSkinEngine(setting = {}) {
     // --- Store Pattern Methods ---
     getState: store.getState,
     subscribe: store.subscribe,
-    setGender: (val) => {
-      store.setState({ gender: val });
+    setGender: (gender) => {
+      store.setState({ gender });
       // Sync internal logic
-      if (val === GENDER_MAP.female) {
+      if (gender === GENDER_MAP.female) {
         skinEngine.modelUrl = DEFAULT_FEMALE_MODEL_URL;
-      } else if (val === GENDER_MAP.male) {
+      } else if (gender === GENDER_MAP.male) {
         skinEngine.modelUrl = DEFAULT_MALE_MODEL_URL;
       }
     },
-    setEmotion: (val) => {
-      store.setState({ emotion: val });
-      skinEngine.gestureName = val;
+    setEmotion: (emotion) => {
+      store.setState({ emotion });
+      skinEngine.gestureName = emotion;
 
       clearEmotionAutoRestoreTimer();
-      if (typeof val === 'string' && val !== 'neutral' && val !== '') {
+      if (
+        typeof emotion === 'string' &&
+        emotion !== 'neutral' &&
+        emotion !== ''
+      ) {
         emotionAutoRestoreTimer = setTimeout(() => {
           if (store.getState().isSpeaking !== true) {
             skinEngine.setEmotion('neutral');
@@ -1075,9 +1088,9 @@ export function initSkinEngine(setting = {}) {
         }, 3000);
       }
     },
-    setIsSpeaking: (val) => {
-      store.setState({ isSpeaking: val });
-      if (val === false) {
+    setIsSpeaking: (isSpeaking) => {
+      store.setState({ isSpeaking });
+      if (isSpeaking === false) {
         clearEmotionAutoRestoreTimer();
         skinEngine.setEmotion('neutral');
       }
@@ -1103,52 +1116,52 @@ export function initSkinEngine(setting = {}) {
     },
 
     get loadVRMFile() {
-      return function _loadVRMFile() {
-        return loadVRMFile(skinEngine, ...arguments);
+      return function _loadVRMFile(...args) {
+        return loadVRMFile(skinEngine, ...args);
       };
     },
 
     get computeMouth() {
-      return function _computeMouth() {
-        return computeMouth(...arguments);
+      return function _computeMouth(...args) {
+        return computeMouth(...args);
       };
     },
 
     get onMounted() {
-      return function _onMounted(...arg) {
+      return function _onMounted(...args) {
         if (typeof onMounted === 'function') {
-          return onMounted(...arg);
+          return onMounted(...args);
         }
       };
     },
 
     get onThreeDimensionalError() {
-      return function _onThreeDimensionalError(...arg) {
+      return function _onThreeDimensionalError(...args) {
         if (typeof onThreeDimensionalError === 'function') {
-          return onThreeDimensionalError(...arg);
+          return onThreeDimensionalError(...args);
         }
       };
     },
     get onTwoDimensionalError() {
-      return function _onTwoDimensionalError(...arg) {
+      return function _onTwoDimensionalError(...args) {
         if (typeof onTwoDimensionalError === 'function') {
-          return onTwoDimensionalError(...arg);
+          return onTwoDimensionalError(...args);
         }
       };
     },
 
     get VRMFileChangeFail() {
-      return function _VRMFileChangeFail(...arg) {
+      return function _VRMFileChangeFail(...args) {
         if (typeof VRMFileChangeFail === 'function') {
-          return VRMFileChangeFail(...arg);
+          return VRMFileChangeFail(...args);
         }
       };
     },
 
     get VRMFileChangeSuccess() {
-      return function _VRMFileChangeSuccess(...arg) {
+      return function _VRMFileChangeSuccess(...args) {
         if (typeof VRMFileChangeSuccess === 'function') {
-          return VRMFileChangeSuccess(...arg);
+          return VRMFileChangeSuccess(...args);
         }
       };
     },
@@ -1179,11 +1192,11 @@ export function initSkinEngine(setting = {}) {
     },
 
     get has2D() {
-      return !!this.modelUrl;
+      return typeof this.modelUrl === 'string' && this.modelUrl !== '';
     },
 
     get has3D() {
-      return !!this.vrmUrl;
+      return typeof this.vrmUrl === 'string' && this.vrmUrl !== '';
     },
 
     _renderer: null,
@@ -1195,45 +1208,45 @@ export function initSkinEngine(setting = {}) {
     },
 
     get onGesture() {
-      return function () {
+      return function (...args) {
         if (typeof setting.onGesture === 'function') {
-          return setting.onGesture(...arguments);
+          return setting.onGesture(...args);
         }
       };
     },
     get onGestureError() {
-      return function () {
+      return function (...args) {
         if (typeof setting.onGestureError === 'function') {
-          return setting.onGestureError(...arguments);
+          return setting.onGestureError(...args);
         }
       };
     },
     get onGestureEnd() {
-      return function () {
+      return function (...args) {
         if (typeof setting.onGestureEnd === 'function') {
-          return setting.onGestureEnd(...arguments);
+          return setting.onGestureEnd(...args);
         }
       };
     },
 
     get onModelChange() {
-      return function () {
+      return function (...args) {
         if (typeof setting.onModelChange === 'function') {
-          return setting.onModelChange(...arguments);
+          return setting.onModelChange(...args);
         }
       };
     },
     get onModelChangeEnd() {
-      return function () {
+      return function (...args) {
         if (typeof setting.onModelChangeEnd === 'function') {
-          return setting.onModelChangeEnd(...arguments);
+          return setting.onModelChangeEnd(...args);
         }
       };
     },
     get onModelChangeError() {
-      return function () {
+      return function (...args) {
         if (typeof setting.onModelChangeError === 'function') {
-          return setting.onModelChangeError(...arguments);
+          return setting.onModelChangeError(...args);
         }
       };
     },
@@ -1410,7 +1423,7 @@ export function initSkinEngine(setting = {}) {
     },
     set fitMode(newFitMode = '') {
       if (typeof newFitMode === 'string' && newFitMode !== '') {
-        if (Object.values(this.FIT_MODE_MAP).includes(newFitMode)) {
+        if (Object.values(FIT_MODE_MAP).includes(newFitMode)) {
           this._fitMode = newFitMode;
         } else {
           this._fitMode = DEFAULT_FIT_MODE;
