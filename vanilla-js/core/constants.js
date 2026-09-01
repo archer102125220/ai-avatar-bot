@@ -136,7 +136,7 @@ export const DEFAULT_AI_PROVIDER_MODEL = 'qwen2.5:latest';
  * @readonly
  * @enum {number}
  */
-export const EMO_TARGET_MAP = {
+export const EMOTION_TARGET_MAP = {
   /** 快樂情緒的目標值 */
   happy: 0.65,
   /** 驚訝情緒的目標值 */
@@ -144,6 +144,14 @@ export const EMO_TARGET_MAP = {
   /** 悲傷情緒的目標值 */
   sad: 0.5
 };
+
+/**
+ * 情緒目標值映射表（相容別名）。
+ * @deprecated 請改用 EMOTION_TARGET_MAP
+ * @readonly
+ * @enum {number}
+ */
+export const EMO_TARGET_MAP = EMOTION_TARGET_MAP;
 
 /**
  * 虛擬形象渲染引擎模式映射表。
@@ -161,7 +169,14 @@ export const ENGINE_MODE_MAP = {
  * 預設啟動的渲染引擎模式。
  * @type {'2d'|'3d'}
  */
-export const DEFALUT_START_MODE = ENGINE_MODE_MAP.twoDimensional;
+export const DEFAULT_START_MODE = ENGINE_MODE_MAP.twoDimensional;
+
+/**
+ * 預設啟動的渲染引擎模式（拼寫相容別名）。
+ * @deprecated 請改用 DEFAULT_START_MODE
+ * @type {'2d'|'3d'}
+ */
+export const DEFALUT_START_MODE = DEFAULT_START_MODE;
 
 /**
  * 畫面顯示比例模式映射表。
@@ -398,7 +413,7 @@ export function isWebLLMFunctionCallingSupported(model) {
   if (typeof model !== 'string' || model === '') {
     return false;
   }
-  return /hermes|Hermes/i.test(model);
+  return /hermes/i.test(model);
 }
 
 /**
