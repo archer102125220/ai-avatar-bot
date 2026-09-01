@@ -6,6 +6,7 @@ import { createBaseStore } from '../store';
  *
  * @typedef {Object} TTSSpeakOptions
  * @property {boolean} [instant=false] - 是否立即播放，忽略常規排程。
+ * @property {boolean} [updateDisplay=true] - 是否同步更新字幕文字。
  */
 
 /**
@@ -18,7 +19,9 @@ import { createBaseStore } from '../store';
  * @property {string} locale - 語系代碼。
  * @property {boolean} isSpeaking - 是否正在播放語音。
  * @property {boolean} isMuted - 是否處於靜音狀態。
- * @property {Array<{text: string, prep: Promise<AudioBuffer>|null, err: any, instant: boolean}>} speechQ - 語音播放佇列。
+ * @property {Array<{text: string, prefetchPromise: Promise<AudioBuffer|null>|null, error: Error|null, instant: boolean}>} speechQueue - 語音播放佇列。
+ * @property {SpeechSynthesisVoice|null} browserVoice - 瀏覽器原生語音物件。
+ * @property {number} speakSeq - 語音播放序號。
  * @property {number} ttsRate - 語音播放速率。
  * @property {number} mouthTarget - 嘴型開合目標值。
  * @property {number} mouthValue - 當前平滑後的嘴型開合數值 (0~1)。
@@ -64,12 +67,16 @@ export function validateTTSEngine(engine) {
     missing.push('engine instance');
   } else {
     ['speak', 'stop', 'computeMouth', 'setGender', 'setLocale'].forEach(
-      (method) => {
-        if (typeof engine[method] !== 'function') missing.push(`${method}()`);
+      (methodName) => {
+        if (typeof engine[methodName] !== 'function') {
+          missing.push(`${methodName}()`);
+        }
       }
     );
-    ['isSpeaking', 'isMuted'].forEach((prop) => {
-      if (!(prop in engine)) missing.push(prop);
+    ['isSpeaking', 'isMuted'].forEach((propertyName) => {
+      if (!(propertyName in engine)) {
+        missing.push(propertyName);
+      }
     });
   }
   return { isValid: missing.length === 0, missing };
@@ -92,80 +99,83 @@ export function loadVoice(gender, locale = 'zh-TW') {
     return null;
   }
   const voices = speechSynthesis.getVoices();
-  const pick = (targetVoice) =>
+  const findMatchingVoice = (voicePattern) =>
     voices.find(
       (voice) =>
-        targetVoice.test(`${voice.name} ${voice.lang}`) &&
+        voicePattern.test(`${voice.name} ${voice.lang}`) === true &&
         !/Google/i.test(voice.name)
     );
 
-  const loc = (locale || 'zh-TW').toLowerCase();
-  let broswerVoice = null;
+  const normalizedLocale =
+    typeof locale === 'string' && locale !== ''
+      ? locale.toLowerCase()
+      : 'zh-tw';
+  let matchedVoice = null;
 
-  if (loc.startsWith('en')) {
+  if (normalizedLocale.startsWith('en') === true) {
     if (gender === GENDER_MAP.male) {
-      broswerVoice = pick(/(Guy|Christopher|Eric|Davis).*en/i);
+      matchedVoice = findMatchingVoice(/(Guy|Christopher|Eric|Davis).*en/i);
     } else if (gender === GENDER_MAP.female) {
-      broswerVoice = pick(/(Jenny|Aria|Sara|Zira).*en/i);
+      matchedVoice = findMatchingVoice(/(Jenny|Aria|Sara|Zira).*en/i);
     }
     return (
-      broswerVoice ||
-      pick(/Microsoft.*en/i) ||
-      pick(/en[-_]US/i) ||
-      pick(/^en/i) ||
-      voices.find((voice) => /en/i.test(voice.lang)) ||
+      matchedVoice ||
+      findMatchingVoice(/Microsoft.*en/i) ||
+      findMatchingVoice(/en[-_]US/i) ||
+      findMatchingVoice(/^en/i) ||
+      voices.find((voice) => /en/i.test(voice.lang) === true) ||
       null
     );
   }
 
-  if (loc.startsWith('ja')) {
+  if (normalizedLocale.startsWith('ja') === true) {
     if (gender === GENDER_MAP.male) {
-      broswerVoice = pick(/(Keita|Daichi|Ichiro).*ja/i);
+      matchedVoice = findMatchingVoice(/(Keita|Daichi|Ichiro).*ja/i);
     } else if (gender === GENDER_MAP.female) {
-      broswerVoice = pick(/(Nanami|Ayumi|Haruka).*ja/i);
+      matchedVoice = findMatchingVoice(/(Nanami|Ayumi|Haruka).*ja/i);
     }
     return (
-      broswerVoice ||
-      pick(/Microsoft.*ja/i) ||
-      pick(/ja[-_]JP/i) ||
-      pick(/^ja/i) ||
-      voices.find((voice) => /ja/i.test(voice.lang)) ||
+      matchedVoice ||
+      findMatchingVoice(/Microsoft.*ja/i) ||
+      findMatchingVoice(/ja[-_]JP/i) ||
+      findMatchingVoice(/^ja/i) ||
+      voices.find((voice) => /ja/i.test(voice.lang) === true) ||
       null
     );
   }
 
-  if (loc.startsWith('ko')) {
+  if (normalizedLocale.startsWith('ko') === true) {
     if (gender === GENDER_MAP.male) {
-      broswerVoice = pick(/(InJoon|GookMin).*ko/i);
+      matchedVoice = findMatchingVoice(/(InJoon|GookMin).*ko/i);
     } else if (gender === GENDER_MAP.female) {
-      broswerVoice = pick(/(SunHi|Heami).*ko/i);
+      matchedVoice = findMatchingVoice(/(SunHi|Heami).*ko/i);
     }
     return (
-      broswerVoice ||
-      pick(/Microsoft.*ko/i) ||
-      pick(/ko[-_]KR/i) ||
-      pick(/^ko/i) ||
-      voices.find((voice) => /ko/i.test(voice.lang)) ||
+      matchedVoice ||
+      findMatchingVoice(/Microsoft.*ko/i) ||
+      findMatchingVoice(/ko[-_]KR/i) ||
+      findMatchingVoice(/^ko/i) ||
+      voices.find((voice) => /ko/i.test(voice.lang) === true) ||
       null
     );
   }
 
   if (gender === GENDER_MAP.male) {
-    broswerVoice = pick(
+    matchedVoice = findMatchingVoice(
       /(YunJhe|YunJian|YunXia|雲哲|雲健|雲夏|Zhiwei|志偉).*zh/i
     );
   } else if (gender === GENDER_MAP.female) {
-    broswerVoice =
-      pick(/(HsiaoChen|HsiaoYu|曉臻|曉雨).*zh/i) ||
-      pick(/(Yating|Hanhan|雅婷|涵涵).*zh[-_]TW/i);
+    matchedVoice =
+      findMatchingVoice(/(HsiaoChen|HsiaoYu|曉臻|曉雨).*zh/i) ||
+      findMatchingVoice(/(Yating|Hanhan|雅婷|涵涵).*zh[-_]TW/i);
   }
 
   return (
-    broswerVoice ||
-    pick(/Microsoft.*zh[-_]TW/i) ||
-    pick(/zh[-_]TW/i) ||
-    pick(/^zh/i) ||
-    voices.find((voice) => /zh/i.test(voice.lang)) ||
+    matchedVoice ||
+    findMatchingVoice(/Microsoft.*zh[-_]TW/i) ||
+    findMatchingVoice(/zh[-_]TW/i) ||
+    findMatchingVoice(/^zh/i) ||
+    voices.find((voice) => /zh/i.test(voice.lang) === true) ||
     null
   );
 }
@@ -178,45 +188,63 @@ export function loadVoice(gender, locale = 'zh-TW') {
  * @returns {string[]} 切割後的短句陣列。
  */
 export function splitSentences(text) {
-  const out = [];
-  let buf = '';
-  for (const ch of String(text || '')) {
-    buf += ch;
-    if (/[。！？!?；;\n…]/.test(ch) === true) {
-      if (buf.trim() !== '') out.push(buf.trim());
-      buf = '';
-    } else if (buf.length >= 80) {
-      const cut = Math.max(buf.lastIndexOf('，'), buf.lastIndexOf(','));
-      if (cut > 20) {
-        out.push(buf.slice(0, cut + 1).trim());
-        buf = buf.slice(cut + 1);
+  const sentenceList = [];
+  let currentBuffer = '';
+  const rawText = typeof text === 'string' ? text : '';
+
+  for (const character of rawText) {
+    currentBuffer += character;
+    if (/[。！？!?；;\n…]/.test(character) === true) {
+      if (currentBuffer.trim() !== '') {
+        sentenceList.push(currentBuffer.trim());
+      }
+      currentBuffer = '';
+    } else if (currentBuffer.length >= 80) {
+      const splitIndex = Math.max(
+        currentBuffer.lastIndexOf('，'),
+        currentBuffer.lastIndexOf(',')
+      );
+      if (splitIndex > 20) {
+        sentenceList.push(currentBuffer.slice(0, splitIndex + 1).trim());
+        currentBuffer = currentBuffer.slice(splitIndex + 1);
       } else {
-        out.push(buf.trim());
-        buf = '';
+        sentenceList.push(currentBuffer.trim());
+        currentBuffer = '';
       }
     }
   }
-  if (buf.trim() !== '') out.push(buf.trim());
-  const merged = [];
-  for (const s of out) {
+
+  if (currentBuffer.trim() !== '') {
+    sentenceList.push(currentBuffer.trim());
+  }
+
+  const mergedSentences = [];
+  for (const sentence of sentenceList) {
     if (
-      merged.length > 0 &&
-      (s.length < 3 || merged[merged.length - 1].length < 3)
+      mergedSentences.length > 0 &&
+      (sentence.length < 3 ||
+        mergedSentences[mergedSentences.length - 1].length < 3)
     ) {
-      merged[merged.length - 1] += s;
+      mergedSentences[mergedSentences.length - 1] += sentence;
     } else {
-      merged.push(s);
+      mergedSentences.push(sentence);
     }
   }
-  while (merged.length > 10) {
-    const m2 = [];
-    for (let i = 0; i < merged.length; i += 2) {
-      m2.push(merged[i] + (merged[i + 1] || ''));
+
+  while (mergedSentences.length > 10) {
+    const combinedSentences = [];
+    for (let index = 0; index < mergedSentences.length; index += 2) {
+      const nextSentence =
+        typeof mergedSentences[index + 1] === 'string'
+          ? mergedSentences[index + 1]
+          : '';
+      combinedSentences.push(mergedSentences[index] + nextSentence);
     }
-    merged.length = 0;
-    merged.push.apply(merged, m2);
+    mergedSentences.length = 0;
+    mergedSentences.push(...combinedSentences);
   }
-  return merged;
+
+  return mergedSentences;
 }
 
 /**
@@ -226,11 +254,12 @@ export function splitSentences(text) {
  * @returns {string} 預設的神經網路語音模型名稱。
  */
 export function localeVoice(locale) {
-  return /^en/i.test(locale)
+  const normalizedLocale = typeof locale === 'string' ? locale : '';
+  return /^en/i.test(normalizedLocale) === true
     ? 'en-US-JennyNeural'
-    : /^ja/i.test(locale)
+    : /^ja/i.test(normalizedLocale) === true
       ? 'ja-JP-NanamiNeural'
-      : /^ko/i.test(locale)
+      : /^ko/i.test(normalizedLocale) === true
         ? 'ko-KR-SunHiNeural'
         : 'zh-TW-HsiaoChenNeural';
 }
@@ -261,9 +290,9 @@ export function initDefaultTTSEngine(options = {}) {
     neuralVoice = '',
     gender = GENDER_MAP.female,
     locale = 'zh-TW',
-    onSpeakStart, // function(text)
-    onSpeakEnd, // function()
-    onSpokenDisplayTextChange // function(text)
+    onSpeakStart,
+    onSpeakEnd,
+    onSpokenDisplayTextChange
   } = options;
 
   const store = createBaseStore({
@@ -273,14 +302,14 @@ export function initDefaultTTSEngine(options = {}) {
     locale,
     isSpeaking: false,
     isMuted: false,
-    speechQ: [],
+    speechQueue: [],
     speechController: null,
     audioCtx: null,
     audioSource: null,
     audioAnalyser: null,
     audioDataArray: null,
     mouthTimer: null,
-    ttVoice: null,
+    browserVoice: null,
     speakSeq: 0,
     isSpeechPlaying: false,
     speechEnded: false,
@@ -300,8 +329,7 @@ export function initDefaultTTSEngine(options = {}) {
   });
 
   const state = store.getState();
-
-  const _ttsControllers = new Set();
+  const activeTTSAbortControllers = new Set();
 
   const engine = {
     subscribe: store.subscribe,
@@ -314,48 +342,57 @@ export function initDefaultTTSEngine(options = {}) {
     get isMuted() {
       return store.getState().isMuted;
     },
-    set isMuted(val) {
-      store.setState({ isMuted: val });
+    set isMuted(value) {
+      store.setState({ isMuted: value });
     },
 
     beginSpeech() {
       engine.stop();
-      state.speechQ = [];
+      state.speechQueue = [];
       state.speechEnded = false;
       state.tapDone = false;
       state.isSpeechPlaying = false;
       state.useAudioMouth = false;
       state.audioMouth = 0;
-      return ++state.speakSeq;
+      state.speakSeq += 1;
+      return state.speakSeq;
     },
 
-    pushSpeech(sid, text, options = {}) {
-      if (sid !== state.speakSeq || this.isMuted === true) return;
-      const safeText = String(text || '').trim();
-      if (safeText === '') return;
-      state.speechQ.push({
+    pushSpeech(speechSequenceId, text, options = {}) {
+      if (speechSequenceId !== state.speakSeq || this.isMuted === true) {
+        return;
+      }
+      const safeText = typeof text === 'string' ? text.trim() : '';
+      if (safeText === '') {
+        return;
+      }
+      state.speechQueue.push({
         text: safeText,
-        prep: null,
-        err: null,
-        instant: !!options.instant
+        prefetchPromise: null,
+        error: null,
+        instant: Boolean(options.instant)
       });
-      prefetchSpeech(sid);
-      pumpSpeech(sid);
+      prefetchSpeech(speechSequenceId);
+      processSpeechQueue(speechSequenceId);
     },
 
-    endSpeech(sid) {
-      if (sid !== state.speakSeq) return;
+    endSpeech(speechSequenceId) {
+      if (speechSequenceId !== state.speakSeq) {
+        return;
+      }
       state.speechEnded = true;
-      pumpSpeech(sid);
+      processSpeechQueue(speechSequenceId);
     },
 
     speak(text, options = {}) {
       if (this.isMuted === true) {
-        if (typeof onSpeakEnd === 'function') onSpeakEnd();
+        if (typeof onSpeakEnd === 'function') {
+          onSpeakEnd();
+        }
         return;
       }
 
-      const safeText = String(text || '').slice(0, 600);
+      const safeText = (typeof text === 'string' ? text : '').slice(0, 600);
       if (
         options.updateDisplay !== false &&
         typeof onSpokenDisplayTextChange === 'function'
@@ -363,28 +400,36 @@ export function initDefaultTTSEngine(options = {}) {
         onSpokenDisplayTextChange(safeText);
       }
 
-      const sid = this.beginSpeech();
-      for (const sentences of splitSentences(safeText)) {
-        if (sentences.trim() === '') continue;
-        this.pushSpeech(sid, sentences.trim(), options);
+      const speechSequenceId = this.beginSpeech();
+      for (const sentence of splitSentences(safeText)) {
+        if (sentence.trim() === '') {
+          continue;
+        }
+        this.pushSpeech(speechSequenceId, sentence.trim(), options);
       }
-      this.endSpeech(sid);
+      this.endSpeech(speechSequenceId);
     },
 
     stop() {
-      state.speakSeq++;
-      state.speechQ = [];
+      state.speakSeq += 1;
+      state.speechQueue = [];
       state.speechEnded = true;
       state.isSpeechPlaying = false;
       store.setState({ isSpeaking: false });
-      for (const c of _ttsControllers) {
+      for (const abortController of activeTTSAbortControllers) {
         try {
-          c.abort();
+          abortController.abort();
         } catch (_error) {}
       }
-      _ttsControllers.clear();
+      activeTTSAbortControllers.clear();
       try {
-        if ('speechSynthesis' in window) speechSynthesis.cancel();
+        if (
+          typeof window === 'object' &&
+          window !== null &&
+          'speechSynthesis' in window
+        ) {
+          speechSynthesis.cancel();
+        }
       } catch (_error) {}
       try {
         clearTimeout(state.speakBrowserTimer);
@@ -407,300 +452,416 @@ export function initDefaultTTSEngine(options = {}) {
     },
 
     computeMouth() {
-      const state = store.getState();
-      if (this.isSpeaking === true && state.useAudioMouth === true) {
+      const currentState = store.getState();
+      if (this.isSpeaking === true && currentState.useAudioMouth === true) {
         // 平滑開合響應：適度降低響應係數，使嘴型隨音節自然過渡，避免高頻震顫
-        const response = state.audioMouth > state.mouthValue ? 0.42 : 0.22;
-        state.mouthValue += (state.audioMouth - state.mouthValue) * response;
+        const smoothingFactor =
+          currentState.audioMouth > currentState.mouthValue ? 0.42 : 0.22;
+        currentState.mouthValue +=
+          (currentState.audioMouth - currentState.mouthValue) * smoothingFactor;
       } else if (this.isSpeaking === true) {
         // 瀏覽器語音 / 備份模式：降頻至自然說話節奏 (約 1.6 次/秒)，以平滑 lerp 計算開合
-        const timeNow = performance.now() / 1000;
+        const currentTimeInSeconds = performance.now() / 1000;
         const targetMouth =
           0.06 +
-          0.68 * state.mouthTarget * Math.pow(Math.sin(timeNow * 5.2), 2);
-        state.mouthValue += (targetMouth - state.mouthValue) * 0.32;
+          0.68 *
+            currentState.mouthTarget *
+            Math.pow(Math.sin(currentTimeInSeconds * 5.2), 2);
+        currentState.mouthValue +=
+          (targetMouth - currentState.mouthValue) * 0.32;
       } else {
         // 停止說話時平滑淡出閉嘴
-        state.mouthValue = Math.max(0, state.mouthValue - 0.12);
+        currentState.mouthValue = Math.max(0, currentState.mouthValue - 0.12);
       }
-      return state.mouthValue;
+      return currentState.mouthValue;
     },
 
     setGender(newGender) {
       store.setState({
         gender: newGender,
-        ttVoice: loadVoice(newGender, store.getState().locale)
+        browserVoice: loadVoice(newGender, store.getState().locale)
       });
     },
 
     get locale() {
-      return store.getState().locale || 'zh-TW';
+      const currentLocale = store.getState().locale;
+      return typeof currentLocale === 'string' && currentLocale !== ''
+        ? currentLocale
+        : 'zh-TW';
     },
 
     setLocale(locale) {
-      const matched =
+      const targetLocale = typeof locale === 'string' ? locale : '';
+      const matchedLocale =
         ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'].find(
-          (loc) => loc.toLowerCase() === (locale || '').toLowerCase()
+          (supportedLocale) =>
+            supportedLocale.toLowerCase() === targetLocale.toLowerCase()
         ) || 'zh-TW';
       store.setState({
-        locale: matched,
-        neuralVoice: localeVoice(matched),
-        ttVoice: loadVoice(store.getState().gender, matched)
+        locale: matchedLocale,
+        neuralVoice: localeVoice(matchedLocale),
+        browserVoice: loadVoice(store.getState().gender, matchedLocale)
       });
     },
 
     preloadTapGreeting(text) {
-      if (state.neuralDisabled === true) return Promise.resolve(null);
-      const state = store.getState();
-      const key = state.neuralVoice + '\n' + text;
-      if (state.tapGreetingPrep != null && state.tapGreetingCacheKey === key) {
-        return state.tapGreetingPrep;
+      if (state.neuralDisabled === true) {
+        return Promise.resolve(null);
       }
-      state.tapGreetingCacheKey = key;
-      state.tapGreetingBuffer = null;
-      state.tapGreetingPrep = fetchTTSBuffer(text, true)
-        .then((buffer) => {
-          if (state.tapGreetingCacheKey === key)
-            state.tapGreetingBuffer = buffer;
-          return buffer;
+      const currentState = store.getState();
+      const cacheKey = currentState.neuralVoice + '\n' + text;
+      if (
+        currentState.tapGreetingPrep !== null &&
+        currentState.tapGreetingPrep !== undefined &&
+        currentState.tapGreetingCacheKey === cacheKey
+      ) {
+        return currentState.tapGreetingPrep;
+      }
+      currentState.tapGreetingCacheKey = cacheKey;
+      currentState.tapGreetingBuffer = null;
+      currentState.tapGreetingPrep = fetchTTSBuffer(text, true)
+        .then((audioBuffer) => {
+          if (currentState.tapGreetingCacheKey === cacheKey) {
+            currentState.tapGreetingBuffer = audioBuffer;
+          }
+          return audioBuffer;
         })
         .catch((error) => {
-          if (state.tapGreetingCacheKey === key) {
-            state.tapGreetingPrep = null;
-            state.tapGreetingBuffer = null;
+          if (currentState.tapGreetingCacheKey === cacheKey) {
+            currentState.tapGreetingPrep = null;
+            currentState.tapGreetingBuffer = null;
           }
           throw error;
         });
-      return state.tapGreetingPrep;
+      return currentState.tapGreetingPrep;
     }
   };
 
   const getAudioContext = async () => {
-    const state = store.getState();
-    const safeAudioContext = window.AudioContext || window.webkitAudioContext;
-    if (state.audioCtx instanceof safeAudioContext === false) {
-      store.setState({ audioCtx: new safeAudioContext() });
+    const currentState = store.getState();
+    const AudioContextClass =
+      typeof window === 'object' && window !== null
+        ? window.AudioContext || window.webkitAudioContext
+        : null;
+    if (
+      typeof AudioContextClass === 'function' &&
+      currentState.audioCtx instanceof AudioContextClass === false
+    ) {
+      store.setState({ audioCtx: new AudioContextClass() });
     }
-    const curCtx = store.getState().audioCtx;
-    if (curCtx.state === 'suspended') {
+    const currentAudioContext = store.getState().audioCtx;
+    if (
+      currentAudioContext !== null &&
+      typeof currentAudioContext === 'object' &&
+      currentAudioContext.state === 'suspended'
+    ) {
       try {
-        await curCtx.resume();
+        await currentAudioContext.resume();
       } catch (_error) {}
     }
-    return curCtx;
+    return currentAudioContext;
   };
 
-  const fetchTTSBuffer = async (text, persistent = false) => {
-    const ctx = await getAudioContext();
-    const state = store.getState();
-    const controller = new AbortController();
-    if (persistent !== true) {
-      _ttsControllers.add(controller);
+  const fetchTTSBuffer = async (text, isPersistent = false) => {
+    const audioContext = await getAudioContext();
+    const currentState = store.getState();
+    const abortController = new AbortController();
+    if (isPersistent !== true) {
+      activeTTSAbortControllers.add(abortController);
     }
-    const sep = state.ttsEndpoint.indexOf('?') < 0 ? '?' : '&';
+    const querySeparator =
+      currentState.ttsEndpoint.indexOf('?') < 0 ? '?' : '&';
     try {
       const response = await fetch(
-        state.ttsEndpoint +
-          sep +
+        currentState.ttsEndpoint +
+          querySeparator +
           'voice=' +
-          encodeURIComponent(state.neuralVoice) +
+          encodeURIComponent(currentState.neuralVoice) +
           '&text=' +
           encodeURIComponent(text),
-        { signal: controller.signal }
+        { signal: abortController.signal }
       );
-      if (response.ok === false) throw new Error('http ' + response.status);
-      const respArrayBuffer = await response.arrayBuffer();
-      if (respArrayBuffer.byteLength < 800) throw new Error('audio too small');
-      return await ctx.decodeAudioData(respArrayBuffer);
+      if (response.ok === false) {
+        throw new Error('http ' + response.status);
+      }
+      const responseArrayBuffer = await response.arrayBuffer();
+      if (responseArrayBuffer.byteLength < 800) {
+        throw new Error('audio too small');
+      }
+      return await audioContext.decodeAudioData(responseArrayBuffer);
     } finally {
-      if (persistent !== true) {
-        _ttsControllers.delete(controller);
+      if (isPersistent !== true) {
+        activeTTSAbortControllers.delete(abortController);
       }
     }
   };
 
-  const prefetchSpeech = (sid) => {
-    if (sid !== state.speakSeq || state.neuralDisabled === true) return;
-    for (const item of state.speechQ.slice(0, 2)) {
-      if (item.prep == null && item.err == null) {
-        item.prep = fetchTTSBuffer(item.text).catch((error) => {
-          item.err = error;
-          return null;
-        });
+  const prefetchSpeech = (speechSequenceId) => {
+    if (speechSequenceId !== state.speakSeq || state.neuralDisabled === true) {
+      return;
+    }
+    for (const queueItem of state.speechQueue.slice(0, 2)) {
+      if (
+        queueItem.prefetchPromise === null &&
+        queueItem.error === null
+      ) {
+        queueItem.prefetchPromise = fetchTTSBuffer(queueItem.text).catch(
+          (error) => {
+            queueItem.error = error;
+            return null;
+          }
+        );
       }
     }
   };
 
-  const playBuffer = (audioBuf, done) => {
-    const state = store.getState();
-    const src = state.audioCtx.createBufferSource();
-    src.buffer = audioBuf;
-    const analyser = state.audioCtx.createAnalyser();
-    analyser.fftSize = 128;
-    analyser.smoothingTimeConstant = 0;
-    src.connect(analyser);
-    analyser.connect(state.audioCtx.destination);
-    const data = new Uint8Array(analyser.fftSize);
-    state.currentSource = src;
-    state.useAudioMouth = true;
+  const playBuffer = (audioBuffer, onPlayCompleted) => {
+    const currentState = store.getState();
+    const bufferSourceNode = currentState.audioCtx.createBufferSource();
+    bufferSourceNode.buffer = audioBuffer;
+    const analyserNode = currentState.audioCtx.createAnalyser();
+    analyserNode.fftSize = 128;
+    analyserNode.smoothingTimeConstant = 0;
+    bufferSourceNode.connect(analyserNode);
+    analyserNode.connect(currentState.audioCtx.destination);
+    const timeDomainData = new Uint8Array(analyserNode.fftSize);
+    currentState.currentSource = bufferSourceNode;
+    currentState.useAudioMouth = true;
     store.setState({ isSpeaking: true });
-    state.audioMouth = 0.12;
-    state.mouthValue = Math.max(state.mouthValue, 0.12);
+    currentState.audioMouth = 0.12;
+    currentState.mouthValue = Math.max(currentState.mouthValue, 0.12);
 
-    if (state.tapDone !== true) {
-      state.tapDone = true;
-      if (typeof onSpeakStart === 'function') onSpeakStart();
-    }
-
-    function audioLoop() {
-      if (state.currentSource !== src) return;
-      analyser.getByteTimeDomainData(data);
-      let sum = 0;
-      for (let i = 0; i < data.length; i++) {
-        const normalizedSample = (data[i] - 128) / 128;
-        sum += normalizedSample * normalizedSample;
+    if (currentState.tapDone !== true) {
+      currentState.tapDone = true;
+      if (typeof onSpeakStart === 'function') {
+        onSpeakStart();
       }
-      const rms = Math.sqrt(sum / data.length);
-      state.audioMouth = Math.min(1, Math.max(0, (rms - 0.006) * 5.2));
-      state.currentFps = requestAnimationFrame(audioLoop);
     }
-    state.currentFps = requestAnimationFrame(audioLoop);
-    src.onended = () => {
-      if (state.currentSource !== src) return;
-      if (state.currentFps > 0) {
-        cancelAnimationFrame(state.currentFps);
-        state.currentFps = 0;
+
+    function runAudioVisualizationLoop() {
+      if (currentState.currentSource !== bufferSourceNode) {
+        return;
+      }
+      analyserNode.getByteTimeDomainData(timeDomainData);
+      let sumOfSquares = 0;
+      for (
+        let sampleIndex = 0;
+        sampleIndex < timeDomainData.length;
+        sampleIndex += 1
+      ) {
+        const normalizedSample = (timeDomainData[sampleIndex] - 128) / 128;
+        sumOfSquares += normalizedSample * normalizedSample;
+      }
+      const rootMeanSquare = Math.sqrt(sumOfSquares / timeDomainData.length);
+      currentState.audioMouth = Math.min(
+        1,
+        Math.max(0, (rootMeanSquare - 0.006) * 5.2)
+      );
+      currentState.currentFps = requestAnimationFrame(
+        runAudioVisualizationLoop
+      );
+    }
+    currentState.currentFps = requestAnimationFrame(runAudioVisualizationLoop);
+    bufferSourceNode.onended = () => {
+      if (currentState.currentSource !== bufferSourceNode) {
+        return;
+      }
+      if (currentState.currentFps > 0) {
+        cancelAnimationFrame(currentState.currentFps);
+        currentState.currentFps = 0;
       }
       store.setState({ isSpeaking: false });
-      state.useAudioMouth = false;
-      state.audioMouth = 0;
-      state.currentSource = null;
-      done();
+      currentState.useAudioMouth = false;
+      currentState.audioMouth = 0;
+      currentState.currentSource = null;
+      if (typeof onPlayCompleted === 'function') {
+        onPlayCompleted();
+      }
     };
-    src.start(0);
+    bufferSourceNode.start(0);
   };
 
-  const handleNeuralFail = (e) => {
-    const state = store.getState();
-    const msg = e?.message || '';
-    if (/http 429/.test(msg) === true) {
+  const handleNeuralVoiceError = (error) => {
+    const currentState = store.getState();
+    const errorMessage =
+      typeof error === 'object' && error !== null && typeof error.message === 'string'
+        ? error.message
+        : '';
+    if (/http 429/.test(errorMessage) === true) {
       console.warn('TTS 被限流，這句退瀏覽器語音');
       return;
     }
     if (
-      /http 4\d\d|Failed to fetch|NetworkError|Load failed/i.test(msg) === true
+      /http 4\d\d|Failed to fetch|NetworkError|Load failed/i.test(
+        errorMessage
+      ) === true
     ) {
-      state.neuralDisabled = true;
+      currentState.neuralDisabled = true;
     }
-    console.warn('神經語音失敗，退回瀏覽器語音：', msg);
+    console.warn('神經語音失敗，退回瀏覽器語音：', errorMessage);
   };
 
-  const speakBrowserChunk = (text, sid, done) => {
-    if (engine.isMuted === true || 'speechSynthesis' in window === false) {
-      done();
+  const speakBrowserChunk = (text, speechSequenceId, onChunkCompleted) => {
+    if (
+      engine.isMuted === true ||
+      (typeof window === 'object' &&
+        window !== null &&
+        'speechSynthesis' in window === false)
+    ) {
+      if (typeof onChunkCompleted === 'function') {
+        onChunkCompleted();
+      }
       return;
     }
     const utterance = new SpeechSynthesisUtterance(text);
-    const state = store.getState();
-    if (state.ttVoice === null) {
-      store.setState({ ttVoice: loadVoice(state.gender) });
+    const currentState = store.getState();
+    if (currentState.browserVoice === null) {
+      store.setState({ browserVoice: loadVoice(currentState.gender) });
     }
-    const curVoice = store.getState().ttVoice;
-    if (curVoice) utterance.voice = curVoice;
-    utterance.lang = curVoice?.lang || state.locale;
-    utterance.rate = state.ttsRate;
+    const currentVoice = store.getState().browserVoice;
+    if (currentVoice !== null) {
+      utterance.voice = currentVoice;
+    }
+    utterance.lang = currentVoice?.lang || currentState.locale;
+    utterance.rate =
+      typeof currentState.ttsRate === 'number' && currentState.ttsRate > 0
+        ? currentState.ttsRate
+        : 1.0;
     utterance.pitch = 1.0;
     utterance.onboundary = () => {
-      state.mouthTarget = 0.5 + Math.random() * 0.5;
+      currentState.mouthTarget = 0.5 + Math.random() * 0.5;
     };
-    let fin = false;
-    const finish = () => {
-      if (fin === true) return;
-      fin = true;
+    let isFinished = false;
+    const handleFinish = () => {
+      if (isFinished === true) {
+        return;
+      }
+      isFinished = true;
       store.setState({ isSpeaking: false });
-      done();
+      if (typeof onChunkCompleted === 'function') {
+        onChunkCompleted();
+      }
     };
-    utterance.onend = finish;
-    const estMs = Math.min(
+    utterance.onend = handleFinish;
+    const effectiveRate =
+      typeof currentState.ttsRate === 'number' && currentState.ttsRate > 0
+        ? currentState.ttsRate
+        : 1.0;
+    const estimatedDurationMs = Math.min(
       16000,
-      Math.max(1200, (text.length * 130) / state.ttsRate)
+      Math.max(1200, (text.length * 130) / effectiveRate)
     );
 
-    const fire = () => {
-      if (sid !== state.speakSeq) return;
+    const playUtterance = () => {
+      if (speechSequenceId !== state.speakSeq) {
+        return;
+      }
       try {
         speechSynthesis.resume();
       } catch (_error) {}
       speechSynthesis.speak(utterance);
       store.setState({ isSpeaking: true });
-      state.mouthTarget = 0.7;
-      if (state.tapDone !== true) {
-        state.tapDone = true;
-        if (typeof onSpeakStart === 'function') onSpeakStart();
+      currentState.mouthTarget = 0.7;
+      if (currentState.tapDone !== true) {
+        currentState.tapDone = true;
+        if (typeof onSpeakStart === 'function') {
+          onSpeakStart();
+        }
       }
-      state.speakBrowserTimer = setTimeout(finish, estMs);
+      currentState.speakBrowserTimer = setTimeout(
+        handleFinish,
+        estimatedDurationMs
+      );
     };
-    if (speechSynthesis.speaking === true || speechSynthesis.pending === true) {
+    if (
+      speechSynthesis.speaking === true ||
+      speechSynthesis.pending === true
+    ) {
       speechSynthesis.cancel();
-      setTimeout(fire, 120);
+      setTimeout(playUtterance, 120);
     } else {
-      fire();
+      playUtterance();
     }
   };
 
-  const pumpSpeech = async (sid) => {
-    if (state.isSpeechPlaying || sid !== state.speakSeq) return;
-    const item = state.speechQ.shift();
-    if (item === undefined) {
+  const processSpeechQueue = async (speechSequenceId) => {
+    if (
+      state.isSpeechPlaying === true ||
+      speechSequenceId !== state.speakSeq
+    ) {
+      return;
+    }
+    const speechItem = state.speechQueue.shift();
+    if (speechItem === undefined) {
       if (state.speechEnded === true) {
         store.setState({ isSpeaking: false });
-        if (typeof onSpeakEnd === 'function') onSpeakEnd();
+        if (typeof onSpeakEnd === 'function') {
+          onSpeakEnd();
+        }
       }
       return;
     }
     state.isSpeechPlaying = true;
-    const done = () => {
-      if (sid !== state.speakSeq) return;
+    const handleChunkDone = () => {
+      if (speechSequenceId !== state.speakSeq) {
+        return;
+      }
       state.isSpeechPlaying = false;
-      prefetchSpeech(sid);
-      pumpSpeech(sid);
+      prefetchSpeech(speechSequenceId);
+      processSpeechQueue(speechSequenceId);
     };
 
+    const cachedGreetingKey =
+      typeof state.tapGreetingCacheKey === 'string'
+        ? state.tapGreetingCacheKey.split('\n')[1]
+        : undefined;
     if (
-      item.instant &&
-      state.tapGreetingBuffer != null &&
-      item.text === state.tapGreetingCacheKey?.split('\n')[1]
+      speechItem.instant === true &&
+      state.tapGreetingBuffer !== null &&
+      speechItem.text === cachedGreetingKey
     ) {
-      engine.preloadTapGreeting(item.text);
-      speakBrowserChunk(item.text, sid, done);
+      engine.preloadTapGreeting(speechItem.text);
+      speakBrowserChunk(speechItem.text, speechSequenceId, handleChunkDone);
       return;
     }
 
-    let buf = null;
-    if (state.neuralDisabled !== true && item.err == null) {
-      if (item.prep == null) {
-        item.prep = fetchTTSBuffer(item.text).catch((error) => {
-          item.err = error;
-          return null;
-        });
+    let audioBuffer = null;
+    if (state.neuralDisabled !== true && speechItem.error === null) {
+      if (speechItem.prefetchPromise === null) {
+        speechItem.prefetchPromise = fetchTTSBuffer(speechItem.text).catch(
+          (error) => {
+            speechItem.error = error;
+            return null;
+          }
+        );
       }
-      buf = await item.prep;
+      audioBuffer = await speechItem.prefetchPromise;
     }
-    if (sid !== state.speakSeq) return;
-    if (buf != null) {
-      prefetchSpeech(sid);
-      playBuffer(buf, done);
+    if (speechSequenceId !== state.speakSeq) {
+      return;
+    }
+    if (audioBuffer !== null) {
+      prefetchSpeech(speechSequenceId);
+      playBuffer(audioBuffer, handleChunkDone);
     } else {
-      if (item.err != null) handleNeuralFail(item.err);
-      speakBrowserChunk(item.text, sid, done);
+      if (speechItem.error !== null) {
+        handleNeuralVoiceError(speechItem.error);
+      }
+      speakBrowserChunk(speechItem.text, speechSequenceId, handleChunkDone);
     }
   };
 
-  if ('speechSynthesis' in window === true) {
+  if (
+    typeof window === 'object' &&
+    window !== null &&
+    'speechSynthesis' in window === true
+  ) {
     speechSynthesis.onvoiceschanged = () => {
-      if (state.ttVoice === null) state.ttVoice = loadVoice(state.gender);
+      if (state.browserVoice === null) {
+        state.browserVoice = loadVoice(state.gender);
+      }
     };
-    state.ttVoice = loadVoice(state.gender);
+    state.browserVoice = loadVoice(state.gender);
   }
 
   return engine;
