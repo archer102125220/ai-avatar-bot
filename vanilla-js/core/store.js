@@ -3,7 +3,7 @@
  * @typedef {Object} BaseStore
  * @property {() => T} getState - 取得目前的狀態。
  * @property {(updates: Partial<T> | ((state: T) => Partial<T>)) => void} setState - 更新狀態。
- * @property {(selector: ((state: T, prevState: T) => void) | keyof T | ((state: T) => any), callback?: (currentVal: any, prevVal: any) => void) => () => void} subscribe - 訂閱狀態變更。
+ * @property {(selector: ((state: T, previousState: T) => void) | keyof T | ((state: T) => any), callback?: (currentValue: any, previousValue: any) => void) => () => void} subscribe - 訂閱狀態變更。
  */
 
 /**
@@ -23,7 +23,9 @@ export function createBaseStore(initialState = {}) {
    *
    * @returns {T} 目前的狀態物件。
    */
-  const getState = () => state;
+  const getState = () => {
+    return state;
+  };
 
   /**
    * 更新狀態。
@@ -32,11 +34,11 @@ export function createBaseStore(initialState = {}) {
    * @param {Partial<T> | ((state: T) => Partial<T>)} updates - 欲更新的狀態物件或函式。
    */
   function setState(updates) {
-    // 支援函式更新：setState(prev => ({ count: prev.count + 1 }))
+    // 支援函式更新：setState((previousState) => ({ count: previousState.count + 1 }))
     const newValues = typeof updates === 'function' ? updates(state) : updates;
 
     let hasChanges = false;
-    const prevState = { ...state };
+    const previousState = { ...state };
 
     for (const key in newValues) {
       if (state[key] !== newValues[key]) {
@@ -48,7 +50,7 @@ export function createBaseStore(initialState = {}) {
     // 只有在狀態確實改變時才發送通知
     if (hasChanges === true) {
       subscribers.forEach((listener) => {
-        listener(state, prevState);
+        listener(state, previousState);
       });
     }
   }
@@ -58,16 +60,16 @@ export function createBaseStore(initialState = {}) {
    *
    * @example
    * // 用法 1：訂閱所有變更
-   * subscribe((state, prevState) => console.log(state, prevState))
+   * subscribe((state, previousState) => console.log(state, previousState))
    * @example
    * // 用法 2：訂閱特定鍵值
-   * subscribe('gender', (newGender, prevGender) => console.log(newGender, prevGender))
+   * subscribe('gender', (newGender, previousGender) => console.log(newGender, previousGender))
    * @example
    * // 用法 3：透過選取器函式訂閱
-   * subscribe(state => state.gender, (newGender, prevGender) => console.log(newGender, prevGender))
+   * subscribe(state => state.gender, (newGender, previousGender) => console.log(newGender, previousGender))
    *
-   * @param {((state: T, prevState: T) => void) | keyof T | ((state: T) => any)} selector - 監聽器函式、狀態鍵值字串，或狀態選取器函式。
-   * @param {(currentVal: any, prevVal: any) => void} [callback] - 當特定狀態變更時觸發的回呼函式（適用於用法 2 與 3）。
+   * @param {((state: T, previousState: T) => void) | keyof T | ((state: T) => any)} selector - 監聽器函式、狀態鍵值字串，或狀態選取器函式。
+   * @param {(currentValue: any, previousValue: any) => void} [callback] - 當特定狀態變更時觸發的回呼函式（適用於用法 2 與 3）。
    * @returns {() => void} 取消訂閱的函式。
    * @throws {Error} 當傳入無效的參數組合時拋出錯誤。
    */
@@ -80,19 +82,19 @@ export function createBaseStore(initialState = {}) {
     }
     // 用法 2：訂閱特定字串鍵值
     else if (typeof selector === 'string' && typeof callback === 'function') {
-      listener = function (currentState, prevState) {
-        if (currentState[selector] !== prevState[selector]) {
-          callback(currentState[selector], prevState[selector]);
+      listener = function (currentState, previousState) {
+        if (currentState[selector] !== previousState[selector]) {
+          callback(currentState[selector], previousState[selector]);
         }
       };
     }
     // 用法 3：透過選取器函式訂閱特定值
     else if (typeof selector === 'function' && typeof callback === 'function') {
-      listener = function (currentState, prevState) {
-        const currentVal = selector(currentState);
-        const prevVal = selector(prevState);
-        if (currentVal !== prevVal) {
-          callback(currentVal, prevVal);
+      listener = function (currentState, previousState) {
+        const currentValue = selector(currentState);
+        const previousValue = selector(previousState);
+        if (currentValue !== previousValue) {
+          callback(currentValue, previousValue);
         }
       };
     } else {
@@ -102,7 +104,9 @@ export function createBaseStore(initialState = {}) {
     subscribers.add(listener);
 
     // 回傳取消訂閱的函式
-    return () => subscribers.delete(listener);
+    return () => {
+      subscribers.delete(listener);
+    };
   }
 
   return {
