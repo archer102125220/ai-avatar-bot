@@ -17,11 +17,15 @@ export function validateSTTEngine(engine) {
   if (typeof engine !== 'object' || engine === null) {
     missing.push('engine instance');
   } else {
-    ['startListening', 'stopListening'].forEach((method) => {
-      if (typeof engine[method] !== 'function') missing.push(`${method}()`);
+    ['startListening', 'stopListening'].forEach((methodName) => {
+      if (typeof engine[methodName] !== 'function') {
+        missing.push(`${methodName}()`);
+      }
     });
-    ['isListening'].forEach((prop) => {
-      if (!(prop in engine)) missing.push(prop);
+    ['isListening'].forEach((propertyName) => {
+      if (!(propertyName in engine)) {
+        missing.push(propertyName);
+      }
     });
   }
   return { isValid: missing.length === 0, missing };
@@ -127,13 +131,23 @@ const DEFAULT_STT_MESSAGES = {
  * @returns {string} 格式化後的提示訊息。
  */
 export function getSttMessage(locale, key, params = {}) {
-  const currentLocale = locale || 'zh-TW';
-  const dict = DEFAULT_STT_MESSAGES[currentLocale] || DEFAULT_STT_MESSAGES['zh-TW'] || {};
-  let msg = dict[key] || DEFAULT_STT_MESSAGES['zh-TW']?.[key] || key;
-  for (const k in params) {
-    msg = msg.replace(new RegExp(`\\{${k}\\}`, 'g'), String(params[k]));
+  const currentLocale =
+    typeof locale === 'string' && locale !== '' ? locale : 'zh-TW';
+  const messageDictionary =
+    DEFAULT_STT_MESSAGES[currentLocale] || DEFAULT_STT_MESSAGES['zh-TW'] || {};
+  let formattedMessage =
+    messageDictionary[key] || DEFAULT_STT_MESSAGES['zh-TW']?.[key] || key;
+  if (typeof params === 'object' && params !== null) {
+    for (const paramKey in params) {
+      if (Object.prototype.hasOwnProperty.call(params, paramKey)) {
+        formattedMessage = formattedMessage.replace(
+          new RegExp(`\\{${paramKey}\\}`, 'g'),
+          String(params[paramKey])
+        );
+      }
+    }
   }
-  return msg;
+  return formattedMessage;
 }
 
 /**
@@ -170,6 +184,9 @@ export function initDefaultSTTEngine(options = {}) {
     locale = 'zh-TW'
   } = options;
 
+  const initialLocale =
+    typeof locale === 'string' && locale !== '' ? locale : 'zh-TW';
+
   const store = createBaseStore({
     micStream: null,
     micAudioCtx: null,
@@ -181,7 +198,7 @@ export function initDefaultSTTEngine(options = {}) {
     micRaf: 0,
     recognition: null,
     isListening: false,
-    locale: locale || 'zh-TW',
+    locale: initialLocale,
     noSpeechRuns: 0,
     lastRestart: 0,
     speechStartTime: 0,
@@ -204,13 +221,13 @@ export function initDefaultSTTEngine(options = {}) {
 
     state.micAnalyser.getByteFrequencyData(state.micData);
 
-    let sum = 0;
-    const len = state.micData.length;
-    for (let i = 0; i < len; i++) {
-      const v = (state.micData[i] - 128) / 128;
-      sum += v * v;
+    let sumOfSquares = 0;
+    const bufferLength = state.micData.length;
+    for (let index = 0; index < bufferLength; index++) {
+      const normalizedSample = (state.micData[index] - 128) / 128;
+      sumOfSquares += normalizedSample * normalizedSample;
     }
-    const rms = Math.sqrt(sum / len);
+    const rms = Math.sqrt(sumOfSquares / bufferLength);
 
     state.micNoiseFloor =
       typeof state.micNoiseFloor === 'number' && state.micNoiseFloor > 0
@@ -256,7 +273,9 @@ export function initDefaultSTTEngine(options = {}) {
     ) {
       state.lastBargeIn = performance.now();
       state.voiceFrames = 0;
-      if (typeof onBargeIn === 'function') onBargeIn();
+      if (typeof onBargeIn === 'function') {
+        onBargeIn();
+      }
     }
 
     state.micRaf = requestAnimationFrame(monitorMicLevel);
@@ -286,7 +305,7 @@ export function initDefaultSTTEngine(options = {}) {
     if (state.micAudioCtx.state === 'suspended') {
       try {
         await state.micAudioCtx.resume();
-      } catch (_e) {}
+      } catch (_resumeError) {}
     }
 
     state.micAnalyser = state.micAudioCtx.createAnalyser();
@@ -311,7 +330,9 @@ export function initDefaultSTTEngine(options = {}) {
     state.micRaf = 0;
 
     if (typeof state.micStream === 'object' && state.micStream !== null) {
-      state.micStream.getTracks().forEach((track) => track.stop());
+      state.micStream.getTracks().forEach((audioTrack) => {
+        audioTrack.stop();
+      });
     }
     state.micStream = null;
     state.micAnalyser = null;
@@ -320,7 +341,7 @@ export function initDefaultSTTEngine(options = {}) {
     if (typeof state.micAudioCtx === 'object' && state.micAudioCtx !== null) {
       try {
         state.micAudioCtx.close();
-      } catch (_e) {}
+      } catch (_closeError) {}
     }
     state.micAudioCtx = null;
     if (typeof onMicLevel === 'function') {
@@ -335,14 +356,19 @@ export function initDefaultSTTEngine(options = {}) {
     setState: store.setState,
 
     get locale() {
-      return state.locale || store.getState().locale || 'zh-TW';
+      const currentLocale = state.locale || store.getState().locale;
+      return typeof currentLocale === 'string' && currentLocale !== ''
+        ? currentLocale
+        : 'zh-TW';
     },
 
     setLocale(newLocale) {
-      state.locale = newLocale;
-      store.setState({ locale: newLocale });
-      if (state.recognition) {
-        state.recognition.lang = newLocale || 'zh-TW';
+      const targetLocale =
+        typeof newLocale === 'string' && newLocale !== '' ? newLocale : 'zh-TW';
+      state.locale = targetLocale;
+      store.setState({ locale: targetLocale });
+      if (typeof state.recognition === 'object' && state.recognition !== null) {
+        state.recognition.lang = targetLocale;
       }
     },
 
@@ -355,15 +381,17 @@ export function initDefaultSTTEngine(options = {}) {
         window.SpeechRecognition || window.webkitSpeechRecognition;
 
       if (typeof SpeechRecognition !== 'function') {
-        const msg = getSttMessage(engine.locale, 'unsupported');
-        if (typeof onError === 'function') onError(msg, false);
+        const unsupportedMessage = getSttMessage(engine.locale, 'unsupported');
+        if (typeof onError === 'function') {
+          onError(unsupportedMessage, false);
+        }
         return;
       }
 
       if (typeof state.recognition === 'object' && state.recognition !== null) {
         try {
           state.recognition.abort();
-        } catch (_e) {}
+        } catch (_abortError) {}
         state.recognition = null;
       }
 
@@ -372,19 +400,21 @@ export function initDefaultSTTEngine(options = {}) {
           onStatusChange(false, getSttMessage(engine.locale, 'requestPermission'));
         }
         await ensureMicMonitor();
-      } catch (_e) {
-        const msg = getSttMessage(engine.locale, 'micError');
-        if (typeof onError === 'function') onError(msg, true);
+      } catch (_permissionError) {
+        const micErrorMessage = getSttMessage(engine.locale, 'micError');
+        if (typeof onError === 'function') {
+          onError(micErrorMessage, true);
+        }
         return;
       }
 
-      const rec = new SpeechRecognition();
-      rec.continuous = false;
-      rec.interimResults = true;
-      rec.lang = engine.locale || 'zh-TW';
-      rec.maxAlternatives = 1;
+      const recognitionInstance = new SpeechRecognition();
+      recognitionInstance.continuous = false;
+      recognitionInstance.interimResults = true;
+      recognitionInstance.lang = engine.locale || 'zh-TW';
+      recognitionInstance.maxAlternatives = 1;
 
-      rec.onstart = () => {
+      recognitionInstance.onstart = () => {
         state.isListening = true;
         store.setState({ isListening: true });
         state.speechStartTime = performance.now();
@@ -394,7 +424,7 @@ export function initDefaultSTTEngine(options = {}) {
         }
       };
 
-      rec.onend = () => {
+      recognitionInstance.onend = () => {
         const wasListening = state.isListening;
         state.isListening = false;
         store.setState({ isListening: false });
@@ -408,45 +438,62 @@ export function initDefaultSTTEngine(options = {}) {
         }
       };
 
-      rec.onerror = (event) => {
-        const err = event.error;
-        if (err === 'aborted') return;
-
-        if (err === 'not-allowed') {
-          const msg = getSttMessage(engine.locale, 'permissionDenied');
-          if (typeof onError === 'function') onError(msg, true);
+      recognitionInstance.onerror = (event) => {
+        const recognitionError = event.error;
+        if (recognitionError === 'aborted') {
           return;
         }
 
-        if (err === 'no-speech') {
-          state.noSpeechRuns = (state.noSpeechRuns || 0) + 1;
+        if (recognitionError === 'not-allowed') {
+          const permissionDeniedMessage = getSttMessage(engine.locale, 'permissionDenied');
+          if (typeof onError === 'function') {
+            onError(permissionDeniedMessage, true);
+          }
+          return;
+        }
+
+        if (recognitionError === 'no-speech') {
+          state.noSpeechRuns =
+            (typeof state.noSpeechRuns === 'number' ? state.noSpeechRuns : 0) + 1;
           const convoOn = typeof getConvoOn === 'function' ? getConvoOn() : false;
           if (state.noSpeechRuns >= 4 && convoOn === true) {
-            if (typeof onNoSpeechAbort === 'function') onNoSpeechAbort();
+            if (typeof onNoSpeechAbort === 'function') {
+              onNoSpeechAbort();
+            }
             return;
           }
         }
 
-        const msg = getSttMessage(engine.locale, 'noSpeech', { error: err });
-        if (typeof onError === 'function') onError(msg, false);
+        const noSpeechMessage = getSttMessage(engine.locale, 'noSpeech', {
+          error: recognitionError
+        });
+        if (typeof onError === 'function') {
+          onError(noSpeechMessage, false);
+        }
       };
 
-      rec.onresult = (event) => {
+      recognitionInstance.onresult = (event) => {
         let recognizedText = '';
         let isFinal = false;
 
-        const resultsLen = event.results.length;
-        for (let i = event.resultIndex; i < resultsLen; i++) {
-          const lastResult = event.results[i];
-          if (typeof lastResult?.[0]?.transcript === 'string') {
-            recognizedText += lastResult[0].transcript;
+        const resultsLength = event.results.length;
+        for (
+          let resultIndex = event.resultIndex;
+          resultIndex < resultsLength;
+          resultIndex++
+        ) {
+          const speechResult = event.results[resultIndex];
+          if (typeof speechResult?.[0]?.transcript === 'string') {
+            recognizedText += speechResult[0].transcript;
           }
-          if (lastResult.isFinal === true) {
+          if (speechResult.isFinal === true) {
             isFinal = true;
           }
         }
 
-        if (recognizedText.trim() === '') return;
+        if (recognizedText.trim() === '') {
+          return;
+        }
 
         state.noSpeechRuns = 0;
 
@@ -466,8 +513,8 @@ export function initDefaultSTTEngine(options = {}) {
         if (elapsed > 2000 && recognizedText.trim().length >= 4) {
           state.interimStartTime = 0;
           try {
-            rec.stop();
-          } catch (_e) {}
+            recognitionInstance.stop();
+          } catch (_stopError) {}
           if (typeof onResult === 'function') {
             onResult(recognizedText, true, false);
           }
@@ -479,24 +526,33 @@ export function initDefaultSTTEngine(options = {}) {
         }
       };
 
-      rec.onaudiostart = () => {};
-      rec.onspeechstart = () => {
+      recognitionInstance.onaudiostart = () => {};
+      recognitionInstance.onspeechstart = () => {
         state.noSpeechRuns = 0;
       };
-      rec.onspeechend = () => {};
-      rec.onaudioend = () => {};
+      recognitionInstance.onspeechend = () => {};
+      recognitionInstance.onaudioend = () => {};
 
-      state.recognition = rec;
+      state.recognition = recognitionInstance;
       state.isAborted = false;
       store.setState({ isAborted: false });
 
       try {
-        rec.start();
-      } catch (e) {
+        recognitionInstance.start();
+      } catch (startError) {
         state.isListening = false;
         store.setState({ isListening: false });
-        const msg = getSttMessage(engine.locale, 'startFailed', { error: e.message });
-        if (typeof onError === 'function') onError(msg, false);
+        const startFailedMessage = getSttMessage(engine.locale, 'startFailed', {
+          error:
+            typeof startError === 'object' &&
+            startError !== null &&
+            typeof startError.message === 'string'
+              ? startError.message
+              : String(startError)
+        });
+        if (typeof onError === 'function') {
+          onError(startFailedMessage, false);
+        }
       }
     },
 
@@ -506,7 +562,7 @@ export function initDefaultSTTEngine(options = {}) {
       if (typeof state.recognition === 'object' && state.recognition !== null) {
         try {
           state.recognition.abort();
-        } catch (_e) {}
+        } catch (_abortError) {}
         state.recognition = null;
       }
       state.isListening = false;
@@ -517,3 +573,4 @@ export function initDefaultSTTEngine(options = {}) {
 
   return engine;
 }
+
