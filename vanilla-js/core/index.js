@@ -212,9 +212,9 @@ export async function initAvatarBot(options = {}) {
     return;
   }
 
-  function callOptionEvent(eventName, ...args) {
+  function callOptionEvent(eventName, ...eventArguments) {
     if (typeof options[eventName] === 'function') {
-      return options[eventName].call(this, ...args);
+      return options[eventName].call(this, ...eventArguments);
     }
   }
 
@@ -278,7 +278,10 @@ export async function initAvatarBot(options = {}) {
     new Set([...Object.values(AVATAR_MODE_MAP), ...customModeKeys])
   );
 
-  const targetAvatarMode = avatarMode || DEFAULT_AVATAR_MODE;
+  const targetAvatarMode =
+    typeof avatarMode === 'string' && avatarMode !== ''
+      ? avatarMode
+      : DEFAULT_AVATAR_MODE;
   if (initialAvailableModes.includes(targetAvatarMode) === false) {
     throw new TypeError(
       `[ai-avatar-bot] Invalid avatarMode "${targetAvatarMode}". Expected one of: [${initialAvailableModes.join(', ')}].`
@@ -321,13 +324,14 @@ export async function initAvatarBot(options = {}) {
     i18nEngine =
       typeof customEngines.i18n === 'function'
         ? customEngines.i18n({
-            locale: locale || 'zh-TW',
+            locale:
+              typeof locale === 'string' && locale !== '' ? locale : 'zh-TW',
             messages: options.i18nMessages
           })
         : customEngines.i18n;
   } else {
     i18nEngine = initI18nEngine({
-      locale: locale || 'zh-TW',
+      locale: typeof locale === 'string' && locale !== '' ? locale : 'zh-TW',
       messages: options.i18nMessages
     });
   }
@@ -342,15 +346,21 @@ export async function initAvatarBot(options = {}) {
   const rootStore = createBaseStore({
     gender: safeGender,
     brainGender:
-      brainGender && Object.values(GENDER_MAP).includes(brainGender)
+      typeof brainGender === 'string' &&
+      brainGender !== '' &&
+      Object.values(GENDER_MAP).includes(brainGender)
         ? brainGender
         : null,
     speechGender:
-      speechGender && Object.values(GENDER_MAP).includes(speechGender)
+      typeof speechGender === 'string' &&
+      speechGender !== '' &&
+      Object.values(GENDER_MAP).includes(speechGender)
         ? speechGender
         : null,
     skinGender:
-      skinGender && Object.values(GENDER_MAP).includes(skinGender)
+      typeof skinGender === 'string' &&
+      skinGender !== '' &&
+      Object.values(GENDER_MAP).includes(skinGender)
         ? skinGender
         : null,
     avatarMode: targetAvatarMode,
@@ -364,7 +374,12 @@ export async function initAvatarBot(options = {}) {
     autoFallbackWebLLM:
       typeof autoFallbackWebLLM === 'boolean' ? autoFallbackWebLLM : true,
     modes: typeof modes === 'object' && modes !== null ? modes : {},
-    locale: i18nEngine?.locale || locale || 'zh-TW',
+    locale:
+      typeof i18nEngine?.locale === 'string' && i18nEngine.locale !== ''
+        ? i18nEngine.locale
+        : typeof locale === 'string' && locale !== ''
+          ? locale
+          : 'zh-TW',
     enableModelDrop: isModelDropEnabled
   });
 
@@ -426,7 +441,9 @@ export async function initAvatarBot(options = {}) {
       return aiAvatarWidget.brainEngine.setEmotionFromText;
     },
 
-    handleUser: (text) => handleUser(text),
+    handleUser: (text) => {
+      return handleUser(text);
+    },
 
     get isIframe() {
       return isIframe;
@@ -470,7 +487,11 @@ export async function initAvatarBot(options = {}) {
       return rootStore.getState().gender;
     },
     set gender(newGender = '') {
-      if (Object.values(GENDER_MAP).includes(newGender)) {
+      if (
+        typeof newGender === 'string' &&
+        newGender !== '' &&
+        Object.values(GENDER_MAP).includes(newGender)
+      ) {
         rootStore.setState({ gender: newGender });
       }
     },
@@ -478,36 +499,57 @@ export async function initAvatarBot(options = {}) {
     get brainGender() {
       return rootStore.getState().brainGender;
     },
-    set brainGender(newGender = null) {
-      if (newGender === null || Object.values(GENDER_MAP).includes(newGender)) {
-        rootStore.setState({ brainGender: newGender });
+    set brainGender(newBrainGender = null) {
+      if (
+        newBrainGender === null ||
+        (typeof newBrainGender === 'string' &&
+          newBrainGender !== '' &&
+          Object.values(GENDER_MAP).includes(newBrainGender))
+      ) {
+        rootStore.setState({ brainGender: newBrainGender });
       }
     },
 
     get speechGender() {
       return rootStore.getState().speechGender;
     },
-    set speechGender(newGender = null) {
-      if (newGender === null || Object.values(GENDER_MAP).includes(newGender)) {
-        rootStore.setState({ speechGender: newGender });
+    set speechGender(newSpeechGender = null) {
+      if (
+        newSpeechGender === null ||
+        (typeof newSpeechGender === 'string' &&
+          newSpeechGender !== '' &&
+          Object.values(GENDER_MAP).includes(newSpeechGender))
+      ) {
+        rootStore.setState({ speechGender: newSpeechGender });
       }
     },
 
     get skinGender() {
       return rootStore.getState().skinGender;
     },
-    set skinGender(newGender = null) {
-      if (newGender === null || Object.values(GENDER_MAP).includes(newGender)) {
-        rootStore.setState({ skinGender: newGender });
+    set skinGender(newSkinGender = null) {
+      if (
+        newSkinGender === null ||
+        (typeof newSkinGender === 'string' &&
+          newSkinGender !== '' &&
+          Object.values(GENDER_MAP).includes(newSkinGender))
+      ) {
+        rootStore.setState({ skinGender: newSkinGender });
       }
     },
 
     get locale() {
-      return i18nEngine ? i18nEngine.locale : rootStore.getState().locale;
+      return typeof i18nEngine?.locale === 'string' && i18nEngine.locale !== ''
+        ? i18nEngine.locale
+        : rootStore.getState().locale;
     },
     set locale(newLocale = '') {
       if (typeof newLocale === 'string' && newLocale !== '') {
-        if (i18nEngine && typeof i18nEngine.setLocale === 'function') {
+        if (
+          i18nEngine !== null &&
+          typeof i18nEngine === 'object' &&
+          typeof i18nEngine.setLocale === 'function'
+        ) {
           i18nEngine.setLocale(newLocale);
         } else {
           rootStore.setState({ locale: newLocale });
@@ -547,14 +589,14 @@ export async function initAvatarBot(options = {}) {
         DEFAULT_ENABLE_MEMORY
       );
     },
-    set enableMemory(enabled) {
-      if (typeof enabled === 'boolean') {
-        rootStore.setState({ enableMemory: enabled });
+    set enableMemory(newEnableMemory) {
+      if (typeof newEnableMemory === 'boolean') {
+        rootStore.setState({ enableMemory: newEnableMemory });
         if (
           brainEngine?.memory !== null &&
           typeof brainEngine?.memory === 'object'
         ) {
-          brainEngine.memory.enabled = enabled;
+          brainEngine.memory.enabled = newEnableMemory;
         }
       }
     },
@@ -566,11 +608,11 @@ export async function initAvatarBot(options = {}) {
         false
       );
     },
-    set enableAiProvider(enabled) {
-      if (typeof enabled === 'boolean') {
-        rootStore.setState({ enableAiProvider: enabled });
+    set enableAiProvider(newEnableAiProvider) {
+      if (typeof newEnableAiProvider === 'boolean') {
+        rootStore.setState({ enableAiProvider: newEnableAiProvider });
         if (brainEngine !== null && typeof brainEngine === 'object') {
-          brainEngine.enableAiProvider = enabled;
+          brainEngine.enableAiProvider = newEnableAiProvider;
         }
       }
     },
@@ -582,11 +624,11 @@ export async function initAvatarBot(options = {}) {
         false
       );
     },
-    set preloadWebLLM(val) {
-      if (typeof val === 'boolean') {
-        rootStore.setState({ preloadWebLLM: val });
+    set preloadWebLLM(newPreloadWebLLM) {
+      if (typeof newPreloadWebLLM === 'boolean') {
+        rootStore.setState({ preloadWebLLM: newPreloadWebLLM });
         if (brainEngine !== null && typeof brainEngine === 'object') {
-          brainEngine.preloadWebLLM = val;
+          brainEngine.preloadWebLLM = newPreloadWebLLM;
         }
       }
     },
@@ -598,11 +640,11 @@ export async function initAvatarBot(options = {}) {
         true
       );
     },
-    set autoFallbackWebLLM(val) {
-      if (typeof val === 'boolean') {
-        rootStore.setState({ autoFallbackWebLLM: val });
+    set autoFallbackWebLLM(newAutoFallbackWebLLM) {
+      if (typeof newAutoFallbackWebLLM === 'boolean') {
+        rootStore.setState({ autoFallbackWebLLM: newAutoFallbackWebLLM });
         if (brainEngine !== null && typeof brainEngine === 'object') {
-          brainEngine.autoFallbackWebLLM = val;
+          brainEngine.autoFallbackWebLLM = newAutoFallbackWebLLM;
         }
       }
     },
@@ -610,11 +652,11 @@ export async function initAvatarBot(options = {}) {
     get enableModelDrop() {
       return rootStore.getState().enableModelDrop ?? DEFAULT_ENABLE_MODEL_DROP;
     },
-    set enableModelDrop(val) {
-      if (typeof val === 'boolean') {
-        rootStore.setState({ enableModelDrop: val });
+    set enableModelDrop(newEnableModelDrop) {
+      if (typeof newEnableModelDrop === 'boolean') {
+        rootStore.setState({ enableModelDrop: newEnableModelDrop });
         if (typeof updateModelDropListeners === 'function') {
-          updateModelDropListeners(val);
+          updateModelDropListeners(newEnableModelDrop);
         }
       }
     },
@@ -709,7 +751,10 @@ export async function initAvatarBot(options = {}) {
 
   rootStore.subscribe('brainGender', (newBrainGender) => {
     const state = rootStore.getState();
-    const resolvedGender = newBrainGender || state.gender;
+    const resolvedGender =
+      typeof newBrainGender === 'string' && newBrainGender !== ''
+        ? newBrainGender
+        : state.gender;
     if (typeof aiAvatarWidget.brainEngine?.setGender === 'function') {
       aiAvatarWidget.brainEngine.setGender(resolvedGender);
     }
@@ -717,7 +762,10 @@ export async function initAvatarBot(options = {}) {
 
   rootStore.subscribe('speechGender', (newSpeechGender) => {
     const state = rootStore.getState();
-    const resolvedGender = newSpeechGender || state.gender;
+    const resolvedGender =
+      typeof newSpeechGender === 'string' && newSpeechGender !== ''
+        ? newSpeechGender
+        : state.gender;
     if (typeof aiAvatarWidget.speechEngine?.setGender === 'function') {
       aiAvatarWidget.speechEngine.setGender(resolvedGender);
     }
@@ -725,7 +773,10 @@ export async function initAvatarBot(options = {}) {
 
   rootStore.subscribe('skinGender', (newSkinGender) => {
     const state = rootStore.getState();
-    const resolvedGender = newSkinGender || state.gender;
+    const resolvedGender =
+      typeof newSkinGender === 'string' && newSkinGender !== ''
+        ? newSkinGender
+        : state.gender;
     if (typeof aiAvatarWidget.skinEngine?.setGender === 'function') {
       aiAvatarWidget.skinEngine.setGender(resolvedGender);
     }
@@ -740,7 +791,11 @@ export async function initAvatarBot(options = {}) {
     }
   });
 
-  if (i18nEngine && typeof i18nEngine.subscribe === 'function') {
+  if (
+    typeof i18nEngine === 'object' &&
+    i18nEngine !== null &&
+    typeof i18nEngine.subscribe === 'function'
+  ) {
     i18nEngine.subscribe('locale', (newLocale, localeLabels) => {
       rootStore.setState({ locale: newLocale });
       if (typeof aiAvatarWidget.brainEngine?.setLocale === 'function') {
@@ -772,7 +827,13 @@ export async function initAvatarBot(options = {}) {
       renderSuggestions(aiAvatarWidget);
       if (uiDom?.langButtonEl instanceof HTMLButtonElement) {
         uiDom.langButtonEl.textContent =
-          localeLabels?.shortLabel || localeLabels?.label || newLocale;
+          typeof localeLabels?.shortLabel === 'string' &&
+          localeLabels.shortLabel !== ''
+            ? localeLabels.shortLabel
+            : typeof localeLabels?.label === 'string' &&
+                localeLabels.label !== ''
+              ? localeLabels.label
+              : newLocale;
       }
       callOptionEvent.call(
         aiAvatarWidget,
@@ -804,31 +865,38 @@ export async function initAvatarBot(options = {}) {
     }
 
     if (
+      typeof text === 'string' &&
       text !== '' &&
       typeof toolsEngine.pendingToolConfirmation === 'string' &&
       toolsEngine.pendingToolConfirmation !== '' &&
-      toolsEngine.continueToolConfirmation(text)
+      toolsEngine.continueToolConfirmation(text) === true
     ) {
       return;
     }
     if (
+      typeof text === 'string' &&
       text !== '' &&
       typeof toolsEngine.pendingToolChoice === 'object' &&
       toolsEngine.pendingToolChoice !== null &&
-      toolsEngine.continueToolChoice(text)
+      toolsEngine.continueToolChoice(text) === true
     ) {
       return;
     }
     if (
+      typeof text === 'string' &&
       text !== '' &&
       typeof toolsEngine.pendingToolInput === 'object' &&
       toolsEngine.pendingToolInput !== null &&
-      toolsEngine.continueToolInput(text)
+      toolsEngine.continueToolInput(text) === true
     ) {
       return;
     }
 
-    if (brainEngine?.memory?.enabled === true && text !== '') {
+    if (
+      brainEngine?.memory?.enabled === true &&
+      typeof text === 'string' &&
+      text !== ''
+    ) {
       if (/忘記我|清除記憶|forget me/i.test(text) === true) {
         brainEngine.memory.wipe();
         speechEngine.spokenAudioText =
@@ -902,7 +970,12 @@ export async function initAvatarBot(options = {}) {
 
     let greeting = '你好～';
     const currentLocale =
-      i18nEngine?.locale || rootStore.getState().locale || 'zh-TW';
+      typeof i18nEngine?.locale === 'string' && i18nEngine.locale !== ''
+        ? i18nEngine.locale
+        : typeof rootStore.getState().locale === 'string' &&
+            rootStore.getState().locale !== ''
+          ? rootStore.getState().locale
+          : 'zh-TW';
     const currentAvatarMode = rootStore.getState().avatarMode;
     const templateContext = {
       isMemoryEnabled: brainEngine?.memory?.enabled,
@@ -934,47 +1007,46 @@ export async function initAvatarBot(options = {}) {
         templateContext
       );
     } else if (currentAvatarMode === AVATAR_MODE_MAP.companion) {
-      let defaultCompGreeting;
-      if (/en/i.test(currentLocale)) {
-        defaultCompGreeting =
-          (brainEngine?.memory?.data?.name
-            ? brainEngine.memory.data.name + '~ '
-            : 'Hello~ ') + 'We can chat about anything! Click 💬 to start.';
-      } else if (/ja/i.test(currentLocale)) {
-        defaultCompGreeting =
-          (brainEngine?.memory?.data?.name
-            ? brainEngine.memory.data.name + 'さん〜 '
-            : 'こんにちは〜 ') +
+      let defaultCompanionGreeting;
+      const userName =
+        typeof brainEngine?.memory?.data?.name === 'string' &&
+        brainEngine.memory.data.name !== ''
+          ? brainEngine.memory.data.name
+          : '';
+      if (/en/i.test(currentLocale) === true) {
+        defaultCompanionGreeting =
+          (userName !== '' ? userName + '~ ' : 'Hello~ ') +
+          'We can chat about anything! Click 💬 to start.';
+      } else if (/ja/i.test(currentLocale) === true) {
+        defaultCompanionGreeting =
+          (userName !== '' ? userName + 'さん〜 ' : 'こんにちは〜 ') +
           '何でもお話ししましょう！💬 を押してスタートです。';
-      } else if (/ko/i.test(currentLocale)) {
-        defaultCompGreeting =
-          (brainEngine?.memory?.data?.name
-            ? brainEngine.memory.data.name + '님~ '
-            : '안녕하세요~ ') + '무엇이든 이야기해요! 💬를 누르면 시작해요.';
+      } else if (/ko/i.test(currentLocale) === true) {
+        defaultCompanionGreeting =
+          (userName !== '' ? userName + '님~ ' : '안녕하세요~ ') +
+          '무엇이든 이야기해요! 💬를 누르면開始해요.';
       } else {
-        defaultCompGreeting =
-          (typeof brainEngine?.memory?.data?.name === 'string' &&
-          brainEngine.memory.data.name !== ''
-            ? brainEngine.memory.data.name + '～'
-            : '你好～') + '想聊什麼都可以，點 💬 我們就開始！';
+        defaultCompanionGreeting =
+          (userName !== '' ? userName + '～' : '你好～') +
+          '想聊什麼都可以，點 💬 我們就開始！';
       }
 
       greeting = resolveLocalized(
         options.companionGreeting,
         currentLocale,
-        defaultCompGreeting,
+        defaultCompanionGreeting,
         templateContext
       );
     } else if (currentAvatarMode === AVATAR_MODE_MAP.assistant) {
       let defaultAssistantGreeting =
         '你好～我是 ai-avatar-bot-vanilla-js 虛擬人，問我怎麼安裝、切換 3D 或工具調用都行！';
-      if (/en/i.test(currentLocale)) {
+      if (/en/i.test(currentLocale) === true) {
         defaultAssistantGreeting =
           'Hello~ I am the ai-avatar-bot-vanilla-js avatar. Ask me how to install, switch 3D, or use tools!';
-      } else if (/ja/i.test(currentLocale)) {
+      } else if (/ja/i.test(currentLocale) === true) {
         defaultAssistantGreeting =
           'こんにちは〜！ai-avatar-bot-vanilla-js アバターです。導入方法や3D切り替え、ツール機能について何でも聞いてください！';
-      } else if (/ko/i.test(currentLocale)) {
+      } else if (/ko/i.test(currentLocale) === true) {
         defaultAssistantGreeting =
           '안녕하세요~ ai-avatar-bot-vanilla-js 아바타입니다. 설치 방법, 3D 전환, 도구 기능 등을 편하게 물어보세요!';
       }
@@ -999,14 +1071,15 @@ export async function initAvatarBot(options = {}) {
     enableAiProvider: rootStore.getState().enableAiProvider,
     onBrainFallback:
       options.onBrainFallback ||
-      ((fromEngine, toEngine, error) =>
-        callOptionEvent.call(
+      ((fromEngine, toEngine, error) => {
+        return callOptionEvent.call(
           aiAvatarWidget,
           'onBrainFallback',
           fromEngine,
           toEngine,
           error
-        )),
+        );
+      }),
     maxHistoryTurns,
     memoryKey,
     memoryAdapter,
@@ -1023,28 +1096,50 @@ export async function initAvatarBot(options = {}) {
     aiProviderMaxTokens,
     aiProviderStream,
     aiProviderExtractToolCalls: options.aiProviderExtractToolCalls,
-    getTools: () =>
-      toolsEngine && typeof toolsEngine.getAiAvailableTools === 'function'
-        ? toolsEngine.getAiAvailableTools()
-        : [],
-    getToolByName: (name) =>
-      toolsEngine && Array.isArray(toolsEngine.HOST_TOOLS)
-        ? toolsEngine.HOST_TOOLS.find((t) => t.name === name)
-        : null,
-    offerToolConfirmation: (tool, args, toolOptions) => {
-      if (toolsEngine && typeof toolsEngine.offerHostTool === 'function') {
+    getTools: () => {
+      if (
+        typeof toolsEngine === 'object' &&
+        toolsEngine !== null &&
+        typeof toolsEngine.getAiAvailableTools === 'function'
+      ) {
+        return toolsEngine.getAiAvailableTools();
+      }
+      return [];
+    },
+    getToolByName: (toolName) => {
+      if (
+        typeof toolsEngine === 'object' &&
+        toolsEngine !== null &&
+        Array.isArray(toolsEngine.HOST_TOOLS) === true &&
+        toolsEngine.HOST_TOOLS.length > 0
+      ) {
+        return (
+          toolsEngine.HOST_TOOLS.find(
+            (toolItem) => toolItem.name === toolName
+          ) || null
+        );
+      }
+      return null;
+    },
+    offerToolConfirmation: (tool, toolArguments, toolOptions) => {
+      if (
+        typeof toolsEngine === 'object' &&
+        toolsEngine !== null &&
+        typeof toolsEngine.offerHostTool === 'function'
+      ) {
         toolsEngine.offerHostTool(
           tool,
           '',
           { confidence: 1, reason: 'ai_tool_call' },
-          args,
+          toolArguments,
           toolOptions
         );
       }
     },
-    executeTool: async (tool, args, toolOptions) => {
+    executeTool: async (tool, toolArguments, toolOptions) => {
       if (
-        toolsEngine &&
+        typeof toolsEngine === 'object' &&
+        toolsEngine !== null &&
         typeof toolsEngine.executeToolDirectly === 'function'
       ) {
         const defaultContext = {
@@ -1063,16 +1158,22 @@ export async function initAvatarBot(options = {}) {
                   ...toolOptions.input,
                   context: {
                     ...defaultContext,
-                    ...(toolOptions.input?.context || {})
+                    ...(typeof toolOptions.input?.context === 'object' &&
+                    toolOptions.input.context !== null
+                      ? toolOptions.input.context
+                      : {})
                   },
-                  query: toolOptions.input?.query || ''
+                  query:
+                    typeof toolOptions.input?.query === 'string'
+                      ? toolOptions.input.query
+                      : ''
                 }
               }
             : { input: { context: defaultContext, query: '' } };
 
         return await toolsEngine.executeToolDirectly(
           tool,
-          args,
+          toolArguments,
           resolvedOptions
         );
       }
@@ -1081,7 +1182,10 @@ export async function initAvatarBot(options = {}) {
     buildLLMMessages: options.buildLLMMessages,
 
     i18nEngine,
-    locale: i18nEngine?.locale || rootStore.getState().locale,
+    locale:
+      typeof i18nEngine?.locale === 'string' && i18nEngine.locale !== ''
+        ? i18nEngine.locale
+        : rootStore.getState().locale,
     gender: rootStore.getState().brainGender || rootStore.getState().gender,
     systemContextTemplate,
     companionSystemContextTemplate,
@@ -1141,18 +1245,21 @@ export async function initAvatarBot(options = {}) {
       callOptionEvent.call(this, 'onAiProviderConnecting');
     },
     onAiProviderConnected(response, _fetchSetting, aiProvider) {
-      const ok = response?.ok || false;
+      const isConnectionSuccessful = response?.ok === true;
       const btnLlmEl = uiDom.btnLlmEl;
 
       if (btnLlmEl instanceof HTMLElement) {
-        btnLlmEl.textContent = ok === true ? '🧠✓' : '🧠✗';
-        if (ok === true) {
+        btnLlmEl.textContent = isConnectionSuccessful === true ? '🧠✓' : '🧠✗';
+        if (isConnectionSuccessful === true) {
           btnLlmEl.setAttribute('css-llm-on', 'true');
         } else {
           btnLlmEl.removeAttribute('css-llm-on');
         }
-        btnLlmEl.setAttribute('aria-pressed', String(ok === true));
-        if (ok === true) {
+        btnLlmEl.setAttribute(
+          'aria-pressed',
+          String(isConnectionSuccessful === true)
+        );
+        if (isConnectionSuccessful === true) {
           btnLlmEl.title =
             typeof i18nEngine?.t === 'function'
               ? i18nEngine.t('brain.aiProvider.connected', {
@@ -1166,7 +1273,7 @@ export async function initAvatarBot(options = {}) {
               : 'AI 伺服器連不上（檢查 AI 伺服器是否在跑 / CORS）';
         }
       }
-      if (ok === true) {
+      if (isConnectionSuccessful === true) {
         setTimeout(() => {
           aiAvatarWidget.speechEngine.spokenDisplayText =
             typeof i18nEngine?.t === 'function'
@@ -1189,23 +1296,23 @@ export async function initAvatarBot(options = {}) {
     onSummaryUpdated(summary) {
       callOptionEvent.call(this, 'onSummaryUpdated', summary);
     },
-    onAddChatMessage(item) {
+    onAddChatMessage(chatMessageItem) {
       if (
         aiAvatarWidget.uiDom.historyPanelEl?.getAttribute('css-is-open') ===
         'true'
       ) {
         renderHistory(aiAvatarWidget);
       }
-      callOptionEvent.call(this, 'onAddChatMessage', item);
+      callOptionEvent.call(this, 'onAddChatMessage', chatMessageItem);
     },
-    onUpdateChatMessage(item) {
+    onUpdateChatMessage(chatMessageItem) {
       if (
         aiAvatarWidget.uiDom.historyPanelEl?.getAttribute('css-is-open') ===
         'true'
       ) {
         renderHistory(aiAvatarWidget);
       }
-      callOptionEvent.call(this, 'onUpdateChatMessage', item);
+      callOptionEvent.call(this, 'onUpdateChatMessage', chatMessageItem);
     },
     onChatHistoryChanged(chatLog) {
       // 這邊可以讓開發者自行註冊或給未來的全域事件處理用
@@ -1222,12 +1329,17 @@ export async function initAvatarBot(options = {}) {
       speechEngine.spokenAudioText = text;
     },
     onEmotionChange(emotion) {
-      if (skinEngine && skinEngine.gestureName !== undefined) {
+      if (
+        typeof skinEngine === 'object' &&
+        skinEngine !== null &&
+        skinEngine.gestureName !== undefined
+      ) {
         skinEngine.gestureName = emotion;
       }
     },
     onStreamStart() {
-      streamSpeechId = speechEngine.ttsMuted ? 0 : speechEngine.beginSpeech();
+      streamSpeechId =
+        speechEngine.ttsMuted === true ? 0 : speechEngine.beginSpeech();
       streamSpeechState.sentenceBuffer = '';
       streamSpeechState.buf = '';
     },
@@ -1317,11 +1429,15 @@ export async function initAvatarBot(options = {}) {
       tts: customEngines.tts,
       stt: customEngines.stt
     },
-    ttsEndpoint: ttsEndpoint || DEFAULT_TTS_ENDPOINT,
+    ttsEndpoint:
+      typeof ttsEndpoint === 'string' && ttsEndpoint !== ''
+        ? ttsEndpoint
+        : DEFAULT_TTS_ENDPOINT,
     neuralVoice: safeNeuralVoice,
     locale: rootStore.getState().locale,
-    getGender: () =>
-      rootStore.getState().speechGender || rootStore.getState().gender,
+    getGender: () => {
+      return rootStore.getState().speechGender || rootStore.getState().gender;
+    },
     onSpokenDisplayTextChange(newSpeakingLabel) {
       uiDom.bubbleEl.textContent = newSpeakingLabel;
       uiDom.bubbleEl.setAttribute('css-is-show', 'true');
@@ -1352,8 +1468,12 @@ export async function initAvatarBot(options = {}) {
       );
     },
     getContainer: () => container,
-    onUserInput: (text) => handleUser(text),
-    onTapAvatar: () => onTapAvatar(),
+    onUserInput: (text) => {
+      return handleUser(text);
+    },
+    onTapAvatar: () => {
+      return onTapAvatar();
+    },
     onInterrupt: () => {
       if (typeof brainEngine?.llm?.controller?.abort === 'function') {
         try {
@@ -1363,7 +1483,10 @@ export async function initAvatarBot(options = {}) {
     },
     onLanguageChanged(locale, localeLabel, shortLabel) {
       if (uiDom.langButtonEl instanceof HTMLButtonElement) {
-        uiDom.langButtonEl.textContent = shortLabel || localeLabel;
+        uiDom.langButtonEl.textContent =
+          typeof shortLabel === 'string' && shortLabel !== ''
+            ? shortLabel
+            : localeLabel;
       }
       callOptionEvent.call(
         this,
@@ -1377,7 +1500,11 @@ export async function initAvatarBot(options = {}) {
       callOptionEvent.call(this, 'onSpeaking', text);
     },
     onSpeakingEnd: () => {
-      if (skinEngine && typeof skinEngine.setEmotion === 'function') {
+      if (
+        typeof skinEngine === 'object' &&
+        skinEngine !== null &&
+        typeof skinEngine.setEmotion === 'function'
+      ) {
         skinEngine.setEmotion('neutral');
       }
       callOptionEvent.call(this, 'onSpeakingEnd');
@@ -1386,17 +1513,31 @@ export async function initAvatarBot(options = {}) {
 
   const toolsOptions = {
     confirmationTimeoutMs:
-      options.confirmationTimeoutMs || options.toolConfirmationTimeoutMs,
-    onToolCall: (pending) => {
-      callOptionEvent.call(this, 'onToolCall', pending, aiAvatarWidget);
+      typeof options.confirmationTimeoutMs === 'number'
+        ? options.confirmationTimeoutMs
+        : options.toolConfirmationTimeoutMs,
+    onToolCall: (pendingToolCall) => {
+      callOptionEvent.call(this, 'onToolCall', pendingToolCall, aiAvatarWidget);
     },
-    onAddChatMessage(role, text, options) {
-      callOptionEvent.call(this, 'onAddChatMessage', role, text, options);
-      return brainEngine.addChatMessage(role, text, options);
+    onAddChatMessage(role, text, messageOptions) {
+      callOptionEvent.call(
+        this,
+        'onAddChatMessage',
+        role,
+        text,
+        messageOptions
+      );
+      return brainEngine.addChatMessage(role, text, messageOptions);
     },
-    onUpdateChatMessage(id, text, append) {
-      callOptionEvent.call(this, 'onUpdateChatMessage', id, text, append);
-      return brainEngine.updateChatMessage(id, text, append);
+    onUpdateChatMessage(messageId, text, append) {
+      callOptionEvent.call(
+        this,
+        'onUpdateChatMessage',
+        messageId,
+        text,
+        append
+      );
+      return brainEngine.updateChatMessage(messageId, text, append);
     },
     onSetHistoryOpen(isOpen) {
       if (uiDom.historyPanelEl instanceof HTMLElement) {
@@ -1416,7 +1557,11 @@ export async function initAvatarBot(options = {}) {
       callOptionEvent.call(this, 'onRenderHistory');
     },
     onSpokenAudioPlayNow(text) {
-      if (speechEngine) {
+      if (
+        typeof speechEngine === 'object' &&
+        speechEngine !== null &&
+        typeof speechEngine.speak === 'function'
+      ) {
         speechEngine.speak(text);
       }
       callOptionEvent.call(this, 'onSpokenAudioPlayNow', text);
@@ -1460,18 +1605,19 @@ export async function initAvatarBot(options = {}) {
     toolsEngine = initToolsEngine(toolsOptions);
   }
 
-  const customTools = Array.isArray(options.tools)
-    ? options.tools
-    : Array.isArray(options.hostTools)
-      ? options.hostTools
-      : [];
+  const customTools =
+    Array.isArray(options.tools) && options.tools.length > 0
+      ? options.tools
+      : Array.isArray(options.hostTools) && options.hostTools.length > 0
+        ? options.hostTools
+        : [];
 
   const emotionTools =
     options.enableEmotionTools !== false
       ? createEmotionToolsPlugin(options.emotionToolsOptions || {})
       : [];
 
-  if (Array.isArray(toolsEngine?.HOST_TOOLS)) {
+  if (Array.isArray(toolsEngine?.HOST_TOOLS) === true) {
     toolsEngine.HOST_TOOLS = [...customTools, ...emotionTools];
   }
 
@@ -1602,7 +1748,9 @@ export async function initAvatarBot(options = {}) {
           uiDom.engineButtonEl.textContent = '2D';
         }
 
-        skinEngine.avatarModel.on('hit', () => speechEngine.triggerTap());
+        skinEngine.avatarModel.on('hit', () => {
+          speechEngine.triggerTap();
+        });
         if (skinEngine.engineMode === ENGINE_MODE_MAP.threeDimensional) {
           skinEngine.renderer.canvas.addEventListener('pointerdown', () => {
             skinEngine.renderer.playGesture(
@@ -1615,18 +1763,26 @@ export async function initAvatarBot(options = {}) {
             speechEngine.triggerTap();
           });
         } else {
-          skinEngine.renderer.canvas.addEventListener('pointerdown', () =>
-            speechEngine.triggerTap()
-          );
+          skinEngine.renderer.canvas.addEventListener('pointerdown', () => {
+            speechEngine.triggerTap();
+          });
         }
         callOptionEvent.call(this, 'onModelChangeEnd');
       }
     });
   }
 
-  if (typeof speechEngine.subscribe === 'function') {
+  if (
+    typeof speechEngine === 'object' &&
+    speechEngine !== null &&
+    typeof speechEngine.subscribe === 'function'
+  ) {
     speechEngine.subscribe('isSpeaking', (isSpeaking) => {
-      if (skinEngine && typeof skinEngine.setIsSpeaking === 'function') {
+      if (
+        typeof skinEngine === 'object' &&
+        skinEngine !== null &&
+        typeof skinEngine.setIsSpeaking === 'function'
+      ) {
         skinEngine.setIsSpeaking(isSpeaking);
       }
     });
@@ -1657,9 +1813,19 @@ export async function initAvatarBot(options = {}) {
   bindTyping(aiAvatarWidget);
   bindUiEvent(aiAvatarWidget);
   updateUIStrings(container, i18nEngine);
-  if (uiDom?.langButtonEl instanceof HTMLButtonElement && i18nEngine) {
+  if (
+    uiDom?.langButtonEl instanceof HTMLButtonElement &&
+    typeof i18nEngine === 'object' &&
+    i18nEngine !== null
+  ) {
     uiDom.langButtonEl.textContent =
-      i18nEngine.labels?.shortLabel || i18nEngine.labels?.label || '中文';
+      typeof i18nEngine.labels?.shortLabel === 'string' &&
+      i18nEngine.labels.shortLabel !== ''
+        ? i18nEngine.labels.shortLabel
+        : typeof i18nEngine.labels?.label === 'string' &&
+            i18nEngine.labels.label !== ''
+          ? i18nEngine.labels.label
+          : '中文';
   }
   aiAvatarWidget.speechEngine.setMic(false); // 依模式套按鈕字樣（🎤 說話 / 💬 對話）
 
@@ -1669,9 +1835,9 @@ export async function initAvatarBot(options = {}) {
 
   function handleModelDrop(event) {
     event.preventDefault();
-    const file = event?.dataTransfer?.files?.[0];
-    if (file instanceof window.File) {
-      skinEngine.loadVRMFile(file);
+    const droppedFile = event?.dataTransfer?.files?.[0];
+    if (droppedFile instanceof window.File) {
+      skinEngine.loadVRMFile(droppedFile);
     }
   }
 
