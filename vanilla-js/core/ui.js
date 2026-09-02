@@ -389,10 +389,7 @@ export function initUi(container, stageEl, i18nEngine = null) {
         voiceLiveEl.removeAttribute('css-is-active');
         voiceLiveEl.removeAttribute('css-state');
       }
-      if (
-        voiceStatusEl instanceof HTMLElement &&
-        typeof text !== 'undefined'
-      ) {
+      if (voiceStatusEl instanceof HTMLElement && typeof text !== 'undefined') {
         voiceStatusEl.textContent =
           typeof text === 'string' && text !== ''
             ? text
@@ -630,10 +627,7 @@ export function renderHistory(context) {
       const confirmButtonEl = document.createElement('button');
       confirmButtonEl.type = 'button';
       confirmButtonEl.className = 'confirm';
-      confirmButtonEl.textContent = translate(
-        'ui.history.confirm',
-        '確認執行'
-      );
+      confirmButtonEl.textContent = translate('ui.history.confirm', '確認執行');
       const cancelButtonEl = document.createElement('button');
       cancelButtonEl.type = 'button';
       cancelButtonEl.className = 'cancel';
@@ -940,10 +934,7 @@ export function renderSuggestions(context = null) {
   titleLabelEl.textContent = titleText;
 
   suggestionsEl.appendChild(titleLabelEl);
-  if (
-    Array.isArray(resolvedSuggestions) &&
-    resolvedSuggestions.length > 0
-  ) {
+  if (Array.isArray(resolvedSuggestions) && resolvedSuggestions.length > 0) {
     resolvedSuggestions.forEach((suggestion) => {
       const suggestionButtonEl = document.createElement('button');
       suggestionButtonEl.type = 'button';
@@ -1090,8 +1081,7 @@ export function bindUiEvent(context = null) {
         steps[
           (steps.indexOf(context.speechEngine.ttsRate) + 1) % steps.length
         ] || 1.0;
-      speedButtonEl.textContent =
-        context.speechEngine.ttsRate.toFixed(1) + '×';
+      speedButtonEl.textContent = context.speechEngine.ttsRate.toFixed(1) + '×';
       context.speechEngine.spokenDisplayText =
         typeof context.i18nEngine?.t === 'function'
           ? context.i18nEngine.t('ui.speed.text', {
@@ -1103,8 +1093,7 @@ export function bindUiEvent(context = null) {
 
   if (uiDom.langButtonEl instanceof HTMLElement) {
     uiDom.langButtonEl.onclick = () => {
-      const locales =
-        SUPPORTED_LOCALES || ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'];
+      const locales = SUPPORTED_LOCALES || ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'];
       const currentLocale =
         context.locale || context.i18nEngine?.locale || 'zh-TW';
       const nextLocale =
