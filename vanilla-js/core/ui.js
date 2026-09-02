@@ -69,31 +69,31 @@ export function updateUIStrings(container, i18nEngine) {
     return;
   }
 
-  container.querySelectorAll('[data-i18n]').forEach((el) => {
-    const key = el.getAttribute('data-i18n');
+  container.querySelectorAll('[data-i18n]').forEach((element) => {
+    const key = element.getAttribute('data-i18n');
     if (typeof key === 'string' && key !== '') {
-      el.textContent = i18nEngine.t(key);
+      element.textContent = i18nEngine.t(key);
     }
   });
 
-  container.querySelectorAll('[data-i18n-html]').forEach((el) => {
-    const key = el.getAttribute('data-i18n-html');
+  container.querySelectorAll('[data-i18n-html]').forEach((element) => {
+    const key = element.getAttribute('data-i18n-html');
     if (typeof key === 'string' && key !== '') {
-      el.innerHTML = i18nEngine.t(key);
+      element.innerHTML = i18nEngine.t(key);
     }
   });
 
-  container.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
-    const key = el.getAttribute('data-i18n-placeholder');
+  container.querySelectorAll('[data-i18n-placeholder]').forEach((element) => {
+    const key = element.getAttribute('data-i18n-placeholder');
     if (typeof key === 'string' && key !== '') {
-      el.setAttribute('placeholder', i18nEngine.t(key));
+      element.setAttribute('placeholder', i18nEngine.t(key));
     }
   });
 
-  container.querySelectorAll('[data-i18n-aria]').forEach((el) => {
-    const key = el.getAttribute('data-i18n-aria');
+  container.querySelectorAll('[data-i18n-aria]').forEach((element) => {
+    const key = element.getAttribute('data-i18n-aria');
     if (typeof key === 'string' && key !== '') {
-      el.setAttribute('aria-label', i18nEngine.t(key));
+      element.setAttribute('aria-label', i18nEngine.t(key));
     }
   });
 }
@@ -389,12 +389,16 @@ export function initUi(container, stageEl, i18nEngine = null) {
         voiceLiveEl.removeAttribute('css-is-active');
         voiceLiveEl.removeAttribute('css-state');
       }
-      if (voiceStatusEl instanceof HTMLElement && text !== undefined) {
+      if (
+        voiceStatusEl instanceof HTMLElement &&
+        typeof text !== 'undefined'
+      ) {
         voiceStatusEl.textContent =
-          text ||
-          (typeof currentI18nEngine?.t === 'function'
-            ? currentI18nEngine.t('ui.voice.standby')
-            : '即時語音待命');
+          typeof text === 'string' && text !== ''
+            ? text
+            : typeof currentI18nEngine?.t === 'function'
+              ? currentI18nEngine.t('ui.voice.standby')
+              : '即時語音待命';
       }
       if (typeof level === 'number' && voiceLevelEl instanceof HTMLElement) {
         voiceLevelEl.style.width = Math.max(0, Math.min(100, level)) + '%';
@@ -420,19 +424,22 @@ export function initUi(container, stageEl, i18nEngine = null) {
         micButtonEl.removeAttribute('css-state');
       }
 
-      micButtonEl.setAttribute('aria-pressed', String(!!currentConvoOn));
+      micButtonEl.setAttribute('aria-pressed', String(currentConvoOn === true));
 
-      const t = (k, d) =>
-        typeof currentI18nEngine?.t === 'function' ? currentI18nEngine.t(k) : d;
+      const translate = (key, defaultValue) => {
+        return typeof currentI18nEngine?.t === 'function'
+          ? currentI18nEngine.t(key)
+          : defaultValue;
+      };
 
       micButtonEl.textContent =
         currentListening === true
           ? currentIsCompanion === true
-            ? t('ui.mic.chatting', '● 對話中')
-            : t('ui.mic.listening', '● 聆聽中')
+            ? translate('ui.mic.chatting', '● 對話中')
+            : translate('ui.mic.listening', '● 聆聽中')
           : currentConvoOn === true
-            ? t('ui.mic.convoStandby', '◌ 對話中')
-            : t('ui.mic.live', '🎙️ 即時');
+            ? translate('ui.mic.convoStandby', '◌ 對話中')
+            : translate('ui.mic.live', '🎙️ 即時');
 
       if (suggestionsEl instanceof HTMLElement) {
         suggestionsEl.style.display =
@@ -507,16 +514,16 @@ export function copyText(text) {
   ) {
     return navigator.clipboard.writeText(text);
   }
-  const box = document.createElement('textarea');
-  box.value = text;
-  box.style.position = 'fixed';
-  box.style.opacity = '0';
-  document.body.appendChild(box);
-  box.select();
+  const textAreaElement = document.createElement('textarea');
+  textAreaElement.value = text;
+  textAreaElement.style.position = 'fixed';
+  textAreaElement.style.opacity = '0';
+  document.body.appendChild(textAreaElement);
+  textAreaElement.select();
   try {
     document.execCommand('copy');
   } finally {
-    box.remove();
+    textAreaElement.remove();
   }
   return Promise.resolve();
 }
@@ -527,23 +534,26 @@ export function copyText(text) {
  * @param {boolean} open - true 表示開啟面板，false 表示關閉。
  */
 export function setHistoryOpen(context, open) {
-  const panel = context.uiDom.historyPanelEl;
-  const btn = context.uiDom.historyButtonEl;
-  const suggestions = context.uiDom.suggestionsEl;
-  const bubble = context.uiDom.bubbleEl;
+  const historyPanelEl = context.uiDom.historyPanelEl;
+  const historyButtonEl = context.uiDom.historyButtonEl;
+  const suggestionsEl = context.uiDom.suggestionsEl;
+  const bubbleEl = context.uiDom.bubbleEl;
 
-  if (panel instanceof HTMLElement && btn instanceof HTMLElement) {
+  if (
+    historyPanelEl instanceof HTMLElement &&
+    historyButtonEl instanceof HTMLElement
+  ) {
     if (open === true) {
-      panel.setAttribute('css-is-open', 'true');
+      historyPanelEl.setAttribute('css-is-open', 'true');
     } else {
-      panel.removeAttribute('css-is-open');
+      historyPanelEl.removeAttribute('css-is-open');
     }
-    panel.inert = open !== true;
-    btn.setAttribute('aria-expanded', String(open === true));
+    historyPanelEl.inert = open !== true;
+    historyButtonEl.setAttribute('aria-expanded', String(open === true));
   }
 
-  if (suggestions instanceof HTMLElement) {
-    suggestions.style.display =
+  if (suggestionsEl instanceof HTMLElement) {
+    suggestionsEl.style.display =
       open === true
         ? 'none'
         : context.speechEngine.isListening === true ||
@@ -552,14 +562,14 @@ export function setHistoryOpen(context, open) {
           : 'flex';
   }
 
-  if (bubble instanceof HTMLElement) {
+  if (bubbleEl instanceof HTMLElement) {
     if (open === true) {
-      bubble.style.opacity = '0';
-      bubble.style.pointerEvents = 'none';
+      bubbleEl.style.opacity = '0';
+      bubbleEl.style.pointerEvents = 'none';
       renderHistory(context);
     } else {
-      bubble.style.opacity = '';
-      bubble.style.pointerEvents = '';
+      bubbleEl.style.opacity = '';
+      bubbleEl.style.pointerEvents = '';
     }
   }
 }
@@ -569,138 +579,169 @@ export function setHistoryOpen(context, open) {
  * @param {UiContext} context - 應用程式的共用狀態與參考（需包含 uiDom, brainEngine 等）。
  */
 export function renderHistory(context) {
-  const list = context.uiDom.historyPanelEl?.querySelector('#history-list');
-  if (list instanceof HTMLElement === false) {
+  const historyListEl =
+    context.uiDom.historyPanelEl?.querySelector('#history-list');
+  if (historyListEl instanceof HTMLElement === false) {
     return;
   }
 
-  const t = (k, d) =>
-    typeof context.i18nEngine?.t === 'function' ? context.i18nEngine.t(k) : d;
+  const translate = (key, defaultValue) => {
+    return typeof context.i18nEngine?.t === 'function'
+      ? context.i18nEngine.t(key)
+      : defaultValue;
+  };
 
-  list.replaceChildren();
+  historyListEl.replaceChildren();
 
   if (
     Array.isArray(context.brainEngine.chatLog) === false ||
     context.brainEngine.chatLog.length === 0
   ) {
-    const empty = document.createElement('div');
-    empty.className = 'history-empty';
-    empty.textContent = t(
+    const emptyLogEl = document.createElement('div');
+    emptyLogEl.className = 'history-empty';
+    emptyLogEl.textContent = translate(
       'ui.history.empty',
       '還沒有對話。問我一個問題，紀錄會出現在這裡。'
     );
-    list.appendChild(empty);
+    historyListEl.appendChild(emptyLogEl);
     return;
   }
 
-  context.brainEngine.chatLog.forEach((item) => {
-    const row = document.createElement('div');
-    row.className = 'history-item ' + item.role;
+  context.brainEngine.chatLog.forEach((chatItem) => {
+    const historyItemRowEl = document.createElement('div');
+    historyItemRowEl.className = 'history-item ' + chatItem.role;
 
-    const msg = document.createElement('div');
-    msg.className = 'history-message';
-    msg.textContent = item.text || (item.streaming ? '…' : '');
-    row.appendChild(msg);
+    const messageEl = document.createElement('div');
+    messageEl.className = 'history-message';
+    messageEl.textContent =
+      typeof chatItem.text === 'string' && chatItem.text !== ''
+        ? chatItem.text
+        : chatItem.streaming === true
+          ? '…'
+          : '';
+    historyItemRowEl.appendChild(messageEl);
 
-    if (typeof item.pendingTool !== 'undefined' && item.pendingTool !== null) {
-      const confirm = document.createElement('div');
-      confirm.className = 'history-confirm';
-      const yes = document.createElement('button');
-      yes.type = 'button';
-      yes.className = 'confirm';
-      yes.textContent = t('ui.history.confirm', '確認執行');
-      const no = document.createElement('button');
-      no.type = 'button';
-      no.className = 'cancel';
-      no.textContent = t('ui.history.cancel', '取消');
+    if (
+      typeof chatItem.pendingTool !== 'undefined' &&
+      chatItem.pendingTool !== null
+    ) {
+      const confirmContainerEl = document.createElement('div');
+      confirmContainerEl.className = 'history-confirm';
+      const confirmButtonEl = document.createElement('button');
+      confirmButtonEl.type = 'button';
+      confirmButtonEl.className = 'confirm';
+      confirmButtonEl.textContent = translate(
+        'ui.history.confirm',
+        '確認執行'
+      );
+      const cancelButtonEl = document.createElement('button');
+      cancelButtonEl.type = 'button';
+      cancelButtonEl.className = 'cancel';
+      cancelButtonEl.textContent = translate('ui.history.cancel', '取消');
 
       const isInactive =
-        item.cancelled === true ||
-        item.timedOut === true ||
-        item.executed === true;
+        chatItem.cancelled === true ||
+        chatItem.timedOut === true ||
+        chatItem.executed === true;
 
       if (isInactive === true) {
-        yes.disabled = true;
-        yes.setAttribute('disabled', 'true');
-        no.disabled = true;
-        no.setAttribute('disabled', 'true');
-        confirm.setAttribute('css-disabled', 'true');
+        confirmButtonEl.disabled = true;
+        confirmButtonEl.setAttribute('disabled', 'true');
+        cancelButtonEl.disabled = true;
+        cancelButtonEl.setAttribute('disabled', 'true');
+        confirmContainerEl.setAttribute('css-disabled', 'true');
 
-        if (item.timedOut === true) {
-          yes.textContent = t('ui.history.timedOut', '已逾時');
-        } else if (item.cancelled === true) {
-          no.textContent = t('ui.history.cancelled', '已取消');
+        if (chatItem.timedOut === true) {
+          confirmButtonEl.textContent = translate(
+            'ui.history.timedOut',
+            '已逾時'
+          );
+        } else if (chatItem.cancelled === true) {
+          cancelButtonEl.textContent = translate(
+            'ui.history.cancelled',
+            '已取消'
+          );
         }
       } else {
-        yes.onclick = () => context.toolsEngine.executePendingTool(item.id);
-        no.onclick = () => context.toolsEngine.cancelPendingTool(item.id);
+        confirmButtonEl.onclick = () => {
+          context.toolsEngine.executePendingTool(chatItem.id);
+        };
+        cancelButtonEl.onclick = () => {
+          context.toolsEngine.cancelPendingTool(chatItem.id);
+        };
       }
 
-      confirm.append(yes, no);
-      row.appendChild(confirm);
+      confirmContainerEl.append(confirmButtonEl, cancelButtonEl);
+      historyItemRowEl.appendChild(confirmContainerEl);
     } else if (
-      Array.isArray(item.pendingChoices) &&
-      item.pendingChoices.length > 0
+      Array.isArray(chatItem.pendingChoices) &&
+      chatItem.pendingChoices.length > 0
     ) {
-      const choices = document.createElement('div');
-      choices.className = 'history-confirm';
-      item.pendingChoices.forEach((choice, index) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'confirm';
-        button.textContent = choice.tool.label;
-        button.onclick = () => context.toolsEngine.chooseTool(item.id, index);
-        choices.appendChild(button);
+      const choicesContainerEl = document.createElement('div');
+      choicesContainerEl.className = 'history-confirm';
+      chatItem.pendingChoices.forEach((choice, index) => {
+        const choiceButtonEl = document.createElement('button');
+        choiceButtonEl.type = 'button';
+        choiceButtonEl.className = 'confirm';
+        choiceButtonEl.textContent = choice.tool.label;
+        choiceButtonEl.onclick = () => {
+          context.toolsEngine.chooseTool(chatItem.id, index);
+        };
+        choicesContainerEl.appendChild(choiceButtonEl);
       });
-      row.appendChild(choices);
+      historyItemRowEl.appendChild(choicesContainerEl);
     }
 
     if (
-      item.role === 'assistant' &&
-      typeof item.text === 'string' &&
-      item.text !== '' &&
-      item.streaming !== true
+      chatItem.role === 'assistant' &&
+      typeof chatItem.text === 'string' &&
+      chatItem.text !== '' &&
+      chatItem.streaming !== true
     ) {
-      const tools = document.createElement('div');
-      tools.className = 'history-tools';
-      const copy = document.createElement('button');
-      copy.type = 'button';
-      copy.className = 'history-tool';
-      copy.textContent = t('ui.history.copy', '複製');
-      const replay = document.createElement('button');
-      replay.type = 'button';
-      replay.className = 'history-tool';
-      replay.textContent = t('ui.history.replay', '重播');
+      const toolsContainerEl = document.createElement('div');
+      toolsContainerEl.className = 'history-tools';
+      const copyButtonEl = document.createElement('button');
+      copyButtonEl.type = 'button';
+      copyButtonEl.className = 'history-tool';
+      copyButtonEl.textContent = translate('ui.history.copy', '複製');
+      const replayButtonEl = document.createElement('button');
+      replayButtonEl.type = 'button';
+      replayButtonEl.className = 'history-tool';
+      replayButtonEl.textContent = translate('ui.history.replay', '重播');
 
-      copy.onclick = () => {
-        copyText(item.text).then(() => {
-          context.speechEngine.spokenDisplayText = t(
+      copyButtonEl.onclick = () => {
+        copyText(chatItem.text).then(() => {
+          context.speechEngine.spokenDisplayText = translate(
             'ui.history.copied',
             '已複製回答'
           );
         });
       };
-      replay.onclick = () => {
-        context.speechEngine.speak(item.text);
+      replayButtonEl.onclick = () => {
+        context.speechEngine.speak(chatItem.text);
       };
 
-      tools.append(copy, replay);
-      row.appendChild(tools);
+      toolsContainerEl.append(copyButtonEl, replayButtonEl);
+      historyItemRowEl.appendChild(toolsContainerEl);
     }
 
-    list.appendChild(row);
+    historyListEl.appendChild(historyItemRowEl);
   });
 
-  list.scrollTop = list.scrollHeight;
+  historyListEl.scrollTop = historyListEl.scrollHeight;
 }
 
 /**
  * 根據傳入的 2D 與 3D 模型設定，初始化切換引擎模式的按鈕。
  * @param {UiContext|null} context - 應用程式的共用狀態與參考（需包含 uiDom, skinEngine 等）。
- * @param {string} has2D - 2D 模型的資源路徑。
- * @param {string} has3D - 3D 模型的資源路徑。
+ * @param {string} model2DUrl - 2D 模型的資源路徑。
+ * @param {string} model3DUrl - 3D 模型的資源路徑。
  */
-export function initSkinModeChangeButton(context = null, has2D, has3D) {
+export function initSkinModeChangeButton(
+  context = null,
+  model2DUrl,
+  model3DUrl
+) {
   const engineButtonEl = context?.uiDom?.engineButtonEl;
   if (engineButtonEl instanceof HTMLElement === false) {
     console.error(
@@ -710,10 +751,10 @@ export function initSkinModeChangeButton(context = null, has2D, has3D) {
   }
 
   if (
-    typeof has2D === 'string' &&
-    has2D !== '' &&
-    typeof has3D === 'string' &&
-    has3D !== ''
+    typeof model2DUrl === 'string' &&
+    model2DUrl !== '' &&
+    typeof model3DUrl === 'string' &&
+    model3DUrl !== ''
   ) {
     // 兩個皮都給 → 顯示切換鈕，讓使用者即時切
     if (engineButtonEl instanceof HTMLElement) {
@@ -733,15 +774,15 @@ export function initSkinModeChangeButton(context = null, has2D, has3D) {
  * @param {UiContext|null} context - 應用程式的共用狀態與參考。
  */
 export function renderSuggestions(context = null) {
-  const suggestions = context?.uiDom?.suggestionsEl;
-  if (suggestions instanceof HTMLElement === false) {
+  const suggestionsEl = context?.uiDom?.suggestionsEl;
+  if (suggestionsEl instanceof HTMLElement === false) {
     console.warn(
       '[aiAvatar renderSuggestions] context.suggestionsEl is not an HTMLElement'
     );
     return;
   }
 
-  suggestions.replaceChildren();
+  suggestionsEl.replaceChildren();
 
   const locale = context?.locale || context?.i18nEngine?.locale || 'zh-TW';
   const templateContext = { locale, avatarMode: context?.avatarMode };
@@ -817,31 +858,31 @@ export function renderSuggestions(context = null) {
     ];
   }
 
-  let SUGGESTIONS;
+  let resolvedSuggestions;
   if (
     Array.isArray(context?.suggestedQuestions) &&
     context.suggestedQuestions.length > 0
   ) {
-    SUGGESTIONS = context.suggestedQuestions;
+    resolvedSuggestions = context.suggestedQuestions;
   } else if (
     typeof context?.suggestedQuestions === 'object' &&
     context.suggestedQuestions !== null
   ) {
-    SUGGESTIONS = resolveLocalized(
+    resolvedSuggestions = resolveLocalized(
       context.suggestedQuestions,
       locale,
       defaultSuggestions,
       templateContext
     );
   } else if (context?.avatarMode === context?.AVATAR_MODE_MAP?.companion) {
-    SUGGESTIONS = resolveLocalized(
+    resolvedSuggestions = resolveLocalized(
       context?.companionSuggestedQuestions,
       locale,
       defaultCompanionSuggestions,
       templateContext
     );
   } else {
-    SUGGESTIONS = resolveLocalized(
+    resolvedSuggestions = resolveLocalized(
       context?.assistantSuggestedQuestions,
       locale,
       defaultSuggestions,
@@ -894,23 +935,26 @@ export function renderSuggestions(context = null) {
     );
   }
 
-  const label = document.createElement('p');
-  label.classList.add('sg-label');
-  label.textContent = titleText;
+  const titleLabelEl = document.createElement('p');
+  titleLabelEl.classList.add('sg-label');
+  titleLabelEl.textContent = titleText;
 
-  suggestions.appendChild(label);
-  if (Array.isArray(SUGGESTIONS)) {
-    SUGGESTIONS.forEach((suggestion) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.classList.add('sugg');
-      button.textContent = suggestion;
-      button.onclick = () => {
+  suggestionsEl.appendChild(titleLabelEl);
+  if (
+    Array.isArray(resolvedSuggestions) &&
+    resolvedSuggestions.length > 0
+  ) {
+    resolvedSuggestions.forEach((suggestion) => {
+      const suggestionButtonEl = document.createElement('button');
+      suggestionButtonEl.type = 'button';
+      suggestionButtonEl.classList.add('sugg');
+      suggestionButtonEl.textContent = suggestion;
+      suggestionButtonEl.onclick = () => {
         if (typeof context?.handleUser === 'function') {
           context.handleUser(suggestion.replace(/？$/, ''));
         }
       };
-      suggestions.appendChild(button);
+      suggestionsEl.appendChild(suggestionButtonEl);
     });
   }
 }
@@ -921,31 +965,31 @@ export function renderSuggestions(context = null) {
  * @param {UiContext|null} context - 應用程式的共用狀態與參考。
  */
 export function bindTyping(context = null) {
-  const typeInput = context?.uiDom?.questionInputEl;
-  if (typeInput instanceof HTMLElement === false) {
+  const questionInputEl = context?.uiDom?.questionInputEl;
+  if (questionInputEl instanceof HTMLElement === false) {
     console.error(
       '[aiAvatar bindTyping] context?.uiDom?.questionInputEl is not an HTMLElement'
     );
     return;
   }
 
-  const send = () => {
-    const text = typeInput.value.trim();
+  const handleSendMessage = () => {
+    const text = questionInputEl.value.trim();
     if (typeof text !== 'string' || text === '') {
       return;
     }
-    typeInput.value = '';
+    questionInputEl.value = '';
     context.handleUser(text);
   };
-  context.uiDom.sendButtonEl.onclick = send;
-  typeInput.addEventListener('keydown', (event) => {
+  context.uiDom.sendButtonEl.onclick = handleSendMessage;
+  questionInputEl.addEventListener('keydown', (event) => {
     if (
       event.key === 'Enter' &&
       event.isComposing !== true &&
       event.keyCode !== 229
     ) {
       event.preventDefault();
-      send();
+      handleSendMessage();
     }
   });
 }
@@ -1015,33 +1059,39 @@ export function bindUiEvent(context = null) {
   }
 
   if (uiDom.muteButtonEl instanceof HTMLElement) {
-    uiDom.muteButtonEl.onclick = (event) => {
-      const el = event.target;
+    uiDom.muteButtonEl.onclick = () => {
+      const muteButtonEl = uiDom.muteButtonEl;
       context.speechEngine.ttsMuted = !context.speechEngine.ttsMuted;
-      el.textContent = context.speechEngine.ttsMuted ? '🔇' : '🔊';
-      el.setAttribute('aria-pressed', String(context.speechEngine.ttsMuted));
+      muteButtonEl.textContent =
+        context.speechEngine.ttsMuted === true ? '🔇' : '🔊';
+      muteButtonEl.setAttribute(
+        'aria-pressed',
+        String(context.speechEngine.ttsMuted === true)
+      );
       if (context.speechEngine.ttsMuted === true) {
         context.speechEngine.stopSpeaking(); // 立刻停掉正在播的（神經語音 + 瀏覽器語音）
       }
-      context.speechEngine.spokenDisplayText = context.speechEngine.ttsMuted
-        ? typeof context.i18nEngine?.t === 'function'
-          ? context.i18nEngine.t('ui.mute.muted')
-          : '已靜音'
-        : typeof context.i18nEngine?.t === 'function'
-          ? context.i18nEngine.t('ui.mute.unmuted')
-          : '已開啟語音';
+      context.speechEngine.spokenDisplayText =
+        context.speechEngine.ttsMuted === true
+          ? typeof context.i18nEngine?.t === 'function'
+            ? context.i18nEngine.t('ui.mute.muted')
+            : '已靜音'
+          : typeof context.i18nEngine?.t === 'function'
+            ? context.i18nEngine.t('ui.mute.unmuted')
+            : '已開啟語音';
     };
   }
 
   if (uiDom.speedButtonEl instanceof HTMLElement) {
-    uiDom.speedButtonEl.onclick = (event) => {
-      const el = event.target;
+    uiDom.speedButtonEl.onclick = () => {
+      const speedButtonEl = uiDom.speedButtonEl;
       const steps = [0.9, 1.0, 1.2, 1.4];
       context.speechEngine.ttsRate =
         steps[
           (steps.indexOf(context.speechEngine.ttsRate) + 1) % steps.length
         ] || 1.0;
-      el.textContent = context.speechEngine.ttsRate.toFixed(1) + '×';
+      speedButtonEl.textContent =
+        context.speechEngine.ttsRate.toFixed(1) + '×';
       context.speechEngine.spokenDisplayText =
         typeof context.i18nEngine?.t === 'function'
           ? context.i18nEngine.t('ui.speed.text', {
@@ -1053,28 +1103,31 @@ export function bindUiEvent(context = null) {
 
   if (uiDom.langButtonEl instanceof HTMLElement) {
     uiDom.langButtonEl.onclick = () => {
-      const locales = SUPPORTED_LOCALES || ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'];
-      const current = context.locale || context.i18nEngine?.locale || 'zh-TW';
-      const next = locales[(locales.indexOf(current) + 1) % locales.length];
+      const locales =
+        SUPPORTED_LOCALES || ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'];
+      const currentLocale =
+        context.locale || context.i18nEngine?.locale || 'zh-TW';
+      const nextLocale =
+        locales[(locales.indexOf(currentLocale) + 1) % locales.length];
 
       if (
         context.i18nEngine &&
         typeof context.i18nEngine.setLocale === 'function'
       ) {
-        context.i18nEngine.setLocale(next);
+        context.i18nEngine.setLocale(nextLocale);
       } else {
-        context.locale = next;
+        context.locale = nextLocale;
       }
 
       if (context.speechEngine) {
         context.speechEngine.spokenDisplayText =
           typeof context.i18nEngine?.t === 'function'
             ? context.i18nEngine.t('ui.lang.statusText')
-            : next === 'en-US'
+            : nextLocale === 'en-US'
               ? 'Language: English'
-              : next === 'ja-JP'
+              : nextLocale === 'ja-JP'
                 ? '言語：日本語'
-                : next === 'ko-KR'
+                : nextLocale === 'ko-KR'
                   ? '언어: 한국어'
                   : '語言：繁體中文';
       }
@@ -1096,7 +1149,9 @@ export function bindUiEvent(context = null) {
       uiDom.historyPanelEl.querySelector('#btn-history-clear');
 
     if (btnHistoryClose instanceof HTMLElement) {
-      btnHistoryClose.onclick = () => setHistoryOpen(context, false);
+      btnHistoryClose.onclick = () => {
+        setHistoryOpen(context, false);
+      };
     }
     if (btnHistoryClear instanceof HTMLElement) {
       btnHistoryClear.onclick = () => {
@@ -1111,27 +1166,27 @@ export function bindUiEvent(context = null) {
   }
 
   if (uiDom.btnLlmEl instanceof HTMLElement) {
-    uiDom.btnLlmEl.onclick = async (event) => {
-      const el = event.target;
+    uiDom.btnLlmEl.onclick = async () => {
+      const btnLlmEl = uiDom.btnLlmEl;
 
       // 啟用 AI 伺服器模式時：🧠 用來顯示狀態 / 重新連線，不下載 WebLLM
       if (context.brainEngine.aiProvider?.enabled === true) {
-        const ok =
-          context.brainEngine.aiProvider.ready ||
+        const isServerReady =
+          context.brainEngine.aiProvider.ready === true ||
           (await context.brainEngine.aiProvider.ping());
-        // el.textContent = ok ? '🧠本機' : '🧠✗';
-        el.textContent = ok === true ? '🧠✓' : '🧠✗';
-        if (ok === true) {
-          el.setAttribute('css-llm-on', 'true');
+        btnLlmEl.textContent = isServerReady === true ? '🧠✓' : '🧠✗';
+        if (isServerReady === true) {
+          btnLlmEl.setAttribute('css-llm-on', 'true');
         } else {
-          el.removeAttribute('css-llm-on');
+          btnLlmEl.removeAttribute('css-llm-on');
         }
-        el.setAttribute('aria-pressed', String(ok));
-        context.speechEngine.spokenDisplayText = ok
-          ? 'AI 伺服器大腦運作中（' +
-            context.brainEngine.aiProvider.model +
-            '）🧠'
-          : 'AI 伺服器連不上：確認 AI 伺服器在跑、且 AI_PROVIDER_ORIGINS 已允許這個網站。';
+        btnLlmEl.setAttribute('aria-pressed', String(isServerReady === true));
+        context.speechEngine.spokenDisplayText =
+          isServerReady === true
+            ? 'AI 伺服器大腦運作中（' +
+              context.brainEngine.aiProvider.model +
+              '）🧠'
+            : 'AI 伺服器連不上：確認 AI 伺服器在跑、且 AI_PROVIDER_ORIGINS 已允許這個網站。';
 
         return;
       }
