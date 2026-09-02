@@ -52,13 +52,20 @@ import {
 /**
  * 將輸入值轉換為字串，去除前後空白，並限制最大長度。
  * @param {any} value - 要處理的值
- * @param {number} [max=240] - 字串的最大長度，預設為 240
+ * @param {number} [maxLength=240] - 字串的最大長度，預設為 240
  * @returns {string} 處理後的字串
  */
-function text(value, max) {
+function sanitizeText(value, maxLength = 240) {
+  const safeMaxLength =
+    typeof maxLength === 'number' &&
+    Number.isFinite(maxLength) === true &&
+    maxLength > 0
+      ? maxLength
+      : 240;
+
   return String(value || '')
     .trim()
-    .slice(0, max || 240);
+    .slice(0, safeMaxLength);
 }
 
 /**
@@ -66,34 +73,34 @@ function text(value, max) {
  * @param {any} value - 要標準化的值
  * @returns {string} 標準化後的字串
  */
-function normal(value) {
-  return text(value, 1200)
+function normalizeText(value) {
+  return sanitizeText(value, 1200)
     .toLowerCase()
     .replace(/[\s，。、！？,.!?：:；;()（）]+/g, '');
 }
 
 /**
  * 轉義正則表達式中的特殊字元，以避免語法錯誤或非預期的比對。
- * @param {string|any} value - 需轉義的字串
+ * @param {string|any} patternString - 需轉義的字串
  * @returns {string} 轉義後的字串
  */
-function escapeRegExp(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function escapeRegExp(patternString) {
+  return String(patternString).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
  * 將字串轉換為二元字元組 (Bigrams) 陣列，用於字串相似度計算。
- * @param {any} value - 要處理的字串
+ * @param {any} textValue - 要處理的字串
  * @returns {string[]} 二元字元組陣列
  */
-function bigrams(value) {
-  const input = normal(value);
+function generateBigrams(textValue) {
+  const normalizedText = normalizeText(textValue);
   const bigramList = [];
-  if (input.length === 1) {
-    return [input];
+  if (normalizedText.length === 1) {
+    return [normalizedText];
   }
-  for (let index = 0; index < input.length - 1; index++) {
-    bigramList.push(input.slice(index, index + 2));
+  for (let index = 0; index < normalizedText.length - 1; index++) {
+    bigramList.push(normalizedText.slice(index, index + 2));
   }
   return bigramList;
 }
@@ -105,18 +112,18 @@ function bigrams(value) {
  * @returns {number} 相似度分數，範圍為 0 到 1
  */
 export function similarity(sourceString, targetString) {
-  const sourceBigrams = bigrams(sourceString);
-  const targetBigrams = new Set(bigrams(targetString));
+  const sourceBigrams = generateBigrams(sourceString);
+  const targetBigrams = new Set(generateBigrams(targetString));
   if (sourceBigrams.length === 0 || targetBigrams.size === 0) {
     return 0;
   }
-  let hits = 0;
-  sourceBigrams.forEach((item) => {
-    if (targetBigrams.has(item) === true) {
-      hits++;
+  let matchCount = 0;
+  sourceBigrams.forEach((bigramItem) => {
+    if (targetBigrams.has(bigramItem) === true) {
+      matchCount++;
     }
   });
-  return hits / Math.sqrt(sourceBigrams.length * targetBigrams.size);
+  return matchCount / Math.sqrt(sourceBigrams.length * targetBigrams.size);
 }
 
 /**
@@ -134,54 +141,85 @@ export function normaliseSchema(schema) {
   ) {
     return { type: 'object', properties: {}, required: [] };
   }
-  const properties = {};
+  const normalizedProperties = {};
   Object.keys(schema.properties)
     .slice(0, 20)
-    .forEach((name) => {
-      if (/^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/.test(name) === false) {
+    .forEach((propertyName) => {
+      if (/^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/.test(propertyName) === false) {
         return;
       }
-      const raw = schema.properties[name] || {};
-      const type = /^(string|number|integer|boolean)$/.test(raw.type)
-        ? raw.type
-        : 'string';
-      const property = {
-        type,
-        title: text(raw.title || name, 80),
-        description: text(raw.description, 160),
-        contextKey: text(raw.contextKey, 60),
-        format: /^(email|url|phone|contact)$/.test(raw.format)
-          ? raw.format
-          : '',
-        prefixes: Array.isArray(raw.prefixes)
-          ? raw.prefixes
-              .slice(0, 8)
-              .map((item) => text(item, 30))
-              .filter(Boolean)
-          : []
+      const rawProperty = schema.properties[propertyName] || {};
+      const propertyType =
+        /^(string|number|integer|boolean)$/.test(rawProperty.type) === true
+          ? rawProperty.type
+          : 'string';
+      const propertyConfig = {
+        type: propertyType,
+        title: sanitizeText(rawProperty.title || propertyName, 80),
+        description: sanitizeText(rawProperty.description, 160),
+        contextKey: sanitizeText(rawProperty.contextKey, 60),
+        format:
+          /^(email|url|phone|contact)$/.test(rawProperty.format) === true
+            ? rawProperty.format
+            : '',
+        prefixes:
+          Array.isArray(rawProperty.prefixes) === true
+            ? rawProperty.prefixes
+                .slice(0, 8)
+                .map((prefixItem) => sanitizeText(prefixItem, 30))
+                .filter(
+                  (prefixItem) =>
+                    typeof prefixItem === 'string' && prefixItem !== ''
+                )
+            : []
       };
-      if (Array.isArray(raw.enum)) {
-        property.enum = raw.enum
+      if (Array.isArray(rawProperty.enum) === true) {
+        propertyConfig.enum = rawProperty.enum
           .slice(0, 20)
-          .map((item) => text(item, 80))
-          .filter(Boolean);
+          .map((enumItem) => sanitizeText(enumItem, 80))
+          .filter(
+            (enumItem) => typeof enumItem === 'string' && enumItem !== ''
+          );
       }
-      if (Number.isFinite(Number(raw.minimum)) === true) {
-        property.minimum = Number(raw.minimum);
+      if (
+        typeof rawProperty.minimum === 'number' &&
+        Number.isFinite(rawProperty.minimum) === true
+      ) {
+        propertyConfig.minimum = rawProperty.minimum;
+      } else if (
+        typeof rawProperty.minimum === 'string' &&
+        Number.isFinite(Number(rawProperty.minimum)) === true
+      ) {
+        propertyConfig.minimum = Number(rawProperty.minimum);
       }
-      if (Number.isFinite(Number(raw.maximum)) === true) {
-        property.maximum = Number(raw.maximum);
+
+      if (
+        typeof rawProperty.maximum === 'number' &&
+        Number.isFinite(rawProperty.maximum) === true
+      ) {
+        propertyConfig.maximum = rawProperty.maximum;
+      } else if (
+        typeof rawProperty.maximum === 'string' &&
+        Number.isFinite(Number(rawProperty.maximum)) === true
+      ) {
+        propertyConfig.maximum = Number(rawProperty.maximum);
       }
-      property.maxLength = Math.max(
+
+      propertyConfig.maxLength = Math.max(
         1,
-        Math.min(Number(raw.maxLength) || 300, 1000)
+        Math.min(Number(rawProperty.maxLength) || 300, 1000)
       );
-      properties[name] = property;
+      normalizedProperties[propertyName] = propertyConfig;
     });
-  const required = Array.isArray(schema.required)
-    ? schema.required.filter((name) => properties[name]).slice(0, 20)
-    : [];
-  return { type: 'object', properties, required };
+  const required =
+    Array.isArray(schema.required) === true
+      ? schema.required
+          .filter(
+            (requiredName) => normalizedProperties[requiredName] !== undefined
+          )
+          .slice(0, 20)
+      : [];
+  return { type: 'object', properties: normalizedProperties, required };
 }
 
 /**
@@ -190,14 +228,14 @@ export function normaliseSchema(schema) {
  * @returns {ToolDefinition} 標準化後的工具定義物件
  */
 export function normaliseTool(tool) {
-  tool = tool || {};
-  const rawRoutingMode = tool.routingMode;
+  const targetTool = typeof tool === 'object' && tool !== null ? tool : {};
+  const rawRoutingMode = targetTool.routingMode;
   const routingMode =
     Object.values(TOOL_ROUTING_MODE_MAP).includes(rawRoutingMode) === true
       ? rawRoutingMode
       : DEFAULT_TOOL_ROUTING_MODE;
 
-  const rawResultMode = tool.resultMode;
+  const rawResultMode = targetTool.resultMode;
   const resultMode =
     Object.values(TOOL_RESULT_MODE_MAP).includes(rawResultMode) === true
       ? rawResultMode
@@ -205,54 +243,67 @@ export function normaliseTool(tool) {
 
   let confirmationTimeoutMs = null;
   if (
-    typeof tool.confirmationTimeoutMs === 'number' &&
-    Number.isFinite(tool.confirmationTimeoutMs) === true &&
-    tool.confirmationTimeoutMs > 0
+    typeof targetTool.confirmationTimeoutMs === 'number' &&
+    Number.isFinite(targetTool.confirmationTimeoutMs) === true &&
+    targetTool.confirmationTimeoutMs > 0
   ) {
-    confirmationTimeoutMs = tool.confirmationTimeoutMs;
+    confirmationTimeoutMs = targetTool.confirmationTimeoutMs;
   } else if (
-    typeof tool.timeoutMs === 'number' &&
-    Number.isFinite(tool.timeoutMs) === true &&
-    tool.timeoutMs > 0
+    typeof targetTool.timeoutMs === 'number' &&
+    Number.isFinite(targetTool.timeoutMs) === true &&
+    targetTool.timeoutMs > 0
   ) {
-    confirmationTimeoutMs = tool.timeoutMs;
+    confirmationTimeoutMs = targetTool.timeoutMs;
   }
 
-  const execute = typeof tool.execute === 'function' ? tool.execute : null;
+  const execute =
+    typeof targetTool.execute === 'function' ? targetTool.execute : null;
 
   return {
-    name: text(tool.name, 64).replace(/[^a-zA-Z0-9_.-]/g, ''),
-    label: text(tool.label || tool.name, 80),
-    description: text(tool.description, 240),
-    keywords: Array.isArray(tool.keywords)
-      ? tool.keywords
-          .slice(0, 30)
-          .map((item) => text(item, 60).toLowerCase())
-          .filter(Boolean)
-      : [],
-    examples: Array.isArray(tool.examples)
-      ? tool.examples
-          .slice(0, 20)
-          .map((item) => text(item, 160))
-          .filter(Boolean)
-      : [],
-    excludeKeywords: Array.isArray(tool.excludeKeywords)
-      ? tool.excludeKeywords
-          .slice(0, 20)
-          .map((item) => text(item, 60).toLowerCase())
-          .filter(Boolean)
-      : [],
-    priority: Math.max(-10, Math.min(Number(tool.priority) || 0, 10)),
+    name: sanitizeText(targetTool.name, 64).replace(/[^a-zA-Z0-9_.-]/g, ''),
+    label: sanitizeText(targetTool.label || targetTool.name, 80),
+    description: sanitizeText(targetTool.description, 240),
+    keywords:
+      Array.isArray(targetTool.keywords) === true
+        ? targetTool.keywords
+            .slice(0, 30)
+            .map((keywordItem) => sanitizeText(keywordItem, 60).toLowerCase())
+            .filter(
+              (keywordItem) =>
+                typeof keywordItem === 'string' && keywordItem !== ''
+            )
+        : [],
+    examples:
+      Array.isArray(targetTool.examples) === true
+        ? targetTool.examples
+            .slice(0, 20)
+            .map((exampleItem) => sanitizeText(exampleItem, 160))
+            .filter(
+              (exampleItem) =>
+                typeof exampleItem === 'string' && exampleItem !== ''
+            )
+        : [],
+    excludeKeywords:
+      Array.isArray(targetTool.excludeKeywords) === true
+        ? targetTool.excludeKeywords
+            .slice(0, 20)
+            .map((excludeItem) => sanitizeText(excludeItem, 60).toLowerCase())
+            .filter(
+              (excludeItem) =>
+                typeof excludeItem === 'string' && excludeItem !== ''
+            )
+        : [],
+    priority: Math.max(-10, Math.min(Number(targetTool.priority) || 0, 10)),
     routeThreshold: Math.max(
       0.15,
-      Math.min(Number(tool.routeThreshold) || 0.34, 0.95)
+      Math.min(Number(targetTool.routeThreshold) || 0.34, 0.95)
     ),
-    requiresConfirmation: tool.requiresConfirmation !== false,
+    requiresConfirmation: targetTool.requiresConfirmation !== false,
     routingMode,
     resultMode,
     confirmationTimeoutMs,
     execute,
-    inputSchema: normaliseSchema(tool.inputSchema)
+    inputSchema: normaliseSchema(targetTool.inputSchema)
   };
 }
 
@@ -262,7 +313,7 @@ export function normaliseTool(tool) {
  * @returns {ToolDefinition[]} 可供 AI 使用的工具清單
  */
 export function getAiAvailableTools(tools) {
-  return (Array.isArray(tools) ? tools : [])
+  return (Array.isArray(tools) === true ? tools : [])
     .map(normaliseTool)
     .filter(
       (tool) =>
@@ -279,15 +330,19 @@ export function toOpenAiTools(tools) {
   const aiTools = getAiAvailableTools(tools);
   return aiTools.map((tool) => {
     const properties = {};
-    const schemaProps = tool.inputSchema?.properties || {};
-    Object.keys(schemaProps).forEach((key) => {
-      const prop = schemaProps[key];
-      properties[key] = {
-        type: prop.type || TOOL_SCHEMA_TYPE_MAP.STRING,
-        description: prop.description || prop.title || key
+    const schemaProperties = tool.inputSchema?.properties || {};
+    Object.keys(schemaProperties).forEach((propertyKey) => {
+      const propertySchema = schemaProperties[propertyKey];
+      properties[propertyKey] = {
+        type: propertySchema.type || TOOL_SCHEMA_TYPE_MAP.STRING,
+        description:
+          propertySchema.description || propertySchema.title || propertyKey
       };
-      if (Array.isArray(prop.enum) === true && prop.enum.length > 0) {
-        properties[key].enum = prop.enum;
+      if (
+        Array.isArray(propertySchema.enum) === true &&
+        propertySchema.enum.length > 0
+      ) {
+        properties[propertyKey].enum = propertySchema.enum;
       }
     });
 
@@ -299,9 +354,10 @@ export function toOpenAiTools(tools) {
         parameters: {
           type: TOOL_SCHEMA_TYPE_MAP.OBJECT,
           properties,
-          required: Array.isArray(tool.inputSchema?.required)
-            ? tool.inputSchema.required
-            : []
+          required:
+            Array.isArray(tool.inputSchema?.required) === true
+              ? tool.inputSchema.required
+              : []
         }
       }
     };
@@ -321,59 +377,58 @@ export function toOpenAiTools(tools) {
  * @returns {ToolScoreResult} 包含分數 (0-1) 與評分原因的物件
  */
 export function scoreTool(tool, query) {
-  const normalizedQuery = normal(query);
+  const normalizedQuery = normalizeText(query);
   if (
     typeof normalizedQuery !== 'string' ||
     normalizedQuery === '' ||
     tool.excludeKeywords.some(
-      (item) =>
-        typeof item === 'string' &&
-        item !== '' &&
-        normalizedQuery.includes(normal(item))
+      (excludeItem) =>
+        typeof excludeItem === 'string' &&
+        excludeItem !== '' &&
+        normalizedQuery.includes(normalizeText(excludeItem))
     )
   ) {
     return { score: 0, reason: 'excluded' };
   }
-  let score = 0;
-  let reason = '';
+  let totalScore = 0;
+  let matchReason = '';
   tool.keywords.forEach((keyword) => {
-    const key = normal(keyword);
-    if (typeof key !== 'string' || key === '') {
+    const normalizedKeyword = normalizeText(keyword);
+    if (typeof normalizedKeyword !== 'string' || normalizedKeyword === '') {
       return;
     }
-    const current = normalizedQuery.includes(key)
-      ? Math.min(0.92, 0.62 + key.length * 0.035)
-      : similarity(normalizedQuery, key) * 0.62;
-    if (current > score) {
-      score = current;
-      reason = normalizedQuery.includes(key)
+    const keywordScore = normalizedQuery.includes(normalizedKeyword)
+      ? Math.min(0.92, 0.62 + normalizedKeyword.length * 0.035)
+      : similarity(normalizedQuery, normalizedKeyword) * 0.62;
+    if (keywordScore > totalScore) {
+      totalScore = keywordScore;
+      matchReason = normalizedQuery.includes(normalizedKeyword)
         ? `keyword:${keyword}`
         : 'keyword-similarity';
     }
   });
   tool.examples.forEach((example) => {
     const similarityScore = similarity(normalizedQuery, example);
-    const current = 0.18 + similarityScore * 0.72;
-    if (similarityScore >= 0.28 && current > score) {
-      score = current;
-      reason = 'example';
+    const exampleScore = 0.18 + similarityScore * 0.72;
+    if (similarityScore >= 0.28 && exampleScore > totalScore) {
+      totalScore = exampleScore;
+      matchReason = 'example';
     }
   });
   const labelSimilarity = similarity(normalizedQuery, tool.label);
-  if (labelSimilarity >= 0.3 && 0.16 + labelSimilarity * 0.65 > score) {
-    score = 0.16 + labelSimilarity * 0.65;
-    reason = 'label';
+  const labelScore = 0.16 + labelSimilarity * 0.65;
+  if (labelSimilarity >= 0.3 && labelScore > totalScore) {
+    totalScore = labelScore;
+    matchReason = 'label';
   }
   const descriptionSimilarity = similarity(normalizedQuery, tool.description);
-  if (
-    descriptionSimilarity >= 0.34 &&
-    0.1 + descriptionSimilarity * 0.52 > score
-  ) {
-    score = 0.1 + descriptionSimilarity * 0.52;
-    reason = 'description';
+  const descriptionScore = 0.1 + descriptionSimilarity * 0.52;
+  if (descriptionSimilarity >= 0.34 && descriptionScore > totalScore) {
+    totalScore = descriptionScore;
+    matchReason = 'description';
   }
-  score = Math.max(0, Math.min(1, score + tool.priority * 0.012));
-  return { score, reason: reason || 'none' };
+  totalScore = Math.max(0, Math.min(1, totalScore + tool.priority * 0.012));
+  return { score: totalScore, reason: matchReason || 'none' };
 }
 
 /**
@@ -397,31 +452,36 @@ export function scoreTool(tool, query) {
  * @returns {ToolRouteResult} 路由結果，包含最佳匹配、模糊匹配選項與所有候選工具
  */
 export function route(tools, query) {
-  const candidates = (Array.isArray(tools) ? tools : [])
+  const candidateList = (Array.isArray(tools) === true ? tools : [])
     .map(normaliseTool)
     .filter(
       (tool) =>
         tool.name !== '' && tool.routingMode !== TOOL_ROUTING_MODE_MAP.AI
     )
     .map((tool) => {
-      const scored = scoreTool(tool, query);
-      return { tool, score: scored.score, reason: scored.reason };
+      const scoredResult = scoreTool(tool, query);
+      return { tool, score: scoredResult.score, reason: scoredResult.reason };
     })
-    .filter((item) => item.score >= item.tool.routeThreshold)
+    .filter((candidateItem) => candidateItem.score >= candidateItem.tool.routeThreshold)
     .sort(
       (candidateA, candidateB) =>
         candidateB.score - candidateA.score ||
         candidateB.tool.priority - candidateA.tool.priority
     );
 
-  const top = candidates[0] || null;
-  const second = candidates[1] || null;
-  const ambiguous = !!(top && second && top.score - second.score < 0.09);
+  const topCandidate = candidateList[0] || null;
+  const secondCandidate = candidateList[1] || null;
+  const isAmbiguous =
+    typeof topCandidate === 'object' &&
+    topCandidate !== null &&
+    typeof secondCandidate === 'object' &&
+    secondCandidate !== null &&
+    topCandidate.score - secondCandidate.score < 0.09;
 
   return {
-    match: ambiguous ? null : top,
-    ambiguous: ambiguous ? candidates.slice(0, 3) : [],
-    candidates
+    match: isAmbiguous === true ? null : topCandidate,
+    ambiguous: isAmbiguous === true ? candidateList.slice(0, 3) : [],
+    candidates: candidateList
   };
 }
 
@@ -431,16 +491,16 @@ export function route(tools, query) {
  * @param {string[]} prefixes - 允許的前綴陣列
  * @returns {string} 匹配到的內容，若無則為空字串
  */
-function findPrefixed(query, prefixes) {
+function findPrefixedValue(query, prefixes) {
   for (let index = 0; index < prefixes.length; index++) {
-    const re = new RegExp(
+    const prefixPattern = new RegExp(
       escapeRegExp(prefixes[index]) +
         '\\s*(?:是|為|=|:|：)?\\s*([^，。！？,!?]{1,120})',
       'i'
     );
-    const match = re.exec(query);
-    if (match !== null) {
-      return match[1].trim();
+    const regexMatch = prefixPattern.exec(query);
+    if (regexMatch !== null) {
+      return regexMatch[1].trim();
     }
   }
   return '';
@@ -448,73 +508,83 @@ function findPrefixed(query, prefixes) {
 
 /**
  * 根據屬性定義，從查詢字串或上下文中提取出該屬性的值。
- * @param {string} name - 屬性名稱
- * @param {ToolSchemaProperty} property - 屬性定義
+ * @param {string} propertyName - 屬性名稱
+ * @param {ToolSchemaProperty} propertySchema - 屬性定義
  * @param {string} query - 使用者查詢字串
  * @param {Record<string, any>} context - 上下文資料物件
  * @param {boolean} allowWhole - 是否允許將整個查詢作為字串值
  * @returns {any} 提取出的屬性值，若無則為 undefined
  */
-function valueForProperty(name, property, query, context, allowWhole) {
+function extractPropertyValue(
+  propertyName,
+  propertySchema,
+  query,
+  context,
+  allowWhole
+) {
   if (
-    typeof property.contextKey === 'string' &&
-    property.contextKey !== '' &&
+    typeof propertySchema.contextKey === 'string' &&
+    propertySchema.contextKey !== '' &&
     typeof context === 'object' &&
     context !== null &&
-    context[property.contextKey] != null
+    context[propertySchema.contextKey] !== undefined &&
+    context[propertySchema.contextKey] !== null
   ) {
-    return context[property.contextKey];
+    return context[propertySchema.contextKey];
   }
   if (
     typeof context === 'object' &&
     context !== null &&
-    context[name] != null
+    context[propertyName] !== undefined &&
+    context[propertyName] !== null
   ) {
-    return context[name];
+    return context[propertyName];
   }
 
-  const value = findPrefixed(
+  const prefixedValue = findPrefixedValue(
     query,
-    property.prefixes.concat([property.title]).filter(Boolean)
+    propertySchema.prefixes
+      .concat([propertySchema.title])
+      .filter((prefixItem) => typeof prefixItem === 'string' && prefixItem !== '')
   );
 
-  if (Array.isArray(property.enum) === true) {
-    const selected = property.enum.find((item) =>
-      normal(query).includes(normal(item))
+  if (Array.isArray(propertySchema.enum) === true) {
+    const matchedOption = propertySchema.enum.find((enumItem) =>
+      normalizeText(query).includes(normalizeText(enumItem))
     );
-    if (typeof selected !== 'undefined') {
-      return selected;
+    if (typeof matchedOption !== 'undefined') {
+      return matchedOption;
     }
   }
-  if (property.format === 'email') {
-    const email = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.exec(query);
-    if (email !== null) {
-      return email[0];
+  if (propertySchema.format === 'email') {
+    const emailMatch = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.exec(query);
+    if (emailMatch !== null) {
+      return emailMatch[0];
     }
   }
-  if (property.format === 'url') {
-    const url = /https?:\/\/[^\s，。]+/i.exec(query);
-    if (url !== null) {
-      return url[0];
+  if (propertySchema.format === 'url') {
+    const urlMatch = /https?:\/\/[^\s，。]+/i.exec(query);
+    if (urlMatch !== null) {
+      return urlMatch[0];
     }
   }
-  if (property.format === 'phone') {
-    const phone = /(?:\+?\d[\s().-]*){8,18}/.exec(query);
-    if (phone !== null) {
-      return phone[0].trim();
+  if (propertySchema.format === 'phone') {
+    const phoneMatch = /(?:\+?\d[\s().-]*){8,18}/.exec(query);
+    if (phoneMatch !== null) {
+      return phoneMatch[0].trim();
     }
   }
-  if (property.format === 'contact') {
-    const contactEmail = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.exec(query);
-    if (contactEmail !== null) {
-      return contactEmail[0];
+  if (propertySchema.format === 'contact') {
+    const contactEmailMatch = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.exec(query);
+    if (contactEmailMatch !== null) {
+      return contactEmailMatch[0];
     }
-    const contactPhone = /(?:\+?\d[\s().-]*){8,18}/.exec(query);
-    if (contactPhone !== null) {
-      return contactPhone[0].trim();
+    const contactPhoneMatch = /(?:\+?\d[\s().-]*){8,18}/.exec(query);
+    if (contactPhoneMatch !== null) {
+      return contactPhoneMatch[0].trim();
     }
   }
-  if (property.type === 'boolean') {
+  if (propertySchema.type === 'boolean') {
     if (/(不同意|不要|不用|否|不需要|false|no)/i.test(query) === true) {
       return false;
     }
@@ -522,19 +592,19 @@ function valueForProperty(name, property, query, context, allowWhole) {
       return true;
     }
   }
-  if (property.type === 'number' || property.type === 'integer') {
-    const number = /-?\d+(?:\.\d+)?/.exec(value || query);
-    if (number !== null) {
-      return property.type === 'integer'
-        ? Math.round(Number(number[0]))
-        : Number(number[0]);
+  if (propertySchema.type === 'number' || propertySchema.type === 'integer') {
+    const numberMatch = /-?\d+(?:\.\d+)?/.exec(prefixedValue || query);
+    if (numberMatch !== null) {
+      return propertySchema.type === 'integer'
+        ? Math.round(Number(numberMatch[0]))
+        : Number(numberMatch[0]);
     }
   }
-  if (typeof value === 'string' && value !== '') {
-    return value.slice(0, property.maxLength);
+  if (typeof prefixedValue === 'string' && prefixedValue !== '') {
+    return prefixedValue.slice(0, propertySchema.maxLength);
   }
-  if (allowWhole === true && property.type === 'string') {
-    return text(query, property.maxLength);
+  if (allowWhole === true && propertySchema.type === 'string') {
+    return sanitizeText(query, propertySchema.maxLength);
   }
 
   return undefined;
@@ -554,82 +624,118 @@ function valueForProperty(name, property, query, context, allowWhole) {
  * @returns {ToolValidationResult} 驗證結果，包含是否成功、有效的參數及錯誤訊息陣列
  */
 export function validate(schema, input) {
-  schema = normaliseSchema(schema);
-  input =
-    input && typeof input === 'object' && !Array.isArray(input) ? input : {};
-  const args = {};
-  const errors = [];
+  const normalizedSchema = normaliseSchema(schema);
+  const targetInput =
+    typeof input === 'object' && input !== null && Array.isArray(input) === false
+      ? input
+      : {};
+  const validatedArgs = {};
+  const validationErrors = [];
 
-  Object.keys(schema.properties).forEach((name) => {
-    if (input[name] == null || input[name] === '') {
+  Object.keys(normalizedSchema.properties).forEach((propertyName) => {
+    if (
+      targetInput[propertyName] === undefined ||
+      targetInput[propertyName] === null ||
+      targetInput[propertyName] === ''
+    ) {
       return;
     }
-    const property = schema.properties[name];
-    let value = input[name];
+    const propertySchema = normalizedSchema.properties[propertyName];
+    let propertyValue = targetInput[propertyName];
 
-    if (property.type === 'integer' && !Number.isInteger(Number(value))) {
-      errors.push(`${name} 必須是整數`);
+    if (
+      propertySchema.type === 'integer' &&
+      Number.isInteger(Number(propertyValue)) === false
+    ) {
+      validationErrors.push(`${propertyName} 必須是整數`);
       return;
     }
-    if (property.type === 'number' && !Number.isFinite(Number(value))) {
-      errors.push(`${name} 必須是數字`);
+    if (
+      propertySchema.type === 'number' &&
+      Number.isFinite(Number(propertyValue)) === false
+    ) {
+      validationErrors.push(`${propertyName} 必須是數字`);
       return;
     }
-    if (property.type === 'boolean' && typeof value !== 'boolean') {
-      errors.push(`${name} 必須是布林值`);
+    if (
+      propertySchema.type === 'boolean' &&
+      typeof propertyValue !== 'boolean'
+    ) {
+      validationErrors.push(`${propertyName} 必須是布林值`);
       return;
     }
 
-    if (property.type === 'integer' || property.type === 'number') {
-      value = Number(value);
-      if (property.minimum != null && value < property.minimum) {
-        errors.push(`${name} 不得小於 ${property.minimum}`);
-      }
-      if (property.maximum != null && value > property.maximum) {
-        errors.push(`${name} 不得大於 ${property.maximum}`);
-      }
-    } else if (property.type === 'string') {
-      value = text(value, property.maxLength);
+    if (
+      propertySchema.type === 'integer' ||
+      propertySchema.type === 'number'
+    ) {
+      propertyValue = Number(propertyValue);
       if (
-        property.format === 'email' &&
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+        typeof propertySchema.minimum === 'number' &&
+        Number.isFinite(propertySchema.minimum) === true &&
+        propertyValue < propertySchema.minimum
       ) {
-        errors.push(`${name} 電子郵件格式無效`);
-      }
-      if (property.format === 'url' && !/^https?:\/\//i.test(value)) {
-        errors.push(`${name} 網址格式無效`);
-      }
-      if (property.format === 'phone' && !/(?:\d[^\d]*){8,18}/.test(value)) {
-        errors.push(`${name} 電話格式無效`);
+        validationErrors.push(`${propertyName} 不得小於 ${propertySchema.minimum}`);
       }
       if (
-        property.format === 'contact' &&
-        !(
-          /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ||
-          /^(?:\+?\d[\s().-]*){8,18}$/.test(value)
+        typeof propertySchema.maximum === 'number' &&
+        Number.isFinite(propertySchema.maximum) === true &&
+        propertyValue > propertySchema.maximum
+      ) {
+        validationErrors.push(`${propertyName} 不得大於 ${propertySchema.maximum}`);
+      }
+    } else if (propertySchema.type === 'string') {
+      propertyValue = sanitizeText(propertyValue, propertySchema.maxLength);
+      if (
+        propertySchema.format === 'email' &&
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(propertyValue) === false
+      ) {
+        validationErrors.push(`${propertyName} 電子郵件格式無效`);
+      }
+      if (
+        propertySchema.format === 'url' &&
+        /^https?:\/\//i.test(propertyValue) === false
+      ) {
+        validationErrors.push(`${propertyName} 網址格式無效`);
+      }
+      if (
+        propertySchema.format === 'phone' &&
+        /(?:\d[^\d]*){8,18}/.test(propertyValue) === false
+      ) {
+        validationErrors.push(`${propertyName} 電話格式無效`);
+      }
+      if (
+        propertySchema.format === 'contact' &&
+        (
+          /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(propertyValue) === false &&
+          /(?:\+?\d[\s().-]*){8,18}/.test(propertyValue) === false
         )
       ) {
-        errors.push(`${name} 必須是電子郵件或電話`);
+        validationErrors.push(`${propertyName} 必須是電子郵件或電話`);
       }
     }
 
     if (
-      Array.isArray(property.enum) === true &&
-      property.enum.indexOf(String(value)) < 0
+      Array.isArray(propertySchema.enum) === true &&
+      propertySchema.enum.includes(String(propertyValue)) === false
     ) {
-      errors.push(`${name} 不在允許選項內`);
+      validationErrors.push(`${propertyName} 不在允許選項內`);
     }
 
-    args[name] = value;
+    validatedArgs[propertyName] = propertyValue;
   });
 
-  schema.required.forEach((name) => {
-    if (args[name] == null || args[name] === '') {
-      errors.push(`${name} 為必填`);
+  normalizedSchema.required.forEach((requiredName) => {
+    if (
+      validatedArgs[requiredName] === undefined ||
+      validatedArgs[requiredName] === null ||
+      validatedArgs[requiredName] === ''
+    ) {
+      validationErrors.push(`${requiredName} 為必填`);
     }
   });
 
-  return { ok: errors.length === 0, args, errors };
+  return { ok: validationErrors.length === 0, args: validatedArgs, errors: validationErrors };
 }
 
 /**
@@ -650,53 +756,63 @@ export function validate(schema, input) {
  * @returns {ToolExtractResult} 提取結果，包含成功提取的參數、缺失的必填參數及驗證錯誤
  */
 export function extract(tool, query, context, existing, onlyNames, allowWhole) {
-  tool = normaliseTool(tool);
-  existing = existing && typeof existing === 'object' ? existing : {};
-  const args = {};
-  const properties = tool.inputSchema.properties;
+  const normalizedTool = normaliseTool(tool);
+  const existingArgs =
+    typeof existing === 'object' && existing !== null ? existing : {};
+  const extractedArgs = {};
+  const schemaProperties = normalizedTool.inputSchema.properties;
 
-  Object.keys(properties).forEach((name) => {
-    if (existing[name] != null) {
-      args[name] = existing[name];
+  Object.keys(schemaProperties).forEach((propertyName) => {
+    if (
+      existingArgs[propertyName] !== undefined &&
+      existingArgs[propertyName] !== null
+    ) {
+      extractedArgs[propertyName] = existingArgs[propertyName];
     }
   });
 
-  const names =
+  const propertyNames =
     Array.isArray(onlyNames) === true && onlyNames.length > 0
       ? onlyNames
-      : Object.keys(properties);
-  names.forEach((name) => {
+      : Object.keys(schemaProperties);
+  propertyNames.forEach((propertyName) => {
     if (
-      typeof properties[name] !== 'object' ||
-      properties[name] === null ||
-      args[name] != null
+      typeof schemaProperties[propertyName] !== 'object' ||
+      schemaProperties[propertyName] === null ||
+      (extractedArgs[propertyName] !== undefined &&
+        extractedArgs[propertyName] !== null)
     ) {
       return;
     }
-    const value = valueForProperty(
-      name,
-      properties[name],
+    const extractedValue = extractPropertyValue(
+      propertyName,
+      schemaProperties[propertyName],
       String(query || ''),
       context || {},
-      !!allowWhole && names.length === 1
+      Boolean(allowWhole) === true && propertyNames.length === 1
     );
-    if (value !== undefined && value !== '') {
-      args[name] = value;
+    if (extractedValue !== undefined && extractedValue !== '') {
+      extractedArgs[propertyName] = extractedValue;
     }
   });
 
-  const validation = validate(tool.inputSchema, args);
-  const invalid = validation.errors.map((error) => String(error).split(' ')[0]);
-  invalid.forEach((name) => {
-    delete validation.args[name];
+  const validationResult = validate(normalizedTool.inputSchema, extractedArgs);
+  const invalidPropertyNames = validationResult.errors.map(
+    (errorMessage) => String(errorMessage).split(' ')[0]
+  );
+  invalidPropertyNames.forEach((invalidPropertyName) => {
+    delete validationResult.args[invalidPropertyName];
   });
 
   return {
-    args: validation.args,
-    missing: tool.inputSchema.required.filter(
-      (name) => validation.args[name] == null || validation.args[name] === ''
+    args: validationResult.args,
+    missing: normalizedTool.inputSchema.required.filter(
+      (requiredName) =>
+        validationResult.args[requiredName] === undefined ||
+        validationResult.args[requiredName] === null ||
+        validationResult.args[requiredName] === ''
     ),
-    errors: validation.errors
+    errors: validationResult.errors
   };
 }
 
@@ -707,12 +823,13 @@ export function extract(tool, query, context, existing, onlyNames, allowWhole) {
  * @returns {string} 中文參數摘要字串，以頓號分隔
  */
 export function argumentSummary(tool, args) {
-  tool = normaliseTool(tool);
-  args = args || {};
-  return Object.keys(args)
-    .map((name) => {
-      const property = tool.inputSchema.properties[name] || {};
-      return `${property.title || name}：${String(args[name])}`;
+  const normalizedTool = normaliseTool(tool);
+  const targetArgs = typeof args === 'object' && args !== null ? args : {};
+  return Object.keys(targetArgs)
+    .map((propertyName) => {
+      const propertySchema =
+        normalizedTool.inputSchema.properties[propertyName] || {};
+      return `${propertySchema.title || propertyName}：${String(targetArgs[propertyName])}`;
     })
     .join('、');
 }
@@ -773,18 +890,18 @@ export function argumentSummary(tool, args) {
  * @property {(text: string) => ToolRouteResult} routeHostTool - 路由宿主工具
  * @property {() => ToolDefinition[]} getAiAvailableTools - 取得可供 AI 呼叫的工具清單
  * @property {() => Array<object>} toOpenAiTools - 取得 OpenAI 相容 tools 格式清單
- * @property {(tool: ToolDefinition, name: string, errorText?: string) => string} parameterPrompt - 產生補齊參數的提示語
+ * @property {(tool: ToolDefinition, propertyName: string, errorText?: string) => string} parameterPrompt - 產生補齊參數的提示語
  * @property {(tool: ToolDefinition, query: string, routeMeta?: object, existingArgs?: Record<string, any>) => void} prepareTool - 準備執行工具
- * @property {(text: string) => boolean} continueToolInput - 繼續處理工具參數輸入
+ * @property {(inputText: string) => boolean} continueToolInput - 繼續處理工具參數輸入
  * @property {(query: string, candidates: ToolRouteCandidate[]) => void} offerToolChoices - 處理工具模糊匹配
- * @property {(text: string) => boolean} continueToolChoice - 繼續處理工具選擇
- * @property {(messageId: string, index: number) => void} chooseTool - 選擇工具
+ * @property {(inputText: string) => boolean} continueToolChoice - 繼續處理工具選擇
+ * @property {(messageId: string, choiceIndex: number) => void} chooseTool - 選擇工具
  * @property {(tool: ToolDefinition, query: string, routeMeta?: object, args?: Record<string, any>, options?: object) => void} offerHostTool - 準備確認執行宿主工具
  * @property {(messageId: string) => void} executePendingTool - 執行待確認工具
  * @property {(messageId: string, options?: { reason?: string }) => void} cancelPendingTool - 取消待確認工具
- * @property {(text: string) => boolean} continueToolConfirmation - 繼續處理確認結果
+ * @property {(inputText: string) => boolean} continueToolConfirmation - 繼續處理確認結果
  * @property {(resultData: ToolResultData) => void} handleToolResult - 處理工具執行完畢的回應
- * @property {(tool: ToolDefinition, args: Record<string, any>, pending: object) => Promise<any>} executeToolDirectly - 直接執行工具
+ * @property {(tool: ToolDefinition, args: Record<string, any>, pendingToolData: object) => Promise<any>} executeToolDirectly - 直接執行工具
  */
 
 /**
@@ -794,207 +911,241 @@ export function argumentSummary(tool, args) {
  * @returns {ToolsEngine} 工具引擎實體 (Tools Engine Instance)
  */
 export function initToolsEngine(setting = {}) {
-  function routeHostTool(text) {
-    return route(toolsEngine.HOST_TOOLS, text);
+  function routeHostTool(queryText) {
+    return route(toolsEngine.HOST_TOOLS, queryText);
   }
 
-  function parameterPrompt(tool, name, errorText) {
-    const property = tool.inputSchema.properties[name] || {};
-    const label = property.title || name;
+  function parameterPrompt(tool, propertyName, errorText) {
+    const propertySchema = tool.inputSchema.properties[propertyName] || {};
+    const label = propertySchema.title || propertyName;
     const choices =
-      property.enum && property.enum.length
-        ? `（可選：${property.enum.join('、')}）`
+      Array.isArray(propertySchema.enum) === true &&
+      propertySchema.enum.length > 0
+        ? `（可選：${propertySchema.enum.join('、')}）`
         : '';
-    return `${errorText ? errorText + '。' : ''}執行「${tool.label}」前，請提供${label}${choices}。`;
+    const errorPrefix =
+      typeof errorText === 'string' && errorText !== '' ? `${errorText}。` : '';
+    return `${errorPrefix}執行「${tool.label}」前，請提供${label}${choices}。`;
   }
 
   function prepareTool(tool, query, routeMeta, existingArgs) {
-    const extracted = extract(tool, query, {}, existingArgs || {}, null, false);
-    if (extracted.missing.length > 0) {
+    const extractedParams = extract(
+      tool,
+      query,
+      {},
+      existingArgs || {},
+      null,
+      false
+    );
+    if (extractedParams.missing.length > 0) {
       toolsEngine.pendingToolInput = {
         tool,
         query,
-        routeMeta,
-        args: extracted.args,
-        missing: extracted.missing
+        routeMeta: routeMeta || {},
+        args: extractedParams.args,
+        missing: extractedParams.missing
       };
-      const prompt = parameterPrompt(
+      const promptMessage = parameterPrompt(
         tool,
-        extracted.missing[0],
-        extracted.errors[0] || ''
+        extractedParams.missing[0],
+        extractedParams.errors[0] || ''
       );
       if (typeof toolsEngine.onAddChatMessage === 'function') {
-        toolsEngine.onAddChatMessage('assistant', prompt, { source: 'tool' });
+        toolsEngine.onAddChatMessage('assistant', promptMessage, {
+          source: 'tool'
+        });
       }
       if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
-        toolsEngine.onSpokenAudioPlayNow(prompt);
+        toolsEngine.onSpokenAudioPlayNow(promptMessage);
       }
       return;
     }
     toolsEngine.pendingToolInput = null;
-    offerHostTool(tool, query, routeMeta, extracted.args);
+    offerHostTool(tool, query, routeMeta, extractedParams.args);
   }
 
-  function continueToolInput(text) {
+  function continueToolInput(inputText) {
     if (
       typeof toolsEngine.pendingToolInput !== 'object' ||
       toolsEngine.pendingToolInput === null
     ) {
       return false;
     }
-    if (/^(取消|不要|算了|cancel)$/i.test(String(text || '').trim())) {
+    if (/^(取消|不要|算了|cancel)$/i.test(String(inputText || '').trim()) === true) {
       toolsEngine.pendingToolInput = null;
-      const message = '好的，已取消這個操作。';
+      const cancelMessage = '好的，已取消這個操作。';
       if (typeof toolsEngine.onAddChatMessage === 'function') {
-        toolsEngine.onAddChatMessage('assistant', message, { source: 'tool' });
+        toolsEngine.onAddChatMessage('assistant', cancelMessage, {
+          source: 'tool'
+        });
       }
       if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
-        toolsEngine.onSpokenAudioPlayNow(message);
+        toolsEngine.onSpokenAudioPlayNow(cancelMessage);
       }
       return true;
     }
-    const pending = toolsEngine.pendingToolInput;
-    const field = pending.missing[0];
-    const extracted = extract(
-      pending.tool,
-      text,
+    const pendingInput = toolsEngine.pendingToolInput;
+    const missingField = pendingInput.missing[0];
+    const extractedParams = extract(
+      pendingInput.tool,
+      inputText,
       {},
-      pending.args,
-      [field],
+      pendingInput.args,
+      [missingField],
       true
     );
-    if (extracted.missing.length > 0) {
-      pending.args = extracted.args;
-      pending.missing = extracted.missing;
-      const prompt = parameterPrompt(
-        pending.tool,
-        extracted.missing[0],
-        extracted.errors[0] || '輸入格式不正確'
+    if (extractedParams.missing.length > 0) {
+      pendingInput.args = extractedParams.args;
+      pendingInput.missing = extractedParams.missing;
+      const promptMessage = parameterPrompt(
+        pendingInput.tool,
+        extractedParams.missing[0],
+        extractedParams.errors[0] || '輸入格式不正確'
       );
       if (typeof toolsEngine.onAddChatMessage === 'function') {
-        toolsEngine.onAddChatMessage('assistant', prompt, { source: 'tool' });
+        toolsEngine.onAddChatMessage('assistant', promptMessage, {
+          source: 'tool'
+        });
       }
       if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
-        toolsEngine.onSpokenAudioPlayNow(prompt);
+        toolsEngine.onSpokenAudioPlayNow(promptMessage);
       }
       return true;
     }
-    prepareTool(pending.tool, pending.query, pending.routeMeta, extracted.args);
+    prepareTool(
+      pendingInput.tool,
+      pendingInput.query,
+      pendingInput.routeMeta,
+      extractedParams.args
+    );
     return true;
   }
 
   function offerToolChoices(query, candidates) {
-    const choices = candidates.slice(0, 3);
-    const message = `我找到幾個可能的操作，請選擇：${choices.map((item, index) => `${index + 1}「${item.tool.label}」`).join('、')}`;
+    const candidateChoices = candidates.slice(0, 3);
+    const choiceMessage = `我找到幾個可能的操作，請選擇：${candidateChoices
+      .map(
+        (choiceItem, choiceIndex) =>
+          `${choiceIndex + 1}「${choiceItem.tool.label}」`
+      )
+      .join('、')}`;
 
-    let id;
+    let messageId;
     if (typeof toolsEngine.onAddChatMessage === 'function') {
-      id = toolsEngine.onAddChatMessage('assistant', message, {
-        pendingChoices: choices,
+      messageId = toolsEngine.onAddChatMessage('assistant', choiceMessage, {
+        pendingChoices: candidateChoices,
         source: 'tool'
       });
     }
 
-    if (typeof id !== 'undefined') {
-      const item = setting.getChatLog().find((entry) => entry.id === id);
-      if (typeof item === 'object' && item !== null) {
-        item.choiceQuery = query;
+    if (typeof messageId !== 'undefined') {
+      const chatMessage = setting
+        .getChatLog()
+        .find((entry) => entry.id === messageId);
+      if (typeof chatMessage === 'object' && chatMessage !== null) {
+        chatMessage.choiceQuery = query;
       }
     }
 
-    toolsEngine.pendingToolChoice = { messageId: id, choices };
+    toolsEngine.pendingToolChoice = { messageId, choices: candidateChoices };
 
     if (typeof toolsEngine.onSetHistoryOpen === 'function') {
       toolsEngine.onSetHistoryOpen(true);
     }
     if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
-      toolsEngine.onSpokenAudioPlayNow(message);
+      toolsEngine.onSpokenAudioPlayNow(choiceMessage);
     }
   }
 
-  function continueToolChoice(text) {
+  function continueToolChoice(inputText) {
     if (
       typeof toolsEngine.pendingToolChoice !== 'object' ||
       toolsEngine.pendingToolChoice === null
     ) {
       return false;
     }
-    if (/^(取消|不要|算了|cancel)$/i.test(String(text || '').trim())) {
-      const item = setting
+    if (/^(取消|不要|算了|cancel)$/i.test(String(inputText || '').trim()) === true) {
+      const chatMessage = setting
         .getChatLog()
         .find((entry) => entry.id === toolsEngine.pendingToolChoice.messageId);
-      if (typeof item === 'object' && item !== null) {
-        item.pendingChoices = null;
-        item.text = '好的，已取消。';
+      if (typeof chatMessage === 'object' && chatMessage !== null) {
+        chatMessage.pendingChoices = null;
+        chatMessage.text = '好的，已取消。';
       }
       toolsEngine.pendingToolChoice = null;
 
       if (typeof toolsEngine.onRenderHistory === 'function') {
         toolsEngine.onRenderHistory();
       }
-      const message = '好的，已取消這個操作。';
+      const cancelMessage = '好的，已取消這個操作。';
       if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
-        toolsEngine.onSpokenAudioPlayNow(message);
+        toolsEngine.onSpokenAudioPlayNow(cancelMessage);
       }
       return true;
     }
 
-    let index = /(?:第一|1|一)/.test(text)
-      ? 0
-      : /(?:第二|2|二)/.test(text)
-        ? 1
-        : /(?:第三|3|三)/.test(text)
-          ? 2
-          : -1;
+    let choiceIndex =
+      /(?:第一|1|一)/.test(inputText) === true
+        ? 0
+        : /(?:第二|2|二)/.test(inputText) === true
+          ? 1
+          : /(?:第三|3|三)/.test(inputText) === true
+            ? 2
+            : -1;
 
-    if (index < 0) {
-      const routed = route(
-        toolsEngine.pendingToolChoice.choices.map((item) => item.tool),
-        text
+    if (choiceIndex < 0) {
+      const routedResult = route(
+        toolsEngine.pendingToolChoice.choices.map(
+          (candidateItem) => candidateItem.tool
+        ),
+        inputText
       );
-      if (routed.match) {
-        index = toolsEngine.pendingToolChoice.choices.findIndex(
-          (item) => item.tool.name === routed.match.tool.name
+      if (routedResult.match !== null) {
+        choiceIndex = toolsEngine.pendingToolChoice.choices.findIndex(
+          (candidateItem) => candidateItem.tool.name === routedResult.match.tool.name
         );
       }
     }
 
-    if (index >= 0 && toolsEngine.pendingToolChoice.choices[index]) {
-      chooseTool(toolsEngine.pendingToolChoice.messageId, index);
+    if (
+      choiceIndex >= 0 &&
+      toolsEngine.pendingToolChoice.choices[choiceIndex] !== undefined
+    ) {
+      chooseTool(toolsEngine.pendingToolChoice.messageId, choiceIndex);
       return true;
     }
 
-    const prompt = '請說「第一個、第二個、第三個」，或點選你要的操作。';
+    const promptMessage = '請說「第一個、第二個、第三個」，或點選你要的操作。';
     if (typeof toolsEngine.onAddChatMessage === 'function') {
-      toolsEngine.onAddChatMessage('assistant', prompt, { source: 'tool' });
+      toolsEngine.onAddChatMessage('assistant', promptMessage, { source: 'tool' });
     }
     if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
-      toolsEngine.onSpokenAudioPlayNow(prompt);
+      toolsEngine.onSpokenAudioPlayNow(promptMessage);
     }
     return true;
   }
 
-  function chooseTool(messageId, index) {
-    const item = setting.getChatLog().find((entry) => entry.id === messageId);
+  function chooseTool(messageId, choiceIndex) {
+    const chatMessage = setting.getChatLog().find((entry) => entry.id === messageId);
     if (
-      typeof item !== 'object' ||
-      item === null ||
-      !Array.isArray(item.pendingChoices) ||
-      item.pendingChoices[index] === undefined
+      typeof chatMessage !== 'object' ||
+      chatMessage === null ||
+      Array.isArray(chatMessage.pendingChoices) === false ||
+      chatMessage.pendingChoices[choiceIndex] === undefined
     ) {
       return;
     }
-    const selected = item.pendingChoices[index];
-    item.pendingChoices = null;
-    item.text = `已選擇「${selected.tool.label}」。`;
+    const selectedChoice = chatMessage.pendingChoices[choiceIndex];
+    chatMessage.pendingChoices = null;
+    chatMessage.text = `已選擇「${selectedChoice.tool.label}」。`;
     toolsEngine.pendingToolChoice = null;
     if (typeof toolsEngine.onRenderHistory === 'function') {
       toolsEngine.onRenderHistory();
     }
     prepareTool(
-      selected.tool,
-      item.choiceQuery || '',
-      { confidence: selected.score, reason: 'user_choice' },
+      selectedChoice.tool,
+      chatMessage.choiceQuery || '',
+      { confidence: selectedChoice.score, reason: 'user_choice' },
       {}
     );
   }
@@ -1007,15 +1158,18 @@ export function initToolsEngine(setting = {}) {
     const history = setting
       .getChatLog()
       .slice(-12)
-      .map((item) => ({ role: item.role, text: item.text }))
-      .filter((item) => item.text);
+      .map((chatItem) => ({ role: chatItem.role, text: chatItem.text }))
+      .filter(
+        (chatItem) =>
+          typeof chatItem.text === 'string' && chatItem.text !== ''
+      );
 
     const source =
       typeof options?.source === 'string' && options.source !== ''
         ? options.source
         : CHAT_SOURCE_MAP.TOOL;
 
-    const pending = {
+    const pendingToolData = {
       callId,
       name: tool.name,
       label: tool.label,
@@ -1037,11 +1191,11 @@ export function initToolsEngine(setting = {}) {
     const summary = argumentSummary(tool, args || {});
 
     if (tool.requiresConfirmation === true) {
-      const confirmation = `要幫你執行「${tool.label}」嗎？${summary ? '\n' + summary : ''}`;
+      const confirmationMessage = `要幫你執行「${tool.label}」嗎？${summary !== '' ? '\n' + summary : ''}`;
       if (typeof toolsEngine.onAddChatMessage === 'function') {
-        toolsEngine.onAddChatMessage('assistant', confirmation, {
+        toolsEngine.onAddChatMessage('assistant', confirmationMessage, {
           id: callId,
-          pendingTool: pending,
+          pendingTool: pendingToolData,
           source
         });
       }
@@ -1052,7 +1206,7 @@ export function initToolsEngine(setting = {}) {
         toolsEngine.onSetHistoryOpen(true);
       }
       if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
-        toolsEngine.onSpokenAudioPlayNow(confirmation);
+        toolsEngine.onSpokenAudioPlayNow(confirmationMessage);
       }
       if (typeof setting.onToolOffer === 'function') {
         setting.onToolOffer({
@@ -1070,9 +1224,9 @@ export function initToolsEngine(setting = {}) {
         );
       }
       if (typeof tool.execute === 'function') {
-        executeToolDirectly(tool, args || {}, pending);
+        executeToolDirectly(tool, args || {}, pendingToolData);
       } else if (typeof setting.onToolCall === 'function') {
-        setting.onToolCall(pending);
+        setting.onToolCall(pendingToolData);
       }
       if (typeof setting.onToolOffer === 'function') {
         setting.onToolOffer({
@@ -1084,103 +1238,111 @@ export function initToolsEngine(setting = {}) {
     }
   }
 
-  async function executeToolDirectly(tool, args, pending) {
+  async function executeToolDirectly(tool, args, pendingToolData) {
     if (typeof tool?.execute !== 'function') {
       return null;
     }
     try {
       const result = await tool.execute({
         args,
-        context: pending.input.context,
-        query: pending.input.query
+        context: pendingToolData.input.context,
+        query: pendingToolData.input.query
       });
 
-      if (typeof pending.onConfirmResume === 'function') {
-        pending.onConfirmResume(result);
+      if (typeof pendingToolData.onConfirmResume === 'function') {
+        pendingToolData.onConfirmResume(result);
       } else if (tool.resultMode !== TOOL_RESULT_MODE_MAP.AI_SUMMARY) {
         const message =
-          typeof result === 'string' ? result : result?.message || '已完成。';
+          typeof result === 'string'
+            ? result
+            : typeof result?.message === 'string' && result.message !== ''
+              ? result.message
+              : '已完成。';
         handleToolResult({
           ok: true,
           message,
-          callId: pending.callId,
+          callId: pendingToolData.callId,
           name: tool.name
         });
       }
       return result;
     } catch (error) {
-      const errorMsg = String(error?.message || error || '執行錯誤');
-      if (typeof pending.onConfirmResume === 'function') {
-        pending.onConfirmResume({ ok: false, error: errorMsg });
+      const errorMessage = String(error?.message || error || '執行錯誤');
+      if (typeof pendingToolData.onConfirmResume === 'function') {
+        pendingToolData.onConfirmResume({ ok: false, error: errorMessage });
       } else if (tool.resultMode !== TOOL_RESULT_MODE_MAP.AI_SUMMARY) {
         handleToolResult({
           ok: false,
-          error: errorMsg,
-          callId: pending.callId,
+          error: errorMessage,
+          callId: pendingToolData.callId,
           name: tool.name
         });
       }
-      return { ok: false, error: errorMsg };
+      return { ok: false, error: errorMessage };
     }
   }
 
   function executePendingTool(messageId) {
     clearConfirmationTimer();
-    const item = setting.getChatLog().find((msg) => msg.id === messageId);
+    const chatMessage = setting.getChatLog().find((msg) => msg.id === messageId);
     if (
-      typeof item !== 'object' ||
-      item === null ||
-      typeof item.pendingTool !== 'object' ||
-      item.pendingTool === null
+      typeof chatMessage !== 'object' ||
+      chatMessage === null ||
+      typeof chatMessage.pendingTool !== 'object' ||
+      chatMessage.pendingTool === null
     ) {
       return;
     }
-    const pending = item.pendingTool;
-    item.pendingTool = null;
+    const pendingToolData = chatMessage.pendingTool;
+    chatMessage.pendingTool = null;
     toolsEngine.pendingToolConfirmation = '';
-    item.text = `正在執行「${pending.label}」…`;
+    chatMessage.text = `正在執行「${pendingToolData.label}」…`;
     if (typeof toolsEngine.onRenderHistory === 'function') {
       toolsEngine.onRenderHistory();
     }
 
-    if (typeof pending.tool?.execute === 'function') {
-      executeToolDirectly(pending.tool, pending.input.args, pending);
+    if (typeof pendingToolData.tool?.execute === 'function') {
+      executeToolDirectly(
+        pendingToolData.tool,
+        pendingToolData.input.args,
+        pendingToolData
+      );
     } else if (typeof setting.onToolCall === 'function') {
-      setting.onToolCall(pending);
+      setting.onToolCall(pendingToolData);
     }
 
     if (typeof setting.onToolConfirm === 'function') {
       setting.onToolConfirm({
-        name: pending.name,
-        toolCallId: pending.toolCallId
+        name: pendingToolData.name,
+        toolCallId: pendingToolData.toolCallId
       });
     }
   }
 
   function cancelPendingTool(messageId, options) {
     clearConfirmationTimer();
-    const item = setting.getChatLog().find((msg) => msg.id === messageId);
+    const chatMessage = setting.getChatLog().find((msg) => msg.id === messageId);
     if (
-      typeof item !== 'object' ||
-      item === null ||
-      typeof item.pendingTool !== 'object' ||
-      item.pendingTool === null
+      typeof chatMessage !== 'object' ||
+      chatMessage === null ||
+      typeof chatMessage.pendingTool !== 'object' ||
+      chatMessage.pendingTool === null
     ) {
       return;
     }
-    const pending = item.pendingTool;
-    const reason = options?.reason || TOOL_CANCEL_REASON_MAP.USER_CANCEL;
-    item.pendingTool = null;
+    const pendingToolData = chatMessage.pendingTool;
+    const cancelReason = options?.reason || TOOL_CANCEL_REASON_MAP.USER_CANCEL;
+    chatMessage.pendingTool = null;
     toolsEngine.pendingToolConfirmation = '';
 
-    if (reason === TOOL_CANCEL_REASON_MAP.TIMEOUT) {
-      item.text = '操作已逾時失效。';
-      item.timedOut = true;
-    } else if (reason === TOOL_CANCEL_REASON_MAP.NEW_INPUT) {
-      item.text = '已取消（已轉移話題）。';
-      item.cancelled = true;
+    if (cancelReason === TOOL_CANCEL_REASON_MAP.TIMEOUT) {
+      chatMessage.text = '操作已逾時失效。';
+      chatMessage.timedOut = true;
+    } else if (cancelReason === TOOL_CANCEL_REASON_MAP.NEW_INPUT) {
+      chatMessage.text = '已取消（已轉移話題）。';
+      chatMessage.cancelled = true;
     } else {
-      item.text = '好的，已取消。';
+      chatMessage.text = '好的，已取消。';
       if (
         typeof setting.isConvoOn === 'function' &&
         setting.isConvoOn() === true
@@ -1195,32 +1357,35 @@ export function initToolsEngine(setting = {}) {
       toolsEngine.onRenderHistory();
     }
 
-    if (typeof pending.onConfirmResume === 'function') {
-      pending.onConfirmResume({ cancelled: true, reason });
+    if (typeof pendingToolData.onConfirmResume === 'function') {
+      pendingToolData.onConfirmResume({
+        cancelled: true,
+        reason: cancelReason
+      });
     }
 
     if (typeof setting.onToolCancel === 'function') {
       setting.onToolCancel({
-        name: pending.name,
-        reason,
-        toolCallId: pending.toolCallId
+        name: pendingToolData.name,
+        reason: cancelReason,
+        toolCallId: pendingToolData.toolCallId
       });
     }
   }
 
-  function continueToolConfirmation(text) {
+  function continueToolConfirmation(inputText) {
     if (
       typeof toolsEngine.pendingToolConfirmation !== 'string' ||
       toolsEngine.pendingToolConfirmation === ''
     ) {
       return false;
     }
-    const answer = String(text || '').trim();
-    if (/^(確認|確定|執行|可以|好|好的|yes|ok)$/i.test(answer)) {
+    const trimmedAnswer = String(inputText || '').trim();
+    if (/^(確認|確定|執行|可以|好|好的|yes|ok)$/i.test(trimmedAnswer) === true) {
       executePendingTool(toolsEngine.pendingToolConfirmation);
       return true;
     }
-    if (/^(取消|不要|算了|否|no|cancel)$/i.test(answer)) {
+    if (/^(取消|不要|算了|否|no|cancel)$/i.test(trimmedAnswer) === true) {
       cancelPendingTool(toolsEngine.pendingToolConfirmation, {
         reason: TOOL_CANCEL_REASON_MAP.USER_CANCEL
       });
@@ -1235,27 +1400,27 @@ export function initToolsEngine(setting = {}) {
   }
 
   function handleToolResult(resultData) {
-    const text =
+    const messageText =
       resultData.ok === false
         ? `執行失敗：${String(resultData.error || '未知錯誤')}`
         : String(resultData.message || '已完成。');
-    const existing = setting
+    const existingMessage = setting
       .getChatLog()
       .find((msg) => msg.id === resultData.callId);
 
-    if (typeof existing === 'object' && existing !== null) {
+    if (typeof existingMessage === 'object' && existingMessage !== null) {
       if (typeof toolsEngine.onUpdateChatMessage === 'function') {
-        toolsEngine.onUpdateChatMessage(existing.id, text, false);
+        toolsEngine.onUpdateChatMessage(existingMessage.id, messageText, false);
       }
     } else {
       if (typeof toolsEngine.onAddChatMessage === 'function') {
-        toolsEngine.onAddChatMessage('assistant', text, {
+        toolsEngine.onAddChatMessage('assistant', messageText, {
           source: CHAT_SOURCE_MAP.TOOL
         });
       }
     }
     if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
-      toolsEngine.onSpokenAudioPlayNow(text);
+      toolsEngine.onSpokenAudioPlayNow(messageText);
     }
   }
 
@@ -1277,19 +1442,19 @@ export function initToolsEngine(setting = {}) {
 
   function startConfirmationTimer(messageId, timeoutMs) {
     clearConfirmationTimer();
-    const duration =
+    const durationMs =
       typeof timeoutMs === 'number' &&
       Number.isFinite(timeoutMs) === true &&
       timeoutMs > 0
         ? timeoutMs
         : currentConfirmationTimeoutMs;
 
-    if (duration > 0) {
+    if (durationMs > 0) {
       confirmationTimer = setTimeout(() => {
         cancelPendingTool(messageId, {
           reason: TOOL_CANCEL_REASON_MAP.TIMEOUT
         });
-      }, duration);
+      }, durationMs);
     }
   }
 
@@ -1357,7 +1522,7 @@ export function validateToolsEngine(engine) {
   if (typeof engine !== 'object' || engine === null) {
     return { isValid: false, missing: ['engine object'] };
   }
-  const required = [
+  const requiredMethods = [
     'routeHostTool',
     'prepareTool',
     'continueToolInput',
@@ -1370,11 +1535,11 @@ export function validateToolsEngine(engine) {
     'continueToolConfirmation',
     'handleToolResult'
   ];
-  const missing = [];
-  required.forEach((key) => {
-    if (typeof engine[key] !== 'function') {
-      missing.push(key);
+  const missingMethods = [];
+  requiredMethods.forEach((methodName) => {
+    if (typeof engine[methodName] !== 'function') {
+      missingMethods.push(methodName);
     }
   });
-  return { isValid: missing.length === 0, missing };
+  return { isValid: missingMethods.length === 0, missing: missingMethods };
 }
