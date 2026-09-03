@@ -205,6 +205,7 @@ const avatarWidget = await initAvatarBot({
 | `aiProviderCreatedFetchSetting` | `Function\|Object` | `null` | 自訂遠端 API 的 Fetch Header / RequestInit 設定 |
 | `aiProviderCreatedFetchPayload` | `Function\|Object` | `null` | 自訂送出給 AI 提供者的 JSON Payload 結構 |
 | `llmModel` | `string` | `'Qwen2.5-1.5B...'` | 瀏覽器端 WebLLM 模型名稱 |
+| `llmMaxTokens` | `number` | `1024` | 瀏覽器端 WebLLM 模型回應的最大 Token 數上限 |
 | `preloadWebLLM` | `boolean` | `false` | 是否在初始化時即刻預載 WebLLM 權重檔案 |
 | `autoFallbackWebLLM` | `boolean` | `true` | 當 AI Provider 連線失敗時是否自動啟動 WebLLM 備援 |
 | `knowledge` | `Array\|string` | `null` | 助理模式預載的知識庫資料 (JSON Array 或字串) |

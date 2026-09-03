@@ -36,8 +36,8 @@
       window.aiAvatarWidget = await initAvatarBot({
         container: app,
         // llmModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 中文不錯、約 1.1GB、首次下載後會被快取
-        // llmModel: 'gemma-2-2b-it-q4f32_1-MLC', // Google 公開模型
         llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC', // 支援工具調用的模型
+        // llmMaxTokens: 1024, // WebLLM 端側模型回應最大 Token 數（預設 1024）
         // aiProviderModel: 'qwen2.5:latest',
         // aiProviderModel: 'gemma4:latest',
         // aiProviderBaseUrl: 'http://localhost:5173/api/ollama',

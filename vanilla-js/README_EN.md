@@ -205,6 +205,7 @@ Options object accepted by `initAvatarBot(options)`:
 | `aiProviderCreatedFetchSetting` | `Function\|Object` | `null` | Custom Fetch Header / RequestInit configuration. |
 | `aiProviderCreatedFetchPayload` | `Function\|Object` | `null` | Custom JSON payload factory function or object. |
 | `llmModel` | `string` | `'Qwen2.5-1.5B...'` | In-browser WebLLM model name. |
+| `llmMaxTokens` | `number` | `1024` | Maximum response tokens limit for in-browser WebLLM. |
 | `preloadWebLLM` | `boolean` | `false` | Whether to preload WebLLM weights immediately upon initialization. |
 | `autoFallbackWebLLM` | `boolean` | `true` | Whether to auto-fallback to WebLLM if remote AI Provider fails. |
 | `knowledge` | `Array\|string` | `null` | Preloaded knowledge base for assistant mode (JSON array or string). |

@@ -6,7 +6,9 @@ import {
   AVATAR_MODE_MAP,
   DEFAULT_AVATAR_MODE,
   DEFAULT_LLM_MODEL,
+  DEFAULT_LLM_MAX_TOKENS,
   DEFAULT_AI_PROVIDER_MODEL,
+  DEFAULT_AI_PROVIDER_MAX_TOKENS,
   DEFAULT_ENABLE_MEMORY,
   DEFAULT_MAX_HISTORY_TURNS,
   DEFAULT_MEMORY_KEY,
@@ -69,7 +71,7 @@ export * from './plugins';
  * @property {string} [aiProviderModel=DEFAULT_AI_PROVIDER_MODEL] - 使用的 AI 服務模型名稱
  * @property {Function|RequestInit} [aiProviderCreatedFetchSetting] - 自訂 Fetch 設定的處理函式或設定物件
  * @property {Function|Record<string, any>} [aiProviderCreatedFetchPayload] - 自訂 Fetch 負載 (Payload) 的處理函式或負載物件
- * @property {number} [aiProviderMaxTokens] - AI 服務回應的最大 Token 數
+ * @property {number} [aiProviderMaxTokens=DEFAULT_AI_PROVIDER_MAX_TOKENS] - AI 服務回應的最大 Token 數
  * @property {boolean} [aiProviderStream] - 是否啟用 AI 服務的串流 (Streaming) 回應
  * @property {Function} [aiProviderExtractToolCalls] - AI 服務提供商自訂提取 Tool Calls 的回呼函式
  * @property {string} [neuralVoice=''] - 指定使用的神經網路語音 (Neural Voice)
@@ -78,6 +80,8 @@ export * from './plugins';
  * @property {string} [modelUrl] - 3D 或 2D 模型的 URL
  * @property {string} [ttsEndpoint=DEFAULT_TTS_ENDPOINT] - 語音合成 (TTS) 服務端點 URL (沒設會試同站相對路徑)
  * @property {string} [llmModel=DEFAULT_LLM_MODEL] - 預設的本地/遠端語言模型 (LLM) 類型
+ * @property {number} [llmMaxTokens=DEFAULT_LLM_MAX_TOKENS] - WebLLM 本地模型回應的最大 Token 數
+ * @property {number} [LLMMaxTokens] - WebLLM 本地模型回應的最大 Token 數 (相容別名)
  * @property {boolean} [preloadWebLLM=false] - 是否在初始化時預先載入 WebLLM 模型
  * @property {boolean} [autoFallbackWebLLM=true] - 當 AI Provider 故障時是否自動在背景載入 WebLLM 備援
  * @property {AvatarMode} [avatarMode=DEFAULT_AVATAR_MODE] - Avatar 模式（例如：assistant, companion 或自訂模式）
@@ -233,6 +237,8 @@ export async function initAvatarBot(options = {}) {
     modelUrl,
     ttsEndpoint = DEFAULT_TTS_ENDPOINT, // 沒設→試同站相對路徑；抓不到→自動退回瀏覽器語音（純前端可用）
     llmModel = DEFAULT_LLM_MODEL,
+    llmMaxTokens,
+    LLMMaxTokens,
     preloadWebLLM = false,
     autoFallbackWebLLM = true,
     avatarMode = DEFAULT_AVATAR_MODE,
@@ -1081,8 +1087,21 @@ export async function initAvatarBot(options = {}) {
     speechEngine.spokenAudioText = greeting;
   }
 
+  const resolvedLlmMaxTokens =
+    typeof llmMaxTokens === 'number' &&
+    Number.isFinite(llmMaxTokens) === true &&
+    llmMaxTokens > 0
+      ? llmMaxTokens
+      : typeof LLMMaxTokens === 'number' &&
+          Number.isFinite(LLMMaxTokens) === true &&
+          LLMMaxTokens > 0
+        ? LLMMaxTokens
+        : DEFAULT_LLM_MAX_TOKENS;
+
   const brainOptions = {
     llmModel,
+    llmMaxTokens: resolvedLlmMaxTokens,
+    LLMMaxTokens: resolvedLlmMaxTokens,
     preloadWebLLM: rootStore.getState().preloadWebLLM,
     autoFallbackWebLLM: rootStore.getState().autoFallbackWebLLM,
     avatarMode: rootStore.getState().avatarMode,
@@ -1112,7 +1131,12 @@ export async function initAvatarBot(options = {}) {
     aiProviderModel,
     aiProviderCreatedFetchSetting,
     aiProviderCreatedFetchPayload,
-    aiProviderMaxTokens,
+    aiProviderMaxTokens:
+      typeof aiProviderMaxTokens === 'number' &&
+      Number.isFinite(aiProviderMaxTokens) === true &&
+      aiProviderMaxTokens > 0
+        ? aiProviderMaxTokens
+        : DEFAULT_AI_PROVIDER_MAX_TOKENS,
     aiProviderStream,
     aiProviderExtractToolCalls: options.aiProviderExtractToolCalls,
     getTools: () => {

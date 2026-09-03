@@ -9,7 +9,9 @@ import {
   AVATAR_MODE_MAP,
   DEFAULT_AVATAR_MODE,
   DEFAULT_LLM_MODEL,
+  DEFAULT_LLM_MAX_TOKENS,
   DEFAULT_AI_PROVIDER_MODEL,
+  DEFAULT_AI_PROVIDER_MAX_TOKENS,
   DEFAULT_ENABLE_MEMORY,
   DEFAULT_MAX_HISTORY_TURNS,
   DEFAULT_SUMMARY_THRESHOLD_TURNS,
@@ -45,7 +47,8 @@ export * from './compression.js';
  * WebLLM 引擎設定
  * @typedef {Object} LLMEngineOptions
  * @property {string} [llmModel] - LLM 模型名稱
- * @property {number} [LLMMaxTokens] - LLM 最大 token 數
+ * @property {number} [llmMaxTokens] - LLM 最大 token 數
+ * @property {number} [LLMMaxTokens] - LLM 最大 token 數 (相容別名)
  * @property {boolean} [LLMIsStream] - 是否使用串流
  * @property {Function} [onLoading] - 載入中回呼
  * @property {Function} [onLoadProgress] - 載入進度回呼
@@ -169,7 +172,8 @@ export * from './compression.js';
  * @property {string|Function} [welcomeText] - 歡迎詞
  * @property {string|Function} [companionWelcomeText] - 陪伴模式歡迎詞
  * @property {string|Function} [assistantWelcomeText] - 助理模式歡迎詞
- * @property {number} [LLMMaxTokens] - LLM 最大 token 數
+ * @property {number} [llmMaxTokens] - LLM 最大 token 數
+ * @property {number} [LLMMaxTokens] - LLM 最大 token 數 (相容別名)
  * @property {boolean} [LLMIsStream] - LLM 是否串流
  * @property {Function} [onLlmLoading] - LLM 載入中回呼
  * @property {Function} [onLlmLoadProgress] - LLM 載入進度回呼
@@ -455,7 +459,8 @@ export function extractToolCallsFromText(content) {
 export function initLLM(setting = {}, brain) {
   const {
     llmModel = DEFAULT_LLM_MODEL,
-    LLMMaxTokens = 220,
+    llmMaxTokens,
+    LLMMaxTokens,
     LLMIsStream = true,
     onLoading,
     onLoadProgress,
@@ -464,6 +469,17 @@ export function initLLM(setting = {}, brain) {
     onChatting,
     onStreamChatting
   } = setting;
+
+  const resolvedMaxTokens =
+    typeof llmMaxTokens === 'number' &&
+    Number.isFinite(llmMaxTokens) === true &&
+    llmMaxTokens > 0
+      ? llmMaxTokens
+      : typeof LLMMaxTokens === 'number' &&
+          Number.isFinite(LLMMaxTokens) === true &&
+          LLMMaxTokens > 0
+        ? LLMMaxTokens
+        : DEFAULT_LLM_MAX_TOKENS;
 
   let engine = null;
   let loadingPromise = null;
@@ -477,7 +493,7 @@ export function initLLM(setting = {}, brain) {
     model: llmModel || DEFAULT_LLM_MODEL,
 
     get maxTokens() {
-      return LLMMaxTokens;
+      return resolvedMaxTokens;
     },
     get isStream() {
       return LLMIsStream;
@@ -1000,7 +1016,7 @@ export async function initAiProvider(setting = {}) {
     providerResponesFormat = null,
     providerExtractToolCalls = null,
 
-    providerMaxTokens = 2048,
+    providerMaxTokens = DEFAULT_AI_PROVIDER_MAX_TOKENS,
     providerIsStream = false,
 
     onConnecting = null,
@@ -1457,6 +1473,7 @@ export async function initBrainEngine(setting = {}) {
     companionWelcomeText = null,
     assistantWelcomeText = null,
 
+    llmMaxTokens,
     LLMMaxTokens,
     LLMIsStream,
     onLlmLoading,
@@ -1776,10 +1793,22 @@ export async function initBrainEngine(setting = {}) {
       onAiProviderStreamChatting.bind(brainEngine);
   }
 
+  const resolvedLLMMaxTokens =
+    typeof llmMaxTokens === 'number' &&
+    Number.isFinite(llmMaxTokens) === true &&
+    llmMaxTokens > 0
+      ? llmMaxTokens
+      : typeof LLMMaxTokens === 'number' &&
+          Number.isFinite(LLMMaxTokens) === true &&
+          LLMMaxTokens > 0
+        ? LLMMaxTokens
+        : DEFAULT_LLM_MAX_TOKENS;
+
   llm = initLLM(
     {
       llmModel,
-      LLMMaxTokens,
+      llmMaxTokens: resolvedLLMMaxTokens,
+      LLMMaxTokens: resolvedLLMMaxTokens,
       LLMIsStream,
       onLoading(...args) {
         return brainEngine.onLlmLoading?.(...args);

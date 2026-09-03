@@ -132,6 +132,18 @@ export const DEFAULT_LLM_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 export const DEFAULT_AI_PROVIDER_MODEL = 'qwen2.5:latest';
 
 /**
+ * 預設端側 WebLLM 引擎單次回答的最大 Token 數。
+ * @type {number}
+ */
+export const DEFAULT_LLM_MAX_TOKENS = 1024;
+
+/**
+ * 預設雲端 AI Provider 伺服器單次回答的最大 Token 數。
+ * @type {number}
+ */
+export const DEFAULT_AI_PROVIDER_MAX_TOKENS = 2048;
+
+/**
  * 情緒目標值映射表。
  * @readonly
  * @enum {number}
