@@ -669,6 +669,25 @@ export async function initAvatarBot(options = {}) {
     },
     get skinEngine() {
       return skinEngine;
+    },
+
+    get suggestedQuestions() {
+      return options.suggestedQuestions;
+    },
+    get companionSuggestedQuestions() {
+      return options.companionSuggestedQuestions;
+    },
+    get assistantSuggestedQuestions() {
+      return options.assistantSuggestedQuestions;
+    },
+    get suggestedTitle() {
+      return options.suggestedTitle;
+    },
+    get companionSuggestedTitle() {
+      return options.companionSuggestedTitle;
+    },
+    get assistantSuggestedTitle() {
+      return options.assistantSuggestedTitle;
     }
   };
 
@@ -1329,12 +1348,12 @@ export async function initAvatarBot(options = {}) {
       speechEngine.spokenAudioText = text;
     },
     onEmotionChange(emotion) {
-      if (
-        typeof skinEngine === 'object' &&
-        skinEngine !== null &&
-        skinEngine.gestureName !== undefined
-      ) {
-        skinEngine.gestureName = emotion;
+      if (typeof skinEngine === 'object' && skinEngine !== null) {
+        if (typeof skinEngine.setEmotion === 'function') {
+          skinEngine.setEmotion(emotion);
+        } else if (skinEngine.gestureName !== undefined) {
+          skinEngine.gestureName = emotion;
+        }
       }
     },
     onStreamStart() {
@@ -1449,7 +1468,8 @@ export async function initAvatarBot(options = {}) {
     },
     onMicStateChanged(isListening, convoOn) {
       if (typeof uiDom.updateMicState === 'function') {
-        const isCompanion = avatarMode === AVATAR_MODE_MAP.companion;
+        const currentAvatarMode = rootStore.getState().avatarMode || avatarMode;
+        const isCompanion = currentAvatarMode === AVATAR_MODE_MAP.companion;
         uiDom.updateMicState(isListening, convoOn, isCompanion, i18nEngine);
       }
       callOptionEvent.call(this, 'onMicStateChanged', isListening, convoOn);
@@ -1748,24 +1768,44 @@ export async function initAvatarBot(options = {}) {
           uiDom.engineButtonEl.textContent = '2D';
         }
 
-        skinEngine.avatarModel.on('hit', () => {
-          speechEngine.triggerTap();
-        });
+        if (
+          typeof skinEngine.avatarModel === 'object' &&
+          skinEngine.avatarModel !== null &&
+          typeof skinEngine.avatarModel.on === 'function'
+        ) {
+          skinEngine.avatarModel.on('hit', () => {
+            speechEngine.triggerTap();
+          });
+        }
         if (skinEngine.engineMode === ENGINE_MODE_MAP.threeDimensional) {
-          skinEngine.renderer.canvas.addEventListener('pointerdown', () => {
-            skinEngine.renderer.playGesture(
-              skinEngine.renderer.TAP_GESTURES[
-                Math.floor(
-                  Math.random() * skinEngine.renderer.TAP_GESTURES.length
-                )
-              ]
-            );
-            speechEngine.triggerTap();
-          });
+          if (
+            typeof skinEngine.renderer?.canvas?.addEventListener === 'function'
+          ) {
+            skinEngine.renderer.canvas.addEventListener('pointerdown', () => {
+              if (
+                Array.isArray(skinEngine.renderer?.TAP_GESTURES) === true &&
+                skinEngine.renderer.TAP_GESTURES.length > 0 &&
+                typeof skinEngine.renderer.playGesture === 'function'
+              ) {
+                skinEngine.renderer.playGesture(
+                  skinEngine.renderer.TAP_GESTURES[
+                    Math.floor(
+                      Math.random() * skinEngine.renderer.TAP_GESTURES.length
+                    )
+                  ]
+                );
+              }
+              speechEngine.triggerTap();
+            });
+          }
         } else {
-          skinEngine.renderer.canvas.addEventListener('pointerdown', () => {
-            speechEngine.triggerTap();
-          });
+          if (
+            typeof skinEngine.renderer?.canvas?.addEventListener === 'function'
+          ) {
+            skinEngine.renderer.canvas.addEventListener('pointerdown', () => {
+              speechEngine.triggerTap();
+            });
+          }
         }
         callOptionEvent.call(this, 'onModelChangeEnd');
       }

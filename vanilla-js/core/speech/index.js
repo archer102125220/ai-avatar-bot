@@ -195,6 +195,7 @@ export async function initSpeechEngine(setting = {}) {
     neuralVoice,
     speakSeq: 0,
     ttsMuted: false,
+    ttsRate: 1.0,
     convoOn: false,
     isProcessing: false,
     assistantSpeechStartedAt: 0,
@@ -239,6 +240,12 @@ export async function initSpeechEngine(setting = {}) {
   store.subscribe('ttsMuted', (isMuted) => {
     if (ttsEngine !== null) {
       ttsEngine.isMuted = isMuted;
+    }
+  });
+
+  store.subscribe('ttsRate', (newRate) => {
+    if (ttsEngine !== null) {
+      ttsEngine.ttsRate = newRate;
     }
   });
 
@@ -354,6 +361,33 @@ export async function initSpeechEngine(setting = {}) {
     set ttsMuted(newTtsMuted) {
       store.setState({ ttsMuted: newTtsMuted });
     },
+
+    get ttsRate() {
+      return store.getState().ttsRate;
+    },
+    set ttsRate(newRate) {
+      const safeRate =
+        typeof newRate === 'number' &&
+        Number.isFinite(newRate) === true &&
+        newRate > 0
+          ? newRate
+          : 1.0;
+      store.setState({ ttsRate: safeRate });
+      if (ttsEngine !== null) {
+        ttsEngine.ttsRate = safeRate;
+      }
+    },
+
+    get noSpeechRuns() {
+      return sttEngine !== null ? sttEngine.noSpeechRuns : 0;
+    },
+    set noSpeechRuns(value) {
+      if (sttEngine !== null) {
+        sttEngine.noSpeechRuns = value;
+      }
+    },
+
+    onTapTimer: false,
 
     get convoOn() {
       return store.getState().convoOn;

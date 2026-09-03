@@ -346,6 +346,20 @@ export function initDefaultTTSEngine(options = {}) {
       store.setState({ isMuted: value });
     },
 
+    get ttsRate() {
+      return store.getState().ttsRate;
+    },
+    set ttsRate(newRate) {
+      store.setState({
+        ttsRate:
+          typeof newRate === 'number' &&
+          Number.isFinite(newRate) === true &&
+          newRate > 0
+            ? newRate
+            : 1.0
+      });
+    },
+
     beginSpeech() {
       engine.stop();
       state.speechQueue = [];

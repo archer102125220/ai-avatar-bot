@@ -754,9 +754,11 @@ export function initSkinModeChangeButton(
     if (engineButtonEl instanceof HTMLElement) {
       engineButtonEl.style.display = '';
       engineButtonEl.onclick = () => {
-        context.skinEngine.engineMode = context.ENGINE_MODE_MAP.threeDimensional
-          ? context.ENGINE_MODE_MAP.twoDimensional
-          : context.ENGINE_MODE_MAP.threeDimensional;
+        context.skinEngine.engineMode =
+          context.skinEngine.engineMode ===
+          context.ENGINE_MODE_MAP.threeDimensional
+            ? context.ENGINE_MODE_MAP.twoDimensional
+            : context.ENGINE_MODE_MAP.threeDimensional;
       };
     }
   }

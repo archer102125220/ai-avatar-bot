@@ -1238,18 +1238,33 @@ export function initToolsEngine(setting = {}) {
     }
   }
 
-  async function executeToolDirectly(tool, args, pendingToolData) {
+  async function executeToolDirectly(tool, args, pendingToolData = {}) {
     if (typeof tool?.execute !== 'function') {
       return null;
     }
+    const resolvedContext =
+      typeof pendingToolData?.input?.context === 'object' &&
+      pendingToolData.input.context !== null
+        ? pendingToolData.input.context
+        : typeof pendingToolData?.context === 'object' &&
+            pendingToolData.context !== null
+          ? pendingToolData.context
+          : {};
+    const resolvedQuery =
+      typeof pendingToolData?.input?.query === 'string'
+        ? pendingToolData.input.query
+        : typeof pendingToolData?.query === 'string'
+          ? pendingToolData.query
+          : '';
+
     try {
       const result = await tool.execute({
         args,
-        context: pendingToolData.input.context,
-        query: pendingToolData.input.query
+        context: resolvedContext,
+        query: resolvedQuery
       });
 
-      if (typeof pendingToolData.onConfirmResume === 'function') {
+      if (typeof pendingToolData?.onConfirmResume === 'function') {
         pendingToolData.onConfirmResume(result);
       } else if (tool.resultMode !== TOOL_RESULT_MODE_MAP.AI_SUMMARY) {
         const message =
@@ -1261,20 +1276,20 @@ export function initToolsEngine(setting = {}) {
         handleToolResult({
           ok: true,
           message,
-          callId: pendingToolData.callId,
+          callId: pendingToolData?.callId,
           name: tool.name
         });
       }
       return result;
     } catch (error) {
       const errorMessage = String(error?.message || error || '執行錯誤');
-      if (typeof pendingToolData.onConfirmResume === 'function') {
+      if (typeof pendingToolData?.onConfirmResume === 'function') {
         pendingToolData.onConfirmResume({ ok: false, error: errorMessage });
       } else if (tool.resultMode !== TOOL_RESULT_MODE_MAP.AI_SUMMARY) {
         handleToolResult({
           ok: false,
           error: errorMessage,
-          callId: pendingToolData.callId,
+          callId: pendingToolData?.callId,
           name: tool.name
         });
       }

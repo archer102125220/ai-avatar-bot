@@ -376,6 +376,17 @@ export function initDefaultSTTEngine(options = {}) {
       return state.isListening === true;
     },
 
+    get noSpeechRuns() {
+      return typeof state.noSpeechRuns === 'number' ? state.noSpeechRuns : 0;
+    },
+
+    set noSpeechRuns(value) {
+      state.noSpeechRuns =
+        typeof value === 'number' && Number.isFinite(value) === true
+          ? value
+          : 0;
+    },
+
     async startListening() {
       const SpeechRecognition =
         window.SpeechRecognition || window.webkitSpeechRecognition;

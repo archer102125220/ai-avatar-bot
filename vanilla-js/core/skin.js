@@ -1,8 +1,8 @@
 import { createBaseStore } from './store';
 import {
-  EMO_TARGET_MAP,
+  EMOTION_TARGET_MAP,
   ENGINE_MODE_MAP,
-  DEFALUT_START_MODE,
+  DEFAULT_START_MODE,
   FIT_MODE_MAP,
   DEFAULT_FIT_MODE,
   GENDER_MAP,
@@ -97,15 +97,6 @@ export function validateSkinEngine(engine) {
     }
     if (engine.stageEl instanceof HTMLElement === false) {
       missing.push('stageEl');
-    }
-    if (engine.renderer?.canvas instanceof HTMLElement === false) {
-      missing.push('renderer.canvas');
-    }
-    if (typeof engine.renderer?.playGesture !== 'function') {
-      missing.push('renderer.playGesture()');
-    }
-    if (typeof engine.avatarModel?.on !== 'function') {
-      missing.push('avatarModel.on()');
     }
   }
 
@@ -999,7 +990,7 @@ export function initSkinEngine(setting = {}) {
   const {
     stageEl,
     modelUrl = '',
-    startMode = DEFALUT_START_MODE,
+    startMode = DEFAULT_START_MODE,
     fitMode = DEFAULT_FIT_MODE,
     vrmUrl = '',
     gesture3D = null,
@@ -1174,7 +1165,7 @@ export function initSkinEngine(setting = {}) {
         return this._name;
       },
       set name(newName) {
-        const newTarget = EMO_TARGET_MAP[newName];
+        const newTarget = EMOTION_TARGET_MAP[newName];
 
         if (
           (typeof newTarget !== 'number' && newName !== 'neutral') ||
@@ -1407,7 +1398,7 @@ export function initSkinEngine(setting = {}) {
       }
     },
 
-    _startMode: startMode || DEFALUT_START_MODE,
+    _startMode: startMode || DEFAULT_START_MODE,
     get startMode() {
       return this._startMode;
     },
