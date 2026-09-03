@@ -726,15 +726,15 @@ export function renderHistory(context) {
 }
 
 /**
- * 根據傳入的 2D 與 3D 模型設定，初始化切換引擎模式的按鈕。
+ * 根據是否具備 2D 與 3D 模型設定，初始化切換引擎模式的按鈕。
  * @param {UiContext|null} context - 應用程式的共用狀態與參考（需包含 uiDom, skinEngine 等）。
- * @param {string} model2DUrl - 2D 模型的資源路徑。
- * @param {string} model3DUrl - 3D 模型的資源路徑。
+ * @param {boolean} [has2D=false] - 是否具備 2D 模型。
+ * @param {boolean} [has3D=false] - 是否具備 3D 模型。
  */
 export function initSkinModeChangeButton(
   context = null,
-  model2DUrl,
-  model3DUrl
+  has2D = false,
+  has3D = false
 ) {
   const engineButtonEl = context?.uiDom?.engineButtonEl;
   if (engineButtonEl instanceof HTMLElement === false) {
@@ -744,12 +744,7 @@ export function initSkinModeChangeButton(
     return;
   }
 
-  if (
-    typeof model2DUrl === 'string' &&
-    model2DUrl !== '' &&
-    typeof model3DUrl === 'string' &&
-    model3DUrl !== ''
-  ) {
+  if (has2D === true && has3D === true) {
     // 兩個皮都給 → 顯示切換鈕，讓使用者即時切
     if (engineButtonEl instanceof HTMLElement) {
       engineButtonEl.style.display = '';

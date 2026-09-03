@@ -633,6 +633,9 @@ export function initDefaultTTSEngine(options = {}) {
     const currentState = store.getState();
     const bufferSourceNode = currentState.audioCtx.createBufferSource();
     bufferSourceNode.buffer = audioBuffer;
+    if (typeof currentState.ttsRate === 'number' && currentState.ttsRate > 0) {
+      bufferSourceNode.playbackRate.value = currentState.ttsRate;
+    }
     const analyserNode = currentState.audioCtx.createAnalyser();
     analyserNode.fftSize = 128;
     analyserNode.smoothingTimeConstant = 0;
