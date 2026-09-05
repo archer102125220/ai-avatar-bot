@@ -1,83 +1,173 @@
-# AI Avatar Bot (Vanilla JS)
+# AI Avatar Bot
 
 [繁體中文](./README.md) | English
 
-> ⚠️ **Work In Progress**
-> This project is currently undergoing a massive refactor and packaging process. This document describes the **"Target Architecture"** we aim to achieve.
-> ([Original GitHub](https://github.com/YuriCrystal/ai-avatar-bot))
+> A lightweight, modular, and extensible Web AI Avatar (2D Live2D / 3D VRM) SDK ecosystem.
 
-A highly modular npm package for integrating 2D/3D AI Avatars into web applications. It is designed to quickly embed digital humans with voice interaction, LLM integration, and expressive animations.
+This project originated from the open-source exploration by [YuriCrystal/ai-avatar-bot](https://github.com/YuriCrystal/ai-avatar-bot). We have performed extensive modular decomposition, architectural refactoring, and engineering standardizations to build a modern Web AI Avatar package ecosystem ready for npm distribution.
 
-## 🌟 Target Features
+---
 
-*   **Multi-Engine Architecture**: Highly modular, allowing developers to swap or customize underlying logic easily.
-    *   🧠 **Brain Engine (`brainEngine`)**: Handles communication with Large Language Models (LLM). Supports Ollama server, WebLLM (local models), and features built-in contextual memory management.
-    *   🗣️ **Speech Engine (`speechEngine`)**: Consolidates speech input (STT) and output (TTS). Supports browser built-in speech and high-fidelity neural speech APIs. Automatically manages the mutually exclusive "listen and speak" states and microphone handovers.
-    *   🛠️ **Tools Manager (`toolsManager`)**: A standardized Function Calling manager. Easily register external tools for the brain to invoke (e.g., check weather, control UI).
-    *   🎭 **Skin Engine**: Supports loading 2D (Live2D) and 3D (.vrm) models, featuring automatic lip-sync and gesture control.
-    *   🖥️ **UI Engine (`uiEngine`)**: Provides an out-of-the-box default control interface, and supports **Headless Mode**, allowing developers to completely take over UI rendering to perfectly fit any frontend framework.
-*   **Continuous Conversation (Companion Mode)**: Supports natural back-and-forth dialogue. The AI automatically reopens the microphone to listen after speaking.
-*   **Zero Frontend Dependencies**: The core is built with Vanilla JS, making it easy to integrate into React, Vue, Angular, or any web project.
+## 📑 Table of Contents
 
-## 🗺️ Roadmap
+- [📦 Package Matrix & Navigation](#-package-matrix--navigation)
+- [🌟 Core Architecture & Multi-Engine Design](#-core-architecture--multi-engine-design)
+- [🚀 Quick Start (Vanilla JS Example)](#-quick-start-vanilla-js-example)
+- [🛠️ Monorepo Development Commands](#️-monorepo-development-commands)
+- [🗺️ Roadmap](#️-roadmap)
+- [🤝 Credits & Attribution](#-credits--attribution)
+- [📦 Third-Party Assets & License](#-third-party-assets--license)
 
-This package will be released in multiple versions to meet different developer needs:
+---
 
-1.  **Vanilla JS**: The current main focus, used to validate core logic and architecture.
-2.  **TypeScript (TS)**: Coming soon! To provide better type hinting and development experience, the TS version will **completely replace** the current Vanilla JS version once finished.
-3.  **Vue & React Wrappers**: Once the core logic (TS version) stabilizes, dedicated component libraries optimized for Vue and React will be released for seamless integration.
+## 📦 Package Matrix & Navigation
 
-## 📦 Installation
+This Monorepo is organized into dedicated sub-packages for various usage scenarios and frontend technology stacks. Among them, **`vanilla-js` serves as the foundational core package (currently the most complete)**, and all other framework wrappers and typed versions are built upon it:
 
-*(npm install support coming soon. For now, please use by importing core modules)*
+| Package Directory | Package Name / Type | Status | Role & Characteristics | Quick Link |
+| :--- | :--- | :---: | :--- | :---: |
+| [`/vanilla-js`](./vanilla-js) | `ai-avatar-bot-vanilla-js` | 🟢 **Most Complete (Core Baseline)** | **Zero framework dependencies** pure JavaScript core SDK. Features multi-engine architecture, memory compression, Auto-Continue, Headless mode, and Vite/Webpack offline asset plugins. The foundation for all subsequent packages. | [📄 Documentation](./vanilla-js/README_EN.md) |
+| [`/iframe`](./iframe) | `ai-avatar-bot-iframe` | 🟡 **Classic Refactor** | **Initial modular refactor of the original version**. Preserves the original author's classic iframe and `embed.js` one-line script embedding design, offering maximum DOM/CSS isolation and standalone demo pages. | [📄 Documentation](./iframe/README.en.md) |
+| [`/typescript`](./typescript) | `ai-avatar-bot-typescript` | 🚧 **In Progress** | **TypeScript type-safe port** based on `vanilla-js`. Provides complete type definition files (`.d.ts`), strict interface constraints, and superior IDE autocomplete experience. | [📁 Source Code](./typescript) |
+| [`/vue`](./vue) | `ai-avatar-bot-vue` | 🚧 **In Progress** | Dedicated component library for **Vue 3**. Provides `<AiAvatarBot />` components and `useAvatar` composables, supporting reactive props and custom slots. | [📁 Source Code](./vue) |
+| [`/react`](./react) | `ai-avatar-bot-react` | 🚧 **In Progress** | Dedicated component library for **React 18 / 19**. Provides `<AiAvatarBot />` components and `useAvatar` hooks, seamlessly integrating with React lifecycle and JSX rendering. | [📁 Source Code](./react) |
 
-## 🚀 Quick Start
+---
+
+## 🌟 Core Architecture & Multi-Engine Design
+
+The entire SDK adopts a highly decoupled "Multi-Engine Architecture", allowing developers to swap underlying implementations or completely take over the UI via Headless Mode:
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│                       AiAvatarWidget                         │
+├──────────────┬──────────────┬──────────────┬─────────────────┤
+│ 🧠 Brain     │ 🗣️ Speech    │ 🎭 Skin      │ 🛠️ Tools        │
+│  - AI Provider│  - Web STT   │  - Live2D 2D │  - Rule Route   │
+│  - WebLLM     │  - Neural TTS│  - VRM 3D    │  - AI Function  │
+│  - Memory/RAG │  - Lip Sync  │  - Emotions  │  - Confirmation │
+├──────────────┴──────────────┴──────────────┴─────────────────┤
+│ 🖥️ UI Engine (Dock, Chat Bubbles, History Panel, Mic Control) │
+│ 🌐 i18n Engine (zh-TW, en-US, ja-JP, ko-KR...)               │
+│ 📦 BaseStore (Reactive State Management)                     │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Core Engine Responsibilities:
+
+1. 🧠 **Brain Engine**:
+   * **Three-tier Auto-Fallback**: Remote AI Provider (Ollama / OpenAI API) ➔ Client-side WebLLM (browser WebGPU models) ➔ Bigram keyword instant retrieval.
+   * **Intelligent Context Compression**: Sliding window and rolling summary strategies with cascading dual-track budgets to prevent WebGPU VRAM overflow and token limits.
+   * **Auto-Continue Responses**: Automatically bypasses single-response token truncation to produce seamless long answers.
+2. 🗣️ **Speech Engine**:
+   * Integrates browser Speech Recognition (STT) and Microsoft Neural TTS.
+   * Supports real-time voice barge-in, companion continuous dialogue, audio streaming queue, and real-time lip sync.
+3. 🎭 **Skin Engine**:
+   * Dual rendering support for 2D (Live2D via Pixi.js) and 3D (VRM via Three.js).
+   * Built-in 8+ emotional gestures (happy, surprised, thinking, wave, bow, relax, etc.), custom model loading, and secure drag-and-drop outfit swapping.
+4. 🛠️ **Tools Engine**:
+   * Standardized Function Calling supporting client rule matching, AI semantic invocation, and hybrid routing.
+   * Built-in Human-in-the-loop authorization dialogs and JSON Schema parameter validation.
+5. 🖥️ **UI Engine**:
+   * Modern out-of-the-box floating dock, chat bubbles, and settings drawers.
+   * Supports **Headless Mode**, allowing developers to completely hide the default UI and build custom interfaces with Vue or React.
+6. 🌐 **I18n Engine**:
+   * Built-in locale dictionaries for Traditional Chinese (`zh-TW`), Simplified Chinese (`zh-CN`), English (`en-US`), Japanese (`ja-JP`), and Korean (`ko-KR`).
+
+---
+
+## 🚀 Quick Start (Vanilla JS Example)
+
+The most stable and complete version currently is `vanilla-js`. You can install it via npm or import it directly:
+
+```bash
+# Install the Vanilla JS core package
+npm install ai-avatar-bot-vanilla-js
+```
+
+### Initialization Example:
 
 ```javascript
-import { initAvatarBot } from './vanilla-js/core/index.js';
+import { initAvatarBot } from 'ai-avatar-bot-vanilla-js';
 
-// Initialize and mount Widget
-const aiAvatarWidget = await initAvatarBot({
-  container: document.getElementById('avatar-container'), // Uses built-in uiEngine by default
-  avatarMode: 'assistant', // or 'companion'
-  llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC', 
-  greeting: 'Hello! I am your AI assistant.',
+// Initialize and mount to a container
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  
+  // Mode selection: 'assistant' or 'companion' (continuous dialogue)
+  avatarMode: 'assistant',
+  gender: 'female',
+  
+  // Brain model configuration
+  llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+  welcomeText: 'Hello! I am your AI Avatar assistant.',
 
-  // Context Compression & Memory Budget Controls
+  // Context compression & VRAM budgeting
   compression: {
-    strategy: 'sliding-window', // 'sliding-window' | 'rolling-summary' | 'none'
-    maxTurns: 6,                // Global default turns (1 turn = 1 user + 1 assistant)
-    maxTotalChars: 4000,        // Global character budget limit
-    webLlm: {                   // Client-side WebLLM override (VRAM saving)
-      maxTurns: 3,
-      maxTotalChars: 1500
-    },
-    aiProvider: {               // Remote AI server override
-      maxTurns: 8,
-      maxTotalChars: 6000
-    }
+    strategy: 'sliding-window',
+    maxTurns: 6,
+    maxTotalChars: 4000
   }
 });
 ```
 
-## 🧠 Context Compression & Memory Management
+> 📖 **Full Options, API Reference & Advanced Guides**: Please refer to the [Vanilla JS Detailed Documentation](./vanilla-js/README_EN.md).
 
-An intelligent context management pipeline designed specifically for Web AI Avatars, preventing context overflow and WebGPU VRAM Out-of-Memory (OOM):
+---
 
-*   **Two-tier Non-destructive Storage**: The memory tier (`memory`) preserves the user's authentic history in full (no destructive hard slicing); the transport tier dynamically budgets characters and turns from newest to oldest.
-*   **Cascading Dual-Track Budget**: Automatically differentiates between lightweight client-side WebLLM and high-capacity remote AI providers.
-*   **Safe Tool Call Pruning**: Automatically validates and purges orphan `role: 'tool'` messages to guarantee strict Function Calling schema compliance.
-*   **Custom Compressor Hook**: Allows developers to supply custom synchronous or asynchronous `customCompressor(context)` functions with built-in fail-safe automatic fallback.
-*   **Rolling Summary Strategy**: Generates non-blocking background summaries when conversation turns reach a threshold, dynamically injecting them into the System Prompt.
+## 🛠️ Monorepo Development Commands
 
-## 🧩 Architecture & Customization
+This project uses Yarn Workspaces to manage sub-packages:
 
-> 🚧 **API Documentation in Progress**
-> 
-> The advanced architectural operations (including custom APIs for `brainEngine`, `speechEngine`, `uiEngine`, and `toolsEngine`, Headless mode, and event listening mechanisms) are currently being refactored and polished.
-> 
-> To provide the most accurate reference, detailed API documentation, property descriptions, and plugin development examples will be provided here once the underlying architecture is stable and officially released. Stay tuned!
+```bash
+# Start Vanilla JS development server (Recommended: Most complete)
+yarn dev:js
 
-## 📝 License
+# Start TypeScript development server
+yarn dev:ts
 
-MIT License
+# Start Vue 3 development server
+yarn dev:vue
+
+# Start React development server
+yarn dev:react
+
+# Start Iframe classic version development server
+yarn dev:iframe
+
+# Build all workspace packages
+yarn build
+```
+
+---
+
+## 🗺️ Roadmap
+
+- [x] **Phase 1: Vanilla JS Core Refactoring & Feature Completeness**
+  - Multi-engine modularization (Brain, Speech, Skin, Tools, UI, i18n)
+  - Live2D + VRM dual rendering engine integration
+  - WebLLM + Cloud AI Provider fallback and Auto-Continue
+  - Memory management, safe Tool Call pruning, and context compression pipeline
+  - Vite / Webpack zero-config offline asset plugins
+- [ ] **Phase 2: TypeScript Strict Porting (`/typescript`)**
+  - Migrate full Vanilla JS logic to TS with complete type declarations
+- [ ] **Phase 3: Vue 3 & React Official Wrapper Component Libraries (`/vue`, `/react`)**
+  - Develop `<AiAvatarBot />` components and reactive Hooks / Composables
+- [ ] **Phase 4: Public npm Release & CDN Ecosystem**
+  - Officially publish all packages to the npm registry
+
+---
+
+## 🤝 Credits & Attribution
+
+The architecture and core inspiration of this project originate from **[YuriCrystal](https://github.com/YuriCrystal)** and the open-source repository [ai-avatar-bot](https://github.com/YuriCrystal/ai-avatar-bot).
+
+We express our sincere gratitude to the original author for the pioneering exploration and open-source contributions in Web digital human interaction, Live2D/VRM integration, WebGPU client-side inference, and voice lip-sync design!
+
+---
+
+## 📦 Third-Party Assets & License
+
+The original source code created in this project is licensed under the **[MIT License](LICENSE)**.
+
+> ⚠️ **Important Notice**: Third-party runtimes and model assets referenced in this project (Live2D Cubism Core proprietary license, Haru/Natori sample models, Hatsune Miku/Rockman VRM character models, etc.) are governed by their respective authors' licenses and **are NOT covered by this project's MIT License**. Please review the [Third-Party Assets & License Disclaimers](./vanilla-js/README_EN.md#-third-party-assets--licensing-please-read-carefully) before commercial use or distribution.
