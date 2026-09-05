@@ -20,11 +20,12 @@
 - [⚙️ 詳細設定選項 (Options)](#️-詳細設定選項-options)
 - [🧠 進階功能指南](#-進階功能指南)
   - [1. 大腦引擎與三層降級推論](#1-大腦引擎與三層降級推論)
-  - [2. 上下文壓縮與記憶管理](#2-上下文壓縮與記憶管理)
-  - [3. Function Calling 與自訂工具 (Tools Engine)](#3-function-calling-與自訂工具-tools-engine)
-  - [4. 2D (Live2D) 與 3D (VRM) 雙外觀引擎](#4-2d-live2d-與-3d-vrm-雙外觀引擎)
-  - [5. 語音辨識與神經語音 (Speech Engine)](#5-語音辨識與神經語音-speech-engine)
-  - [6. 無頭模式 (Headless Mode) 與自訂 UI](#6-無頭模式-headless-mode-與自訂-ui)
+  - [2. 自動接續回答機制 (Auto-Continue Response)](#2-自動接續回答機制-auto-continue-response)
+  - [3. 上下文壓縮與記憶管理](#3-上下文壓縮與記憶管理)
+  - [4. Function Calling 與自訂工具 (Tools Engine)](#4-function-calling-與自訂工具-tools-engine)
+  - [5. 2D (Live2D) 與 3D (VRM) 雙外觀引擎](#5-2d-live2d-與-3d-vrm-雙外觀引擎)
+  - [6. 語音辨識與神經語音 (Speech Engine)](#6-語音辨識與神經語音-speech-engine)
+  - [7. 無頭模式 (Headless Mode) 與自訂 UI](#7-無頭模式-headless-mode-與自訂-ui)
 - [📚 實例 API 與方法](#-實例-api-與方法)
 - [🛠️ 構建工具插件 (Vite & Webpack 離線開箱即用)](#️-構建工具插件-vite--webpack-離線開箱即用)
 - [🌐 多語系支援 (i18n)](#-多語系支援-i18n)
@@ -208,6 +209,10 @@ const avatarWidget = await initAvatarBot({
 | `llmMaxTokens` | `number` | `1024` | 瀏覽器端 WebLLM 模型回應的最大 Token 數上限 |
 | `preloadWebLLM` | `boolean` | `false` | 是否在初始化時即刻預載 WebLLM 權重檔案 |
 | `autoFallbackWebLLM` | `boolean` | `true` | 當 AI Provider 連線失敗時是否自動啟動 WebLLM 備援 |
+| `enableAutoContinue` | `boolean` | `false` | 是否在模型回答達到 Token 上限被截斷時啟用自動接續機制 |
+| `maxAutoContinuations` | `number` | `3` | 最大自動接續次數上限（防止死循環） |
+| `autoContinueMode` | `'stream'\|'buffered'` | `'stream'` | 自動接續輸出模式（`'stream'` 即時串流接續 \| `'buffered'` 全生成完再輸出） |
+| `autoContinuePrompt` | `string\|Function` | `null` | 自訂自動接續提示詞字串或動態回呼函式 `(index, accumulatedText) => string` |
 | `knowledge` | `Array\|string` | `null` | 助理模式預載的知識庫資料 (JSON Array 或字串) |
 | `companionKnowledge` | `Array\|string` | `null` | 陪伴模式預載的知識庫資料 |
 | `modes` | `Object` | `null` | 宣告式自訂模式註冊表（自訂專屬人格、Prompt、問候語） |
@@ -250,6 +255,10 @@ const avatarWidget = await initAvatarBot({
 | `onSpeaking(text, widget)` | `text, widget` | 虛擬人開始播放語音發音時觸發 |
 | `onSpeakingEnd(widget)` | `widget` | 虛擬人語音播放結束時觸發 |
 | `onStreamEnd(fullText)` | `fullText` | 大腦 LLM 串流文字回答生成完畢時觸發 |
+| `onAutoContinueStart(info)` | `info` | 自動接續流程開始時觸發 (`{ continuationIndex, maxContinuations, accumulatedText }`) |
+| `onAutoContinueWait(info)` | `info` | 語音播完但接續內容仍在生成中（空窗期）時觸發（虛擬人自動轉為思考狀態） |
+| `onAutoContinueResume(info)` | `info` | 接續內容已抵達並恢復串流/播放時觸發 (`{ continuationIndex, maxContinuations, accumulatedText, chunk }`) |
+| `onAutoContinueEnd(info)` | `info` | 自動接續流程完全結束時觸發 (`{ totalContinuations, maxContinuations, accumulatedText, reason }`) |
 | `onAddChatMessage(msg, widget)` | `msg, widget` | 新增對話訊息時觸發 |
 | `onMicStateChanged(isListening, convoOn)` | `isListening, convoOn` | 麥克風錄音狀態變更時觸發 |
 | `onVoiceStatusChanged(convoOn, text, state, level)` | 多項語音狀態 | 即時音訊音量與語音狀態變化時觸發 |
@@ -294,7 +303,48 @@ const widget = await initAvatarBot({
 
 ---
 
-### 2. 上下文壓縮與記憶管理
+### 2. 自動接續回答機制 (Auto-Continue Response)
+
+當 LLM 回答長文本因達到 `max_tokens` 限制而停止（`finish_reason === 'length'`）時，啟用 `enableAutoContinue: true` 能自動發起後續生成並無縫組合成完整回答：
+
+```javascript
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  
+  // 啟用自動接續機制
+  enableAutoContinue: true,
+  maxAutoContinuations: 3, // 最大接續次數（預設 3）
+  autoContinueMode: 'stream', // 'stream' (即時串流說話) | 'buffered' (全生成完再說)
+  
+  // 自訂接續提示詞（亦支援函式動態生成）
+  // autoContinuePrompt: '請從上方未完成處繼續，不要重複前文。',
+  // autoContinuePrompt: (continuationIndex, accumulatedText) => `請繼續接續上述回答（第 ${continuationIndex} 次接續）：`,
+
+  // 接續事件監聽
+  onAutoContinueStart: ({ continuationIndex, maxContinuations }) => {
+    console.log(`開始第 ${continuationIndex}/${maxContinuations} 次自動接續...`);
+  },
+  onAutoContinueWait: () => {
+    console.log('語音播畢，等待後續文字生成中（虛擬人切換為思考動作）...');
+  },
+  onAutoContinueResume: ({ chunk }) => {
+    console.log('接續文字抵達，恢復語音播放：', chunk);
+  },
+  onAutoContinueEnd: ({ totalContinuations, accumulatedText, reason }) => {
+    console.log(`接續完成（共接續 ${totalContinuations} 次），結束原因：${reason}`);
+  }
+});
+```
+
+* **內建多語系提示詞**：預設根據目前語系（繁中、英文、日文、韓文）自動選用最自然的接續 Prompt（例如繁中：「請繼續接續上述未完成的回答，保持語意流暢且不要重複前文。」）。
+* **語音與動作無縫協同**：
+  * 串流斷句系統（`drainSentences`）跨接續區塊保持句尾標點判定完整性，不產生破碎破音。
+  * 若前一段語音已播完但後續接續文字因網路延遲尚未到達，虛擬人會自動切換為 `thinking` 思考動作，並維持對話氣泡不消失。
+* **儲存一致性保證**：多段接續內容會在記憶體中完整合併，儲存至對話歷史與 LocalStorage 時僅寫入單一筆完整助理訊息（不會汙染多輪對話輪數）。
+
+---
+
+### 3. 上下文壓縮與記憶管理
 
 專為 Web 虛擬人設計的顯存與 Token 防爆機制：
 
@@ -333,7 +383,7 @@ const widget = await initAvatarBot({
 
 ---
 
-### 3. Function Calling 與自訂工具 (Tools Engine)
+### 4. Function Calling 與自訂工具 (Tools Engine)
 
 您可以註冊自訂工具讓虛擬人調用。支援**純前端關鍵字秒級匹配**、**AI 語意調用**以及**雙軌模式 (Hybrid)**：
 
@@ -374,7 +424,7 @@ const widget = await initAvatarBot({
 
 ---
 
-### 4. 2D (Live2D) 與 3D (VRM) 雙外觀引擎
+### 5. 2D (Live2D) 與 3D (VRM) 雙外觀引擎
 
 * **動態切換 2D / 3D**：
   ```javascript
@@ -411,7 +461,7 @@ const widget = await initAvatarBot({
 
 ---
 
-### 5. 語音辨識與神經語音 (Speech Engine)
+### 6. 語音辨識與神經語音 (Speech Engine)
 
 * **主動發音 (TTS)**：
   ```javascript
@@ -433,7 +483,7 @@ const widget = await initAvatarBot({
 
 ---
 
-### 6. 無頭模式 (Headless Mode) 與自訂 UI
+### 7. 無頭模式 (Headless Mode) 與自訂 UI
 
 如果您想使用 **Vue、React 或 Svelte** 完全接管 UI 介面，可以直接使用 Headless 模式或訂閱底層 Store 狀態：
 
@@ -480,6 +530,12 @@ interface AiAvatarWidget {
   classifyEmotion(text: string): string;    // 分析文字並取得情緒名稱
   showMinimalEl(): void;                   // 顯示極簡模式懸浮按鈕
   hiddenMinimalEl(): void;                 // 隱藏極簡模式懸浮按鈕
+  
+  // 自動接續設定屬性
+  enableAutoContinue: boolean;                    // 是否啟用自動接續
+  maxAutoContinuations: number;                  // 最大接續次數
+  autoContinueMode: 'stream' | 'buffered';        // 接續輸出模式
+  autoContinuePrompt: string | Function | null;   // 接續提示詞設定
   
   // 狀態與設定屬性
   avatarMode: 'assistant' | 'companion' | string; // 目前角色模式

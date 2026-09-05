@@ -20,11 +20,12 @@
 - [⚙️ Configuration Options](#️-configuration-options)
 - [🧠 In-Depth Guides](#-in-depth-guides)
   - [1. Brain Engine & Three-Tier Fallback Inference](#1-brain-engine--three-tier-fallback-inference)
-  - [2. Context Compression & Memory Management](#2-context-compression--memory-management)
-  - [3. Function Calling & Custom Tools (Tools Engine)](#3-function-calling--custom-tools-tools-engine)
-  - [4. 2D (Live2D) & 3D (VRM) Dual Skin Engine](#4-2d-live2d--3d-vrm-dual-skin-engine)
-  - [5. Speech Recognition & Neural TTS (Speech Engine)](#5-speech-recognition--neural-tts-speech-engine)
-  - [6. Headless Mode & Custom UI Integration](#6-headless-mode--custom-ui-integration)
+  - [2. Auto-Continue Response Mechanism](#2-auto-continue-response-mechanism)
+  - [3. Context Compression & Memory Management](#3-context-compression--memory-management)
+  - [4. Function Calling & Custom Tools (Tools Engine)](#4-function-calling--custom-tools-tools-engine)
+  - [5. 2D (Live2D) & 3D (VRM) Dual Skin Engine](#5-2d-live2d--3d-vrm-dual-skin-engine)
+  - [6. Speech Recognition & Neural TTS (Speech Engine)](#5-speech-recognition--neural-tts-speech-engine)
+  - [7. Headless Mode & Custom UI Integration](#6-headless-mode--custom-ui-integration)
 - [📚 Instance API & Methods](#-instance-api--methods)
 - [🛠️ Build Tool Plugins (Vite & Webpack Offline Support)](#️-build-tool-plugins-vite--webpack-offline-support)
 - [🌐 Internationalization (i18n)](#-internationalization-i18n)
@@ -208,6 +209,10 @@ Options object accepted by `initAvatarBot(options)`:
 | `llmMaxTokens` | `number` | `1024` | Maximum response tokens limit for in-browser WebLLM. |
 | `preloadWebLLM` | `boolean` | `false` | Whether to preload WebLLM weights immediately upon initialization. |
 | `autoFallbackWebLLM` | `boolean` | `true` | Whether to auto-fallback to WebLLM if remote AI Provider fails. |
+| `enableAutoContinue` | `boolean` | `false` | Whether to auto-continue generation when LLM response reaches token limit (`finish_reason === 'length'`). |
+| `maxAutoContinuations` | `number` | `3` | Maximum consecutive auto-continuation turns limit (prevents infinite loops). |
+| `autoContinueMode` | `'stream'\|'buffered'` | `'stream'` | Output mode for auto-continuation (`'stream'` for real-time streaming continuation \| `'buffered'` for full-generation output). |
+| `autoContinuePrompt` | `string\|Function` | `null` | Custom continue prompt string or dynamic prompt generator function `(index, accumulatedText) => string`. |
 | `knowledge` | `Array\|string` | `null` | Preloaded knowledge base for assistant mode (JSON array or string). |
 | `companionKnowledge` | `Array\|string` | `null` | Preloaded knowledge base for companion mode. |
 | `modes` | `Object` | `null` | Declarative custom mode definitions (prompts, greetings, rules). |
@@ -250,6 +255,10 @@ Options object accepted by `initAvatarBot(options)`:
 | `onSpeaking(text, widget)` | `text, widget` | Triggered when the avatar begins speaking audio. |
 | `onSpeakingEnd(widget)` | `widget` | Triggered when audio utterance playback finishes. |
 | `onStreamEnd(fullText)` | `fullText` | Triggered when brain LLM stream text generation completes. |
+| `onAutoContinueStart(info)` | `info` | Triggered when auto-continuation starts (`{ continuationIndex, maxContinuations, accumulatedText }`). |
+| `onAutoContinueWait(info)` | `info` | Triggered during continuation gap (speech finished while next chunk is generating; avatar switches to thinking). |
+| `onAutoContinueResume(info)` | `info` | Triggered when continuation chunk arrives and resumes speech/stream (`{ continuationIndex, maxContinuations, accumulatedText, chunk }`). |
+| `onAutoContinueEnd(info)` | `info` | Triggered when auto-continuation loop finishes (`{ totalContinuations, maxContinuations, accumulatedText, reason }`). |
 | `onAddChatMessage(msg, widget)` | `msg, widget` | Triggered when a new chat message is added. |
 | `onMicStateChanged(isListening, convoOn)` | `isListening, convoOn` | Triggered when microphone state changes. |
 | `onVoiceStatusChanged(convoOn, text, state, level)` | Multiple state vars | Triggered when real-time voice volume/status updates. |
@@ -294,7 +303,48 @@ const widget = await initAvatarBot({
 
 ---
 
-### 2. Context Compression & Memory Management
+### 2. Auto-Continue Response Mechanism
+
+When LLM response stops due to reaching `max_tokens` limits (`finish_reason === 'length'`), enabling `enableAutoContinue: true` automatically initiates subsequent requests and seamlessly stitches the chunks into a complete response:
+
+```javascript
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  
+  // Enable auto-continue
+  enableAutoContinue: true,
+  maxAutoContinuations: 3, // Max continuation turns (default: 3)
+  autoContinueMode: 'stream', // 'stream' (real-time stream speech) | 'buffered' (speak after full generation)
+  
+  // Custom continue prompt (string or dynamic function)
+  // autoContinuePrompt: 'Please continue from where you stopped above without repeating previous text.',
+  // autoContinuePrompt: (continuationIndex, accumulatedText) => `Please continue the response above (Part ${continuationIndex}):`,
+
+  // Lifecycle event listeners
+  onAutoContinueStart: ({ continuationIndex, maxContinuations }) => {
+    console.log(`Starting auto-continuation ${continuationIndex}/${maxContinuations}...`);
+  },
+  onAutoContinueWait: () => {
+    console.log('Utterance completed, waiting for next continuation chunk (avatar switches to thinking)...');
+  },
+  onAutoContinueResume: ({ chunk }) => {
+    console.log('Continuation chunk arrived, resuming audio utterance:', chunk);
+  },
+  onAutoContinueEnd: ({ totalContinuations, accumulatedText, reason }) => {
+    console.log(`Auto-continue completed (${totalContinuations} turns total), reason: ${reason}`);
+  }
+});
+```
+
+* **Built-in Multi-language Prompts**: Automatically applies natural continuation prompts tailored to current locale (`en-US`, `zh-TW`, `ja-JP`, `ko-KR`).
+* **Seamless Audio & Gesture Synchronization**:
+  * Real-time sentence splitting (`drainSentences`) preserves punctuation boundaries across chunk transitions without audio distortion.
+  * During the latency gap between continuation chunks, the avatar automatically assumes the `thinking` posture while the speech bubble stays visible.
+* **Storage & Memory Integrity**: Multi-chunk continuations assemble in memory and persist to conversation history and LocalStorage as a single unified assistant turn without polluting turn limits.
+
+---
+
+### 3. Context Compression & Memory Management
 
 Engineered to prevent Token exhaustion and WebGPU Out-Of-Memory (OOM) crashes:
 
@@ -332,7 +382,7 @@ const widget = await initAvatarBot({
 
 ---
 
-### 3. Function Calling & Custom Tools (Tools Engine)
+### 4. Function Calling & Custom Tools (Tools Engine)
 
 Register custom tools with **Instant Client-Side Rule Matching**, **AI Semantic Calling**, or **Hybrid Mode**:
 
@@ -371,7 +421,7 @@ const widget = await initAvatarBot({
 
 ---
 
-### 4. 2D (Live2D) & 3D (VRM) Dual Skin Engine
+### 5. 2D (Live2D) & 3D (VRM) Dual Skin Engine
 
 * **Switching 2D / 3D Modes**:
   ```javascript
@@ -408,7 +458,7 @@ const widget = await initAvatarBot({
 
 ---
 
-### 5. Speech Recognition & Neural TTS (Speech Engine)
+### 6. Speech Recognition & Neural TTS (Speech Engine)
 
 * **Trigger Speech Synthesis (TTS)**:
   ```javascript
@@ -430,7 +480,7 @@ const widget = await initAvatarBot({
 
 ---
 
-### 6. Headless Mode & Custom UI Integration
+### 7. Headless Mode & Custom UI Integration
 
 To build your own interface with **Vue, React, Svelte, or Angular**, run in Headless mode and subscribe to reactive stores:
 
@@ -477,6 +527,12 @@ interface AiAvatarWidget {
   classifyEmotion(text: string): string;    // Classify emotion string from text
   showMinimalEl(): void;                   // Show minimal floating avatar button
   hiddenMinimalEl(): void;                 // Hide minimal floating avatar button
+  
+  // Auto-Continue Configuration Properties
+  enableAutoContinue: boolean;                    // Whether auto-continue is enabled
+  maxAutoContinuations: number;                  // Maximum continuation turns
+  autoContinueMode: 'stream' | 'buffered';        // Output mode
+  autoContinuePrompt: string | Function | null;   // Custom continue prompt
   
   // State Properties & Getters/Setters
   avatarMode: 'assistant' | 'companion' | string; // Current persona mode
