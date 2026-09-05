@@ -1006,8 +1006,19 @@ export async function initAvatarBot(options = {}) {
 
   let streamSpeechId = 0;
   const streamSpeechState = { sentenceBuffer: '', buf: '' };
+  const autoContinueState = {
+    isActive: false,
+    continuationIndex: 0,
+    maxContinuations: 0,
+    accumulatedText: ''
+  };
 
   function handleUser(text = '') {
+    autoContinueState.isActive = false;
+    autoContinueState.continuationIndex = 0;
+    autoContinueState.maxContinuations = 0;
+    autoContinueState.accumulatedText = '';
+
     if (typeof text === 'string' && text !== '') {
       if (typeof speechEngine.stopSpeaking === 'function') {
         speechEngine.stopSpeaking();
@@ -1559,16 +1570,49 @@ export async function initAvatarBot(options = {}) {
       callOptionEvent.call(this, 'onStreamEnd', fullText);
     },
     onAutoContinueStart(info) {
-      callOptionEvent.call(this, 'onAutoContinueStart', info);
+      autoContinueState.isActive = true;
+      autoContinueState.continuationIndex =
+        typeof info?.continuationIndex === 'number'
+          ? info.continuationIndex
+          : 0;
+      autoContinueState.maxContinuations =
+        typeof info?.maxContinuations === 'number'
+          ? info.maxContinuations
+          : 0;
+      autoContinueState.accumulatedText =
+        typeof info?.accumulatedText === 'string'
+          ? info.accumulatedText
+          : '';
+      callOptionEvent.call(aiAvatarWidget, 'onAutoContinueStart', info);
     },
     onAutoContinueWait(info) {
-      callOptionEvent.call(this, 'onAutoContinueWait', info);
+      if (typeof skinEngine === 'object' && skinEngine !== null) {
+        if (typeof skinEngine.setEmotion === 'function') {
+          skinEngine.setEmotion('thinking');
+        } else if (skinEngine.gestureName !== undefined) {
+          skinEngine.gestureName = 'thinking';
+        }
+      }
+      callOptionEvent.call(aiAvatarWidget, 'onAutoContinueWait', info);
     },
     onAutoContinueResume(info) {
-      callOptionEvent.call(this, 'onAutoContinueResume', info);
+      autoContinueState.continuationIndex =
+        typeof info?.continuationIndex === 'number'
+          ? info.continuationIndex
+          : 0;
+      autoContinueState.maxContinuations =
+        typeof info?.maxContinuations === 'number'
+          ? info.maxContinuations
+          : 0;
+      autoContinueState.accumulatedText =
+        typeof info?.accumulatedText === 'string'
+          ? info.accumulatedText
+          : '';
+      callOptionEvent.call(aiAvatarWidget, 'onAutoContinueResume', info);
     },
     onAutoContinueEnd(info) {
-      callOptionEvent.call(this, 'onAutoContinueEnd', info);
+      autoContinueState.isActive = false;
+      callOptionEvent.call(aiAvatarWidget, 'onAutoContinueEnd', info);
     },
     onToolNotFound(info) {
       return callOptionEvent.call(this, 'onToolNotFound', info, aiAvatarWidget);
@@ -1665,10 +1709,31 @@ export async function initAvatarBot(options = {}) {
       return onTapAvatar();
     },
     onInterrupt: () => {
+      autoContinueState.isActive = false;
+      autoContinueState.continuationIndex = 0;
+      autoContinueState.maxContinuations = 0;
+      autoContinueState.accumulatedText = '';
       if (typeof brainEngine?.llm?.controller?.abort === 'function') {
         try {
           brainEngine.llm.controller.abort();
         } catch (_error) {}
+      }
+    },
+    onSpeechWait: (speechSequenceId) => {
+      if (autoContinueState.isActive === true) {
+        if (typeof skinEngine === 'object' && skinEngine !== null) {
+          if (typeof skinEngine.setEmotion === 'function') {
+            skinEngine.setEmotion('thinking');
+          } else if (skinEngine.gestureName !== undefined) {
+            skinEngine.gestureName = 'thinking';
+          }
+        }
+        callOptionEvent.call(aiAvatarWidget, 'onAutoContinueWait', {
+          continuationIndex: autoContinueState.continuationIndex,
+          maxContinuations: autoContinueState.maxContinuations,
+          accumulatedText: autoContinueState.accumulatedText,
+          speechSequenceId
+        });
       }
     },
     onLanguageChanged(locale, localeLabel, shortLabel) {

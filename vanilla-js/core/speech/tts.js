@@ -274,6 +274,7 @@ export function localeVoice(locale) {
  * @property {string} [locale='zh-TW'] - 預設語系代碼。
  * @property {() => void} [onSpeakStart] - 當開始播放語音時的處理函數。
  * @property {() => void} [onSpeakEnd] - 當播放語音結束時的處理函數。
+ * @property {(speechSequenceId?: number) => void} [onSpeechWait] - 當語音佇列暫時排空但串流尚未結束（等待後續 LLM 生成片段）時的處理函數。
  * @property {(text: string) => void} [onSpokenDisplayTextChange] - 當正在播放的文字內容改變時的處理函數。
  */
 
@@ -292,6 +293,7 @@ export function initDefaultTTSEngine(options = {}) {
     locale = 'zh-TW',
     onSpeakStart,
     onSpeakEnd,
+    onSpeechWait,
     onSpokenDisplayTextChange
   } = options;
 
@@ -814,6 +816,11 @@ export function initDefaultTTSEngine(options = {}) {
         store.setState({ isSpeaking: false });
         if (typeof onSpeakEnd === 'function') {
           onSpeakEnd();
+        }
+      } else {
+        store.setState({ isSpeaking: false });
+        if (typeof onSpeechWait === 'function') {
+          onSpeechWait(speechSequenceId);
         }
       }
       return;

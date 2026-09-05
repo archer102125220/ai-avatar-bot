@@ -77,6 +77,7 @@ export {
  * @property {() => void} [onSpokenDisplayTextTimeout] - 語音文字氣泡顯示逾時的回調。
  * @property {(audioText: string) => void} [onSpeaking] - 語音準備播放的回調。
  * @property {() => void} [onSpeakingEnd] - 語音播放完全結束的回調。
+ * @property {(speechSequenceId?: number) => void} [onSpeechWait] - 語音佇列暫時排空但串流尚未結束（等待後續 LLM 生成片段）的回調。
  * @property {(text: string) => void} [onUserInput] - 使用者文字輸入回調。
  * @property {() => void} [onTapAvatar] - 使用者點擊虛擬人回調。
  * @property {() => void} [onInterrupt] - 語音被打斷的回調。
@@ -215,7 +216,10 @@ export async function initSpeechEngine(setting = {}) {
     }
     if (displayText !== '') {
       spokenDisplayTextTimer = setTimeout(() => {
-        if (typeof setting.onSpokenDisplayTextTimeout === 'function') {
+        if (
+          store.getState().isSpeaking !== true &&
+          typeof setting.onSpokenDisplayTextTimeout === 'function'
+        ) {
           setting.onSpokenDisplayTextTimeout();
         }
       }, 6000);
@@ -274,6 +278,11 @@ export async function initSpeechEngine(setting = {}) {
     onSpeakEnd: () => {
       if (typeof speechEngine._onTTSSpeakEnd === 'function') {
         speechEngine._onTTSSpeakEnd();
+      }
+    },
+    onSpeechWait: (speechSequenceId) => {
+      if (typeof setting.onSpeechWait === 'function') {
+        setting.onSpeechWait(speechSequenceId);
       }
     }
   };
@@ -594,6 +603,14 @@ export async function initSpeechEngine(setting = {}) {
 
     _onTTSSpeakEnd: () => {
       speechEngine.onUtteranceEnd();
+      if (spokenDisplayTextTimer !== null) {
+        clearTimeout(spokenDisplayTextTimer);
+      }
+      spokenDisplayTextTimer = setTimeout(() => {
+        if (typeof setting.onSpokenDisplayTextTimeout === 'function') {
+          setting.onSpokenDisplayTextTimeout();
+        }
+      }, 4000);
       if (typeof setting.onSpeakingEnd === 'function') {
         setting.onSpeakingEnd();
       }
