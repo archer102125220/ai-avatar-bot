@@ -197,6 +197,7 @@ export * from './plugins';
  * @property {boolean} enableAutoContinue - 當前是否啟用自動接續
  * @property {number} maxAutoContinuations - 當前最大自動接續次數
  * @property {'stream'|'buffered'} autoContinueMode - 當前自動接續輸出模式
+ * @property {string|Function|null} autoContinuePrompt - 當前自動接續提示詞或生成函式
 
  * @property {HTMLElement} container - 綁定 Widget 的 HTML 容器元素
  * @property {any} uiDom - UI 相關的 DOM 元素與控制方法
@@ -418,6 +419,11 @@ export async function initAvatarBot(options = {}) {
       Object.values(AUTO_CONTINUE_MODE_MAP).includes(autoContinueMode) === true
         ? autoContinueMode
         : DEFAULT_AUTO_CONTINUE_MODE,
+    autoContinuePrompt:
+      typeof autoContinuePrompt === 'string' ||
+      typeof autoContinuePrompt === 'function'
+        ? autoContinuePrompt
+        : null,
     modes: typeof modes === 'object' && modes !== null ? modes : {},
     locale:
       typeof i18nEngine?.locale === 'string' && i18nEngine.locale !== ''
@@ -758,6 +764,26 @@ export async function initAvatarBot(options = {}) {
       }
     },
 
+    get autoContinuePrompt() {
+      return (
+        brainEngine?.autoContinuePrompt ??
+        rootStore.getState().autoContinuePrompt ??
+        null
+      );
+    },
+    set autoContinuePrompt(newPrompt) {
+      if (
+        typeof newPrompt === 'string' ||
+        typeof newPrompt === 'function' ||
+        newPrompt === null
+      ) {
+        rootStore.setState({ autoContinuePrompt: newPrompt });
+        if (brainEngine !== null && typeof brainEngine === 'object') {
+          brainEngine.autoContinuePrompt = newPrompt;
+        }
+      }
+    },
+
     get enableModelDrop() {
       return rootStore.getState().enableModelDrop ?? DEFAULT_ENABLE_MODEL_DROP;
     },
@@ -879,6 +905,15 @@ export async function initAvatarBot(options = {}) {
       aiAvatarWidget.brainEngine !== null
     ) {
       aiAvatarWidget.brainEngine.autoContinueMode = newAutoContinueMode;
+    }
+  });
+
+  rootStore.subscribe('autoContinuePrompt', (newAutoContinuePrompt) => {
+    if (
+      typeof aiAvatarWidget.brainEngine === 'object' &&
+      aiAvatarWidget.brainEngine !== null
+    ) {
+      aiAvatarWidget.brainEngine.autoContinuePrompt = newAutoContinuePrompt;
     }
   });
 
@@ -1248,7 +1283,7 @@ export async function initAvatarBot(options = {}) {
     enableAutoContinue: rootStore.getState().enableAutoContinue,
     maxAutoContinuations: rootStore.getState().maxAutoContinuations,
     autoContinueMode: rootStore.getState().autoContinueMode,
-    autoContinuePrompt,
+    autoContinuePrompt: rootStore.getState().autoContinuePrompt,
     avatarMode: rootStore.getState().avatarMode,
     enableMemory: rootStore.getState().enableMemory,
     enableAiProvider: rootStore.getState().enableAiProvider,
