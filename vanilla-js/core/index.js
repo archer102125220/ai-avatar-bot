@@ -26,7 +26,9 @@ import {
   DEFAULT_ENABLE_AUTO_CONTINUE,
   DEFAULT_MAX_AUTO_CONTINUATIONS,
   AUTO_CONTINUE_MODE_MAP,
-  DEFAULT_AUTO_CONTINUE_MODE
+  DEFAULT_AUTO_CONTINUE_MODE,
+  LLM_FINISH_REASON_MAP,
+  FINISH_REASON_MAP
 } from './constants';
 
 import {
@@ -186,6 +188,7 @@ export * from './plugins';
  * @property {Record<string, string>} AVATAR_MODE_MAP - Avatar 模式映射表
  * @property {Record<string, string>} FIT_MODE_MAP - Fit 模式映射表
  * @property {Record<string, string>} AUTO_CONTINUE_MODE_MAP - 自動接續模式映射表
+ * @property {Record<string, string>} LLM_FINISH_REASON_MAP - LLM 結束原因映射表
  * @property {Array<string>} availableModes - 目前可用角色模式清單
  * @property {boolean} enableMemory - 目前是否啟用記憶體
  * @property {boolean} enableAiProvider - 目前是否啟用 AI 服務提供商
@@ -456,6 +459,12 @@ export async function initAvatarBot(options = {}) {
     },
     get AUTO_CONTINUE_MODE_MAP() {
       return AUTO_CONTINUE_MODE_MAP;
+    },
+    get LLM_FINISH_REASON_MAP() {
+      return LLM_FINISH_REASON_MAP;
+    },
+    get FINISH_REASON_MAP() {
+      return FINISH_REASON_MAP;
     },
 
     get container() {

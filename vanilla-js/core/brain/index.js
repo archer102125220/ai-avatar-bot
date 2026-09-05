@@ -21,6 +21,12 @@ import {
   COMPRESSION_STRATEGY_MAP,
   BRAIN_ENGINE_TYPE_MAP,
   BRAIN_FALLBACK_TYPE_MAP,
+  DEFAULT_ENABLE_AUTO_CONTINUE,
+  DEFAULT_MAX_AUTO_CONTINUATIONS,
+  AUTO_CONTINUE_MODE_MAP,
+  DEFAULT_AUTO_CONTINUE_MODE,
+  LLM_FINISH_REASON_MAP,
+  FINISH_REASON_MAP,
   isWebLLMFunctionCallingSupported
 } from '../constants.js';
 import { toOpenAiTools } from '../tools.js';
@@ -216,6 +222,14 @@ export * from './compression.js';
  * @property {string|Function} [languageRule] - 多語系回答規則提示詞
  * @property {string} [gender] - 虛擬人角色性別 ('male'|'female')
  * @property {string|Function} [genderRule] - 針對性別的額外提示詞規則
+ * @property {boolean} [enableAutoContinue=DEFAULT_ENABLE_AUTO_CONTINUE] - 是否在模型回答達到 Token 上限被截斷時啟用自動接續機制
+ * @property {number} [maxAutoContinuations=DEFAULT_MAX_AUTO_CONTINUATIONS] - 最大自動接續次數上限（防止無限接續）
+ * @property {'stream'|'buffered'} [autoContinueMode=DEFAULT_AUTO_CONTINUE_MODE] - 自動接續輸出模式 ('stream' 即時串流接續 | 'buffered' 全生成完再輸出)
+ * @property {string|Function} [autoContinuePrompt] - 自訂自動接續提示詞或生成函式
+ * @property {Function} [onAutoContinueStart] - 自動接續開始回呼
+ * @property {Function} [onAutoContinueWait] - 語音播完但接續內容仍在生成中（空窗期）回呼
+ * @property {Function} [onAutoContinueResume] - 接續內容已抵達並恢復播放回呼
+ * @property {Function} [onAutoContinueEnd] - 自動接續流程結束回呼
  * @property {Function} [buildLLMMessages] - 建立 LLM 訊息回呼
  * @property {Function} [onBrainFallback] - 當大腦引擎降級時觸發的回呼函式 (fromEngine, toEngine, error)
  */
@@ -235,6 +249,14 @@ export * from './compression.js';
  * @property {boolean} enableAiProvider - 是否啟用 AI 供應商
  * @property {boolean} preloadWebLLM - 是否預先載入 WebLLM 模型
  * @property {boolean} autoFallbackWebLLM - 當 AI Provider 故障時是否自動在背景載入 WebLLM 備援
+ * @property {boolean} enableAutoContinue - 當前是否啟用自動接續
+ * @property {number} maxAutoContinuations - 當前最大自動接續次數
+ * @property {'stream'|'buffered'} autoContinueMode - 當前自動接續輸出模式
+ * @property {string|Function|null} autoContinuePrompt - 自訂自動接續提示詞
+ * @property {Function|null} onAutoContinueStart - 自動接續開始回呼
+ * @property {Function|null} onAutoContinueWait - 接續等待回呼
+ * @property {Function|null} onAutoContinueResume - 接續恢復回呼
+ * @property {Function|null} onAutoContinueEnd - 自動接續結束回呼
  * @property {Function|null} onBrainFallback - 當大腦引擎降級時觸發的回呼函式
  * @property {string} knowledgeUrl - 知識庫 URL
  * @property {Array<KnowledgeEntry>} knowledge - 知識庫陣列
@@ -671,7 +693,14 @@ export function initLLM(setting = {}, brain) {
           };
           const result =
             await engine.chat.completions.create(normalizedOptions);
-          const message = result?.choices?.[0]?.message;
+          const choice = result?.choices?.[0];
+          const message = choice?.message;
+          const finishReason =
+            typeof choice?.finish_reason === 'string' &&
+            choice.finish_reason !== ''
+              ? choice.finish_reason
+              : LLM_FINISH_REASON_MAP.STOP;
+
           if (
             Array.isArray(message?.tool_calls) === true &&
             message.tool_calls.length > 0
@@ -686,7 +715,8 @@ export function initLLM(setting = {}, brain) {
             return {
               type: 'tool_calls',
               toolCalls: message.tool_calls,
-              message: normalizedAssistantMessage
+              message: normalizedAssistantMessage,
+              finishReason
             };
           }
 
@@ -706,13 +736,18 @@ export function initLLM(setting = {}, brain) {
               return {
                 type: 'tool_calls',
                 toolCalls: fallbackToolCalls,
-                message: normalizedAssistantMessage
+                message: normalizedAssistantMessage,
+                finishReason
               };
             }
           }
 
           this.onChatting(result, messages, brain);
-          return rawContent;
+          return {
+            type: 'text',
+            content: rawContent,
+            finishReason
+          };
         }
 
         // 串流：邊生成邊回吐 token（逐句開講用）——首句不用等整段生成完
@@ -729,11 +764,19 @@ export function initLLM(setting = {}, brain) {
         };
         const stream = await engine.chat.completions.create(streamOptions);
         let fullResponse = '';
+        let streamFinishReason = LLM_FINISH_REASON_MAP.STOP;
         const toolCallsMap = {};
         let hasToolCalls = false;
 
         for await (const chunk of stream) {
-          const delta = chunk?.choices?.[0]?.delta;
+          const choice = chunk?.choices?.[0];
+          const delta = choice?.delta;
+          if (
+            typeof choice?.finish_reason === 'string' &&
+            choice.finish_reason !== ''
+          ) {
+            streamFinishReason = choice.finish_reason;
+          }
           if (
             Array.isArray(delta?.tool_calls) === true &&
             delta.tool_calls.length > 0
@@ -787,7 +830,8 @@ export function initLLM(setting = {}, brain) {
           return {
             type: 'tool_calls',
             toolCalls,
-            message: toolMessage
+            message: toolMessage,
+            finishReason: streamFinishReason
           };
         }
 
@@ -802,21 +846,32 @@ export function initLLM(setting = {}, brain) {
           return {
             type: 'tool_calls',
             toolCalls: fallbackStreamToolCalls,
-            message: toolMessage
+            message: toolMessage,
+            finishReason: streamFinishReason
           };
         }
 
         this.onChatting(fullResponse, messages, brain);
-        return fullResponse;
+        return {
+          type: 'text',
+          content: fullResponse,
+          finishReason: streamFinishReason
+        };
       };
 
       try {
         const response = await executeChatCompletion(createOptions);
+        const textContent =
+          typeof response === 'string'
+            ? response
+            : typeof response?.content === 'string'
+              ? response.content
+              : '';
         if (
           createOptions.tools !== undefined &&
           (response === null ||
             response === undefined ||
-            (typeof response === 'string' && response.trim() === ''))
+            textContent.trim() === '')
         ) {
           delete createOptions.tools;
           createOptions.messages = messages;
@@ -1220,7 +1275,17 @@ export async function initAiProvider(setting = {}) {
           toolCalls = result?.choices?.[0]?.message?.tool_calls || null;
         }
 
-        const rawContent = result?.choices?.[0]?.message?.content || '';
+        const choice = result?.choices?.[0];
+        const finishReason =
+          typeof choice?.finish_reason === 'string' &&
+          choice.finish_reason !== ''
+            ? choice.finish_reason
+            : typeof result?.done_reason === 'string' &&
+                result.done_reason !== ''
+              ? result.done_reason
+              : LLM_FINISH_REASON_MAP.STOP;
+
+        const rawContent = choice?.message?.content || '';
         if (
           (toolCalls === null ||
             (Array.isArray(toolCalls) === true && toolCalls.length === 0)) &&
@@ -1237,15 +1302,20 @@ export async function initAiProvider(setting = {}) {
           return {
             type: 'tool_calls',
             toolCalls,
-            message: result?.choices?.[0]?.message || {
+            message: choice?.message || {
               role: CHAT_ROLE_MAP.ASSISTANT,
               content: rawContent,
               tool_calls: toolCalls
-            }
+            },
+            finishReason
           };
         }
 
-        return rawContent;
+        return {
+          type: 'text',
+          content: rawContent,
+          finishReason
+        };
       } catch (error) {
         this.ready = false;
         throw error;
@@ -1444,6 +1514,57 @@ export function classifyEmotion(text) {
 }
 
 /**
+ * 解析或生成自動接續提示詞 (Auto-Continue Prompt)
+ * @param {BrainEngine} brainEngine - 大腦引擎實例
+ * @param {number} [continuationIndex=1] - 當前第幾次接續 (1-indexed)
+ * @param {string} [accumulatedText=''] - 截至目前已累積的回答文字
+ * @returns {string} 提示詞文字
+ */
+export function resolveAutoContinuePrompt(
+  brainEngine,
+  continuationIndex = 1,
+  accumulatedText = ''
+) {
+  const locale = brainEngine?.locale || 'zh-TW';
+  let defaultPrompt =
+    '請接著你剛才尚未說完的內容，緊接著繼續往下說，不要重複前面的句子。';
+  if (/en/i.test(locale)) {
+    defaultPrompt =
+      'Please continue directly from where you left off, without repeating the previous sentences.';
+  } else if (/ja/i.test(locale)) {
+    defaultPrompt =
+      '先ほどの続きから、前の文を繰り返さずにそのまま続けて話してください。';
+  } else if (/ko/i.test(locale)) {
+    defaultPrompt =
+      '이전 문장을 반복하지 말고, 바로 이어서 계속 말씀해 주세요.';
+  }
+
+  const customPrompt = brainEngine?.autoContinuePrompt;
+  if (typeof customPrompt === 'function') {
+    const result = customPrompt(
+      brainEngine,
+      continuationIndex,
+      accumulatedText
+    );
+    if (typeof result === 'string' && result.trim() !== '') {
+      return result;
+    }
+  } else if (typeof customPrompt === 'string' && customPrompt.trim() !== '') {
+    return customPrompt;
+  }
+
+  const resolvedPrompt = resolveLocalized(
+    brainEngine?.autoContinuePrompt,
+    locale,
+    defaultPrompt,
+    { continuationIndex, accumulatedText, locale }
+  );
+  return typeof resolvedPrompt === 'string' && resolvedPrompt.trim() !== ''
+    ? resolvedPrompt
+    : defaultPrompt;
+}
+
+/**
  * 初始化大腦引擎核心
  * @param {BrainEngineOptions} [setting={}] - 大腦引擎設定
  * @returns {Promise<BrainEngine>} 大腦引擎實例
@@ -1453,6 +1574,10 @@ export async function initBrainEngine(setting = {}) {
     llmModel,
     preloadWebLLM = false,
     autoFallbackWebLLM = true,
+    enableAutoContinue = DEFAULT_ENABLE_AUTO_CONTINUE,
+    maxAutoContinuations = DEFAULT_MAX_AUTO_CONTINUATIONS,
+    autoContinueMode = DEFAULT_AUTO_CONTINUE_MODE,
+    autoContinuePrompt = null,
     knowledge = [],
     knowledgeUrl,
     companionKnowledge = [],
@@ -1500,6 +1625,10 @@ export async function initBrainEngine(setting = {}) {
     onStreamStart,
     onStreamChunk,
     onStreamEnd,
+    onAutoContinueStart = null,
+    onAutoContinueWait = null,
+    onAutoContinueResume = null,
+    onAutoContinueEnd = null,
 
     aiProviderCreatedFetchSetting,
     aiProviderCreatedFetchPayload,
@@ -1566,6 +1695,12 @@ export async function initBrainEngine(setting = {}) {
     get BRAIN_FALLBACK_TYPE_MAP() {
       return BRAIN_FALLBACK_TYPE_MAP;
     },
+    get LLM_FINISH_REASON_MAP() {
+      return LLM_FINISH_REASON_MAP;
+    },
+    get FINISH_REASON_MAP() {
+      return FINISH_REASON_MAP;
+    },
 
     get knowledgeUrl() {
       return knowledgeUrl;
@@ -1612,8 +1747,28 @@ export async function initBrainEngine(setting = {}) {
     onStreamStart: onStreamStart || null,
     onStreamChunk: onStreamChunk || null,
     onStreamEnd: onStreamEnd || null,
+    onAutoContinueStart: onAutoContinueStart || null,
+    onAutoContinueWait: onAutoContinueWait || null,
+    onAutoContinueResume: onAutoContinueResume || null,
+    onAutoContinueEnd: onAutoContinueEnd || null,
     onToolNotFound: onToolNotFound || null,
     onToolError: onToolError || null,
+
+    enableAutoContinue:
+      typeof enableAutoContinue === 'boolean'
+        ? enableAutoContinue
+        : DEFAULT_ENABLE_AUTO_CONTINUE,
+    maxAutoContinuations:
+      typeof maxAutoContinuations === 'number' &&
+      Number.isFinite(maxAutoContinuations) === true &&
+      maxAutoContinuations > 0
+        ? maxAutoContinuations
+        : DEFAULT_MAX_AUTO_CONTINUATIONS,
+    autoContinueMode:
+      autoContinueMode === AUTO_CONTINUE_MODE_MAP.BUFFERED
+        ? AUTO_CONTINUE_MODE_MAP.BUFFERED
+        : AUTO_CONTINUE_MODE_MAP.STREAM,
+    autoContinuePrompt: autoContinuePrompt || null,
 
     chatLog: [],
     chatSeq: 0,
@@ -2334,14 +2489,20 @@ export async function handleToolCallsLoop(
     ];
 
     if (providerType === BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER) {
-      const secondResponse = await brainEngine.aiProvider.chat(
+      const toolSummaryResponse = await brainEngine.aiProvider.chat(
         updatedMessages,
         null,
         []
       );
+      const toolSummaryResponseText =
+        typeof toolSummaryResponse === 'string'
+          ? toolSummaryResponse.trim()
+          : typeof toolSummaryResponse?.content === 'string'
+            ? toolSummaryResponse.content.trim()
+            : '';
       let finalText =
-        typeof secondResponse === 'string' && secondResponse.trim() !== ''
-          ? secondResponse.trim()
+        toolSummaryResponseText !== ''
+          ? toolSummaryResponseText
           : initialAssistantContent;
 
       if (finalText === '') {
@@ -2375,7 +2536,7 @@ export async function handleToolCallsLoop(
         brainEngine.onStreamStart();
       }
       const streamMessageId = 'stream-' + Date.now();
-      const secondResponse = await brainEngine.llm.chat(
+      const toolSummaryResponse = await brainEngine.llm.chat(
         updatedMessages,
         (chunkDelta, accumulatedText) => {
           if (typeof brainEngine.onSpokenDisplayTextChange === 'function') {
@@ -2394,9 +2555,15 @@ export async function handleToolCallsLoop(
         },
         []
       );
+      const toolSummaryResponseText =
+        typeof toolSummaryResponse === 'string'
+          ? toolSummaryResponse.trim()
+          : typeof toolSummaryResponse?.content === 'string'
+            ? toolSummaryResponse.content.trim()
+            : '';
       let finalText =
-        typeof secondResponse === 'string' && secondResponse.trim() !== ''
-          ? secondResponse.trim()
+        toolSummaryResponseText !== ''
+          ? toolSummaryResponseText
           : initialAssistantContent;
 
       if (finalText === '') {
@@ -2496,12 +2663,151 @@ export async function aiProviderLLMBrain(brainEngine, question) {
       );
     }
 
-    if (typeof chatResponse === 'string' && chatResponse.trim() !== '') {
-      return sayAnswer(brainEngine, chatResponse.trim());
+    const initialText =
+      typeof chatResponse === 'string'
+        ? chatResponse
+        : typeof chatResponse?.content === 'string'
+          ? chatResponse.content
+          : '';
+    let finishReason =
+      typeof chatResponse?.finishReason === 'string'
+        ? chatResponse.finishReason
+        : LLM_FINISH_REASON_MAP.STOP;
+
+    if (initialText.trim() === '') {
+      throw new Error(
+        'AI Provider 回應為空或格式錯誤 (response is empty or malformed)'
+      );
     }
-    throw new Error(
-      'AI Provider 回應為空或格式錯誤 (response is empty or malformed)'
-    );
+
+    let accumulatedText = initialText.trim();
+    const enableAutoContinue = brainEngine.enableAutoContinue === true;
+    const maxAutoContinuations =
+      typeof brainEngine.maxAutoContinuations === 'number' &&
+      Number.isFinite(brainEngine.maxAutoContinuations) === true &&
+      brainEngine.maxAutoContinuations > 0
+        ? brainEngine.maxAutoContinuations
+        : DEFAULT_MAX_AUTO_CONTINUATIONS;
+    const autoContinueMode =
+      brainEngine.autoContinueMode || DEFAULT_AUTO_CONTINUE_MODE;
+
+    let continuationIndex = 0;
+    let currentMessages = [...messages];
+    let currentAssistantContent = initialText.trim();
+    let chatMessageId = null;
+
+    if (
+      enableAutoContinue === true &&
+      finishReason === LLM_FINISH_REASON_MAP.LENGTH
+    ) {
+      if (autoContinueMode === AUTO_CONTINUE_MODE_MAP.STREAM) {
+        chatMessageId = addChatMessage(
+          brainEngine,
+          'assistant',
+          accumulatedText
+        );
+        if (typeof brainEngine.setEmotionFromText === 'function') {
+          brainEngine.setEmotionFromText(accumulatedText);
+        }
+        if (typeof brainEngine.onSpokenAudioPlayNow === 'function') {
+          brainEngine.onSpokenAudioPlayNow(accumulatedText);
+        }
+      }
+
+      while (
+        finishReason === LLM_FINISH_REASON_MAP.LENGTH &&
+        continuationIndex < maxAutoContinuations
+      ) {
+        continuationIndex++;
+        const continuePrompt = resolveAutoContinuePrompt(
+          brainEngine,
+          continuationIndex,
+          accumulatedText
+        );
+
+        if (typeof brainEngine.onAutoContinueStart === 'function') {
+          brainEngine.onAutoContinueStart({
+            continuationIndex,
+            maxContinuations: maxAutoContinuations,
+            accumulatedText
+          });
+        }
+
+        currentMessages = [
+          ...currentMessages,
+          {
+            role: CHAT_ROLE_MAP.ASSISTANT,
+            content: currentAssistantContent
+          },
+          {
+            role: CHAT_ROLE_MAP.USER,
+            content: continuePrompt
+          }
+        ];
+
+        const continueResponse = await brainEngine.aiProvider.chat(
+          currentMessages,
+          null,
+          []
+        );
+
+        const nextChunk =
+          typeof continueResponse === 'string'
+            ? continueResponse
+            : typeof continueResponse?.content === 'string'
+              ? continueResponse.content
+              : '';
+        finishReason =
+          typeof continueResponse?.finishReason === 'string'
+            ? continueResponse.finishReason
+            : LLM_FINISH_REASON_MAP.STOP;
+
+        if (nextChunk.trim() === '') {
+          break;
+        }
+
+        accumulatedText += '\n' + nextChunk.trim();
+        currentAssistantContent = nextChunk.trim();
+
+        if (typeof brainEngine.onAutoContinueResume === 'function') {
+          brainEngine.onAutoContinueResume({
+            continuationIndex,
+            maxContinuations: maxAutoContinuations,
+            accumulatedText,
+            chunk: nextChunk.trim()
+          });
+        }
+
+        if (autoContinueMode === AUTO_CONTINUE_MODE_MAP.STREAM) {
+          updateChatMessage(brainEngine, chatMessageId, accumulatedText, false);
+          if (typeof brainEngine.setEmotionFromText === 'function') {
+            brainEngine.setEmotionFromText(nextChunk.trim());
+          }
+          if (typeof brainEngine.onSpokenAudioPlayNow === 'function') {
+            brainEngine.onSpokenAudioPlayNow(nextChunk.trim());
+          }
+        }
+      }
+
+      if (typeof brainEngine.onAutoContinueEnd === 'function') {
+        brainEngine.onAutoContinueEnd({
+          totalContinuations: continuationIndex,
+          maxContinuations: maxAutoContinuations,
+          accumulatedText,
+          reason: finishReason
+        });
+      }
+
+      if (autoContinueMode === AUTO_CONTINUE_MODE_MAP.BUFFERED) {
+        return sayAnswer(brainEngine, accumulatedText);
+      } else {
+        brainEngine.memory.addTurn('assistant', accumulatedText);
+        maybeTriggerRollingSummary(brainEngine);
+        return;
+      }
+    }
+
+    return sayAnswer(brainEngine, accumulatedText);
   } catch (error) {
     console.warn('AI Provider error', error);
     throw error;
@@ -2567,26 +2873,136 @@ export async function webLLMBrain(brainEngine, question) {
       );
     }
 
-    if (typeof chatResponse === 'string' && chatResponse.trim() !== '') {
-      brainEngine.memory.addTurn('assistant', chatResponse.trim());
-      updateChatMessage(
-        brainEngine,
-        streamMessageId,
-        chatResponse.trim(),
-        false
-      );
+    const initialText =
+      typeof chatResponse === 'string'
+        ? chatResponse
+        : typeof chatResponse?.content === 'string'
+          ? chatResponse.content
+          : '';
+    let finishReason =
+      typeof chatResponse?.finishReason === 'string'
+        ? chatResponse.finishReason
+        : LLM_FINISH_REASON_MAP.STOP;
 
+    if (initialText.trim() === '') {
       if (typeof brainEngine.onStreamEnd === 'function') {
-        brainEngine.onStreamEnd(chatResponse.trim());
+        brainEngine.onStreamEnd('');
       }
-      maybeTriggerRollingSummary(brainEngine);
-      return;
+      throw new Error('WebLLM response is empty');
     }
+
+    let accumulatedText = initialText.trim();
+    const enableAutoContinue = brainEngine.enableAutoContinue === true;
+    const maxAutoContinuations =
+      typeof brainEngine.maxAutoContinuations === 'number' &&
+      Number.isFinite(brainEngine.maxAutoContinuations) === true &&
+      brainEngine.maxAutoContinuations > 0
+        ? brainEngine.maxAutoContinuations
+        : DEFAULT_MAX_AUTO_CONTINUATIONS;
+
+    let continuationIndex = 0;
+    let currentMessages = [...messages];
+    let currentAssistantContent = initialText.trim();
+
+    if (
+      enableAutoContinue === true &&
+      finishReason === LLM_FINISH_REASON_MAP.LENGTH
+    ) {
+      while (
+        finishReason === LLM_FINISH_REASON_MAP.LENGTH &&
+        continuationIndex < maxAutoContinuations
+      ) {
+        continuationIndex++;
+        const continuePrompt = resolveAutoContinuePrompt(
+          brainEngine,
+          continuationIndex,
+          accumulatedText
+        );
+
+        if (typeof brainEngine.onAutoContinueStart === 'function') {
+          brainEngine.onAutoContinueStart({
+            continuationIndex,
+            maxContinuations: maxAutoContinuations,
+            accumulatedText
+          });
+        }
+
+        currentMessages = [
+          ...currentMessages,
+          {
+            role: CHAT_ROLE_MAP.ASSISTANT,
+            content: currentAssistantContent
+          },
+          {
+            role: CHAT_ROLE_MAP.USER,
+            content: continuePrompt
+          }
+        ];
+
+        let chunkDeltaBuffer = '';
+        const continueResponse = await brainEngine.llm.chat(
+          currentMessages,
+          (chunkDelta, currentStreamText) => {
+            chunkDeltaBuffer = currentStreamText;
+            const combinedText = accumulatedText + '\n' + currentStreamText;
+            if (typeof brainEngine.onSpokenDisplayTextChange === 'function') {
+              brainEngine.onSpokenDisplayTextChange(combinedText);
+            }
+            updateChatMessage(brainEngine, streamMessageId, combinedText, true);
+            brainEngine.setEmotionFromText(currentStreamText);
+
+            if (typeof brainEngine.onStreamChunk === 'function') {
+              brainEngine.onStreamChunk(chunkDelta);
+            }
+          },
+          []
+        );
+
+        const nextChunk =
+          typeof continueResponse === 'string'
+            ? continueResponse
+            : typeof continueResponse?.content === 'string'
+              ? continueResponse.content
+              : chunkDeltaBuffer;
+        finishReason =
+          typeof continueResponse?.finishReason === 'string'
+            ? continueResponse.finishReason
+            : LLM_FINISH_REASON_MAP.STOP;
+
+        if (nextChunk.trim() === '') {
+          break;
+        }
+
+        accumulatedText += '\n' + nextChunk.trim();
+        currentAssistantContent = nextChunk.trim();
+
+        if (typeof brainEngine.onAutoContinueResume === 'function') {
+          brainEngine.onAutoContinueResume({
+            continuationIndex,
+            maxContinuations: maxAutoContinuations,
+            accumulatedText,
+            chunk: nextChunk.trim()
+          });
+        }
+      }
+
+      if (typeof brainEngine.onAutoContinueEnd === 'function') {
+        brainEngine.onAutoContinueEnd({
+          totalContinuations: continuationIndex,
+          maxContinuations: maxAutoContinuations,
+          accumulatedText,
+          reason: finishReason
+        });
+      }
+    }
+
+    brainEngine.memory.addTurn('assistant', accumulatedText);
+    updateChatMessage(brainEngine, streamMessageId, accumulatedText, false);
 
     if (typeof brainEngine.onStreamEnd === 'function') {
-      brainEngine.onStreamEnd('');
+      brainEngine.onStreamEnd(accumulatedText);
     }
-    throw new Error('WebLLM response is empty');
+    maybeTriggerRollingSummary(brainEngine);
   } catch (error) {
     console.warn('llm error', error);
     throw error;

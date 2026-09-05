@@ -425,6 +425,29 @@ export const CHAT_SOURCE_MAP = {
 };
 
 /**
+ * LLM 模型推論結束原因映射表（符合 OpenAI / WebLLM 標準規範）。
+ * @readonly
+ * @enum {string}
+ */
+export const LLM_FINISH_REASON_MAP = {
+  /** 正常生成完畢或達到停止詞標記 */
+  STOP: 'stop',
+  /** 達到單次回答最大 Token 數限制而被截斷（觸發自動接續之關鍵判斷依據） */
+  LENGTH: 'length',
+  /** 模型觸發外部工具調用 (Function Calling) */
+  TOOL_CALLS: 'tool_calls',
+  /** 觸發內容安全過濾機制 */
+  CONTENT_FILTER: 'content_filter'
+};
+
+/**
+ * LLM 模型推論結束原因映射表（相容別名）。
+ * @readonly
+ * @enum {string}
+ */
+export const FINISH_REASON_MAP = LLM_FINISH_REASON_MAP;
+
+/**
  * 大腦推論與降級引擎類型映射表。
  * @readonly
  * @enum {string}
