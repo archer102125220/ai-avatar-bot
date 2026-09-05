@@ -144,6 +144,36 @@ export const DEFAULT_LLM_MAX_TOKENS = 1024;
 export const DEFAULT_AI_PROVIDER_MAX_TOKENS = 2048;
 
 /**
+ * 預設是否在模型回答達到 Token 上限被截斷時啟用自動接續。
+ * @type {boolean}
+ */
+export const DEFAULT_ENABLE_AUTO_CONTINUE = false;
+
+/**
+ * 預設單次問題回答的最大自動接續次數上限（防止無限接續循環）。
+ * @type {number}
+ */
+export const DEFAULT_MAX_AUTO_CONTINUATIONS = 3;
+
+/**
+ * 自動接續輸出模式映射表。
+ * @readonly
+ * @enum {string}
+ */
+export const AUTO_CONTINUE_MODE_MAP = {
+  /** 串流即時模式：邊說邊顯示第一段，接續文字抵達時無縫串入既有訊息與語音佇列 */
+  STREAM: 'stream',
+  /** 緩衝模式：等待所有接續片段全部生成完畢後再一次性輸出語音與文字 */
+  BUFFERED: 'buffered'
+};
+
+/**
+ * 預設自動接續輸出模式。
+ * @type {'stream'|'buffered'}
+ */
+export const DEFAULT_AUTO_CONTINUE_MODE = AUTO_CONTINUE_MODE_MAP.STREAM;
+
+/**
  * 情緒目標值映射表。
  * @readonly
  * @enum {number}

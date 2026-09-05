@@ -22,7 +22,11 @@ import {
   DEFAULT_MALE_NEURAL_VOICE,
   BRAIN_ENGINE_TYPE_MAP,
   BRAIN_FALLBACK_TYPE_MAP,
-  DEFAULT_ENABLE_MODEL_DROP
+  DEFAULT_ENABLE_MODEL_DROP,
+  DEFAULT_ENABLE_AUTO_CONTINUE,
+  DEFAULT_MAX_AUTO_CONTINUATIONS,
+  AUTO_CONTINUE_MODE_MAP,
+  DEFAULT_AUTO_CONTINUE_MODE
 } from './constants';
 
 import {
@@ -84,6 +88,10 @@ export * from './plugins';
  * @property {number} [LLMMaxTokens] - WebLLM 本地模型回應的最大 Token 數 (相容別名)
  * @property {boolean} [preloadWebLLM=false] - 是否在初始化時預先載入 WebLLM 模型
  * @property {boolean} [autoFallbackWebLLM=true] - 當 AI Provider 故障時是否自動在背景載入 WebLLM 備援
+ * @property {boolean} [enableAutoContinue=DEFAULT_ENABLE_AUTO_CONTINUE] - 是否在模型回答達到 Token 上限被截斷時啟用自動接續機制
+ * @property {number} [maxAutoContinuations=DEFAULT_MAX_AUTO_CONTINUATIONS] - 最大自動接續次數上限（防止無限接續）
+ * @property {'stream'|'buffered'} [autoContinueMode=DEFAULT_AUTO_CONTINUE_MODE] - 自動接續輸出模式 ('stream' 即時串流接續 | 'buffered' 全生成完再輸出)
+ * @property {string|Function} [autoContinuePrompt] - 自訂自動接續提示詞或生成函式
  * @property {AvatarMode} [avatarMode=DEFAULT_AVATAR_MODE] - Avatar 模式（例如：assistant, companion 或自訂模式）
  * @property {boolean} [enableMemory=DEFAULT_ENABLE_MEMORY] - 是否啟用記憶體模組（多輪對話與上下文歷史）
  * @property {number} [maxHistoryTurns=DEFAULT_MAX_HISTORY_TURNS] - 保留最大歷史對話輪數
@@ -149,6 +157,10 @@ export * from './plugins';
  * @property {Function} [onSpeaking] - 開始播放語音時的回呼函式
  * @property {Function} [onSpeakingEnd] - 語音播放結束時的回呼函式
  * @property {(fullText: string) => void} [onStreamEnd] - 大腦 LLM 串流文字回答生成完畢時的回呼函式 (fullText)
+ * @property {Function} [onAutoContinueStart] - 自動接續開始時的回呼函式 (info: { continuationIndex: number, maxContinuations: number, accumulatedText: string })
+ * @property {Function} [onAutoContinueWait] - 語音播完但接續內容仍在生成中（空窗期）時的回呼函式 (info: { continuationIndex: number, maxContinuations: number, accumulatedText: string })
+ * @property {Function} [onAutoContinueResume] - 接續內容已抵達並恢復播放時的回呼函式 (info: { continuationIndex: number, maxContinuations: number, accumulatedText: string, chunk: string })
+ * @property {Function} [onAutoContinueEnd] - 自動接續流程結束時的回呼函式 (info: { totalContinuations: number, maxContinuations: number, accumulatedText: string, reason: string })
  * @property {Function} [onSummaryUpdated] - 滾動對話摘要更新時的回呼函式 (summary)
  * @property {Function} [onBrainFallback] - 大腦引擎降級時觸發的回呼函式 (fromEngine, toEngine, error)
  * @property {Function} [onToolCall] - 觸發外部工具 (Tool Call) 時的回呼函式
@@ -173,11 +185,16 @@ export * from './plugins';
  * @property {Record<string, string>} ENGINE_MODE_MAP - 引擎模式映射表
  * @property {Record<string, string>} AVATAR_MODE_MAP - Avatar 模式映射表
  * @property {Record<string, string>} FIT_MODE_MAP - Fit 模式映射表
+ * @property {Record<string, string>} AUTO_CONTINUE_MODE_MAP - 自動接續模式映射表
  * @property {Array<string>} availableModes - 目前可用角色模式清單
  * @property {boolean} enableMemory - 目前是否啟用記憶體
  * @property {boolean} enableAiProvider - 目前是否啟用 AI 服務提供商
  * @property {boolean} preloadWebLLM - 是否預先載入 WebLLM 模型
  * @property {boolean} autoFallbackWebLLM - 是否自動在背景載入 WebLLM 備援
+ * @property {boolean} enableAutoContinue - 當前是否啟用自動接續
+ * @property {number} maxAutoContinuations - 當前最大自動接續次數
+ * @property {'stream'|'buffered'} autoContinueMode - 當前自動接續輸出模式
+
  * @property {HTMLElement} container - 綁定 Widget 的 HTML 容器元素
  * @property {any} uiDom - UI 相關的 DOM 元素與控制方法
  * @property {any} i18nEngine - i18n 多語系引擎實例
@@ -241,6 +258,10 @@ export async function initAvatarBot(options = {}) {
     LLMMaxTokens,
     preloadWebLLM = false,
     autoFallbackWebLLM = true,
+    enableAutoContinue = DEFAULT_ENABLE_AUTO_CONTINUE,
+    maxAutoContinuations = DEFAULT_MAX_AUTO_CONTINUATIONS,
+    autoContinueMode = DEFAULT_AUTO_CONTINUE_MODE,
+    autoContinuePrompt,
     avatarMode = DEFAULT_AVATAR_MODE,
     enableMemory = DEFAULT_ENABLE_MEMORY,
     maxHistoryTurns = DEFAULT_MAX_HISTORY_TURNS,
@@ -379,6 +400,21 @@ export async function initAvatarBot(options = {}) {
     preloadWebLLM: typeof preloadWebLLM === 'boolean' ? preloadWebLLM : false,
     autoFallbackWebLLM:
       typeof autoFallbackWebLLM === 'boolean' ? autoFallbackWebLLM : true,
+    enableAutoContinue:
+      typeof enableAutoContinue === 'boolean'
+        ? enableAutoContinue
+        : DEFAULT_ENABLE_AUTO_CONTINUE,
+    maxAutoContinuations:
+      typeof maxAutoContinuations === 'number' &&
+      Number.isFinite(maxAutoContinuations) === true &&
+      maxAutoContinuations > 0
+        ? maxAutoContinuations
+        : DEFAULT_MAX_AUTO_CONTINUATIONS,
+    autoContinueMode:
+      typeof autoContinueMode === 'string' &&
+      Object.values(AUTO_CONTINUE_MODE_MAP).includes(autoContinueMode) === true
+        ? autoContinueMode
+        : DEFAULT_AUTO_CONTINUE_MODE,
     modes: typeof modes === 'object' && modes !== null ? modes : {},
     locale:
       typeof i18nEngine?.locale === 'string' && i18nEngine.locale !== ''
@@ -417,6 +453,9 @@ export async function initAvatarBot(options = {}) {
     },
     get BRAIN_FALLBACK_TYPE_MAP() {
       return BRAIN_FALLBACK_TYPE_MAP;
+    },
+    get AUTO_CONTINUE_MODE_MAP() {
+      return AUTO_CONTINUE_MODE_MAP;
     },
 
     get container() {
@@ -655,6 +694,61 @@ export async function initAvatarBot(options = {}) {
       }
     },
 
+    get enableAutoContinue() {
+      return (
+        brainEngine?.enableAutoContinue ??
+        rootStore.getState().enableAutoContinue ??
+        DEFAULT_ENABLE_AUTO_CONTINUE
+      );
+    },
+    set enableAutoContinue(newEnableAutoContinue) {
+      if (typeof newEnableAutoContinue === 'boolean') {
+        rootStore.setState({ enableAutoContinue: newEnableAutoContinue });
+        if (brainEngine !== null && typeof brainEngine === 'object') {
+          brainEngine.enableAutoContinue = newEnableAutoContinue;
+        }
+      }
+    },
+
+    get maxAutoContinuations() {
+      return (
+        brainEngine?.maxAutoContinuations ??
+        rootStore.getState().maxAutoContinuations ??
+        DEFAULT_MAX_AUTO_CONTINUATIONS
+      );
+    },
+    set maxAutoContinuations(newMax) {
+      if (
+        typeof newMax === 'number' &&
+        Number.isFinite(newMax) === true &&
+        newMax > 0
+      ) {
+        rootStore.setState({ maxAutoContinuations: newMax });
+        if (brainEngine !== null && typeof brainEngine === 'object') {
+          brainEngine.maxAutoContinuations = newMax;
+        }
+      }
+    },
+
+    get autoContinueMode() {
+      return (
+        brainEngine?.autoContinueMode ??
+        rootStore.getState().autoContinueMode ??
+        DEFAULT_AUTO_CONTINUE_MODE
+      );
+    },
+    set autoContinueMode(newMode) {
+      if (
+        typeof newMode === 'string' &&
+        Object.values(AUTO_CONTINUE_MODE_MAP).includes(newMode) === true
+      ) {
+        rootStore.setState({ autoContinueMode: newMode });
+        if (brainEngine !== null && typeof brainEngine === 'object') {
+          brainEngine.autoContinueMode = newMode;
+        }
+      }
+    },
+
     get enableModelDrop() {
       return rootStore.getState().enableModelDrop ?? DEFAULT_ENABLE_MODEL_DROP;
     },
@@ -749,6 +843,33 @@ export async function initAvatarBot(options = {}) {
       aiAvatarWidget.brainEngine !== null
     ) {
       aiAvatarWidget.brainEngine.autoFallbackWebLLM = newAutoFallbackWebLLM;
+    }
+  });
+
+  rootStore.subscribe('enableAutoContinue', (newEnableAutoContinue) => {
+    if (
+      typeof aiAvatarWidget.brainEngine === 'object' &&
+      aiAvatarWidget.brainEngine !== null
+    ) {
+      aiAvatarWidget.brainEngine.enableAutoContinue = newEnableAutoContinue;
+    }
+  });
+
+  rootStore.subscribe('maxAutoContinuations', (newMaxAutoContinuations) => {
+    if (
+      typeof aiAvatarWidget.brainEngine === 'object' &&
+      aiAvatarWidget.brainEngine !== null
+    ) {
+      aiAvatarWidget.brainEngine.maxAutoContinuations = newMaxAutoContinuations;
+    }
+  });
+
+  rootStore.subscribe('autoContinueMode', (newAutoContinueMode) => {
+    if (
+      typeof aiAvatarWidget.brainEngine === 'object' &&
+      aiAvatarWidget.brainEngine !== null
+    ) {
+      aiAvatarWidget.brainEngine.autoContinueMode = newAutoContinueMode;
     }
   });
 
@@ -1104,6 +1225,10 @@ export async function initAvatarBot(options = {}) {
     LLMMaxTokens: resolvedLlmMaxTokens,
     preloadWebLLM: rootStore.getState().preloadWebLLM,
     autoFallbackWebLLM: rootStore.getState().autoFallbackWebLLM,
+    enableAutoContinue: rootStore.getState().enableAutoContinue,
+    maxAutoContinuations: rootStore.getState().maxAutoContinuations,
+    autoContinueMode: rootStore.getState().autoContinueMode,
+    autoContinuePrompt,
     avatarMode: rootStore.getState().avatarMode,
     enableMemory: rootStore.getState().enableMemory,
     enableAiProvider: rootStore.getState().enableAiProvider,
@@ -1423,6 +1548,18 @@ export async function initAvatarBot(options = {}) {
       }
 
       callOptionEvent.call(this, 'onStreamEnd', fullText);
+    },
+    onAutoContinueStart(info) {
+      callOptionEvent.call(this, 'onAutoContinueStart', info);
+    },
+    onAutoContinueWait(info) {
+      callOptionEvent.call(this, 'onAutoContinueWait', info);
+    },
+    onAutoContinueResume(info) {
+      callOptionEvent.call(this, 'onAutoContinueResume', info);
+    },
+    onAutoContinueEnd(info) {
+      callOptionEvent.call(this, 'onAutoContinueEnd', info);
     },
     onToolNotFound(info) {
       return callOptionEvent.call(this, 'onToolNotFound', info, aiAvatarWidget);
