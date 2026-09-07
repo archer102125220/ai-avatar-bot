@@ -1,4 +1,3 @@
-const path = require('path');
 const { getAvatarSkinPath } = require('./node.cjs');
 
 /**

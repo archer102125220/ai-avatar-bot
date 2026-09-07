@@ -25,25 +25,25 @@ try {
  */
 function printHelp() {
   console.log(`
-\x1b[1m\x1b[36mAI Avatar Bot CLI\x1b[0m (v${pkgVersion})
+\x1B[1m\x1B[36mAI Avatar Bot CLI\x1B[0m (v${pkgVersion})
 離線人像模型與靜態資產管理工具
 
-\x1b[1m使用方式 (Usage):\x1b[0m
+\x1B[1m使用方式 (Usage):\x1B[0m
   $ npx ai-avatar-bot [command] [options]
   $ npx ai-avatar-bot sync [options]
 
-\x1b[1m指令 (Commands):\x1b[0m
+\x1B[1m指令 (Commands):\x1B[0m
   sync               同步 avatar-skin 靜態模型至專案目錄（預設指令）
   help, -h, --help   顯示說明手冊
   -v, --version      顯示當前版本
 
-\x1b[1m參數 (Options):\x1b[0m
+\x1B[1m參數 (Options):\x1B[0m
   -o, --out <path>   指定目標輸出目錄（預設自動偵測框架）
   -f, --force        強制覆蓋目標目錄中已存在的檔案（預設開啟）
   --no-overwrite     若目標檔案已存在則略過不覆蓋
   --dry-run          僅模擬執行並顯示目標路徑，不實際寫入硬碟
 
-\x1b[1m自動偵測規則 (Auto-detection):\x1b[0m
+\x1B[1m自動偵測規則 (Auto-detection):\x1B[0m
   • Angular 專案 (angular.json)       ➔ src/assets/avatar-skin
   • Next.js 專案 (next.config.*)      ➔ public/avatar-skin
   • Nuxt 專案 (nuxt.config.*)         ➔ public/avatar-skin
@@ -178,14 +178,14 @@ async function main() {
   }
 
   if (command !== 'sync') {
-    console.warn(`\x1b[33m[ai-avatar-bot]\x1b[0m 未知指令: "${command}"，預設執行 sync。\n`);
+    console.warn(`\x1B[33m[ai-avatar-bot]\x1B[0m 未知指令: "${command}"，預設執行 sync。\n`);
   }
 
   const cwd = process.cwd();
   const srcDir = getAvatarSkinPath();
 
   if (fs.existsSync(srcDir) === false) {
-    console.error(`\x1b[31m[ai-avatar-bot 錯誤]\x1b[0m 找不到套件內部 avatar-skin 資產目錄: ${srcDir}`);
+    console.error(`\x1B[31m[ai-avatar-bot 錯誤]\x1B[0m 找不到套件內部 avatar-skin 資產目錄: ${srcDir}`);
     process.exit(1);
   }
 
@@ -200,32 +200,32 @@ async function main() {
   const resolvedTarget = path.resolve(cwd, finalTargetRel);
   const fileList = getFilesRecursive(srcDir);
 
-  console.log(`\n\x1b[1m\x1b[36m[ai-avatar-bot]\x1b[0m 資產同步程序啟動 (v${pkgVersion})`);
-  console.log(`來源目錄 (Source): \x1b[90m${srcDir}\x1b[0m`);
-  console.log(`目標目錄 (Target): \x1b[32m${resolvedTarget}\x1b[0m`);
+  console.log(`\n\x1B[1m\x1B[36m[ai-avatar-bot]\x1B[0m 資產同步程序啟動 (v${pkgVersion})`);
+  console.log(`來源目錄 (Source): \x1B[90m${srcDir}\x1B[0m`);
+  console.log(`目標目錄 (Target): \x1B[32m${resolvedTarget}\x1B[0m`);
 
   if (detectedInfo !== null && detectedInfo.projectType !== '') {
-    console.log(`偵測專案類型 (Type): \x1b[35m${detectedInfo.projectType}\x1b[0m`);
+    console.log(`偵測專案類型 (Type): \x1B[35m${detectedInfo.projectType}\x1B[0m`);
     if (detectedInfo.tip !== '') {
-      console.log(`\x1b[33m💡 提示:\x1b[0m ${detectedInfo.tip}`);
+      console.log(`\x1B[33m💡 提示:\x1B[0m ${detectedInfo.tip}`);
     }
   }
 
   if (isDryRun === true) {
-    console.log(`\n\x1b[33m[Dry Run 模擬模式 - 不會進行實際硬碟寫入]\x1b[0m`);
+    console.log(`\n\x1B[33m[Dry Run 模擬模式 - 不會進行實際硬碟寫入]\x1B[0m`);
     console.log(`預計同步的檔案清單 (${fileList.length} 個項目):`);
     for (const f of fileList) {
       console.log(`  + ${path.join(finalTargetRel, f)}`);
     }
-    console.log(`\n\x1b[32m✔ Dry Run 完成。\x1b[0m\n`);
+    console.log(`\n\x1B[32m✔ Dry Run 完成。\x1B[0m\n`);
     process.exit(0);
   }
 
   try {
     copyDirRecursive(srcDir, resolvedTarget, { overwrite });
-    console.log(`\n\x1b[32m✔ 成功同步 ${fileList.length} 個資產檔案至 ${resolvedTarget}\x1b[0m\n`);
+    console.log(`\n\x1B[32m✔ 成功同步 ${fileList.length} 個資產檔案至 ${resolvedTarget}\x1B[0m\n`);
   } catch (err) {
-    console.error(`\n\x1b[31m✖ 同步資產失敗:\x1b[0m`, err);
+    console.error(`\n\x1B[31m✖ 同步資產失敗:\x1B[0m`, err);
     process.exit(1);
   }
 }

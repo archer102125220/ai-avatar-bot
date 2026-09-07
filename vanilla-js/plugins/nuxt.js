@@ -1,5 +1,3 @@
-import path from 'path';
-import fs from 'fs';
 import { getAvatarSkinPath } from './node.js';
 
 /**

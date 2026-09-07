@@ -107,7 +107,7 @@ export function avatarBotAnalogPlugin(options = {}) {
           try {
             copyDirRecursive(assetsDir, targetDir, { overwrite: true });
             console.log(`[ai-avatar-bot/analog] Assets copied to ${targetDir}`);
-          } catch (err) {
+          } catch (_err) {
             // 忽略非目標目錄的複製錯誤
           }
         }
