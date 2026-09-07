@@ -35,19 +35,19 @@ import {
   resolveCompressionLimits,
   generateRollingSummary
 } from './compression.js';
+import {
+  handleGetKnowledge,
+  bigrams,
+  similarity,
+  scoreEntry,
+  topK,
+  bestOf
+} from './knowledge.js';
+import { classifyEmotion, setEmotionFromText } from './emotion.js';
 
 export * from './compression.js';
-
-/**
- * 知識庫項目
- * @typedef {Object} KnowledgeEntry
- * @property {string} [q] - 項目問題
- * @property {string} [kw] - 項目關鍵字
- * @property {string} [a] - 項目回答
- * @property {Object} [source] - 項目來源資料
- * @property {string} [source.title] - 來源標題
- * @property {string} [source.url] - 來源連結
- */
+export * from './knowledge.js';
+export * from './emotion.js';
 
 /**
  * WebLLM 引擎設定
@@ -321,118 +321,7 @@ export * from './compression.js';
  * @property {Object} [compression] - 上下文壓縮設定
  */
 
-/**
- * 取得知識庫內容
- * @param {string} [knowledgeUrl=''] - 知識庫的 URL
- * @returns {Promise<Array<KnowledgeEntry>>} 知識庫陣列資料
- */
-export async function handleGetKnowledge(knowledgeUrl = '') {
-  try {
-    if (typeof knowledgeUrl === 'string' && knowledgeUrl !== '') {
-      const knowledge = await fetch(knowledgeUrl).then((response) => {
-        if (typeof response?.json === 'function') {
-          return response.json();
-        }
-        return response || [];
-      });
-      if (Array.isArray(knowledge) === false) {
-        throw new Error(
-          '[aiAvatar handleGetKnowledge] Knowledge is not an array'
-        );
-      }
-      return knowledge;
-    }
-  } catch (_error) {}
-  return [];
-}
 
-// ===== 大腦：M4 檢索 + M4b（WebLLM）生成 =====
-// 中文不好斷詞，改用「字元 bigram（相鄰兩字）」相似度，對中文很有效、又不用任何函式庫。
-/**
- * 將字串轉換為相鄰兩字元（bigram）陣列
- * @param {string} text - 要處理的字串
- * @returns {string[]} bigram 陣列
- */
-export function bigrams(text) {
-  text = (text || '').toLowerCase().replace(/[\s，。、？！,.?!~～]/g, '');
-  const grams = [];
-  for (let charIndex = 0; charIndex < text.length - 1; charIndex++) {
-    grams.push(text.slice(charIndex, charIndex + 2));
-  }
-  if (text.length === 1) {
-    grams.push(text);
-  }
-  return grams;
-}
-
-/**
- * 計算兩個字串基於 bigram 的相似度
- * @param {string} query - 查詢字串
- * @param {string} text - 目標文本字串
- * @returns {number} 相似度分數 (0 到 1)
- */
-export function similarity(query, text) {
-  const queryBigrams = bigrams(query);
-  const textBigramsSet = new Set(bigrams(text));
-  if (queryBigrams.length === 0 || textBigramsSet.size === 0) {
-    return 0;
-  }
-  let hit = 0;
-  for (const gram of queryBigrams) {
-    if (textBigramsSet.has(gram) === true) {
-      hit++;
-    }
-  }
-  return hit / Math.sqrt(queryBigrams.length * textBigramsSet.size);
-}
-
-/**
- * 評分知識庫項目與問題的相關性
- * @param {string|Array} question - 使用者問題
- * @param {KnowledgeEntry} entry - 知識庫項目
- * @returns {number} 相關性分數
- */
-export function scoreEntry(question, entry) {
-  const safeQuestion =
-    typeof question === 'string'
-      ? question
-      : Array.isArray(question)
-        ? question[question.length - 1]?.content || ''
-        : String(question || '');
-  const targetQuestion =
-    typeof entry.q === 'string' ? entry.q : String(entry.q || '');
-  const targetKeyword =
-    typeof entry.kw === 'string' ? entry.kw : String(entry.kw || '');
-  let score = Math.max(
-    similarity(safeQuestion, targetQuestion),
-    similarity(safeQuestion, targetKeyword)
-  );
-  const terms = targetKeyword.split(/\s+/).filter(Boolean);
-  for (const term of terms) {
-    if (term.length >= 2 && safeQuestion.includes(term) === true) {
-      score = Math.max(score, 0.5 + term.length * 0.04);
-    }
-  }
-  return score;
-}
-
-/**
- * 取得與問題最相關的 Top K 知識庫項目
- * @param {BrainEngine} brainEngine - 大腦引擎實例
- * @param {string|Array} question - 使用者問題
- * @param {number} limit - 擷取數量
- * @returns {Array<KnowledgeEntry>} 相關的知識庫項目陣列
- */
-export function topK(brainEngine, question, limit) {
-  const knowledge = brainEngine?.knowledge || [];
-
-  return knowledge
-    .map((entry) => ({ entry, score: scoreEntry(question, entry) }))
-    .sort((firstItem, secondItem) => secondItem.score - firstItem.score)
-    .slice(0, limit)
-    .filter((item) => item.score > 0.05)
-    .map((item) => item.entry);
-}
 
 /**
  * 從文字中解析 XML 格式的工具調用 (<tool_call>...</tool_call>)
@@ -1485,33 +1374,7 @@ export function initMemory({
   return memory;
 }
 
-// 從回答文字粗判情緒（規則式、零成本；驚訝 > 難過 > 開心 > 中性）
-/**
- * 從文字判斷情緒狀態
- * @param {string} text - 輸入文字
- * @returns {string} 情緒狀態 ('surprised'|'sad'|'happy'|'neutral')
- */
-export function classifyEmotion(text) {
-  const safeText = String(text || '');
-  const countPattern = (regex) => (safeText.match(regex) || []).length;
-  const surprised = countPattern(/哇|居然|竟然|沒想到|驚|真的嗎|！？|\?!|!\?/g);
-  const sad = countPattern(
-    /抱歉|對不起|可惜|遺憾|失敗|錯誤|沒辦法|不支援|不行|連不上|難過|唉/g
-  );
-  const happy = countPattern(
-    /哈|笑|開心|太好了|好耶|讚|恭喜|歡迎|謝謝|沒問題|完成|成功|一起|囉|喔！|🎉|😊|👋/g
-  );
-  if (surprised > 0 && surprised >= Math.max(happy, sad)) {
-    return 'surprised';
-  }
-  if (sad > happy) {
-    return 'sad';
-  }
-  if (happy > 0) {
-    return 'happy';
-  }
-  return 'neutral';
-}
+
 
 /**
  * 解析或生成自動接續提示詞 (Auto-Continue Prompt)
@@ -2036,36 +1899,7 @@ export async function initBrainEngine(setting = {}) {
   return brainEngine;
 }
 
-/**
- * 根據文字設定虛擬人情緒動作
- * @param {BrainEngine} brainEngine - 大腦引擎實例
- * @param {string} text - 回應文字
- */
-export function setEmotionFromText(brainEngine, text) {
-  if (typeof brainEngine.onEmotionChange === 'function') {
-    brainEngine.onEmotionChange(classifyEmotion(text));
-  }
-}
 
-// 檢索式回答（零金鑰、即時、永遠可用的後備）
-/**
- * 找出知識庫中得分最高的項目
- * @param {Array<KnowledgeEntry>} [knowledgeList=[]] - 知識庫陣列
- * @param {string} question - 使用者問題
- * @returns {{entry: KnowledgeEntry|null, score: number}} 最佳符合項目與分數 { entry, score }
- */
-export function bestOf(knowledgeList = [], question) {
-  let bestEntry = null;
-  let bestScore = 0;
-  for (const entry of knowledgeList || []) {
-    const score = scoreEntry(question, entry);
-    if (score > bestScore) {
-      bestScore = score;
-      bestEntry = entry;
-    }
-  }
-  return { entry: bestEntry, score: bestScore };
-}
 
 /**
  * 陪伴模式的預設兜底回覆
