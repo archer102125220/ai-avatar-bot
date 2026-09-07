@@ -1,9 +1,5 @@
 import { createBaseStore } from '../store.js';
-import {
-  resolveLocalized,
-  defaultLocales,
-  formatParams
-} from '../i18n/index.js';
+import { resolveLocalized } from '../i18n/index.js';
 import {
   STATE_MAP,
   AVATAR_MODE_MAP,
@@ -11,14 +7,9 @@ import {
   DEFAULT_LLM_MODEL,
   DEFAULT_LLM_MAX_TOKENS,
   DEFAULT_AI_PROVIDER_MODEL,
-  DEFAULT_AI_PROVIDER_MAX_TOKENS,
   DEFAULT_ENABLE_MEMORY,
   DEFAULT_MAX_HISTORY_TURNS,
-  DEFAULT_SUMMARY_THRESHOLD_TURNS,
   DEFAULT_MEMORY_KEY,
-  CHAT_ROLE_MAP,
-  CHAT_SOURCE_MAP,
-  COMPRESSION_STRATEGY_MAP,
   BRAIN_ENGINE_TYPE_MAP,
   BRAIN_FALLBACK_TYPE_MAP,
   DEFAULT_ENABLE_AUTO_CONTINUE,
