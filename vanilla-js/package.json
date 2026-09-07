@@ -2,10 +2,14 @@
   "name": "ai-avatar-bot-vanilla-js",
   "version": "1.0.0",
   "type": "module",
+  "bin": {
+    "ai-avatar-bot": "./bin/cli.js"
+  },
   "files": [
     "dist",
     "avatar-skin",
-    "plugins"
+    "plugins",
+    "bin"
   ],
   "main": "./dist/ai-avatar-bot.umd.cjs",
   "module": "./dist/ai-avatar-bot.js",
@@ -21,6 +25,26 @@
     "./webpack": {
       "import": "./plugins/webpack.js",
       "require": "./plugins/webpack.cjs"
+    },
+    "./next": {
+      "import": "./plugins/next.js",
+      "require": "./plugins/next.cjs"
+    },
+    "./nuxt": {
+      "import": "./plugins/nuxt.js",
+      "require": "./plugins/nuxt.cjs"
+    },
+    "./analog": {
+      "import": "./plugins/analog.js",
+      "require": "./plugins/analog.cjs"
+    },
+    "./nitro": {
+      "import": "./plugins/nitro.js",
+      "require": "./plugins/nitro.cjs"
+    },
+    "./node": {
+      "import": "./plugins/node.js",
+      "require": "./plugins/node.cjs"
     }
   },
   "scripts": {

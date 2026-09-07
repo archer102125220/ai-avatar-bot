@@ -547,14 +547,16 @@ interface AiAvatarWidget {
 
 ---
 
-## 🛠️ 構建工具插件 (Vite & Webpack 離線開箱即用)
+## 🛠️ 構建工具插件與跨框架支援 (離線開箱即用)
 
-為了讓開發者在 `npm install` 之後**完全無需手動複製人像檔案至 `public`**，且在**斷網或離線開發環境下**依然能 100% 正常載入 2D/3D 模型與動作，本套件隨附專屬的 Vite 與 Webpack 外掛模組：
+為了讓開發者在 `npm install` 之後**完全無需手動複製人像檔案至 `public`**，且在**斷網或離線開發環境下**依然能 100% 正常載入 2D/3D 模型與動作，本套件提供涵蓋所有主流前端與全端框架的專屬插件與工具：
 
 * **本地開發階段 (Dev Server)**：插件會自動攔截 `/avatar-skin/*` 請求，由 Node.js 直接從 `node_modules` 讀取實體檔案並串流回傳給瀏覽器（完全 0 外部網路請求、0 線上 CDN 依賴）。
-* **生產打包階段 (Build)**：在執行專案構建（`vite build` 或 `webpack build`）時，插件會自動將 `avatar-skin` 完整目錄複製至最終輸出目錄 (`dist/avatar-skin/`)。
+* **生產打包階段 (Build)**：在執行專案構建時，插件會自動將 `avatar-skin` 完整目錄複製至最終靜態發布目錄。
 
-### 1. Vite 專案配置 (Vue 3, Nuxt, Svelte, Vite React)
+---
+
+### 1. Vite 專案配置 (Vue 3, Svelte, Vite React)
 
 ```javascript
 // vite.config.js
@@ -579,6 +581,103 @@ module.exports = {
     new AvatarBotWebpackPlugin() // 自動處理 Webpack DevServer 代理與打包資產拷貝
   ]
 };
+```
+
+### 3. Next.js 專案配置 (App Router / Pages Router，支援 Turbopack & Webpack)
+
+```javascript
+// next.config.mjs 或 next.config.js
+import { withAiAvatarBot } from 'ai-avatar-bot-vanilla-js/next';
+
+const nextConfig = {
+  // 您原本的 Next.js 設定
+};
+
+export default withAiAvatarBot(nextConfig);
+```
+> [!NOTE]
+> `withAiAvatarBot` 同時相容於 **Turbopack** (`next dev --turbo` / `next build --turbo`) 與傳統 **Webpack** 構建模式，啟動時自動同步資產至 `public/avatar-skin`。
+
+### 4. Nuxt 3 專案配置 (Nuxt 3 Module，基於 Nitro 引擎 0 複製)
+
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  modules: [
+    'ai-avatar-bot-vanilla-js/nuxt' // 零配置！開發階段 0 複製串流，生產打包自動輸出
+  ]
+});
+```
+
+### 5. AnalogJS 專案配置 (Angular 全端 Meta-Framework)
+
+```typescript
+// vite.config.ts (AnalogJS)
+import { defineConfig } from 'vite';
+import analog from '@analogjs/platform';
+import { avatarBotAnalogPlugin, getAnalogNitroConfig } from 'ai-avatar-bot-vanilla-js/analog';
+
+export default defineConfig(() => ({
+  plugins: [
+    analog({
+      nitro: getAnalogNitroConfig()
+    }),
+    avatarBotAnalogPlugin()
+  ]
+}));
+```
+
+### 6. Angular CLI 專案配置 (`angular.json`)
+
+在 `angular.json` 的 `assets` 陣列中新增模型映射：
+
+```json
+// angular.json
+{
+  "projects": {
+    "my-app": {
+      "architect": {
+        "build": {
+          "options": {
+            "assets": [
+              "src/favicon.ico",
+              "src/assets",
+              {
+                "glob": "**/*",
+                "input": "./node_modules/ai-avatar-bot-vanilla-js/avatar-skin",
+                "output": "avatar-skin"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### 7. 通用 CLI 一鍵同步工具 (跨任何框架與專案)
+
+若您不希望設定 build plugin，或使用其他自訂專案結構，可直接使用內建 CLI 指令一鍵同步：
+
+```bash
+# 自動偵測當前專案類型 (Angular / Next / Nuxt / 一般) 並同步至最佳目錄
+npx ai-avatar-bot sync
+
+# 或手動指定輸出目錄
+npx ai-avatar-bot sync --out src/assets/avatar-skin
+```
+
+### 8. Node.js 路徑輔助工具 (客製化腳本)
+
+```javascript
+import { getAvatarSkinPath, copyAvatarSkin } from 'ai-avatar-bot-vanilla-js/node';
+
+// 取得套件內部實體絕對路徑 (支援 pnpm, Monorepo, yarn)
+console.log(getAvatarSkinPath());
+
+// 程式化複製資產
+copyAvatarSkin('public/avatar-skin');
 ```
 
 ---

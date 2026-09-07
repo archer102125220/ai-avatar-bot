@@ -545,14 +545,16 @@ interface AiAvatarWidget {
 
 ---
 
-## 🛠️ Build Tool Plugins (Vite & Webpack Offline Support)
+## 🛠️ Build Tool Plugins & Multi-Framework Support (Offline Out-of-the-Box)
 
-To eliminate the need for manual file copying to `public/` after `npm install`, and to ensure that 2D/3D models and gestures load seamlessly **even in offline or air-gapped development environments**, this package includes dedicated build tool plugins for Vite and Webpack:
+To eliminate the need for manual file copying to `public/` after `npm install`, and to ensure that 2D/3D models and gestures load seamlessly **even in offline or air-gapped development environments**, this package provides dedicated build plugins and utilities covering all major frontend and full-stack frameworks:
 
-* **Local Development (Dev Server)**: The plugin automatically intercepts `/avatar-skin/*` requests and streams the files directly from `node_modules` using Node.js file system APIs (0 external network requests, 0 online CDN dependencies).
-* **Production Build**: When building your project (`vite build` or `webpack build`), the plugin automatically copies the entire `avatar-skin` directory into your project's build output (`dist/avatar-skin/`).
+* **Local Development (Dev Server)**: Plugins automatically intercept `/avatar-skin/*` requests and stream files directly from `node_modules` (0 external network requests, 0 CDN latency).
+* **Production Build**: During project builds, plugins automatically ensure that the `avatar-skin` directory is copied into the final static distribution output.
 
-### 1. Vite Project Setup (Vue 3, Nuxt, Svelte, Vite React)
+---
+
+### 1. Vite Project Setup (Vue 3, Svelte, Vite React)
 
 ```javascript
 // vite.config.js
@@ -561,7 +563,7 @@ import { avatarBotVitePlugin } from 'ai-avatar-bot-vanilla-js/vite';
 
 export default defineConfig({
   plugins: [
-    avatarBotVitePlugin() // Zero configuration! Handles local dev proxy & build output copy
+    avatarBotVitePlugin() // Zero configuration! Auto dev proxy & build output copy
   ]
 });
 ```
@@ -574,9 +576,106 @@ const { AvatarBotWebpackPlugin } = require('ai-avatar-bot-vanilla-js/webpack');
 
 module.exports = {
   plugins: [
-    new AvatarBotWebpackPlugin() // Automatically handles Webpack DevServer proxy & build copy
+    new AvatarBotWebpackPlugin() // Auto Webpack DevServer proxy & asset copy
   ]
 };
+```
+
+### 3. Next.js Project Setup (App Router / Pages Router, Turbopack & Webpack)
+
+```javascript
+// next.config.mjs or next.config.js
+import { withAiAvatarBot } from 'ai-avatar-bot-vanilla-js/next';
+
+const nextConfig = {
+  // Your original Next.js configuration
+};
+
+export default withAiAvatarBot(nextConfig);
+```
+> [!NOTE]
+> `withAiAvatarBot` is fully compatible with both **Turbopack** (`next dev --turbo` / `next build --turbo`) and traditional **Webpack** build modes, automatically syncing assets to `public/avatar-skin`.
+
+### 4. Nuxt 3 Project Setup (Nuxt 3 Module via Nitro Engine)
+
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  modules: [
+    'ai-avatar-bot-vanilla-js/nuxt' // Zero config! Zero-copy streaming in dev, auto output in build
+  ]
+});
+```
+
+### 5. AnalogJS Project Setup (Angular Full-Stack Meta-Framework)
+
+```typescript
+// vite.config.ts (AnalogJS)
+import { defineConfig } from 'vite';
+import analog from '@analogjs/platform';
+import { avatarBotAnalogPlugin, getAnalogNitroConfig } from 'ai-avatar-bot-vanilla-js/analog';
+
+export default defineConfig(() => ({
+  plugins: [
+    analog({
+      nitro: getAnalogNitroConfig()
+    }),
+    avatarBotAnalogPlugin()
+  ]
+}));
+```
+
+### 6. Angular CLI Project Setup (`angular.json`)
+
+Add the model asset mapping to the `assets` array in your `angular.json`:
+
+```json
+// angular.json
+{
+  "projects": {
+    "my-app": {
+      "architect": {
+        "build": {
+          "options": {
+            "assets": [
+              "src/favicon.ico",
+              "src/assets",
+              {
+                "glob": "**/*",
+                "input": "./node_modules/ai-avatar-bot-vanilla-js/avatar-skin",
+                "output": "avatar-skin"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### 7. Universal CLI Asset Sync (For Any Framework or Custom Setup)
+
+If you prefer not to use build plugins or use a custom directory layout, use the built-in CLI tool:
+
+```bash
+# Auto-detects project type (Angular / Next / Nuxt / Standard) and syncs assets
+npx ai-avatar-bot sync
+
+# Or specify a custom output directory
+npx ai-avatar-bot sync --out src/assets/avatar-skin
+```
+
+### 8. Node.js Path Utility (For Custom Automation Scripts)
+
+```javascript
+import { getAvatarSkinPath, copyAvatarSkin } from 'ai-avatar-bot-vanilla-js/node';
+
+// Get physical absolute path to avatar-skin directory (works with pnpm, Monorepos, Yarn)
+console.log(getAvatarSkinPath());
+
+// Programmatically copy assets
+copyAvatarSkin('public/avatar-skin');
 ```
 
 ---
