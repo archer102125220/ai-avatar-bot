@@ -8,7 +8,7 @@ import {
   DEFAULT_MAX_AUTO_CONTINUATIONS,
   isWebLLMFunctionCallingSupported
 } from '../constants.js';
-import { toOpenAiTools } from '../tools.js';
+import { toOpenAiTools } from '../tools';
 import {
   extractToolCallsFromText,
   executeToolCallsLoop

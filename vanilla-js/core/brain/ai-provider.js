@@ -8,7 +8,7 @@ import {
   DEFAULT_AUTO_CONTINUE_MODE,
   DEFAULT_MAX_AUTO_CONTINUATIONS
 } from '../constants.js';
-import { toOpenAiTools } from '../tools.js';
+import { toOpenAiTools } from '../tools';
 import {
   extractToolCallsFromText,
   executeToolCallsLoop
