@@ -1,5 +1,5 @@
 import { createBaseStore } from '../store.js';
-import { resolveLocalized } from '../i18n/index.js';
+import { resolveLocalized } from '../i18n';
 import {
   STATE_MAP,
   AVATAR_MODE_MAP,
@@ -19,31 +19,16 @@ import {
   LLM_FINISH_REASON_MAP,
   FINISH_REASON_MAP
 } from '../constants.js';
-import {
-  fetchKnowledge,
-  findBestMatch
-} from './knowledge.js';
-import {
-  classifyEmotion,
-  applyEmotionFromText
-} from './emotion.js';
-import {
-  initMemory,
-  triggerRollingSummaryIfNeeded
-} from './memory.js';
+import { fetchKnowledge, findBestMatch } from './knowledge.js';
+import { classifyEmotion, applyEmotionFromText } from './emotion.js';
+import { initMemory, triggerRollingSummaryIfNeeded } from './memory.js';
 import {
   getBrainMessage,
   getWelcomeText,
   buildDefaultLLMMessages
 } from './messages.js';
-import {
-  initWebLLM,
-  chatWithWebLLM
-} from './web-llm.js';
-import {
-  initAiProvider,
-  chatWithAiProvider
-} from './ai-provider.js';
+import { initWebLLM, chatWithWebLLM } from './web-llm.js';
+import { initAiProvider, chatWithAiProvider } from './ai-provider.js';
 
 export * from './compression.js';
 export * from './knowledge.js';
@@ -502,8 +487,7 @@ export async function initBrainEngine(setting = {}) {
       getRetrievalAnswer(brainEngine, rawQuestion),
     getCompanionFallbackResponse: (question) =>
       getCompanionFallbackResponse(brainEngine, question),
-    chatWithAiProvider: (question) =>
-      chatWithAiProvider(brainEngine, question),
+    chatWithAiProvider: (question) => chatWithAiProvider(brainEngine, question),
     chatWithWebLLM: (question) => chatWithWebLLM(brainEngine, question),
     triggerRollingSummaryIfNeeded: () =>
       triggerRollingSummaryIfNeeded(brainEngine),
@@ -1007,8 +991,7 @@ export async function answerQuestion(brainEngine, question) {
     brainEngine.aiProvider.ready === true
   ) {
     try {
-      const chatAiFn =
-        brainEngine.chatWithAiProvider || chatWithAiProvider;
+      const chatAiFn = brainEngine.chatWithAiProvider || chatWithAiProvider;
       return await chatAiFn(brainEngine, question);
     } catch (error) {
       console.warn(
@@ -1032,8 +1015,7 @@ export async function answerQuestion(brainEngine, question) {
   // 2) 瀏覽器內 WebLLM：串流 → 每切出一個完整句就丟進逐句佇列開講（首句延遲大幅縮短）
   if (brainEngine.llm?.state === brainEngine.STATE_MAP.READY) {
     try {
-      const chatWebLLMFn =
-        brainEngine.chatWithWebLLM || chatWithWebLLM;
+      const chatWebLLMFn = brainEngine.chatWithWebLLM || chatWithWebLLM;
       return await chatWebLLMFn(brainEngine, question);
     } catch (error) {
       console.warn(

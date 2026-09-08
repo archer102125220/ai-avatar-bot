@@ -1,12 +1,5 @@
-import {
-  AVATAR_MODE_MAP,
-  BRAIN_ENGINE_TYPE_MAP
-} from '../constants.js';
-import {
-  resolveLocalized,
-  defaultLocales,
-  formatParams
-} from '../i18n/index.js';
+import { AVATAR_MODE_MAP, BRAIN_ENGINE_TYPE_MAP } from '../constants.js';
+import { resolveLocalized, defaultLocales, formatParams } from '../i18n';
 import { getTopKnowledge } from './knowledge.js';
 import { compressContext } from './compression.js';
 
