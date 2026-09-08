@@ -33,7 +33,9 @@ import {
  * @property {() => void} save - 儲存記憶
  * @property {(role: string, content: string) => void} addTurn - 新增對話輪次
  * @property {(name: string) => void} captureName - 擷取名稱
- * @property {() => void} wipe - 清除記憶
+ * @property {() => void} clear - 清除記憶
+ * @property {() => void} reset - 重置記憶
+ * @property {() => void} wipe - 清除記憶 (相容別名)
  */
 
 /**
@@ -149,7 +151,6 @@ export function initMemory({
       ) {
         return;
       }
-      // 不再破壞性硬切 200 字，保留完整歷史；若對話超過安全上限 100 筆則修剪最舊的
       this.data.history.push({ role, content: String(content) });
       if (this.data.history.length > 100) {
         this.data.history.splice(0, this.data.history.length - 100);
@@ -170,7 +171,7 @@ export function initMemory({
       }
     },
 
-    wipe() {
+    clear() {
       this.data = {
         name: '',
         visits: 1,
@@ -182,6 +183,14 @@ export function initMemory({
       try {
         this.adapter.wipe(this.key);
       } catch (_error) {}
+    },
+
+    reset() {
+      this.clear();
+    },
+
+    wipe() {
+      this.clear();
     }
   };
 
@@ -191,12 +200,17 @@ export function initMemory({
 }
 
 /**
+ * 相容別名：createMemory -> initMemory
+ */
+export const createMemory = initMemory;
+
+/**
  * 檢查並觸發背景非同步滾動摘要更新 (Non-blocking Background Summarization)
  *
  * @param {Object} brainEngine - 大腦引擎實例
  * @returns {Promise<void>}
  */
-export async function maybeTriggerRollingSummary(brainEngine) {
+export async function triggerRollingSummaryIfNeeded(brainEngine) {
   if (
     typeof brainEngine !== 'object' ||
     brainEngine === null ||
@@ -295,7 +309,7 @@ export async function maybeTriggerRollingSummary(brainEngine) {
       }
     } catch (summaryError) {
       console.warn(
-        '[maybeTriggerRollingSummary] Background summarization failed:',
+        '[triggerRollingSummaryIfNeeded] Background summarization failed:',
         summaryError
       );
     } finally {
@@ -303,3 +317,8 @@ export async function maybeTriggerRollingSummary(brainEngine) {
     }
   }, 50);
 }
+
+/**
+ * 相容別名：maybeTriggerRollingSummary -> triggerRollingSummaryIfNeeded
+ */
+export const maybeTriggerRollingSummary = triggerRollingSummaryIfNeeded;

@@ -51,7 +51,7 @@ export function extractToolCallsFromText(content) {
  * @param {'aiProvider'|'webLLM'} providerType - 提供者類型
  * @returns {Promise<void>}
  */
-export async function handleToolCallsLoop(
+export async function executeToolCallsLoop(
   brainEngine,
   toolCallResponse,
   initialMessages,
@@ -228,8 +228,10 @@ export async function handleToolCallsLoop(
       }
 
       if (finalText !== '') {
-        if (typeof brainEngine.sayAnswer === 'function') {
-          brainEngine.sayAnswer(finalText);
+        const emitAnswerFn =
+          brainEngine.emitAnswer || brainEngine.sayAnswer;
+        if (typeof emitAnswerFn === 'function') {
+          emitAnswerFn(finalText);
         }
       }
     } else if (
@@ -253,8 +255,10 @@ export async function handleToolCallsLoop(
               true
             );
           }
-          if (typeof brainEngine.setEmotionFromText === 'function') {
-            brainEngine.setEmotionFromText(accumulatedText);
+          const applyEmotionFn =
+            brainEngine.applyEmotionFromText || brainEngine.setEmotionFromText;
+          if (typeof applyEmotionFn === 'function') {
+            applyEmotionFn(accumulatedText);
           }
           if (typeof brainEngine.onStreamChunk === 'function') {
             brainEngine.onStreamChunk(chunkDelta);
@@ -303,8 +307,11 @@ export async function handleToolCallsLoop(
         if (typeof brainEngine.onStreamEnd === 'function') {
           brainEngine.onStreamEnd(finalText);
         }
-        if (typeof brainEngine.maybeTriggerRollingSummary === 'function') {
-          brainEngine.maybeTriggerRollingSummary();
+        const triggerSummaryFn =
+          brainEngine.triggerRollingSummaryIfNeeded ||
+          brainEngine.maybeTriggerRollingSummary;
+        if (typeof triggerSummaryFn === 'function') {
+          triggerSummaryFn();
         }
       }
     }
@@ -332,3 +339,8 @@ export async function handleToolCallsLoop(
     await resumeAiSummary(toolResults);
   }
 }
+
+/**
+ * 相容別名：handleToolCallsLoop -> executeToolCallsLoop
+ */
+export const handleToolCallsLoop = executeToolCallsLoop;

@@ -75,8 +75,11 @@ export * from './plugins';
  * @property {boolean} [enableAiProvider] - 是否啟用 AI 服務提供商
  * @property {string} [aiProviderBaseUrl=''] - AI 服務提供商的 API 基礎 URL
  * @property {string} [aiProviderModel=DEFAULT_AI_PROVIDER_MODEL] - 使用的 AI 服務模型名稱
- * @property {Function|RequestInit} [aiProviderCreatedFetchSetting] - 自訂 Fetch 設定的處理函式或設定物件
- * @property {Function|Record<string, any>} [aiProviderCreatedFetchPayload] - 自訂 Fetch 負載 (Payload) 的處理函式或負載物件
+ * @property {Function|RequestInit} [aiProviderCreateFetchSetting] - 自訂 Fetch 設定的處理函式或設定物件
+ * @property {Function|RequestInit} [aiProviderCreatedFetchSetting] - 自訂 Fetch 設定的處理函式或設定物件 (相容別名)
+ * @property {Function|Record<string, any>} [aiProviderCreateFetchPayload] - 自訂 Fetch 負載 (Payload) 的處理函式或負載物件
+ * @property {Function|Record<string, any>} [aiProviderCreatedFetchPayload] - 自訂 Fetch 負載 (Payload) 的處理函式或負載物件 (相容別名)
+ * @property {string|Object} [aiProviderResponseFormat] - 自訂 AI 服務回應格式 (如 'sse', 'json', 或包含 processLine 等物件)
  * @property {number} [aiProviderMaxTokens=DEFAULT_AI_PROVIDER_MAX_TOKENS] - AI 服務回應的最大 Token 數
  * @property {boolean} [aiProviderStream] - 是否啟用 AI 服務的串流 (Streaming) 回應
  * @property {Function} [aiProviderExtractToolCalls] - AI 服務提供商自訂提取 Tool Calls 的回呼函式
@@ -205,7 +208,9 @@ export * from './plugins';
  * @property {any} toolsEngine - 外部工具 (Tools) 引擎實例
  * @property {Function} buildLLMMessages - 組裝 LLM 訊息的函式
  * @property {Function} classifyEmotion - 情感分類函式
- * @property {Function} setEmotionFromText - 根據文字設定情感的函式
+ * @property {Function} applyEmotionFromText - 根據文字設定情感的函式
+ * @property {Function} setEmotionFromText - 根據文字設定情感的函式 (相容別名)
+ * @property {Function} answerQuestion - 處理回答使用者問題的方法
  * @property {(text: string) => Promise<void>|void} handleUser - 處理使用者輸入文字的主方法
  * @property {boolean} isIframe - 是否在 Iframe 內
  * @property {boolean} isMinimal - 是否處於極簡模式
@@ -248,8 +253,14 @@ export async function initAvatarBot(options = {}) {
     enableAiProvider,
     aiProviderBaseUrl = '',
     aiProviderModel = DEFAULT_AI_PROVIDER_MODEL,
+    aiProviderCreateFetchSetting,
     aiProviderCreatedFetchSetting,
+    aiProviderCreateFetchPayload,
     aiProviderCreatedFetchPayload,
+    aiProviderResponseFormat,
+    providerCreateFetchSetting,
+    providerCreateFetchPayload,
+    providerResponseFormat,
     aiProviderMaxTokens,
     aiProviderStream,
     neuralVoice = '',
@@ -490,15 +501,35 @@ export async function initAvatarBot(options = {}) {
     },
 
     get buildLLMMessages() {
-      return aiAvatarWidget.brainEngine.buildLLMMessages;
+      return (
+        aiAvatarWidget.brainEngine.buildLLMMessages ||
+        aiAvatarWidget.brainEngine.defaultBuildLLMMessages
+      );
     },
 
     get classifyEmotion() {
       return aiAvatarWidget.brainEngine.classifyEmotion;
     },
 
+    get applyEmotionFromText() {
+      return (
+        aiAvatarWidget.brainEngine.applyEmotionFromText ||
+        aiAvatarWidget.brainEngine.setEmotionFromText
+      );
+    },
+
     get setEmotionFromText() {
-      return aiAvatarWidget.brainEngine.setEmotionFromText;
+      return (
+        aiAvatarWidget.brainEngine.setEmotionFromText ||
+        aiAvatarWidget.brainEngine.applyEmotionFromText
+      );
+    },
+
+    get answerQuestion() {
+      return (
+        aiAvatarWidget.brainEngine.answerQuestion ||
+        aiAvatarWidget.brainEngine.handleAnswer
+      );
     },
 
     handleUser: (text) => {
@@ -1147,7 +1178,11 @@ export async function initAvatarBot(options = {}) {
       skinEngine.gestureName = 'thinking';
     }
 
-    brainEngine.handleAnswer(text);
+    const answerFn =
+      brainEngine.answerQuestion || brainEngine.handleAnswer;
+    if (typeof answerFn === 'function') {
+      answerFn(text);
+    }
   }
 
   function onTapAvatar() {
@@ -1309,8 +1344,24 @@ export async function initAvatarBot(options = {}) {
     companionFallback,
     aiProviderBaseUrl,
     aiProviderModel,
-    aiProviderCreatedFetchSetting,
-    aiProviderCreatedFetchPayload,
+    aiProviderCreateFetchSetting:
+      aiProviderCreateFetchSetting ||
+      aiProviderCreatedFetchSetting ||
+      providerCreateFetchSetting,
+    aiProviderCreatedFetchSetting:
+      aiProviderCreateFetchSetting ||
+      aiProviderCreatedFetchSetting ||
+      providerCreateFetchSetting,
+    aiProviderCreateFetchPayload:
+      aiProviderCreateFetchPayload ||
+      aiProviderCreatedFetchPayload ||
+      providerCreateFetchPayload,
+    aiProviderCreatedFetchPayload:
+      aiProviderCreateFetchPayload ||
+      aiProviderCreatedFetchPayload ||
+      providerCreateFetchPayload,
+    aiProviderResponseFormat:
+      aiProviderResponseFormat || providerResponseFormat,
     aiProviderMaxTokens:
       typeof aiProviderMaxTokens === 'number' &&
       Number.isFinite(aiProviderMaxTokens) === true &&

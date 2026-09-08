@@ -11,6 +11,7 @@ import {
 import { toOpenAiTools } from '../tools.js';
 import {
   extractToolCallsFromText,
+  executeToolCallsLoop,
   handleToolCallsLoop
 } from './tool-calling.js';
 import { getBrainMessage, resolveAutoContinuePrompt } from './messages.js';
@@ -56,7 +57,7 @@ import { getBrainMessage, resolveAutoContinuePrompt } from './messages.js';
  * @param {Object} [brain] - 大腦引擎實例
  * @returns {LLMEngine} WebLLM 實例
  */
-export function initLLM(setting = {}, brain) {
+export function initWebLLM(setting = {}, brain) {
   const {
     llmModel = DEFAULT_LLM_MODEL,
     llmMaxTokens,
@@ -480,12 +481,17 @@ export function initLLM(setting = {}, brain) {
 }
 
 /**
+ * 相容別名：initLLM -> initWebLLM
+ */
+export const initLLM = initWebLLM;
+
+/**
  * 透過瀏覽器端 WebLLM 引擎回答問題
  * @param {Object} brainEngine - 大腦引擎實例
  * @param {string} question - 使用者問題
  * @returns {Promise<void>}
  */
-export async function webLLMBrain(brainEngine, question) {
+export async function chatWithWebLLM(brainEngine, question) {
   try {
     if (typeof brainEngine.onSpokenDisplayTextChange === 'function') {
       brainEngine.onSpokenDisplayTextChange(
@@ -517,8 +523,10 @@ export async function webLLMBrain(brainEngine, question) {
         if (typeof brainEngine.updateChatMessage === 'function') {
           brainEngine.updateChatMessage(streamMessageId, accumulatedText, true);
         }
-        if (typeof brainEngine.setEmotionFromText === 'function') {
-          brainEngine.setEmotionFromText(accumulatedText);
+        const applyEmotionFn =
+          brainEngine.applyEmotionFromText || brainEngine.setEmotionFromText;
+        if (typeof applyEmotionFn === 'function') {
+          applyEmotionFn(accumulatedText);
         }
 
         if (typeof brainEngine.onStreamChunk === 'function') {
@@ -536,7 +544,8 @@ export async function webLLMBrain(brainEngine, question) {
       if (typeof brainEngine.updateChatMessage === 'function') {
         brainEngine.updateChatMessage(streamMessageId, '', false);
       }
-      return await handleToolCallsLoop(
+      const toolLoopFn = executeToolCallsLoop || handleToolCallsLoop;
+      return await toolLoopFn(
         brainEngine,
         chatResponse,
         messages,
@@ -626,8 +635,10 @@ export async function webLLMBrain(brainEngine, question) {
                 true
               );
             }
-            if (typeof brainEngine.setEmotionFromText === 'function') {
-              brainEngine.setEmotionFromText(currentStreamText);
+            const applyEmotionFn =
+              brainEngine.applyEmotionFromText || brainEngine.setEmotionFromText;
+            if (typeof applyEmotionFn === 'function') {
+              applyEmotionFn(currentStreamText);
             }
 
             if (typeof brainEngine.onStreamChunk === 'function') {
@@ -685,11 +696,19 @@ export async function webLLMBrain(brainEngine, question) {
     if (typeof brainEngine.onStreamEnd === 'function') {
       brainEngine.onStreamEnd(accumulatedText);
     }
-    if (typeof brainEngine.maybeTriggerRollingSummary === 'function') {
-      brainEngine.maybeTriggerRollingSummary();
+    const triggerSummaryFn =
+      brainEngine.triggerRollingSummaryIfNeeded ||
+      brainEngine.maybeTriggerRollingSummary;
+    if (typeof triggerSummaryFn === 'function') {
+      triggerSummaryFn();
     }
   } catch (error) {
     console.warn('llm error', error);
     throw error;
   }
 }
+
+/**
+ * 相容別名：webLLMBrain -> chatWithWebLLM
+ */
+export const webLLMBrain = chatWithWebLLM;

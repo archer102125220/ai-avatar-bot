@@ -203,8 +203,9 @@ const avatarWidget = await initAvatarBot({
 | `aiProviderModel` | `string` | `'qwen2.5:latest'` | 遠端 AI 服務使用的模型名稱 |
 | `aiProviderStream` | `boolean` | `true` | 遠端 AI 服務是否啟用串流 (Streaming) 傳輸 |
 | `aiProviderMaxTokens` | `number` | `2048` | AI 回應的最大 Token 數上限 |
-| `aiProviderCreatedFetchSetting` | `Function\|Object` | `null` | 自訂遠端 API 的 Fetch Header / RequestInit 設定 |
-| `aiProviderCreatedFetchPayload` | `Function\|Object` | `null` | 自訂送出給 AI 提供者的 JSON Payload 結構 |
+| `aiProviderCreateFetchSetting` | `Function\|Object` | `null` | 自訂遠端 API 的 Fetch Header / RequestInit 設定（相容別名：`aiProviderCreatedFetchSetting`） |
+| `aiProviderCreateFetchPayload` | `Function\|Object` | `null` | 自訂送出給 AI 提供者的 JSON Payload 結構（相容別名：`aiProviderCreatedFetchPayload`） |
+| `aiProviderResponseFormat` | `string\|Object` | `null` | 自訂遠端 AI 提供者回應格式（支援 `'sse'`, `'json'` 或自訂處理物件） |
 | `llmModel` | `string` | `'Qwen2.5-1.5B...'` | 瀏覽器端 WebLLM 模型名稱 |
 | `llmMaxTokens` | `number` | `1024` | 瀏覽器端 WebLLM 模型回應的最大 Token 數上限 |
 | `preloadWebLLM` | `boolean` | `false` | 是否在初始化時即刻預載 WebLLM 權重檔案 |
@@ -293,7 +294,7 @@ const widget = await initAvatarBot({
   aiProviderModel: 'qwen2.5:latest',
   
   // 自訂送出 Payload 格式
-  aiProviderCreatedFetchPayload: (messages, isStream) => ({
+  aiProviderCreateFetchPayload: (messages, isStream) => ({
     model: 'qwen2.5:latest',
     messages: messages,
     stream: isStream
@@ -525,11 +526,13 @@ interface AiAvatarWidget {
   i18nEngine: I18nEngine;
   
   // 常用控制方法
-  handleUser(text: string): Promise<void>; // 模擬使用者輸入文字並讓大腦思考回覆
-  setEmotionFromText(text: string): void;   // 解析文字並自動切換模型表情與手勢
-  classifyEmotion(text: string): string;    // 分析文字並取得情緒名稱
-  showMinimalEl(): void;                   // 顯示極簡模式懸浮按鈕
-  hiddenMinimalEl(): void;                 // 隱藏極簡模式懸浮按鈕
+  handleUser(text: string): Promise<void>;        // 模擬使用者輸入文字並讓大腦思考回覆
+  answerQuestion(question: string): Promise<any>; // 大腦推論回答問題
+  applyEmotionFromText(text: string): void;       // 解析文字並自動切換模型表情與手勢（別名：setEmotionFromText）
+  setEmotionFromText(text: string): void;         // 解析文字並自動切換模型表情與手勢
+  classifyEmotion(text: string): string;          // 分析文字並取得情緒名稱
+  showMinimalEl(): void;                          // 顯示極簡模式懸浮按鈕
+  hiddenMinimalEl(): void;                        // 隱藏極簡模式懸浮按鈕
   
   // 自動接續設定屬性
   enableAutoContinue: boolean;                    // 是否啟用自動接續

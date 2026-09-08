@@ -1141,7 +1141,12 @@ export function bindUiEvent(context = null) {
     }
     if (btnHistoryClear instanceof HTMLElement) {
       btnHistoryClear.onclick = () => {
-        context.brainEngine.chatLog.length = 0;
+        if (typeof context.brainEngine?.memory?.clear === 'function') {
+          context.brainEngine.memory.clear();
+        }
+        if (Array.isArray(context.brainEngine?.chatLog) === true) {
+          context.brainEngine.chatLog.length = 0;
+        }
         renderHistory(context);
         context.speechEngine.spokenDisplayText =
           typeof context.i18nEngine?.t === 'function'

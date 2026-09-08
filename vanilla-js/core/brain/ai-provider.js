@@ -11,6 +11,7 @@ import {
 import { toOpenAiTools } from '../tools.js';
 import {
   extractToolCallsFromText,
+  executeToolCallsLoop,
   handleToolCallsLoop
 } from './tool-calling.js';
 import { getBrainMessage, resolveAutoContinuePrompt } from './messages.js';
@@ -25,9 +26,12 @@ import { getBrainMessage, resolveAutoContinuePrompt } from './messages.js';
  * @property {string} [providerPingUrl] - AI 供應商 Ping URL
  * @property {string} [providerChatUrl] - AI 供應商 Chat URL
  * @property {string} [providerModel] - AI 供應商模型名稱
- * @property {Function} [providerCreatedFetchSetting] - 建立 Fetch 設定回呼
- * @property {Function} [providerCreatedFetchPayload] - 建立 Fetch 負載回呼
- * @property {Function} [providerResponesFormat] - 回應格式化回呼
+ * @property {Function} [providerCreateFetchSetting] - 建立 Fetch 設定回呼
+ * @property {Function} [providerCreatedFetchSetting] - 建立 Fetch 設定回呼 (相容別名)
+ * @property {Function} [providerCreateFetchPayload] - 建立 Fetch 負載回呼
+ * @property {Function} [providerCreatedFetchPayload] - 建立 Fetch 負載回呼 (相容別名)
+ * @property {Function} [providerResponseFormat] - 回應格式化回呼
+ * @property {Function} [providerResponesFormat] - 回應格式化回呼 (相容別名)
  * @property {Function} [providerExtractToolCalls] - 提取 Tool Calls 回呼
  * @property {number} [providerMaxTokens] - AI 供應商最大 token 數
  * @property {boolean} [providerIsStream] - 是否使用串流
@@ -41,12 +45,16 @@ import { getBrainMessage, resolveAutoContinuePrompt } from './messages.js';
 /**
  * AI 供應商引擎實例
  * @typedef {Object} AiProviderEngine
- * @property {string} base - Base URL
+ * @property {string} baseUrl - Base URL
+ * @property {string} base - Base URL (相容別名)
  * @property {string} pingUrl - Ping URL
  * @property {string} chatUrl - Chat URL
- * @property {Function} createdFetchSetting - 建立 Fetch 設定方法
- * @property {Function} createdFetchPayload - 建立 Fetch 負載方法
- * @property {Function} responesFormat - 回應格式化方法
+ * @property {Function} createFetchSetting - 建立 Fetch 設定方法
+ * @property {Function} createdFetchSetting - 建立 Fetch 設定方法 (相容別名)
+ * @property {Function} createFetchPayload - 建立 Fetch 負載方法
+ * @property {Function} createdFetchPayload - 建立 Fetch 負載方法 (相容別名)
+ * @property {Function} responseFormat - 回應格式化方法
+ * @property {Function} responesFormat - 回應格式化方法 (相容別名)
  * @property {Function} [extractToolCalls] - 提取 Tool Calls 方法
  * @property {number} maxTokens - 最大 Token 數
  * @property {boolean} isStream - 是否為串流模式
@@ -76,8 +84,11 @@ export async function initAiProvider(setting = {}) {
     providerPingUrl = '',
     providerChatUrl = '',
     providerModel = DEFAULT_AI_PROVIDER_MODEL,
+    providerCreateFetchSetting = null,
     providerCreatedFetchSetting = null,
+    providerCreateFetchPayload = null,
     providerCreatedFetchPayload = null,
+    providerResponseFormat = null,
     providerResponesFormat = null,
     providerExtractToolCalls = null,
 
@@ -90,6 +101,13 @@ export async function initAiProvider(setting = {}) {
     onChatting = null,
     onStreamChatting = null
   } = setting;
+
+  const resolvedCreateFetchSetting =
+    providerCreateFetchSetting || providerCreatedFetchSetting;
+  const resolvedCreateFetchPayload =
+    providerCreateFetchPayload || providerCreatedFetchPayload;
+  const resolvedResponseFormat =
+    providerResponseFormat || providerResponesFormat;
 
   let isEnabled;
   if (typeof enableAiProvider === 'boolean') {
@@ -104,18 +122,33 @@ export async function initAiProvider(setting = {}) {
   let _enabled = isEnabled;
 
   const aiProvider = {
-    base: providerBaseUrl,
+    baseUrl: providerBaseUrl,
+    get base() {
+      return this.baseUrl;
+    },
+    set base(newBase) {
+      this.baseUrl = newBase;
+    },
     pingUrl: providerPingUrl,
     chatUrl: providerChatUrl,
 
+    get createFetchSetting() {
+      return resolvedCreateFetchSetting;
+    },
     get createdFetchSetting() {
-      return providerCreatedFetchSetting;
+      return resolvedCreateFetchSetting;
+    },
+    get createFetchPayload() {
+      return resolvedCreateFetchPayload;
     },
     get createdFetchPayload() {
-      return providerCreatedFetchPayload;
+      return resolvedCreateFetchPayload;
+    },
+    get responseFormat() {
+      return resolvedResponseFormat;
     },
     get responesFormat() {
-      return providerResponesFormat;
+      return resolvedResponseFormat;
     },
     get extractToolCalls() {
       return providerExtractToolCalls;
@@ -180,7 +213,7 @@ export async function initAiProvider(setting = {}) {
       try {
         await this.onConnecting(fetchSetting, this);
         const response = await fetch(
-          this.base + (this.pingUrl || '/api/tags'),
+          this.baseUrl + (this.pingUrl || '/api/tags'),
           fetchSetting
         );
         this.ready = response.ok;
@@ -199,7 +232,6 @@ export async function initAiProvider(setting = {}) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         };
-        // TODO: 調整成支援 stream 的模式
         const defaultPayload = {
           model: this.model,
           messages,
@@ -215,8 +247,10 @@ export async function initAiProvider(setting = {}) {
           }
         }
 
-        if (typeof this.createdFetchSetting === 'function') {
-          const currentFetchSetting = await this.createdFetchSetting(
+        const createSettingFn =
+          this.createFetchSetting || this.createdFetchSetting;
+        if (typeof createSettingFn === 'function') {
+          const currentFetchSetting = await createSettingFn(
             messages,
             this.model,
             defaultFetchSetting,
@@ -234,8 +268,10 @@ export async function initAiProvider(setting = {}) {
           fetchSetting = defaultFetchSetting;
         }
 
-        if (typeof this.createdFetchPayload === 'function') {
-          const currentPayload = await this.createdFetchPayload(
+        const createPayloadFn =
+          this.createFetchPayload || this.createdFetchPayload;
+        if (typeof createPayloadFn === 'function') {
+          const currentPayload = await createPayloadFn(
             messages,
             tools,
             this.model,
@@ -253,7 +289,7 @@ export async function initAiProvider(setting = {}) {
         }
 
         const response = await fetch(
-          this.base + (this.chatUrl || '/chat/completions'),
+          this.baseUrl + (this.chatUrl || '/chat/completions'),
           fetchSetting
         );
 
@@ -268,8 +304,9 @@ export async function initAiProvider(setting = {}) {
           throw new Error(errorMsg);
         }
 
-        if (typeof this.responesFormat === 'function') {
-          return await this.responesFormat(
+        const formatResponseFn = this.responseFormat || this.responesFormat;
+        if (typeof formatResponseFn === 'function') {
+          return await formatResponseFn(
             response,
             fetchSetting,
             messages,
@@ -342,12 +379,17 @@ export async function initAiProvider(setting = {}) {
 }
 
 /**
+ * 相容別名：createAiProvider -> initAiProvider
+ */
+export const createAiProvider = initAiProvider;
+
+/**
  * 透過後端 AI 供應商回答問題
  * @param {Object} brainEngine - 大腦引擎實例
  * @param {string} question - 使用者問題
  * @returns {Promise<void>}
  */
-export async function aiProviderLLMBrain(brainEngine, question) {
+export async function chatWithAiProvider(brainEngine, question) {
   try {
     if (typeof brainEngine.onSpokenDisplayTextChange === 'function') {
       brainEngine.onSpokenDisplayTextChange(
@@ -376,7 +418,9 @@ export async function aiProviderLLMBrain(brainEngine, question) {
       chatResponse !== null &&
       chatResponse.type === 'tool_calls'
     ) {
-      return await handleToolCallsLoop(
+      const toolLoopFn =
+        executeToolCallsLoop || handleToolCallsLoop;
+      return await toolLoopFn(
         brainEngine,
         chatResponse,
         messages,
@@ -428,8 +472,10 @@ export async function aiProviderLLMBrain(brainEngine, question) {
             accumulatedText
           );
         }
-        if (typeof brainEngine.setEmotionFromText === 'function') {
-          brainEngine.setEmotionFromText(accumulatedText);
+        const applyEmotionFn =
+          brainEngine.applyEmotionFromText || brainEngine.setEmotionFromText;
+        if (typeof applyEmotionFn === 'function') {
+          applyEmotionFn(accumulatedText);
         }
         if (typeof brainEngine.onSpokenAudioPlayNow === 'function') {
           brainEngine.onSpokenAudioPlayNow(accumulatedText);
@@ -504,8 +550,10 @@ export async function aiProviderLLMBrain(brainEngine, question) {
           if (typeof brainEngine.updateChatMessage === 'function') {
             brainEngine.updateChatMessage(chatMessageId, accumulatedText, false);
           }
-          if (typeof brainEngine.setEmotionFromText === 'function') {
-            brainEngine.setEmotionFromText(nextChunk.trim());
+          const applyEmotionFn =
+            brainEngine.applyEmotionFromText || brainEngine.setEmotionFromText;
+          if (typeof applyEmotionFn === 'function') {
+            applyEmotionFn(nextChunk.trim());
           }
           if (typeof brainEngine.onSpokenAudioPlayNow === 'function') {
             brainEngine.onSpokenAudioPlayNow(nextChunk.trim());
@@ -523,26 +571,38 @@ export async function aiProviderLLMBrain(brainEngine, question) {
       }
 
       if (autoContinueMode === AUTO_CONTINUE_MODE_MAP.BUFFERED) {
-        if (typeof brainEngine.sayAnswer === 'function') {
-          return brainEngine.sayAnswer(accumulatedText);
+        const emitAnswerFn =
+          brainEngine.emitAnswer || brainEngine.sayAnswer;
+        if (typeof emitAnswerFn === 'function') {
+          return emitAnswerFn(accumulatedText);
         }
         return;
       } else {
         if (brainEngine.memory?.enabled === true) {
           brainEngine.memory.addTurn('assistant', accumulatedText);
         }
-        if (typeof brainEngine.maybeTriggerRollingSummary === 'function') {
-          brainEngine.maybeTriggerRollingSummary();
+        const triggerSummaryFn =
+          brainEngine.triggerRollingSummaryIfNeeded ||
+          brainEngine.maybeTriggerRollingSummary;
+        if (typeof triggerSummaryFn === 'function') {
+          triggerSummaryFn();
         }
         return;
       }
     }
 
-    if (typeof brainEngine.sayAnswer === 'function') {
-      return brainEngine.sayAnswer(accumulatedText);
+    const emitAnswerFn =
+      brainEngine.emitAnswer || brainEngine.sayAnswer;
+    if (typeof emitAnswerFn === 'function') {
+      return emitAnswerFn(accumulatedText);
     }
   } catch (error) {
     console.warn('AI Provider error', error);
     throw error;
   }
 }
+
+/**
+ * 相容別名：aiProviderLLMBrain -> chatWithAiProvider
+ */
+export const aiProviderLLMBrain = chatWithAiProvider;

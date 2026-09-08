@@ -1,7 +1,7 @@
 /**
  * 從文字判斷情緒狀態
  * @param {string} text - 輸入文字
- * @returns {string} 情緒狀態 ('surprised'|'sad'|'happy'|'neutral')
+ * @returns {'surprised'|'sad'|'happy'|'neutral'} 情緒狀態
  */
 export function classifyEmotion(text) {
   const safeText = String(text || '');
@@ -26,11 +26,11 @@ export function classifyEmotion(text) {
 }
 
 /**
- * 根據文字設定虛擬人情緒動作
+ * 根據文字觸發虛擬人情緒動作變更
  * @param {Object} brainEngine - 大腦引擎實例
  * @param {string} text - 回應文字
  */
-export function setEmotionFromText(brainEngine, text) {
+export function applyEmotionFromText(brainEngine, text) {
   if (
     typeof brainEngine === 'object' &&
     brainEngine !== null &&
@@ -39,3 +39,8 @@ export function setEmotionFromText(brainEngine, text) {
     brainEngine.onEmotionChange(classifyEmotion(text));
   }
 }
+
+/**
+ * 相容別名：setEmotionFromText -> applyEmotionFromText
+ */
+export const setEmotionFromText = applyEmotionFromText;

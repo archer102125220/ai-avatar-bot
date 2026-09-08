@@ -19,16 +19,31 @@ import {
   LLM_FINISH_REASON_MAP,
   FINISH_REASON_MAP
 } from '../constants.js';
-import { handleGetKnowledge, bestOf } from './knowledge.js';
-import { classifyEmotion, setEmotionFromText } from './emotion.js';
-import { initMemory, maybeTriggerRollingSummary } from './memory.js';
+import {
+  fetchKnowledge,
+  findBestMatch
+} from './knowledge.js';
+import {
+  classifyEmotion,
+  applyEmotionFromText
+} from './emotion.js';
+import {
+  initMemory,
+  triggerRollingSummaryIfNeeded
+} from './memory.js';
 import {
   getBrainMessage,
   getWelcomeText,
-  defaultBuildLLMMessages
+  buildDefaultLLMMessages
 } from './messages.js';
-import { initLLM, webLLMBrain } from './web-llm.js';
-import { initAiProvider, aiProviderLLMBrain } from './ai-provider.js';
+import {
+  initWebLLM,
+  chatWithWebLLM
+} from './web-llm.js';
+import {
+  initAiProvider,
+  chatWithAiProvider
+} from './ai-provider.js';
 
 export * from './compression.js';
 export * from './knowledge.js';
@@ -88,8 +103,12 @@ export * from './ai-provider.js';
  * @property {Function} [onStreamStart] - 串流開始回呼
  * @property {Function} [onStreamChunk] - 串流片段回呼
  * @property {Function} [onStreamEnd] - 串流結束回呼
- * @property {Function} [aiProviderCreatedFetchSetting] - AI 建立 Fetch 設定
- * @property {Function} [aiProviderCreatedFetchPayload] - AI 建立 Fetch 負載
+ * @property {Function} [aiProviderCreateFetchSetting] - AI 建立 Fetch 設定
+ * @property {Function} [aiProviderCreatedFetchSetting] - AI 建立 Fetch 設定 (相容別名)
+ * @property {Function} [aiProviderCreateFetchPayload] - AI 建立 Fetch 負載
+ * @property {Function} [aiProviderCreatedFetchPayload] - AI 建立 Fetch 負載 (相容別名)
+ * @property {Function} [aiProviderResponseFormat] - AI 回應格式化
+ * @property {Function} [aiProviderResponesFormat] - AI 回應格式化 (相容別名)
  * @property {string} [aiProviderPingUrl] - AI Ping URL
  * @property {string} [aiProviderChatUrl] - AI Chat URL
  * @property {number} [aiProviderMaxTokens] - AI 最大 token 數
@@ -183,7 +202,8 @@ export * from './ai-provider.js';
  * @property {string|Function} companionWelcomeText - 陪伴模式歡迎詞
  * @property {string|Function} assistantWelcomeText - 助理模式歡迎詞
  * @property {Function} buildLLMMessages - 建構 LLM 訊息方法
- * @property {Function} defaultBuildLLMMessages - 預設建構 LLM 訊息方法
+ * @property {Function} buildDefaultLLMMessages - 預設建構 LLM 訊息方法
+ * @property {Function} defaultBuildLLMMessages - 預設建構 LLM 訊息方法 (相容別名)
  * @property {Function} getWelcomeText - 取得歡迎詞方法
  * @property {Function} classifyEmotion - 情緒分類方法
  * @property {string} locale - 語系設定
@@ -196,8 +216,22 @@ export * from './ai-provider.js';
  * @property {string} [gender] - 虛擬人角色性別
  * @property {Function} setGender - 設定性別方法
  * @property {string|Function} [genderRule] - 針對性別的額外提示詞規則
- * @property {Function} setEmotionFromText - 設定情緒方法
- * @property {Function} handleAnswer - 處理回答方法
+ * @property {Function} applyEmotionFromText - 設定情緒方法
+ * @property {Function} setEmotionFromText - 設定情緒方法 (相容別名)
+ * @property {Function} answerQuestion - 處理回答方法
+ * @property {Function} handleAnswer - 處理回答方法 (相容別名)
+ * @property {Function} emitAnswer - 輸出回答方法
+ * @property {Function} sayAnswer - 輸出回答方法 (相容別名)
+ * @property {Function} getRetrievalAnswer - 檢索回答方法
+ * @property {Function} handleThinking - 檢索回答方法 (相容別名)
+ * @property {Function} getCompanionFallbackResponse - 陪伴兜底方法
+ * @property {Function} brainEngineCompanionFallback - 陪伴兜底方法 (相容別名)
+ * @property {Function} chatWithAiProvider - AI 供應商回答方法
+ * @property {Function} aiProviderLLMBrain - AI 供應商回答方法 (相容別名)
+ * @property {Function} chatWithWebLLM - WebLLM 回答方法
+ * @property {Function} webLLMBrain - WebLLM 回答方法 (相容別名)
+ * @property {Function} triggerRollingSummaryIfNeeded - 背景摘要方法
+ * @property {Function} maybeTriggerRollingSummary - 背景摘要方法 (相容別名)
  * @property {Function} addChatMessage - 新增對話訊息方法
  * @property {Function} updateChatMessage - 更新對話訊息方法
  * @property {Object} [i18nEngine] - i18n 國際化引擎實例
@@ -273,8 +307,12 @@ export async function initBrainEngine(setting = {}) {
     onAutoContinueResume = null,
     onAutoContinueEnd = null,
 
-    aiProviderCreatedFetchSetting,
-    aiProviderCreatedFetchPayload,
+    aiProviderCreateFetchSetting = null,
+    aiProviderCreatedFetchSetting = null,
+    aiProviderCreateFetchPayload = null,
+    aiProviderCreatedFetchPayload = null,
+    aiProviderResponseFormat = null,
+    aiProviderResponesFormat = null,
     aiProviderPingUrl,
     aiProviderChatUrl,
     aiProviderMaxTokens,
@@ -299,6 +337,13 @@ export async function initBrainEngine(setting = {}) {
     onToolError = null
   } = setting;
 
+  const resolvedAiProviderCreateFetchSetting =
+    aiProviderCreateFetchSetting || aiProviderCreatedFetchSetting;
+  const resolvedAiProviderCreateFetchPayload =
+    aiProviderCreateFetchPayload || aiProviderCreatedFetchPayload;
+  const resolvedAiProviderResponseFormat =
+    aiProviderResponseFormat || aiProviderResponesFormat;
+
   let llm = null;
   let memory = null;
   let aiProvider = null;
@@ -306,11 +351,11 @@ export async function initBrainEngine(setting = {}) {
   const safeKnowledge =
     Array.isArray(knowledge) && knowledge.length > 0
       ? knowledge
-      : await handleGetKnowledge(knowledgeUrl);
+      : await fetchKnowledge(knowledgeUrl);
   const safeCompanionKnowledge =
     Array.isArray(companionKnowledge) && companionKnowledge.length > 0
       ? companionKnowledge
-      : await handleGetKnowledge(companionKnowledgeUrl);
+      : await fetchKnowledge(companionKnowledgeUrl);
 
   const _store = createBaseStore({
     // Add states here if needed in the future
@@ -466,17 +511,49 @@ export async function initBrainEngine(setting = {}) {
       typeof buildLLMMessages === 'function'
         ? buildLLMMessages
         : (question, engineType) =>
-            defaultBuildLLMMessages(brainEngine, question, engineType),
+            buildDefaultLLMMessages(brainEngine, question, engineType),
+
+    buildDefaultLLMMessages: (question, engineType) =>
+      buildDefaultLLMMessages(brainEngine, question, engineType),
 
     defaultBuildLLMMessages: (question, engineType) =>
-      defaultBuildLLMMessages(brainEngine, question, engineType),
+      buildDefaultLLMMessages(brainEngine, question, engineType),
 
     getWelcomeText: () => getWelcomeText(brainEngine),
     classifyEmotion: classifyEmotion,
-    setEmotionFromText: (text) => setEmotionFromText(brainEngine, text),
-    handleAnswer: (question) => handleAnswer(brainEngine, question),
-    sayAnswer: (text) => sayAnswer(brainEngine, text),
-    maybeTriggerRollingSummary: () => maybeTriggerRollingSummary(brainEngine),
+
+    applyEmotionFromText: (text) => applyEmotionFromText(brainEngine, text),
+    setEmotionFromText: (text) => applyEmotionFromText(brainEngine, text),
+
+    answerQuestion: (question) => answerQuestion(brainEngine, question),
+    handleAnswer: (question) => answerQuestion(brainEngine, question),
+
+    emitAnswer: (text) => emitAnswer(brainEngine, text),
+    sayAnswer: (text) => emitAnswer(brainEngine, text),
+
+    getRetrievalAnswer: (rawQuestion) =>
+      getRetrievalAnswer(brainEngine, rawQuestion),
+    handleThinking: (rawQuestion) =>
+      getRetrievalAnswer(brainEngine, rawQuestion),
+
+    getCompanionFallbackResponse: (question) =>
+      getCompanionFallbackResponse(brainEngine, question),
+    brainEngineCompanionFallback: (question) =>
+      getCompanionFallbackResponse(brainEngine, question),
+
+    chatWithAiProvider: (question) =>
+      chatWithAiProvider(brainEngine, question),
+    aiProviderLLMBrain: (question) =>
+      chatWithAiProvider(brainEngine, question),
+
+    chatWithWebLLM: (question) => chatWithWebLLM(brainEngine, question),
+    webLLMBrain: (question) => chatWithWebLLM(brainEngine, question),
+
+    triggerRollingSummaryIfNeeded: () =>
+      triggerRollingSummaryIfNeeded(brainEngine),
+    maybeTriggerRollingSummary: () =>
+      triggerRollingSummaryIfNeeded(brainEngine),
+
     addChatMessage: (role, text, options) =>
       addChatMessage(brainEngine, role, text, options),
     updateChatMessage: (id, text, streaming) =>
@@ -602,7 +679,7 @@ export async function initBrainEngine(setting = {}) {
         ? LLMMaxTokens
         : DEFAULT_LLM_MAX_TOKENS;
 
-  llm = initLLM(
+  llm = initWebLLM(
     {
       llmModel,
       llmMaxTokens: resolvedLLMMaxTokens,
@@ -642,8 +719,13 @@ export async function initBrainEngine(setting = {}) {
     providerModel: aiProviderModel,
     providerBaseUrl: aiProviderBaseUrl,
 
-    providerCreatedFetchSetting: aiProviderCreatedFetchSetting,
-    providerCreatedFetchPayload: aiProviderCreatedFetchPayload,
+    providerCreateFetchSetting: resolvedAiProviderCreateFetchSetting,
+    providerCreateFetchPayload: resolvedAiProviderCreateFetchPayload,
+    providerResponseFormat: resolvedAiProviderResponseFormat,
+    providerCreatedFetchSetting: resolvedAiProviderCreateFetchSetting,
+    providerCreatedFetchPayload: resolvedAiProviderCreateFetchPayload,
+    providerResponesFormat: resolvedAiProviderResponseFormat,
+
     providerPingUrl: aiProviderPingUrl,
     providerChatUrl: aiProviderChatUrl,
     providerMaxTokens: aiProviderMaxTokens,
@@ -680,12 +762,17 @@ export async function initBrainEngine(setting = {}) {
 }
 
 /**
+ * 相容別名：createBrainEngine -> initBrainEngine
+ */
+export const createBrainEngine = initBrainEngine;
+
+/**
  * 陪伴模式的預設兜底回覆
  * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @param {string} question - 使用者問題
  * @returns {string} 兜底回覆文字
  */
-export function brainEngineCompanionFallback(brainEngine, question) {
+export function getCompanionFallbackResponse(brainEngine, question) {
   const locale = brainEngine?.locale || 'zh-TW';
   const name = brainEngine?.memory?.data?.name || '';
   const templateContext = { question, name, locale };
@@ -754,12 +841,17 @@ export function brainEngineCompanionFallback(brainEngine, question) {
 }
 
 /**
+ * 相容別名：brainEngineCompanionFallback -> getCompanionFallbackResponse
+ */
+export const brainEngineCompanionFallback = getCompanionFallbackResponse;
+
+/**
  * 處理問題的檢索思考邏輯
  * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @param {string} rawQuestion - 原始使用者問題
  * @returns {string} 回答文字
  */
-export function handleThinking(brainEngine, rawQuestion) {
+export function getRetrievalAnswer(brainEngine, rawQuestion) {
   const locale = brainEngine?.locale || 'zh-TW';
   const question = (rawQuestion || '').trim();
   if (question === '') {
@@ -783,10 +875,10 @@ export function handleThinking(brainEngine, rawQuestion) {
       ? currentCustomMode.knowledge
       : brainEngine.knowledge;
 
-  const site = bestOf(targetKnowledge, question);
+  const site = findBestMatch(targetKnowledge, question);
   if (currentAvatarMode === AVATAR_MODE_MAP.companion) {
     // 陪伴模式：聊天題給陪聊腦、網站/產品題照答
-    const chat = bestOf(brainEngine.companionKnowledge, question);
+    const chat = findBestMatch(brainEngine.companionKnowledge, question);
     if (
       chat.entry !== null &&
       chat.score >= 0.16 &&
@@ -797,7 +889,7 @@ export function handleThinking(brainEngine, rawQuestion) {
     if (site.entry !== null && site.score >= 0.16) {
       return site.entry.a;
     }
-    return brainEngineCompanionFallback(brainEngine, question);
+    return getCompanionFallbackResponse(brainEngine, question);
   }
   if (site.entry !== null && site.score >= 0.16) {
     return site.entry.a;
@@ -873,6 +965,11 @@ export function handleThinking(brainEngine, rawQuestion) {
 }
 
 /**
+ * 相容別名：handleThinking -> getRetrievalAnswer
+ */
+export const handleThinking = getRetrievalAnswer;
+
+/**
  * 新增對話訊息至歷史紀錄
  * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @param {string} role - 角色 ('user'|'assistant')
@@ -937,7 +1034,7 @@ export function updateChatMessage(brainEngine, id, text, streaming) {
  * @param {string} question - 使用者問題
  * @returns {Promise<void>}
  */
-export async function handleAnswer(brainEngine, question) {
+export async function answerQuestion(brainEngine, question) {
   const safeQuestion = (question || '').trim();
   if (safeQuestion === '') {
     if (typeof brainEngine.onSpokenAudioTextChange === 'function') {
@@ -953,7 +1050,7 @@ export async function handleAnswer(brainEngine, question) {
       try {
         brainEngine.onBrainFallback(fromEngine, toEngine, error);
       } catch (fallbackError) {
-        console.error('[handleAnswer] onBrainFallback error:', fallbackError);
+        console.error('[answerQuestion] onBrainFallback error:', fallbackError);
       }
     }
   }
@@ -966,7 +1063,7 @@ export async function handleAnswer(brainEngine, question) {
     ) {
       brainEngine.llm.load().catch((loadError) => {
         console.warn(
-          '[handleAnswer] Background WebLLM fallback loading failed:',
+          '[answerQuestion] Background WebLLM fallback loading failed:',
           loadError
         );
       });
@@ -979,10 +1076,12 @@ export async function handleAnswer(brainEngine, question) {
     brainEngine.aiProvider.ready === true
   ) {
     try {
-      return await aiProviderLLMBrain(brainEngine, question);
+      const chatAiFn =
+        brainEngine.chatWithAiProvider || chatWithAiProvider;
+      return await chatAiFn(brainEngine, question);
     } catch (error) {
       console.warn(
-        '[handleAnswer] AI Provider 呼叫失敗，嘗試降級至 WebLLM 或檢索式後備：',
+        '[answerQuestion] AI Provider 呼叫失敗，嘗試降級至 WebLLM 或檢索式後備：',
         error
       );
       triggerBackgroundWebLLMLoad();
@@ -1002,10 +1101,12 @@ export async function handleAnswer(brainEngine, question) {
   // 2) 瀏覽器內 WebLLM：串流 → 每切出一個完整句就丟進逐句佇列開講（首句延遲大幅縮短）
   if (brainEngine.llm?.state === brainEngine.STATE_MAP.READY) {
     try {
-      return await webLLMBrain(brainEngine, question);
+      const chatWebLLMFn =
+        brainEngine.chatWithWebLLM || chatWithWebLLM;
+      return await chatWebLLMFn(brainEngine, question);
     } catch (error) {
       console.warn(
-        '[handleAnswer] WebLLM 呼叫失敗，嘗試降級至檢索式後備：',
+        '[answerQuestion] WebLLM 呼叫失敗，嘗試降級至檢索式後備：',
         error
       );
       notifyFallback(
@@ -1017,28 +1118,47 @@ export async function handleAnswer(brainEngine, question) {
   }
 
   // 3) 檢索式後備（零金鑰、永遠可用）
-  sayAnswer(brainEngine, handleThinking(brainEngine, safeQuestion));
+  const retrievalAnswer = getRetrievalAnswer(brainEngine, safeQuestion);
+  const emitAnswerFn = brainEngine.emitAnswer || emitAnswer;
+  emitAnswerFn(brainEngine, retrievalAnswer);
 }
+
+/**
+ * 相容別名：handleAnswer -> answerQuestion
+ */
+export const handleAnswer = answerQuestion;
 
 /**
  * 輸出回答 (記錄、顯示、發聲)
  * @param {BrainEngine} brainEngine - 大腦引擎實例
  * @param {string} text - 回答內容
  */
-export function sayAnswer(brainEngine, text) {
+export function emitAnswer(brainEngine, text) {
   if (typeof text !== 'string' || text === '') {
     return;
   }
   brainEngine.memory.addTurn('assistant', text);
   addChatMessage(brainEngine, 'assistant', text);
-  if (typeof brainEngine.setEmotionFromText === 'function') {
-    brainEngine.setEmotionFromText(text);
+  const applyEmotionFn =
+    brainEngine.applyEmotionFromText || brainEngine.setEmotionFromText;
+  if (typeof applyEmotionFn === 'function') {
+    applyEmotionFn(text);
   }
   if (typeof brainEngine.onSpokenAudioPlayNow === 'function') {
     brainEngine.onSpokenAudioPlayNow(text);
   }
-  maybeTriggerRollingSummary(brainEngine);
+  const triggerSummaryFn =
+    brainEngine.triggerRollingSummaryIfNeeded ||
+    brainEngine.maybeTriggerRollingSummary;
+  if (typeof triggerSummaryFn === 'function') {
+    triggerSummaryFn();
+  }
 }
+
+/**
+ * 相容別名：sayAnswer -> emitAnswer
+ */
+export const sayAnswer = emitAnswer;
 
 /**
  * 驗證自訂 Brain Engine 是否實作了必要的介面
@@ -1049,20 +1169,36 @@ export function validateBrainEngine(engine) {
   if (typeof engine !== 'object' || engine === null) {
     return { isValid: false, missing: ['engine object'] };
   }
-  const requiredMethods = [
-    'addChatMessage',
-    'updateChatMessage',
-    'handleAnswer',
-    'getWelcomeText',
-    'buildLLMMessages',
-    'classifyEmotion',
-    'setEmotionFromText'
+  const requiredMethodSets = [
+    { names: ['addChatMessage'], label: 'addChatMessage()' },
+    { names: ['updateChatMessage'], label: 'updateChatMessage()' },
+    {
+      names: ['answerQuestion', 'handleAnswer'],
+      label: 'answerQuestion() or handleAnswer()'
+    },
+    { names: ['getWelcomeText'], label: 'getWelcomeText()' },
+    {
+      names: [
+        'buildLLMMessages',
+        'buildDefaultLLMMessages',
+        'defaultBuildLLMMessages'
+      ],
+      label: 'buildLLMMessages()'
+    },
+    { names: ['classifyEmotion'], label: 'classifyEmotion()' },
+    {
+      names: ['applyEmotionFromText', 'setEmotionFromText'],
+      label: 'applyEmotionFromText() or setEmotionFromText()'
+    }
   ];
   const requiredProps = ['memory', 'llm', 'aiProvider', 'chatLog', 'chatSeq'];
   const missing = [];
-  requiredMethods.forEach((methodName) => {
-    if (typeof engine[methodName] !== 'function') {
-      missing.push(`${methodName}()`);
+  requiredMethodSets.forEach(({ names, label }) => {
+    const hasMethod = names.some(
+      (methodName) => typeof engine[methodName] === 'function'
+    );
+    if (hasMethod === false) {
+      missing.push(label);
     }
   });
   requiredProps.forEach((propName) => {

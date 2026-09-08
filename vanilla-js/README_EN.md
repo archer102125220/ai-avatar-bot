@@ -203,8 +203,9 @@ Options object accepted by `initAvatarBot(options)`:
 | `aiProviderModel` | `string` | `'qwen2.5:latest'` | Model name for remote AI provider. |
 | `aiProviderStream` | `boolean` | `true` | Whether to enable streaming for AI provider responses. |
 | `aiProviderMaxTokens` | `number` | `2048` | Max response tokens for remote AI provider. |
-| `aiProviderCreatedFetchSetting` | `Function\|Object` | `null` | Custom Fetch Header / RequestInit configuration. |
-| `aiProviderCreatedFetchPayload` | `Function\|Object` | `null` | Custom JSON payload factory function or object. |
+| `aiProviderCreateFetchSetting` | `Function\|Object` | `null` | Custom Fetch Header / RequestInit configuration (alias: `aiProviderCreatedFetchSetting`). |
+| `aiProviderCreateFetchPayload` | `Function\|Object` | `null` | Custom JSON payload factory function or object (alias: `aiProviderCreatedFetchPayload`). |
+| `aiProviderResponseFormat` | `string\|Object` | `null` | Custom AI provider response format (`'sse'`, `'json'`, or custom parser object). |
 | `llmModel` | `string` | `'Qwen2.5-1.5B...'` | In-browser WebLLM model name. |
 | `llmMaxTokens` | `number` | `1024` | Maximum response tokens limit for in-browser WebLLM. |
 | `preloadWebLLM` | `boolean` | `false` | Whether to preload WebLLM weights immediately upon initialization. |
@@ -293,7 +294,7 @@ const widget = await initAvatarBot({
   aiProviderModel: 'qwen2.5:latest',
   
   // Custom payload builder for Ollama format
-  aiProviderCreatedFetchPayload: (messages, isStream) => ({
+  aiProviderCreateFetchPayload: (messages, isStream) => ({
     model: 'qwen2.5:latest',
     messages: messages,
     stream: isStream
@@ -522,11 +523,13 @@ interface AiAvatarWidget {
   i18nEngine: I18nEngine;
   
   // Common Interaction Methods
-  handleUser(text: string): Promise<void>; // Process user text input through AI Brain
-  setEmotionFromText(text: string): void;   // Infer and trigger matching emotion/gesture
-  classifyEmotion(text: string): string;    // Classify emotion string from text
-  showMinimalEl(): void;                   // Show minimal floating avatar button
-  hiddenMinimalEl(): void;                 // Hide minimal floating avatar button
+  handleUser(text: string): Promise<void>;        // Process user text input through AI Brain
+  answerQuestion(question: string): Promise<any>; // Query the brain engine directly
+  applyEmotionFromText(text: string): void;       // Infer and trigger matching emotion/gesture (alias: setEmotionFromText)
+  setEmotionFromText(text: string): void;         // Infer and trigger matching emotion/gesture
+  classifyEmotion(text: string): string;          // Classify emotion string from text
+  showMinimalEl(): void;                          // Show minimal floating avatar button
+  hiddenMinimalEl(): void;                        // Hide minimal floating avatar button
   
   // Auto-Continue Configuration Properties
   enableAutoContinue: boolean;                    // Whether auto-continue is enabled

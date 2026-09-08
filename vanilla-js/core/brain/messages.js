@@ -7,7 +7,7 @@ import {
   defaultLocales,
   formatParams
 } from '../i18n/index.js';
-import { topK } from './knowledge.js';
+import { getTopKnowledge } from './knowledge.js';
 import { compressContext } from './compression.js';
 
 /**
@@ -31,6 +31,11 @@ export function getBrainMessage(brainEngine, key, params = {}) {
   }
   return messageValue;
 }
+
+/**
+ * 相容別名：getBrainText -> getBrainMessage
+ */
+export const getBrainText = getBrainMessage;
 
 /**
  * 取得歡迎詞文字
@@ -241,13 +246,13 @@ export function resolveAutoContinuePrompt(
  * @param {string} [engineType=BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER] - 當前推論引擎類型
  * @returns {Array<{role: string, content: string}>} 壓縮後的 LLM 對話訊息陣列
  */
-export function defaultBuildLLMMessages(
+export function buildDefaultLLMMessages(
   brainEngine,
   question,
   engineType = BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER
 ) {
   const locale = brainEngine?.locale || 'zh-TW';
-  const context = topK(brainEngine, question, 3)
+  const context = getTopKnowledge(brainEngine, question, 3)
     .map(
       (entry) =>
         'Q：' +
@@ -510,3 +515,13 @@ export function defaultBuildLLMMessages(
     compressionOptions: brainEngine.compression
   });
 }
+
+/**
+ * 相容別名：defaultBuildLLMMessages -> buildDefaultLLMMessages
+ */
+export const defaultBuildLLMMessages = buildDefaultLLMMessages;
+
+/**
+ * 通用別名：buildLLMMessages -> buildDefaultLLMMessages
+ */
+export const buildLLMMessages = buildDefaultLLMMessages;
