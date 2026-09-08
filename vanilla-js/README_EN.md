@@ -203,8 +203,8 @@ Options object accepted by `initAvatarBot(options)`:
 | `aiProviderModel` | `string` | `'qwen2.5:latest'` | Model name for remote AI provider. |
 | `aiProviderStream` | `boolean` | `true` | Whether to enable streaming for AI provider responses. |
 | `aiProviderMaxTokens` | `number` | `2048` | Max response tokens for remote AI provider. |
-| `aiProviderCreateFetchSetting` | `Function\|Object` | `null` | Custom Fetch Header / RequestInit configuration (alias: `aiProviderCreatedFetchSetting`). |
-| `aiProviderCreateFetchPayload` | `Function\|Object` | `null` | Custom JSON payload factory function or object (alias: `aiProviderCreatedFetchPayload`). |
+| `aiProviderCreateFetchSetting` | `Function\|Object` | `null` | Custom Fetch Header / RequestInit configuration. |
+| `aiProviderCreateFetchPayload` | `Function\|Object` | `null` | Custom JSON payload factory function or object. |
 | `aiProviderResponseFormat` | `string\|Object` | `null` | Custom AI provider response format (`'sse'`, `'json'`, or custom parser object). |
 | `llmModel` | `string` | `'Qwen2.5-1.5B...'` | In-browser WebLLM model name. |
 | `llmMaxTokens` | `number` | `1024` | Maximum response tokens limit for in-browser WebLLM. |
@@ -438,7 +438,7 @@ const widget = await initAvatarBot({
   widget.skinEngine.setEmotion('happy');
 
   // Infer and trigger emotion automatically from text
-  widget.setEmotionFromText('That is fantastic news!');
+  widget.applyEmotionFromText('That is fantastic news!');
   ```
 * **Loading Custom Models & Drag-and-Drop Hot Swapping**:
   ```javascript
@@ -525,8 +525,7 @@ interface AiAvatarWidget {
   // Common Interaction Methods
   handleUser(text: string): Promise<void>;        // Process user text input through AI Brain
   answerQuestion(question: string): Promise<any>; // Query the brain engine directly
-  applyEmotionFromText(text: string): void;       // Infer and trigger matching emotion/gesture (alias: setEmotionFromText)
-  setEmotionFromText(text: string): void;         // Infer and trigger matching emotion/gesture
+  applyEmotionFromText(text: string): void;       // Infer and trigger matching emotion/gesture
   classifyEmotion(text: string): string;          // Classify emotion string from text
   showMinimalEl(): void;                          // Show minimal floating avatar button
   hiddenMinimalEl(): void;                        // Hide minimal floating avatar button

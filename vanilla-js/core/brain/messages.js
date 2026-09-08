@@ -33,11 +33,6 @@ export function getBrainMessage(brainEngine, key, params = {}) {
 }
 
 /**
- * 相容別名：getBrainText -> getBrainMessage
- */
-export const getBrainText = getBrainMessage;
-
-/**
  * 取得歡迎詞文字
  * @param {Object} brainEngine - 大腦引擎實例
  * @returns {Promise<string>} 歡迎詞
@@ -515,13 +510,3 @@ export function buildDefaultLLMMessages(
     compressionOptions: brainEngine.compression
   });
 }
-
-/**
- * 相容別名：defaultBuildLLMMessages -> buildDefaultLLMMessages
- */
-export const defaultBuildLLMMessages = buildDefaultLLMMessages;
-
-/**
- * 通用別名：buildLLMMessages -> buildDefaultLLMMessages
- */
-export const buildLLMMessages = buildDefaultLLMMessages;

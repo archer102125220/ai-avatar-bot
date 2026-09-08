@@ -11,8 +11,7 @@ import {
 import { toOpenAiTools } from '../tools.js';
 import {
   extractToolCallsFromText,
-  executeToolCallsLoop,
-  handleToolCallsLoop
+  executeToolCallsLoop
 } from './tool-calling.js';
 import { getBrainMessage, resolveAutoContinuePrompt } from './messages.js';
 
@@ -20,9 +19,11 @@ import { getBrainMessage, resolveAutoContinuePrompt } from './messages.js';
  * WebLLM 引擎設定
  * @typedef {Object} LLMEngineOptions
  * @property {string} [llmModel] - LLM 模型名稱
+ * @property {string} [model] - 模型名稱
  * @property {number} [llmMaxTokens] - LLM 最大 token 數
- * @property {number} [LLMMaxTokens] - LLM 最大 token 數 (相容別名)
- * @property {boolean} [LLMIsStream] - 是否使用串流
+ * @property {number} [maxTokens] - 最大 token 數
+ * @property {boolean} [llmIsStream] - 是否使用串流
+ * @property {boolean} [isStream] - 是否使用串流
  * @property {Function} [onLoading] - 載入中回呼
  * @property {Function} [onLoadProgress] - 載入進度回呼
  * @property {Function} [onLoaded] - 載入完成回呼
@@ -59,9 +60,12 @@ import { getBrainMessage, resolveAutoContinuePrompt } from './messages.js';
  */
 export function initWebLLM(setting = {}, brain) {
   const {
-    llmModel = DEFAULT_LLM_MODEL,
+    llmModel,
+    model,
     llmMaxTokens,
-    LLMMaxTokens,
+    maxTokens,
+    llmIsStream,
+    isStream,
     LLMIsStream = true,
     onLoading,
     onLoadProgress,
@@ -71,16 +75,26 @@ export function initWebLLM(setting = {}, brain) {
     onStreamChatting
   } = setting;
 
+  const resolvedModel = llmModel || model || DEFAULT_LLM_MODEL;
   const resolvedMaxTokens =
     typeof llmMaxTokens === 'number' &&
     Number.isFinite(llmMaxTokens) === true &&
     llmMaxTokens > 0
       ? llmMaxTokens
-      : typeof LLMMaxTokens === 'number' &&
-          Number.isFinite(LLMMaxTokens) === true &&
-          LLMMaxTokens > 0
-        ? LLMMaxTokens
+      : typeof maxTokens === 'number' &&
+          Number.isFinite(maxTokens) === true &&
+          maxTokens > 0
+        ? maxTokens
         : DEFAULT_LLM_MAX_TOKENS;
+
+  const resolvedIsStream =
+    typeof llmIsStream === 'boolean'
+      ? llmIsStream
+      : typeof isStream === 'boolean'
+        ? isStream
+        : typeof LLMIsStream === 'boolean'
+          ? LLMIsStream
+          : true;
 
   let engine = null;
   let loadingPromise = null;
@@ -91,13 +105,13 @@ export function initWebLLM(setting = {}, brain) {
     },
     state: STATE_MAP.IDLE, // idle | loading | ready | error
     progress: 0,
-    model: llmModel || DEFAULT_LLM_MODEL,
+    model: resolvedModel,
 
     get maxTokens() {
       return resolvedMaxTokens;
     },
     get isStream() {
-      return LLMIsStream;
+      return resolvedIsStream;
     },
 
     get onLoading() {
@@ -481,11 +495,6 @@ export function initWebLLM(setting = {}, brain) {
 }
 
 /**
- * 相容別名：initLLM -> initWebLLM
- */
-export const initLLM = initWebLLM;
-
-/**
  * 透過瀏覽器端 WebLLM 引擎回答問題
  * @param {Object} brainEngine - 大腦引擎實例
  * @param {string} question - 使用者問題
@@ -523,10 +532,8 @@ export async function chatWithWebLLM(brainEngine, question) {
         if (typeof brainEngine.updateChatMessage === 'function') {
           brainEngine.updateChatMessage(streamMessageId, accumulatedText, true);
         }
-        const applyEmotionFn =
-          brainEngine.applyEmotionFromText || brainEngine.setEmotionFromText;
-        if (typeof applyEmotionFn === 'function') {
-          applyEmotionFn(accumulatedText);
+        if (typeof brainEngine.applyEmotionFromText === 'function') {
+          brainEngine.applyEmotionFromText(accumulatedText);
         }
 
         if (typeof brainEngine.onStreamChunk === 'function') {
@@ -544,8 +551,7 @@ export async function chatWithWebLLM(brainEngine, question) {
       if (typeof brainEngine.updateChatMessage === 'function') {
         brainEngine.updateChatMessage(streamMessageId, '', false);
       }
-      const toolLoopFn = executeToolCallsLoop || handleToolCallsLoop;
-      return await toolLoopFn(
+      return await executeToolCallsLoop(
         brainEngine,
         chatResponse,
         messages,
@@ -635,10 +641,8 @@ export async function chatWithWebLLM(brainEngine, question) {
                 true
               );
             }
-            const applyEmotionFn =
-              brainEngine.applyEmotionFromText || brainEngine.setEmotionFromText;
-            if (typeof applyEmotionFn === 'function') {
-              applyEmotionFn(currentStreamText);
+            if (typeof brainEngine.applyEmotionFromText === 'function') {
+              brainEngine.applyEmotionFromText(currentStreamText);
             }
 
             if (typeof brainEngine.onStreamChunk === 'function') {
@@ -696,19 +700,11 @@ export async function chatWithWebLLM(brainEngine, question) {
     if (typeof brainEngine.onStreamEnd === 'function') {
       brainEngine.onStreamEnd(accumulatedText);
     }
-    const triggerSummaryFn =
-      brainEngine.triggerRollingSummaryIfNeeded ||
-      brainEngine.maybeTriggerRollingSummary;
-    if (typeof triggerSummaryFn === 'function') {
-      triggerSummaryFn();
+    if (typeof brainEngine.triggerRollingSummaryIfNeeded === 'function') {
+      brainEngine.triggerRollingSummaryIfNeeded();
     }
   } catch (error) {
     console.warn('llm error', error);
     throw error;
   }
 }
-
-/**
- * 相容別名：webLLMBrain -> chatWithWebLLM
- */
-export const webLLMBrain = chatWithWebLLM;

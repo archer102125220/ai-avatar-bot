@@ -11,8 +11,7 @@ import {
 import { toOpenAiTools } from '../tools.js';
 import {
   extractToolCallsFromText,
-  executeToolCallsLoop,
-  handleToolCallsLoop
+  executeToolCallsLoop
 } from './tool-calling.js';
 import { getBrainMessage, resolveAutoContinuePrompt } from './messages.js';
 
@@ -20,18 +19,13 @@ import { getBrainMessage, resolveAutoContinuePrompt } from './messages.js';
  * AI 供應商引擎設定
  * @typedef {Object} AiProviderOptions
  * @property {boolean} [enableAiProvider] - 是否啟用 AI 供應商模組（開關）
- * @property {boolean} [providerEnabled] - 是否啟用 AI 供應商模組（別名）
- * @property {boolean} [enabled] - 是否啟用 AI 供應商模組（別名）
  * @property {string} [providerBaseUrl] - AI 供應商 Base URL
  * @property {string} [providerPingUrl] - AI 供應商 Ping URL
  * @property {string} [providerChatUrl] - AI 供應商 Chat URL
  * @property {string} [providerModel] - AI 供應商模型名稱
  * @property {Function} [providerCreateFetchSetting] - 建立 Fetch 設定回呼
- * @property {Function} [providerCreatedFetchSetting] - 建立 Fetch 設定回呼 (相容別名)
  * @property {Function} [providerCreateFetchPayload] - 建立 Fetch 負載回呼
- * @property {Function} [providerCreatedFetchPayload] - 建立 Fetch 負載回呼 (相容別名)
  * @property {Function} [providerResponseFormat] - 回應格式化回呼
- * @property {Function} [providerResponesFormat] - 回應格式化回呼 (相容別名)
  * @property {Function} [providerExtractToolCalls] - 提取 Tool Calls 回呼
  * @property {number} [providerMaxTokens] - AI 供應商最大 token 數
  * @property {boolean} [providerIsStream] - 是否使用串流
@@ -46,15 +40,11 @@ import { getBrainMessage, resolveAutoContinuePrompt } from './messages.js';
  * AI 供應商引擎實例
  * @typedef {Object} AiProviderEngine
  * @property {string} baseUrl - Base URL
- * @property {string} base - Base URL (相容別名)
  * @property {string} pingUrl - Ping URL
  * @property {string} chatUrl - Chat URL
  * @property {Function} createFetchSetting - 建立 Fetch 設定方法
- * @property {Function} createdFetchSetting - 建立 Fetch 設定方法 (相容別名)
  * @property {Function} createFetchPayload - 建立 Fetch 負載方法
- * @property {Function} createdFetchPayload - 建立 Fetch 負載方法 (相容別名)
  * @property {Function} responseFormat - 回應格式化方法
- * @property {Function} responesFormat - 回應格式化方法 (相容別名)
  * @property {Function} [extractToolCalls] - 提取 Tool Calls 方法
  * @property {number} maxTokens - 最大 Token 數
  * @property {boolean} isStream - 是否為串流模式
@@ -81,19 +71,26 @@ export async function initAiProvider(setting = {}) {
     providerEnabled,
     enabled,
     providerBaseUrl = '',
+    baseUrl = '',
     providerPingUrl = '',
+    pingUrl = '',
     providerChatUrl = '',
+    chatUrl = '',
     providerModel = DEFAULT_AI_PROVIDER_MODEL,
+    model = '',
     providerCreateFetchSetting = null,
-    providerCreatedFetchSetting = null,
+    createFetchSetting = null,
     providerCreateFetchPayload = null,
-    providerCreatedFetchPayload = null,
+    createFetchPayload = null,
     providerResponseFormat = null,
-    providerResponesFormat = null,
+    responseFormat = null,
     providerExtractToolCalls = null,
+    extractToolCalls = null,
 
     providerMaxTokens = DEFAULT_AI_PROVIDER_MAX_TOKENS,
+    maxTokens,
     providerIsStream = false,
+    isStream,
 
     onConnecting = null,
     onConnected = null,
@@ -102,12 +99,34 @@ export async function initAiProvider(setting = {}) {
     onStreamChatting = null
   } = setting;
 
+  const resolvedBaseUrl = providerBaseUrl || baseUrl || '';
+  const resolvedPingUrl = providerPingUrl || pingUrl || '';
+  const resolvedChatUrl = providerChatUrl || chatUrl || '';
+  const resolvedModel = providerModel || model || DEFAULT_AI_PROVIDER_MODEL;
   const resolvedCreateFetchSetting =
-    providerCreateFetchSetting || providerCreatedFetchSetting;
+    providerCreateFetchSetting || createFetchSetting || null;
   const resolvedCreateFetchPayload =
-    providerCreateFetchPayload || providerCreatedFetchPayload;
+    providerCreateFetchPayload || createFetchPayload || null;
   const resolvedResponseFormat =
-    providerResponseFormat || providerResponesFormat;
+    providerResponseFormat || responseFormat || null;
+  const resolvedExtractToolCalls =
+    providerExtractToolCalls || extractToolCalls || null;
+  const resolvedMaxTokens =
+    typeof providerMaxTokens === 'number' &&
+    Number.isFinite(providerMaxTokens) === true &&
+    providerMaxTokens > 0
+      ? providerMaxTokens
+      : typeof maxTokens === 'number' &&
+          Number.isFinite(maxTokens) === true &&
+          maxTokens > 0
+        ? maxTokens
+        : DEFAULT_AI_PROVIDER_MAX_TOKENS;
+  const resolvedIsStream =
+    typeof providerIsStream === 'boolean'
+      ? providerIsStream
+      : typeof isStream === 'boolean'
+        ? isStream
+        : false;
 
   let isEnabled;
   if (typeof enableAiProvider === 'boolean') {
@@ -117,47 +136,32 @@ export async function initAiProvider(setting = {}) {
   } else if (typeof enabled === 'boolean') {
     isEnabled = enabled;
   } else {
-    isEnabled = typeof providerBaseUrl === 'string' && providerBaseUrl !== '';
+    isEnabled = typeof resolvedBaseUrl === 'string' && resolvedBaseUrl !== '';
   }
   let _enabled = isEnabled;
 
   const aiProvider = {
-    baseUrl: providerBaseUrl,
-    get base() {
-      return this.baseUrl;
-    },
-    set base(newBase) {
-      this.baseUrl = newBase;
-    },
-    pingUrl: providerPingUrl,
-    chatUrl: providerChatUrl,
+    baseUrl: resolvedBaseUrl,
+    pingUrl: resolvedPingUrl,
+    chatUrl: resolvedChatUrl,
 
     get createFetchSetting() {
-      return resolvedCreateFetchSetting;
-    },
-    get createdFetchSetting() {
       return resolvedCreateFetchSetting;
     },
     get createFetchPayload() {
       return resolvedCreateFetchPayload;
     },
-    get createdFetchPayload() {
-      return resolvedCreateFetchPayload;
-    },
     get responseFormat() {
       return resolvedResponseFormat;
     },
-    get responesFormat() {
-      return resolvedResponseFormat;
-    },
     get extractToolCalls() {
-      return providerExtractToolCalls;
+      return resolvedExtractToolCalls;
     },
     get maxTokens() {
-      return providerMaxTokens;
+      return resolvedMaxTokens;
     },
     get isStream() {
-      return providerIsStream;
+      return resolvedIsStream;
     },
 
     get onConnecting() {
@@ -196,7 +200,7 @@ export async function initAiProvider(setting = {}) {
       };
     },
 
-    model: providerModel || DEFAULT_AI_PROVIDER_MODEL,
+    model: resolvedModel,
     get enabled() {
       return _enabled;
     },
@@ -247,8 +251,7 @@ export async function initAiProvider(setting = {}) {
           }
         }
 
-        const createSettingFn =
-          this.createFetchSetting || this.createdFetchSetting;
+        const createSettingFn = this.createFetchSetting;
         if (typeof createSettingFn === 'function') {
           const currentFetchSetting = await createSettingFn(
             messages,
@@ -268,8 +271,7 @@ export async function initAiProvider(setting = {}) {
           fetchSetting = defaultFetchSetting;
         }
 
-        const createPayloadFn =
-          this.createFetchPayload || this.createdFetchPayload;
+        const createPayloadFn = this.createFetchPayload;
         if (typeof createPayloadFn === 'function') {
           const currentPayload = await createPayloadFn(
             messages,
@@ -304,7 +306,7 @@ export async function initAiProvider(setting = {}) {
           throw new Error(errorMsg);
         }
 
-        const formatResponseFn = this.responseFormat || this.responesFormat;
+        const formatResponseFn = this.responseFormat;
         if (typeof formatResponseFn === 'function') {
           return await formatResponseFn(
             response,
@@ -379,11 +381,6 @@ export async function initAiProvider(setting = {}) {
 }
 
 /**
- * 相容別名：createAiProvider -> initAiProvider
- */
-export const createAiProvider = initAiProvider;
-
-/**
  * 透過後端 AI 供應商回答問題
  * @param {Object} brainEngine - 大腦引擎實例
  * @param {string} question - 使用者問題
@@ -418,9 +415,7 @@ export async function chatWithAiProvider(brainEngine, question) {
       chatResponse !== null &&
       chatResponse.type === 'tool_calls'
     ) {
-      const toolLoopFn =
-        executeToolCallsLoop || handleToolCallsLoop;
-      return await toolLoopFn(
+      return await executeToolCallsLoop(
         brainEngine,
         chatResponse,
         messages,
@@ -472,10 +467,8 @@ export async function chatWithAiProvider(brainEngine, question) {
             accumulatedText
           );
         }
-        const applyEmotionFn =
-          brainEngine.applyEmotionFromText || brainEngine.setEmotionFromText;
-        if (typeof applyEmotionFn === 'function') {
-          applyEmotionFn(accumulatedText);
+        if (typeof brainEngine.applyEmotionFromText === 'function') {
+          brainEngine.applyEmotionFromText(accumulatedText);
         }
         if (typeof brainEngine.onSpokenAudioPlayNow === 'function') {
           brainEngine.onSpokenAudioPlayNow(accumulatedText);
@@ -550,10 +543,8 @@ export async function chatWithAiProvider(brainEngine, question) {
           if (typeof brainEngine.updateChatMessage === 'function') {
             brainEngine.updateChatMessage(chatMessageId, accumulatedText, false);
           }
-          const applyEmotionFn =
-            brainEngine.applyEmotionFromText || brainEngine.setEmotionFromText;
-          if (typeof applyEmotionFn === 'function') {
-            applyEmotionFn(nextChunk.trim());
+          if (typeof brainEngine.applyEmotionFromText === 'function') {
+            brainEngine.applyEmotionFromText(nextChunk.trim());
           }
           if (typeof brainEngine.onSpokenAudioPlayNow === 'function') {
             brainEngine.onSpokenAudioPlayNow(nextChunk.trim());
@@ -571,38 +562,26 @@ export async function chatWithAiProvider(brainEngine, question) {
       }
 
       if (autoContinueMode === AUTO_CONTINUE_MODE_MAP.BUFFERED) {
-        const emitAnswerFn =
-          brainEngine.emitAnswer || brainEngine.sayAnswer;
-        if (typeof emitAnswerFn === 'function') {
-          return emitAnswerFn(accumulatedText);
+        if (typeof brainEngine.emitAnswer === 'function') {
+          return brainEngine.emitAnswer(accumulatedText);
         }
         return;
       } else {
         if (brainEngine.memory?.enabled === true) {
           brainEngine.memory.addTurn('assistant', accumulatedText);
         }
-        const triggerSummaryFn =
-          brainEngine.triggerRollingSummaryIfNeeded ||
-          brainEngine.maybeTriggerRollingSummary;
-        if (typeof triggerSummaryFn === 'function') {
-          triggerSummaryFn();
+        if (typeof brainEngine.triggerRollingSummaryIfNeeded === 'function') {
+          brainEngine.triggerRollingSummaryIfNeeded();
         }
         return;
       }
     }
 
-    const emitAnswerFn =
-      brainEngine.emitAnswer || brainEngine.sayAnswer;
-    if (typeof emitAnswerFn === 'function') {
-      return emitAnswerFn(accumulatedText);
+    if (typeof brainEngine.emitAnswer === 'function') {
+      return brainEngine.emitAnswer(accumulatedText);
     }
   } catch (error) {
     console.warn('AI Provider error', error);
     throw error;
   }
 }
-
-/**
- * 相容別名：aiProviderLLMBrain -> chatWithAiProvider
- */
-export const aiProviderLLMBrain = chatWithAiProvider;

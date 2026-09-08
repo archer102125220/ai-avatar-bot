@@ -19,7 +19,6 @@ import {
  * @typedef {Object} MemoryInstance
  * @property {string} key - 本機儲存或識別鍵名
  * @property {boolean} enabled - 是否啟用記憶模組
- * @property {boolean} isCompanion - 是否啟用記憶 (向下相容別名)
  * @property {number} maxHistoryTurns - 保留最大歷史對話輪數
  * @property {Object} adapter - 儲存轉接器實例
  * @property {Object} data - 記憶資料
@@ -34,8 +33,6 @@ import {
  * @property {(role: string, content: string) => void} addTurn - 新增對話輪次
  * @property {(name: string) => void} captureName - 擷取名稱
  * @property {() => void} clear - 清除記憶
- * @property {() => void} reset - 重置記憶
- * @property {() => void} wipe - 清除記憶 (相容別名)
  */
 
 /**
@@ -77,7 +74,7 @@ export function initMemory({
         }
       } catch (_error) {}
     },
-    wipe(storageKey) {
+    clear(storageKey) {
       try {
         if (typeof localStorage !== 'undefined') {
           localStorage.removeItem(storageKey);
@@ -97,14 +94,6 @@ export function initMemory({
         ? memoryKey
         : DEFAULT_MEMORY_KEY,
     enabled: isEnabled,
-    get isCompanion() {
-      return this.enabled;
-    },
-    set isCompanion(value) {
-      if (typeof value === 'boolean') {
-        this.enabled = value;
-      }
-    },
     maxHistoryTurns:
       typeof maxHistoryTurns === 'number' && maxHistoryTurns > 0
         ? maxHistoryTurns
@@ -181,16 +170,12 @@ export function initMemory({
         lastSummarizedTurnIndex: 0
       };
       try {
-        this.adapter.wipe(this.key);
+        if (typeof this.adapter.clear === 'function') {
+          this.adapter.clear(this.key);
+        } else if (typeof this.adapter.wipe === 'function') {
+          this.adapter.wipe(this.key);
+        }
       } catch (_error) {}
-    },
-
-    reset() {
-      this.clear();
-    },
-
-    wipe() {
-      this.clear();
     }
   };
 
@@ -198,11 +183,6 @@ export function initMemory({
 
   return memory;
 }
-
-/**
- * 相容別名：createMemory -> initMemory
- */
-export const createMemory = initMemory;
 
 /**
  * 檢查並觸發背景非同步滾動摘要更新 (Non-blocking Background Summarization)
@@ -317,8 +297,3 @@ export async function triggerRollingSummaryIfNeeded(brainEngine) {
     }
   }, 50);
 }
-
-/**
- * 相容別名：maybeTriggerRollingSummary -> triggerRollingSummaryIfNeeded
- */
-export const maybeTriggerRollingSummary = triggerRollingSummaryIfNeeded;

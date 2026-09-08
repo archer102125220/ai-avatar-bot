@@ -76,9 +76,7 @@ export * from './plugins';
  * @property {string} [aiProviderBaseUrl=''] - AI 服務提供商的 API 基礎 URL
  * @property {string} [aiProviderModel=DEFAULT_AI_PROVIDER_MODEL] - 使用的 AI 服務模型名稱
  * @property {Function|RequestInit} [aiProviderCreateFetchSetting] - 自訂 Fetch 設定的處理函式或設定物件
- * @property {Function|RequestInit} [aiProviderCreatedFetchSetting] - 自訂 Fetch 設定的處理函式或設定物件 (相容別名)
  * @property {Function|Record<string, any>} [aiProviderCreateFetchPayload] - 自訂 Fetch 負載 (Payload) 的處理函式或負載物件
- * @property {Function|Record<string, any>} [aiProviderCreatedFetchPayload] - 自訂 Fetch 負載 (Payload) 的處理函式或負載物件 (相容別名)
  * @property {string|Object} [aiProviderResponseFormat] - 自訂 AI 服務回應格式 (如 'sse', 'json', 或包含 processLine 等物件)
  * @property {number} [aiProviderMaxTokens=DEFAULT_AI_PROVIDER_MAX_TOKENS] - AI 服務回應的最大 Token 數
  * @property {boolean} [aiProviderStream] - 是否啟用 AI 服務的串流 (Streaming) 回應
@@ -90,7 +88,6 @@ export * from './plugins';
  * @property {string} [ttsEndpoint=DEFAULT_TTS_ENDPOINT] - 語音合成 (TTS) 服務端點 URL (沒設會試同站相對路徑)
  * @property {string} [llmModel=DEFAULT_LLM_MODEL] - 預設的本地/遠端語言模型 (LLM) 類型
  * @property {number} [llmMaxTokens=DEFAULT_LLM_MAX_TOKENS] - WebLLM 本地模型回應的最大 Token 數
- * @property {number} [LLMMaxTokens] - WebLLM 本地模型回應的最大 Token 數 (相容別名)
  * @property {boolean} [preloadWebLLM=false] - 是否在初始化時預先載入 WebLLM 模型
  * @property {boolean} [autoFallbackWebLLM=true] - 當 AI Provider 故障時是否自動在背景載入 WebLLM 備援
  * @property {boolean} [enableAutoContinue=DEFAULT_ENABLE_AUTO_CONTINUE] - 是否在模型回答達到 Token 上限被截斷時啟用自動接續機制
@@ -209,7 +206,6 @@ export * from './plugins';
  * @property {Function} buildLLMMessages - 組裝 LLM 訊息的函式
  * @property {Function} classifyEmotion - 情感分類函式
  * @property {Function} applyEmotionFromText - 根據文字設定情感的函式
- * @property {Function} setEmotionFromText - 根據文字設定情感的函式 (相容別名)
  * @property {Function} answerQuestion - 處理回答使用者問題的方法
  * @property {(text: string) => Promise<void>|void} handleUser - 處理使用者輸入文字的主方法
  * @property {boolean} isIframe - 是否在 Iframe 內
@@ -254,13 +250,8 @@ export async function initAvatarBot(options = {}) {
     aiProviderBaseUrl = '',
     aiProviderModel = DEFAULT_AI_PROVIDER_MODEL,
     aiProviderCreateFetchSetting,
-    aiProviderCreatedFetchSetting,
     aiProviderCreateFetchPayload,
-    aiProviderCreatedFetchPayload,
     aiProviderResponseFormat,
-    providerCreateFetchSetting,
-    providerCreateFetchPayload,
-    providerResponseFormat,
     aiProviderMaxTokens,
     aiProviderStream,
     neuralVoice = '',
@@ -270,7 +261,6 @@ export async function initAvatarBot(options = {}) {
     ttsEndpoint = DEFAULT_TTS_ENDPOINT, // 沒設→試同站相對路徑；抓不到→自動退回瀏覽器語音（純前端可用）
     llmModel = DEFAULT_LLM_MODEL,
     llmMaxTokens,
-    LLMMaxTokens,
     preloadWebLLM = false,
     autoFallbackWebLLM = true,
     enableAutoContinue = DEFAULT_ENABLE_AUTO_CONTINUE,
@@ -449,9 +439,6 @@ export async function initAvatarBot(options = {}) {
     get options() {
       return options;
     },
-    get optiopns() {
-      return options;
-    },
 
     get DEFAULT_LLM_MODEL() {
       return DEFAULT_LLM_MODEL;
@@ -503,7 +490,7 @@ export async function initAvatarBot(options = {}) {
     get buildLLMMessages() {
       return (
         aiAvatarWidget.brainEngine.buildLLMMessages ||
-        aiAvatarWidget.brainEngine.defaultBuildLLMMessages
+        aiAvatarWidget.brainEngine.buildDefaultLLMMessages
       );
     },
 
@@ -512,24 +499,11 @@ export async function initAvatarBot(options = {}) {
     },
 
     get applyEmotionFromText() {
-      return (
-        aiAvatarWidget.brainEngine.applyEmotionFromText ||
-        aiAvatarWidget.brainEngine.setEmotionFromText
-      );
-    },
-
-    get setEmotionFromText() {
-      return (
-        aiAvatarWidget.brainEngine.setEmotionFromText ||
-        aiAvatarWidget.brainEngine.applyEmotionFromText
-      );
+      return aiAvatarWidget.brainEngine.applyEmotionFromText;
     },
 
     get answerQuestion() {
-      return (
-        aiAvatarWidget.brainEngine.answerQuestion ||
-        aiAvatarWidget.brainEngine.handleAnswer
-      );
+      return aiAvatarWidget.brainEngine.answerQuestion;
     },
 
     handleUser: (text) => {
@@ -1178,11 +1152,7 @@ export async function initAvatarBot(options = {}) {
       skinEngine.gestureName = 'thinking';
     }
 
-    const answerFn =
-      brainEngine.answerQuestion || brainEngine.handleAnswer;
-    if (typeof answerFn === 'function') {
-      answerFn(text);
-    }
+    brainEngine.answerQuestion(text);
   }
 
   function onTapAvatar() {
@@ -1303,16 +1273,11 @@ export async function initAvatarBot(options = {}) {
     Number.isFinite(llmMaxTokens) === true &&
     llmMaxTokens > 0
       ? llmMaxTokens
-      : typeof LLMMaxTokens === 'number' &&
-          Number.isFinite(LLMMaxTokens) === true &&
-          LLMMaxTokens > 0
-        ? LLMMaxTokens
-        : DEFAULT_LLM_MAX_TOKENS;
+      : DEFAULT_LLM_MAX_TOKENS;
 
   const brainOptions = {
     llmModel,
     llmMaxTokens: resolvedLlmMaxTokens,
-    LLMMaxTokens: resolvedLlmMaxTokens,
     preloadWebLLM: rootStore.getState().preloadWebLLM,
     autoFallbackWebLLM: rootStore.getState().autoFallbackWebLLM,
     enableAutoContinue: rootStore.getState().enableAutoContinue,
@@ -1344,24 +1309,9 @@ export async function initAvatarBot(options = {}) {
     companionFallback,
     aiProviderBaseUrl,
     aiProviderModel,
-    aiProviderCreateFetchSetting:
-      aiProviderCreateFetchSetting ||
-      aiProviderCreatedFetchSetting ||
-      providerCreateFetchSetting,
-    aiProviderCreatedFetchSetting:
-      aiProviderCreateFetchSetting ||
-      aiProviderCreatedFetchSetting ||
-      providerCreateFetchSetting,
-    aiProviderCreateFetchPayload:
-      aiProviderCreateFetchPayload ||
-      aiProviderCreatedFetchPayload ||
-      providerCreateFetchPayload,
-    aiProviderCreatedFetchPayload:
-      aiProviderCreateFetchPayload ||
-      aiProviderCreatedFetchPayload ||
-      providerCreateFetchPayload,
-    aiProviderResponseFormat:
-      aiProviderResponseFormat || providerResponseFormat,
+    aiProviderCreateFetchSetting,
+    aiProviderCreateFetchPayload,
+    aiProviderResponseFormat,
     aiProviderMaxTokens:
       typeof aiProviderMaxTokens === 'number' &&
       Number.isFinite(aiProviderMaxTokens) === true &&
@@ -1662,13 +1612,9 @@ export async function initAvatarBot(options = {}) {
           ? info.continuationIndex
           : 0;
       autoContinueState.maxContinuations =
-        typeof info?.maxContinuations === 'number'
-          ? info.maxContinuations
-          : 0;
+        typeof info?.maxContinuations === 'number' ? info.maxContinuations : 0;
       autoContinueState.accumulatedText =
-        typeof info?.accumulatedText === 'string'
-          ? info.accumulatedText
-          : '';
+        typeof info?.accumulatedText === 'string' ? info.accumulatedText : '';
       callOptionEvent.call(aiAvatarWidget, 'onAutoContinueStart', info);
     },
     onAutoContinueWait(info) {
@@ -1687,13 +1633,9 @@ export async function initAvatarBot(options = {}) {
           ? info.continuationIndex
           : 0;
       autoContinueState.maxContinuations =
-        typeof info?.maxContinuations === 'number'
-          ? info.maxContinuations
-          : 0;
+        typeof info?.maxContinuations === 'number' ? info.maxContinuations : 0;
       autoContinueState.accumulatedText =
-        typeof info?.accumulatedText === 'string'
-          ? info.accumulatedText
-          : '';
+        typeof info?.accumulatedText === 'string' ? info.accumulatedText : '';
       callOptionEvent.call(aiAvatarWidget, 'onAutoContinueResume', info);
     },
     onAutoContinueEnd(info) {

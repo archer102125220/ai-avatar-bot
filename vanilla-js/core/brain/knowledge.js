@@ -32,11 +32,6 @@ export async function fetchKnowledge(knowledgeUrl = '') {
   return [];
 }
 
-/**
- * 相容別名：handleGetKnowledge -> fetchKnowledge
- */
-export const handleGetKnowledge = fetchKnowledge;
-
 // ===== 大腦：知識檢索演算法 =====
 // 中文不好斷詞，改用「字元 bigram（相鄰兩字）」相似度，對中文很有效、又不用任何外部函式庫。
 /**
@@ -63,11 +58,6 @@ export function getBigrams(text) {
 }
 
 /**
- * 相容別名：bigrams -> getBigrams
- */
-export const bigrams = getBigrams;
-
-/**
  * 計算兩個字串基於 bigram 的知識庫相似度
  * @param {string} query - 查詢字串
  * @param {string} text - 目標文本字串
@@ -87,16 +77,6 @@ export function calculateKnowledgeSimilarity(query, text) {
   }
   return hit / Math.sqrt(queryBigrams.length * textBigramsSet.size);
 }
-
-/**
- * 通用別名：calculateBigramSimilarity -> calculateKnowledgeSimilarity
- */
-export const calculateBigramSimilarity = calculateKnowledgeSimilarity;
-
-/**
- * 相容別名：similarity -> calculateKnowledgeSimilarity
- */
-export const similarity = calculateKnowledgeSimilarity;
 
 /**
  * 評分知識庫項目與問題的相關性
@@ -129,11 +109,6 @@ export function scoreKnowledgeEntry(question, entry) {
 }
 
 /**
- * 相容別名：scoreEntry -> scoreKnowledgeEntry
- */
-export const scoreEntry = scoreKnowledgeEntry;
-
-/**
  * 取得與問題最相關的 Top K 知識庫項目
  * @param {Object} brainEngine - 大腦引擎實例
  * @param {string|Array} question - 使用者問題
@@ -150,11 +125,6 @@ export function getTopKnowledge(brainEngine, question, limit) {
     .filter((item) => item.score > 0.05)
     .map((item) => item.entry);
 }
-
-/**
- * 相容別名：topK -> getTopKnowledge
- */
-export const topK = getTopKnowledge;
 
 /**
  * 找出知識庫中得分最高的項目
@@ -174,8 +144,3 @@ export function findBestMatch(knowledgeList = [], question) {
   }
   return { entry: bestEntry, score: bestScore };
 }
-
-/**
- * 相容別名：bestOf -> findBestMatch
- */
-export const bestOf = findBestMatch;

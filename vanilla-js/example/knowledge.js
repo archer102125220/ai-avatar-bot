@@ -38,8 +38,8 @@ export const KNOWLEDGE = [
   },
   {
     q: '怎麼控制表情與動作',
-    kw: '表情 動作 手勢 情緒 happy wave 揮手 鞠躬 換表情 生氣 悲傷 setEmotion setEmotionFromText',
-    a: '內建 8 種以上情緒與動作（開心、驚訝、悲傷、揮手、鞠躬等）。你可以呼叫 widget.skinEngine.setEmotion("happy")，或是透過 widget.setEmotionFromText("...") 根據文字自動推斷表情。'
+    kw: '表情 動作 手勢 情緒 happy wave 揮手 鞠躬 換表情 生氣 悲傷 setEmotion applyEmotionFromText',
+    a: '內建 8 種以上情緒與動作（開心、驚訝、悲傷、揮手、鞠躬等）。你可以呼叫 widget.skinEngine.setEmotion("happy")，或是透過 widget.applyEmotionFromText("...") 根據文字自動推斷表情。'
   },
   {
     q: 'AI 大腦是如何運作的',

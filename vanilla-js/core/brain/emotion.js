@@ -39,8 +39,3 @@ export function applyEmotionFromText(brainEngine, text) {
     brainEngine.onEmotionChange(classifyEmotion(text));
   }
 }
-
-/**
- * 相容別名：setEmotionFromText -> applyEmotionFromText
- */
-export const setEmotionFromText = applyEmotionFromText;

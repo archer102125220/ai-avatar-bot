@@ -228,10 +228,8 @@ export async function executeToolCallsLoop(
       }
 
       if (finalText !== '') {
-        const emitAnswerFn =
-          brainEngine.emitAnswer || brainEngine.sayAnswer;
-        if (typeof emitAnswerFn === 'function') {
-          emitAnswerFn(finalText);
+        if (typeof brainEngine.emitAnswer === 'function') {
+          brainEngine.emitAnswer(finalText);
         }
       }
     } else if (
@@ -255,10 +253,8 @@ export async function executeToolCallsLoop(
               true
             );
           }
-          const applyEmotionFn =
-            brainEngine.applyEmotionFromText || brainEngine.setEmotionFromText;
-          if (typeof applyEmotionFn === 'function') {
-            applyEmotionFn(accumulatedText);
+          if (typeof brainEngine.applyEmotionFromText === 'function') {
+            brainEngine.applyEmotionFromText(accumulatedText);
           }
           if (typeof brainEngine.onStreamChunk === 'function') {
             brainEngine.onStreamChunk(chunkDelta);
@@ -307,11 +303,8 @@ export async function executeToolCallsLoop(
         if (typeof brainEngine.onStreamEnd === 'function') {
           brainEngine.onStreamEnd(finalText);
         }
-        const triggerSummaryFn =
-          brainEngine.triggerRollingSummaryIfNeeded ||
-          brainEngine.maybeTriggerRollingSummary;
-        if (typeof triggerSummaryFn === 'function') {
-          triggerSummaryFn();
+        if (typeof brainEngine.triggerRollingSummaryIfNeeded === 'function') {
+          brainEngine.triggerRollingSummaryIfNeeded();
         }
       }
     }
@@ -339,8 +332,3 @@ export async function executeToolCallsLoop(
     await resumeAiSummary(toolResults);
   }
 }
-
-/**
- * 相容別名：handleToolCallsLoop -> executeToolCallsLoop
- */
-export const handleToolCallsLoop = executeToolCallsLoop;
