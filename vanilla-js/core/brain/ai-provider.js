@@ -236,37 +236,38 @@ export async function initAiProvider(setting = {}) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         };
-        const sanitizedMessages = Array.isArray(messages) === true
-          ? messages.map((messageItem) => {
-              if (typeof messageItem !== 'object' || messageItem === null) {
-                return messageItem;
-              }
-              let safeContent = '';
-              if (typeof messageItem.content === 'string') {
-                safeContent = messageItem.content;
-              } else if (
-                typeof messageItem.content === 'object' &&
-                messageItem.content !== null
-              ) {
-                if (typeof messageItem.content.text === 'string') {
-                  safeContent = messageItem.content.text;
-                } else if (typeof messageItem.content.content === 'string') {
-                  safeContent = messageItem.content.content;
-                } else {
-                  safeContent = JSON.stringify(messageItem.content);
+        const sanitizedMessages =
+          Array.isArray(messages) === true
+            ? messages.map((messageItem) => {
+                if (typeof messageItem !== 'object' || messageItem === null) {
+                  return messageItem;
                 }
-              } else if (
-                typeof messageItem.content !== 'undefined' &&
-                messageItem.content !== null
-              ) {
-                safeContent = String(messageItem.content);
-              }
-              return {
-                ...messageItem,
-                content: safeContent
-              };
-            })
-          : [];
+                let safeContent = '';
+                if (typeof messageItem.content === 'string') {
+                  safeContent = messageItem.content;
+                } else if (
+                  typeof messageItem.content === 'object' &&
+                  messageItem.content !== null
+                ) {
+                  if (typeof messageItem.content.text === 'string') {
+                    safeContent = messageItem.content.text;
+                  } else if (typeof messageItem.content.content === 'string') {
+                    safeContent = messageItem.content.content;
+                  } else {
+                    safeContent = JSON.stringify(messageItem.content);
+                  }
+                } else if (
+                  typeof messageItem.content !== 'undefined' &&
+                  messageItem.content !== null
+                ) {
+                  safeContent = String(messageItem.content);
+                }
+                return {
+                  ...messageItem,
+                  content: safeContent
+                };
+              })
+            : [];
 
         const defaultPayload = {
           model: this.model,
@@ -340,12 +341,7 @@ export async function initAiProvider(setting = {}) {
 
         const formatResponseFn = this.responseFormat;
         if (typeof formatResponseFn === 'function') {
-          return await formatResponseFn(
-            response,
-            fetchSetting,
-            messages,
-            this
-          );
+          return await formatResponseFn(response, fetchSetting, messages, this);
         }
 
         const result = await response.json();
@@ -573,7 +569,11 @@ export async function chatWithAiProvider(brainEngine, question) {
 
         if (autoContinueMode === AUTO_CONTINUE_MODE_MAP.STREAM) {
           if (typeof brainEngine.updateChatMessage === 'function') {
-            brainEngine.updateChatMessage(chatMessageId, accumulatedText, false);
+            brainEngine.updateChatMessage(
+              chatMessageId,
+              accumulatedText,
+              false
+            );
           }
           if (typeof brainEngine.applyEmotionFromText === 'function') {
             brainEngine.applyEmotionFromText(nextChunk.trim());

@@ -991,8 +991,10 @@ export async function answerQuestion(brainEngine, question) {
     brainEngine.aiProvider.ready === true
   ) {
     try {
-      const chatAiFn = brainEngine.chatWithAiProvider || chatWithAiProvider;
-      return await chatAiFn(brainEngine, question);
+      if (typeof brainEngine.chatWithAiProvider === 'function') {
+        return await brainEngine.chatWithAiProvider(question);
+      }
+      return await chatWithAiProvider(brainEngine, question);
     } catch (error) {
       console.warn(
         '[answerQuestion] AI Provider 呼叫失敗，嘗試降級至 WebLLM 或檢索式後備：',
@@ -1015,8 +1017,10 @@ export async function answerQuestion(brainEngine, question) {
   // 2) 瀏覽器內 WebLLM：串流 → 每切出一個完整句就丟進逐句佇列開講（首句延遲大幅縮短）
   if (brainEngine.llm?.state === brainEngine.STATE_MAP.READY) {
     try {
-      const chatWebLLMFn = brainEngine.chatWithWebLLM || chatWithWebLLM;
-      return await chatWebLLMFn(brainEngine, question);
+      if (typeof brainEngine.chatWithWebLLM === 'function') {
+        return await brainEngine.chatWithWebLLM(question);
+      }
+      return await chatWithWebLLM(brainEngine, question);
     } catch (error) {
       console.warn(
         '[answerQuestion] WebLLM 呼叫失敗，嘗試降級至檢索式後備：',

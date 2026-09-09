@@ -476,7 +476,9 @@ export function buildDefaultLLMMessages(
       : [];
 
   const safeSystemContext =
-    typeof systemContext === 'string' ? systemContext : String(systemContext || '');
+    typeof systemContext === 'string'
+      ? systemContext
+      : String(systemContext || '');
   const rawMessages = [{ role: 'system', content: safeSystemContext }];
   for (const historyItem of history) {
     if (typeof historyItem === 'object' && historyItem !== null) {
