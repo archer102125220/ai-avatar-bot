@@ -74,10 +74,10 @@ export async function initAvatarBot(rawOptions = {}) {
     accumulatedText: ''
   };
 
+  const getWidget = () => aiAvatarWidget;
+
   const streamPipeline = createStreamPipeline({
-    get widget() {
-      return aiAvatarWidget;
-    },
+    getWidget,
     options,
     getEngines,
     autoContinueState,
@@ -85,9 +85,7 @@ export async function initAvatarBot(rawOptions = {}) {
   });
 
   const handleUser = createUserPipeline({
-    get widget() {
-      return aiAvatarWidget;
-    },
+    getWidget,
     rootStore,
     i18nEngine,
     getEngines,
@@ -95,9 +93,7 @@ export async function initAvatarBot(rawOptions = {}) {
   });
 
   const onTapAvatar = createTapAvatarHandler({
-    get widget() {
-      return aiAvatarWidget;
-    },
+    getWidget,
     options,
     rootStore,
     i18nEngine,

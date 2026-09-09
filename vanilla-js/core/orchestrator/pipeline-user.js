@@ -2,7 +2,8 @@
  * 建立使用者輸入處理管線 (User Input Pipeline: handleUser)。
  *
  * @param {Object} params
- * @param {import('./types').AiAvatarWidget} params.widget - Widget 實例
+ * @param {import('./types').AiAvatarWidget} [params.widget] - Widget 實例
+ * @param {() => import('./types').AiAvatarWidget} [params.getWidget] - 取得 Widget 實例的函式
  * @param {import('../store').BaseStore} params.rootStore - 狀態 Store
  * @param {any} params.i18nEngine - 多語系引擎實例
  * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - 取得各引擎實例的函式
@@ -11,11 +12,14 @@
  */
 export function createUserPipeline({
   widget,
+  getWidget,
   rootStore,
   i18nEngine,
   getEngines,
   autoContinueState
 }) {
+  const resolveWidget = typeof getWidget === 'function' ? getWidget : () => widget;
+
   return function handleUser(text = '') {
     const { brainEngine, speechEngine, skinEngine, toolsEngine } = getEngines();
 
@@ -119,7 +123,7 @@ export function createUserPipeline({
             skinEngine,
             brainEngine,
             speechEngine,
-            aiAvatarWidget: widget,
+            aiAvatarWidget: resolveWidget(),
             store: rootStore,
             i18nEngine
           }

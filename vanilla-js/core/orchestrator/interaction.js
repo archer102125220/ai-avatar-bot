@@ -6,7 +6,8 @@ import { callOptionEvent } from './options';
  * 建立點擊 Avatar 虛擬人的互動事件處理函式 (onTapAvatar)。
  *
  * @param {Object} params
- * @param {import('./types').AiAvatarWidget} params.widget - Widget 實例
+ * @param {import('./types').AiAvatarWidget} [params.widget] - Widget 實例
+ * @param {() => import('./types').AiAvatarWidget} [params.getWidget] - 取得 Widget 實例的函式
  * @param {import('./types').AvatarBotOptions} params.options - 原始設定選項
  * @param {import('../store').BaseStore} params.rootStore - 狀態 Store
  * @param {any} params.i18nEngine - 多語系引擎實例
@@ -15,15 +16,18 @@ import { callOptionEvent } from './options';
  */
 export function createTapAvatarHandler({
   widget,
+  getWidget,
   options,
   rootStore,
   i18nEngine,
   getEngines
 }) {
+  const resolveWidget = typeof getWidget === 'function' ? getWidget : () => widget;
+
   return function onTapAvatar() {
     const { brainEngine, speechEngine, skinEngine } = getEngines();
 
-    callOptionEvent(options, widget, 'onTapAvatar');
+    callOptionEvent(options, resolveWidget(), 'onTapAvatar');
     if (speechEngine?.onTapTimer === true) {
       return;
     }

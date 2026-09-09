@@ -4,7 +4,8 @@ import { callOptionEvent } from './options';
  * 建立大腦串流文字與語音/口型同步管線 (Stream Pipeline)。
  *
  * @param {Object} params
- * @param {import('./types').AiAvatarWidget} params.widget - Widget 實例
+ * @param {import('./types').AiAvatarWidget} [params.widget] - Widget 實例
+ * @param {() => import('./types').AiAvatarWidget} [params.getWidget] - 取得 Widget 實例的函式
  * @param {import('./types').AvatarBotOptions} params.options - 原始設定選項
  * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - 取得各引擎實例的函式
  * @param {{ isActive: boolean, continuationIndex: number, maxContinuations: number, accumulatedText: string }} params.autoContinueState - 自動接續狀態物件
@@ -13,12 +14,14 @@ import { callOptionEvent } from './options';
  */
 export function createStreamPipeline({
   widget,
+  getWidget,
   options,
   getEngines,
   autoContinueState,
   streamSpeechState
 }) {
   let streamSpeechId = 0;
+  const resolveWidget = typeof getWidget === 'function' ? getWidget : () => widget;
 
   return {
     getStreamSpeechId: () => streamSpeechId,
@@ -88,7 +91,7 @@ export function createStreamPipeline({
         speechEngine.onUtteranceEnd();
       }
 
-      callOptionEvent(options, widget, 'onStreamEnd', fullText);
+      callOptionEvent(options, resolveWidget(), 'onStreamEnd', fullText);
     },
 
     onAutoContinueStart(info) {
@@ -101,7 +104,7 @@ export function createStreamPipeline({
         typeof info?.maxContinuations === 'number' ? info.maxContinuations : 0;
       autoContinueState.accumulatedText =
         typeof info?.accumulatedText === 'string' ? info.accumulatedText : '';
-      callOptionEvent(options, widget, 'onAutoContinueStart', info);
+      callOptionEvent(options, resolveWidget(), 'onAutoContinueStart', info);
     },
 
     onAutoContinueWait(info) {
@@ -113,7 +116,7 @@ export function createStreamPipeline({
           skinEngine.gestureName = 'thinking';
         }
       }
-      callOptionEvent(options, widget, 'onAutoContinueWait', info);
+      callOptionEvent(options, resolveWidget(), 'onAutoContinueWait', info);
     },
 
     onAutoContinueResume(info) {
@@ -125,12 +128,12 @@ export function createStreamPipeline({
         typeof info?.maxContinuations === 'number' ? info.maxContinuations : 0;
       autoContinueState.accumulatedText =
         typeof info?.accumulatedText === 'string' ? info.accumulatedText : '';
-      callOptionEvent(options, widget, 'onAutoContinueResume', info);
+      callOptionEvent(options, resolveWidget(), 'onAutoContinueResume', info);
     },
 
     onAutoContinueEnd(info) {
       autoContinueState.isActive = false;
-      callOptionEvent(options, widget, 'onAutoContinueEnd', info);
+      callOptionEvent(options, resolveWidget(), 'onAutoContinueEnd', info);
     },
 
     onInterrupt() {
@@ -156,7 +159,7 @@ export function createStreamPipeline({
             skinEngine.gestureName = 'thinking';
           }
         }
-        callOptionEvent(options, widget, 'onAutoContinueWait', {
+        callOptionEvent(options, resolveWidget(), 'onAutoContinueWait', {
           continuationIndex: autoContinueState.continuationIndex,
           maxContinuations: autoContinueState.maxContinuations,
           accumulatedText: autoContinueState.accumulatedText,
