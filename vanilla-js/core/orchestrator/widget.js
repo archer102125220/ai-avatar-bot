@@ -277,10 +277,7 @@ export function createAvatarWidget({
       if (typeof newEnableMemory === 'boolean') {
         rootStore.setState({ enableMemory: newEnableMemory });
         const brain = getEngines().brainEngine;
-        if (
-          brain?.memory !== null &&
-          typeof brain?.memory === 'object'
-        ) {
+        if (brain?.memory !== null && typeof brain?.memory === 'object') {
           brain.memory.enabled = newEnableMemory;
         }
       }
@@ -307,9 +304,7 @@ export function createAvatarWidget({
     get preloadWebLLM() {
       const brain = getEngines().brainEngine;
       return (
-        brain?.preloadWebLLM ??
-        rootStore.getState().preloadWebLLM ??
-        false
+        brain?.preloadWebLLM ?? rootStore.getState().preloadWebLLM ?? false
       );
     },
     set preloadWebLLM(newPreloadWebLLM) {

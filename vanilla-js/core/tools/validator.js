@@ -40,7 +40,9 @@ export function extractPropertyValue(
     query,
     propertySchema.prefixes
       .concat([propertySchema.title])
-      .filter((prefixItem) => typeof prefixItem === 'string' && prefixItem !== '')
+      .filter(
+        (prefixItem) => typeof prefixItem === 'string' && prefixItem !== ''
+      )
   );
 
   if (Array.isArray(propertySchema.enum) === true) {
@@ -70,7 +72,9 @@ export function extractPropertyValue(
     }
   }
   if (propertySchema.format === 'contact') {
-    const contactEmailMatch = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.exec(query);
+    const contactEmailMatch = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.exec(
+      query
+    );
     if (contactEmailMatch !== null) {
       return contactEmailMatch[0];
     }
@@ -121,7 +125,9 @@ export function extractPropertyValue(
 export function validate(schema, input) {
   const normalizedSchema = normaliseSchema(schema);
   const targetInput =
-    typeof input === 'object' && input !== null && Array.isArray(input) === false
+    typeof input === 'object' &&
+    input !== null &&
+    Array.isArray(input) === false
       ? input
       : {};
   const validatedArgs = {};
@@ -160,24 +166,25 @@ export function validate(schema, input) {
       return;
     }
 
-    if (
-      propertySchema.type === 'integer' ||
-      propertySchema.type === 'number'
-    ) {
+    if (propertySchema.type === 'integer' || propertySchema.type === 'number') {
       propertyValue = Number(propertyValue);
       if (
         typeof propertySchema.minimum === 'number' &&
         Number.isFinite(propertySchema.minimum) === true &&
         propertyValue < propertySchema.minimum
       ) {
-        validationErrors.push(`${propertyName} 不得小於 ${propertySchema.minimum}`);
+        validationErrors.push(
+          `${propertyName} 不得小於 ${propertySchema.minimum}`
+        );
       }
       if (
         typeof propertySchema.maximum === 'number' &&
         Number.isFinite(propertySchema.maximum) === true &&
         propertyValue > propertySchema.maximum
       ) {
-        validationErrors.push(`${propertyName} 不得大於 ${propertySchema.maximum}`);
+        validationErrors.push(
+          `${propertyName} 不得大於 ${propertySchema.maximum}`
+        );
       }
     } else if (propertySchema.type === 'string') {
       propertyValue = sanitizeText(propertyValue, propertySchema.maxLength);
@@ -201,10 +208,8 @@ export function validate(schema, input) {
       }
       if (
         propertySchema.format === 'contact' &&
-        (
-          /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(propertyValue) === false &&
-          /(?:\+?\d[\s().-]*){8,18}/.test(propertyValue) === false
-        )
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(propertyValue) === false &&
+        /(?:\+?\d[\s().-]*){8,18}/.test(propertyValue) === false
       ) {
         validationErrors.push(`${propertyName} 必須是電子郵件或電話`);
       }
@@ -230,7 +235,11 @@ export function validate(schema, input) {
     }
   });
 
-  return { ok: validationErrors.length === 0, args: validatedArgs, errors: validationErrors };
+  return {
+    ok: validationErrors.length === 0,
+    args: validatedArgs,
+    errors: validationErrors
+  };
 }
 
 /**

@@ -4,11 +4,7 @@ import {
   TOOL_CANCEL_REASON_MAP,
   TOOL_RESULT_MODE_MAP
 } from '../constants';
-import {
-  getAiAvailableTools,
-  toOpenAiTools,
-  argumentSummary
-} from './schema';
+import { getAiAvailableTools, toOpenAiTools, argumentSummary } from './schema';
 import { route } from './router';
 import { extract } from './validator';
 
@@ -154,7 +150,9 @@ export function initToolsEngine(setting = {}) {
     ) {
       return false;
     }
-    if (/^(取消|不要|算了|cancel)$/i.test(String(inputText || '').trim()) === true) {
+    if (
+      /^(取消|不要|算了|cancel)$/i.test(String(inputText || '').trim()) === true
+    ) {
       toolsEngine.pendingToolInput = null;
       const cancelMessage = '好的，已取消這個操作。';
       if (typeof toolsEngine.onAddChatMessage === 'function') {
@@ -247,7 +245,9 @@ export function initToolsEngine(setting = {}) {
     ) {
       return false;
     }
-    if (/^(取消|不要|算了|cancel)$/i.test(String(inputText || '').trim()) === true) {
+    if (
+      /^(取消|不要|算了|cancel)$/i.test(String(inputText || '').trim()) === true
+    ) {
       const chatMessage = setting
         .getChatLog()
         .find((entry) => entry.id === toolsEngine.pendingToolChoice.messageId);
@@ -285,7 +285,8 @@ export function initToolsEngine(setting = {}) {
       );
       if (routedResult.match !== null) {
         choiceIndex = toolsEngine.pendingToolChoice.choices.findIndex(
-          (candidateItem) => candidateItem.tool.name === routedResult.match.tool.name
+          (candidateItem) =>
+            candidateItem.tool.name === routedResult.match.tool.name
         );
       }
     }
@@ -300,7 +301,9 @@ export function initToolsEngine(setting = {}) {
 
     const promptMessage = '請說「第一個、第二個、第三個」，或點選你要的操作。';
     if (typeof toolsEngine.onAddChatMessage === 'function') {
-      toolsEngine.onAddChatMessage('assistant', promptMessage, { source: 'tool' });
+      toolsEngine.onAddChatMessage('assistant', promptMessage, {
+        source: 'tool'
+      });
     }
     if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
       toolsEngine.onSpokenAudioPlayNow(promptMessage);
@@ -309,7 +312,9 @@ export function initToolsEngine(setting = {}) {
   }
 
   function chooseTool(messageId, choiceIndex) {
-    const chatMessage = setting.getChatLog().find((entry) => entry.id === messageId);
+    const chatMessage = setting
+      .getChatLog()
+      .find((entry) => entry.id === messageId);
     if (
       typeof chatMessage !== 'object' ||
       chatMessage === null ||
@@ -343,8 +348,7 @@ export function initToolsEngine(setting = {}) {
       .slice(-12)
       .map((chatItem) => ({ role: chatItem.role, text: chatItem.text }))
       .filter(
-        (chatItem) =>
-          typeof chatItem.text === 'string' && chatItem.text !== ''
+        (chatItem) => typeof chatItem.text === 'string' && chatItem.text !== ''
       );
 
     const source =
@@ -482,7 +486,9 @@ export function initToolsEngine(setting = {}) {
 
   function executePendingTool(messageId) {
     clearConfirmationTimer();
-    const chatMessage = setting.getChatLog().find((msg) => msg.id === messageId);
+    const chatMessage = setting
+      .getChatLog()
+      .find((msg) => msg.id === messageId);
     if (
       typeof chatMessage !== 'object' ||
       chatMessage === null ||
@@ -519,7 +525,9 @@ export function initToolsEngine(setting = {}) {
 
   function cancelPendingTool(messageId, options) {
     clearConfirmationTimer();
-    const chatMessage = setting.getChatLog().find((msg) => msg.id === messageId);
+    const chatMessage = setting
+      .getChatLog()
+      .find((msg) => msg.id === messageId);
     if (
       typeof chatMessage !== 'object' ||
       chatMessage === null ||
@@ -579,7 +587,9 @@ export function initToolsEngine(setting = {}) {
       return false;
     }
     const trimmedAnswer = String(inputText || '').trim();
-    if (/^(確認|確定|執行|可以|好|好的|yes|ok)$/i.test(trimmedAnswer) === true) {
+    if (
+      /^(確認|確定|執行|可以|好|好的|yes|ok)$/i.test(trimmedAnswer) === true
+    ) {
       executePendingTool(toolsEngine.pendingToolConfirmation);
       return true;
     }

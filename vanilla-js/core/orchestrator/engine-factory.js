@@ -349,18 +349,14 @@ export async function setupBrainEngine({
     },
     onAddChatMessage(chatMessageItem) {
       const uiDom = getUiDom();
-      if (
-        uiDom?.historyPanelEl?.getAttribute('css-is-open') === 'true'
-      ) {
+      if (uiDom?.historyPanelEl?.getAttribute('css-is-open') === 'true') {
         renderHistory(widget);
       }
       callOptionEvent(options, widget, 'onAddChatMessage', chatMessageItem);
     },
     onUpdateChatMessage(chatMessageItem) {
       const uiDom = getUiDom();
-      if (
-        uiDom?.historyPanelEl?.getAttribute('css-is-open') === 'true'
-      ) {
+      if (uiDom?.historyPanelEl?.getAttribute('css-is-open') === 'true') {
         renderHistory(widget);
       }
       callOptionEvent(options, widget, 'onUpdateChatMessage', chatMessageItem);
@@ -506,7 +502,12 @@ export async function setupSpeechEngine({
         uiDom.bubbleEl.textContent = newSpeakingLabel;
         uiDom.bubbleEl.setAttribute('css-is-show', 'true');
       }
-      callOptionEvent(options, widget, 'onSpokenDisplayTextChange', newSpeakingLabel);
+      callOptionEvent(
+        options,
+        widget,
+        'onSpokenDisplayTextChange',
+        newSpeakingLabel
+      );
     },
     onSpokenDisplayTextTimeout() {
       const uiDom = getUiDom();
@@ -522,7 +523,13 @@ export async function setupSpeechEngine({
         const isCompanion = currentAvatarMode === AVATAR_MODE_MAP.companion;
         uiDom.updateMicState(isListening, convoOn, isCompanion, i18nEngine);
       }
-      callOptionEvent(options, widget, 'onMicStateChanged', isListening, convoOn);
+      callOptionEvent(
+        options,
+        widget,
+        'onMicStateChanged',
+        isListening,
+        convoOn
+      );
     },
     onVoiceStatusChanged(convoOn, text, state, level) {
       const uiDom = getUiDom();
@@ -596,12 +603,7 @@ export async function setupSpeechEngine({
  * @param {() => any} params.getUiDom - 取得 UI DOM 物件的函式
  * @returns {any}
  */
-export function setupToolsEngine({
-  options,
-  widget,
-  getEngines,
-  getUiDom
-}) {
+export function setupToolsEngine({ options, widget, getEngines, getUiDom }) {
   const { customEngines = {} } = options;
 
   const toolsOptions = {
@@ -804,13 +806,14 @@ export async function setupSkinEngine({
 
       computeMouth() {
         const { speechEngine } = getEngines();
-        return speechEngine?.computeMouth ? speechEngine.computeMouth() : undefined;
+        return speechEngine?.computeMouth
+          ? speechEngine.computeMouth()
+          : undefined;
       },
       async onMounted() {
         const { brainEngine, speechEngine } = getEngines();
         if (speechEngine !== null && typeof speechEngine === 'object') {
-          speechEngine.spokenDisplayText =
-            await brainEngine?.getWelcomeText();
+          speechEngine.spokenDisplayText = await brainEngine?.getWelcomeText();
         }
         if (typeof widget.onReady === 'function') {
           widget.onReady(widget);
@@ -859,11 +862,13 @@ export async function setupSkinEngine({
           if (typeof engineButtonEl.onclick !== 'function') {
             engineButtonEl.onclick = () => {
               if (
-                currentSkin?.engineMode ===
-                ENGINE_MODE_MAP.threeDimensional
+                currentSkin?.engineMode === ENGINE_MODE_MAP.threeDimensional
               ) {
                 currentSkin.engineMode = ENGINE_MODE_MAP.twoDimensional;
-              } else if (currentSkin !== null && typeof currentSkin === 'object') {
+              } else if (
+                currentSkin !== null &&
+                typeof currentSkin === 'object'
+              ) {
                 currentSkin.engineMode = ENGINE_MODE_MAP.threeDimensional;
               }
             };
@@ -928,7 +933,8 @@ export async function setupSkinEngine({
           }
         } else {
           if (
-            typeof currentSkin?.renderer?.canvas?.addEventListener === 'function'
+            typeof currentSkin?.renderer?.canvas?.addEventListener ===
+            'function'
           ) {
             currentSkin.renderer.canvas.addEventListener('pointerdown', () => {
               speechEngine?.triggerTap();

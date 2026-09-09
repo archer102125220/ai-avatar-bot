@@ -101,7 +101,8 @@ export function route(tools, query) {
       return { tool, score: scoredResult.score, reason: scoredResult.reason };
     })
     .filter(
-      (candidateItem) => candidateItem.score >= candidateItem.tool.routeThreshold
+      (candidateItem) =>
+        candidateItem.score >= candidateItem.tool.routeThreshold
     )
     .sort(
       (candidateA, candidateB) =>

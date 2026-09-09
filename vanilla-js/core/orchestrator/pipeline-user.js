@@ -18,7 +18,8 @@ export function createUserPipeline({
   getEngines,
   autoContinueState
 }) {
-  const resolveWidget = typeof getWidget === 'function' ? getWidget : () => widget;
+  const resolveWidget =
+    typeof getWidget === 'function' ? getWidget : () => widget;
 
   return function handleUser(text = '') {
     const { brainEngine, speechEngine, skinEngine, toolsEngine } = getEngines();
@@ -118,7 +119,10 @@ export function createUserPipeline({
         toolsEngine.prepareTool(
           routedTool.match.tool,
           text,
-          { confidence: routedTool.match.score, reason: routedTool.match.reason },
+          {
+            confidence: routedTool.match.score,
+            reason: routedTool.match.reason
+          },
           {
             skinEngine,
             brainEngine,

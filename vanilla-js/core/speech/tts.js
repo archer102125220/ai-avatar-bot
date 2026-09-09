@@ -617,10 +617,7 @@ export function initDefaultTTSEngine(options = {}) {
       return;
     }
     for (const queueItem of state.speechQueue.slice(0, 2)) {
-      if (
-        queueItem.prefetchPromise === null &&
-        queueItem.error === null
-      ) {
+      if (queueItem.prefetchPromise === null && queueItem.error === null) {
         queueItem.prefetchPromise = fetchTTSBuffer(queueItem.text).catch(
           (error) => {
             queueItem.error = error;
@@ -703,7 +700,9 @@ export function initDefaultTTSEngine(options = {}) {
   const handleNeuralVoiceError = (error) => {
     const currentState = store.getState();
     const errorMessage =
-      typeof error === 'object' && error !== null && typeof error.message === 'string'
+      typeof error === 'object' &&
+      error !== null &&
+      typeof error.message === 'string'
         ? error.message
         : '';
     if (/http 429/.test(errorMessage) === true) {
@@ -792,10 +791,7 @@ export function initDefaultTTSEngine(options = {}) {
         estimatedDurationMs
       );
     };
-    if (
-      speechSynthesis.speaking === true ||
-      speechSynthesis.pending === true
-    ) {
+    if (speechSynthesis.speaking === true || speechSynthesis.pending === true) {
       speechSynthesis.cancel();
       setTimeout(playUtterance, 120);
     } else {
@@ -804,10 +800,7 @@ export function initDefaultTTSEngine(options = {}) {
   };
 
   const processSpeechQueue = async (speechSequenceId) => {
-    if (
-      state.isSpeechPlaying === true ||
-      speechSequenceId !== state.speakSeq
-    ) {
+    if (state.isSpeechPlaying === true || speechSequenceId !== state.speakSeq) {
       return;
     }
     const speechItem = state.speechQueue.shift();

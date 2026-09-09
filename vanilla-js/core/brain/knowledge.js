@@ -44,11 +44,7 @@ export function getBigrams(text) {
     .toLowerCase()
     .replace(/[\s，。、？！,.?!~～]/g, '');
   const grams = [];
-  for (
-    let charIndex = 0;
-    charIndex < normalizedText.length - 1;
-    charIndex++
-  ) {
+  for (let charIndex = 0; charIndex < normalizedText.length - 1; charIndex++) {
     grams.push(normalizedText.slice(charIndex, charIndex + 2));
   }
   if (normalizedText.length === 1) {

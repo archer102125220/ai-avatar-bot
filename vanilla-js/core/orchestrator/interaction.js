@@ -22,7 +22,8 @@ export function createTapAvatarHandler({
   i18nEngine,
   getEngines
 }) {
-  const resolveWidget = typeof getWidget === 'function' ? getWidget : () => widget;
+  const resolveWidget =
+    typeof getWidget === 'function' ? getWidget : () => widget;
 
   return function onTapAvatar() {
     const { brainEngine, speechEngine, skinEngine } = getEngines();

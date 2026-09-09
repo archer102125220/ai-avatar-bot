@@ -21,7 +21,8 @@ export function createStreamPipeline({
   streamSpeechState
 }) {
   let streamSpeechId = 0;
-  const resolveWidget = typeof getWidget === 'function' ? getWidget : () => widget;
+  const resolveWidget =
+    typeof getWidget === 'function' ? getWidget : () => widget;
 
   return {
     getStreamSpeechId: () => streamSpeechId,

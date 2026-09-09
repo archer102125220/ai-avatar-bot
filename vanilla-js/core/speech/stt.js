@@ -33,7 +33,7 @@ export function validateSTTEngine(engine) {
 
 /**
  * 語音轉文字 (STT) 引擎的內部狀態。
- * 
+ *
  * @typedef {Object} STTEngineState
  * @property {MediaStream|null} micStream - 麥克風音訊串流。
  * @property {AudioContext|null} micAudioCtx - 音訊上下文。
@@ -85,9 +85,11 @@ const DEFAULT_STT_MESSAGES = {
     noSpeechAbort: '連續幾次沒有聽到聲音，即時對話已暫停。'
   },
   'en-US': {
-    unsupported: 'Your browser does not support speech recognition. Chrome is recommended.',
+    unsupported:
+      'Your browser does not support speech recognition. Chrome is recommended.',
     requestPermission: 'Requesting microphone permission...',
-    micError: 'Unable to start voice service. Please check microphone permissions and browser settings.',
+    micError:
+      'Unable to start voice service. Please check microphone permissions and browser settings.',
     startFailed: 'Failed to start speech recognition: {error}',
     listening: 'Please speak, you can interrupt anytime...',
     permissionDenied: 'Microphone permission is required to listen.',
@@ -97,9 +99,11 @@ const DEFAULT_STT_MESSAGES = {
     noSpeechAbort: 'No speech detected multiple times, voice session paused.'
   },
   'ja-JP': {
-    unsupported: 'お使いのブラウザは音声認識に対応していません。Chromeをお勧めします。',
+    unsupported:
+      'お使いのブラウザは音声認識に対応していません。Chromeをお勧めします。',
     requestPermission: 'マイクの権限を取得中…',
-    micError: '音声機能を開始できません。マイクの許可と設定を確認してください。',
+    micError:
+      '音声機能を開始できません。マイクの許可と設定を確認してください。',
     startFailed: '音声認識の開始に失敗しました：{error}',
     listening: '話しかけてください。いつでも遮って話せます…',
     permissionDenied: 'マイクの権限が必要です。',
@@ -109,16 +113,19 @@ const DEFAULT_STT_MESSAGES = {
     noSpeechAbort: '音声が検出されなかったため、対話を一時停止しました。'
   },
   'ko-KR': {
-    unsupported: '현재 브라우저는 음성 인식을 지원하지 않습니다. Chrome 브라우저를 권장합니다.',
+    unsupported:
+      '현재 브라우저는 음성 인식을 지원하지 않습니다. Chrome 브라우저를 권장합니다.',
     requestPermission: '마이크 권한 요청 중…',
-    micError: '음성 기능을 시작할 수 없습니다. 마이크 권한과 브라우저 설정을 확인해 주세요.',
+    micError:
+      '음성 기능을 시작할 수 없습니다. 마이크 권한과 브라우저 설정을 확인해 주세요.',
     startFailed: '음성 인식 시작 실패: {error}',
     listening: '말씀해 주세요. 언제든 중간에 말씀하셔도 됩니다…',
     permissionDenied: '말씀을 듣기 위해 마이크 권한이 필요합니다.',
     noSpeech: '잘 듣지 못했습니다 ({error}), 다시 시도해 주세요.',
     sessionEnded: '실시간 음성 대화가 종료되었습니다.',
     bgStop: '페이지가 백그라운드로 전환되어 음성 대화가 중지되었습니다.',
-    noSpeechAbort: '여러 번 음성이 감지되지 않아 실시간 대화가 일시 중지되었습니다.'
+    noSpeechAbort:
+      '여러 번 음성이 감지되지 않아 실시간 대화가 일시 중지되었습니다.'
   }
 };
 
@@ -152,7 +159,7 @@ export function getSttMessage(locale, key, params = {}) {
 
 /**
  * 語音轉文字 (STT) 引擎實例介面。
- * 
+ *
  * @typedef {Object} STTEngine
  * @property {(selector: any, callback?: Function) => () => void} subscribe - 訂閱狀態變更。
  * @property {() => STTEngineState} getState - 取得當前所有內部狀態。
@@ -261,7 +268,11 @@ export function initDefaultSTTEngine(options = {}) {
       typeof getSpeechDuration === 'function' ? getSpeechDuration() : 0;
     const immuneBargeIn = speechDuration < 1200;
 
-    if (isSpeaking === true && isAssistantActive === true && immuneBargeIn === false) {
+    if (
+      isSpeaking === true &&
+      isAssistantActive === true &&
+      immuneBargeIn === false
+    ) {
       state.voiceFrames = (state.voiceFrames || 0) + 1;
     } else {
       state.voiceFrames = Math.max(0, (state.voiceFrames || 0) - 2);
@@ -301,7 +312,9 @@ export function initDefaultSTTEngine(options = {}) {
       },
       video: false
     });
-    state.micAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    state.micAudioCtx = new (
+      window.AudioContext || window.webkitAudioContext
+    )();
     if (state.micAudioCtx.state === 'suspended') {
       try {
         await state.micAudioCtx.resume();
@@ -408,7 +421,10 @@ export function initDefaultSTTEngine(options = {}) {
 
       try {
         if (typeof onStatusChange === 'function') {
-          onStatusChange(false, getSttMessage(engine.locale, 'requestPermission'));
+          onStatusChange(
+            false,
+            getSttMessage(engine.locale, 'requestPermission')
+          );
         }
         await ensureMicMonitor();
       } catch (_permissionError) {
@@ -456,7 +472,10 @@ export function initDefaultSTTEngine(options = {}) {
         }
 
         if (recognitionError === 'not-allowed') {
-          const permissionDeniedMessage = getSttMessage(engine.locale, 'permissionDenied');
+          const permissionDeniedMessage = getSttMessage(
+            engine.locale,
+            'permissionDenied'
+          );
           if (typeof onError === 'function') {
             onError(permissionDeniedMessage, true);
           }
@@ -465,8 +484,10 @@ export function initDefaultSTTEngine(options = {}) {
 
         if (recognitionError === 'no-speech') {
           state.noSpeechRuns =
-            (typeof state.noSpeechRuns === 'number' ? state.noSpeechRuns : 0) + 1;
-          const convoOn = typeof getConvoOn === 'function' ? getConvoOn() : false;
+            (typeof state.noSpeechRuns === 'number' ? state.noSpeechRuns : 0) +
+            1;
+          const convoOn =
+            typeof getConvoOn === 'function' ? getConvoOn() : false;
           if (state.noSpeechRuns >= 4 && convoOn === true) {
             if (typeof onNoSpeechAbort === 'function') {
               onNoSpeechAbort();
@@ -584,4 +605,3 @@ export function initDefaultSTTEngine(options = {}) {
 
   return engine;
 }
-

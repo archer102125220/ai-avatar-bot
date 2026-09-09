@@ -24,7 +24,12 @@ import {
  * @param {...any} eventArguments - 傳遞給回呼函式的參數
  * @returns {any}
  */
-export function callOptionEvent(options, context, eventName, ...eventArguments) {
+export function callOptionEvent(
+  options,
+  context,
+  eventName,
+  ...eventArguments
+) {
   if (
     typeof options === 'object' &&
     options !== null &&

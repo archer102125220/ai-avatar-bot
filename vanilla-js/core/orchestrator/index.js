@@ -240,7 +240,10 @@ export async function initAvatarBot(rawOptions = {}) {
 
   if (aiAvatarWidget.isIframe === true) {
     if (typeof aiAvatarWidget.onMinimalTrigger === 'function') {
-      aiAvatarWidget.onMinimalTrigger(options.isMinimal === true, aiAvatarWidget);
+      aiAvatarWidget.onMinimalTrigger(
+        options.isMinimal === true,
+        aiAvatarWidget
+      );
     }
     aiAvatarWidget.hiddenMinimalEl();
   } else {
