@@ -242,7 +242,7 @@ export const FIT_MODE_MAP = {
  * 預設畫面顯示比例模式。
  * @type {'half'|'full'}
  */
-export const DEFAULT_FIT_MODE = FIT_MODE_MAP.HALF;
+export const DEFAULT_FIT_MODE = FIT_MODE_MAP.FULL;
 
 /**
  * 性別選項映射表。
