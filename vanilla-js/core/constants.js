@@ -266,15 +266,28 @@ export const DEFAULT_GENDER = GENDER_MAP.female;
  * 預設女性 2D Live2D 模型的 URL 路徑。
  * @type {string}
  */
-export const DEFAULT_FEMALE_MODEL_URL =
+export const DEFAULT_FEMALE_2D_MODEL_URL =
   '/avatar-skin/2d-model/female/haru_greeter_t03.model3.json';
 
 /**
  * 預設男性 2D Live2D 模型的 URL 路徑。
  * @type {string}
  */
-export const DEFAULT_MALE_MODEL_URL =
+export const DEFAULT_MALE_2D_MODEL_URL =
   '/avatar-skin/2d-model/male/natori_pro_t06.model3.json';
+
+/**
+ * 預設女性 3D 模型 URL 路徑。
+ * @type {string}
+ */
+export const DEFAULT_FEMALE_3D_MODEL_URL =
+  '/avatar-skin/3d-model/HatsuneMiku.vrm';
+
+/**
+ * 預設男性 3D 模型 URL 路徑。
+ * @type {string}
+ */
+export const DEFAULT_MALE_3D_MODEL_URL = '/avatar-skin/3d-model/RockmanEXE.vrm';
 
 /**
  * 預設是否允許使用者拖曳 3D 模型檔案 (.vrm) 至畫布進行即時換裝（預設關閉以符合正式上線產品需求）。

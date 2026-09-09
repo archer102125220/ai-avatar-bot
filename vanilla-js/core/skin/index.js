@@ -7,8 +7,10 @@ import {
   DEFAULT_FIT_MODE,
   GENDER_MAP,
   DEFAULT_GENDER,
-  DEFAULT_FEMALE_MODEL_URL,
-  DEFAULT_MALE_MODEL_URL
+  DEFAULT_FEMALE_2D_MODEL_URL,
+  DEFAULT_MALE_2D_MODEL_URL,
+  DEFAULT_FEMALE_3D_MODEL_URL,
+  DEFAULT_MALE_3D_MODEL_URL
 } from '../constants';
 import { createCanvas, initSkinMode, validateSkinEngine } from './canvas';
 import { loadUMD, defaultGesture2D, bootAvatar } from './renderer-2d';
@@ -114,16 +116,13 @@ export function initSkinEngine(setting = {}) {
     typeof modelUrl === 'string' && modelUrl !== ''
       ? modelUrl
       : setting.gender === GENDER_MAP.female
-        ? DEFAULT_FEMALE_MODEL_URL
-        : DEFAULT_MALE_MODEL_URL;
-
-  const safeGesture3D =
-    typeof gesture3D === 'function' ? gesture3D : defaultGesture3D;
+        ? DEFAULT_FEMALE_2D_MODEL_URL
+        : DEFAULT_MALE_2D_MODEL_URL;
 
   const safeGesture2D =
     typeof gesture2D === 'function'
       ? gesture2D
-      : [DEFAULT_FEMALE_MODEL_URL, DEFAULT_MALE_MODEL_URL].includes(
+      : [DEFAULT_FEMALE_2D_MODEL_URL, DEFAULT_MALE_2D_MODEL_URL].includes(
             safeModelUrl
           )
         ? defaultGesture2D
@@ -134,7 +133,18 @@ export function initSkinEngine(setting = {}) {
       ? vrmUrl
       : /\.vrm($|\?)/i.test(safeModelUrl)
         ? safeModelUrl
-        : '';
+        : setting.gender === GENDER_MAP.female
+          ? DEFAULT_FEMALE_3D_MODEL_URL
+          : DEFAULT_MALE_3D_MODEL_URL;
+
+  const safeGesture3D =
+    typeof gesture3D === 'function'
+      ? gesture3D
+      : [DEFAULT_FEMALE_3D_MODEL_URL, DEFAULT_MALE_3D_MODEL_URL].includes(
+            safeVrmUrl
+          )
+        ? defaultGesture3D
+        : null;
 
   const store = createBaseStore({
     gender: setting.gender || DEFAULT_GENDER,
@@ -159,9 +169,9 @@ export function initSkinEngine(setting = {}) {
       store.setState({ gender });
       // Sync internal logic
       if (gender === GENDER_MAP.female) {
-        skinEngine.modelUrl = DEFAULT_FEMALE_MODEL_URL;
+        skinEngine.modelUrl = DEFAULT_FEMALE_2D_MODEL_URL;
       } else if (gender === GENDER_MAP.male) {
-        skinEngine.modelUrl = DEFAULT_MALE_MODEL_URL;
+        skinEngine.modelUrl = DEFAULT_MALE_2D_MODEL_URL;
       }
     },
     setEmotion: (emotion) => {

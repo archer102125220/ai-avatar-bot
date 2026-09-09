@@ -105,8 +105,8 @@ export async function bootVRM(skinEngine, setting = {}) {
     webGLRenderer.setClearColor(0x000000, 0);
 
     const camera = new THREE.PerspectiveCamera(26, 1, 0.1, 20);
-    camera.position.set(0, 1.4, 1.6);
-    camera.lookAt(0, 1.3, 0);
+    camera.position.set(0, 1.4, 2.5);
+    camera.lookAt(0, 1.2, 0);
     const resize = () => {
       const stageElClientWidth = stageEl.clientWidth;
       const stageElClientHeight = stageEl.clientHeight;
