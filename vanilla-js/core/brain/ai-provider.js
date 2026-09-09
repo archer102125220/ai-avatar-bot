@@ -13,7 +13,11 @@ import {
   extractToolCallsFromText,
   executeToolCallsLoop
 } from './tool-calling.js';
-import { getBrainMessage, resolveAutoContinuePrompt } from './messages.js';
+import {
+  getBrainMessage,
+  resolveAutoContinuePrompt,
+  buildDefaultLLMMessages
+} from './messages.js';
 
 /**
  * AI 供應商引擎設定
@@ -425,10 +429,19 @@ export async function chatWithAiProvider(brainEngine, question) {
       brainEngine.onEmotionChange('thinking');
     }
 
-    const messages = await brainEngine.buildLLMMessages(
-      question,
-      BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER
-    );
+    let messages;
+    if (typeof brainEngine.buildLLMMessages === 'function') {
+      messages = await brainEngine.buildLLMMessages(
+        question,
+        BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER
+      );
+    } else {
+      messages = await buildDefaultLLMMessages(
+        brainEngine,
+        question,
+        BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER
+      );
+    }
     const tools =
       typeof brainEngine.getTools === 'function' ? brainEngine.getTools() : [];
 

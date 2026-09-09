@@ -13,7 +13,11 @@ import {
   extractToolCallsFromText,
   executeToolCallsLoop
 } from './tool-calling.js';
-import { getBrainMessage, resolveAutoContinuePrompt } from './messages.js';
+import {
+  getBrainMessage,
+  resolveAutoContinuePrompt,
+  buildDefaultLLMMessages
+} from './messages.js';
 
 /**
  * WebLLM 引擎設定
@@ -511,10 +515,19 @@ export async function chatWithWebLLM(brainEngine, question) {
       brainEngine.onEmotionChange('thinking');
     }
 
-    const messages = await brainEngine.buildLLMMessages(
-      question,
-      BRAIN_ENGINE_TYPE_MAP.WEB_LLM
-    );
+    let messages;
+    if (typeof brainEngine.buildLLMMessages === 'function') {
+      messages = await brainEngine.buildLLMMessages(
+        question,
+        BRAIN_ENGINE_TYPE_MAP.WEB_LLM
+      );
+    } else {
+      messages = await buildDefaultLLMMessages(
+        brainEngine,
+        question,
+        BRAIN_ENGINE_TYPE_MAP.WEB_LLM
+      );
+    }
     const tools =
       typeof brainEngine.getTools === 'function' ? brainEngine.getTools() : [];
 
