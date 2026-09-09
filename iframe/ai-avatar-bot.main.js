@@ -27,7 +27,7 @@ const DEFAULT_MODEL_URL =
 const DEFAULT_TTS_ENDPOINT = 'api/tts';
 const DEFAULT_AI_PROVIDER_MODEL = 'qwen2.5:latest';
 const DEFAULT_NEURAL_VOICE = 'zh-TW-HsiaoChenNeural'; // 微軟神經語音「曉臻」
-const DEFALUT_START_MODE = ENGINE_MODE_MAP.twoDimensional;
+const DEFAULT_START_MODE = ENGINE_MODE_MAP.twoDimensional;
 const DEFAULT_AVATAR_MODE = AVATAR_MODE_MAP.assistant;
 
 // 取景：'half'=近距離半身（頭+上半身，腿裁掉，聊天頭像感）；'full'=全身。可用 ?fit=full / data-fit 切回
@@ -2026,7 +2026,7 @@ async function initAiAvatarWidget(optiopns = {}) {
     avatarMode = DEFAULT_AVATAR_MODE,
     knowledge = null,
     companionKnowledge = null,
-    startMode = DEFALUT_START_MODE,
+    startMode = DEFAULT_START_MODE,
     fitMode = DEFAULT_FIT_MODE,
     vrmUrl = '',
     gesture2D = null,
@@ -2432,7 +2432,7 @@ async function initAiAvatarWidget(optiopns = {}) {
       }
     },
 
-    _startMode: startMode || DEFALUT_START_MODE,
+    _startMode: startMode || DEFAULT_START_MODE,
     get startMode() {
       return this._startMode;
     },

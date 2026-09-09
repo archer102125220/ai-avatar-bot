@@ -220,11 +220,10 @@ export const ENGINE_MODE_MAP = {
 export const DEFAULT_START_MODE = ENGINE_MODE_MAP.twoDimensional;
 
 /**
- * 預設啟動的渲染引擎模式（拼寫相容別名）。
- * @deprecated 請改用 DEFAULT_START_MODE
- * @type {'2d'|'3d'}
+ * 預設 VRMA 根目錄 URL 路徑。
+ * @type {string}
  */
-export const DEFALUT_START_MODE = DEFAULT_START_MODE;
+export const DEFAULT_VRMA_ROOT_PATH = '/avatar-skin/3d-model/vrma/';
 
 /**
  * 畫面顯示比例模式映射表。

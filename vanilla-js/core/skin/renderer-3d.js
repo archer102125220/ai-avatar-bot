@@ -1,4 +1,4 @@
-import { ENGINE_MODE_MAP } from '../constants';
+import { ENGINE_MODE_MAP, DEFAULT_VRMA_ROOT_PATH } from '../constants';
 import { createCanvas } from './canvas';
 
 /**
@@ -80,7 +80,8 @@ export async function bootVRM(skinEngine, setting = {}) {
     const safeVrmaRootPath =
       typeof vrmaRootPath === 'string' && vrmaRootPath !== ''
         ? vrmaRootPath
-        : '/avatar-skin/3d-model/vrma/';
+        : DEFAULT_VRMA_ROOT_PATH;
+
     const GESTURES = {
       // 情境手勢 + 待機變化（body-only，不碰嘴）`
       wave: wave || safeVrmaRootPath + 'Goodbye.vrma',
