@@ -179,7 +179,7 @@ export async function bootAvatar(skinEngine, modelUrl) {
       const nativeHeight =
         skinEngine.avatarModel?.internalModel?.height || 1000;
       if (safeFitMode === FIT_MODE_MAP.HALF) {
-        const ZOOM = 1.9; // 放大倍率：越大越近（半身越緊）
+        const ZOOM = 1.5; // 放大倍率：越大越近（半身越緊）
         const scale = (height / nativeHeight) * 0.95 * ZOOM;
         skinEngine.avatarModel.scale.set(scale);
         skinEngine.avatarModel.x = width / 2;
