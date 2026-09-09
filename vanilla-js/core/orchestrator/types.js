@@ -194,3 +194,6 @@
  * @property {Function} [onMinimalTrigger] - 切換極簡模式的回呼函式
  * @property {Function} [onError] - 發生錯誤時的回呼函式
  */
+
+export {};
+

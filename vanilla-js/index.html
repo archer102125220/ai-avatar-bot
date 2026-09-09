@@ -25,11 +25,7 @@
   <body>
     <div id="app"></div>
     <script type="module">
-      import {
-        initAvatarBot,
-        GENDER_MAP,
-        AVATAR_MODE_MAP
-      } from './core/index.js';
+      import { initAvatarBot, GENDER_MAP, AVATAR_MODE_MAP } from './core';
       import { KNOWLEDGE, COMPANION_KNOWLEDGE } from './example/knowledge.js';
 
       const app = document.getElementById('app');
@@ -75,15 +71,13 @@
         // },
 
         onReady(aiAvatar) {
-          // 應在優化，作為參數的一部分傳遞歡迎詞
-          /* 之後可在這觸發歡迎語 */
-          // aiAvatar.speak("hello");
+          // 可以做 log 紀錄
         },
         onSpeaking(text, aiAvatar) {
-          // postToParent(aiAvatar, "speaking", { text });
+          // 可以做 log 紀錄
         },
         onMinimalTrigger(newIsMinimal, aiAvatar) {
-          // postToParent(aiAvatar, "close");
+          // 可以做 log 紀錄
         },
         onError(error) {
           console.warn('[avatar] widget error:', error);
