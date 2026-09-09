@@ -475,14 +475,38 @@ export function buildDefaultLLMMessages(
       ? [...brainEngine.memory.data.history]
       : [];
 
-  const rawMessages = [{ role: 'system', content: systemContext }];
+  const safeSystemContext =
+    typeof systemContext === 'string' ? systemContext : String(systemContext || '');
+  const rawMessages = [{ role: 'system', content: safeSystemContext }];
   for (const historyItem of history) {
-    rawMessages.push({
-      role: historyItem.role,
-      content: historyItem.content
-    });
+    if (typeof historyItem === 'object' && historyItem !== null) {
+      let safeContent = '';
+      if (typeof historyItem.content === 'string') {
+        safeContent = historyItem.content;
+      } else if (typeof historyItem.content?.text === 'string') {
+        safeContent = historyItem.content.text;
+      } else if (typeof historyItem.text === 'string') {
+        safeContent = historyItem.text;
+      } else if (
+        typeof historyItem.content === 'object' &&
+        historyItem.content !== null
+      ) {
+        safeContent = JSON.stringify(historyItem.content);
+      } else if (
+        typeof historyItem.content !== 'undefined' &&
+        historyItem.content !== null
+      ) {
+        safeContent = String(historyItem.content);
+      }
+      rawMessages.push({
+        role: historyItem.role === 'user' ? 'user' : 'assistant',
+        content: safeContent
+      });
+    }
   }
-  rawMessages.push({ role: 'user', content: question });
+  const safeQuestion =
+    typeof question === 'string' ? question : String(question || '');
+  rawMessages.push({ role: 'user', content: safeQuestion });
 
   const isWebLLM = engineType === BRAIN_ENGINE_TYPE_MAP.WEB_LLM;
   const currentModel =

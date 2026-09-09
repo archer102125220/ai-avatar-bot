@@ -236,9 +236,41 @@ export async function initAiProvider(setting = {}) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         };
+        const sanitizedMessages = Array.isArray(messages) === true
+          ? messages.map((messageItem) => {
+              if (typeof messageItem !== 'object' || messageItem === null) {
+                return messageItem;
+              }
+              let safeContent = '';
+              if (typeof messageItem.content === 'string') {
+                safeContent = messageItem.content;
+              } else if (
+                typeof messageItem.content === 'object' &&
+                messageItem.content !== null
+              ) {
+                if (typeof messageItem.content.text === 'string') {
+                  safeContent = messageItem.content.text;
+                } else if (typeof messageItem.content.content === 'string') {
+                  safeContent = messageItem.content.content;
+                } else {
+                  safeContent = JSON.stringify(messageItem.content);
+                }
+              } else if (
+                typeof messageItem.content !== 'undefined' &&
+                messageItem.content !== null
+              ) {
+                safeContent = String(messageItem.content);
+              }
+              return {
+                ...messageItem,
+                content: safeContent
+              };
+            })
+          : [];
+
         const defaultPayload = {
           model: this.model,
-          messages,
+          messages: sanitizedMessages,
           temperature: 0.4,
           max_tokens: this.maxTokens,
           stream: this.isStream

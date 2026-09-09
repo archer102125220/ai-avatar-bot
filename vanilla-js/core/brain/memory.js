@@ -116,6 +116,34 @@ export function initMemory({
         const localData = this.adapter.load(this.key);
         if (typeof localData === 'object' && localData !== null) {
           this.data = Object.assign(this.data, localData);
+          if (Array.isArray(this.data.history) === true) {
+            this.data.history = this.data.history
+              .filter((item) => typeof item === 'object' && item !== null)
+              .map((item) => {
+                let safeContent = '';
+                if (typeof item.content === 'string') {
+                  safeContent = item.content;
+                } else if (typeof item.content?.text === 'string') {
+                  safeContent = item.content.text;
+                } else if (typeof item.text === 'string') {
+                  safeContent = item.text;
+                } else if (
+                  typeof item.content === 'object' &&
+                  item.content !== null
+                ) {
+                  safeContent = JSON.stringify(item.content);
+                } else if (
+                  typeof item.content !== 'undefined' &&
+                  item.content !== null
+                ) {
+                  safeContent = String(item.content);
+                }
+                return {
+                  role: item.role === 'user' ? 'user' : 'assistant',
+                  content: safeContent
+                };
+              });
+          }
         }
       } catch (_error) {}
       this.data.visits = (this.data.visits || 0) + 1;
