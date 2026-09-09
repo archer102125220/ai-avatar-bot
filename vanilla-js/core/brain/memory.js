@@ -3,6 +3,7 @@ import {
   DEFAULT_AVATAR_MODE,
   DEFAULT_ENABLE_MEMORY,
   DEFAULT_MEMORY_KEY,
+  CURRENT_MEMORY_VERSION,
   DEFAULT_MAX_HISTORY_TURNS,
   DEFAULT_SUMMARY_THRESHOLD_TURNS,
   COMPRESSION_STRATEGY_MAP,
@@ -15,25 +16,192 @@ import {
 } from './compression.js';
 
 /**
+ * 記憶資料結構 (MemoryData)
+ * @typedef {Object} MemoryData
+ * @property {number} version - 結構版本號
+ * @property {string} name - 訪客/使用者名稱
+ * @property {number} visits - 訪問次數
+ * @property {number} last - 最後訪問時間戳
+ * @property {Array<{role: string, content: string}>} history - 對話歷史
+ * @property {string} [summary] - 滾動對話摘要
+ * @property {number} [lastSummarizedTurnIndex] - 上次摘要時的輪次索引
+ * @property {Record<string, any>} [metadata] - 開發者自訂擴充資料槽位
+ */
+
+/**
  * 記憶模組實例 (MemoryInstance)
  * @typedef {Object} MemoryInstance
  * @property {string} key - 本機儲存或識別鍵名
  * @property {boolean} enabled - 是否啟用記憶模組
  * @property {number} maxHistoryTurns - 保留最大歷史對話輪數
  * @property {Object} adapter - 儲存轉接器實例
- * @property {Object} data - 記憶資料
- * @property {string} data.name - 使用者名稱
- * @property {number} data.visits - 訪問次數
- * @property {number} data.last - 最後訪問時間戳
- * @property {Array<{role: string, content: string}>} data.history - 對話歷史
- * @property {string} [data.summary] - 滾動對話摘要
- * @property {number} [data.lastSummarizedTurnIndex] - 上次摘要時的輪次索引
- * @property {() => void} load - 載入記憶
+ * @property {MemoryData} data - 記憶資料
+ * @property {() => void} load - 載入記憶並執行版本遷移
  * @property {() => void} save - 儲存記憶
  * @property {(role: string, content: string) => void} addTurn - 新增對話輪次
  * @property {(name: string) => void} captureName - 擷取名稱
  * @property {() => void} clear - 清除記憶
+ * @property {() => number} getVersion - 取得當前記憶版本號
+ * @property {() => Record<string, any>} getMetadata - 取得開發者自訂擴充資料
+ * @property {(patchOrUpdater: Object | ((prev: Record<string, any>) => Record<string, any>)) => void} setMetadata - 設定或更新自訂擴充資料
  */
+
+/**
+ * 建立全新且符合最新規格的預設記憶資料結構。
+ *
+ * @returns {MemoryData}
+ */
+export function createDefaultMemoryData() {
+  return {
+    version: CURRENT_MEMORY_VERSION,
+    name: '',
+    visits: 0,
+    last: 0,
+    history: [],
+    summary: '',
+    lastSummarizedTurnIndex: 0,
+    metadata: {}
+  };
+}
+
+/**
+ * 記憶體各版本升級遷移函式映射表。
+ * @type {Record<number, (oldData: any) => MemoryData>}
+ */
+const MIGRATIONS = {
+  // 從 v0 (舊版無版本號) 升級至 v1
+  1: (oldData) => {
+    const rawHistory = Array.isArray(oldData?.history) === true ? oldData.history : [];
+    const sanitizedHistory = rawHistory
+      .filter((item) => typeof item === 'object' && item !== null)
+      .map((item) => {
+        let safeContent = '';
+        if (typeof item.content === 'string') {
+          safeContent = item.content;
+        } else if (typeof item.content?.text === 'string') {
+          safeContent = item.content.text;
+        } else if (typeof item.text === 'string') {
+          safeContent = item.text;
+        } else if (
+          typeof item.content === 'object' &&
+          item.content !== null
+        ) {
+          safeContent = JSON.stringify(item.content);
+        } else if (
+          typeof item.content !== 'undefined' &&
+          item.content !== null
+        ) {
+          safeContent = String(item.content);
+        }
+        return {
+          role: item.role === 'user' ? 'user' : 'assistant',
+          content: safeContent
+        };
+      });
+
+    return {
+      version: 1,
+      name: typeof oldData?.name === 'string' ? oldData.name : '',
+      visits:
+        typeof oldData?.visits === 'number' && Number.isFinite(oldData.visits) === true
+          ? oldData.visits
+          : 0,
+      last:
+        typeof oldData?.last === 'number' && Number.isFinite(oldData.last) === true
+          ? oldData.last
+          : 0,
+      history: sanitizedHistory,
+      summary: typeof oldData?.summary === 'string' ? oldData.summary : '',
+      lastSummarizedTurnIndex:
+        typeof oldData?.lastSummarizedTurnIndex === 'number' &&
+        Number.isFinite(oldData.lastSummarizedTurnIndex) === true
+          ? oldData.lastSummarizedTurnIndex
+          : 0,
+      metadata:
+        typeof oldData?.metadata === 'object' && oldData.metadata !== null
+          ? oldData.metadata
+          : {}
+    };
+  }
+};
+
+/**
+ * 執行記憶體資料結構驗證與版本遷移升級管線。
+ *
+ * @param {any} rawData - 從儲存媒介讀出的原始資料
+ * @returns {MemoryData} 符合當前最新版本的安全資料結構
+ */
+export function migrateMemoryData(rawData) {
+  if (typeof rawData !== 'object' || rawData === null) {
+    return createDefaultMemoryData();
+  }
+
+  let currentVersion =
+    typeof rawData.version === 'number' && Number.isFinite(rawData.version) === true
+      ? rawData.version
+      : 0;
+
+  let migratedData = { ...rawData };
+
+  while (currentVersion < CURRENT_MEMORY_VERSION) {
+    const nextVersion = currentVersion + 1;
+    const migrationFn = MIGRATIONS[nextVersion];
+
+    if (typeof migrationFn === 'function') {
+      try {
+        migratedData = migrationFn(migratedData);
+        currentVersion = nextVersion;
+      } catch (err) {
+        console.warn(
+          `[Memory Migration] Failed migrating to v${nextVersion}:`,
+          err
+        );
+        return createDefaultMemoryData();
+      }
+    } else {
+      migratedData.version = CURRENT_MEMORY_VERSION;
+      break;
+    }
+  }
+
+  migratedData.version = CURRENT_MEMORY_VERSION;
+
+  if (typeof migratedData.name !== 'string') {
+    migratedData.name = '';
+  }
+  if (
+    typeof migratedData.visits !== 'number' ||
+    Number.isFinite(migratedData.visits) === false
+  ) {
+    migratedData.visits = 0;
+  }
+  if (
+    typeof migratedData.last !== 'number' ||
+    Number.isFinite(migratedData.last) === false
+  ) {
+    migratedData.last = 0;
+  }
+  if (Array.isArray(migratedData.history) === false) {
+    migratedData.history = [];
+  }
+  if (typeof migratedData.summary !== 'string') {
+    migratedData.summary = '';
+  }
+  if (
+    typeof migratedData.lastSummarizedTurnIndex !== 'number' ||
+    Number.isFinite(migratedData.lastSummarizedTurnIndex) === false
+  ) {
+    migratedData.lastSummarizedTurnIndex = 0;
+  }
+  if (
+    typeof migratedData.metadata !== 'object' ||
+    migratedData.metadata === null
+  ) {
+    migratedData.metadata = {};
+  }
+
+  return migratedData;
+}
 
 /**
  * 初始化記憶模組
@@ -99,14 +267,7 @@ export function initMemory({
         ? maxHistoryTurns
         : DEFAULT_MAX_HISTORY_TURNS,
     adapter,
-    data: {
-      name: '',
-      visits: 0,
-      last: 0,
-      history: [],
-      summary: '',
-      lastSummarizedTurnIndex: 0
-    },
+    data: createDefaultMemoryData(),
 
     load() {
       if (this.enabled === false) {
@@ -114,38 +275,10 @@ export function initMemory({
       }
       try {
         const localData = this.adapter.load(this.key);
-        if (typeof localData === 'object' && localData !== null) {
-          this.data = Object.assign(this.data, localData);
-          if (Array.isArray(this.data.history) === true) {
-            this.data.history = this.data.history
-              .filter((item) => typeof item === 'object' && item !== null)
-              .map((item) => {
-                let safeContent = '';
-                if (typeof item.content === 'string') {
-                  safeContent = item.content;
-                } else if (typeof item.content?.text === 'string') {
-                  safeContent = item.content.text;
-                } else if (typeof item.text === 'string') {
-                  safeContent = item.text;
-                } else if (
-                  typeof item.content === 'object' &&
-                  item.content !== null
-                ) {
-                  safeContent = JSON.stringify(item.content);
-                } else if (
-                  typeof item.content !== 'undefined' &&
-                  item.content !== null
-                ) {
-                  safeContent = String(item.content);
-                }
-                return {
-                  role: item.role === 'user' ? 'user' : 'assistant',
-                  content: safeContent
-                };
-              });
-          }
-        }
-      } catch (_error) {}
+        this.data = migrateMemoryData(localData);
+      } catch (_error) {
+        this.data = createDefaultMemoryData();
+      }
       this.data.visits = (this.data.visits || 0) + 1;
       this.save();
     },
@@ -188,20 +321,43 @@ export function initMemory({
       }
     },
 
+    getVersion() {
+      return this.data?.version || CURRENT_MEMORY_VERSION;
+    },
+
+    getMetadata() {
+      return (
+        typeof this.data?.metadata === 'object' && this.data.metadata !== null
+          ? this.data.metadata
+          : {}
+      );
+    },
+
+    setMetadata(patchOrUpdater) {
+      if (this.enabled === false) {
+        return;
+      }
+      const currentMetadata = this.getMetadata();
+      if (typeof patchOrUpdater === 'function') {
+        const nextMeta = patchOrUpdater(currentMetadata);
+        if (typeof nextMeta === 'object' && nextMeta !== null) {
+          this.data.metadata = nextMeta;
+        }
+      } else if (
+        typeof patchOrUpdater === 'object' &&
+        patchOrUpdater !== null
+      ) {
+        this.data.metadata = Object.assign({}, currentMetadata, patchOrUpdater);
+      }
+      this.save();
+    },
+
     clear() {
-      this.data = {
-        name: '',
-        visits: 1,
-        last: 0,
-        history: [],
-        summary: '',
-        lastSummarizedTurnIndex: 0
-      };
+      this.data = createDefaultMemoryData();
+      this.data.visits = 1;
       try {
         if (typeof this.adapter.clear === 'function') {
           this.adapter.clear(this.key);
-        } else if (typeof this.adapter.wipe === 'function') {
-          this.adapter.wipe(this.key);
         }
       } catch (_error) {}
     }
@@ -211,6 +367,7 @@ export function initMemory({
 
   return memory;
 }
+
 
 /**
  * 檢查並觸發背景非同步滾動摘要更新 (Non-blocking Background Summarization)

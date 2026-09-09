@@ -21,7 +21,7 @@
 - [🧠 進階功能指南](#-進階功能指南)
   - [1. 大腦引擎與三層降級推論](#1-大腦引擎與三層降級推論)
   - [2. 自動接續回答機制 (Auto-Continue Response)](#2-自動接續回答機制-auto-continue-response)
-  - [3. 上下文壓縮與記憶管理](#3-上下文壓縮與記憶管理)
+  - [3. 記憶管理、資料結構與自訂儲存轉接器](#3-記憶管理資料結構與自訂儲存轉接器)
   - [4. Function Calling 與自訂工具 (Tools Engine)](#4-function-calling-與自訂工具-tools-engine)
   - [5. 2D (Live2D) 與 3D (VRM) 雙外觀引擎](#5-2d-live2d-與-3d-vrm-雙外觀引擎)
   - [6. 語音辨識與神經語音 (Speech Engine)](#6-語音辨識與神經語音-speech-engine)
@@ -225,7 +225,7 @@ const avatarWidget = await initAvatarBot({
 | `enableMemory` | `boolean` | `true` | 是否啟用對話歷史記憶與多輪對話管理 |
 | `maxHistoryTurns` | `number` | `6` | 保留的最大對話輪數（1 輪 = 1 問 + 1 答） |
 | `memoryKey` | `string` | `'avatar-widget-memory'` | 本機 Storage 記憶儲存的 Key 名稱 |
-| `memoryAdapter` | `Object` | `null` | 自訂儲存轉接器（需實作 `get` 與 `set`） |
+| `memoryAdapter` | `MemoryAdapter` | `null` | 自訂儲存轉接器實例（需實作 `load`, `save`, `clear`，[詳見章節](#3-記憶管理資料結構與自訂儲存轉接器)） |
 | `compression` | `Object` | `{}` | 上下文動態壓縮與顯存控制設定（詳見後文） |
 
 ### 語音與外觀設定 (Speech & Skin)
@@ -345,9 +345,11 @@ const widget = await initAvatarBot({
 
 ---
 
-### 3. 上下文壓縮與記憶管理
+### 3. 記憶管理、資料結構與自訂儲存轉接器
 
-專為 Web 虛擬人設計的顯存與 Token 防爆機制：
+專為 Web 虛擬人設計的多輪對話記憶管理、顯存防爆壓縮機制與自訂儲存轉接架構：
+
+#### 3.1 上下文動態壓縮設定 (Context Compression)
 
 ```javascript
 const widget = await initAvatarBot({
@@ -355,13 +357,13 @@ const widget = await initAvatarBot({
   enableMemory: true,
   
   compression: {
-    // 壓縮策略：'sliding-window' | 'rolling-summary' | 'none'
+    // 壓縮策略：'sliding-window' (滑動窗口) | 'rolling-summary' (滾動摘要) | 'none' (直通全量)
     strategy: 'sliding-window',
     
-    maxTurns: 6,         // 全域預設保留對話輪數
+    maxTurns: 6,         // 全域預設保留對話輪數 (1 輪 = 1 問 + 1 答)
     maxTotalChars: 4000, // 全域字元預算上限
     
-    // 針對端側 WebLLM 個別覆寫（嚴格節省 WebGPU 記憶體）
+    // 針對端側 WebLLM 個別覆寫（嚴格節省 WebGPU 顯存）
     webLlm: {
       maxTurns: 3,
       maxTotalChars: 1500
@@ -382,7 +384,138 @@ const widget = await initAvatarBot({
 });
 ```
 
+#### 3.2 記憶資料結構規格 (Memory Data Schema)
+
+預設情況下，記憶模組會將下列結構序列化為 JSON 並存入瀏覽器的 `localStorage`（預設 Key 名稱為 `'avatar-widget-memory'`）：
+
+```typescript
+interface MemoryData {
+  /** 結構版本號（當前為 1，用於資料結構自動遷移升級） */
+  version: number;
+  /** 訪客/使用者辨識名稱（由對話自動擷取或手動設定） */
+  name: string;
+  /** 累計造訪或對話次數 */
+  visits: number;
+  /** 最後造訪或更新時間戳 (Unix Epoch Timestamp, ms) */
+  last: number;
+  /** 多輪對話歷史清單（最新對話排在尾端） */
+  history: Array<{
+    role: 'user' | 'assistant';
+    content: string;
+  }>;
+  /** 滾動對話歷史摘要（在 ROLLING_SUMMARY 策略下由背景 LLM 自動產生） */
+  summary: string;
+  /** 上次完成滾動摘要時的對話輪次歷史索引 */
+  lastSummarizedTurnIndex: number;
+  /** 開發者自訂擴充資料槽位（可自由存放業務狀態，核心模組不干涉其內容） */
+  metadata: Record<string, any>;
+}
+```
+
+| 欄位名稱 | 類型 | 預設值 | 說明 |
+| :--- | :--- | :--- | :--- |
+| `version` | `number` | `1` | 資料結構版本號。用於日後升級時執行無痛自動遷移 (Data Migration)。 |
+| `name` | `string` | `''` | 訪客名稱（例如使用者說「我叫小明」時自動記錄）。 |
+| `visits` | `number` | `0` | 累計造訪次數（每次載入記憶時會自動遞增）。 |
+| `last` | `number` | `0` | 最後一次更新記憶時的時間戳毫秒數 (`Date.now()`)。 |
+| `history` | `Array<{role, content}>` | `[]` | 最近的多輪對話歷史（自動維護最多 100 則並依設定截取）。 |
+| `summary` | `string` | `''` | 背景自動生成的滾動歷史摘要。 |
+| `lastSummarizedTurnIndex` | `number` | `0` | 上次摘要執行時的歷史指標位置。 |
+| `metadata` | `Record<string, any>` | `{}` | 開發者擴充槽位，可用於存放帳號 ID、偏好設定或業務標籤。 |
+
+#### 3.3 自訂儲存轉接器 (Custom Memory Adapter)
+
+若您不希望使用預設的 `localStorage`，例如想替換成 `sessionStorage`、IndexedDB、或對接您的後端伺服器 API，您可以實作標準的 `MemoryAdapter` 介面：
+
+##### 標準轉接器介面定義
+
+```typescript
+interface MemoryAdapter {
+  /** 載入資料：回傳 MemoryData 物件；若無資料或格式不合則回傳 null */
+  load(key: string): MemoryData | null;
+  /** 儲存資料：將最新的 MemoryData 寫入目標媒介 */
+  save(key: string, data: MemoryData): void;
+  /** 清除資料：清空指定 key 的儲存內容 */
+  clear(key: string): void;
+}
+```
+
+##### 範例：實作 `sessionStorage` 儲存轉接器
+
+```javascript
+// 自訂 sessionStorage 轉接器實例
+const customSessionAdapter = {
+  load(storageKey) {
+    try {
+      const raw = sessionStorage.getItem(storageKey);
+      return raw ? JSON.parse(raw) : null;
+    } catch (err) {
+      console.warn('載入 sessionStorage 記憶失敗:', err);
+      return null;
+    }
+  },
+  save(storageKey, data) {
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify(data));
+    } catch (err) {
+      console.warn('儲存 sessionStorage 記憶失敗:', err);
+    }
+  },
+  clear(storageKey) {
+    try {
+      sessionStorage.removeItem(storageKey);
+    } catch (err) {
+      console.warn('清除 sessionStorage 記憶失敗:', err);
+    }
+  }
+};
+
+// 初始化時傳入自訂轉接器
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  enableMemory: true,
+  memoryKey: 'my-custom-session-avatar-mem',
+  memoryAdapter: customSessionAdapter
+});
+```
+
+#### 3.4 結構版本號與自動遷移升級機制 (Data Migration)
+
+本套件內建 **Migration Pipeline（漸進式遷移管線）**：
+- 當訪客瀏覽器中存在舊版本（例如升級套件前無 `version` 欄位的舊版資料 `v0`）或缺少新增欄位時，記憶模組在 `load()` 時會自動辨識並依序升級（`v0 -> v1 -> ...`），為新欄位（如 `summary`、`metadata`）安全補齊預設值。
+- 遷移完成後會自動執行 `save()` 同步更新 Storage，**完全無需開發者介入，亦不會遺失使用者舊有的對話記憶與稱呼**。
+
+#### 3.5 開發者自訂擴充資料 (Metadata API)
+
+您可以透過記憶模組提供的 API 在任何時機讀寫自訂業務資料：
+
+```javascript
+// 取得大腦記憶實例
+const memory = widget.brainEngine.memory;
+
+// 1. 寫入自訂資料 (支援傳入物件或更新函式)
+memory.setMetadata({
+  userId: 'USR_8892',
+  themePreference: 'dark',
+  vipLevel: 3
+});
+
+// 2. 以更新函式安全更新部分欄位
+memory.setMetadata((prev) => ({
+  ...prev,
+  loginCount: (prev.loginCount || 0) + 1
+}));
+
+// 3. 讀取自訂資料
+const userMeta = memory.getMetadata();
+console.log('當前自訂業務資料:', userMeta);
+
+// 4. 取得當前記憶版本號
+console.log('Memory Schema Version:', memory.getVersion()); // 輸出 1
+```
+
 ---
+
 
 ### 4. Function Calling 與自訂工具 (Tools Engine)
 

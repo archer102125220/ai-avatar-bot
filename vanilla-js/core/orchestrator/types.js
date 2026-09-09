@@ -9,6 +9,27 @@
  */
 
 /**
+ * 記憶資料結構 (MemoryData)
+ * @typedef {Object} MemoryData
+ * @property {number} version - 結構版本號
+ * @property {string} name - 訪客/使用者名稱
+ * @property {number} visits - 訪問次數
+ * @property {number} last - 最後訪問時間戳 (ms)
+ * @property {Array<{role: 'user'|'assistant', content: string}>} history - 對話歷史
+ * @property {string} [summary] - 滾動對話摘要
+ * @property {number} [lastSummarizedTurnIndex] - 上次摘要時的輪次索引
+ * @property {Record<string, any>} [metadata] - 開發者自訂擴充資料槽位
+ */
+
+/**
+ * 自訂儲存轉接器介面 (MemoryAdapter)
+ * @typedef {Object} MemoryAdapter
+ * @property {(key: string) => (MemoryData | null)} load - 載入資料
+ * @property {(key: string, data: MemoryData) => void} save - 儲存資料
+ * @property {(key: string) => void} clear - 清除資料
+ */
+
+/**
  * 角色模式型別：提供內建模式自動補全，同時允許自訂字串
  * @typedef {'assistant' | 'companion' | (string & {})} AvatarMode
  */
@@ -42,7 +63,7 @@
  * @property {boolean} [enableMemory] - 是否啟用記憶體模組（多輪對話與上下文歷史）
  * @property {number} [maxHistoryTurns] - 保留最大歷史對話輪數
  * @property {string} [memoryKey] - 本機儲存或識別鍵名
- * @property {Object} [memoryAdapter] - 自訂儲存轉接器實例
+ * @property {MemoryAdapter} [memoryAdapter] - 自訂儲存轉接器實例（需實作 load, save, clear）
  * @property {Record<string, Object>} [modes] - 宣告式自訂模式註冊表
  * @property {Record<string, any>|string} [knowledge=null] - 預載的助理模式知識庫資料，可以是 JSON 物件或字串
  * @property {Record<string, any>|string} [companionKnowledge=null] - 預載的陪伴模式知識庫資料，可以是 JSON 物件或字串

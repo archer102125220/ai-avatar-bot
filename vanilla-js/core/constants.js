@@ -120,6 +120,12 @@ export const DEFAULT_SUMMARY_MAX_CHARS = 1000;
 export const DEFAULT_MEMORY_KEY = 'avatar-widget-memory';
 
 /**
+ * 當前記憶體結構版本號（Schema Version）。
+ * @type {number}
+ */
+export const CURRENT_MEMORY_VERSION = 1;
+
+/**
  * 預設用於網頁端推論的 LLM 模型（例如 WebLLM）。
  * @type {string}
  */

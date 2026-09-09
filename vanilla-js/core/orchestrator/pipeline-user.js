@@ -79,7 +79,9 @@ export function createUserPipeline({
       text !== ''
     ) {
       if (/忘記我|清除記憶|forget me/i.test(text) === true) {
-        brainEngine.memory.wipe();
+        if (typeof brainEngine.memory.clear === 'function') {
+          brainEngine.memory.clear();
+        }
         if (speechEngine !== null && typeof speechEngine === 'object') {
           speechEngine.spokenAudioText =
             typeof i18nEngine?.t === 'function'
