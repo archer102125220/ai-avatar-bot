@@ -442,7 +442,7 @@ export function createAvatarWidget({
         rootStore.setState({ enableEngineToggle: newEnableEngineToggle });
         const { skinEngine } = getEngines();
         initSkinModeChangeButton(
-          widget,
+          aiAvatarWidget,
           skinEngine?.has2D === true,
           skinEngine?.has3D === true,
           newEnableEngineToggle

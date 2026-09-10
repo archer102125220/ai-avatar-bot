@@ -101,6 +101,10 @@ yarn add ai-avatar-bot-vanilla-js
 ### 透過 CDN 或 ES Module 引入
 
 ```html
+<!-- 引入樣式 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ai-avatar-bot-vanilla-js/dist/ai-avatar-bot.css" />
+
+<!-- 引入模組 -->
 <script type="module">
   import { initAvatarBot } from 'https://cdn.jsdelivr.net/npm/ai-avatar-bot-vanilla-js/+esm';
 </script>
@@ -139,6 +143,7 @@ yarn add ai-avatar-bot-vanilla-js
 
 ```javascript
 import { initAvatarBot, GENDER_MAP, AVATAR_MODE_MAP } from 'ai-avatar-bot-vanilla-js';
+import 'ai-avatar-bot-vanilla-js/style.css';
 
 // 初始化並掛載至指定容器
 const avatarWidget = await initAvatarBot({

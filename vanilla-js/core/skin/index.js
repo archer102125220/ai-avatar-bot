@@ -130,7 +130,8 @@ export * from './renderer-3d';
  * @property {(gestureName: string, skinEngine: SkinEngine) => void} [onGesture] - 手勢開始播放回呼
  * @property {(error: Error, gestureName: string, skinEngine: SkinEngine) => void} [onGestureError] - 手勢播放錯誤回呼
  * @property {(gestureName: string, skinEngine: SkinEngine) => void} [onGestureEnd] - 手勢播放結束回呼
- * @property {(mode: string) => void} [onModelChange] - 引擎模式準備切換回呼
+ * @property {(mode: string) => void} [onModelChangeStart] - 引擎模式準備切換回呼
+ * @property {(mode: string) => void} [onModelChange] - 引擎模式準備切換回呼（onModelChangeStart 之別名）
  * @property {(renderer: import('./renderer-2d').Renderer2D|import('./renderer-3d').Renderer3D, mode: string) => void} [onModelChangeEnd] - 引擎模式切換完成回呼
  * @property {(error: Error) => void} [onModelChangeError] - 引擎模式切換錯誤回呼
  * @property {boolean|null} [switching] - 是否正在切換模式中
@@ -166,7 +167,8 @@ export * from './renderer-3d';
  * @property {(gestureName: string, skinEngine: SkinEngine) => void} [onGesture] - 手勢開始播放時的回呼函式。
  * @property {(error: Error, gestureName: string, skinEngine: SkinEngine) => void} [onGestureError] - 手勢播放失敗時的回呼函式。
  * @property {(gestureName: string, skinEngine: SkinEngine) => void} [onGestureEnd] - 手勢播放結束時的回呼函式。
- * @property {(mode: string) => void} [onModelChange] - 引擎模式準備切換時的回呼函式。
+ * @property {(mode: string) => void} [onModelChangeStart] - 引擎模式準備切換時的回呼函式。
+ * @property {(mode: string) => void} [onModelChange] - 引擎模式準備切換時的回呼函式（onModelChangeStart 之別名）。
  * @property {(renderer: import('./renderer-2d').Renderer2D|import('./renderer-3d').Renderer3D, mode: string) => void} [onModelChangeEnd] - 引擎模式切換完畢時的回呼函式。
  * @property {(error: Error) => void} [onModelChangeError] - 引擎模式切換發生錯誤時的回呼函式。
  */
@@ -604,6 +606,13 @@ export function initSkinEngine(setting = {}) {
       };
     },
 
+    get onModelChangeStart() {
+      return function (...args) {
+        if (typeof setting.onModelChangeStart === 'function') {
+          return setting.onModelChangeStart(...args);
+        }
+      };
+    },
     get onModelChange() {
       return function (...args) {
         if (typeof setting.onModelChange === 'function') {
@@ -641,6 +650,9 @@ export function initSkinEngine(setting = {}) {
       ) {
         this._engineMode = newEngineMode;
 
+        if (typeof this.onModelChangeStart === 'function') {
+          this.onModelChangeStart(newEngineMode);
+        }
         if (typeof this.onModelChange === 'function') {
           this.onModelChange(newEngineMode);
         }

@@ -101,6 +101,10 @@ yarn add ai-avatar-bot-vanilla-js
 ### Via CDN / Direct ES Module Import
 
 ```html
+<!-- Load Stylesheet -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ai-avatar-bot-vanilla-js/dist/ai-avatar-bot.css" />
+
+<!-- Load ES Module -->
 <script type="module">
   import { initAvatarBot } from 'https://cdn.jsdelivr.net/npm/ai-avatar-bot-vanilla-js/+esm';
 </script>
@@ -139,6 +143,7 @@ yarn add ai-avatar-bot-vanilla-js
 
 ```javascript
 import { initAvatarBot, GENDER_MAP, AVATAR_MODE_MAP } from 'ai-avatar-bot-vanilla-js';
+import 'ai-avatar-bot-vanilla-js/style.css';
 
 // Initialize and mount to target container
 const avatarWidget = await initAvatarBot({

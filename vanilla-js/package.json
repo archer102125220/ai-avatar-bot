@@ -1,7 +1,11 @@
 {
   "name": "ai-avatar-bot-vanilla-js",
   "version": "1.0.0",
+  "description": "Interactive 2D (Live2D) and 3D (VRM) AI Avatar Bot with Voice STT/TTS, In-Browser WebGPU WebLLM, Cloud AI Brain, Conversation Memory, and Function Calling",
   "type": "module",
+  "main": "./dist/ai-avatar-bot.umd.cjs",
+  "module": "./dist/ai-avatar-bot.js",
+  "types": "./index.d.ts",
   "bin": {
     "ai-avatar-bot": "./bin/cli.js"
   },
@@ -9,15 +13,24 @@
     "dist",
     "avatar-skin",
     "plugins",
-    "bin"
+    "bin",
+    "index.d.ts"
   ],
-  "main": "./dist/ai-avatar-bot.umd.cjs",
-  "module": "./dist/ai-avatar-bot.js",
+  "sideEffects": [
+    "*.css",
+    "*.scss",
+    "./dist/*.css"
+  ],
   "exports": {
     ".": {
+      "types": "./index.d.ts",
       "import": "./dist/ai-avatar-bot.js",
       "require": "./dist/ai-avatar-bot.umd.cjs"
     },
+    "./style.css": "./dist/ai-avatar-bot.css",
+    "./dist/*": "./dist/*",
+    "./avatar-skin/*": "./avatar-skin/*",
+    "./package.json": "./package.json",
     "./vite": {
       "import": "./plugins/vite.js",
       "require": "./plugins/vite.cjs"
@@ -47,6 +60,31 @@
       "require": "./plugins/node.cjs"
     }
   },
+  "keywords": [
+    "avatar",
+    "ai",
+    "live2d",
+    "vrm",
+    "threejs",
+    "webllm",
+    "webgpu",
+    "speech-recognition",
+    "tts",
+    "stt",
+    "chatbot",
+    "virtual-human",
+    "3d-avatar"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/archer102125220/ai-avatar-bot.git",
+    "directory": "package/vanilla-js"
+  },
+  "bugs": {
+    "url": "https://github.com/archer102125220/ai-avatar-bot/issues"
+  },
+  "homepage": "https://github.com/archer102125220/ai-avatar-bot#readme",
   "scripts": {
     "dev": "vite",
     "build": "vite build"

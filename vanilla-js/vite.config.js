@@ -11,6 +11,11 @@ export default defineConfig({
       entry: resolve(__dirname, 'core/index.js'),
       name: 'AiAvatarBot',
       fileName: 'ai-avatar-bot'
+    },
+    rollupOptions: {
+      output: {
+        exports: 'named'
+      }
     }
   }
 });
