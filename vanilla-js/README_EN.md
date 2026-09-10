@@ -631,9 +631,14 @@ const widget = await initAvatarBot({
 
 ### 6. Speech Recognition & Neural TTS (Speech Engine)
 
-* **Trigger Speech Synthesis (TTS)**:
+* **Trigger Speech Synthesis (TTS Method Call)**:
   ```javascript
   widget.speechEngine.speak('Glad to be of service!');
+  ```
+* **Data-Driven Speech Trigger (Intent Property)**:
+  ```javascript
+  // Trigger speech by property assignment (automatically increments internal sequence to support consecutive identical text)
+  widget.speechEngine.spokenAudioText = 'Hello~ I am your AI avatar assistant!';
   ```
 * **Start / Stop Microphone (STT)**:
   ```javascript
@@ -647,6 +652,18 @@ const widget = await initAvatarBot({
   ```javascript
   // Interrupt ongoing AI speech and immediately listen to user
   widget.speechEngine.interruptForVoice();
+  ```
+* **Subscribe to Speaking State & Display Subtitles**:
+  ```javascript
+  // Subscribe to speaking state (for driving mouth/visemes or wave animations)
+  widget.speechEngine.subscribe('isSpeaking', (isSpeaking) => {
+    console.log('TTS Speaking:', isSpeaking);
+  });
+
+  // Subscribe to subtitle text changes (auto cleared after utterance ends)
+  widget.speechEngine.subscribe('spokenDisplayText', (displayText) => {
+    console.log('Current subtitle:', displayText);
+  });
   ```
 
 ---

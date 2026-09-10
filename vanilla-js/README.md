@@ -634,9 +634,14 @@ const widget = await initAvatarBot({
 
 ### 6. 語音辨識與神經語音 (Speech Engine)
 
-* **主動發音 (TTS)**：
+* **主動發音 (TTS 方法調用)**：
   ```javascript
   widget.speechEngine.speak('很高興為你服務！');
+  ```
+* **資料驅動發音 (Data-Driven Intent)**：
+  ```javascript
+  // 透過修改屬性觸發發音（內部自動遞增版本序號，100% 支援連續重複相同文字發音）
+  widget.speechEngine.spokenAudioText = '你好～我是網站的 AI 虛擬人助理！';
   ```
 * **啟動 / 停止麥克風聆聽 (STT)**：
   ```javascript
@@ -650,6 +655,18 @@ const widget = await initAvatarBot({
   ```javascript
   // 中斷當前 AI 說話並立即開啟麥克風聆聽使用者
   widget.speechEngine.interruptForVoice();
+  ```
+* **訂閱說話狀態與字幕**：
+  ```javascript
+  // 訂閱是否正在播放語音（可用於驅動自訂口型或音波動畫）
+  widget.speechEngine.subscribe('isSpeaking', (isSpeaking) => {
+    console.log('TTS 說話狀態：', isSpeaking);
+  });
+
+  // 訂閱字幕文字變更（聲音播畢後會自動延遲收合清空）
+  widget.speechEngine.subscribe('spokenDisplayText', (displayText) => {
+    console.log('當前字幕：', displayText);
+  });
   ```
 
 ---

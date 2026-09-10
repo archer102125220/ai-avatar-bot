@@ -113,6 +113,49 @@ export interface SkinEngineOptions {
   onModelChangeError?: (error: Error) => void;
 }
 
+export interface SpokenAudioState {
+  text: string;
+  seq: number;
+  options?: Record<string, any>;
+  timestamp?: number;
+}
+
+export interface SpeechEngine {
+  subscribe(selector: any, callback?: Function): () => void;
+  getState(): Record<string, any>;
+  setState(updates: Record<string, any> | ((state: Record<string, any>) => Record<string, any>)): void;
+  gender: string;
+  setGender(gender: string): void;
+  container: HTMLElement | null;
+  ttsEndpoint: string;
+  neuralVoice: string;
+  speakSeq: number;
+  isSpeaking: boolean;
+  isListening: boolean;
+  ttsMuted: boolean;
+  ttsRate: number;
+  convoOn: boolean;
+  isProcessing: boolean;
+  assistantSpeechStartedAt: number;
+  spokenDisplayText: string;
+  spokenAudioText: string;
+  spokenAudioState: SpokenAudioState;
+  speak(text: string, options?: Record<string, any>): void;
+  stopSpeaking(): void;
+  interruptForVoice(): void;
+  computeMouth(): number[];
+  triggerTap(): void;
+  stopVoiceSession(message?: string): void;
+  setMic(isListening: boolean): void;
+  startListening(): void;
+  preloadTapGreeting(text: string): Promise<any> | void;
+  locale: string;
+  setLocale(locale: string): void;
+  onVoiceStatusChanged?: (convoOn: boolean, text: string, state: string, level: number) => void;
+  onMicStateChanged?: (isListening: boolean, convoOn: boolean) => void;
+  onLanguageChanged?: (locale: string, label: string, shortLabel?: string) => void;
+}
+
 export interface SkinEngine {
   readonly stageEl: HTMLElement;
   readonly has2D: boolean;
@@ -341,8 +384,8 @@ export interface AiAvatarWidget {
   showMinimalEl: () => void;
   hiddenMinimalEl: () => void;
   readonly brainEngine: any;
-  readonly speechEngine: any;
-  readonly skinEngine: any;
+  readonly speechEngine: SpeechEngine;
+  readonly skinEngine: SkinEngine;
   setSkin2d: (config: Partial<Skin2DConfig>) => void;
   setSkin3d: (config: Partial<Skin3DConfig>) => void;
   setFitMode: (fitMode: string) => void;

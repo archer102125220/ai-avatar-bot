@@ -36,7 +36,8 @@ export {
  * @property {boolean} isProcessing - 是否正在處理中。
  * @property {number} assistantSpeechStartedAt - 助理開始說話的時間戳。
  * @property {string} spokenDisplayText - 目前在畫面上顯示的對話字幕。
- * @property {string} spokenAudioText - 最新準備或正在轉換為語音的純文字。
+ * @property {string} spokenAudioText - 最新準備或正在轉換為語音的純文字（支援資料驅動賦值，自動遞增內部序號觸發發音）。
+ * @property {{ text: string, seq: number, options?: Object, timestamp?: number }} spokenAudioState - 語音發音狀態意圖物件（供 Store 響應式訂閱）。
  * @property {(text: string, options?: Object) => void} speak - 將指定文字轉換為語音並播放。
  * @property {() => void} stopSpeaking - 停止當前的語音播放。
  * @property {() => void} interruptForVoice - 打斷當前助理的回應 (包含中斷 LLM) 並進入聆聽狀態。
