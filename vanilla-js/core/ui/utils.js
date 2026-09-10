@@ -70,15 +70,17 @@ export function copyText(text) {
 }
 
 /**
- * 根據是否具備 2D 與 3D 模型設定，初始化切換引擎模式的按鈕。
+ * 根據是否具備 2D 與 3D 模型設定以及開發者設定，初始化切換引擎模式的按鈕。
  * @param {import('./index').UiContext|null} context - 應用程式的共用狀態與參考（需包含 uiDom, skinEngine 等）。
  * @param {boolean} [has2D=false] - 是否具備 2D 模型。
  * @param {boolean} [has3D=false] - 是否具備 3D 模型。
+ * @param {boolean} [isEngineToggleEnabled=true] - 是否啟用 2D/3D 切換按鈕。
  */
 export function initSkinModeChangeButton(
   context = null,
   has2D = false,
-  has3D = false
+  has3D = false,
+  isEngineToggleEnabled = true
 ) {
   const engineButtonEl = context?.uiDom?.engineButtonEl;
   if (engineButtonEl instanceof HTMLElement === false) {
@@ -88,17 +90,42 @@ export function initSkinModeChangeButton(
     return;
   }
 
-  if (has2D === true && has3D === true) {
-    // 兩個皮都給 → 顯示切換鈕，讓使用者即時切
-    if (engineButtonEl instanceof HTMLElement) {
-      engineButtonEl.style.display = '';
+  const shouldShow =
+    isEngineToggleEnabled === true &&
+    has2D === true &&
+    has3D === true;
+
+  if (shouldShow === true) {
+    // 啟用且兩個皮都給 → 顯示切換鈕，並同步當前模式文字
+    engineButtonEl.style.display = '';
+    if (
+      context?.skinEngine?.engineMode ===
+      context?.ENGINE_MODE_MAP?.threeDimensional
+    ) {
+      engineButtonEl.textContent = '3D';
+    } else {
+      engineButtonEl.textContent = '2D';
+    }
+
+    if (typeof engineButtonEl.onclick !== 'function') {
       engineButtonEl.onclick = () => {
-        context.skinEngine.engineMode =
-          context.skinEngine.engineMode ===
-          context.ENGINE_MODE_MAP.threeDimensional
-            ? context.ENGINE_MODE_MAP.twoDimensional
-            : context.ENGINE_MODE_MAP.threeDimensional;
+        if (
+          context?.skinEngine?.engineMode ===
+          context?.ENGINE_MODE_MAP?.threeDimensional
+        ) {
+          context.skinEngine.engineMode =
+            context.ENGINE_MODE_MAP.twoDimensional;
+        } else if (
+          context?.skinEngine !== null &&
+          typeof context?.skinEngine === 'object'
+        ) {
+          context.skinEngine.engineMode =
+            context.ENGINE_MODE_MAP.threeDimensional;
+        }
       };
     }
+  } else {
+    engineButtonEl.style.display = 'none';
   }
 }
+

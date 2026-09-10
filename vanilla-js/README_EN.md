@@ -247,6 +247,7 @@ Options object accepted by `initAvatarBot(options)`:
 | `pointerLook` | `boolean` | `true` | Whether to enable 3D eye gaze tracking the mouse pointer (alias of `skin3d.pointerLook`). |
 | `vrmUrl` | `string` | Built-in default | URL to 3D VRM `.vrm` file. |
 | `enableModelDrop` | `boolean` | `false` | Whether to allow users to drag and drop `.vrm` files onto canvas to hot-swap models (disabled by default for production security). |
+| `enableEngineToggle` | `boolean` | `true` | Whether to show the 2D/3D engine toggle button when both 2D and 3D models are available (defaults to `true`). |
 
 ### Tools & Plugins
 
@@ -711,6 +712,7 @@ interface AiAvatarWidget {
   locale: string;                                 // Current UI/Speech locale
   isMinimal: boolean;                             // Current minimal mode state
   enableModelDrop: boolean;                       // Model drag-and-drop toggle
+  enableEngineToggle: boolean;                    // 2D/3D engine toggle button switch
   fitMode: 'half' | 'full';                       // Stage fit mode
   skin2d: Skin2DConfig;                           // 2D configuration state
   skin3d: Skin3DConfig;                           // 3D configuration state

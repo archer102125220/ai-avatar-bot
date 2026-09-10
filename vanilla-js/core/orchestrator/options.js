@@ -7,6 +7,7 @@ import {
   DEFAULT_GENDER,
   getDefaultNeuralVoice,
   DEFAULT_ENABLE_MODEL_DROP,
+  DEFAULT_ENABLE_ENGINE_TOGGLE,
   DEFAULT_ENABLE_AUTO_CONTINUE,
   DEFAULT_MAX_AUTO_CONTINUATIONS,
   AUTO_CONTINUE_MODE_MAP,
@@ -49,6 +50,7 @@ export function callOptionEvent(
  *   i18nEngine: any,
  *   initialMinimal: boolean,
  *   isModelDropEnabled: boolean,
+ *   isEngineToggleEnabled: boolean,
  *   safeGender: string,
  *   safeNeuralVoice: string,
  *   targetAvatarMode: string
@@ -71,6 +73,7 @@ export function normalizeOptions(rawOptions = {}) {
     modes = null,
     enableModelDrop = DEFAULT_ENABLE_MODEL_DROP,
     allowModelDrop,
+    enableEngineToggle = DEFAULT_ENABLE_ENGINE_TOGGLE,
     isMinimal = false,
     isIframe = false,
     locale = 'zh-TW',
@@ -145,6 +148,11 @@ export function normalizeOptions(rawOptions = {}) {
         ? enableModelDrop
         : DEFAULT_ENABLE_MODEL_DROP;
 
+  const isEngineToggleEnabled =
+    typeof enableEngineToggle === 'boolean'
+      ? enableEngineToggle
+      : DEFAULT_ENABLE_ENGINE_TOGGLE;
+
   const rootStore = createBaseStore({
     gender: safeGender,
     brainGender:
@@ -202,7 +210,8 @@ export function normalizeOptions(rawOptions = {}) {
         : typeof locale === 'string' && locale !== ''
           ? locale
           : 'zh-TW',
-    enableModelDrop: isModelDropEnabled
+    enableModelDrop: isModelDropEnabled,
+    enableEngineToggle: isEngineToggleEnabled
   });
 
   return {
@@ -212,6 +221,7 @@ export function normalizeOptions(rawOptions = {}) {
     i18nEngine,
     initialMinimal,
     isModelDropEnabled,
+    isEngineToggleEnabled,
     safeGender,
     safeNeuralVoice,
     targetAvatarMode

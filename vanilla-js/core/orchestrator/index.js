@@ -46,6 +46,7 @@ export async function initAvatarBot(rawOptions = {}) {
     i18nEngine,
     initialMinimal,
     isModelDropEnabled,
+    isEngineToggleEnabled,
     safeNeuralVoice
   } = normalizeOptions(rawOptions);
 
@@ -211,7 +212,12 @@ export async function initAvatarBot(rawOptions = {}) {
       options.onMinimalTrigger.bind(aiAvatarWidget);
   }
 
-  initSkinModeChangeButton(aiAvatarWidget, skinEngine.has2D, skinEngine.has3D);
+  initSkinModeChangeButton(
+    aiAvatarWidget,
+    skinEngine.has2D,
+    skinEngine.has3D,
+    isEngineToggleEnabled
+  );
   renderSuggestions(aiAvatarWidget);
   bindTyping(aiAvatarWidget);
   bindUiEvent(aiAvatarWidget);

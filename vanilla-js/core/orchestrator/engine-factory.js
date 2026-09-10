@@ -12,7 +12,7 @@ import {
   ENGINE_MODE_MAP,
   AVATAR_MODE_MAP
 } from '../constants';
-import { renderHistory } from '../ui';
+import { renderHistory, initSkinModeChangeButton } from '../ui';
 import { callOptionEvent } from './options';
 
 /**
@@ -871,27 +871,20 @@ export async function setupSkinEngine({
         callOptionEvent(options, widget, 'VRMFileChangeFail', error);
       },
       VRMFileChangeSuccess() {
-        const uiDom = getUiDom();
-        const engineButtonEl = uiDom?.engineButtonEl;
         const { skinEngine: currentSkin, speechEngine } = getEngines();
+        const rootState = rootStore?.getState?.() || {};
+        const isEngineToggleEnabled =
+          typeof rootState.enableEngineToggle === 'boolean'
+            ? rootState.enableEngineToggle
+            : true;
 
-        if (engineButtonEl instanceof HTMLElement) {
-          engineButtonEl.style.display = '';
-          if (typeof engineButtonEl.onclick !== 'function') {
-            engineButtonEl.onclick = () => {
-              if (
-                currentSkin?.engineMode === ENGINE_MODE_MAP.threeDimensional
-              ) {
-                currentSkin.engineMode = ENGINE_MODE_MAP.twoDimensional;
-              } else if (
-                currentSkin !== null &&
-                typeof currentSkin === 'object'
-              ) {
-                currentSkin.engineMode = ENGINE_MODE_MAP.threeDimensional;
-              }
-            };
-          }
-        }
+        initSkinModeChangeButton(
+          widget,
+          currentSkin?.has2D === true,
+          currentSkin?.has3D === true,
+          isEngineToggleEnabled
+        );
+
         if (speechEngine !== null && typeof speechEngine === 'object') {
           speechEngine.spokenDisplayText = '換上你的角色了！🎭';
         }

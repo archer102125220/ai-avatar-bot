@@ -14,8 +14,10 @@ import {
   DEFAULT_ENABLE_AUTO_CONTINUE,
   DEFAULT_MAX_AUTO_CONTINUATIONS,
   DEFAULT_AUTO_CONTINUE_MODE,
-  DEFAULT_ENABLE_MODEL_DROP
+  DEFAULT_ENABLE_MODEL_DROP,
+  DEFAULT_ENABLE_ENGINE_TOGGLE
 } from '../constants';
+import { initSkinModeChangeButton } from '../ui';
 
 /**
  * 建立並封裝對外公開的 AiAvatarWidget 實例物件。
@@ -427,6 +429,24 @@ export function createAvatarWidget({
         if (typeof updateModelDropListeners === 'function') {
           updateModelDropListeners(newEnableModelDrop);
         }
+      }
+    },
+
+    get enableEngineToggle() {
+      return (
+        rootStore.getState().enableEngineToggle ?? DEFAULT_ENABLE_ENGINE_TOGGLE
+      );
+    },
+    set enableEngineToggle(newEnableEngineToggle) {
+      if (typeof newEnableEngineToggle === 'boolean') {
+        rootStore.setState({ enableEngineToggle: newEnableEngineToggle });
+        const { skinEngine } = getEngines();
+        initSkinModeChangeButton(
+          widget,
+          skinEngine?.has2D === true,
+          skinEngine?.has3D === true,
+          newEnableEngineToggle
+        );
       }
     },
 

@@ -515,6 +515,12 @@ export const DEFAULT_MODEL_URL =
 export const DEFAULT_ENABLE_MODEL_DROP = false;
 
 /**
+ * 預設是否在同時具備 2D 與 3D 模型時顯示 2D/3D 切換按鈕。
+ * @type {boolean}
+ */
+export const DEFAULT_ENABLE_ENGINE_TOGGLE = true;
+
+/**
  * 預設語音合成 (TTS) API 終端節點。
  * @type {string}
  */

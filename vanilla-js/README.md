@@ -247,6 +247,7 @@ const avatarWidget = await initAvatarBot({
 | `pointerLook` | `boolean` | `true` | 是否啟用 3D 眼睛跟隨滑鼠游標 (`skin3d.pointerLook` 別名) |
 | `vrmUrl` | `string` | 內建預設模型 | 3D VRM 模型的 `.vrm` 檔案網址 |
 | `enableModelDrop` | `boolean` | `false` | 是否允許使用者拖曳 `.vrm` 模型檔案至畫布即時換裝（預設關閉以維護正式產品安全） |
+| `enableEngineToggle` | `boolean` | `true` | 是否在同時具備 2D 與 3D 模型時顯示 2D/3D 切換按鈕（預設 true 開啟） |
 
 ### 工具擴充與外掛 (Tools & Plugins)
 
@@ -714,6 +715,7 @@ interface AiAvatarWidget {
   locale: string;                                 // 目前語系
   isMinimal: boolean;                             // 是否處於極簡模式
   enableModelDrop: boolean;                       // 是否開啟拖曳換裝
+  enableEngineToggle: boolean;                    // 是否啟用 2D/3D 切換按鈕
   fitMode: 'half' | 'full';                       // 目前畫面適應模式
   skin2d: Skin2DConfig;                           // 目前 2D 外觀設定狀態
   skin3d: Skin3DConfig;                           // 目前 3D 外觀設定狀態

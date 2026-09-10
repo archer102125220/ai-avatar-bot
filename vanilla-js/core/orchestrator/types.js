@@ -81,6 +81,7 @@
  * @property {boolean} [pointerLook] - 是否啟用 3D 眼睛跟隨滑鼠游標 (skin3d.pointerLook 的別名)
  * @property {boolean} [enableModelDrop] - 是否允許使用者拖曳 VRM 模型檔案至畫布即時換裝（預設 false 關閉）
  * @property {boolean} [allowModelDrop] - 是否允許使用者拖曳 VRM 模型檔案至畫布即時換裝（enableModelDrop 的別名）
+ * @property {boolean} [enableEngineToggle=true] - 是否在同時具備 2D 與 3D 模型時顯示 2D/3D 切換按鈕（預設 true 開啟）
  * @property {Record<string, any>} [gesture3D] - 3D 模型使用的姿態/手勢設定資料
  * @property {Record<string, any>} [gesture2D] - 2D 模型使用的姿態資料
  * @property {boolean} [isMinimal=false] - 是否以極簡模式 (Minimal UI) 啟動
@@ -176,6 +177,7 @@
  * @property {'stream'|'buffered'} autoContinueMode - 當前自動接續輸出模式
  * @property {string|Function|null} autoContinuePrompt - 當前自動接續提示詞或生成函式
  * @property {boolean} enableModelDrop - 當前是否啟用模型拖曳換裝
+ * @property {boolean} enableEngineToggle - 當前是否啟用 2D/3D 切換按鈕
  *
  * @property {HTMLElement} container - 綁定 Widget 的 HTML 容器元素
  * @property {any} uiDom - UI 相關的 DOM 元素與控制方法
