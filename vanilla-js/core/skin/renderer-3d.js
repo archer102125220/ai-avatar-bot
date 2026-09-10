@@ -1,11 +1,16 @@
 import {
   ENGINE_MODE_MAP,
+  FIT_MODE_MAP,
+  DEFAULT_FIT_MODE,
   DEFAULT_VRMA_ROOT_PATH,
-  DEFAULT_3D_CAMERA_FOV,
+  DEFAULT_3D_HALF_CAMERA_FOV,
+  DEFAULT_3D_FULL_CAMERA_FOV,
   DEFAULT_3D_CAMERA_NEAR,
   DEFAULT_3D_CAMERA_FAR,
-  DEFAULT_3D_CAMERA_POSITION,
-  DEFAULT_3D_CAMERA_LOOK_AT,
+  DEFAULT_3D_HALF_CAMERA_POSITION,
+  DEFAULT_3D_FULL_CAMERA_POSITION,
+  DEFAULT_3D_HALF_CAMERA_LOOK_AT,
+  DEFAULT_3D_FULL_CAMERA_LOOK_AT,
   DEFAULT_3D_MODEL_POSITION,
   DEFAULT_3D_MODEL_SCALE,
   DEFAULT_3D_MODEL_ROTATION,
@@ -173,15 +178,36 @@ export async function bootVRM(skinEngine, setting = {}) {
     webGLRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     webGLRenderer.setClearColor(0x000000, 0);
 
+    const initialFitMode =
+      typeof skinEngine?.getState === 'function'
+        ? skinEngine.getState()?.fitMode ||
+          skinEngine.fitMode ||
+          DEFAULT_FIT_MODE
+        : DEFAULT_FIT_MODE;
     const initialSkin3d =
       typeof skinEngine?.getState === 'function'
         ? skinEngine.getState()?.skin3d || {}
         : {};
-    const cameraConfig = initialSkin3d.camera || {};
+
+    const isInitialHalf = initialFitMode === FIT_MODE_MAP.HALF;
+    const initialModeConfig = isInitialHalf
+      ? initialSkin3d.half
+      : initialSkin3d.full;
+    const initialDefaultFov = isInitialHalf
+      ? DEFAULT_3D_HALF_CAMERA_FOV
+      : DEFAULT_3D_FULL_CAMERA_FOV;
+    const initialDefaultPos = isInitialHalf
+      ? DEFAULT_3D_HALF_CAMERA_POSITION
+      : DEFAULT_3D_FULL_CAMERA_POSITION;
+    const initialDefaultLookAt = isInitialHalf
+      ? DEFAULT_3D_HALF_CAMERA_LOOK_AT
+      : DEFAULT_3D_FULL_CAMERA_LOOK_AT;
+
+    const cameraConfig = initialModeConfig?.camera || initialSkin3d.camera || {};
     const fov =
       typeof cameraConfig.fov === 'number' && Number.isFinite(cameraConfig.fov)
         ? cameraConfig.fov
-        : DEFAULT_3D_CAMERA_FOV;
+        : initialDefaultFov;
     const near =
       typeof cameraConfig.near === 'number' &&
       Number.isFinite(cameraConfig.near)
@@ -196,10 +222,10 @@ export async function bootVRM(skinEngine, setting = {}) {
     applyVector3(
       camera.position,
       cameraConfig.position,
-      DEFAULT_3D_CAMERA_POSITION
+      initialDefaultPos
     );
     const currentLookAt = new THREE.Vector3();
-    applyVector3(currentLookAt, cameraConfig.lookAt, DEFAULT_3D_CAMERA_LOOK_AT);
+    applyVector3(currentLookAt, cameraConfig.lookAt, initialDefaultLookAt);
     camera.lookAt(currentLookAt);
 
     const resize = () => {
@@ -348,62 +374,98 @@ export async function bootVRM(skinEngine, setting = {}) {
       }
     }
 
-    applyModelTransform(initialSkin3d.model || {});
+    function applySkin3dConfig(skin3d = {}, currentFitMode = DEFAULT_FIT_MODE) {
+      const isHalf = currentFitMode === FIT_MODE_MAP.HALF;
+      const modeConfig = isHalf ? skin3d.half : skin3d.full;
+      const defaultCameraFov = isHalf
+        ? DEFAULT_3D_HALF_CAMERA_FOV
+        : DEFAULT_3D_FULL_CAMERA_FOV;
+      const defaultCameraPos = isHalf
+        ? DEFAULT_3D_HALF_CAMERA_POSITION
+        : DEFAULT_3D_FULL_CAMERA_POSITION;
+      const defaultCameraLookAt = isHalf
+        ? DEFAULT_3D_HALF_CAMERA_LOOK_AT
+        : DEFAULT_3D_FULL_CAMERA_LOOK_AT;
 
-    function applySkin3dConfig(skin3d = {}) {
-      if (typeof skin3d.camera === 'object' && skin3d.camera !== null) {
-        let needMatrixUpdate = false;
-        if (
-          typeof skin3d.camera.fov === 'number' &&
-          Number.isFinite(skin3d.camera.fov)
-        ) {
-          camera.fov = skin3d.camera.fov;
-          needMatrixUpdate = true;
-        }
-        if (
-          typeof skin3d.camera.near === 'number' &&
-          Number.isFinite(skin3d.camera.near)
-        ) {
-          camera.near = skin3d.camera.near;
-          needMatrixUpdate = true;
-        }
-        if (
-          typeof skin3d.camera.far === 'number' &&
-          Number.isFinite(skin3d.camera.far)
-        ) {
-          camera.far = skin3d.camera.far;
-          needMatrixUpdate = true;
-        }
-        if (needMatrixUpdate === true) {
-          camera.updateProjectionMatrix();
-        }
-        if (skin3d.camera.position !== undefined) {
-          applyVector3(
-            camera.position,
-            skin3d.camera.position,
-            DEFAULT_3D_CAMERA_POSITION
-          );
-        }
-        if (skin3d.camera.lookAt !== undefined) {
-          applyVector3(
-            currentLookAt,
-            skin3d.camera.lookAt,
-            DEFAULT_3D_CAMERA_LOOK_AT
-          );
-          camera.lookAt(currentLookAt);
-        }
+      const modelConfig = modeConfig?.model || skin3d.model || {};
+
+      let needMatrixUpdate = false;
+      const fov =
+        typeof modeConfig?.camera?.fov === 'number' &&
+        Number.isFinite(modeConfig.camera.fov)
+          ? modeConfig.camera.fov
+          : typeof skin3d.camera?.fov === 'number' &&
+              Number.isFinite(skin3d.camera.fov)
+            ? skin3d.camera.fov
+            : defaultCameraFov;
+
+      if (camera.fov !== fov) {
+        camera.fov = fov;
+        needMatrixUpdate = true;
       }
-      if (typeof skin3d.model === 'object' && skin3d.model !== null) {
-        applyModelTransform(skin3d.model);
+
+      const near =
+        typeof modeConfig?.camera?.near === 'number' &&
+        Number.isFinite(modeConfig.camera.near)
+          ? modeConfig.camera.near
+          : typeof skin3d.camera?.near === 'number' &&
+              Number.isFinite(skin3d.camera.near)
+            ? skin3d.camera.near
+            : DEFAULT_3D_CAMERA_NEAR;
+
+      if (camera.near !== near) {
+        camera.near = near;
+        needMatrixUpdate = true;
       }
+
+      const far =
+        typeof modeConfig?.camera?.far === 'number' &&
+        Number.isFinite(modeConfig.camera.far)
+          ? modeConfig.camera.far
+          : typeof skin3d.camera?.far === 'number' &&
+              Number.isFinite(skin3d.camera.far)
+            ? skin3d.camera.far
+            : DEFAULT_3D_CAMERA_FAR;
+
+      if (camera.far !== far) {
+        camera.far = far;
+        needMatrixUpdate = true;
+      }
+
+      if (needMatrixUpdate === true) {
+        camera.updateProjectionMatrix();
+      }
+
+      const posSource =
+        modeConfig?.camera?.position ?? skin3d.camera?.position;
+      applyVector3(camera.position, posSource, defaultCameraPos);
+
+      const lookAtSource =
+        modeConfig?.camera?.lookAt ?? skin3d.camera?.lookAt;
+      applyVector3(currentLookAt, lookAtSource, defaultCameraLookAt);
+      camera.lookAt(currentLookAt);
+
+      applyModelTransform(modelConfig);
     }
 
+    applySkin3dConfig(initialSkin3d, initialFitMode);
+
     let unsubscribeSkin3d = null;
+    let unsubscribeFitMode = null;
     if (typeof skinEngine.subscribe === 'function') {
       unsubscribeSkin3d = skinEngine.subscribe(
         (state) => state.skin3d,
         (skin3d) => {
-          applySkin3dConfig(skin3d);
+          const currentFitMode =
+            skinEngine.getState().fitMode || DEFAULT_FIT_MODE;
+          applySkin3dConfig(skin3d, currentFitMode);
+        }
+      );
+      unsubscribeFitMode = skinEngine.subscribe(
+        (state) => state.fitMode,
+        (fitMode) => {
+          const currentSkin3d = skinEngine.getState().skin3d || {};
+          applySkin3dConfig(currentSkin3d, fitMode);
         }
       );
     }
@@ -720,6 +782,10 @@ export async function bootVRM(skinEngine, setting = {}) {
         if (typeof unsubscribeSkin3d === 'function') {
           unsubscribeSkin3d();
           unsubscribeSkin3d = null;
+        }
+        if (typeof unsubscribeFitMode === 'function') {
+          unsubscribeFitMode();
+          unsubscribeFitMode = null;
         }
         try {
           clearInterval(idleBreak);

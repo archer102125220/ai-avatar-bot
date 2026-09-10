@@ -11,16 +11,10 @@ import {
   DEFAULT_MALE_2D_MODEL_URL,
   DEFAULT_FEMALE_3D_MODEL_URL,
   DEFAULT_MALE_3D_MODEL_URL,
-  DEFAULT_2D_HALF_ZOOM,
-  DEFAULT_2D_FULL_ZOOM,
   DEFAULT_2D_OFFSET_X,
   DEFAULT_2D_OFFSET_Y,
-  DEFAULT_2D_ANCHOR,
-  DEFAULT_3D_CAMERA_FOV,
   DEFAULT_3D_CAMERA_NEAR,
   DEFAULT_3D_CAMERA_FAR,
-  DEFAULT_3D_CAMERA_POSITION,
-  DEFAULT_3D_CAMERA_LOOK_AT,
   DEFAULT_3D_MODEL_POSITION,
   DEFAULT_3D_MODEL_SCALE,
   DEFAULT_3D_MODEL_ROTATION,
@@ -35,22 +29,33 @@ export * from './renderer-2d';
 export * from './renderer-3d';
 
 /**
- * 2D 視覺變換設定
- * @typedef {Object} Skin2DConfig
+ * 2D 視覺變換設定（單一模式）
+ * @typedef {Object} Skin2DModeConfig
  * @property {number} [zoom] - 縮放倍率（HALF 預設 1.9，FULL 預設 1.0）
  * @property {number} [offsetX] - 水平偏移像素（預設 0）
  * @property {number} [offsetY] - 垂直偏移像素（預設 0）
- * @property {{x: number, y: number}} [anchor] - 模型錨點（預設 { x: 0.5, y: 1.0 }）
+ * @property {{x?: number, y?: number}} [anchor] - 模型錨點（HALF 預設 { x: 0.5, y: 1.0 }，FULL 預設 { x: 0.5, y: 3.0 }）
+ */
+
+/**
+ * 2D 視覺變換設定
+ * @typedef {Object} Skin2DConfig
+ * @property {number} [zoom] - 通用縮放倍率（未指定 half/full 時生效）
+ * @property {number} [offsetX] - 通用水平偏移像素（預設 0）
+ * @property {number} [offsetY] - 通用垂直偏移像素（預設 0）
+ * @property {{x?: number, y?: number}} [anchor] - 通用模型錨點
+ * @property {Skin2DModeConfig} [half] - 半身模式專屬設定 (覆寫通用設定)
+ * @property {Skin2DModeConfig} [full] - 全身模式專屬設定 (覆寫通用設定)
  */
 
 /**
  * 3D 攝影機設定
  * @typedef {Object} Skin3DCameraConfig
- * @property {number} [fov] - 視野 (FOV，預設 26)
+ * @property {number} [fov] - 視野 (FOV，HALF 預設 26，FULL 預設 30)
  * @property {number} [near] - 近裁剪面 (預設 0.1)
  * @property {number} [far] - 遠裁剪面 (預設 20)
- * @property {{x: number, y: number, z: number} | [number, number, number]} [position] - 相機世界座標
- * @property {{x: number, y: number, z: number} | [number, number, number]} [lookAt] - 相機注視焦點座標
+ * @property {{x: number, y: number, z: number} | [number, number, number]} [position] - 相機世界座標 (HALF 預設 {x:0, y:1.4, z:2.5}，FULL 預設 {x:0, y:1.0, z:3.5})
+ * @property {{x: number, y: number, z: number} | [number, number, number]} [lookAt] - 相機注視焦點座標 (HALF 預設 {x:0, y:1.2, z:0}，FULL 預設 {x:0, y:0.9, z:0})
  */
 
 /**
@@ -62,10 +67,19 @@ export * from './renderer-3d';
  */
 
 /**
- * 3D 視覺與行為設定
- * @typedef {Object} Skin3DConfig
+ * 3D 視覺變換設定（單一模式）
+ * @typedef {Object} Skin3DModeConfig
  * @property {Skin3DCameraConfig} [camera] - 攝影機設定
  * @property {Skin3DModelConfig} [model] - 模型空間變換設定
+ */
+
+/**
+ * 3D 視覺與行為設定
+ * @typedef {Object} Skin3DConfig
+ * @property {Skin3DCameraConfig} [camera] - 通用攝影機設定
+ * @property {Skin3DModelConfig} [model] - 通用模型空間變換設定
+ * @property {Skin3DModeConfig} [half] - 半身模式專屬設定 (覆寫通用設定)
+ * @property {Skin3DModeConfig} [full] - 全身模式專屬設定 (覆寫通用設定)
  * @property {boolean} [pointerLook] - 是否啟用眼睛跟隨滑鼠游標
  * @property {string} [bow] - 鞠躬動畫 URL
  * @property {string} [wave] - 揮手動畫 URL
@@ -217,56 +231,70 @@ export function initSkinEngine(setting = {}) {
         ? defaultGesture3D
         : null;
 
+  const skin2dOption =
+    typeof setting.skin2d === 'object' && setting.skin2d !== null
+      ? setting.skin2d
+      : {};
+
   const initialSkin2d = {
+    ...skin2dOption,
     zoom:
-      typeof setting.skin2d?.zoom === 'number' &&
-      Number.isFinite(setting.skin2d.zoom)
-        ? setting.skin2d.zoom
+      typeof skin2dOption.zoom === 'number' &&
+      Number.isFinite(skin2dOption.zoom)
+        ? skin2dOption.zoom
         : typeof setting.zoom === 'number' && Number.isFinite(setting.zoom)
           ? setting.zoom
-          : fitMode === FIT_MODE_MAP.HALF
-            ? DEFAULT_2D_HALF_ZOOM
-            : DEFAULT_2D_FULL_ZOOM,
+          : undefined,
     offsetX:
-      typeof setting.skin2d?.offsetX === 'number' &&
-      Number.isFinite(setting.skin2d.offsetX)
-        ? setting.skin2d.offsetX
+      typeof skin2dOption.offsetX === 'number' &&
+      Number.isFinite(skin2dOption.offsetX)
+        ? skin2dOption.offsetX
         : typeof setting.offsetX === 'number' &&
             Number.isFinite(setting.offsetX)
           ? setting.offsetX
           : DEFAULT_2D_OFFSET_X,
     offsetY:
-      typeof setting.skin2d?.offsetY === 'number' &&
-      Number.isFinite(setting.skin2d.offsetY)
-        ? setting.skin2d.offsetY
+      typeof skin2dOption.offsetY === 'number' &&
+      Number.isFinite(skin2dOption.offsetY)
+        ? skin2dOption.offsetY
         : typeof setting.offsetY === 'number' &&
             Number.isFinite(setting.offsetY)
           ? setting.offsetY
           : DEFAULT_2D_OFFSET_Y,
     anchor: {
-      x:
-        typeof (setting.skin2d?.anchor?.x ?? setting.anchor?.x) === 'number' &&
-        Number.isFinite(setting.skin2d?.anchor?.x ?? setting.anchor?.x)
-          ? (setting.skin2d?.anchor?.x ?? setting.anchor?.x)
-          : DEFAULT_2D_ANCHOR.x,
-      y:
-        typeof (setting.skin2d?.anchor?.y ?? setting.anchor?.y) === 'number' &&
-        Number.isFinite(setting.skin2d?.anchor?.y ?? setting.anchor?.y)
-          ? (setting.skin2d?.anchor?.y ?? setting.anchor?.y)
-          : DEFAULT_2D_ANCHOR.y
+      ...(typeof skin2dOption.anchor === 'object' && skin2dOption.anchor !== null
+        ? skin2dOption.anchor
+        : typeof setting.anchor === 'object' && setting.anchor !== null
+          ? setting.anchor
+          : {})
+    },
+    half: {
+      ...(typeof skin2dOption.half === 'object' && skin2dOption.half !== null
+        ? skin2dOption.half
+        : {})
+    },
+    full: {
+      ...(typeof skin2dOption.full === 'object' && skin2dOption.full !== null
+        ? skin2dOption.full
+        : {})
     }
   };
 
-  const cameraOption = setting.skin3d?.camera || setting.camera || {};
-  const modelOption = setting.skin3d?.model || setting.modelTransform || {};
+  const skin3dOption =
+    typeof setting.skin3d === 'object' && setting.skin3d !== null
+      ? setting.skin3d
+      : {};
+  const cameraOption = skin3dOption.camera || setting.camera || {};
+  const modelOption = skin3dOption.model || setting.modelTransform || {};
 
   const initialSkin3d = {
+    ...skin3dOption,
     camera: {
       fov:
         typeof cameraOption.fov === 'number' &&
         Number.isFinite(cameraOption.fov)
           ? cameraOption.fov
-          : DEFAULT_3D_CAMERA_FOV,
+          : undefined,
       near:
         typeof cameraOption.near === 'number' &&
         Number.isFinite(cameraOption.near)
@@ -277,25 +305,35 @@ export function initSkinEngine(setting = {}) {
         Number.isFinite(cameraOption.far)
           ? cameraOption.far
           : DEFAULT_3D_CAMERA_FAR,
-      position: cameraOption.position || DEFAULT_3D_CAMERA_POSITION,
-      lookAt: cameraOption.lookAt || DEFAULT_3D_CAMERA_LOOK_AT
+      position: cameraOption.position || undefined,
+      lookAt: cameraOption.lookAt || undefined
     },
     model: {
       position: modelOption.position || DEFAULT_3D_MODEL_POSITION,
       scale: modelOption.scale ?? DEFAULT_3D_MODEL_SCALE,
       rotation: modelOption.rotation || DEFAULT_3D_MODEL_ROTATION
     },
+    half: {
+      ...(typeof skin3dOption.half === 'object' && skin3dOption.half !== null
+        ? skin3dOption.half
+        : {})
+    },
+    full: {
+      ...(typeof skin3dOption.full === 'object' && skin3dOption.full !== null
+        ? skin3dOption.full
+        : {})
+    },
     pointerLook:
-      typeof (setting.skin3d?.pointerLook ?? setting.pointerLook) === 'boolean'
-        ? (setting.skin3d?.pointerLook ?? setting.pointerLook)
+      typeof (skin3dOption.pointerLook ?? setting.pointerLook) === 'boolean'
+        ? (skin3dOption.pointerLook ?? setting.pointerLook)
         : DEFAULT_3D_POINTER_LOOK,
-    bow: setting.skin3d?.bow || setting.bow || '',
-    wave: setting.skin3d?.wave || setting.wave || '',
-    thinking: setting.skin3d?.thinking || setting.thinking || '',
-    look: setting.skin3d?.look || setting.look || '',
-    relax: setting.skin3d?.relax || setting.relax || '',
-    surprised: setting.skin3d?.surprised || setting.surprised || '',
-    vrmaRootPath: setting.skin3d?.vrmaRootPath || setting.vrmaRootPath || ''
+    bow: skin3dOption.bow || setting.bow || '',
+    wave: skin3dOption.wave || setting.wave || '',
+    thinking: skin3dOption.thinking || setting.thinking || '',
+    look: skin3dOption.look || setting.look || '',
+    relax: skin3dOption.relax || setting.relax || '',
+    surprised: skin3dOption.surprised || setting.surprised || '',
+    vrmaRootPath: skin3dOption.vrmaRootPath || setting.vrmaRootPath || ''
   };
 
   const store = createBaseStore({
@@ -370,7 +408,24 @@ export function initSkinEngine(setting = {}) {
             ...partialConfig,
             anchor: {
               ...prevState.skin2d?.anchor,
-              ...(partialConfig.anchor || {})
+              ...(typeof partialConfig.anchor === 'object' &&
+              partialConfig.anchor !== null
+                ? partialConfig.anchor
+                : {})
+            },
+            half: {
+              ...prevState.skin2d?.half,
+              ...(typeof partialConfig.half === 'object' &&
+              partialConfig.half !== null
+                ? partialConfig.half
+                : {})
+            },
+            full: {
+              ...prevState.skin2d?.full,
+              ...(typeof partialConfig.full === 'object' &&
+              partialConfig.full !== null
+                ? partialConfig.full
+                : {})
             }
           }
         }));
@@ -384,11 +439,31 @@ export function initSkinEngine(setting = {}) {
             ...partialConfig,
             camera: {
               ...prevState.skin3d?.camera,
-              ...(partialConfig.camera || {})
+              ...(typeof partialConfig.camera === 'object' &&
+              partialConfig.camera !== null
+                ? partialConfig.camera
+                : {})
             },
             model: {
               ...prevState.skin3d?.model,
-              ...(partialConfig.model || {})
+              ...(typeof partialConfig.model === 'object' &&
+              partialConfig.model !== null
+                ? partialConfig.model
+                : {})
+            },
+            half: {
+              ...prevState.skin3d?.half,
+              ...(typeof partialConfig.half === 'object' &&
+              partialConfig.half !== null
+                ? partialConfig.half
+                : {})
+            },
+            full: {
+              ...prevState.skin3d?.full,
+              ...(typeof partialConfig.full === 'object' &&
+              partialConfig.full !== null
+                ? partialConfig.full
+                : {})
             }
           }
         }));

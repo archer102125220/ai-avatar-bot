@@ -268,19 +268,46 @@ export const DEFAULT_2D_OFFSET_X = 0;
 export const DEFAULT_2D_OFFSET_Y = 0;
 
 /**
- * 預設 2D Live2D 模型錨點。
+ * 預設 2D Live2D 半身模式模型錨點。
  * @type {Readonly<{x: number, y: number}>}
  */
-export const DEFAULT_2D_ANCHOR = Object.freeze({
+export const DEFAULT_2D_HALF_ANCHOR = Object.freeze({
   x: 0.5,
   y: 1.0
 });
 
 /**
- * 預設 3D VRM 攝影機視角視野 (FOV)。
+ * 預設 2D Live2D 全身模式模型錨點 (y=3.0 保留上方對話框安全邊距)。
+ * @type {Readonly<{x: number, y: number}>}
+ */
+export const DEFAULT_2D_FULL_ANCHOR = Object.freeze({
+  x: 0.5,
+  y: 3.0
+});
+
+/**
+ * 預設 2D Live2D 模型錨點（相容別名）。
+ * @type {Readonly<{x: number, y: number}>}
+ */
+export const DEFAULT_2D_ANCHOR = DEFAULT_2D_HALF_ANCHOR;
+
+/**
+ * 預設 3D VRM 半身模式攝影機視野 (FOV)。
  * @type {number}
  */
-export const DEFAULT_3D_CAMERA_FOV = 26;
+export const DEFAULT_3D_HALF_CAMERA_FOV = 26;
+
+/**
+ * 預設 3D VRM 全身模式攝影機視野 (FOV)。
+ * @type {number}
+ */
+export const DEFAULT_3D_FULL_CAMERA_FOV = 30;
+
+/**
+ * 預設 3D VRM 攝影機視角視野 (FOV)（相容別名）。
+ * @type {number}
+ */
+export const DEFAULT_3D_CAMERA_FOV = DEFAULT_3D_HALF_CAMERA_FOV;
 
 /**
  * 預設 3D VRM 攝影機近裁剪面距離 (Near)。
@@ -295,24 +322,56 @@ export const DEFAULT_3D_CAMERA_NEAR = 0.1;
 export const DEFAULT_3D_CAMERA_FAR = 20;
 
 /**
- * 預設 3D VRM 攝影機世界座標位置。
+ * 預設 3D VRM 半身模式攝影機世界座標位置。
  * @type {Readonly<{x: number, y: number, z: number}>}
  */
-export const DEFAULT_3D_CAMERA_POSITION = Object.freeze({
+export const DEFAULT_3D_HALF_CAMERA_POSITION = Object.freeze({
   x: 0,
   y: 1.4,
   z: 2.5
 });
 
 /**
- * 預設 3D VRM 攝影機注視焦點座標。
+ * 預設 3D VRM 全身模式攝影機世界座標位置。
  * @type {Readonly<{x: number, y: number, z: number}>}
  */
-export const DEFAULT_3D_CAMERA_LOOK_AT = Object.freeze({
+export const DEFAULT_3D_FULL_CAMERA_POSITION = Object.freeze({
+  x: 0,
+  y: 1.0,
+  z: 3.5
+});
+
+/**
+ * 預設 3D VRM 攝影機世界座標位置（相容別名）。
+ * @type {Readonly<{x: number, y: number, z: number}>}
+ */
+export const DEFAULT_3D_CAMERA_POSITION = DEFAULT_3D_HALF_CAMERA_POSITION;
+
+/**
+ * 預設 3D VRM 半身模式攝影機注視焦點座標。
+ * @type {Readonly<{x: number, y: number, z: number}>}
+ */
+export const DEFAULT_3D_HALF_CAMERA_LOOK_AT = Object.freeze({
   x: 0,
   y: 1.2,
   z: 0
 });
+
+/**
+ * 預設 3D VRM 全身模式攝影機注視焦點座標。
+ * @type {Readonly<{x: number, y: number, z: number}>}
+ */
+export const DEFAULT_3D_FULL_CAMERA_LOOK_AT = Object.freeze({
+  x: 0,
+  y: 0.9,
+  z: 0
+});
+
+/**
+ * 預設 3D VRM 攝影機注視焦點座標（相容別名）。
+ * @type {Readonly<{x: number, y: number, z: number}>}
+ */
+export const DEFAULT_3D_CAMERA_LOOK_AT = DEFAULT_3D_HALF_CAMERA_LOOK_AT;
 
 /**
  * 預設 3D VRM 模型世界座標偏移。

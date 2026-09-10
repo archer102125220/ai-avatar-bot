@@ -6,7 +6,8 @@ import {
   DEFAULT_2D_FULL_ZOOM,
   DEFAULT_2D_OFFSET_X,
   DEFAULT_2D_OFFSET_Y,
-  DEFAULT_2D_ANCHOR
+  DEFAULT_2D_HALF_ANCHOR,
+  DEFAULT_2D_FULL_ANCHOR
 } from '../constants';
 import { createCanvas } from './canvas';
 
@@ -206,29 +207,44 @@ export async function bootAvatar(skinEngine, modelUrl) {
           : {};
 
       const isHalf = currentFitMode === FIT_MODE_MAP.HALF;
+      const modeConfig = isHalf ? skin2d.half : skin2d.full;
       const defaultZoom = isHalf ? DEFAULT_2D_HALF_ZOOM : DEFAULT_2D_FULL_ZOOM;
+      const defaultAnchor = isHalf
+        ? DEFAULT_2D_HALF_ANCHOR
+        : DEFAULT_2D_FULL_ANCHOR;
+
       const zoom =
-        typeof skin2d.zoom === 'number' && Number.isFinite(skin2d.zoom)
-          ? skin2d.zoom
-          : defaultZoom;
+        typeof modeConfig?.zoom === 'number' && Number.isFinite(modeConfig.zoom)
+          ? modeConfig.zoom
+          : typeof skin2d.zoom === 'number' && Number.isFinite(skin2d.zoom)
+            ? skin2d.zoom
+            : defaultZoom;
       const offsetX =
-        typeof skin2d.offsetX === 'number' && Number.isFinite(skin2d.offsetX)
-          ? skin2d.offsetX
-          : DEFAULT_2D_OFFSET_X;
+        typeof modeConfig?.offsetX === 'number' &&
+        Number.isFinite(modeConfig.offsetX)
+          ? modeConfig.offsetX
+          : typeof skin2d.offsetX === 'number' &&
+              Number.isFinite(skin2d.offsetX)
+            ? skin2d.offsetX
+            : DEFAULT_2D_OFFSET_X;
       const offsetY =
-        typeof skin2d.offsetY === 'number' && Number.isFinite(skin2d.offsetY)
-          ? skin2d.offsetY
-          : DEFAULT_2D_OFFSET_Y;
+        typeof modeConfig?.offsetY === 'number' &&
+        Number.isFinite(modeConfig.offsetY)
+          ? modeConfig.offsetY
+          : typeof skin2d.offsetY === 'number' &&
+              Number.isFinite(skin2d.offsetY)
+            ? skin2d.offsetY
+            : DEFAULT_2D_OFFSET_Y;
       const anchorX =
-        typeof skin2d.anchor?.x === 'number' &&
-        Number.isFinite(skin2d.anchor.x)
-          ? skin2d.anchor.x
-          : DEFAULT_2D_ANCHOR.x;
+        typeof (modeConfig?.anchor?.x ?? skin2d.anchor?.x) === 'number' &&
+        Number.isFinite(modeConfig?.anchor?.x ?? skin2d.anchor?.x)
+          ? (modeConfig?.anchor?.x ?? skin2d.anchor?.x)
+          : defaultAnchor.x;
       const anchorY =
-        typeof skin2d.anchor?.y === 'number' &&
-        Number.isFinite(skin2d.anchor.y)
-          ? skin2d.anchor.y
-          : DEFAULT_2D_ANCHOR.y;
+        typeof (modeConfig?.anchor?.y ?? skin2d.anchor?.y) === 'number' &&
+        Number.isFinite(modeConfig?.anchor?.y ?? skin2d.anchor?.y)
+          ? (modeConfig?.anchor?.y ?? skin2d.anchor?.y)
+          : defaultAnchor.y;
 
       skinEngine.avatarModel.anchor.set(anchorX, anchorY);
 

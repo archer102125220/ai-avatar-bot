@@ -46,26 +46,24 @@
         knowledge: KNOWLEDGE,
         startMode: ENGINE_MODE_MAP.threeDimensional,
         fitMode: FIT_MODE_MAP.HALF, // FIT_MODE_MAP.HALF (半身特寫) | FIT_MODE_MAP.FULL (全身)
-        // 2D Live2D 縮放與位置客製化 (Skin 2D Options)
+        // 2D Live2D 縮放與位置客製化 (支援通用設定與 half/full 雙模式專屬設定)
         // skin2d: {
-        //   zoom: 1.0,
         //   offsetX: 0,
         //   offsetY: 0,
-        //   anchor: { x: 0.5, y: 1.0 }
+        //   half: { zoom: 1.9, anchor: { x: 0.5, y: 1.0 } },
+        //   full: { zoom: 1.0, anchor: { x: 0.5, y: 3.0 } }
         // },
-        // 3D VRM 攝影機與模型變換客製化 (Skin 3D Options)
+        // 3D VRM 攝影機與模型變換客製化 (支援通用設定與 half/full 雙模式專屬設定)
         // skin3d: {
-        //   camera: {
-        //     fov: 26,
-        //     position: { x: 0, y: 1.4, z: 2.5 },
-        //     lookAt: { x: 0, y: 1.2, z: 0 }
+        //   pointerLook: true,
+        //   half: {
+        //     camera: { fov: 26, position: { x: 0, y: 1.4, z: 2.5 }, lookAt: { x: 0, y: 1.2, z: 0 } },
+        //     model: { scale: { x: 1, y: 1, z: 1 } }
         //   },
-        //   model: {
-        //     position: { x: 0, y: 0, z: 0 },
-        //     scale: { x: 1, y: 1, z: 1 },
-        //     rotation: { x: 0, y: 0, z: 0 }
-        //   },
-        //   pointerLook: true
+        //   full: {
+        //     camera: { fov: 30, position: { x: 0, y: 1.0, z: 3.5 }, lookAt: { x: 0, y: 0.9, z: 0 } },
+        //     model: { scale: { x: 1, y: 1, z: 1 } }
+        //   }
         // },
         companionKnowledge: COMPANION_KNOWLEDGE,
         gender: GENDER_MAP.male,

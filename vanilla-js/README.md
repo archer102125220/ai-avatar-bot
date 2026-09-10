@@ -236,14 +236,14 @@ const avatarWidget = await initAvatarBot({
 | `neuralVoice` | `string` | `''` | 指定使用的微軟神經網路語音名稱 |
 | `startMode` | `string` | `'2d'` | 初始渲染模式：`'2d'` (Live2D) 或 `'3d'` (VRM) |
 | `fitMode` | `string` | `'full'` | 畫面適應模式：`'half'` (半身特寫) 或 `'full'` (全身) |
-| `skin2d` | `Object` | `{}` | 2D Live2D 縮放與座標設定 (包含 `zoom`, `offsetX`, `offsetY`, `anchor`) |
+| `skin2d` | `Object` | `{}` | 2D Live2D 縮放與座標設定 (支援 `zoom`, `offsetX`, `offsetY`, `anchor` 及 `half`/`full` 雙模式專屬設定) |
 | `zoom` | `number` | `1.9` (half) / `1.0` (full) | 2D 縮放倍率 (`skin2d.zoom` 別名) |
 | `offsetX` / `offsetY` | `number` | `0` | 2D 水平/垂直偏移像素 (`skin2d.offsetX/offsetY` 別名) |
-| `anchor` | `Object` | `{ x: 0.5, y: 1.0 }` | 2D 模型錨點 (`skin2d.anchor` 別名) |
+| `anchor` | `Object` | `{ x: 0.5, y: 1.0 }` (half) / `{ x: 0.5, y: 3.0 }` (full) | 2D 模型錨點 (`skin2d.anchor` 別名) |
 | `modelUrl` | `string` | 內建預設模型 | 2D Live2D 模型的 `.model3.json` 檔案網址 |
-| `skin3d` | `Object` | `{}` | 3D VRM 視覺、相機與動畫設定 (包含 `camera`, `model`, `pointerLook`, `vrmaRootPath` 等) |
-| `camera` | `Object` | `{ fov: 26, position: {x:0, y:1.4, z:2.5}, lookAt: {x:0, y:1.2, z:0} }` | 3D 攝影機設定 (`skin3d.camera` 別名) |
-| `modelTransform` | `Object` | `{ position: {x:0, y:0, z:0}, scale: {x:1, y:1, z:1}, rotation: {x:0, y:0, z:0} }` | 3D 模型空間變換設定 (`skin3d.model` 別名) |
+| `skin3d` | `Object` | `{}` | 3D VRM 視覺、相機與動畫設定 (支援 `camera`, `model`, `pointerLook` 及 `half`/`full` 雙模式專屬設定) |
+| `camera` | `Object` | 半身 `{ fov: 26, pos: {x:0, y:1.4, z:2.5}, lookAt: {x:0, y:1.2, z:0} }`<br>全身 `{ fov: 30, pos: {x:0, y:1.0, z:3.5}, lookAt: {x:0, y:0.9, z:0} }` | 3D 攝影機設定 (`skin3d.camera` 別名) |
+| `modelTransform` | `Object` | `{ position: {x:0, y:0, z:0}, scale: {x:1, y:1, z:1}, rotation: {x:0, y:3.1, z:0} }` | 3D 模型空間變換設定 (`skin3d.model` 別名) |
 | `pointerLook` | `boolean` | `true` | 是否啟用 3D 眼睛跟隨滑鼠游標 (`skin3d.pointerLook` 別名) |
 | `vrmUrl` | `string` | 內建預設模型 | 3D VRM 模型的 `.vrm` 檔案網址 |
 | `enableModelDrop` | `boolean` | `false` | 是否允許使用者拖曳 `.vrm` 模型檔案至畫布即時換裝（預設關閉以維護正式產品安全） |
@@ -584,19 +584,27 @@ const widget = await initAvatarBot({
   // 根據語句自動推斷並切換情緒
   widget.applyEmotionFromText('太棒了，真是個好消息！');
   ```
-* **動態縮放與座標調整 (Store 響應式驅動)**：
+* **動態縮放與座標調整 (Store 響應式驅動與 half/full 雙模式支援)**：
   ```javascript
-  // 1. 動態調整 2D Live2D 縮放倍率與偏移量
-  widget.setSkin2d({ zoom: 2.2, offsetX: 10, offsetY: -20 });
+  // 1. 動態調整 2D Live2D 通用設定或個別模式專屬設定
+  widget.setSkin2d({
+    offsetX: 10,
+    half: { zoom: 2.0, anchor: { x: 0.5, y: 1.0 } },
+    full: { zoom: 0.9, anchor: { x: 0.5, y: 3.0 } }
+  });
 
-  // 2. 切換畫面適應模式 ('half' 半身特寫 vs 'full' 全身)
+  // 2. 切換畫面適應模式 ('half' 半身特寫 vs 'full' 全身，2D 與 3D 皆會即時切換至對應視角)
   widget.setFitMode('half');
 
   // 3. 動態調整 3D VRM 攝影機與模型空間變換
   widget.setSkin3d({
-    camera: { fov: 30, position: { x: 0, y: 1.5, z: 3 }, lookAt: { x: 0, y: 1.2, z: 0 } },
-    model: { scale: { x: 1.2, y: 1.2, z: 1.2 } },
-    pointerLook: true
+    pointerLook: true,
+    half: {
+      camera: { fov: 26, position: { x: 0, y: 1.4, z: 2.5 }, lookAt: { x: 0, y: 1.2, z: 0 } }
+    },
+    full: {
+      camera: { fov: 30, position: { x: 0, y: 1.0, z: 3.5 }, lookAt: { x: 0, y: 0.9, z: 0 } }
+    }
   });
   ```
 * **載入自訂模型檔案與拖曳換裝**：

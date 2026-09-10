@@ -236,14 +236,14 @@ Options object accepted by `initAvatarBot(options)`:
 | `neuralVoice` | `string` | `''` | Specified neural voice model identifier. |
 | `startMode` | `string` | `'2d'` | Initial render mode: `'2d'` (Live2D) or `'3d'` (VRM). |
 | `fitMode` | `string` | `'full'` | Stage fit mode: `'half'` (bust shot) or `'full'` (full body). |
-| `skin2d` | `Object` | `{}` | 2D Live2D zoom and coordinate configuration (contains `zoom`, `offsetX`, `offsetY`, `anchor`). |
+| `skin2d` | `Object` | `{}` | 2D Live2D zoom and coordinate configuration (supports generic `zoom`, `offsetX`, `offsetY`, `anchor` as well as mode-specific `half`/`full` presets). |
 | `zoom` | `number` | `1.9` (half) / `1.0` (full) | 2D zoom scale factor (alias of `skin2d.zoom`). |
 | `offsetX` / `offsetY` | `number` | `0` | 2D horizontal/vertical offset in pixels (alias of `skin2d.offsetX/offsetY`). |
-| `anchor` | `Object` | `{ x: 0.5, y: 1.0 }` | 2D model anchor point (alias of `skin2d.anchor`). |
+| `anchor` | `Object` | `{ x: 0.5, y: 1.0 }` (half) / `{ x: 0.5, y: 3.0 }` (full) | 2D model anchor point (alias of `skin2d.anchor`). |
 | `modelUrl` | `string` | Built-in default | URL to 2D Live2D `.model3.json` file. |
-| `skin3d` | `Object` | `{}` | 3D VRM camera, model transform, and visual configuration (contains `camera`, `model`, `pointerLook`, `vrmaRootPath`, etc.). |
-| `camera` | `Object` | `{ fov: 26, position: {x:0, y:1.4, z:2.5}, lookAt: {x:0, y:1.2, z:0} }` | 3D camera configuration (alias of `skin3d.camera`). |
-| `modelTransform` | `Object` | `{ position: {x:0, y:0, z:0}, scale: {x:1, y:1, z:1}, rotation: {x:0, y:0, z:0} }` | 3D model spatial transform configuration (alias of `skin3d.model`). |
+| `skin3d` | `Object` | `{}` | 3D VRM camera, model transform, and visual configuration (supports `camera`, `model`, `pointerLook` as well as mode-specific `half`/`full` presets). |
+| `camera` | `Object` | Half `{ fov: 26, pos: {x:0, y:1.4, z:2.5}, lookAt: {x:0, y:1.2, z:0} }`<br>Full `{ fov: 30, pos: {x:0, y:1.0, z:3.5}, lookAt: {x:0, y:0.9, z:0} }` | 3D camera configuration (alias of `skin3d.camera`). |
+| `modelTransform` | `Object` | `{ position: {x:0, y:0, z:0}, scale: {x:1, y:1, z:1}, rotation: {x:0, y:3.1, z:0} }` | 3D model spatial transform configuration (alias of `skin3d.model`). |
 | `pointerLook` | `boolean` | `true` | Whether to enable 3D eye gaze tracking the mouse pointer (alias of `skin3d.pointerLook`). |
 | `vrmUrl` | `string` | Built-in default | URL to 3D VRM `.vrm` file. |
 | `enableModelDrop` | `boolean` | `false` | Whether to allow users to drag and drop `.vrm` files onto canvas to hot-swap models (disabled by default for production security). |
@@ -581,19 +581,27 @@ const widget = await initAvatarBot({
   // Infer and trigger emotion automatically from text
   widget.applyEmotionFromText('That is fantastic news!');
   ```
-* **Dynamic Zoom & Coordinate Adjustment (Store-driven)**:
+* **Dynamic Zoom & Coordinate Adjustment (Store-driven & Half/Full Presets)**:
   ```javascript
-  // 1. Adjust 2D Live2D Zoom & Offset
-  widget.setSkin2d({ zoom: 2.2, offsetX: 10, offsetY: -20 });
+  // 1. Adjust 2D Live2D generic settings or mode-specific presets
+  widget.setSkin2d({
+    offsetX: 10,
+    half: { zoom: 2.0, anchor: { x: 0.5, y: 1.0 } },
+    full: { zoom: 0.9, anchor: { x: 0.5, y: 3.0 } }
+  });
 
-  // 2. Switch Stage Fit Mode ('half' bust shot vs 'full' full body)
+  // 2. Switch Stage Fit Mode ('half' bust shot vs 'full' full body, both 2D and 3D adapt in real time)
   widget.setFitMode('half');
 
   // 3. Adjust 3D VRM Camera & Model Transform
   widget.setSkin3d({
-    camera: { fov: 30, position: { x: 0, y: 1.5, z: 3 }, lookAt: { x: 0, y: 1.2, z: 0 } },
-    model: { scale: { x: 1.2, y: 1.2, z: 1.2 } },
-    pointerLook: true
+    pointerLook: true,
+    half: {
+      camera: { fov: 26, position: { x: 0, y: 1.4, z: 2.5 }, lookAt: { x: 0, y: 1.2, z: 0 } }
+    },
+    full: {
+      camera: { fov: 30, position: { x: 0, y: 1.0, z: 3.5 }, lookAt: { x: 0, y: 0.9, z: 0 } }
+    }
   });
   ```
 * **Loading Custom Models & Drag-and-Drop Hot Swapping**:

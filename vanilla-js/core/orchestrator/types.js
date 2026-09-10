@@ -69,13 +69,13 @@
  * @property {Record<string, any>|string} [companionKnowledge=null] - 預載的陪伴模式知識庫資料，可以是 JSON 物件或字串
  * @property {string} [startMode] - 初始啟動的模型模式 (2D 或 3D)
  * @property {string} [fitMode] - 模型適應容器的模式 (Fit Mode)
- * @property {import('../skin').Skin2DConfig} [skin2d] - 2D 模型縮放與空間座標變換設定
+ * @property {import('../skin').Skin2DConfig} [skin2d] - 2D 模型縮放與空間座標變換設定 (支援 half 與 full 雙模式專屬設定)
  * @property {number} [zoom] - 2D 模型縮放倍率 (skin2d.zoom 的別名)
  * @property {number} [offsetX] - 2D 水平偏移像素 (skin2d.offsetX 的別名)
  * @property {number} [offsetY] - 2D 垂直偏移像素 (skin2d.offsetY 的別名)
- * @property {{x: number, y: number}} [anchor] - 2D 模型錨點 (skin2d.anchor 的別名)
+ * @property {{x?: number, y?: number}} [anchor] - 2D 模型錨點 (skin2d.anchor 的別名)
  * @property {string} [vrmUrl] - VRM 3D 模型檔案的 URL
- * @property {import('../skin').Skin3DConfig} [skin3d] - 3D 模型與攝影機空間變換設定
+ * @property {import('../skin').Skin3DConfig} [skin3d] - 3D 模型與攝影機空間變換設定 (支援 half 與 full 雙模式專屬設定)
  * @property {import('../skin').Skin3DCameraConfig} [camera] - 3D 攝影機設定 (skin3d.camera 的別名)
  * @property {import('../skin').Skin3DModelConfig} [modelTransform] - 3D 模型空間變換設定 (skin3d.model 的別名)
  * @property {boolean} [pointerLook] - 是否啟用 3D 眼睛跟隨滑鼠游標 (skin3d.pointerLook 的別名)
