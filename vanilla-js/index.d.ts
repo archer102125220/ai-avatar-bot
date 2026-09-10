@@ -1,5 +1,5 @@
 /**
- * Type definitions for ai-avatar-bot-vanilla-js
+ * Comprehensive TypeScript definitions for ai-avatar-bot-vanilla-js
  */
 
 export type AvatarMode = 'assistant' | 'companion' | (string & {});
@@ -78,6 +78,85 @@ export interface Skin3DConfig {
   relax?: string;
   surprised?: string;
   vrmaRootPath?: string;
+}
+
+export interface SkinEngineOptions {
+  stageEl: HTMLElement;
+  modelUrl?: string;
+  startMode?: string;
+  fitMode?: string;
+  skin2d?: Skin2DConfig;
+  zoom?: number;
+  offsetX?: number;
+  offsetY?: number;
+  anchor?: { x: number; y: number };
+  vrmUrl?: string;
+  skin3d?: Skin3DConfig;
+  camera?: Skin3DCameraConfig;
+  modelTransform?: Skin3DModelConfig;
+  pointerLook?: boolean;
+  gesture3D?: (skinEngine: SkinEngine, emotionName: string) => void;
+  gesture2D?: (skinEngine: SkinEngine, emotionName: string) => void;
+  computeMouth?: (skinEngine: SkinEngine) => number | Promise<number>;
+  onThreeDimensionalError?: (error: Error, skinEngine: SkinEngine) => void;
+  onTwoDimensionalError?: (error: Error, skinEngine: SkinEngine) => void;
+  VRMFileChangeFail?: (error: Error) => void;
+  VRMFileChangeSuccess?: (vrmUrl?: string) => void;
+  onMounted?: () => void;
+  gender?: string;
+  onGesture?: (gestureName: string, skinEngine: SkinEngine) => void;
+  onGestureError?: (error: Error, gestureName: string, skinEngine: SkinEngine) => void;
+  onGestureEnd?: (gestureName: string, skinEngine: SkinEngine) => void;
+  onModelChangeStart?: (mode: string) => void;
+  onModelChange?: (mode: string) => void;
+  onModelChangeEnd?: (renderer: any, mode: string) => void;
+  onModelChangeError?: (error: Error) => void;
+}
+
+export interface SkinEngine {
+  readonly stageEl: HTMLElement;
+  readonly has2D: boolean;
+  readonly has3D: boolean;
+  engineMode: string;
+  avatarModel: any;
+  renderer: any;
+  setGender(gender: string): void;
+  loadVRMFile(file: File): void;
+  getState(): Record<string, any>;
+  setState(updates: Record<string, any> | ((state: Record<string, any>) => Record<string, any>)): void;
+  subscribe(listener: (state: any, prevState: any) => void): () => void;
+  setEmotion(emotion: string): void;
+  setIsSpeaking(isSpeaking: boolean): void;
+  setFitMode(fitMode: string): void;
+  setSkin2d(updates: Partial<Skin2DConfig>): void;
+  setSkin3d(updates: Partial<Skin3DConfig>): void;
+  skin2d: Skin2DConfig;
+  skin3d: Skin3DConfig;
+  gender: string;
+  modelUrl: string;
+  vrmUrl: string;
+  gesture3D(emotionName: string): void;
+  gesture2D(emotionName: string): void;
+  gesture(emotionName: string): Promise<void>;
+  gestureName: string;
+  startMode: string;
+  fitMode: string;
+  emo: { name: string; target: number; weight: number; applied: string };
+  computeMouth?: (skinEngine: SkinEngine) => number | Promise<number>;
+  onMounted?: () => void;
+  onThreeDimensionalError?: (error: Error, skinEngine: SkinEngine) => void;
+  onTwoDimensionalError?: (error: Error, skinEngine: SkinEngine) => void;
+  VRMFileChangeFail?: (error: Error) => void;
+  VRMFileChangeSuccess?: (vrmUrl: string) => void;
+  onGesture?: (gestureName: string, skinEngine: SkinEngine) => void;
+  onGestureError?: (error: Error, gestureName: string, skinEngine: SkinEngine) => void;
+  onGestureEnd?: (gestureName: string, skinEngine: SkinEngine) => void;
+  onModelChangeStart?: (mode: string) => void;
+  onModelChange?: (mode: string) => void;
+  onModelChangeEnd?: (renderer: any, mode: string) => void;
+  onModelChangeError?: (error: Error) => void;
+  switching?: boolean | null;
+  lipIds?: string[];
 }
 
 export interface ToolDefinition {
@@ -272,16 +351,56 @@ export interface AiAvatarWidget {
   onError?: (error: Error, widget: AiAvatarWidget) => void;
 }
 
+// Top-level / Root exports
 export function initAvatarBot(rawOptions?: AvatarBotOptions): Promise<AiAvatarWidget | void>;
 export function createAvatarBot(rawOptions?: AvatarBotOptions): Promise<AiAvatarWidget | void>;
-
 export default initAvatarBot;
 
-export * from './core/constants';
-export * from './core/i18n';
-export * from './core/brain';
-export * from './core/speech';
-export * from './core/skin';
-export * from './core/tools';
-export * from './core/plugins';
-export * from './core/orchestrator';
+// Core constants
+export const GENDER_MAP: Record<string, string>;
+export const AVATAR_MODE_MAP: Record<string, string>;
+export const ENGINE_MODE_MAP: Record<string, string>;
+export const FIT_MODE_MAP: Record<string, string>;
+export const STATE_MAP: Record<string, string>;
+export const BRAIN_ENGINE_TYPE_MAP: Record<string, string>;
+export const BRAIN_FALLBACK_TYPE_MAP: Record<string, string>;
+export const AUTO_CONTINUE_MODE_MAP: Record<string, string>;
+export const COMPRESSION_STRATEGY_MAP: Record<string, string>;
+export const LLM_FINISH_REASON_MAP: Record<string, string>;
+export const FINISH_REASON_MAP: Record<string, string>;
+export const TOOL_CANCEL_REASON_MAP: Record<string, string>;
+export const TOOL_RESULT_MODE_MAP: Record<string, string>;
+export const TOOL_ROUTING_MODE_MAP: Record<string, string>;
+export const TOOL_SCHEMA_FORMAT_MAP: Record<string, string>;
+export const TOOL_SCHEMA_TYPE_MAP: Record<string, string>;
+export const TOOL_EVENT_MAP: Record<string, string>;
+export const SUPPORTED_LOCALES: string[];
+export const LOCALE_LABELS: Record<string, string>;
+export const DEFAULT_LOCALE: string;
+export const DEFAULT_LLM_MODEL: string;
+export const DEFAULT_AI_PROVIDER_MODEL: string;
+
+// Sub-engine factories & helpers
+export function initSkinEngine(setting?: SkinEngineOptions): SkinEngine;
+export function createCanvas(container: HTMLElement): HTMLCanvasElement;
+export function bootAvatar(skinEngine: SkinEngine, modelUrl?: string): Promise<any>;
+export function bootVRM(skinEngine: SkinEngine, setting?: any): Promise<any>;
+export function loadVRMFile(skinEngine: SkinEngine, file: File): Promise<void>;
+
+export function initBrainEngine(options?: any): any;
+export function initWebLLM(setting?: any, brain?: any): any;
+export function initAiProvider(setting?: any, brain?: any): any;
+export function initMemory(options?: any): any;
+export function compressContext(params?: any): any;
+
+export function initSpeechEngine(setting?: any): any;
+export function initDefaultSTTEngine(setting?: any): any;
+export function initDefaultTTSEngine(setting?: any): any;
+export function splitSentences(text: string): string[];
+
+export function initToolsEngine(setting?: any): any;
+export function toOpenAiTools(tools: any[]): any[];
+export function getAiAvailableTools(tools: any[]): any[];
+
+export function initI18nEngine(options?: any): any;
+export const defaultLocales: Record<string, any>;

@@ -682,6 +682,32 @@ widget.speechEngine.subscribe('spokenDisplayText', (text) => {
 
 ---
 
+### 8. 獨立子模組引入 (Modular Subpath Imports)
+
+若您不需要整套完整 Widget，只想單獨使用特定核心引擎（例如自建 3D 畫布、僅調用語音 STT/TTS、或單獨使用 WebLLM 大腦），可直接透過 Subpath Exports 按需載入：
+
+```javascript
+// 1. 僅使用 2D/3D 外觀渲染引擎 (Skin Engine)
+import { initSkinEngine, bootAvatar, bootVRM } from 'ai-avatar-bot-vanilla-js/skin';
+
+// 2. 僅使用 AI 大腦與對話推論引擎 (Brain Engine / WebLLM / AI Provider)
+import { initBrainEngine, initWebLLM, initAiProvider } from 'ai-avatar-bot-vanilla-js/brain';
+
+// 3. 僅使用語音合成與語音辨識 (Speech Engine / STT / TTS)
+import { initSpeechEngine, initDefaultSTTEngine, initDefaultTTSEngine } from 'ai-avatar-bot-vanilla-js/speech';
+
+// 4. 僅使用 Function Calling 工具調用系統 (Tools Engine)
+import { initToolsEngine, toOpenAiTools } from 'ai-avatar-bot-vanilla-js/tools';
+
+// 5. 僅使用多語系字典引擎 (i18n Engine)
+import { initI18nEngine, defaultLocales } from 'ai-avatar-bot-vanilla-js/i18n';
+
+// 6. 引入核心常數映射表
+import { GENDER_MAP, ENGINE_MODE_MAP, AVATAR_MODE_MAP } from 'ai-avatar-bot-vanilla-js/constants';
+```
+
+---
+
 ## 📚 實例 API 與方法
 
 初始化完成後，`initAvatarBot` 會回傳 `AiAvatarWidget` 實例，包含以下常用屬性與方法：

@@ -679,6 +679,32 @@ widget.speechEngine.subscribe('spokenDisplayText', (text) => {
 
 ---
 
+### 8. Modular Subpath Imports
+
+If you don't need the entire Widget and want to use specific sub-engines independently (e.g. custom 3D canvas only, STT/TTS speech only, or standalone WebLLM inference):
+
+```javascript
+// 1. 2D/3D Skin Rendering Engine only
+import { initSkinEngine, bootAvatar, bootVRM } from 'ai-avatar-bot-vanilla-js/skin';
+
+// 2. AI Brain & LLM Inference Engine only (WebLLM / AI Provider)
+import { initBrainEngine, initWebLLM, initAiProvider } from 'ai-avatar-bot-vanilla-js/brain';
+
+// 3. Speech Synthesis & Recognition only (Speech Engine / STT / TTS)
+import { initSpeechEngine, initDefaultSTTEngine, initDefaultTTSEngine } from 'ai-avatar-bot-vanilla-js/speech';
+
+// 4. Function Calling Tools Engine only
+import { initToolsEngine, toOpenAiTools } from 'ai-avatar-bot-vanilla-js/tools';
+
+// 5. i18n Localization Engine only
+import { initI18nEngine, defaultLocales } from 'ai-avatar-bot-vanilla-js/i18n';
+
+// 6. Core Constants Map
+import { GENDER_MAP, ENGINE_MODE_MAP, AVATAR_MODE_MAP } from 'ai-avatar-bot-vanilla-js/constants';
+```
+
+---
+
 ## 📚 Instance API & Methods
 
 `initAvatarBot` returns the `AiAvatarWidget` instance:

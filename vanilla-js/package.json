@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Interactive 2D (Live2D) and 3D (VRM) AI Avatar Bot with Voice STT/TTS, In-Browser WebGPU WebLLM, Cloud AI Brain, Conversation Memory, and Function Calling",
   "type": "module",
-  "main": "./dist/ai-avatar-bot.umd.cjs",
+  "main": "./dist/ai-avatar-bot.cjs",
   "module": "./dist/ai-avatar-bot.js",
   "types": "./index.d.ts",
   "bin": {
@@ -25,9 +25,44 @@
     ".": {
       "types": "./index.d.ts",
       "import": "./dist/ai-avatar-bot.js",
-      "require": "./dist/ai-avatar-bot.umd.cjs"
+      "require": "./dist/ai-avatar-bot.cjs"
     },
-    "./style.css": "./dist/ai-avatar-bot.css",
+    "./brain": {
+      "types": "./index.d.ts",
+      "import": "./dist/brain.js",
+      "require": "./dist/brain.cjs"
+    },
+    "./skin": {
+      "types": "./index.d.ts",
+      "import": "./dist/skin.js",
+      "require": "./dist/skin.cjs"
+    },
+    "./speech": {
+      "types": "./index.d.ts",
+      "import": "./dist/speech.js",
+      "require": "./dist/speech.cjs"
+    },
+    "./tools": {
+      "types": "./index.d.ts",
+      "import": "./dist/tools.js",
+      "require": "./dist/tools.cjs"
+    },
+    "./i18n": {
+      "types": "./index.d.ts",
+      "import": "./dist/i18n.js",
+      "require": "./dist/i18n.cjs"
+    },
+    "./plugins": {
+      "types": "./index.d.ts",
+      "import": "./dist/plugins.js",
+      "require": "./dist/plugins.cjs"
+    },
+    "./constants": {
+      "types": "./index.d.ts",
+      "import": "./dist/constants.js",
+      "require": "./dist/constants.cjs"
+    },
+    "./style.css": "./dist/style.css",
     "./dist/*": "./dist/*",
     "./avatar-skin/*": "./avatar-skin/*",
     "./package.json": "./package.json",
