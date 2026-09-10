@@ -256,6 +256,15 @@ export const DEFAULT_2D_HALF_ZOOM = 1.9;
 export const DEFAULT_2D_FULL_ZOOM = 1.0;
 
 /**
+ * 預設 2D Live2D 縮放倍率（依據預設畫面比例連動）。
+ * @type {number}
+ */
+export const DEFAULT_2D_ZOOM =
+  DEFAULT_FIT_MODE === FIT_MODE_MAP.HALF
+    ? DEFAULT_2D_HALF_ZOOM
+    : DEFAULT_2D_FULL_ZOOM;
+
+/**
  * 預設 2D Live2D 水平偏移像素。
  * @type {number}
  */
@@ -286,10 +295,13 @@ export const DEFAULT_2D_FULL_ANCHOR = Object.freeze({
 });
 
 /**
- * 預設 2D Live2D 模型錨點（相容別名）。
+ * 預設 2D Live2D 模型錨點（依據預設畫面比例連動）。
  * @type {Readonly<{x: number, y: number}>}
  */
-export const DEFAULT_2D_ANCHOR = DEFAULT_2D_HALF_ANCHOR;
+export const DEFAULT_2D_ANCHOR =
+  DEFAULT_FIT_MODE === FIT_MODE_MAP.HALF
+    ? DEFAULT_2D_HALF_ANCHOR
+    : DEFAULT_2D_FULL_ANCHOR;
 
 /**
  * 預設 3D VRM 半身模式攝影機視野 (FOV)。
@@ -304,10 +316,13 @@ export const DEFAULT_3D_HALF_CAMERA_FOV = 26;
 export const DEFAULT_3D_FULL_CAMERA_FOV = 30;
 
 /**
- * 預設 3D VRM 攝影機視角視野 (FOV)（相容別名）。
+ * 預設 3D VRM 攝影機視角視野 (FOV)（依據預設畫面比例連動）。
  * @type {number}
  */
-export const DEFAULT_3D_CAMERA_FOV = DEFAULT_3D_HALF_CAMERA_FOV;
+export const DEFAULT_3D_CAMERA_FOV =
+  DEFAULT_FIT_MODE === FIT_MODE_MAP.HALF
+    ? DEFAULT_3D_HALF_CAMERA_FOV
+    : DEFAULT_3D_FULL_CAMERA_FOV;
 
 /**
  * 預設 3D VRM 攝影機近裁剪面距離 (Near)。
@@ -342,10 +357,13 @@ export const DEFAULT_3D_FULL_CAMERA_POSITION = Object.freeze({
 });
 
 /**
- * 預設 3D VRM 攝影機世界座標位置（相容別名）。
+ * 預設 3D VRM 攝影機世界座標位置（依據預設畫面比例連動）。
  * @type {Readonly<{x: number, y: number, z: number}>}
  */
-export const DEFAULT_3D_CAMERA_POSITION = DEFAULT_3D_HALF_CAMERA_POSITION;
+export const DEFAULT_3D_CAMERA_POSITION =
+  DEFAULT_FIT_MODE === FIT_MODE_MAP.HALF
+    ? DEFAULT_3D_HALF_CAMERA_POSITION
+    : DEFAULT_3D_FULL_CAMERA_POSITION;
 
 /**
  * 預設 3D VRM 半身模式攝影機注視焦點座標。
@@ -368,10 +386,13 @@ export const DEFAULT_3D_FULL_CAMERA_LOOK_AT = Object.freeze({
 });
 
 /**
- * 預設 3D VRM 攝影機注視焦點座標（相容別名）。
+ * 預設 3D VRM 攝影機注視焦點座標（依據預設畫面比例連動）。
  * @type {Readonly<{x: number, y: number, z: number}>}
  */
-export const DEFAULT_3D_CAMERA_LOOK_AT = DEFAULT_3D_HALF_CAMERA_LOOK_AT;
+export const DEFAULT_3D_CAMERA_LOOK_AT =
+  DEFAULT_FIT_MODE === FIT_MODE_MAP.HALF
+    ? DEFAULT_3D_HALF_CAMERA_LOOK_AT
+    : DEFAULT_3D_FULL_CAMERA_LOOK_AT;
 
 /**
  * 預設 3D VRM 模型世界座標偏移。
@@ -442,6 +463,15 @@ export const DEFAULT_MALE_2D_MODEL_URL =
   '/avatar-skin/2d-model/male/natori_pro_t06.model3.json';
 
 /**
+ * 預設 2D Live2D 模型的 URL 路徑（依據預設性別連動）。
+ * @type {string}
+ */
+export const DEFAULT_2D_MODEL_URL =
+  DEFAULT_GENDER === GENDER_MAP.female
+    ? DEFAULT_FEMALE_2D_MODEL_URL
+    : DEFAULT_MALE_2D_MODEL_URL;
+
+/**
  * 預設女性 3D 模型 URL 路徑。
  * @type {string}
  */
@@ -453,6 +483,30 @@ export const DEFAULT_FEMALE_3D_MODEL_URL =
  * @type {string}
  */
 export const DEFAULT_MALE_3D_MODEL_URL = '/avatar-skin/3d-model/RockmanEXE.vrm';
+
+/**
+ * 預設 3D VRM 模型的 URL 路徑（依據預設性別連動）。
+ * @type {string}
+ */
+export const DEFAULT_3D_MODEL_URL =
+  DEFAULT_GENDER === GENDER_MAP.female
+    ? DEFAULT_FEMALE_3D_MODEL_URL
+    : DEFAULT_MALE_3D_MODEL_URL;
+
+/**
+ * 預設 3D VRM 模型的 URL 路徑（相容別名）。
+ * @type {string}
+ */
+export const DEFAULT_VRM_URL = DEFAULT_3D_MODEL_URL;
+
+/**
+ * 預設虛擬形象模型 URL 路徑（依據預設啟動引擎模式與預設性別連動）。
+ * @type {string}
+ */
+export const DEFAULT_MODEL_URL =
+  DEFAULT_START_MODE === ENGINE_MODE_MAP.threeDimensional
+    ? DEFAULT_3D_MODEL_URL
+    : DEFAULT_2D_MODEL_URL;
 
 /**
  * 預設是否允許使用者拖曳 3D 模型檔案 (.vrm) 至畫布進行即時換裝（預設關閉以符合正式上線產品需求）。
@@ -477,6 +531,104 @@ export const DEFAULT_FEMALE_NEURAL_VOICE = 'zh-TW-HsiaoChenNeural'; // 微軟神
  * @type {string}
  */
 export const DEFAULT_MALE_NEURAL_VOICE = 'zh-TW-YunJheNeural'; // 微軟神經語音「雲哲」
+
+/**
+ * 預設神經語音 ID（依據預設性別連動）。
+ * @type {string}
+ */
+export const DEFAULT_NEURAL_VOICE =
+  DEFAULT_GENDER === GENDER_MAP.female
+    ? DEFAULT_FEMALE_NEURAL_VOICE
+    : DEFAULT_MALE_NEURAL_VOICE;
+
+/**
+ * 依據性別取得預設神經語音 ID。
+ * @param {string} [gender=DEFAULT_GENDER] - 角色性別 ('female'|'male')
+ * @returns {string} 神經語音 ID
+ */
+export function getDefaultNeuralVoice(gender = DEFAULT_GENDER) {
+  return gender === GENDER_MAP.female
+    ? DEFAULT_FEMALE_NEURAL_VOICE
+    : DEFAULT_MALE_NEURAL_VOICE;
+}
+
+/**
+ * 依據性別取得預設 2D Live2D 模型 URL。
+ * @param {string} [gender=DEFAULT_GENDER] - 角色性別 ('female'|'male')
+ * @returns {string} 2D 模型 URL
+ */
+export function getDefault2DModelUrl(gender = DEFAULT_GENDER) {
+  return gender === GENDER_MAP.female
+    ? DEFAULT_FEMALE_2D_MODEL_URL
+    : DEFAULT_MALE_2D_MODEL_URL;
+}
+
+/**
+ * 依據性別取得預設 3D VRM 模型 URL。
+ * @param {string} [gender=DEFAULT_GENDER] - 角色性別 ('female'|'male')
+ * @returns {string} 3D 模型 URL
+ */
+export function getDefault3DModelUrl(gender = DEFAULT_GENDER) {
+  return gender === GENDER_MAP.female
+    ? DEFAULT_FEMALE_3D_MODEL_URL
+    : DEFAULT_MALE_3D_MODEL_URL;
+}
+
+/**
+ * 依據性別與引擎模式取得預設模型 URL。
+ * @param {string} [gender=DEFAULT_GENDER] - 角色性別 ('female'|'male')
+ * @param {string} [engineMode=DEFAULT_START_MODE] - 引擎模式 ('2d'|'3d')
+ * @returns {string} 模型 URL
+ */
+export function getDefaultModelUrl(
+  gender = DEFAULT_GENDER,
+  engineMode = DEFAULT_START_MODE
+) {
+  if (engineMode === ENGINE_MODE_MAP.threeDimensional) {
+    return getDefault3DModelUrl(gender);
+  }
+  return getDefault2DModelUrl(gender);
+}
+
+/**
+ * 依據畫面比例模式 (fitMode) 取得預設 2D 變換設定。
+ * @param {string} [fitMode=DEFAULT_FIT_MODE] - 畫面比例模式 ('half'|'full')
+ * @returns {{zoom: number, offsetX: number, offsetY: number, anchor: Readonly<{x: number, y: number}>}} 預設 2D 變換設定物件
+ */
+export function getDefault2DConfig(fitMode = DEFAULT_FIT_MODE) {
+  const isHalf = fitMode === FIT_MODE_MAP.HALF;
+  return {
+    zoom: isHalf === true ? DEFAULT_2D_HALF_ZOOM : DEFAULT_2D_FULL_ZOOM,
+    offsetX: DEFAULT_2D_OFFSET_X,
+    offsetY: DEFAULT_2D_OFFSET_Y,
+    anchor: isHalf === true ? DEFAULT_2D_HALF_ANCHOR : DEFAULT_2D_FULL_ANCHOR
+  };
+}
+
+/**
+ * 依據畫面比例模式 (fitMode) 取得預設 3D 攝影機設定。
+ * @param {string} [fitMode=DEFAULT_FIT_MODE] - 畫面比例模式 ('half'|'full')
+ * @returns {{fov: number, near: number, far: number, position: Readonly<{x: number, y: number, z: number}>, lookAt: Readonly<{x: number, y: number, z: number}>}} 預設 3D 攝影機設定物件
+ */
+export function getDefault3DCameraConfig(fitMode = DEFAULT_FIT_MODE) {
+  const isHalf = fitMode === FIT_MODE_MAP.HALF;
+  return {
+    fov:
+      isHalf === true
+        ? DEFAULT_3D_HALF_CAMERA_FOV
+        : DEFAULT_3D_FULL_CAMERA_FOV,
+    near: DEFAULT_3D_CAMERA_NEAR,
+    far: DEFAULT_3D_CAMERA_FAR,
+    position:
+      isHalf === true
+        ? DEFAULT_3D_HALF_CAMERA_POSITION
+        : DEFAULT_3D_FULL_CAMERA_POSITION,
+    lookAt:
+      isHalf === true
+        ? DEFAULT_3D_HALF_CAMERA_LOOK_AT
+        : DEFAULT_3D_FULL_CAMERA_LOOK_AT
+  };
+}
 
 /**
  * 工具路由決策模式映射表。

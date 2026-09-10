@@ -5,12 +5,13 @@ import {
   DEFAULT_START_MODE,
   FIT_MODE_MAP,
   DEFAULT_FIT_MODE,
-  GENDER_MAP,
   DEFAULT_GENDER,
   DEFAULT_FEMALE_2D_MODEL_URL,
   DEFAULT_MALE_2D_MODEL_URL,
   DEFAULT_FEMALE_3D_MODEL_URL,
   DEFAULT_MALE_3D_MODEL_URL,
+  getDefault2DModelUrl,
+  getDefault3DModelUrl,
   DEFAULT_2D_OFFSET_X,
   DEFAULT_2D_OFFSET_Y,
   DEFAULT_3D_CAMERA_NEAR,
@@ -200,9 +201,7 @@ export function initSkinEngine(setting = {}) {
   const safeModelUrl =
     typeof modelUrl === 'string' && modelUrl !== ''
       ? modelUrl
-      : setting.gender === GENDER_MAP.female
-        ? DEFAULT_FEMALE_2D_MODEL_URL
-        : DEFAULT_MALE_2D_MODEL_URL;
+      : getDefault2DModelUrl(setting.gender || DEFAULT_GENDER);
 
   const safeGesture2D =
     typeof gesture2D === 'function'
@@ -218,9 +217,7 @@ export function initSkinEngine(setting = {}) {
       ? vrmUrl
       : /\.vrm($|\?)/i.test(safeModelUrl)
         ? safeModelUrl
-        : setting.gender === GENDER_MAP.female
-          ? DEFAULT_FEMALE_3D_MODEL_URL
-          : DEFAULT_MALE_3D_MODEL_URL;
+        : getDefault3DModelUrl(setting.gender || DEFAULT_GENDER);
 
   const safeGesture3D =
     typeof gesture3D === 'function'
@@ -262,7 +259,8 @@ export function initSkinEngine(setting = {}) {
           ? setting.offsetY
           : DEFAULT_2D_OFFSET_Y,
     anchor: {
-      ...(typeof skin2dOption.anchor === 'object' && skin2dOption.anchor !== null
+      ...(typeof skin2dOption.anchor === 'object' &&
+      skin2dOption.anchor !== null
         ? skin2dOption.anchor
         : typeof setting.anchor === 'object' && setting.anchor !== null
           ? setting.anchor
@@ -362,11 +360,8 @@ export function initSkinEngine(setting = {}) {
     setGender: (gender) => {
       store.setState({ gender });
       // Sync internal logic
-      if (gender === GENDER_MAP.female) {
-        skinEngine.modelUrl = DEFAULT_FEMALE_2D_MODEL_URL;
-      } else if (gender === GENDER_MAP.male) {
-        skinEngine.modelUrl = DEFAULT_MALE_2D_MODEL_URL;
-      }
+      skinEngine.modelUrl = getDefault2DModelUrl(gender);
+      skinEngine.vrmUrl = getDefault3DModelUrl(gender);
     },
     setEmotion: (emotion) => {
       store.setState({ emotion });

@@ -5,8 +5,7 @@ import {
   DEFAULT_AVATAR_MODE,
   GENDER_MAP,
   DEFAULT_GENDER,
-  DEFAULT_FEMALE_NEURAL_VOICE,
-  DEFAULT_MALE_NEURAL_VOICE,
+  getDefaultNeuralVoice,
   DEFAULT_ENABLE_MODEL_DROP,
   DEFAULT_ENABLE_AUTO_CONTINUE,
   DEFAULT_MAX_AUTO_CONTINUATIONS,
@@ -109,11 +108,7 @@ export function normalizeOptions(rawOptions = {}) {
 
   let safeNeuralVoice = neuralVoice;
   if (typeof neuralVoice !== 'string' || neuralVoice === '') {
-    if (safeGender === GENDER_MAP.female) {
-      safeNeuralVoice = DEFAULT_FEMALE_NEURAL_VOICE;
-    } else {
-      safeNeuralVoice = DEFAULT_MALE_NEURAL_VOICE;
-    }
+    safeNeuralVoice = getDefaultNeuralVoice(safeGender);
   }
 
   let initialMinimal = false;
