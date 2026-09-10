@@ -301,6 +301,12 @@ export interface AvatarBotOptions {
   greeting?: string;
   companionGreeting?: string;
   assistantGreeting?: string;
+  suggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
+  companionSuggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
+  assistantSuggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
+  suggestedTitle?: string | Record<string, string> | ((context: any) => string);
+  companionSuggestedTitle?: string | Record<string, string> | ((context: any) => string);
+  assistantSuggestedTitle?: string | Record<string, string> | ((context: any) => string);
   onReady?: (widget: AiAvatarWidget) => void;
   onMinimalTrigger?: (isMinimal: boolean, widget: AiAvatarWidget) => void;
   onError?: (error: Error, widget: AiAvatarWidget) => void;
@@ -381,6 +387,17 @@ export interface AiAvatarWidget {
   skinGender: string | null;
   locale: string;
   avatarMode: AvatarMode;
+  suggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
+  companionSuggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
+  assistantSuggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
+  suggestedTitle?: string | Record<string, string> | ((context: any) => string);
+  companionSuggestedTitle?: string | Record<string, string> | ((context: any) => string);
+  assistantSuggestedTitle?: string | Record<string, string> | ((context: any) => string);
+  setSuggestedQuestions: (
+    questions?: string[] | Record<string, string[]> | ((context: any) => string[]),
+    title?: string | Record<string, string> | ((context: any) => string)
+  ) => void;
+  renderSuggestions: () => void;
   showMinimalEl: () => void;
   hiddenMinimalEl: () => void;
   readonly brainEngine: any;

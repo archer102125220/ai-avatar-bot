@@ -254,6 +254,23 @@ const avatarWidget = await initAvatarBot({
 | `enableModelDrop` | `boolean` | `false` | 是否允許使用者拖曳 `.vrm` 模型檔案至畫布即時換裝（預設關閉以維護正式產品安全） |
 | `enableEngineToggle` | `boolean` | `true` | 是否在同時具備 2D 與 3D 模型時顯示 2D/3D 切換按鈕（預設 true 開啟） |
 
+### 建議提問與問候語設定 (Suggestions & Greetings)
+
+| 參數名 | 類型 | 預設值 | 說明 |
+| :--- | :--- | :--- | :--- |
+| `suggestedQuestions` | `Array\|Object\|Function` | 內建預設問題 | 全域通用建議提問清單（支援字串陣列、多語系物件 `{ 'zh-TW': [...], 'en-US': [...] }` 或回呼函式） |
+| `companionSuggestedQuestions` | `Array\|Object\|Function` | 內建陪伴提問 | 陪伴模式（`companion`）專用建議提問清單 |
+| `assistantSuggestedQuestions` | `Array\|Object\|Function` | 內建助理提問 | 助理模式（`assistant`）專用建議提問清單 |
+| `suggestedTitle` | `string\|Object\|Function` | `'💬 你可以問我：'` | 全域通用建議提問區塊標題（支援字串、多語系物件或回呼函式） |
+| `companionSuggestedTitle` | `string\|Object\|Function` | `'💬 可以跟我聊：'` | 陪伴模式專用建議提問標題 |
+| `assistantSuggestedTitle` | `string\|Object\|Function` | `'💬 你可以問我：'` | 助理模式專用建議提問標題 |
+| `greeting` | `string\|Object\|Function` | 內建問候語 | 點擊虛擬人時的問候語 |
+| `companionGreeting` | `string\|Object\|Function` | 內建陪伴問候 | 陪伴模式專屬點擊問候語 |
+| `assistantGreeting` | `string\|Object\|Function` | 內建助理問候 | 助理模式專屬點擊問候語 |
+| `welcomeText` | `string\|Object\|Function` | 內建歡迎詞 | 首次進入時的歡迎訊息 |
+| `companionWelcomeText` | `string\|Object\|Function` | 內建陪伴歡迎詞 | 陪伴模式專屬首次進入歡迎詞 |
+| `assistantWelcomeText` | `string\|Object\|Function` | 內建助理歡迎詞 | 助理模式專屬首次進入歡迎詞 |
+
 ### 工具擴充與外掛 (Tools & Plugins)
 
 | 參數名 | 類型 | 預設值 | 說明 |
@@ -671,7 +688,47 @@ const widget = await initAvatarBot({
 
 ---
 
-### 7. 無頭模式 (Headless Mode) 與自訂 UI
+### 7. 自訂建議提問與多語系字典覆寫 (Suggestions & i18n)
+
+虛擬人支援在對話框上方顯示「建議提問按鈕（Suggestions）」，引導使用者快速發問。您可以透過靜態陣列、多語系物件、或在運行時透過資料驅動動態更新問題列表：
+
+```javascript
+import { initAvatarBot } from 'ai-avatar-bot-vanilla-js';
+
+// 方式 1：初始化時指定自訂問題與多語系標題
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  suggestedTitle: {
+    'zh-TW': '💬 常見問題：',
+    'en-US': '💬 FAQ:'
+  },
+  suggestedQuestions: {
+    'zh-TW': ['如何預約諮詢？', '服務方案有哪些？', '支援哪些付款方式？'],
+    'en-US': ['How to book a demo?', 'What plans are available?', 'Payment methods?']
+  }
+});
+
+// 方式 2：運行時資料驅動動態更新提問（UI 會自動響應並重新渲染）
+widget.suggestedQuestions = ['新功能介紹', '會員專屬優惠'];
+
+// 亦可使用批次更新方法同時變更問題與標題
+widget.setSuggestedQuestions(['問題一', '問題二'], '💬 今日推薦話題：');
+
+// 方式 3：透過 i18nMessages 字典覆寫預設語系的建議問題
+const widgetWithI18n = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  i18nMessages: {
+    'zh-TW': {
+      'suggestions.title.assistant': '💬 快速選單：',
+      'suggestions.items.assistant': ['最新活動', '常見問題', '聯絡真人客服']
+    }
+  }
+});
+```
+
+---
+
+### 8. 無頭模式 (Headless Mode) 與自訂 UI
 
 如果您想使用 **Vue、React 或 Svelte** 完全接管 UI 介面，可以直接使用 Headless 模式或訂閱底層 Store 狀態：
 
@@ -699,7 +756,7 @@ widget.speechEngine.subscribe('spokenDisplayText', (text) => {
 
 ---
 
-### 8. 獨立子模組引入 (Modular Subpath Imports)
+### 9. 獨立子模組引入 (Modular Subpath Imports)
 
 若您不需要整套完整 Widget，只想單獨使用特定核心引擎（例如自建 3D 畫布、僅調用語音 STT/TTS、或單獨使用 WebLLM 大腦），可直接透過 Subpath Exports 按需載入：
 

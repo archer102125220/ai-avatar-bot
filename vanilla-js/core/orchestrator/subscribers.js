@@ -165,6 +165,20 @@ export function setupStoreSubscribers({
       speechEngine.setLocale(newLocale);
     }
   });
+
+  const suggestionStateKeys = [
+    'suggestedQuestions',
+    'companionSuggestedQuestions',
+    'assistantSuggestedQuestions',
+    'suggestedTitle',
+    'companionSuggestedTitle',
+    'assistantSuggestedTitle'
+  ];
+  suggestionStateKeys.forEach((key) => {
+    rootStore.subscribe(key, () => {
+      renderSuggestions(widget);
+    });
+  });
 }
 
 /**
@@ -193,6 +207,11 @@ export function setupI18nSubscribers({
     i18nEngine !== null &&
     typeof i18nEngine.subscribe === 'function'
   ) {
+    i18nEngine.subscribe('messages', () => {
+      updateUIStrings(container, i18nEngine);
+      renderSuggestions(widget);
+    });
+
     i18nEngine.subscribe('locale', (newLocale, localeLabels) => {
       const { brainEngine, speechEngine } = getEngines();
       const uiDom = getUiDom();

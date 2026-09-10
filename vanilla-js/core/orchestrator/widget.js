@@ -17,7 +17,7 @@ import {
   DEFAULT_ENABLE_MODEL_DROP,
   DEFAULT_ENABLE_ENGINE_TOGGLE
 } from '../constants';
-import { initSkinModeChangeButton } from '../ui';
+import { initSkinModeChangeButton, renderSuggestions } from '../ui';
 
 /**
  * 建立並封裝對外公開的 AiAvatarWidget 實例物件。
@@ -461,22 +461,63 @@ export function createAvatarWidget({
     },
 
     get suggestedQuestions() {
-      return options.suggestedQuestions;
+      return rootStore.getState().suggestedQuestions;
+    },
+    set suggestedQuestions(newQuestions) {
+      options.suggestedQuestions = newQuestions;
+      rootStore.setState({ suggestedQuestions: newQuestions });
     },
     get companionSuggestedQuestions() {
-      return options.companionSuggestedQuestions;
+      return rootStore.getState().companionSuggestedQuestions;
+    },
+    set companionSuggestedQuestions(newQuestions) {
+      options.companionSuggestedQuestions = newQuestions;
+      rootStore.setState({ companionSuggestedQuestions: newQuestions });
     },
     get assistantSuggestedQuestions() {
-      return options.assistantSuggestedQuestions;
+      return rootStore.getState().assistantSuggestedQuestions;
+    },
+    set assistantSuggestedQuestions(newQuestions) {
+      options.assistantSuggestedQuestions = newQuestions;
+      rootStore.setState({ assistantSuggestedQuestions: newQuestions });
     },
     get suggestedTitle() {
-      return options.suggestedTitle;
+      return rootStore.getState().suggestedTitle;
+    },
+    set suggestedTitle(newTitle) {
+      options.suggestedTitle = newTitle;
+      rootStore.setState({ suggestedTitle: newTitle });
     },
     get companionSuggestedTitle() {
-      return options.companionSuggestedTitle;
+      return rootStore.getState().companionSuggestedTitle;
+    },
+    set companionSuggestedTitle(newTitle) {
+      options.companionSuggestedTitle = newTitle;
+      rootStore.setState({ companionSuggestedTitle: newTitle });
     },
     get assistantSuggestedTitle() {
-      return options.assistantSuggestedTitle;
+      return rootStore.getState().assistantSuggestedTitle;
+    },
+    set assistantSuggestedTitle(newTitle) {
+      options.assistantSuggestedTitle = newTitle;
+      rootStore.setState({ assistantSuggestedTitle: newTitle });
+    },
+
+    setSuggestedQuestions(questions, title) {
+      const updates = {};
+      if (typeof questions !== 'undefined') {
+        options.suggestedQuestions = questions;
+        updates.suggestedQuestions = questions;
+      }
+      if (typeof title !== 'undefined') {
+        options.suggestedTitle = title;
+        updates.suggestedTitle = title;
+      }
+      rootStore.setState(updates);
+    },
+
+    renderSuggestions() {
+      renderSuggestions(aiAvatarWidget);
     },
 
     setSkin2d(config = {}) {

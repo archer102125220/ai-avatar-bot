@@ -211,7 +211,13 @@ export function normalizeOptions(rawOptions = {}) {
           ? locale
           : 'zh-TW',
     enableModelDrop: isModelDropEnabled,
-    enableEngineToggle: isEngineToggleEnabled
+    enableEngineToggle: isEngineToggleEnabled,
+    suggestedQuestions: rawOptions.suggestedQuestions,
+    companionSuggestedQuestions: rawOptions.companionSuggestedQuestions,
+    assistantSuggestedQuestions: rawOptions.assistantSuggestedQuestions,
+    suggestedTitle: rawOptions.suggestedTitle,
+    companionSuggestedTitle: rawOptions.companionSuggestedTitle,
+    assistantSuggestedTitle: rawOptions.assistantSuggestedTitle
   });
 
   return {

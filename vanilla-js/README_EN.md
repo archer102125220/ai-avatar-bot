@@ -254,6 +254,23 @@ Options object accepted by `initAvatarBot(options)`:
 | `enableModelDrop` | `boolean` | `false` | Whether to allow users to drag and drop `.vrm` files onto canvas to hot-swap models (disabled by default for production security). |
 | `enableEngineToggle` | `boolean` | `true` | Whether to show the 2D/3D engine toggle button when both 2D and 3D models are available (defaults to `true`). |
 
+### Suggestions & Greetings Settings
+
+| Option | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `suggestedQuestions` | `Array\|Object\|Function` | Built-in defaults | Global suggested questions list (supports string array, multi-language dictionary `{ 'zh-TW': [...], 'en-US': [...] }`, or dynamic generator function). |
+| `companionSuggestedQuestions` | `Array\|Object\|Function` | Built-in companion defaults | Companion mode (`companion`) specific suggested questions list. |
+| `assistantSuggestedQuestions` | `Array\|Object\|Function` | Built-in assistant defaults | Assistant mode (`assistant`) specific suggested questions list. |
+| `suggestedTitle` | `string\|Object\|Function` | `'💬 You can ask me:'` | Global suggested questions section title (supports string, multi-language dictionary, or function). |
+| `companionSuggestedTitle` | `string\|Object\|Function` | `'💬 Chat with me about:'` | Companion mode specific suggested questions title. |
+| `assistantSuggestedTitle` | `string\|Object\|Function` | `'💬 You can ask me:'` | Assistant mode specific suggested questions title. |
+| `greeting` | `string\|Object\|Function` | Built-in greeting | Greeting spoken when clicking the avatar. |
+| `companionGreeting` | `string\|Object\|Function` | Built-in companion greeting | Companion mode specific click greeting. |
+| `assistantGreeting` | `string\|Object\|Function` | Built-in assistant greeting | Assistant mode specific click greeting. |
+| `welcomeText` | `string\|Object\|Function` | Built-in welcome text | Initial welcome text when launching the widget. |
+| `companionWelcomeText` | `string\|Object\|Function` | Built-in companion welcome | Companion mode specific initial welcome text. |
+| `assistantWelcomeText` | `string\|Object\|Function` | Built-in assistant welcome | Assistant mode specific initial welcome text. |
+
 ### Tools & Plugins
 
 | Option | Type | Default | Description |
@@ -668,7 +685,47 @@ const widget = await initAvatarBot({
 
 ---
 
-### 7. Headless Mode & Custom UI Integration
+### 7. Custom Suggested Questions & i18n Overrides (Suggestions & i18n)
+
+The widget supports interactive suggested questions chips displayed above the input dock. You can configure them via static arrays, multi-language dictionaries, or update them dynamically at runtime via data-driven state updates:
+
+```javascript
+import { initAvatarBot } from 'ai-avatar-bot-vanilla-js';
+
+// Method 1: Customize suggestions and localized titles on initialization
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  suggestedTitle: {
+    'zh-TW': '💬 常見問題：',
+    'en-US': '💬 FAQ:'
+  },
+  suggestedQuestions: {
+    'zh-TW': ['如何預約諮詢？', '服務方案有哪些？', '支援哪些付款方式？'],
+    'en-US': ['How to book a demo?', 'What plans are available?', 'Payment methods?']
+  }
+});
+
+// Method 2: Data-driven dynamic update at runtime (UI auto re-renders instantly)
+widget.suggestedQuestions = ['New Feature Tour', 'Member Discounts'];
+
+// Or batch update questions and title together
+widget.setSuggestedQuestions(['Question 1', 'Question 2'], '💬 Today Featured Topics:');
+
+// Method 3: Override default questions via i18nMessages dictionary
+const widgetWithI18n = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  i18nMessages: {
+    'en-US': {
+      'suggestions.title.assistant': '💬 Quick Menu:',
+      'suggestions.items.assistant': ['Latest News', 'Product FAQ', 'Talk to Human']
+    }
+  }
+});
+```
+
+---
+
+### 8. Headless Mode & Custom UI Integration
 
 To build your own interface with **Vue, React, Svelte, or Angular**, run in Headless mode and subscribe to reactive stores:
 
@@ -696,7 +753,7 @@ widget.speechEngine.subscribe('spokenDisplayText', (text) => {
 
 ---
 
-### 8. Modular Subpath Imports
+### 9. Modular Subpath Imports
 
 If you don't need the entire Widget and want to use specific sub-engines independently (e.g. custom 3D canvas only, STT/TTS speech only, or standalone WebLLM inference):
 

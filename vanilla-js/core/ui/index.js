@@ -12,12 +12,12 @@
  * @property {Object} [skinEngine] - 外觀引擎實例
  * @property {Object} [i18nEngine] - 多語系引擎實例
  * @property {string} [locale] - 當前語系代碼
- * @property {string[]} [suggestedQuestions] - 建議對話列表
- * @property {string} [suggestedTitle] - 建議對話標題
- * @property {string[]} [companionSuggestedQuestions] - 陪伴模式的建議對話列表
- * @property {string} [companionSuggestedTitle] - 陪伴模式的建議對話標題
- * @property {string[]} [assistantSuggestedQuestions] - 助理模式的建議對話列表
- * @property {string} [assistantSuggestedTitle] - 助理模式的建議對話標題
+ * @property {string[]|Record<string, string[]>|((context: any) => string[])} [suggestedQuestions] - 建議對話列表
+ * @property {string|Record<string, string>|((context: any) => string)} [suggestedTitle] - 建議對話標題
+ * @property {string[]|Record<string, string[]>|((context: any) => string[])} [companionSuggestedQuestions] - 陪伴模式的建議對話列表
+ * @property {string|Record<string, string>|((context: any) => string)} [companionSuggestedTitle] - 陪伴模式的建議對話標題
+ * @property {string[]|Record<string, string[]>|((context: any) => string[])} [assistantSuggestedQuestions] - 助理模式的建議對話列表
+ * @property {string|Record<string, string>|((context: any) => string)} [assistantSuggestedTitle] - 助理模式的建議對話標題
  * @property {string} [avatarMode] - 虛擬人模式 ('companion' | 'assistant')
  * @property {Object} [AVATAR_MODE_MAP] - 虛擬人模式常數對應表
  * @property {Object} [ENGINE_MODE_MAP] - 引擎模式常數對應表
