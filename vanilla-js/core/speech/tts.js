@@ -834,7 +834,7 @@ export function initDefaultTTSEngine(options = {}) {
         : undefined;
     if (
       speechItem.instant === true &&
-      state.tapGreetingBuffer !== null &&
+      state.tapGreetingBuffer === null &&
       speechItem.text === cachedGreetingKey
     ) {
       engine.preloadTapGreeting(speechItem.text);

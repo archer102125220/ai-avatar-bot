@@ -184,7 +184,11 @@ export async function initSpeechEngine(setting = {}) {
     isSpeaking: false,
     isListening: false,
     spokenDisplayText: '',
-    spokenAudioText: '',
+    spokenAudioState: {
+      text: '',
+      seq: 0,
+      options: {}
+    },
     gender:
       typeof setting.getGender === 'function'
         ? setting.getGender()
@@ -208,19 +212,20 @@ export async function initSpeechEngine(setting = {}) {
 
   let spokenDisplayTextTimer = null;
   store.subscribe('spokenDisplayText', (displayText) => {
-    if (typeof setting.onSpokenDisplayTextChange === 'function') {
-      setting.onSpokenDisplayTextChange(displayText);
-    }
-    if (spokenDisplayTextTimer !== null) {
-      clearTimeout(spokenDisplayTextTimer);
-    }
-    if (displayText !== '') {
+    if (typeof displayText === 'string' && displayText !== '') {
+      if (typeof setting.onSpokenDisplayTextChange === 'function') {
+        setting.onSpokenDisplayTextChange(displayText);
+      }
+      if (spokenDisplayTextTimer !== null) {
+        clearTimeout(spokenDisplayTextTimer);
+      }
       spokenDisplayTextTimer = setTimeout(() => {
         if (
           store.getState().isSpeaking !== true &&
           typeof setting.onSpokenDisplayTextTimeout === 'function'
         ) {
           setting.onSpokenDisplayTextTimeout();
+          store.setState({ spokenDisplayText: '' });
         }
       }, 6000);
     }
@@ -253,12 +258,22 @@ export async function initSpeechEngine(setting = {}) {
     }
   });
 
-  store.subscribe('spokenAudioText', (audioText) => {
-    store.setState({ spokenDisplayText: audioText });
-    if (typeof setting.onSpeaking === 'function') {
-      setting.onSpeaking(audioText);
+  store.subscribe('spokenAudioState', (audioState) => {
+    if (
+      typeof audioState?.text === 'string' &&
+      audioState.text.trim() !== ''
+    ) {
+      store.setState({ spokenDisplayText: audioState.text });
+      if (typeof setting.onSpeaking === 'function') {
+        setting.onSpeaking(audioState.text);
+      }
+      speechEngine.speak(
+        audioState.text,
+        typeof audioState.options === 'object' && audioState.options !== null
+          ? audioState.options
+          : { instant: true }
+      );
     }
-    speechEngine.speak(audioText);
   });
 
   // --- TTS Setup ---
@@ -270,6 +285,9 @@ export async function initSpeechEngine(setting = {}) {
     neuralVoice: neuralVoice,
     gender: store.getState().gender,
     locale: store.getState().locale,
+    onSpokenDisplayTextChange: (audioText) => {
+      store.setState({ spokenDisplayText: audioText });
+    },
     onSpeakStart: (audioText) => {
       if (typeof setting.onSpeaking === 'function') {
         setting.onSpeaking(audioText);
@@ -436,10 +454,18 @@ export async function initSpeechEngine(setting = {}) {
     },
 
     get spokenAudioText() {
-      return store.getState().spokenAudioText;
+      return store.getState().spokenAudioState?.text || '';
     },
     set spokenAudioText(newAudioText) {
-      store.setState({ spokenAudioText: newAudioText });
+      const safeText = typeof newAudioText === 'string' ? newAudioText : '';
+      store.setState((prevState) => ({
+        spokenAudioState: {
+          text: safeText,
+          seq: ((prevState.spokenAudioState?.seq) || 0) + 1,
+          options: { instant: true },
+          timestamp: Date.now()
+        }
+      }));
     },
 
     stopSpeaking: () => {
@@ -609,6 +635,7 @@ export async function initSpeechEngine(setting = {}) {
       spokenDisplayTextTimer = setTimeout(() => {
         if (typeof setting.onSpokenDisplayTextTimeout === 'function') {
           setting.onSpokenDisplayTextTimeout();
+          store.setState({ spokenDisplayText: '' });
         }
       }, 4000);
       if (typeof setting.onSpeakingEnd === 'function') {
