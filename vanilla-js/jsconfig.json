@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "checkJs": false,
+    "baseUrl": "."
+  },
+  "include": [
+    "core/**/*",
+    "example/**/*",
+    "plugins/**/*",
+    "bin/**/*",
+    "index.d.ts",
+    "index.html"
+  ]
+}
