@@ -16,8 +16,8 @@
       }
 
       #app {
-        width: 60%;
-        height: 70%;
+        width: 50%;
+        height: 60%;
       }
     </style>
   </head>
@@ -29,7 +29,8 @@
         initAvatarBot,
         GENDER_MAP,
         AVATAR_MODE_MAP,
-        ENGINE_MODE_MAP
+        ENGINE_MODE_MAP,
+        FIT_MODE_MAP
       } from './core';
       import { KNOWLEDGE, COMPANION_KNOWLEDGE } from './example/knowledge.js';
 
@@ -44,6 +45,28 @@
         // aiProviderBaseUrl: 'http://localhost:5173/api/ollama',
         knowledge: KNOWLEDGE,
         startMode: ENGINE_MODE_MAP.threeDimensional,
+        fitMode: FIT_MODE_MAP.HALF, // FIT_MODE_MAP.HALF (半身特寫) | FIT_MODE_MAP.FULL (全身)
+        // 2D Live2D 縮放與位置客製化 (Skin 2D Options)
+        // skin2d: {
+        //   zoom: 1.0,
+        //   offsetX: 0,
+        //   offsetY: 0,
+        //   anchor: { x: 0.5, y: 1.0 }
+        // },
+        // 3D VRM 攝影機與模型變換客製化 (Skin 3D Options)
+        // skin3d: {
+        //   camera: {
+        //     fov: 26,
+        //     position: { x: 0, y: 1.4, z: 2.5 },
+        //     lookAt: { x: 0, y: 1.2, z: 0 }
+        //   },
+        //   model: {
+        //     position: { x: 0, y: 0, z: 0 },
+        //     scale: { x: 1, y: 1, z: 1 },
+        //     rotation: { x: 0, y: 0, z: 0 }
+        //   },
+        //   pointerLook: true
+        // },
         companionKnowledge: COMPANION_KNOWLEDGE,
         gender: GENDER_MAP.male,
         // gender: GENDER_MAP.female,

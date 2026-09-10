@@ -1,4 +1,13 @@
-import { FIT_MODE_MAP, DEFAULT_FIT_MODE, GENDER_MAP } from '../constants';
+import {
+  FIT_MODE_MAP,
+  DEFAULT_FIT_MODE,
+  GENDER_MAP,
+  DEFAULT_2D_HALF_ZOOM,
+  DEFAULT_2D_FULL_ZOOM,
+  DEFAULT_2D_OFFSET_X,
+  DEFAULT_2D_OFFSET_Y,
+  DEFAULT_2D_ANCHOR
+} from '../constants';
 import { createCanvas } from './canvas';
 
 /**
@@ -7,6 +16,8 @@ import { createCanvas } from './canvas';
  * @property {HTMLCanvasElement} canvas - 渲染用畫布
  * @property {Object} avatarModel - Live2D 模型實例
  * @property {Object} pixiApp - PIXI Application 實例
+ * @property {() => void} fit - 重新適應並重繪尺寸位置的方法
+ * @property {(config: import('./index').Skin2DConfig) => void} updateTransform - 更新 2D 變換設定的方法
  * @property {() => void} dispose - 清除並釋放記憶體的方法
  */
 
@@ -142,7 +153,6 @@ export async function bootAvatar(skinEngine, modelUrl) {
 
     skinEngine.avatarModel = await Live2DModel.from(modelUrl);
     pixiApp.stage.addChild(skinEngine.avatarModel);
-    skinEngine.avatarModel.anchor.set(0.5, 1.0);
 
     // 關掉 Live2D 模型自帶的（日文）動作語音 — 只保留我們自己的 TTS（兩者來源不同，互不影響）
     try {
@@ -168,30 +178,92 @@ export async function bootAvatar(skinEngine, modelUrl) {
       }
     } catch (_error) {}
 
-    const safeFitMode = skinEngine.fitMode || DEFAULT_FIT_MODE;
     /**
-     * 根據設定的模式 (fitMode) 調整 2D 虛擬人的縮放與位置，使其適應畫布尺寸。
+     * 根據設定的模式 (fitMode) 與 skin2d 設定調整 2D 虛擬人的縮放與位置，使其適應畫布尺寸。
      * 若模式為 HALF，則會放大並將位置下移以呈現半身特寫。
      */
     function fit() {
+      if (
+        pixiApp === null ||
+        typeof pixiApp !== 'object' ||
+        skinEngine.avatarModel === null ||
+        typeof skinEngine.avatarModel !== 'object'
+      ) {
+        return;
+      }
       const width = pixiApp.renderer.width;
       const height = pixiApp.renderer.height;
       const nativeHeight =
         skinEngine.avatarModel?.internalModel?.height || 1000;
-      if (safeFitMode === FIT_MODE_MAP.HALF) {
-        const ZOOM = 1.9; // 放大倍率：越大越近（半身越緊）
-        const scale = (height / nativeHeight) * 0.95 * ZOOM;
+
+      const state =
+        typeof skinEngine.getState === 'function' ? skinEngine.getState() : {};
+      const currentFitMode =
+        state.fitMode || skinEngine.fitMode || DEFAULT_FIT_MODE;
+      const skin2d =
+        typeof state.skin2d === 'object' && state.skin2d !== null
+          ? state.skin2d
+          : {};
+
+      const isHalf = currentFitMode === FIT_MODE_MAP.HALF;
+      const defaultZoom = isHalf ? DEFAULT_2D_HALF_ZOOM : DEFAULT_2D_FULL_ZOOM;
+      const zoom =
+        typeof skin2d.zoom === 'number' && Number.isFinite(skin2d.zoom)
+          ? skin2d.zoom
+          : defaultZoom;
+      const offsetX =
+        typeof skin2d.offsetX === 'number' && Number.isFinite(skin2d.offsetX)
+          ? skin2d.offsetX
+          : DEFAULT_2D_OFFSET_X;
+      const offsetY =
+        typeof skin2d.offsetY === 'number' && Number.isFinite(skin2d.offsetY)
+          ? skin2d.offsetY
+          : DEFAULT_2D_OFFSET_Y;
+      const anchorX =
+        typeof skin2d.anchor?.x === 'number' &&
+        Number.isFinite(skin2d.anchor.x)
+          ? skin2d.anchor.x
+          : DEFAULT_2D_ANCHOR.x;
+      const anchorY =
+        typeof skin2d.anchor?.y === 'number' &&
+        Number.isFinite(skin2d.anchor.y)
+          ? skin2d.anchor.y
+          : DEFAULT_2D_ANCHOR.y;
+
+      skinEngine.avatarModel.anchor.set(anchorX, anchorY);
+
+      if (isHalf === true) {
+        const scale = (height / nativeHeight) * 0.95 * zoom;
         skinEngine.avatarModel.scale.set(scale);
-        skinEngine.avatarModel.x = width / 2;
-        skinEngine.avatarModel.y = nativeHeight * scale + height * 0.04; // 腳推到畫面外、頭留 4% 上緣
+        skinEngine.avatarModel.x = width * anchorX + offsetX;
+        skinEngine.avatarModel.y =
+          nativeHeight * scale + height * 0.04 + offsetY;
       } else {
-        skinEngine.avatarModel.scale.set((height / nativeHeight) * 0.95);
-        skinEngine.avatarModel.x = width / 2;
-        skinEngine.avatarModel.y = height;
+        const scale = (height / nativeHeight) * 0.95 * zoom;
+        skinEngine.avatarModel.scale.set(scale);
+        skinEngine.avatarModel.x = width * anchorX + offsetX;
+        skinEngine.avatarModel.y = height * anchorY + offsetY;
       }
     }
     fit();
     window.addEventListener('resize', fit);
+
+    let unsubscribeSkin2d = null;
+    let unsubscribeFitMode = null;
+    if (typeof skinEngine.subscribe === 'function') {
+      unsubscribeSkin2d = skinEngine.subscribe(
+        (state) => state.skin2d,
+        () => {
+          fit();
+        }
+      );
+      unsubscribeFitMode = skinEngine.subscribe(
+        (state) => state.fitMode,
+        () => {
+          fit();
+        }
+      );
+    }
 
     try {
       const groups = skinEngine.avatarModel.internalModel.settings.groups || [];
@@ -252,7 +324,23 @@ export async function bootAvatar(skinEngine, modelUrl) {
       get pixiApp() {
         return pixiApp;
       },
+      fit() {
+        fit();
+      },
+      updateTransform(config) {
+        if (typeof skinEngine.setSkin2d === 'function') {
+          skinEngine.setSkin2d(config);
+        }
+      },
       dispose() {
+        if (typeof unsubscribeSkin2d === 'function') {
+          unsubscribeSkin2d();
+          unsubscribeSkin2d = null;
+        }
+        if (typeof unsubscribeFitMode === 'function') {
+          unsubscribeFitMode();
+          unsubscribeFitMode = null;
+        }
         try {
           window.removeEventListener('resize', fit);
         } catch (_error) {}

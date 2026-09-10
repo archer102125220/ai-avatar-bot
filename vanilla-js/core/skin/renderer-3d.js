@@ -1,4 +1,16 @@
-import { ENGINE_MODE_MAP, DEFAULT_VRMA_ROOT_PATH } from '../constants';
+import {
+  ENGINE_MODE_MAP,
+  DEFAULT_VRMA_ROOT_PATH,
+  DEFAULT_3D_CAMERA_FOV,
+  DEFAULT_3D_CAMERA_NEAR,
+  DEFAULT_3D_CAMERA_FAR,
+  DEFAULT_3D_CAMERA_POSITION,
+  DEFAULT_3D_CAMERA_LOOK_AT,
+  DEFAULT_3D_MODEL_POSITION,
+  DEFAULT_3D_MODEL_SCALE,
+  DEFAULT_3D_MODEL_ROTATION,
+  DEFAULT_3D_POINTER_LOOK
+} from '../constants';
 import { createCanvas } from './canvas';
 
 /**
@@ -8,14 +20,70 @@ import { createCanvas } from './canvas';
  * @property {Object} vrm - 建立的 VRM 模型物件
  * @property {string[]} TAP_GESTURES - 支援的點擊手勢清單
  * @property {HTMLCanvasElement} canvas - 渲染用畫布
+ * @property {Object} camera - THREE.PerspectiveCamera 實例
+ * @property {Object} scene - THREE.Scene 實例
  * @property {(gestureName: string) => void} playGesture - 播放指定手勢的方法
  * @property {(paused: boolean) => void} setPaused - 暫停或恢復渲染的方法
+ * @property {(config: import('./index').Skin3DConfig) => void} updateTransform - 更新 3D 變換設定的方法
  * @property {() => void} dispose - 清除並釋放記憶體的方法
  */
 
 /**
+ * 將來源座標套用至 THREE.Vector3 或具有 set 方法的物件中。
+ * @param {{set: (x: number, y: number, z: number) => void}} target - 目標 Vector3 物件
+ * @param {Array<number>|{x?: number, y?: number, z?: number}|null|undefined} source - 來源座標 (陣列或物件)
+ * @param {{x: number, y: number, z: number}} defaultValues - 預設座標
+ */
+function applyVector3(target, source, defaultValues) {
+  if (Array.isArray(source) === true && source.length >= 3) {
+    target.set(
+      typeof source[0] === 'number' ? source[0] : defaultValues.x,
+      typeof source[1] === 'number' ? source[1] : defaultValues.y,
+      typeof source[2] === 'number' ? source[2] : defaultValues.z
+    );
+  } else if (typeof source === 'object' && source !== null) {
+    target.set(
+      typeof source.x === 'number' ? source.x : defaultValues.x,
+      typeof source.y === 'number' ? source.y : defaultValues.y,
+      typeof source.z === 'number' ? source.z : defaultValues.z
+    );
+  } else {
+    target.set(defaultValues.x, defaultValues.y, defaultValues.z);
+  }
+}
+
+/**
+ * 將來源縮放套用至 THREE.Vector3 物件中。
+ * @param {{set: (x: number, y: number, z: number) => void}} target - 目標 Vector3 物件
+ * @param {number|Array<number>|{x?: number, y?: number, z?: number}|null|undefined} source - 來源縮放
+ * @param {{x: number, y: number, z: number}} defaultValues - 預設縮放
+ */
+function applyScale(target, source, defaultValues) {
+  if (typeof source === 'number' && Number.isFinite(source)) {
+    target.set(source, source, source);
+  } else if (Array.isArray(source) === true && source.length >= 3) {
+    target.set(
+      typeof source[0] === 'number' ? source[0] : defaultValues.x,
+      typeof source[1] === 'number' ? source[1] : defaultValues.y,
+      typeof source[2] === 'number' ? source[2] : defaultValues.z
+    );
+  } else if (typeof source === 'object' && source !== null) {
+    target.set(
+      typeof source.x === 'number' ? source.x : defaultValues.x,
+      typeof source.y === 'number' ? source.y : defaultValues.y,
+      typeof source.z === 'number' ? source.z : defaultValues.z
+    );
+  } else {
+    target.set(defaultValues.x, defaultValues.y, defaultValues.z);
+  }
+}
+
+/**
  * VRM 手勢與行為設定
  * @typedef {Object} VRMSettings
+ * @property {import('./index').Skin3DCameraConfig} [camera] - 攝影機設定
+ * @property {import('./index').Skin3DModelConfig} [model] - 模型變換設定
+ * @property {boolean} [pointerLook] - 是否啟用眼睛跟隨滑鼠游標
  * @property {string} [bow] - 鞠躬動畫 URL
  * @property {string} [wave] - 揮手動畫 URL
  * @property {string} [thinking] - 思考動畫 URL
@@ -105,9 +173,35 @@ export async function bootVRM(skinEngine, setting = {}) {
     webGLRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     webGLRenderer.setClearColor(0x000000, 0);
 
-    const camera = new THREE.PerspectiveCamera(26, 1, 0.1, 20);
-    camera.position.set(0, 1.4, 2.5);
-    camera.lookAt(0, 1.2, 0);
+    const initialSkin3d =
+      typeof skinEngine?.getState === 'function'
+        ? skinEngine.getState()?.skin3d || {}
+        : {};
+    const cameraConfig = initialSkin3d.camera || {};
+    const fov =
+      typeof cameraConfig.fov === 'number' && Number.isFinite(cameraConfig.fov)
+        ? cameraConfig.fov
+        : DEFAULT_3D_CAMERA_FOV;
+    const near =
+      typeof cameraConfig.near === 'number' &&
+      Number.isFinite(cameraConfig.near)
+        ? cameraConfig.near
+        : DEFAULT_3D_CAMERA_NEAR;
+    const far =
+      typeof cameraConfig.far === 'number' && Number.isFinite(cameraConfig.far)
+        ? cameraConfig.far
+        : DEFAULT_3D_CAMERA_FAR;
+
+    const camera = new THREE.PerspectiveCamera(fov, 1, near, far);
+    applyVector3(
+      camera.position,
+      cameraConfig.position,
+      DEFAULT_3D_CAMERA_POSITION
+    );
+    const currentLookAt = new THREE.Vector3();
+    applyVector3(currentLookAt, cameraConfig.lookAt, DEFAULT_3D_CAMERA_LOOK_AT);
+    camera.lookAt(currentLookAt);
+
     const resize = () => {
       const stageElClientWidth = stageEl.clientWidth;
       const stageElClientHeight = stageEl.clientHeight;
@@ -199,6 +293,120 @@ export async function bootVRM(skinEngine, setting = {}) {
       sceneObject.frustumCulled = false;
     });
     scene.add(vrm.scene);
+
+    function applyModelTransform(modelConfig = {}) {
+      if (
+        vrm === null ||
+        typeof vrm !== 'object' ||
+        vrm.scene === null ||
+        typeof vrm.scene !== 'object'
+      ) {
+        return;
+      }
+      applyVector3(
+        vrm.scene.position,
+        modelConfig.position,
+        DEFAULT_3D_MODEL_POSITION
+      );
+      applyScale(vrm.scene.scale, modelConfig.scale, DEFAULT_3D_MODEL_SCALE);
+      if (
+        Array.isArray(modelConfig.rotation) === true &&
+        modelConfig.rotation.length >= 3
+      ) {
+        vrm.scene.rotation.set(
+          typeof modelConfig.rotation[0] === 'number'
+            ? modelConfig.rotation[0]
+            : DEFAULT_3D_MODEL_ROTATION.x,
+          typeof modelConfig.rotation[1] === 'number'
+            ? modelConfig.rotation[1]
+            : DEFAULT_3D_MODEL_ROTATION.y,
+          typeof modelConfig.rotation[2] === 'number'
+            ? modelConfig.rotation[2]
+            : DEFAULT_3D_MODEL_ROTATION.z
+        );
+      } else if (
+        typeof modelConfig.rotation === 'object' &&
+        modelConfig.rotation !== null
+      ) {
+        vrm.scene.rotation.set(
+          typeof modelConfig.rotation.x === 'number'
+            ? modelConfig.rotation.x
+            : DEFAULT_3D_MODEL_ROTATION.x,
+          typeof modelConfig.rotation.y === 'number'
+            ? modelConfig.rotation.y
+            : DEFAULT_3D_MODEL_ROTATION.y,
+          typeof modelConfig.rotation.z === 'number'
+            ? modelConfig.rotation.z
+            : DEFAULT_3D_MODEL_ROTATION.z
+        );
+      } else {
+        vrm.scene.rotation.set(
+          DEFAULT_3D_MODEL_ROTATION.x,
+          DEFAULT_3D_MODEL_ROTATION.y,
+          DEFAULT_3D_MODEL_ROTATION.z
+        );
+      }
+    }
+
+    applyModelTransform(initialSkin3d.model || {});
+
+    function applySkin3dConfig(skin3d = {}) {
+      if (typeof skin3d.camera === 'object' && skin3d.camera !== null) {
+        let needMatrixUpdate = false;
+        if (
+          typeof skin3d.camera.fov === 'number' &&
+          Number.isFinite(skin3d.camera.fov)
+        ) {
+          camera.fov = skin3d.camera.fov;
+          needMatrixUpdate = true;
+        }
+        if (
+          typeof skin3d.camera.near === 'number' &&
+          Number.isFinite(skin3d.camera.near)
+        ) {
+          camera.near = skin3d.camera.near;
+          needMatrixUpdate = true;
+        }
+        if (
+          typeof skin3d.camera.far === 'number' &&
+          Number.isFinite(skin3d.camera.far)
+        ) {
+          camera.far = skin3d.camera.far;
+          needMatrixUpdate = true;
+        }
+        if (needMatrixUpdate === true) {
+          camera.updateProjectionMatrix();
+        }
+        if (skin3d.camera.position !== undefined) {
+          applyVector3(
+            camera.position,
+            skin3d.camera.position,
+            DEFAULT_3D_CAMERA_POSITION
+          );
+        }
+        if (skin3d.camera.lookAt !== undefined) {
+          applyVector3(
+            currentLookAt,
+            skin3d.camera.lookAt,
+            DEFAULT_3D_CAMERA_LOOK_AT
+          );
+          camera.lookAt(currentLookAt);
+        }
+      }
+      if (typeof skin3d.model === 'object' && skin3d.model !== null) {
+        applyModelTransform(skin3d.model);
+      }
+    }
+
+    let unsubscribeSkin3d = null;
+    if (typeof skinEngine.subscribe === 'function') {
+      unsubscribeSkin3d = skinEngine.subscribe(
+        (state) => state.skin3d,
+        (skin3d) => {
+          applySkin3dConfig(skin3d);
+        }
+      );
+    }
 
     try {
       if (typeof vrm.lookAt === 'object' && vrm.lookAt !== null) {
@@ -406,7 +614,15 @@ export async function bootVRM(skinEngine, setting = {}) {
           }
         }
 
-        lookTarget.position.set(cursorX * 0.9, 1.42 - cursorY * 0.55, 1.6); // 眼睛 lookAt 目標跟游標（永遠更新）
+        const isPointerLookEnabled =
+          typeof skinEngine.getState === 'function'
+            ? skinEngine.getState()?.skin3d?.pointerLook !== false
+            : DEFAULT_3D_POINTER_LOOK;
+
+        if (isPointerLookEnabled === true) {
+          lookTarget.position.set(cursorX * 0.9, 1.42 - cursorY * 0.55, 1.6); // 眼睛 lookAt 目標跟游標（永遠更新）
+        }
+
         if (waving === false) {
           // 待機：直立、手放下、輕呼吸、頭跟游標
           const humanoid = vrm.humanoid;
@@ -420,9 +636,13 @@ export async function bootVRM(skinEngine, setting = {}) {
           let rightArmRotationZ = -1.15 * armSign;
           const spineRotationX = Math.sin(elapsedTime * 0.9) * 0.018;
           let spineRotationY = Math.sin(elapsedTime * 0.5) * 0.012;
-          let headRotationY = cursorX * 0.3;
+          let headRotationY =
+            isPointerLookEnabled === true
+              ? cursorX * 0.3
+              : Math.sin(elapsedTime * 0.5) * 0.02;
           let headRotationX =
-            cursorY * 0.12 + Math.sin(elapsedTime * 0.5) * 0.01;
+            (isPointerLookEnabled === true ? cursorY * 0.12 : 0) +
+            Math.sin(elapsedTime * 0.5) * 0.01;
           if (skinEngine.getState().isSpeaking === true) {
             // 講話時：身體/頭/手持續小動作（疊在站姿上）
             const speechTime = elapsedTime * 3.0;
@@ -472,6 +692,12 @@ export async function bootVRM(skinEngine, setting = {}) {
       get canvas() {
         return canvas;
       },
+      get camera() {
+        return camera;
+      },
+      get scene() {
+        return scene;
+      },
       get playGesture() {
         return playGesture;
       },
@@ -482,10 +708,19 @@ export async function bootVRM(skinEngine, setting = {}) {
           animationLoop();
         }
       },
+      updateTransform(config) {
+        if (typeof skinEngine.setSkin3d === 'function') {
+          skinEngine.setSkin3d(config);
+        }
+      },
       dispose() {
         alive = false;
         skinEngine.gesture3D = null;
         skinEngine.gesture2D = null;
+        if (typeof unsubscribeSkin3d === 'function') {
+          unsubscribeSkin3d();
+          unsubscribeSkin3d = null;
+        }
         try {
           clearInterval(idleBreak);
         } catch (_error) {}

@@ -235,8 +235,16 @@ Options object accepted by `initAvatarBot(options)`:
 | `ttsEndpoint` | `string` | `'api/tts'` | Custom neural TTS backend API endpoint. |
 | `neuralVoice` | `string` | `''` | Specified neural voice model identifier. |
 | `startMode` | `string` | `'2d'` | Initial render mode: `'2d'` (Live2D) or `'3d'` (VRM). |
-| `fitMode` | `string` | `'half'` | Stage fit mode: `'half'` (bust shot) or `'full'` (full body). |
+| `fitMode` | `string` | `'full'` | Stage fit mode: `'half'` (bust shot) or `'full'` (full body). |
+| `skin2d` | `Object` | `{}` | 2D Live2D zoom and coordinate configuration (contains `zoom`, `offsetX`, `offsetY`, `anchor`). |
+| `zoom` | `number` | `1.9` (half) / `1.0` (full) | 2D zoom scale factor (alias of `skin2d.zoom`). |
+| `offsetX` / `offsetY` | `number` | `0` | 2D horizontal/vertical offset in pixels (alias of `skin2d.offsetX/offsetY`). |
+| `anchor` | `Object` | `{ x: 0.5, y: 1.0 }` | 2D model anchor point (alias of `skin2d.anchor`). |
 | `modelUrl` | `string` | Built-in default | URL to 2D Live2D `.model3.json` file. |
+| `skin3d` | `Object` | `{}` | 3D VRM camera, model transform, and visual configuration (contains `camera`, `model`, `pointerLook`, `vrmaRootPath`, etc.). |
+| `camera` | `Object` | `{ fov: 26, position: {x:0, y:1.4, z:2.5}, lookAt: {x:0, y:1.2, z:0} }` | 3D camera configuration (alias of `skin3d.camera`). |
+| `modelTransform` | `Object` | `{ position: {x:0, y:0, z:0}, scale: {x:1, y:1, z:1}, rotation: {x:0, y:0, z:0} }` | 3D model spatial transform configuration (alias of `skin3d.model`). |
+| `pointerLook` | `boolean` | `true` | Whether to enable 3D eye gaze tracking the mouse pointer (alias of `skin3d.pointerLook`). |
 | `vrmUrl` | `string` | Built-in default | URL to 3D VRM `.vrm` file. |
 | `enableModelDrop` | `boolean` | `false` | Whether to allow users to drag and drop `.vrm` files onto canvas to hot-swap models (disabled by default for production security). |
 
@@ -573,6 +581,21 @@ const widget = await initAvatarBot({
   // Infer and trigger emotion automatically from text
   widget.applyEmotionFromText('That is fantastic news!');
   ```
+* **Dynamic Zoom & Coordinate Adjustment (Store-driven)**:
+  ```javascript
+  // 1. Adjust 2D Live2D Zoom & Offset
+  widget.setSkin2d({ zoom: 2.2, offsetX: 10, offsetY: -20 });
+
+  // 2. Switch Stage Fit Mode ('half' bust shot vs 'full' full body)
+  widget.setFitMode('half');
+
+  // 3. Adjust 3D VRM Camera & Model Transform
+  widget.setSkin3d({
+    camera: { fov: 30, position: { x: 0, y: 1.5, z: 3 }, lookAt: { x: 0, y: 1.2, z: 0 } },
+    model: { scale: { x: 1.2, y: 1.2, z: 1.2 } },
+    pointerLook: true
+  });
+  ```
 * **Loading Custom Models & Drag-and-Drop Hot Swapping**:
   ```javascript
   // 1. Programmatically load a VRM file
@@ -663,6 +686,11 @@ interface AiAvatarWidget {
   showMinimalEl(): void;                          // Show minimal floating avatar button
   hiddenMinimalEl(): void;                        // Hide minimal floating avatar button
   
+  // Skin & Avatar Transform Control Methods
+  setSkin2d(config: Partial<Skin2DConfig>): void; // Update 2D Live2D zoom and offset coordinates
+  setSkin3d(config: Partial<Skin3DConfig>): void; // Update 3D VRM camera, model transform and eye tracking
+  setFitMode(fitMode: 'half' | 'full'): void;     // Switch bust-shot ('half') or full-body ('full') fit mode
+  
   // Auto-Continue Configuration Properties
   enableAutoContinue: boolean;                    // Whether auto-continue is enabled
   maxAutoContinuations: number;                  // Maximum continuation turns
@@ -675,6 +703,9 @@ interface AiAvatarWidget {
   locale: string;                                 // Current UI/Speech locale
   isMinimal: boolean;                             // Current minimal mode state
   enableModelDrop: boolean;                       // Model drag-and-drop toggle
+  fitMode: 'half' | 'full';                       // Stage fit mode
+  skin2d: Skin2DConfig;                           // 2D configuration state
+  skin3d: Skin3DConfig;                           // 3D configuration state
 }
 ```
 

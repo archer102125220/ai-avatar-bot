@@ -69,7 +69,16 @@
  * @property {Record<string, any>|string} [companionKnowledge=null] - 預載的陪伴模式知識庫資料，可以是 JSON 物件或字串
  * @property {string} [startMode] - 初始啟動的模型模式 (2D 或 3D)
  * @property {string} [fitMode] - 模型適應容器的模式 (Fit Mode)
+ * @property {import('../skin').Skin2DConfig} [skin2d] - 2D 模型縮放與空間座標變換設定
+ * @property {number} [zoom] - 2D 模型縮放倍率 (skin2d.zoom 的別名)
+ * @property {number} [offsetX] - 2D 水平偏移像素 (skin2d.offsetX 的別名)
+ * @property {number} [offsetY] - 2D 垂直偏移像素 (skin2d.offsetY 的別名)
+ * @property {{x: number, y: number}} [anchor] - 2D 模型錨點 (skin2d.anchor 的別名)
  * @property {string} [vrmUrl] - VRM 3D 模型檔案的 URL
+ * @property {import('../skin').Skin3DConfig} [skin3d] - 3D 模型與攝影機空間變換設定
+ * @property {import('../skin').Skin3DCameraConfig} [camera] - 3D 攝影機設定 (skin3d.camera 的別名)
+ * @property {import('../skin').Skin3DModelConfig} [modelTransform] - 3D 模型空間變換設定 (skin3d.model 的別名)
+ * @property {boolean} [pointerLook] - 是否啟用 3D 眼睛跟隨滑鼠游標 (skin3d.pointerLook 的別名)
  * @property {boolean} [enableModelDrop] - 是否允許使用者拖曳 VRM 模型檔案至畫布即時換裝（預設 false 關閉）
  * @property {boolean} [allowModelDrop] - 是否允許使用者拖曳 VRM 模型檔案至畫布即時換裝（enableModelDrop 的別名）
  * @property {Record<string, any>} [gesture3D] - 3D 模型使用的姿態/手勢設定資料
@@ -188,8 +197,11 @@
  * @property {Function} showMinimalEl - 顯示極簡模式元素的函式
  * @property {Function} hiddenMinimalEl - 隱藏極簡模式元素的函式
  * @property {any} brainEngine - AI 大腦引擎實例
- * @property {any} speechEngine - 語音引擎實例
- * @property {any} skinEngine - Skin (模型與畫面) 引擎實例
+ * @property {any} speechEngine - 語音合成/辨識引擎實例
+ * @property {import('../skin').SkinEngine} skinEngine - 外觀渲染引擎實例
+ * @property {(config: Partial<import('../skin').Skin2DConfig>) => void} setSkin2d - 更新 2D 人像縮放與座標設定
+ * @property {(config: Partial<import('../skin').Skin3DConfig>) => void} setSkin3d - 更新 3D 人像相機與模型座標設定
+ * @property {(fitMode: string) => void} setFitMode - 設定尺寸適應模式 (Fit Mode)
  * @property {Function} [onReady] - Bot 初始化完成後掛載的回呼函式
  * @property {Function} [onMinimalTrigger] - 切換極簡模式的回呼函式
  * @property {Function} [onError] - 發生錯誤時的回呼函式

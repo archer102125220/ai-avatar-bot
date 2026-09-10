@@ -244,6 +244,113 @@ export const FIT_MODE_MAP = {
 export const DEFAULT_FIT_MODE = FIT_MODE_MAP.FULL;
 
 /**
+ * 預設 2D Live2D 半身模式縮放倍率。
+ * @type {number}
+ */
+export const DEFAULT_2D_HALF_ZOOM = 1.9;
+
+/**
+ * 預設 2D Live2D 全身模式縮放倍率。
+ * @type {number}
+ */
+export const DEFAULT_2D_FULL_ZOOM = 1.0;
+
+/**
+ * 預設 2D Live2D 水平偏移像素。
+ * @type {number}
+ */
+export const DEFAULT_2D_OFFSET_X = 0;
+
+/**
+ * 預設 2D Live2D 垂直偏移像素。
+ * @type {number}
+ */
+export const DEFAULT_2D_OFFSET_Y = 0;
+
+/**
+ * 預設 2D Live2D 模型錨點。
+ * @type {Readonly<{x: number, y: number}>}
+ */
+export const DEFAULT_2D_ANCHOR = Object.freeze({
+  x: 0.5,
+  y: 1.0
+});
+
+/**
+ * 預設 3D VRM 攝影機視角視野 (FOV)。
+ * @type {number}
+ */
+export const DEFAULT_3D_CAMERA_FOV = 26;
+
+/**
+ * 預設 3D VRM 攝影機近裁剪面距離 (Near)。
+ * @type {number}
+ */
+export const DEFAULT_3D_CAMERA_NEAR = 0.1;
+
+/**
+ * 預設 3D VRM 攝影機遠裁剪面距離 (Far)。
+ * @type {number}
+ */
+export const DEFAULT_3D_CAMERA_FAR = 20;
+
+/**
+ * 預設 3D VRM 攝影機世界座標位置。
+ * @type {Readonly<{x: number, y: number, z: number}>}
+ */
+export const DEFAULT_3D_CAMERA_POSITION = Object.freeze({
+  x: 0,
+  y: 1.4,
+  z: 2.5
+});
+
+/**
+ * 預設 3D VRM 攝影機注視焦點座標。
+ * @type {Readonly<{x: number, y: number, z: number}>}
+ */
+export const DEFAULT_3D_CAMERA_LOOK_AT = Object.freeze({
+  x: 0,
+  y: 1.2,
+  z: 0
+});
+
+/**
+ * 預設 3D VRM 模型世界座標偏移。
+ * @type {Readonly<{x: number, y: number, z: number}>}
+ */
+export const DEFAULT_3D_MODEL_POSITION = Object.freeze({
+  x: 0,
+  y: 0,
+  z: 0
+});
+
+/**
+ * 預設 3D VRM 模型額外縮放比例。
+ * @type {Readonly<{x: number, y: number, z: number}>}
+ */
+export const DEFAULT_3D_MODEL_SCALE = Object.freeze({
+  x: 1,
+  y: 1,
+  z: 1
+});
+
+/**
+ * 預設 3D VRM 模型旋轉角度 (歐拉角 Euler)。
+ * @type {Readonly<{x: number, y: number, z: number}>}
+ */
+export const DEFAULT_3D_MODEL_ROTATION = Object.freeze({
+  x: 0,
+  y: 3.1,
+  z: 0
+});
+
+/**
+ * 預設是否啟用 3D VRM 眼睛跟隨滑鼠游標。
+ * @type {boolean}
+ */
+export const DEFAULT_3D_POINTER_LOOK = true;
+
+/**
  * 性別選項映射表。
  * @readonly
  * @enum {string}

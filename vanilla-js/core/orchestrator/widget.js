@@ -457,6 +457,27 @@ export function createAvatarWidget({
     },
     get assistantSuggestedTitle() {
       return options.assistantSuggestedTitle;
+    },
+
+    setSkin2d(config = {}) {
+      const skin = getEngines().skinEngine;
+      if (typeof skin?.setSkin2d === 'function') {
+        skin.setSkin2d(config);
+      }
+    },
+
+    setSkin3d(config = {}) {
+      const skin = getEngines().skinEngine;
+      if (typeof skin?.setSkin3d === 'function') {
+        skin.setSkin3d(config);
+      }
+    },
+
+    setFitMode(fitMode) {
+      const skin = getEngines().skinEngine;
+      if (typeof skin?.setFitMode === 'function') {
+        skin.setFitMode(fitMode);
+      }
     }
   };
 
