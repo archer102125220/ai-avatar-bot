@@ -13,7 +13,12 @@
     "build:ts": "yarn workspace ai-avatar-bot-typescript build",
     "build:vue": "yarn workspace ai-avatar-bot-vue build",
     "build:react": "yarn workspace ai-avatar-bot-react build",
-    "build": "npm run build --workspaces --if-present"
+    "build": "npm run build --workspaces --if-present",
+    "test:js": "yarn workspace ai-avatar-bot-vanilla-js test:unit",
+    "test:js:ui": "yarn workspace ai-avatar-bot-vanilla-js test:unit:ui",
+    "test:js:report": "yarn workspace ai-avatar-bot-vanilla-js test:unit:report",
+    "test:js:coverage": "yarn workspace ai-avatar-bot-vanilla-js test:unit:coverage",
+    "test": "npm run test:unit --workspaces --if-present"
   },
   "workspaces": [
     "vanilla-js",

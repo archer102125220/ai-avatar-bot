@@ -93,6 +93,9 @@ coverage
 
 # Vitest
 __screenshots__/
+html/
+.vitest/
+coverage/
 
 # Vite
 *.timestamp-*-*.mjs
