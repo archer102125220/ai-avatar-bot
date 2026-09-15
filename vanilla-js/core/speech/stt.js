@@ -1,4 +1,4 @@
-import { createBaseStore } from '../store';
+import { createBaseStore } from '@/core/store';
 
 /**
  * @typedef {Object} STTEngineValidationResult

@@ -1,4 +1,4 @@
-import { resolveLocalized } from '../i18n';
+import { resolveLocalized } from '@/core/i18n';
 
 /**
  * 渲染建議對話選項。

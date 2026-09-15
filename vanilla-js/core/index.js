@@ -1,5 +1,6 @@
 import { initAvatarBot } from './orchestrator';
-import '../style/style.scss';
+
+import '@/style/style.scss';
 
 export * from './constants';
 export * from './i18n';

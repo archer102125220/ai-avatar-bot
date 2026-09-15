@@ -4,7 +4,7 @@ import {
   TOOL_ROUTING_MODE_MAP,
   TOOL_RESULT_MODE_MAP,
   TOOL_SCHEMA_TYPE_MAP
-} from '../constants';
+} from '@/core/constants';
 
 /**
  * 情緒工具插件的配置選項。

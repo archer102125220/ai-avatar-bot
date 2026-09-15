@@ -1,5 +1,5 @@
-import { GENDER_MAP } from '../constants';
-import { createBaseStore } from '../store';
+import { GENDER_MAP } from '@/core/constants';
+import { createBaseStore } from '@/core/store';
 
 /**
  * 語音播放選項。

@@ -3,7 +3,7 @@ import {
   DEFAULT_TOOL_CONFIRMATION_TIMEOUT_MS,
   TOOL_CANCEL_REASON_MAP,
   TOOL_RESULT_MODE_MAP
-} from '../constants';
+} from '@/core/constants';
 import { getAiAvailableTools, toOpenAiTools, argumentSummary } from './schema';
 import { route } from './router';
 import { extract } from './validator';

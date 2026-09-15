@@ -8,7 +8,7 @@ import {
   DEFAULT_2D_OFFSET_Y,
   DEFAULT_2D_HALF_ANCHOR,
   DEFAULT_2D_FULL_ANCHOR
-} from '../constants';
+} from '@/core/constants';
 import { createCanvas } from './canvas';
 
 /**

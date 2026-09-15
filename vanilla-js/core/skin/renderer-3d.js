@@ -15,7 +15,7 @@ import {
   DEFAULT_3D_MODEL_SCALE,
   DEFAULT_3D_MODEL_ROTATION,
   DEFAULT_3D_POINTER_LOOK
-} from '../constants';
+} from '@/core/constants';
 import { createCanvas } from './canvas';
 
 /**
@@ -203,7 +203,8 @@ export async function bootVRM(skinEngine, setting = {}) {
       ? DEFAULT_3D_HALF_CAMERA_LOOK_AT
       : DEFAULT_3D_FULL_CAMERA_LOOK_AT;
 
-    const cameraConfig = initialModeConfig?.camera || initialSkin3d.camera || {};
+    const cameraConfig =
+      initialModeConfig?.camera || initialSkin3d.camera || {};
     const fov =
       typeof cameraConfig.fov === 'number' && Number.isFinite(cameraConfig.fov)
         ? cameraConfig.fov
@@ -219,11 +220,7 @@ export async function bootVRM(skinEngine, setting = {}) {
         : DEFAULT_3D_CAMERA_FAR;
 
     const camera = new THREE.PerspectiveCamera(fov, 1, near, far);
-    applyVector3(
-      camera.position,
-      cameraConfig.position,
-      initialDefaultPos
-    );
+    applyVector3(camera.position, cameraConfig.position, initialDefaultPos);
     const currentLookAt = new THREE.Vector3();
     applyVector3(currentLookAt, cameraConfig.lookAt, initialDefaultLookAt);
     camera.lookAt(currentLookAt);
@@ -436,12 +433,10 @@ export async function bootVRM(skinEngine, setting = {}) {
         camera.updateProjectionMatrix();
       }
 
-      const posSource =
-        modeConfig?.camera?.position ?? skin3d.camera?.position;
+      const posSource = modeConfig?.camera?.position ?? skin3d.camera?.position;
       applyVector3(camera.position, posSource, defaultCameraPos);
 
-      const lookAtSource =
-        modeConfig?.camera?.lookAt ?? skin3d.camera?.lookAt;
+      const lookAtSource = modeConfig?.camera?.lookAt ?? skin3d.camera?.lookAt;
       applyVector3(currentLookAt, lookAtSource, defaultCameraLookAt);
       camera.lookAt(currentLookAt);
 

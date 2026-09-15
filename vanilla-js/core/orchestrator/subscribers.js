@@ -1,5 +1,5 @@
-import { AVATAR_MODE_MAP } from '../constants';
-import { renderSuggestions, updateUIStrings } from '../ui';
+import { AVATAR_MODE_MAP } from '@/core/constants';
+import { renderSuggestions, updateUIStrings } from '@/core/ui';
 import { callOptionEvent } from './options';
 
 /**

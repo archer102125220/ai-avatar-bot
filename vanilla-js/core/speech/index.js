@@ -1,6 +1,6 @@
 // TODO: 等到環境可以測試麥克風跟喇叭時，要徹底測過這份檔案內部的所有機制有沒有因為重構而出問題
-import { DEFAULT_TTS_ENDPOINT, GENDER_MAP } from '../constants';
-import { createBaseStore } from '../store';
+import { DEFAULT_TTS_ENDPOINT, GENDER_MAP } from '@/core/constants';
+import { createBaseStore } from '@/core/store';
 import { getSttMessage, initDefaultSTTEngine, validateSTTEngine } from './stt';
 import { splitSentences, initDefaultTTSEngine, validateTTSEngine } from './tts';
 
@@ -260,10 +260,7 @@ export async function initSpeechEngine(setting = {}) {
   });
 
   store.subscribe('spokenAudioState', (audioState) => {
-    if (
-      typeof audioState?.text === 'string' &&
-      audioState.text.trim() !== ''
-    ) {
+    if (typeof audioState?.text === 'string' && audioState.text.trim() !== '') {
       store.setState({ spokenDisplayText: audioState.text });
       if (typeof setting.onSpeaking === 'function') {
         setting.onSpeaking(audioState.text);
@@ -462,7 +459,7 @@ export async function initSpeechEngine(setting = {}) {
       store.setState((prevState) => ({
         spokenAudioState: {
           text: safeText,
-          seq: ((prevState.spokenAudioState?.seq) || 0) + 1,
+          seq: (prevState.spokenAudioState?.seq || 0) + 1,
           options: { instant: true },
           timestamp: Date.now()
         }

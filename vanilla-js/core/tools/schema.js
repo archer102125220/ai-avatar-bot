@@ -4,7 +4,7 @@ import {
   TOOL_RESULT_MODE_MAP,
   TOOL_ROUTING_MODE_MAP,
   TOOL_SCHEMA_TYPE_MAP
-} from '../constants';
+} from '@/core/constants';
 import { sanitizeText } from './utils';
 
 /**

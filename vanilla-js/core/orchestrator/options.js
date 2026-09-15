@@ -1,5 +1,5 @@
-import { initI18nEngine } from '../i18n';
-import { createBaseStore } from '../store';
+import { initI18nEngine } from '@/core/i18n';
+import { createBaseStore } from '@/core/store';
 import {
   AVATAR_MODE_MAP,
   DEFAULT_AVATAR_MODE,
@@ -13,7 +13,7 @@ import {
   AUTO_CONTINUE_MODE_MAP,
   DEFAULT_AUTO_CONTINUE_MODE,
   DEFAULT_ENABLE_MEMORY
-} from '../constants';
+} from '@/core/constants';
 
 /**
  * 安全調用使用者傳入的事件回呼函式。

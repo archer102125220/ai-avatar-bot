@@ -1,4 +1,4 @@
-import { ENGINE_MODE_MAP } from '../constants';
+import { ENGINE_MODE_MAP } from '@/core/constants';
 
 /**
  * 驗證傳入的引擎物件是否符合 SkinEngine 介面規範。

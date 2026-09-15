@@ -1,8 +1,8 @@
-import { initBrainEngine, validateBrainEngine } from '../brain';
-import { initSpeechEngine } from '../speech';
-import { initToolsEngine, validateToolsEngine } from '../tools';
-import { initSkinEngine, validateSkinEngine } from '../skin';
-import { createEmotionToolsPlugin } from '../plugins';
+import { initBrainEngine, validateBrainEngine } from '@/core/brain';
+import { initSpeechEngine } from '@/core/speech';
+import { initToolsEngine, validateToolsEngine } from '@/core/tools';
+import { initSkinEngine, validateSkinEngine } from '@/core/skin';
+import { createEmotionToolsPlugin } from '@/core/plugins';
 import {
   DEFAULT_LLM_MODEL,
   DEFAULT_LLM_MAX_TOKENS,
@@ -11,8 +11,8 @@ import {
   DEFAULT_TTS_ENDPOINT,
   ENGINE_MODE_MAP,
   AVATAR_MODE_MAP
-} from '../constants';
-import { renderHistory, initSkinModeChangeButton } from '../ui';
+} from '@/core/constants';
+import { renderHistory, initSkinModeChangeButton } from '@/core/ui';
 import { callOptionEvent } from './options';
 
 /**

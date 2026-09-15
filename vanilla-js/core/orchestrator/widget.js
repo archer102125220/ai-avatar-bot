@@ -16,8 +16,8 @@ import {
   DEFAULT_AUTO_CONTINUE_MODE,
   DEFAULT_ENABLE_MODEL_DROP,
   DEFAULT_ENABLE_ENGINE_TOGGLE
-} from '../constants';
-import { initSkinModeChangeButton, renderSuggestions } from '../ui';
+} from '@/core/constants';
+import { initSkinModeChangeButton, renderSuggestions } from '@/core/ui';
 
 /**
  * 建立並封裝對外公開的 AiAvatarWidget 實例物件。

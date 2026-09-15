@@ -1,5 +1,5 @@
-import { AVATAR_MODE_MAP } from '../constants';
-import { resolveLocalized } from '../i18n';
+import { AVATAR_MODE_MAP } from '@/core/constants';
+import { resolveLocalized } from '@/core/i18n';
 import { callOptionEvent } from './options';
 
 /**

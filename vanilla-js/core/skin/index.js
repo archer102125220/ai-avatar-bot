@@ -1,4 +1,4 @@
-import { createBaseStore } from '../store';
+import { createBaseStore } from '@/core/store';
 import {
   EMOTION_TARGET_MAP,
   ENGINE_MODE_MAP,
@@ -20,7 +20,7 @@ import {
   DEFAULT_3D_MODEL_SCALE,
   DEFAULT_3D_MODEL_ROTATION,
   DEFAULT_3D_POINTER_LOOK
-} from '../constants';
+} from '@/core/constants';
 import { initSkinMode } from './canvas';
 import { defaultGesture2D, bootAvatar } from './renderer-2d';
 import { defaultGesture3D, loadVRMFile, bootVRM } from './renderer-3d';
