@@ -117,7 +117,7 @@ class MockAudioContext {
       onended: null
     };
   }
-  decodeAudioData(buffer) {
+  decodeAudioData(_buffer) {
     return Promise.resolve({
       duration: 1,
       length: 44100,

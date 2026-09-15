@@ -91,7 +91,7 @@ describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
 
       // en-US with name
       i18nEngine.setLocale('en-US');
-      let onTap = createTapAvatarHandler({
+      const onTap = createTapAvatarHandler({
         getWidget,
         options: {},
         rootStore,
@@ -149,7 +149,7 @@ describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
 
       // en-US
       i18nEngine.setLocale('en-US');
-      let onTap = createTapAvatarHandler({
+      const onTap = createTapAvatarHandler({
         getWidget,
         options: {},
         rootStore,
@@ -157,6 +157,7 @@ describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
         getEngines
       });
       onTap();
+
       expect(mockEngines.speechEngine.spokenAudioText).toContain('Hello~ I am the');
 
       // ja-JP

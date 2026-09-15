@@ -195,7 +195,7 @@ describe('Unit Test: core/speech/stt.js', () => {
 
       // Advance performance.now by mocking it
       const originalNow = performance.now.bind(performance);
-      let mockTime = originalNow() + 2500;
+      const mockTime = originalNow() + 2500;
       performance.now = vi.fn(() => mockTime);
 
       // Second interim with >= 4 characters triggers promotion to final

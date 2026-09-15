@@ -41,7 +41,7 @@ export function createMockAiProvider(options = {}) {
   const defaultText = options.defaultText || '你好！我是你的 AI 助理。';
   return {
     name: options.name || 'openai',
-    chat: vi.fn(async ({ messages, onStream, stream = true }) => {
+    chat: vi.fn(async ({ messages: _messages, onStream, stream = true }) => {
       const chunks = [defaultText.slice(0, 3), defaultText.slice(3)];
       if (stream && typeof onStream === 'function') {
         for (const chunk of chunks) {

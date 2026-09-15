@@ -8,12 +8,12 @@ import {
 import {
   ENGINE_MODE_MAP,
   FIT_MODE_MAP,
-  DEFAULT_GENDER,
   DEFAULT_FEMALE_2D_MODEL_URL,
   DEFAULT_FEMALE_3D_MODEL_URL,
   DEFAULT_MALE_2D_MODEL_URL,
   DEFAULT_MALE_3D_MODEL_URL
 } from '../../../core/constants';
+
 
 describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
   let stageEl;

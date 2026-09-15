@@ -85,7 +85,7 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
     });
 
     it('should boot 2D avatar, fit, update mouth on update, and dispose', async () => {
-      let state = {
+      const state = {
         fitMode: FIT_MODE_MAP.FULL,
         skin2d: {
           full: { zoom: 1.2, offsetX: 10, offsetY: 20, anchor: { x: 0.5, y: 0.9 } },

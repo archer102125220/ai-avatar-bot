@@ -2,9 +2,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { initToolsEngine, validateToolsEngine } from '../../../core/tools';
 import {
   TOOL_CANCEL_REASON_MAP,
-  TOOL_RESULT_MODE_MAP,
   CHAT_SOURCE_MAP
 } from '../../../core/constants';
+
 
 describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
   describe('validateToolsEngine', () => {
@@ -161,11 +161,11 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
     });
 
     it('should collect missing param on continueToolInput and proceed to tool execution', () => {
-      const onAddChatMessage = vi.fn();
       const onSpokenAudioPlayNow = vi.fn();
       const chatLog = [];
 
       const engine = initToolsEngine({
+
         onAddChatMessage: vi.fn((role, text, opts) => {
           const id = opts?.id || `msg_${Date.now()}`;
           chatLog.push({ id, role, text, ...opts });

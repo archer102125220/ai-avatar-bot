@@ -303,7 +303,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
     });
 
     it('should initialize VRM, setup cameras, gestures, subscribers and animation loop', async () => {
-      let currentState = {
+      const currentState = {
         fitMode: FIT_MODE_MAP.FULL,
         isSpeaking: false,
         skin3d: {
@@ -408,7 +408,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
     });
 
     it('should cover pointerLook false, partial vectors/scales, and animation mixer finished event', async () => {
-      let currentState = {
+      const currentState = {
         fitMode: FIT_MODE_MAP.HALF,
         isSpeaking: true,
         skin3d: {
@@ -432,8 +432,8 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         }
       };
 
-      let capturedMixer = null;
       const skinEngine = {
+
         stageEl,
         vrmUrl: 'valid.vrm',
         getState: () => currentState,

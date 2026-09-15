@@ -8,7 +8,6 @@ import {
 import {
   CURRENT_MEMORY_VERSION,
   COMPRESSION_STRATEGY_MAP,
-  BRAIN_ENGINE_TYPE_MAP,
   STATE_MAP
 } from '../../../core/constants';
 

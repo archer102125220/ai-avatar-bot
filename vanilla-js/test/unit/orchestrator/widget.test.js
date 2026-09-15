@@ -14,14 +14,9 @@ import {
   AUTO_CONTINUE_MODE_MAP,
   LLM_FINISH_REASON_MAP,
   FINISH_REASON_MAP,
-  GENDER_MAP,
-  DEFAULT_ENABLE_MEMORY,
-  DEFAULT_ENABLE_AUTO_CONTINUE,
-  DEFAULT_MAX_AUTO_CONTINUATIONS,
-  DEFAULT_AUTO_CONTINUE_MODE,
-  DEFAULT_ENABLE_MODEL_DROP,
-  DEFAULT_ENABLE_ENGINE_TOGGLE
+  GENDER_MAP
 } from '../../../core/constants';
+
 
 describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', () => {
   let container;
@@ -504,10 +499,11 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
 
     // SpeechEngine isSpeaking event syncs to skinEngine.setIsSpeaking
     if (typeof botMinimal.speechEngine?.subscribe === 'function') {
-      const setIsSpeakingSpy = vi.spyOn(botMinimal.skinEngine, 'setIsSpeaking');
       botMinimal.speechEngine.speak('說話同步測試');
     }
   });
+
+
 
   it('should handle widget isMinimal property setter with onMinimalTrigger callback', () => {
     const onMinimalTrigger = vi.fn();

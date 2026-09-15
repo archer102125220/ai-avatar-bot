@@ -2,8 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { initWebLLM, chatWithWebLLM } from '../../../core/brain/web-llm';
 import {
   STATE_MAP,
-  LLM_FINISH_REASON_MAP,
-  CHAT_ROLE_MAP
+  LLM_FINISH_REASON_MAP
 } from '../../../core/constants';
 import * as WebLLMModule from '@mlc-ai/web-llm';
 
@@ -91,7 +90,6 @@ describe('Unit Test: core/brain/web-llm.js', () => {
     });
 
     it('should handle load error and transition to ERROR state', async () => {
-      const origCreate = WebLLMModule.CreateMLCEngine;
       WebLLMModule.CreateMLCEngine.mockRejectedValueOnce(new Error('GPU out of memory'));
 
       const onLoadError = vi.fn();
@@ -103,10 +101,9 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       await expect(llm.load()).rejects.toThrow('GPU out of memory');
       expect(llm.state).toBe(STATE_MAP.ERROR);
       expect(onLoadError).toHaveBeenCalled();
-
-      WebLLMModule.CreateMLCEngine = origCreate;
     });
   });
+
 
   describe('chat', () => {
     it('should return null if engine is not loaded', async () => {
