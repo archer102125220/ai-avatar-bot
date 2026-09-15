@@ -231,7 +231,17 @@ const avatarWidget = await initAvatarBot({
 | `maxHistoryTurns` | `number` | `6` | 保留的最大對話輪數（1 輪 = 1 問 + 1 答） |
 | `memoryKey` | `string` | `'avatar-widget-memory'` | 本機 Storage 記憶儲存的 Key 名稱 |
 | `memoryAdapter` | `MemoryAdapter` | `null` | 自訂儲存轉接器實例（需實作 `load`, `save`, `clear`，[詳見章節](#3-記憶管理資料結構與自訂儲存轉接器)） |
-| `compression` | `Object` | `{}` | 上下文動態壓縮與顯存控制設定（詳見後文） |
+| `compression` | `Object` | `{}` | 上下文動態壓縮與顯存控制設定（包含 `strategy`, `maxTurns`, `maxTotalChars`, `webLlm`, `aiProvider`, `customCompressor`） |
+| `systemContextTemplate` | `string\|Function` | `null` | 助理模式系統提示詞模板 |
+| `companionSystemContextTemplate` | `string\|Function` | `null` | 陪伴模式系統提示詞模板 |
+| `ragTemplate` | `string\|Function` | `null` | RAG 參考資料模板 |
+| `customContext` | `Object` | `null` | 附加自訂上下文資訊物件 |
+| `languageRule` | `string\|Function` | `null` | 多語系回答規則提示詞 |
+| `genderRule` | `string\|Function` | `null` | 針對性別的額外系統提示詞規則 |
+| `brainGender` | `string` | `null` | 專屬大腦引擎（用語/人格）的性別設定 (覆寫全域 `gender`) |
+| `speechGender` | `string` | `null` | 專屬語音引擎（音色）的性別設定 (覆寫全域 `gender`) |
+| `skinGender` | `string` | `null` | 專屬外觀引擎（模型外表）的性別設定 (覆寫全域 `gender`) |
+| `customEngines` | `Object` | `{}` | 自訂子引擎實例或工廠函式注入 (`{ skin?, tools?, brain?, stt?, tts?, i18n? }`) |
 
 ### 語音與外觀設定 (Speech & Skin)
 

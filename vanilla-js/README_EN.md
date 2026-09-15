@@ -231,7 +231,17 @@ Options object accepted by `initAvatarBot(options)`:
 | `maxHistoryTurns` | `number` | `6` | Maximum conversation turns retained (1 turn = 1 user msg + 1 AI reply). |
 | `memoryKey` | `string` | `'avatar-widget-memory'` | Key name for browser LocalStorage persistence. |
 | `memoryAdapter` | `MemoryAdapter` | `null` | Custom storage adapter instance (must implement `load`, `save`, `clear`, [see guide](#3-memory-management-data-schema--custom-storage-adapter)). |
-| `compression` | `Object` | `{}` | Context compression and VRAM budget controls (see guide below). |
+| `compression` | `Object` | `{}` | Context compression settings (supports `strategy`, `maxTurns`, `maxTotalChars`, `webLlm`, `aiProvider`, `customCompressor`). |
+| `systemContextTemplate` | `string\|Function` | `null` | System prompt template for assistant mode. |
+| `companionSystemContextTemplate` | `string\|Function` | `null` | System prompt template for companion mode. |
+| `ragTemplate` | `string\|Function` | `null` | RAG reference material template. |
+| `customContext` | `Object` | `null` | Additional custom context object injected into LLM prompt. |
+| `languageRule` | `string\|Function` | `null` | Multilingual response instructions rule. |
+| `genderRule` | `string\|Function` | `null` | Gender-specific persona prompt rule. |
+| `brainGender` | `string` | `null` | Brain engine gender override (overrides global `gender`). |
+| `speechGender` | `string` | `null` | Speech engine voice gender override (overrides global `gender`). |
+| `skinGender` | `string` | `null` | Skin appearance gender override (overrides global `gender`). |
+| `customEngines` | `Object` | `{}` | Custom sub-engines injection (`{ skin?, tools?, brain?, stt?, tts?, i18n? }`). |
 
 ### Speech & Skin Rendering
 
