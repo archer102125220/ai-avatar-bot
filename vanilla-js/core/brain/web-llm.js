@@ -20,47 +20,49 @@ import {
 } from './messages.js';
 
 /**
- * WebLLM 引擎設定
+ * Configuration options for the in-browser WebLLM engine.
  * @typedef {Object} LLMEngineOptions
- * @property {string} [llmModel] - LLM 模型名稱
- * @property {string} [model] - 模型名稱
- * @property {number} [llmMaxTokens] - LLM 最大 token 數
- * @property {number} [maxTokens] - 最大 token 數
- * @property {boolean} [llmIsStream] - 是否使用串流
- * @property {boolean} [isStream] - 是否使用串流
- * @property {Function} [onLoading] - 載入中回呼
- * @property {Function} [onLoadProgress] - 載入進度回呼
- * @property {Function} [onLoaded] - 載入完成回呼
- * @property {Function} [onLoadError] - 載入錯誤回呼
- * @property {Function} [onChatting] - 對話回呼
- * @property {Function} [onStreamChatting] - 串流對話回呼
+ * @property {string} [llmModel] - Model identifier name.
+ * @property {string} [model] - Model identifier name alias.
+ * @property {number} [llmMaxTokens] - Maximum generation tokens.
+ * @property {number} [maxTokens] - Maximum generation tokens alias.
+ * @property {boolean} [llmIsStream] - Whether streaming completion is enabled.
+ * @property {boolean} [isStream] - Whether streaming completion is enabled alias.
+ * @property {boolean} [LLMIsStream] - Legacy alias for streaming completion.
+ * @property {Function} [onLoading] - Callback invoked when model download starts.
+ * @property {Function} [onLoadProgress] - Callback invoked with download progress percentage.
+ * @property {Function} [onLoaded] - Callback invoked when model initialization completes.
+ * @property {Function} [onLoadError] - Callback invoked when model loading fails.
+ * @property {Function} [onChatting] - Callback invoked on completion message output.
+ * @property {Function} [onStreamChatting] - Callback invoked on each streaming token chunk.
  */
 
 /**
- * WebLLM 引擎實例
+ * In-browser WebLLM engine instance interface.
  * @typedef {Object} LLMEngine
- * @property {boolean} supported - 是否支援 GPU
- * @property {number} state - 引擎狀態
- * @property {number} progress - 載入進度
- * @property {string} model - 模型名稱
- * @property {string} [error] - 載入失敗時的錯誤訊息
- * @property {number} maxTokens - 最大 Token 數
- * @property {boolean} isStream - 是否為串流模式
- * @property {Function} onLoading - 載入中回呼
- * @property {Function} onLoadProgress - 載入進度回呼
- * @property {Function} onLoaded - 載入完成回呼
- * @property {Function} onLoadError - 載入錯誤回呼
- * @property {Function} onChatting - 對話回呼
- * @property {Function} onStreamChatting - 串流對話回呼
- * @property {() => Promise<any>} load - 載入模型方法
- * @property {(messages: Array<Object>, onStreamChunk?: Function, tools?: Array<Object>) => Promise<string|{type: string, toolCalls: Array, message: Object}|null>} chat - 對話方法
+ * @property {boolean} supported - Whether WebGPU is supported in the current browser.
+ * @property {number} state - Engine lifecycle state (idle | loading | ready | error).
+ * @property {number} progress - Model download progress ratio (0 to 1).
+ * @property {string} model - Selected WebLLM model name.
+ * @property {string} [error] - Error message if model loading failed.
+ * @property {number} maxTokens - Maximum token generation limit.
+ * @property {boolean} isStream - Whether streaming mode is active.
+ * @property {Function} onLoading - Loading callback.
+ * @property {Function} onLoadProgress - Download progress callback.
+ * @property {Function} onLoaded - Model ready callback.
+ * @property {Function} onLoadError - Model error callback.
+ * @property {Function} onChatting - Completion response callback.
+ * @property {Function} onStreamChatting - Stream chunk callback.
+ * @property {() => Promise<any>} load - Loads and initializes the MLCEngine.
+ * @property {(messages: Array<Object>, onStreamChunk?: Function, tools?: Array<Object>) => Promise<string | { type: string, toolCalls: Array<any>, message: Object } | null>} chat - Sends chat completion request.
  */
 
 /**
- * 初始化 WebLLM 引擎
- * @param {LLMEngineOptions} [setting={}] - LLM 設定
- * @param {Object} [brain] - 大腦引擎實例
- * @returns {LLMEngine} WebLLM 實例
+ * Initializes the WebLLM in-browser inference engine.
+ *
+ * @param {LLMEngineOptions} [setting={}] - WebLLM options.
+ * @param {import('../../index.d.ts').BrainEngine | Object} [brain] - Parent Brain engine instance.
+ * @returns {LLMEngine} Initialized WebLLM engine controller.
  */
 export function initWebLLM(setting = {}, brain) {
   const {
@@ -500,9 +502,10 @@ export function initWebLLM(setting = {}, brain) {
 }
 
 /**
- * 透過瀏覽器端 WebLLM 引擎回答問題
- * @param {Object} brainEngine - 大腦引擎實例
- * @param {string} question - 使用者問題
+ * Executes a conversational query using the in-browser WebLLM engine with streaming and auto-continuation support.
+ *
+ * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {string} question - User question text.
  * @returns {Promise<void>}
  */
 export async function chatWithWebLLM(brainEngine, question) {

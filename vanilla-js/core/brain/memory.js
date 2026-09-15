@@ -16,40 +16,37 @@ import {
 } from './compression.js';
 
 /**
- * 記憶資料結構 (MemoryData)
- * @typedef {Object} MemoryData
- * @property {number} version - 結構版本號
- * @property {string} name - 訪客/使用者名稱
- * @property {number} visits - 訪問次數
- * @property {number} last - 最後訪問時間戳
- * @property {Array<{role: string, content: string}>} history - 對話歷史
- * @property {string} [summary] - 滾動對話摘要
- * @property {number} [lastSummarizedTurnIndex] - 上次摘要時的輪次索引
- * @property {Record<string, any>} [metadata] - 開發者自訂擴充資料槽位
+ * Multi-turn conversation memory data structure.
+ * @typedef {import('../../index.d.ts').MemoryData} MemoryData
  */
 
 /**
- * 記憶模組實例 (MemoryInstance)
+ * Storage adapter interface for persistent conversation memory.
+ * @typedef {import('../../index.d.ts').MemoryAdapter} MemoryAdapter
+ */
+
+/**
+ * Initialized memory controller instance.
  * @typedef {Object} MemoryInstance
- * @property {string} key - 本機儲存或識別鍵名
- * @property {boolean} enabled - 是否啟用記憶模組
- * @property {number} maxHistoryTurns - 保留最大歷史對話輪數
- * @property {Object} adapter - 儲存轉接器實例
- * @property {MemoryData} data - 記憶資料
- * @property {() => void} load - 載入記憶並執行版本遷移
- * @property {() => void} save - 儲存記憶
- * @property {(role: string, content: string) => void} addTurn - 新增對話輪次
- * @property {(name: string) => void} captureName - 擷取名稱
- * @property {() => void} clear - 清除記憶
- * @property {() => number} getVersion - 取得當前記憶版本號
- * @property {() => Record<string, any>} getMetadata - 取得開發者自訂擴充資料
- * @property {(patchOrUpdater: Object | ((prev: Record<string, any>) => Record<string, any>)) => void} setMetadata - 設定或更新自訂擴充資料
+ * @property {string} key - Local storage key or namespace.
+ * @property {boolean} enabled - Whether persistent memory is active.
+ * @property {number} maxHistoryTurns - Maximum number of history turns retained.
+ * @property {MemoryAdapter} adapter - Storage adapter instance.
+ * @property {MemoryData} data - Memory state data object.
+ * @property {() => void} load - Loads memory from storage and runs version migration.
+ * @property {() => void} save - Persists memory data to storage.
+ * @property {(role: string, content: string) => void} addTurn - Appends a conversation turn.
+ * @property {(name: string) => void} captureName - Attempts to extract and save the user's name.
+ * @property {() => void} clear - Resets conversation memory.
+ * @property {() => number} getVersion - Returns current schema version.
+ * @property {() => Record<string, any>} getMetadata - Returns custom metadata object.
+ * @property {(patchOrUpdater: Object | ((prev: Record<string, any>) => Record<string, any>)) => void} setMetadata - Updates custom metadata.
  */
 
 /**
- * 建立全新且符合最新規格的預設記憶資料結構。
+ * Creates default memory data conforming to the latest schema version.
  *
- * @returns {MemoryData}
+ * @returns {MemoryData} Default memory structure.
  */
 export function createDefaultMemoryData() {
   return {
@@ -65,7 +62,7 @@ export function createDefaultMemoryData() {
 }
 
 /**
- * 記憶體各版本升級遷移函式映射表。
+ * Version migration mapping for conversation memory schemas.
  * @type {Record<number, (oldData: any) => MemoryData>}
  */
 const MIGRATIONS = {
@@ -126,10 +123,10 @@ const MIGRATIONS = {
 };
 
 /**
- * 執行記憶體資料結構驗證與版本遷移升級管線。
+ * Validates and migrates raw stored memory data to the latest schema version.
  *
- * @param {any} rawData - 從儲存媒介讀出的原始資料
- * @returns {MemoryData} 符合當前最新版本的安全資料結構
+ * @param {any} rawData - Raw data retrieved from storage.
+ * @returns {MemoryData} Migrated memory data object.
  */
 export function migrateMemoryData(rawData) {
   if (typeof rawData !== 'object' || rawData === null) {
@@ -204,14 +201,15 @@ export function migrateMemoryData(rawData) {
 }
 
 /**
- * 初始化記憶模組
- * @param {Object} [params={}] - 參數
- * @param {string} [params.avatarMode=DEFAULT_AVATAR_MODE] - 虛擬人模式
- * @param {boolean} [params.enableMemory=DEFAULT_ENABLE_MEMORY] - 是否啟用記憶模組
- * @param {string} [params.memoryKey=DEFAULT_MEMORY_KEY] - 記憶模組儲存 Key
- * @param {number} [params.maxHistoryTurns=DEFAULT_MAX_HISTORY_TURNS] - 保留最大輪數
- * @param {Object} [params.memoryAdapter] - 自訂儲存轉接器
- * @returns {MemoryInstance} 記憶模組實例
+ * Initializes the conversation memory subsystem.
+ *
+ * @param {Object} [params={}] - Initialization parameters.
+ * @param {import('../../index.d.ts').AvatarMode} [params.avatarMode=DEFAULT_AVATAR_MODE] - Avatar persona mode.
+ * @param {boolean} [params.enableMemory=DEFAULT_ENABLE_MEMORY] - Whether memory is enabled.
+ * @param {string} [params.memoryKey=DEFAULT_MEMORY_KEY] - Storage key identifier.
+ * @param {number} [params.maxHistoryTurns=DEFAULT_MAX_HISTORY_TURNS] - Maximum history turns retained.
+ * @param {MemoryAdapter | null} [params.memoryAdapter=null] - Custom storage adapter.
+ * @returns {MemoryInstance} Initialized memory controller instance.
  */
 export function initMemory({
   avatarMode = DEFAULT_AVATAR_MODE,
@@ -370,9 +368,9 @@ export function initMemory({
 
 
 /**
- * 檢查並觸發背景非同步滾動摘要更新 (Non-blocking Background Summarization)
+ * Checks and triggers non-blocking background rolling summarization if criteria are met.
  *
- * @param {Object} brainEngine - 大腦引擎實例
+ * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
  * @returns {Promise<void>}
  */
 export async function triggerRollingSummaryIfNeeded(brainEngine) {

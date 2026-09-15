@@ -6,9 +6,10 @@ import {
 import { getBrainMessage } from './messages.js';
 
 /**
- * 從文字中解析 XML 格式的工具調用 (<tool_call>...</tool_call>)
- * @param {string} content - 模型產生的內容
- * @returns {Array<object>} 解析出的 toolCalls 陣列
+ * Extracts XML-formatted tool calls (`<tool_call>...</tool_call>`) from model output text.
+ *
+ * @param {string} content - Model generation content.
+ * @returns {Array<{ id: string, type: string, function: { name: string, arguments: string } }>} Array of parsed tool call descriptors.
  */
 export function extractToolCallsFromText(content) {
   if (typeof content !== 'string' || content === '') {
@@ -44,11 +45,12 @@ export function extractToolCallsFromText(content) {
 }
 
 /**
- * 處理模型發起的 tool_calls 迴圈 (執行工具 -> 確認/直接執行 -> 依 resultMode 決定是否發起第二輪總結)
- * @param {Object} brainEngine - 大腦引擎實例
- * @param {{type: string, toolCalls: Array, message: object}} toolCallResponse - 模型回傳的工具調用物件
- * @param {Array<object>} initialMessages - 初次發送給模型的對話訊息
- * @param {'aiProvider'|'webLLM'} providerType - 提供者類型
+ * Executes the LLM tool-calling cycle (execution -> user confirmation / direct execution -> follow-up synthesis).
+ *
+ * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {{ type: string, toolCalls: Array<any>, message: any }} toolCallResponse - Tool calls payload emitted by model.
+ * @param {Array<any>} initialMessages - Original prompt messages array sent to the model.
+ * @param {'aiProvider' | 'webLLM'} providerType - AI provider backend type.
  * @returns {Promise<void>}
  */
 export async function executeToolCallsLoop(

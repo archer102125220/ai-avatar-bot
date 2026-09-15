@@ -20,54 +20,55 @@ import {
 } from './messages.js';
 
 /**
- * AI 供應商引擎設定
+ * Configuration options for the server-side AI Provider engine.
  * @typedef {Object} AiProviderOptions
- * @property {boolean} [enableAiProvider] - 是否啟用 AI 供應商模組（開關）
- * @property {string} [providerBaseUrl] - AI 供應商 Base URL
- * @property {string} [providerPingUrl] - AI 供應商 Ping URL
- * @property {string} [providerChatUrl] - AI 供應商 Chat URL
- * @property {string} [providerModel] - AI 供應商模型名稱
- * @property {Function} [providerCreateFetchSetting] - 建立 Fetch 設定回呼
- * @property {Function} [providerCreateFetchPayload] - 建立 Fetch 負載回呼
- * @property {Function} [providerResponseFormat] - 回應格式化回呼
- * @property {Function} [providerExtractToolCalls] - 提取 Tool Calls 回呼
- * @property {number} [providerMaxTokens] - AI 供應商最大 token 數
- * @property {boolean} [providerIsStream] - 是否使用串流
- * @property {Function} [onConnecting] - 連線中回呼
- * @property {Function} [onConnected] - 連線完成回呼
- * @property {Function} [onError] - 錯誤回呼
- * @property {Function} [onChatting] - 對話回呼
- * @property {Function} [onStreamChatting] - 串流對話回呼
+ * @property {boolean} [enableAiProvider] - Whether the AI provider module is enabled.
+ * @property {string} [providerBaseUrl] - AI provider base URL endpoint.
+ * @property {string} [providerPingUrl] - AI provider ping / health-check URL.
+ * @property {string} [providerChatUrl] - AI provider chat completion URL.
+ * @property {string} [providerModel] - Target AI model name.
+ * @property {Function} [providerCreateFetchSetting] - Custom fetch settings factory callback.
+ * @property {Function} [providerCreateFetchPayload] - Custom fetch body payload factory callback.
+ * @property {Function} [providerResponseFormat] - Custom response parser callback.
+ * @property {Function} [providerExtractToolCalls] - Custom tool calls extractor callback.
+ * @property {number} [providerMaxTokens] - Maximum generation tokens.
+ * @property {boolean} [providerIsStream] - Whether streaming mode is enabled.
+ * @property {Function} [onConnecting] - Connecting state callback.
+ * @property {Function} [onConnected] - Connected state callback.
+ * @property {Function} [onError] - Connection error callback.
+ * @property {Function} [onChatting] - Completion output callback.
+ * @property {Function} [onStreamChatting] - Streaming chunk callback.
  */
 
 /**
- * AI 供應商引擎實例
+ * AI Provider engine instance interface.
  * @typedef {Object} AiProviderEngine
- * @property {string} baseUrl - Base URL
- * @property {string} pingUrl - Ping URL
- * @property {string} chatUrl - Chat URL
- * @property {Function} createFetchSetting - 建立 Fetch 設定方法
- * @property {Function} createFetchPayload - 建立 Fetch 負載方法
- * @property {Function} responseFormat - 回應格式化方法
- * @property {Function} [extractToolCalls] - 提取 Tool Calls 方法
- * @property {number} maxTokens - 最大 Token 數
- * @property {boolean} isStream - 是否為串流模式
- * @property {Function} onConnecting - 連線中回呼
- * @property {Function} onConnected - 連線完成回呼
- * @property {Function} onError - 錯誤回呼
- * @property {Function} onChatting - 對話回呼
- * @property {Function} onStreamChatting - 串流對話回呼
- * @property {string} model - 模型名稱
- * @property {boolean} enabled - 是否啟用
- * @property {boolean} ready - 是否準備就緒
- * @property {(payload?: Object) => Promise<boolean>} ping - 測試連線方法
- * @property {(messages: Array<Object>, options?: Object, tools?: Array<Object>) => Promise<string|{type: string, toolCalls: Array, message: Object}>} chat - 對話方法
+ * @property {string} baseUrl - Base URL.
+ * @property {string} pingUrl - Ping health-check URL.
+ * @property {string} chatUrl - Chat completion URL.
+ * @property {Function} createFetchSetting - Fetch settings factory.
+ * @property {Function} createFetchPayload - Fetch payload factory.
+ * @property {Function} responseFormat - Response parser.
+ * @property {Function} [extractToolCalls] - Tool calls extractor.
+ * @property {number} maxTokens - Maximum tokens limit.
+ * @property {boolean} isStream - Whether streaming mode is active.
+ * @property {Function} onConnecting - Connecting state callback.
+ * @property {Function} onConnected - Connected state callback.
+ * @property {Function} onError - Error callback.
+ * @property {Function} onChatting - Completion callback.
+ * @property {Function} onStreamChatting - Stream chunk callback.
+ * @property {string} model - Target model identifier.
+ * @property {boolean} enabled - Whether provider is enabled.
+ * @property {boolean} ready - Whether provider is connected and ready.
+ * @property {(payload?: Object) => Promise<boolean>} ping - Tests connection health.
+ * @property {(messages: Array<Object>, options?: Object, tools?: Array<Object>) => Promise<string | { type: string, toolCalls: Array<any>, message: Object }>} chat - Sends chat completion request.
  */
 
 /**
- * 初始化 AI 供應商連線 (後端 API)
- * @param {AiProviderOptions} [setting={}] - AI 供應商設定
- * @returns {Promise<AiProviderEngine>} AI 供應商實例
+ * Initializes the AI Provider backend connection and client interface.
+ *
+ * @param {AiProviderOptions} [setting={}] - AI Provider options.
+ * @returns {Promise<AiProviderEngine>} Initialized AI Provider engine instance.
  */
 export async function initAiProvider(setting = {}) {
   const {
@@ -413,9 +414,10 @@ export async function initAiProvider(setting = {}) {
 }
 
 /**
- * 透過後端 AI 供應商回答問題
- * @param {Object} brainEngine - 大腦引擎實例
- * @param {string} question - 使用者問題
+ * Executes a conversational query using the server-side AI Provider backend with auto-continuation support.
+ *
+ * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {string} question - User question text.
  * @returns {Promise<void>}
  */
 export async function chatWithAiProvider(brainEngine, question) {

@@ -1,7 +1,8 @@
 /**
- * 從文字判斷情緒狀態
- * @param {string} text - 輸入文字
- * @returns {'surprised'|'sad'|'happy'|'neutral'} 情緒狀態
+ * Classifies emotional sentiment from text.
+ *
+ * @param {string} text - Input text to evaluate.
+ * @returns {'surprised' | 'sad' | 'happy' | 'neutral'} Detected emotion state.
  */
 export function classifyEmotion(text) {
   const safeText = String(text || '');
@@ -26,9 +27,10 @@ export function classifyEmotion(text) {
 }
 
 /**
- * 根據文字觸發虛擬人情緒動作變更
- * @param {Object} brainEngine - 大腦引擎實例
- * @param {string} text - 回應文字
+ * Triggers avatar emotion/gesture updates based on the sentiment of the response text.
+ *
+ * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {string} text - Response text.
  */
 export function applyEmotionFromText(brainEngine, text) {
   if (

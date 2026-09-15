@@ -1,18 +1,19 @@
 /**
- * 知識庫項目
+ * Knowledge base entry item.
  * @typedef {Object} KnowledgeEntry
- * @property {string} [q] - 項目問題
- * @property {string} [kw] - 項目關鍵字
- * @property {string} [a] - 項目回答
- * @property {Object} [source] - 項目來源資料
- * @property {string} [source.title] - 來源標題
- * @property {string} [source.url] - 來源連結
+ * @property {string} [q] - Question or prompt text.
+ * @property {string} [kw] - Keywords associated with the entry.
+ * @property {string} [a] - Answer or response text.
+ * @property {Object} [source] - Optional source attribution data.
+ * @property {string} [source.title] - Source title.
+ * @property {string} [source.url] - Source URL.
  */
 
 /**
- * 取得知識庫內容
- * @param {string} [knowledgeUrl=''] - 知識庫的 URL
- * @returns {Promise<Array<KnowledgeEntry>>} 知識庫陣列資料
+ * Fetches knowledge base JSON entries from a URL.
+ *
+ * @param {string} [knowledgeUrl=''] - Knowledge base JSON endpoint URL.
+ * @returns {Promise<Array<KnowledgeEntry>>} Promise resolving to knowledge entries array.
  */
 export async function fetchKnowledge(knowledgeUrl = '') {
   try {
@@ -32,12 +33,11 @@ export async function fetchKnowledge(knowledgeUrl = '') {
   return [];
 }
 
-// ===== 大腦：知識檢索演算法 =====
-// 中文不好斷詞，改用「字元 bigram（相鄰兩字）」相似度，對中文很有效、又不用任何外部函式庫。
 /**
- * 將字串轉換為相鄰兩字元（bigram）陣列
- * @param {string} text - 要處理的字串
- * @returns {string[]} bigram 陣列
+ * Splits text into adjacent two-character bigrams for lightweight character-level similarity calculation.
+ *
+ * @param {string} text - Input text.
+ * @returns {string[]} Array of character bigrams.
  */
 export function getBigrams(text) {
   const normalizedText = (text || '')
@@ -54,10 +54,11 @@ export function getBigrams(text) {
 }
 
 /**
- * 計算兩個字串基於 bigram 的知識庫相似度
- * @param {string} query - 查詢字串
- * @param {string} text - 目標文本字串
- * @returns {number} 相似度分數 (0 到 1)
+ * Computes Cosine-like similarity score between two strings using bigram token sets.
+ *
+ * @param {string} query - Query string.
+ * @param {string} text - Target text string.
+ * @returns {number} Similarity score between 0 and 1.
  */
 export function calculateKnowledgeSimilarity(query, text) {
   const queryBigrams = getBigrams(query);
@@ -75,10 +76,11 @@ export function calculateKnowledgeSimilarity(query, text) {
 }
 
 /**
- * 評分知識庫項目與問題的相關性
- * @param {string|Array} question - 使用者問題
- * @param {KnowledgeEntry} entry - 知識庫項目
- * @returns {number} 相關性分數
+ * Scores the relevance of a knowledge entry against a user question.
+ *
+ * @param {string | Array<any>} question - User query or chat history array.
+ * @param {KnowledgeEntry} entry - Candidate knowledge entry.
+ * @returns {number} Relevance score.
  */
 export function scoreKnowledgeEntry(question, entry) {
   const safeQuestion =
@@ -105,11 +107,12 @@ export function scoreKnowledgeEntry(question, entry) {
 }
 
 /**
- * 取得與問題最相關的 Top K 知識庫項目
- * @param {Object} brainEngine - 大腦引擎實例
- * @param {string|Array} question - 使用者問題
- * @param {number} limit - 擷取數量
- * @returns {Array<KnowledgeEntry>} 相關的知識庫項目陣列
+ * Retrieves top K relevant knowledge entries matching the user question.
+ *
+ * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {string | Array<any>} question - User question text or messages array.
+ * @param {number} limit - Maximum number of knowledge items to return.
+ * @returns {Array<KnowledgeEntry>} Array of ranked matching knowledge entries.
  */
 export function getTopKnowledge(brainEngine, question, limit) {
   const knowledge = brainEngine?.knowledge || [];
@@ -123,10 +126,11 @@ export function getTopKnowledge(brainEngine, question, limit) {
 }
 
 /**
- * 找出知識庫中得分最高的項目
- * @param {Array<KnowledgeEntry>} [knowledgeList=[]] - 知識庫陣列
- * @param {string} question - 使用者問題
- * @returns {{entry: KnowledgeEntry|null, score: number}} 最佳符合項目與分數 { entry, score }
+ * Finds the highest-scoring knowledge entry matching a question.
+ *
+ * @param {Array<KnowledgeEntry>} [knowledgeList=[]] - List of candidate knowledge entries.
+ * @param {string} question - User question text.
+ * @returns {{ entry: KnowledgeEntry | null, score: number }} Best matching entry and score.
  */
 export function findBestMatch(knowledgeList = [], question) {
   let bestEntry = null;
@@ -140,3 +144,4 @@ export function findBestMatch(knowledgeList = [], question) {
   }
   return { entry: bestEntry, score: bestScore };
 }
+

@@ -4,11 +4,12 @@ import { getTopKnowledge } from './knowledge.js';
 import { compressContext } from './compression.js';
 
 /**
- * 取得大腦內部多語系字串
- * @param {Object} brainEngine - 大腦引擎實例
- * @param {string} key - 翻譯鍵值
- * @param {Object} [params={}] - 替換參數
- * @returns {string} 翻譯後的字串
+ * Retrieves localized string for internal Brain messages.
+ *
+ * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {string} key - Translation key.
+ * @param {Record<string, any>} [params={}] - Interpolation parameters.
+ * @returns {string} Formatted localized string.
  */
 export function getBrainMessage(brainEngine, key, params = {}) {
   if (typeof brainEngine?.i18nEngine?.t === 'function') {
@@ -26,9 +27,10 @@ export function getBrainMessage(brainEngine, key, params = {}) {
 }
 
 /**
- * 取得歡迎詞文字
- * @param {Object} brainEngine - 大腦引擎實例
- * @returns {Promise<string>} 歡迎詞
+ * Generates the dynamic welcome text according to persona mode, memory visits, and locale.
+ *
+ * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @returns {Promise<string>} Welcome message text.
  */
 export async function getWelcomeText(brainEngine) {
   const locale = brainEngine?.locale || 'zh-TW';
@@ -177,11 +179,12 @@ export async function getWelcomeText(brainEngine) {
 }
 
 /**
- * 解析或生成自動接續提示詞 (Auto-Continue Prompt)
- * @param {Object} brainEngine - 大腦引擎實例
- * @param {number} [continuationIndex=1] - 當前第幾次接續 (1-indexed)
- * @param {string} [accumulatedText=''] - 截至目前已累積的回答文字
- * @returns {string} 提示詞文字
+ * Resolves or generates the continuation prompt for multi-step responses.
+ *
+ * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {number} [continuationIndex=1] - Current continuation sequence index (1-indexed).
+ * @param {string} [accumulatedText=''] - Cumulative generated text so far.
+ * @returns {string} Continuation prompt string.
  */
 export function resolveAutoContinuePrompt(
   brainEngine,
@@ -228,11 +231,12 @@ export function resolveAutoContinuePrompt(
 }
 
 /**
- * 預設的 LLM 訊息建構方法（整合上下文壓縮管線）
- * @param {Object} brainEngine - 大腦引擎實例
- * @param {string} question - 使用者問題
- * @param {string} [engineType=BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER] - 當前推論引擎類型
- * @returns {Array<{role: string, content: string}>} 壓縮後的 LLM 對話訊息陣列
+ * Builds standard LLM chat messages array including RAG context, persona, and compression pipeline.
+ *
+ * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {string} question - Current user question text.
+ * @param {string} [engineType=BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER] - Active inference engine type.
+ * @returns {Array<{ role: string, content: string }>} Compressed LLM messages array ready for inference.
  */
 export function buildDefaultLLMMessages(
   brainEngine,

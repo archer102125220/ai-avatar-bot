@@ -40,183 +40,20 @@ export * from './web-llm.js';
 export * from './ai-provider.js';
 
 /**
- * 大腦引擎設定
- * @typedef {Object} BrainEngineOptions
- * @property {boolean} [enableMemory=DEFAULT_ENABLE_MEMORY] - 是否啟用記憶體模組
- * @property {number} [maxHistoryTurns=DEFAULT_MAX_HISTORY_TURNS] - 保留最大歷史對話輪數
- * @property {string} [memoryKey=DEFAULT_MEMORY_KEY] - 記憶體儲存鍵名
- * @property {Object} [memoryAdapter] - 自訂儲存轉接器實例
- * @property {Object} [compression] - 上下文壓縮設定
- * @property {Record<string, Object>} [modes] - 宣告式自訂模式註冊表
- * @property {string} [llmModel] - LLM 模型名稱
- * @property {boolean} [preloadWebLLM=false] - 是否在初始化時預先載入 WebLLM 模型
- * @property {boolean} [autoFallbackWebLLM=true] - 當 AI Provider 故障時是否自動在背景載入 WebLLM 備援
- * @property {Array} [knowledge] - 網站知識庫
- * @property {string} [knowledgeUrl] - 網站知識庫 URL
- * @property {Array} [companionKnowledge] - 陪伴模式知識庫
- * @property {string} [companionKnowledgeUrl] - 陪伴模式知識庫 URL
- * @property {Function} [companionFallback] - 陪伴模式後備處理
- * @property {string|Function} [companionFallbackContext] - 陪伴模式自訂兜底回覆內容/模板
- * @property {string|Function} [assistantFallbackContext] - 助理模式自訂兜底回覆內容/模板
- * @property {boolean} [enableAiProvider] - 是否啟用 AI 供應商模組（開關）
- * @property {string} [aiProviderModel] - AI 供應商模型
- * @property {string} [aiProviderBaseUrl] - AI 供應商 Base URL
- * @property {string|Function} [welcomeText] - 歡迎詞
- * @property {string|Function} [companionWelcomeText] - 陪伴模式歡迎詞
- * @property {string|Function} [assistantWelcomeText] - 助理模式歡迎詞
- * @property {number} [llmMaxTokens] - LLM 最大 token 數
- * @property {boolean} [llmIsStream] - LLM 是否串流
- * @property {Function} [onLlmLoading] - LLM 載入中回呼
- * @property {Function} [onLlmLoadProgress] - LLM 載入進度回呼
- * @property {Function} [onLlmLoaded] - LLM 載入完成回呼
- * @property {Function} [onLlmLoadError] - LLM 載入錯誤回呼
- * @property {Function} [onLlmChatting] - LLM 對話回呼
- * @property {Function} [onLlmStreamChatting] - LLM 串流對話回呼
- * @property {Function} [onAiProviderConnecting] - AI 連線中回呼
- * @property {Function} [onAiProviderConnected] - AI 連線完成回呼
- * @property {Function} [onAiProviderError] - AI 錯誤回呼
- * @property {Function} [onAiProviderChatting] - AI 對話回呼
- * @property {Function} [onAiProviderStreamChatting] - AI 串流對話回呼
- * @property {Function} [onAddChatMessage] - 新增訊息回呼
- * @property {Function} [onUpdateChatMessage] - 更新訊息回呼
- * @property {Function} [onChatHistoryChanged] - 歷史變更回呼
- * @property {Function} [onSpokenAudioPlayNow] - 播放文字回呼
- * @property {Function} [onSpokenDisplayTextChange] - 字幕變更回呼
- * @property {Function} [onSpokenAudioTextChange] - 語音錯誤提示回呼
- * @property {Function} [onEmotionChange] - 情緒變更回呼
- * @property {Function} [onStreamStart] - 串流開始回呼
- * @property {Function} [onStreamChunk] - 串流片段回呼
- * @property {Function} [onStreamEnd] - 串流結束回呼
- * @property {Function} [aiProviderCreateFetchSetting] - AI 建立 Fetch 設定
- * @property {Function} [aiProviderCreateFetchPayload] - AI 建立 Fetch 負載
- * @property {Function} [aiProviderResponseFormat] - AI 回應格式化
- * @property {string} [aiProviderPingUrl] - AI Ping URL
- * @property {string} [aiProviderChatUrl] - AI Chat URL
- * @property {number} [aiProviderMaxTokens] - AI 最大 token 數
- * @property {boolean} [aiProviderIsStream] - AI 是否串流
- * @property {Function} [aiProviderExtractToolCalls] - AI 供應商提取 Tool Calls 回呼
- * @property {Function} [getTools] - 取得所有工具列表函式
- * @property {Function} [getToolByName] - 依名稱取得工具函式
- * @property {Function} [offerToolConfirmation] - 發起工具確認回呼
- * @property {Function} [executeTool] - 執行工具函式
- * @property {Object} [i18nEngine] - i18n 國際化引擎實例 (可選，若未提供則自動使用內建字典)
- * @property {string} [locale] - 語系設定 (例如 'zh-TW', 'en-US', 'ja-JP', 'ko-KR')
- * @property {string|Function} [systemContextTemplate] - 助理模式系統提示詞模板
- * @property {string|Function} [companionSystemContextTemplate] - 陪伴模式系統提示詞模板
- * @property {string|Function} [ragTemplate] - RAG 參考資料模板
- * @property {Object} [customContext] - 附加自訂上下文資訊
- * @property {string|Function} [languageRule] - 多語系回答規則提示詞
- * @property {string} [gender] - 虛擬人角色性別 ('male'|'female')
- * @property {string|Function} [genderRule] - 針對性別的額外提示詞規則
- * @property {boolean} [enableAutoContinue=DEFAULT_ENABLE_AUTO_CONTINUE] - 是否在模型回答達到 Token 上限被截斷時啟用自動接續機制
- * @property {number} [maxAutoContinuations=DEFAULT_MAX_AUTO_CONTINUATIONS] - 最大自動接續次數上限（防止無限接續）
- * @property {'stream'|'buffered'} [autoContinueMode=DEFAULT_AUTO_CONTINUE_MODE] - 自動接續輸出模式 ('stream' 即時串流接續 | 'buffered' 全生成完再輸出)
- * @property {string|Function} [autoContinuePrompt] - 自訂自動接續提示詞或生成函式
- * @property {Function} [onAutoContinueStart] - 自動接續開始回呼
- * @property {Function} [onAutoContinueWait] - 語音播完但接續內容仍在生成中（空窗期）回呼
- * @property {Function} [onAutoContinueResume] - 接續內容已抵達並恢復播放回呼
- * @property {Function} [onAutoContinueEnd] - 自動接續流程結束回呼
- * @property {Function} [buildLLMMessages] - 建立 LLM 訊息回呼
- * @property {Function} [onBrainFallback] - 當大腦引擎降級時觸發的回呼函式 (fromEngine, toEngine, error)
+ * Brain engine options definition referencing central index.d.ts.
+ * @typedef {import('../../index.d.ts').BrainEngineOptions} BrainEngineOptions
  */
 
 /**
- * 大腦引擎實例
- * @typedef {Object} BrainEngine
- * @property {Object} STATE_MAP - 狀態映射表
- * @property {Object} AVATAR_MODE_MAP - 虛擬人模式映射表
- * @property {string} DEFAULT_AVATAR_MODE - 預設虛擬人模式
- * @property {string} DEFAULT_LLM_MODEL - 預設 LLM 模型
- * @property {string} DEFAULT_AI_PROVIDER_MODEL - 預設 AI 供應商模型
- * @property {string} [avatarMode] - 虛擬人模式 ('assistant'|'companion' 或自訂模式)
- * @property {Record<string, Object>} modes - 自訂模式設定表
- * @property {Array<string>} availableModes - 可用角色模式清單
- * @property {boolean} enableMemory - 是否啟用記憶體
- * @property {boolean} enableAiProvider - 是否啟用 AI 供應商
- * @property {boolean} preloadWebLLM - 是否預先載入 WebLLM 模型
- * @property {boolean} autoFallbackWebLLM - 當 AI Provider 故障時是否自動在背景載入 WebLLM 備援
- * @property {boolean} enableAutoContinue - 當前是否啟用自動接續
- * @property {number} maxAutoContinuations - 當前最大自動接續次數
- * @property {'stream'|'buffered'} autoContinueMode - 當前自動接續輸出模式
- * @property {string|Function|null} autoContinuePrompt - 自訂自動接續提示詞
- * @property {Function|null} onAutoContinueStart - 自動接續開始回呼
- * @property {Function|null} onAutoContinueWait - 接續等待回呼
- * @property {Function|null} onAutoContinueResume - 接續恢復回呼
- * @property {Function|null} onAutoContinueEnd - 自動接續結束回呼
- * @property {Function|null} onBrainFallback - 當大腦引擎降級時觸發的回呼函式
- * @property {string} knowledgeUrl - 知識庫 URL
- * @property {Array<KnowledgeEntry>} knowledge - 知識庫陣列
- * @property {string} companionKnowledgeUrl - 陪伴模式知識庫 URL
- * @property {Function} companionFallback - 陪伴模式兜底邏輯
- * @property {Array<KnowledgeEntry>} companionKnowledge - 陪伴模式知識庫
- * @property {number} companionFallbackIdx - 陪伴模式兜底索引
- * @property {string|Function} [companionFallbackContext] - 陪伴模式自訂兜底回覆內容/模板
- * @property {string|Function} [assistantFallbackContext] - 助理模式自訂兜底回覆內容/模板
- * @property {Function} getTools - 取得所有工具列表函式
- * @property {Function|null} getToolByName - 依名稱取得工具函式
- * @property {Function|null} offerToolConfirmation - 發起工具確認回呼
- * @property {Function|null} executeTool - 執行工具函式
- * @property {Function} onLlmLoading - LLM 載入中回呼
- * @property {Function} onLlmLoadProgress - LLM 載入進度回呼
- * @property {Function} onLlmLoaded - LLM 載入完成回呼
- * @property {Function} onLlmLoadError - LLM 載入錯誤回呼
- * @property {Function} onLlmChatting - LLM 對話回呼
- * @property {Function} onLlmStreamChatting - LLM 串流對話回呼
- * @property {Function} onAiProviderConnecting - AI 連線中回呼
- * @property {Function} onAiProviderConnected - AI 連線完成回呼
- * @property {Function} onAiProviderError - AI 錯誤回呼
- * @property {Function} onAiProviderChatting - AI 對話回呼
- * @property {Function} onAiProviderStreamChatting - AI 串流對話回呼
- * @property {Function} onAddChatMessage - 新增對話訊息回呼
- * @property {Function} onUpdateChatMessage - 更新對話訊息回呼
- * @property {Function} onChatHistoryChanged - 歷史對話變更回呼
- * @property {Function} onSpokenAudioPlayNow - 播放文字回呼
- * @property {Function} onSpokenDisplayTextChange - 字幕變更回呼
- * @property {Function} onSpokenAudioTextChange - 語音錯誤提示回呼
- * @property {Function} onEmotionChange - 情緒變更回呼
- * @property {Function} onStreamStart - 串流開始回呼
- * @property {Function} onStreamChunk - 串流片段回呼
- * @property {Function} onStreamEnd - 串流結束回呼
- * @property {Array} chatLog - 對話記錄
- * @property {number} chatSeq - 對話流水號
- * @property {string|Function} welcomeText - 歡迎詞
- * @property {string|Function} companionWelcomeText - 陪伴模式歡迎詞
- * @property {string|Function} assistantWelcomeText - 助理模式歡迎詞
- * @property {Function} buildLLMMessages - 建構 LLM 訊息方法
- * @property {Function} buildDefaultLLMMessages - 預設建構 LLM 訊息方法
- * @property {Function} getWelcomeText - 取得歡迎詞方法
- * @property {Function} classifyEmotion - 情緒分類方法
- * @property {string} locale - 語系設定
- * @property {Function} setLocale - 設定語系方法
- * @property {string|Function} systemContextTemplate - 助理模式系統提示詞模板
- * @property {string|Function} companionSystemContextTemplate - 陪伴模式系統提示詞模板
- * @property {string|Function} ragTemplate - RAG 參考資料模板
- * @property {Object} [customContext] - 附加自訂上下文資訊
- * @property {string|Function} languageRule - 多語系回答規則提示詞
- * @property {string} [gender] - 虛擬人角色性別
- * @property {Function} setGender - 設定性別方法
- * @property {string|Function} [genderRule] - 針對性別的額外提示詞規則
- * @property {Function} applyEmotionFromText - 設定情緒方法
- * @property {Function} answerQuestion - 處理回答方法
- * @property {Function} emitAnswer - 輸出回答方法
- * @property {Function} getRetrievalAnswer - 檢索回答方法
- * @property {Function} getCompanionFallbackResponse - 陪伴兜底方法
- * @property {Function} chatWithAiProvider - AI 供應商回答方法
- * @property {Function} chatWithWebLLM - WebLLM 回答方法
- * @property {Function} triggerRollingSummaryIfNeeded - 背景摘要方法
- * @property {Function} addChatMessage - 新增對話訊息方法
- * @property {Function} updateChatMessage - 更新對話訊息方法
- * @property {Object} [i18nEngine] - i18n 國際化引擎實例
- * @property {LLMEngine} llm - LLM 引擎實例
- * @property {MemoryInstance} memory - 記憶模組實例
- * @property {AiProviderEngine} aiProvider - AI 供應商引擎實例
- * @property {Object} [compression] - 上下文壓縮設定
+ * Brain engine instance interface referencing central index.d.ts.
+ * @typedef {import('../../index.d.ts').BrainEngine} BrainEngine
  */
 
 /**
- * 初始化大腦引擎核心
- * @param {BrainEngineOptions} [setting={}] - 大腦引擎設定
- * @returns {Promise<BrainEngine>} 大腦引擎實例
+ * Creates and initializes the Brain cognitive engine instance (orchestrating AI Provider, WebLLM, RAG knowledge, and memory).
+ *
+ * @param {import('../../index.d.ts').BrainEngineOptions} [setting={}] - Brain engine options.
+ * @returns {Promise<import('../../index.d.ts').BrainEngine>} Initialized Brain engine instance.
  */
 export async function initBrainEngine(setting = {}) {
   const {
@@ -694,10 +531,11 @@ export async function initBrainEngine(setting = {}) {
 }
 
 /**
- * 陪伴模式的預設兜底回覆
- * @param {BrainEngine} brainEngine - 大腦引擎實例
- * @param {string} question - 使用者問題
- * @returns {string} 兜底回覆文字
+ * Generates default fallback response text for companion persona mode when question is not found in knowledge.
+ *
+ * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {string} question - User question text.
+ * @returns {string} Fallback response string.
  */
 export function getCompanionFallbackResponse(brainEngine, question) {
   const locale = brainEngine?.locale || 'zh-TW';
@@ -768,10 +606,11 @@ export function getCompanionFallbackResponse(brainEngine, question) {
 }
 
 /**
- * 處理問題的檢索思考邏輯
- * @param {BrainEngine} brainEngine - 大腦引擎實例
- * @param {string} rawQuestion - 原始使用者問題
- * @returns {string} 回答文字
+ * Processes question retrieval and ranking against knowledge bases.
+ *
+ * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {string} rawQuestion - Raw user question text.
+ * @returns {string} Matched answer or fallback response text.
  */
 export function getRetrievalAnswer(brainEngine, rawQuestion) {
   const locale = brainEngine?.locale || 'zh-TW';
@@ -887,16 +726,17 @@ export function getRetrievalAnswer(brainEngine, rawQuestion) {
 }
 
 /**
- * 新增對話訊息至歷史紀錄
- * @param {BrainEngine} brainEngine - 大腦引擎實例
- * @param {string} role - 角色 ('user'|'assistant')
- * @param {string} text - 訊息內容
- * @param {Object} [options={}] - 額外選項設定
- * @param {string} [options.id] - 訊息 ID
- * @param {boolean} [options.streaming] - 是否為串流中
- * @param {Object} [options.pendingTool] - 待處理的工具
- * @param {Array} [options.pendingChoices] - 待處理的選項
- * @returns {string} 訊息 ID
+ * Appends a conversation turn message to internal history log.
+ *
+ * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {string} role - Message author role ('user' | 'assistant').
+ * @param {string} text - Message text content.
+ * @param {Object} [options={}] - Additional message options.
+ * @param {string} [options.id] - Unique message ID.
+ * @param {boolean} [options.streaming] - Whether message is actively streaming.
+ * @param {Object} [options.pendingTool] - Pending tool descriptor.
+ * @param {Array<any>} [options.pendingChoices] - Pending options list.
+ * @returns {string} Generated or assigned message ID.
  */
 export function addChatMessage(brainEngine, role, text, options = {}) {
   const item = {
@@ -922,12 +762,13 @@ export function addChatMessage(brainEngine, role, text, options = {}) {
 }
 
 /**
- * 更新歷史對話紀錄中的訊息
- * @param {BrainEngine} brainEngine - 大腦引擎實例
- * @param {string} id - 訊息 ID
- * @param {string} text - 更新後的文字
- * @param {boolean} streaming - 是否為串流狀態中
- * @returns {string} 訊息 ID
+ * Updates an existing message in conversation history log.
+ *
+ * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {string} id - Target message ID.
+ * @param {string} text - Updated text content.
+ * @param {boolean} streaming - Whether message is still streaming.
+ * @returns {string} Updated message ID.
  */
 export function updateChatMessage(brainEngine, id, text, streaming) {
   const item = brainEngine.chatLog.find((msg) => msg.id === id);
@@ -946,9 +787,10 @@ export function updateChatMessage(brainEngine, id, text, streaming) {
 }
 
 /**
- * 綜合處理回答流程 (AI Provider -> WebLLM -> 檢索後備)
- * @param {BrainEngine} brainEngine - 大腦引擎實例
- * @param {string} question - 使用者問題
+ * Handles full question answering lifecycle with priority routing (AI Provider -> WebLLM -> Knowledge Retrieval).
+ *
+ * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {string} question - User question text.
  * @returns {Promise<void>}
  */
 export async function answerQuestion(brainEngine, question) {
@@ -1046,9 +888,10 @@ export async function answerQuestion(brainEngine, question) {
 }
 
 /**
- * 輸出回答 (記錄、顯示、發聲)
- * @param {BrainEngine} brainEngine - 大腦引擎實例
- * @param {string} text - 回答內容
+ * Emits and records assistant answer text (history turn, chat UI, voice synthesis, emotion).
+ *
+ * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {string} text - Answer content text.
  */
 export function emitAnswer(brainEngine, text) {
   if (typeof text !== 'string' || text === '') {
@@ -1068,9 +911,10 @@ export function emitAnswer(brainEngine, text) {
 }
 
 /**
- * 驗證自訂 Brain Engine 是否實作了必要的介面
- * @param {object} engine - 待驗證的引擎實例
- * @returns {{isValid: boolean, missing: string[]}} 驗證結果與缺少的實作名稱
+ * Validates that a custom Brain engine implementation provides all required methods and properties.
+ *
+ * @param {any} engine - Custom engine instance candidate.
+ * @returns {{ isValid: boolean, missing: string[] }} Validation result and list of missing members.
  */
 export function validateBrainEngine(engine) {
   if (typeof engine !== 'object' || engine === null) {

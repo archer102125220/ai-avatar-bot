@@ -14,20 +14,20 @@ import {
 } from '../constants.js';
 
 /**
- * 壓縮設定限制解析結果
+ * Resolved context compression limits and strategy configuration.
  * @typedef {Object} ResolvedCompressionLimits
- * @property {string} strategy - 壓縮策略名稱
- * @property {number} maxTurns - 最大歷史輪數
- * @property {number} maxTotalChars - 最大總字元數上限
+ * @property {string} strategy - Compression strategy name.
+ * @property {number} maxTurns - Maximum conversation turns retained.
+ * @property {number} maxTotalChars - Character budget ceiling.
  */
 
 /**
- * 解析特定推論引擎的上下文壓縮限制
- * 優先級：特定引擎設定 (webLlm / aiProvider) -> 全域設定 (maxTurns / maxTotalChars) -> 內建預設值
+ * Resolves context compression limits for a specific inference engine.
+ * Precedence: Engine-specific (`webLlm` / `aiProvider`) -> Global (`maxTurns` / `maxTotalChars`) -> Default values.
  *
- * @param {Object} [compressionOptions={}] - 傳入的壓縮設定
- * @param {string} [engineType=BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER] - 當前推論引擎類型
- * @returns {ResolvedCompressionLimits} 解析後的限制設定
+ * @param {import('../../index.d.ts').CompressionOptions} [compressionOptions={}] - Compression options.
+ * @param {string} [engineType=BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER] - Active inference engine type.
+ * @returns {ResolvedCompressionLimits} Resolved limits and strategy configuration.
  */
 export function resolveCompressionLimits(
   compressionOptions = {},
@@ -107,10 +107,10 @@ export function resolveCompressionLimits(
 }
 
 /**
- * 估算訊息或文字長度（字元數）
+ * Estimates character count of text, message objects, or message arrays.
  *
- * @param {string|Array<Object>|Object} input - 輸入文字或訊息陣列
- * @returns {number} 估計字元數
+ * @param {string|Array<Object>|Object} input - Input text, message, or message array.
+ * @returns {number} Estimated character count.
  */
 export function estimateChars(input) {
   if (typeof input === 'string') {
@@ -147,10 +147,10 @@ export function estimateChars(input) {
 }
 
 /**
- * 確保 Tool Calls 訊息成對保留，避免 OpenAI / WebLLM 400 Bad Request
+ * Ensures tool calls and tool responses remain paired in conversation messages to prevent 400 Bad Request errors.
  *
- * @param {Array<Object>} messages - 訊息列表
- * @returns {Array<Object>} 修剪後的安全訊息列表
+ * @param {Array<Object>} messages - Message array to sanitize.
+ * @returns {Array<Object>} Sanitized message array.
  */
 export function sanitizeToolCalls(messages) {
   if (Array.isArray(messages) === false || messages.length === 0) {
@@ -201,14 +201,10 @@ export function sanitizeToolCalls(messages) {
 }
 
 /**
- * 將歷史訊息陣列依問答邏輯分組為「輪次 (Turns)」
- * 一個輪次可能包含：
- * 1. 標準輪次：[userMessage, assistantMessage]
- * 2. 工具調用輪次：[userMessage, assistantToolCallMessage, toolMessage..., assistantFinalMessage]
- * 3. 獨立訊息
+ * Groups raw sequential conversation messages into complete turns (user question + assistant response + optional tool calls).
  *
- * @param {Array<Object>} historyMessages - 歷史對話訊息
- * @returns {Array<Array<Object>>} 分組後的輪次陣列
+ * @param {Array<Object>} historyMessages - History messages array.
+ * @returns {Array<Array<Object>>} Grouped turns array.
  */
 export function groupMessagesIntoTurns(historyMessages) {
   if (
@@ -246,15 +242,14 @@ export function groupMessagesIntoTurns(historyMessages) {
 }
 
 /**
- * 標準滑動窗口壓縮器 (Sliding Window Compressor)
- * 以「整輪對話 (Complete Turns)」為單位，由新到舊倒推保留。
+ * Standard sliding-window conversation compressor preserving complete recent turns up to character budget.
  *
- * @param {Object} params - 壓縮參數
- * @param {Array<Object>} params.messages - 原始完整訊息陣列
- * @param {string} [params.systemPrompt] - 解析後的系統提示詞
- * @param {number} [params.maxTurns=6] - 最大允許歷史輪數
- * @param {number} [params.maxTotalChars=4000] - 最大允許總字元數預算
- * @returns {Array<Object>} 壓縮過濾後的訊息列表
+ * @param {Object} params - Compression parameters.
+ * @param {Array<Object>} params.messages - Full input messages array.
+ * @param {string} [params.systemPrompt] - Resolved system prompt string.
+ * @param {number} [params.maxTurns=6] - Maximum allowed historical turns.
+ * @param {number} [params.maxTotalChars=4000] - Character budget ceiling.
+ * @returns {Array<Object>} Compressed and filtered messages array.
  */
 export function slidingWindowCompressor({
   messages,
@@ -362,34 +357,34 @@ export function slidingWindowCompressor({
 }
 
 /**
- * 上下文壓縮上下文參數
+ * Context payload supplied to custom compression handler functions.
  * @typedef {Object} CompressContext
- * @property {Array<Object>} messages - 原始即將送出的完整訊息陣列 (包含 system, history, current user)
- * @property {string} systemPrompt - 當前解析後的 System Prompt (包含 Persona, RAG 知識庫)
- * @property {Array<{role: string, content: string}>} [history] - 原始歷史對話紀錄
- * @property {string} [latestQuestion] - 使用者當前最新的輸入問題
- * @property {Record<string, any>} [memoryData] - 當前記憶狀態資料 (例如 name, visits, custom profile)
- * @property {'aiProvider'|'webLLM'|string} [provider] - 當前推論引擎
- * @property {'aiProvider'|'webLLM'|string} [engineType] - 當前推論引擎 (別名)
- * @property {string} [model] - 當前使用的模型名稱
- * @property {ResolvedCompressionLimits} limits - 當前引擎解析後的上限限制
+ * @property {Array<Object>} messages - Raw full messages array (system, history, latest user).
+ * @property {string} systemPrompt - Current resolved system prompt.
+ * @property {Array<{ role: string, content: string }>} [history] - Raw conversation history.
+ * @property {string} [latestQuestion] - Latest user input question.
+ * @property {Record<string, any>} [memoryData] - Current memory state data.
+ * @property {'aiProvider' | 'webLLM' | string} [provider] - Active provider type.
+ * @property {'aiProvider' | 'webLLM' | string} [engineType] - Active engine type alias.
+ * @property {string} [model] - Active model identifier.
+ * @property {ResolvedCompressionLimits} limits - Resolved upper limits.
  */
 
 /**
- * 自訂壓縮器回呼函式
- * @typedef {(context: CompressContext) => Promise<Array<Object>>|Array<Object>} CustomCompressor
+ * Custom context compressor function signature.
+ * @typedef {(context: CompressContext) => Promise<Array<Object>> | Array<Object>} CustomCompressor
  */
 
 /**
- * 產生滾動對話摘要 (Rolling Summary Generator)
+ * Generates an updated rolling summary of conversation turns.
  *
  * @param {Object} params
- * @param {string} [params.oldSummary=''] - 前一次的摘要內容
- * @param {Array<{role: string, content: string}>} params.newTurns - 待摘要的對話輪次列表
- * @param {string} [params.locale='zh-TW'] - 語言環境
- * @param {Function} [params.llmChat=null] - 呼叫 LLM 進行摘要之回呼函式 (非同步)
- * @param {Function} [params.customGenerator=null] - 自訂摘要產生函式
- * @returns {Promise<string>} 產生的精煉摘要字串
+ * @param {string} [params.oldSummary=''] - Previous summary text.
+ * @param {Array<{ role: string, content: string }>} params.newTurns - New unsummarized turns.
+ * @param {string} [params.locale='zh-TW'] - Language locale code.
+ * @param {Function | null} [params.llmChat=null] - Async LLM completion function for generating summary.
+ * @param {Function | null} [params.customGenerator=null] - Custom summary generator function.
+ * @returns {Promise<string>} Generated concise summary string.
  */
 export async function generateRollingSummary({
   oldSummary = '',
@@ -485,16 +480,15 @@ export async function generateRollingSummary({
 }
 
 /**
- * 滾動摘要壓縮器 (Rolling Summary Compressor)
- * 將歷史摘要作為前情提要注入 System Prompt，並保留最新 N 輪對話
+ * Rolling summary compressor that injects background summaries into the system prompt while retaining recent turns.
  *
  * @param {Object} options
- * @param {Array<Object>} options.messages - 原始完整訊息列表
- * @param {string} [options.systemPrompt=''] - 原始系統提示詞
- * @param {string} [options.summary=''] - 歷史累積摘要
- * @param {number} [options.recentTurnsCount=DEFAULT_SUMMARY_RECENT_TURNS] - 保留最新對話輪數
- * @param {number} [options.maxTotalChars=DEFAULT_MAX_TOTAL_CHARS] - 總字元預算
- * @returns {Array<Object>} 壓縮後的訊息列表
+ * @param {Array<Object>} options.messages - Raw message array.
+ * @param {string} [options.systemPrompt=''] - Base system prompt.
+ * @param {string} [options.summary=''] - Accumulated summary context.
+ * @param {number} [options.recentTurnsCount=DEFAULT_SUMMARY_RECENT_TURNS] - Recent turns count to keep.
+ * @param {number} [options.maxTotalChars=DEFAULT_MAX_TOTAL_CHARS] - Total character budget.
+ * @returns {Array<Object>} Compressed message array with injected summary.
  */
 export function rollingSummaryCompressor({
   messages,
@@ -538,19 +532,19 @@ export function rollingSummaryCompressor({
 }
 
 /**
- * 綜合上下文壓縮調度器 (Context Compression Pipeline)
+ * Comprehensive context compression orchestrator dispatching according to configured strategy.
  *
- * @param {Object} context - 上下文物件
- * @param {Array<Object>} context.messages - 原始完整訊息列表
- * @param {string} [context.systemPrompt] - 系統提示詞
- * @param {Array<{role: string, content: string}>} [context.history] - 原始歷史對話紀錄
- * @param {string} [context.latestQuestion] - 使用者當前最新輸入問題
- * @param {Record<string, any>} [context.memoryData] - 當前記憶資料
- * @param {string} [context.provider] - 推論引擎提供者類型
- * @param {string} [context.engineType] - 推論引擎類型
- * @param {string} [context.model] - 當前模型名稱
- * @param {Object} [context.compressionOptions] - 壓縮設定
- * @returns {Promise<Array<Object>>|Array<Object>} 壓縮後的訊息列表
+ * @param {Object} context - Compression context descriptor.
+ * @param {Array<Object>} context.messages - Raw full messages list.
+ * @param {string} [context.systemPrompt] - System prompt.
+ * @param {Array<{ role: string, content: string }>} [context.history] - History turns.
+ * @param {string} [context.latestQuestion] - Current user question.
+ * @param {Record<string, any>} [context.memoryData] - Memory state data.
+ * @param {string} [context.provider] - Inference provider identifier.
+ * @param {string} [context.engineType] - Engine type identifier.
+ * @param {string} [context.model] - Active model identifier.
+ * @param {import('../../index.d.ts').CompressionOptions} [context.compressionOptions] - Compression configuration options.
+ * @returns {Promise<Array<Object>> | Array<Object>} Compressed messages array.
  */
 export async function compressContext({
   messages,
