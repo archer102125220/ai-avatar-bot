@@ -3,12 +3,13 @@ import {
   createMockRenderer2D,
   createMockRenderer3D,
   setupWindowPixiMock
-} from './mocks/skin-renderer-mock';
+} from '@/test/mocks/skin-renderer-mock';
 import {
   createMockAiProvider,
   createMockWebLLMEngine,
   createMockChatCompletionStream
-} from './mocks/ai-provider-mock';
+} from '@/test/mocks/ai-provider-mock';
+
 
 describe('Phase 1: Test Infrastructure & Global Mocks Sanity Check', () => {
   it('should have DOM environment properly set up by jsdom', () => {

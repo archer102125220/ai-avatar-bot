@@ -4,7 +4,13 @@ import apiPlugin from '../shared/vite-api-plugin';
 import { avatarBotVitePlugin } from './plugins/vite';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, '.')
+    }
+  },
   plugins: [apiPlugin(), avatarBotVitePlugin()],
+
   publicDir: 'public',
   build: {
     lib: {

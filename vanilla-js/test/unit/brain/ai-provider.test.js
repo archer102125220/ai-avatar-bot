@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { initAiProvider, chatWithAiProvider } from '../../../core/brain/ai-provider';
+import { initAiProvider, chatWithAiProvider } from '@/core/brain/ai-provider';
 import {
   LLM_FINISH_REASON_MAP,
   AUTO_CONTINUE_MODE_MAP
-} from '../../../core/constants';
+} from '@/core/constants';
+
 
 describe('Unit Test: core/brain/ai-provider.js', () => {
   let originalFetch;

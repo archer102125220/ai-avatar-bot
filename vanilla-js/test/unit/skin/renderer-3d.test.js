@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { FIT_MODE_MAP, ENGINE_MODE_MAP } from '../../../core/constants';
+import { FIT_MODE_MAP, ENGINE_MODE_MAP } from '@/core/constants';
 import {
   defaultGesture3D,
   bootVRM,
   loadVRMFile
-} from '../../../core/skin/renderer-3d';
+} from '@/core/skin/renderer-3d';
+
 
 // Mock Three.js and VRM packages
 vi.mock('three', () => {

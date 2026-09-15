@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   setupStoreSubscribers,
   setupI18nSubscribers
-} from '../../../core/orchestrator/subscribers';
-import { createBaseStore } from '../../../core/store';
-import { initI18nEngine } from '../../../core/i18n';
+} from '@/core/orchestrator/subscribers';
+import { createBaseStore } from '@/core/store';
+import { initI18nEngine } from '@/core/i18n';
+
 
 describe('Orchestrator Store & i18n Subscribers', () => {
   let rootStore;

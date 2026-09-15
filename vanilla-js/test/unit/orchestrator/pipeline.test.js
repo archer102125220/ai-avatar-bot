@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createUserPipeline } from '../../../core/orchestrator/pipeline-user';
-import { createStreamPipeline } from '../../../core/orchestrator/pipeline-stream';
+import { createUserPipeline } from '@/core/orchestrator/pipeline-user';
+import { createStreamPipeline } from '@/core/orchestrator/pipeline-stream';
 import {
   createTapAvatarHandler,
   createModelDropHandler
-} from '../../../core/orchestrator/interaction';
-import { createBaseStore } from '../../../core/store';
-import { initI18nEngine } from '../../../core/i18n';
+} from '@/core/orchestrator/interaction';
+import { createBaseStore } from '@/core/store';
+import { initI18nEngine } from '@/core/i18n';
+
 
 describe('Orchestrator Pipelines & Interactions', () => {
   let rootStore;

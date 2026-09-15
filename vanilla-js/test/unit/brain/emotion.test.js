@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { classifyEmotion, applyEmotionFromText } from '../../../core/brain/emotion';
+import { classifyEmotion, applyEmotionFromText } from '@/core/brain/emotion';
+
 
 describe('Unit Test: core/brain/emotion.js', () => {
   describe('classifyEmotion', () => {

@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { initWebLLM, chatWithWebLLM } from '../../../core/brain/web-llm';
+import { initWebLLM, chatWithWebLLM } from '@/core/brain/web-llm';
 import {
   STATE_MAP,
   LLM_FINISH_REASON_MAP
-} from '../../../core/constants';
+} from '@/core/constants';
+
 import * as WebLLMModule from '@mlc-ai/web-llm';
 
 vi.mock('@mlc-ai/web-llm', () => ({

@@ -4,13 +4,14 @@ import {
   setupSpeechEngine,
   setupToolsEngine,
   setupSkinEngine
-} from '../../../core/orchestrator/engine-factory';
-import { createBaseStore } from '../../../core/store';
-import { initI18nEngine } from '../../../core/i18n';
-import { ENGINE_MODE_MAP, DEFAULT_EMOTION_TOOL_NAME } from '../../../core/constants';
+} from '@/core/orchestrator/engine-factory';
+import { createBaseStore } from '@/core/store';
+import { initI18nEngine } from '@/core/i18n';
+import { ENGINE_MODE_MAP, DEFAULT_EMOTION_TOOL_NAME } from '@/core/constants';
 
-import * as SpeechModule from '../../../core/speech';
-import * as SkinModule from '../../../core/skin';
+import * as SpeechModule from '@/core/speech';
+import * as SkinModule from '@/core/skin';
+
 
 describe('Orchestrator Engine Factory', () => {
   let rootStore;

@@ -6,7 +6,8 @@ import {
   scoreKnowledgeEntry,
   getTopKnowledge,
   findBestMatch
-} from '../../../core/brain/knowledge';
+} from '@/core/brain/knowledge';
+
 
 describe('Unit Test: core/brain/knowledge.js', () => {
   let originalFetch;

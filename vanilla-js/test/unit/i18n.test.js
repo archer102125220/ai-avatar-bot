@@ -6,7 +6,8 @@ import {
   DEFAULT_LOCALE,
   SUPPORTED_LOCALES,
   LOCALE_LABELS
-} from '../../core/i18n';
+} from '@/core/i18n';
+
 
 describe('Unit Test: core/i18n/index.js', () => {
   describe('formatParams', () => {

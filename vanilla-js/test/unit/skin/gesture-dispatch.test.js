@@ -3,8 +3,9 @@ import {
   initSkinEngine,
   defaultGesture2D,
   defaultGesture3D
-} from '../../../core/skin';
-import { ENGINE_MODE_MAP, GENDER_MAP } from '../../../core/constants';
+} from '@/core/skin';
+import { ENGINE_MODE_MAP, GENDER_MAP } from '@/core/constants';
+
 
 describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow)', () => {
   let stageEl;

@@ -3,9 +3,10 @@ import { vi } from 'vitest';
 /**
  * 建立 Mock 2D Live2D 渲染器實例
  * @param {Object} [overrides={}]
- * @returns {import('../../core/skin/renderer-2d').Renderer2D}
+ * @returns {import('@/core/skin/renderer-2d').Renderer2D}
  */
 export function createMockRenderer2D(overrides = {}) {
+
   const canvas = document.createElement('canvas');
   const avatarModel = {
     internalModel: {
@@ -54,9 +55,10 @@ export function createMockRenderer2D(overrides = {}) {
 /**
  * 建立 Mock 3D VRM 渲染器實例
  * @param {Object} [overrides={}]
- * @returns {import('../../core/skin/renderer-3d').Renderer3D}
+ * @returns {import('@/core/skin/renderer-3d').Renderer3D}
  */
 export function createMockRenderer3D(overrides = {}) {
+
   const canvas = document.createElement('canvas');
   const vrm = {
     scene: {},

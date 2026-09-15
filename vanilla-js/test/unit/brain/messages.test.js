@@ -4,8 +4,9 @@ import {
   getWelcomeText,
   resolveAutoContinuePrompt,
   buildDefaultLLMMessages
-} from '../../../core/brain/messages';
-import { AVATAR_MODE_MAP, BRAIN_ENGINE_TYPE_MAP } from '../../../core/constants';
+} from '@/core/brain/messages';
+import { AVATAR_MODE_MAP, BRAIN_ENGINE_TYPE_MAP } from '@/core/constants';
+
 
 describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
   let mockBrainEngine;

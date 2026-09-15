@@ -8,12 +8,13 @@ import {
   addChatMessage,
   updateChatMessage,
   validateBrainEngine
-} from '../../../core/brain';
+} from '@/core/brain';
 import {
   AVATAR_MODE_MAP,
   STATE_MAP,
   BRAIN_ENGINE_TYPE_MAP
-} from '../../../core/constants';
+} from '@/core/constants';
+
 
 describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', () => {
   beforeEach(() => {

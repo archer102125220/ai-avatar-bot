@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { initToolsEngine, validateToolsEngine } from '../../../core/tools';
+import { initToolsEngine, validateToolsEngine } from '@/core/tools';
 import {
   TOOL_CANCEL_REASON_MAP,
   CHAT_SOURCE_MAP
-} from '../../../core/constants';
+} from '@/core/constants';
+
 
 
 describe('Unit Test: core/tools/index.js (Tools Engine)', () => {

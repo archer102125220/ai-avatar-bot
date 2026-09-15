@@ -5,8 +5,9 @@ import {
   getAiAvailableTools,
   toOpenAiTools,
   argumentSummary
-} from '../../../core/tools/schema';
-import { TOOL_ROUTING_MODE_MAP, TOOL_RESULT_MODE_MAP } from '../../../core/constants';
+} from '@/core/tools/schema';
+import { TOOL_ROUTING_MODE_MAP, TOOL_RESULT_MODE_MAP } from '@/core/constants';
+
 
 describe('Unit Test: core/tools/schema.js', () => {
   describe('normaliseSchema', () => {

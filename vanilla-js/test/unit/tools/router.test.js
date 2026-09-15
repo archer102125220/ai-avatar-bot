@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { scoreTool, route } from '../../../core/tools/router';
-import { normaliseTool } from '../../../core/tools/schema';
-import { TOOL_ROUTING_MODE_MAP } from '../../../core/constants';
+import { scoreTool, route } from '@/core/tools/router';
+import { normaliseTool } from '@/core/tools/schema';
+import { TOOL_ROUTING_MODE_MAP } from '@/core/constants';
+
 
 describe('Unit Test: core/tools/router.js', () => {
   describe('scoreTool', () => {

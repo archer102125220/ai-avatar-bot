@@ -1,12 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createEmotionToolsPlugin } from '../../../core/plugins/emotion-tools';
+import { createEmotionToolsPlugin } from '@/core/plugins/emotion-tools';
 import {
   DEFAULT_SUPPORTED_EMOTIONS,
   DEFAULT_EMOTION_TOOL_NAME,
   TOOL_ROUTING_MODE_MAP,
   TOOL_RESULT_MODE_MAP,
   TOOL_SCHEMA_TYPE_MAP
-} from '../../../core/constants';
+} from '@/core/constants';
+
 
 describe('Emotion Tools Plugin', () => {
   it('should generate valid emotion tool definition with defaults', () => {

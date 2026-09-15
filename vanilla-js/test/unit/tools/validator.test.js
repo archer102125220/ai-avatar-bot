@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { validate, extractPropertyValue, extract } from '../../../core/tools/validator';
+import { validate, extractPropertyValue, extract } from '@/core/tools/validator';
+
 
 describe('Unit Test: core/tools/validator.js', () => {
   describe('validate', () => {

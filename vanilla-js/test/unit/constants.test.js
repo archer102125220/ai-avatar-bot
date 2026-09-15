@@ -54,7 +54,8 @@ import {
   DEFAULT_TOOL_CONFIRMATION_TIMEOUT_MS,
   TOOL_CANCEL_REASON_MAP,
   isWebLLMFunctionCallingSupported
-} from '../../core/constants';
+} from '@/core/constants';
+
 
 
 describe('Unit Test: core/constants.js', () => {

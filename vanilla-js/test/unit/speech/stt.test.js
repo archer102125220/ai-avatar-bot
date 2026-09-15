@@ -3,7 +3,8 @@ import {
   validateSTTEngine,
   initDefaultSTTEngine,
   getSttMessage
-} from '../../../core/speech/stt';
+} from '@/core/speech/stt';
+
 
 describe('Unit Test: core/speech/stt.js', () => {
   beforeEach(() => {

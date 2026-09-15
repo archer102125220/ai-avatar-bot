@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createBaseStore } from '../../core/store';
+import { createBaseStore } from '@/core/store';
+
 
 describe('Unit Test: core/store.js', () => {
   it('should initialize with provided initialState', () => {

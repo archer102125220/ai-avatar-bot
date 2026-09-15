@@ -1,12 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
-import { normalizeOptions, callOptionEvent } from '../../../core/orchestrator/options';
+import { normalizeOptions, callOptionEvent } from '@/core/orchestrator/options';
 import {
   DEFAULT_AVATAR_MODE,
   GENDER_MAP,
   DEFAULT_GENDER,
   getDefaultNeuralVoice,
   DEFAULT_AUTO_CONTINUE_MODE
-} from '../../../core/constants';
+} from '@/core/constants';
+
 
 
 describe('Orchestrator Options & Configuration', () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { initUi } from '../../../core/ui/dom';
-import { initI18nEngine } from '../../../core/i18n';
+import { initUi } from '@/core/ui/dom';
+import { initI18nEngine } from '@/core/i18n';
+
 
 describe('UI DOM & Scaffolding (initUi)', () => {
   let container;

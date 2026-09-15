@@ -4,12 +4,13 @@ import {
   createDefaultMemoryData,
   migrateMemoryData,
   triggerRollingSummaryIfNeeded
-} from '../../../core/brain/memory';
+} from '@/core/brain/memory';
 import {
   CURRENT_MEMORY_VERSION,
   COMPRESSION_STRATEGY_MAP,
   STATE_MAP
-} from '../../../core/constants';
+} from '@/core/constants';
+
 
 describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
   beforeEach(() => {

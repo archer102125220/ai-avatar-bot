@@ -8,13 +8,14 @@ import {
   rollingSummaryCompressor,
   generateRollingSummary,
   compressContext
-} from '../../../core/brain/compression';
+} from '@/core/brain/compression';
 import {
   BRAIN_ENGINE_TYPE_MAP,
   COMPRESSION_STRATEGY_MAP,
   DEFAULT_WEB_LLM_MAX_TURNS,
   DEFAULT_AI_PROVIDER_MAX_TURNS
-} from '../../../core/constants';
+} from '@/core/constants';
+
 
 describe('Unit Test: core/brain/compression.js', () => {
   describe('resolveCompressionLimits', () => {

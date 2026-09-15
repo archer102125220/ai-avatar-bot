@@ -5,8 +5,9 @@ import {
   splitSentences,
   localeVoice,
   initDefaultTTSEngine
-} from '../../../core/speech/tts';
-import { GENDER_MAP } from '../../../core/constants';
+} from '@/core/speech/tts';
+import { GENDER_MAP } from '@/core/constants';
+
 
 describe('Unit Test: core/speech/tts.js', () => {
   beforeEach(() => {

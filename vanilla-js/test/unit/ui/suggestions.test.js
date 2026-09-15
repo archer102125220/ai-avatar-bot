@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderSuggestions } from '../../../core/ui/suggestions';
-import { initUi } from '../../../core/ui/dom';
-import { initI18nEngine } from '../../../core/i18n';
-import { AVATAR_MODE_MAP } from '../../../core/constants';
+import { renderSuggestions } from '@/core/ui/suggestions';
+import { initUi } from '@/core/ui/dom';
+import { initI18nEngine } from '@/core/i18n';
+import { AVATAR_MODE_MAP } from '@/core/constants';
+
 
 describe('UI Suggestions (renderSuggestions)', () => {
   let container;

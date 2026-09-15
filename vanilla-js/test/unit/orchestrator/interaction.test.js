@@ -2,10 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   createTapAvatarHandler,
   createModelDropHandler
-} from '../../../core/orchestrator/interaction';
-import { createBaseStore } from '../../../core/store';
-import { initI18nEngine } from '../../../core/i18n';
-import { AVATAR_MODE_MAP } from '../../../core/constants';
+} from '@/core/orchestrator/interaction';
+import { createBaseStore } from '@/core/store';
+import { initI18nEngine } from '@/core/i18n';
+import { AVATAR_MODE_MAP } from '@/core/constants';
+
 
 describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
   let rootStore;

@@ -4,7 +4,7 @@ import {
   validateSkinEngine,
   createCanvas,
   initSkinMode
-} from '../../../core/skin';
+} from '@/core/skin';
 import {
   ENGINE_MODE_MAP,
   FIT_MODE_MAP,
@@ -12,7 +12,8 @@ import {
   DEFAULT_FEMALE_3D_MODEL_URL,
   DEFAULT_MALE_2D_MODEL_URL,
   DEFAULT_MALE_3D_MODEL_URL
-} from '../../../core/constants';
+} from '@/core/constants';
+
 
 
 describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { initSkinEngine } from '../../../core/skin';
+import { initSkinEngine } from '@/core/skin';
 import {
   FIT_MODE_MAP,
   GENDER_MAP,
@@ -8,7 +8,8 @@ import {
   DEFAULT_FEMALE_3D_MODEL_URL,
   DEFAULT_MALE_2D_MODEL_URL,
   DEFAULT_MALE_3D_MODEL_URL
-} from '../../../core/constants';
+} from '@/core/constants';
+
 
 describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Updates)', () => {
   let stageEl;

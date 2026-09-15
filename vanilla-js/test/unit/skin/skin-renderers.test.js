@@ -3,14 +3,15 @@ import {
   createMockRenderer2D,
   createMockRenderer3D,
   setupWindowPixiMock
-} from '../../mocks/skin-renderer-mock';
-import { FIT_MODE_MAP } from '../../../core/constants';
+} from '@/test/mocks/skin-renderer-mock';
+import { FIT_MODE_MAP } from '@/core/constants';
 import {
   defaultGesture2D,
   bootAvatar,
   loadUMD
-} from '../../../core/skin/renderer-2d';
-import { defaultGesture3D } from '../../../core/skin/renderer-3d';
+} from '@/core/skin/renderer-2d';
+import { defaultGesture3D } from '@/core/skin/renderer-3d';
+
 
 describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)', () => {
   let stageEl;

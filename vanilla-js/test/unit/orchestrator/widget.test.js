@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createAvatarWidget } from '../../../core/orchestrator/widget';
-import { initAvatarBot } from '../../../core/orchestrator/index';
-import { createBaseStore } from '../../../core/store';
-import { initI18nEngine } from '../../../core/i18n';
+import { createAvatarWidget } from '@/core/orchestrator/widget';
+import { initAvatarBot } from '@/core/orchestrator/index';
+import { createBaseStore } from '@/core/store';
+import { initI18nEngine } from '@/core/i18n';
 import {
   DEFAULT_LLM_MODEL,
   STATE_MAP,
@@ -15,7 +15,8 @@ import {
   LLM_FINISH_REASON_MAP,
   FINISH_REASON_MAP,
   GENDER_MAP
-} from '../../../core/constants';
+} from '@/core/constants';
+
 
 
 describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', () => {

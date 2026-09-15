@@ -3,9 +3,10 @@ import {
   updateUIStrings,
   copyText,
   initSkinModeChangeButton
-} from '../../../core/ui/utils';
-import { initI18nEngine } from '../../../core/i18n';
-import { ENGINE_MODE_MAP } from '../../../core/constants';
+} from '@/core/ui/utils';
+import { initI18nEngine } from '@/core/i18n';
+import { ENGINE_MODE_MAP } from '@/core/constants';
+
 
 describe('UI Utilities (updateUIStrings, copyText, initSkinModeChangeButton)', () => {
   let container;

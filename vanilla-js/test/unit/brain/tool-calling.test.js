@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   extractToolCallsFromText,
   executeToolCallsLoop
-} from '../../../core/brain/tool-calling';
-import { BRAIN_ENGINE_TYPE_MAP } from '../../../core/constants';
+} from '@/core/brain/tool-calling';
+import { BRAIN_ENGINE_TYPE_MAP } from '@/core/constants';
+
 
 describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
   describe('extractToolCallsFromText', () => {
