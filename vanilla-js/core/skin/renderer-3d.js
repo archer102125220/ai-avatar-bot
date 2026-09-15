@@ -857,6 +857,6 @@ export function loadVRMFile(skinEngine = null, vrmFile) {
   if (typeof skinEngine.VRMFileChangeSuccess === 'function') {
     skinEngine.VRMFileChangeSuccess(skinEngine.vrmUrl);
   }
-  skinEngine.engineMode = null; // 強制重 boot（即使已在 3D）
+  skinEngine._engineMode = null; // 強制重 boot（即使已在 3D）
   skinEngine.engineMode = ENGINE_MODE_MAP.threeDimensional;
 }
