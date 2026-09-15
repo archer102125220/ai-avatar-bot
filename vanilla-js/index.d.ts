@@ -237,6 +237,55 @@ export interface Skin3DConfig {
 }
 
 /**
+ * VRM settings and animation URL configuration.
+ */
+export interface VRMSettings extends Skin3DConfig {}
+
+/**
+ * 2D Live2D renderer controller instance.
+ */
+export interface Renderer2D {
+  /** Canvas element used for rendering. */
+  readonly canvas: HTMLCanvasElement;
+  /** Live2D model instance. */
+  readonly avatarModel: any;
+  /** PIXI Application instance. */
+  readonly pixiApp: any;
+  /** Re-calculates and applies fitting transform. */
+  fit(): void;
+  /** Updates 2D visual transformation configuration. */
+  updateTransform(config: Partial<Skin2DConfig>): void;
+  /** Disposes resources, listeners, and PIXI application. */
+  dispose(): void;
+}
+
+/**
+ * 3D VRM renderer controller instance.
+ */
+export interface Renderer3D {
+  /** Loaded GLTF object instance. */
+  readonly gltf: any;
+  /** Loaded VRM model instance. */
+  readonly vrm: any;
+  /** Supported tap gesture action keys. */
+  readonly TAP_GESTURES: string[];
+  /** Canvas element used for rendering. */
+  readonly canvas: HTMLCanvasElement;
+  /** THREE.PerspectiveCamera instance. */
+  readonly camera: any;
+  /** THREE.Scene instance. */
+  readonly scene: any;
+  /** Plays a named 3D gesture animation (e.g. 'wave', 'bow'). */
+  readonly playGesture: (gestureName: string) => void;
+  /** Pauses or resumes animation rendering loop. */
+  setPaused(isPaused: boolean): void;
+  /** Updates 3D visual transformation configuration. */
+  updateTransform(config: Partial<Skin3DConfig>): void;
+  /** Disposes resources, WebGL context, and scene meshes. */
+  dispose(): void;
+}
+
+/**
  * Initialization options for creating a SkinEngine.
  */
 export interface SkinEngineOptions {
@@ -297,7 +346,7 @@ export interface SkinEngineOptions {
   /** Alias for onModelChangeStart. */
   onModelChange?: (mode: string) => void;
   /** Callback fired when model mode switch finishes. */
-  onModelChangeEnd?: (renderer: any, mode: string) => void;
+  onModelChangeEnd?: (renderer: Renderer2D | Renderer3D | null, mode: string) => void;
   /** Callback fired when model mode switch fails. */
   onModelChangeError?: (error: Error) => void;
 }
@@ -317,7 +366,7 @@ export interface SkinEngine {
   /** Loaded avatar model instance. */
   avatarModel: any;
   /** Active renderer instance (Renderer2D or Renderer3D). */
-  renderer: any;
+  renderer: Renderer2D | Renderer3D | null;
   /** Switches avatar gender and updates default model URLs. */
   setGender(gender: string): void;
   /** Loads and replaces active VRM model with a local File object. */
@@ -385,7 +434,7 @@ export interface SkinEngine {
   /** Alias for onModelChangeStart. */
   onModelChange?: (mode: string) => void;
   /** Callback fired when mode change ends. */
-  onModelChangeEnd?: (renderer: any, mode: string) => void;
+  onModelChangeEnd?: (renderer: Renderer2D | Renderer3D | null, mode: string) => void;
   /** Callback fired on mode change error. */
   onModelChangeError?: (error: Error) => void;
   /** Whether engine is currently switching between 2D and 3D. */

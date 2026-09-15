@@ -1,9 +1,9 @@
 import { ENGINE_MODE_MAP } from '@/core/constants';
 
 /**
- * 驗證傳入的引擎物件是否符合 SkinEngine 介面規範。
- * @param {Object|null} engine - 準備驗證的引擎實例。
- * @returns {{isValid: boolean, missing: string[]}} 包含驗證結果 (isValid) 以及缺少的屬性陣列 (missing) 的物件。
+ * Validates whether the provided engine object complies with the SkinEngine interface specification.
+ * @param {import('../../index.d.ts').SkinEngine | Record<string, any> | null} engine - Engine instance to validate.
+ * @returns {{ isValid: boolean, missing: string[] }} Object containing validation result and missing properties array.
  */
 export function validateSkinEngine(engine) {
   const missing = [];
@@ -35,10 +35,10 @@ export function validateSkinEngine(engine) {
 }
 
 /**
- * 建立一個全新的 canvas 元素並插入到舞台 (stage) 中準備進行渲染。
- * @param {Object|null} [skinEngine=null] - 引擎實例。
- * @returns {HTMLCanvasElement} 新建立的 canvas 元素。
- * @throws {Error} 如果 stageEl 不是一個 HTMLElement 時會拋出錯誤。
+ * Creates a new canvas element and prepends it to the stage container for avatar rendering.
+ * @param {import('../../index.d.ts').SkinEngine | null} [skinEngine=null] - Skin engine instance containing the stage element.
+ * @returns {HTMLCanvasElement} Newly created canvas element.
+ * @throws {Error} If stageEl is not an HTMLElement instance.
  */
 export function createCanvas(skinEngine = null) {
   const stageEl = skinEngine?.stageEl;
@@ -48,16 +48,17 @@ export function createCanvas(skinEngine = null) {
 
   stageEl
     .querySelectorAll('canvas.avatar-canvas')
-    .forEach((oldCanvas) => oldCanvas.remove()); // 切換時保證不留舊 canvas（殘骸）
+    .forEach((oldCanvas) => oldCanvas.remove()); // Ensure no old canvas residue on switch
   const newCanvas = document.createElement('canvas');
   newCanvas.classList.add('avatar-canvas');
-  stageEl.insertBefore(newCanvas, stageEl.firstChild); // 放最底層，UI 疊在上面
+  stageEl.insertBefore(newCanvas, stageEl.firstChild); // Place at bottom layer below UI
   return newCanvas;
 }
 
 /**
- * 判斷並初始化皮 (skin) 引擎的起始渲染模式（2D 或 3D）。
- * @param {Object|null} [skinEngine=null] - 引擎實例。
+ * Resolves and initializes the starting rendering mode (2D or 3D) on the skin engine instance.
+ * @param {import('../../index.d.ts').SkinEngine | Record<string, any> | null} [skinEngine=null] - Skin engine instance.
+ * @returns {void}
  */
 export function initSkinMode(skinEngine = null) {
   if (typeof skinEngine !== 'object' || skinEngine === null) {

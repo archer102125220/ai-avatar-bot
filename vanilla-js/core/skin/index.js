@@ -30,153 +30,49 @@ export * from './renderer-2d';
 export * from './renderer-3d';
 
 /**
- * 2D 視覺變換設定（單一模式）
- * @typedef {Object} Skin2DModeConfig
- * @property {number} [zoom] - 縮放倍率（HALF 預設 1.9，FULL 預設 1.0）
- * @property {number} [offsetX] - 水平偏移像素（預設 0）
- * @property {number} [offsetY] - 垂直偏移像素（預設 0）
- * @property {{x?: number, y?: number}} [anchor] - 模型錨點（HALF 預設 { x: 0.5, y: 1.0 }，FULL 預設 { x: 0.5, y: 3.0 }）
+ * 2D visual transformation settings for a specific display mode.
+ * @typedef {import('../../index.d.ts').Skin2DModeConfig} Skin2DModeConfig
  */
 
 /**
- * 2D 視覺變換設定
- * @typedef {Object} Skin2DConfig
- * @property {number} [zoom] - 通用縮放倍率（未指定 half/full 時生效）
- * @property {number} [offsetX] - 通用水平偏移像素（預設 0）
- * @property {number} [offsetY] - 通用垂直偏移像素（預設 0）
- * @property {{x?: number, y?: number}} [anchor] - 通用模型錨點
- * @property {Skin2DModeConfig} [half] - 半身模式專屬設定 (覆寫通用設定)
- * @property {Skin2DModeConfig} [full] - 全身模式專屬設定 (覆寫通用設定)
+ * Comprehensive 2D visual configuration object.
+ * @typedef {import('../../index.d.ts').Skin2DConfig} Skin2DConfig
  */
 
 /**
- * 3D 攝影機設定
- * @typedef {Object} Skin3DCameraConfig
- * @property {number} [fov] - 視野 (FOV，HALF 預設 26，FULL 預設 30)
- * @property {number} [near] - 近裁剪面 (預設 0.1)
- * @property {number} [far] - 遠裁剪面 (預設 20)
- * @property {{x: number, y: number, z: number} | [number, number, number]} [position] - 相機世界座標 (HALF 預設 {x:0, y:1.4, z:2.5}，FULL 預設 {x:0, y:1.0, z:3.5})
- * @property {{x: number, y: number, z: number} | [number, number, number]} [lookAt] - 相機注視焦點座標 (HALF 預設 {x:0, y:1.2, z:0}，FULL 預設 {x:0, y:0.9, z:0})
+ * 3D camera transformation and field-of-view configuration.
+ * @typedef {import('../../index.d.ts').Skin3DCameraConfig} Skin3DCameraConfig
  */
 
 /**
- * 3D 模型變換設定
- * @typedef {Object} Skin3DModelConfig
- * @property {{x: number, y: number, z: number} | [number, number, number]} [position] - 模型世界座標偏移
- * @property {{x: number, y: number, z: number} | [number, number, number] | number} [scale] - 模型縮放比例
- * @property {{x: number, y: number, z: number} | [number, number, number]} [rotation] - 模型旋轉角度 (Euler)
+ * 3D VRM model spatial transformation configuration.
+ * @typedef {import('../../index.d.ts').Skin3DModelConfig} Skin3DModelConfig
  */
 
 /**
- * 3D 視覺變換設定（單一模式）
- * @typedef {Object} Skin3DModeConfig
- * @property {Skin3DCameraConfig} [camera] - 攝影機設定
- * @property {Skin3DModelConfig} [model] - 模型空間變換設定
+ * 3D visual configuration for a specific display mode.
+ * @typedef {import('../../index.d.ts').Skin3DModeConfig} Skin3DModeConfig
  */
 
 /**
- * 3D 視覺與行為設定
- * @typedef {Object} Skin3DConfig
- * @property {Skin3DCameraConfig} [camera] - 通用攝影機設定
- * @property {Skin3DModelConfig} [model] - 通用模型空間變換設定
- * @property {Skin3DModeConfig} [half] - 半身模式專屬設定 (覆寫通用設定)
- * @property {Skin3DModeConfig} [full] - 全身模式專屬設定 (覆寫通用設定)
- * @property {boolean} [pointerLook] - 是否啟用眼睛跟隨滑鼠游標
- * @property {string} [bow] - 鞠躬動畫 URL
- * @property {string} [wave] - 揮手動畫 URL
- * @property {string} [thinking] - 思考動畫 URL
- * @property {string} [look] - 環顧動畫 URL
- * @property {string} [relax] - 放鬆動畫 URL
- * @property {string} [surprised] - 驚訝動畫 URL
- * @property {string} [vrmaRootPath] - VRMA 動畫根目錄 URL
+ * Comprehensive 3D VRM visual and animation configuration object.
+ * @typedef {import('../../index.d.ts').Skin3DConfig} Skin3DConfig
  */
 
 /**
- * @typedef {Object} SkinEngine
- * @property {HTMLElement} stageEl - 渲染的容器元素
- * @property {boolean} has2D - 是否支援 2D
- * @property {boolean} has3D - 是否支援 3D
- * @property {string} engineMode - 目前的模式 (2D/3D)
- * @property {Object} avatarModel - 模型實例，需實作 .on('hit', callback)
- * @property {import('./renderer-2d').Renderer2D|import('./renderer-3d').Renderer3D|null} renderer - 渲染器實例
- * @property {(gender: string) => void} setGender - 切換性別的方法
- * @property {(file: File) => void} loadVRMFile - 載入模型檔案的方法
- * @property {() => Object} getState - 取得狀態的方法
- * @property {(updates: Object | ((state: Object) => Object)) => void} setState - 更新狀態的方法
- * @property {(listener: Function) => () => void} subscribe - 訂閱狀態更新的方法
- * @property {(emotion: string) => void} setEmotion - 設定情緒的方法
- * @property {(isSpeaking: boolean) => void} setIsSpeaking - 設定說話狀態的方法
- * @property {(fitMode: string) => void} setFitMode - 設定尺寸適應模式的方法
- * @property {(updates: Partial<Skin2DConfig>) => void} setSkin2d - 更新 2D 視覺變換狀態的方法
- * @property {(updates: Partial<Skin3DConfig>) => void} setSkin3d - 更新 3D 視覺變換狀態的方法
- * @property {Skin2DConfig} skin2d - 當前 2D 視覺變換狀態
- * @property {Skin3DConfig} skin3d - 當前 3D 視覺變換狀態
- * @property {string} gender - 虛擬人物性別
- * @property {string} modelUrl - 2D 模型網址
- * @property {string} vrmUrl - 3D 模型網址
- * @property {(emotionName: string) => void} gesture3D - 3D 手勢方法
- * @property {(emotionName: string) => void} gesture2D - 2D 手勢方法
- * @property {(emotionName: string) => Promise<void>} gesture - 根據模式執行手勢的方法
- * @property {string} gestureName - 當前手勢名稱
- * @property {string} startMode - 起始渲染模式
- * @property {string} fitMode - 2D 尺寸適應模式
- * @property {{name: string, target: number, weight: number, applied: string}} emo - 情緒狀態物件
- * @property {(skinEngine: SkinEngine) => number|Promise<number>} [computeMouth] - 計算嘴型數值的方法
- * @property {() => void} [onMounted] - 虛擬人物掛載完成回呼
- * @property {(error: Error, skinEngine: SkinEngine) => void} [onThreeDimensionalError] - 3D 初始化錯誤回呼
- * @property {(error: Error, skinEngine: SkinEngine) => void} [onTwoDimensionalError] - 2D 初始化錯誤回呼
- * @property {(error: Error) => void} [VRMFileChangeFail] - 載入自訂 VRM 失敗回呼
- * @property {(vrmUrl: string) => void} [VRMFileChangeSuccess] - 載入自訂 VRM 成功回呼
- * @property {(gestureName: string, skinEngine: SkinEngine) => void} [onGesture] - 手勢開始播放回呼
- * @property {(error: Error, gestureName: string, skinEngine: SkinEngine) => void} [onGestureError] - 手勢播放錯誤回呼
- * @property {(gestureName: string, skinEngine: SkinEngine) => void} [onGestureEnd] - 手勢播放結束回呼
- * @property {(mode: string) => void} [onModelChangeStart] - 引擎模式準備切換回呼
- * @property {(mode: string) => void} [onModelChange] - 引擎模式準備切換回呼（onModelChangeStart 之別名）
- * @property {(renderer: import('./renderer-2d').Renderer2D|import('./renderer-3d').Renderer3D, mode: string) => void} [onModelChangeEnd] - 引擎模式切換完成回呼
- * @property {(error: Error) => void} [onModelChangeError] - 引擎模式切換錯誤回呼
- * @property {boolean|null} [switching] - 是否正在切換模式中
- * @property {string[]} [lipIds] - 2D Live2D 口型參數 ID 清單
+ * Skin Engine controller for managing 2D Live2D and 3D VRM avatar rendering.
+ * @typedef {import('../../index.d.ts').SkinEngine} SkinEngine
  */
 
 /**
- * 初始化 SkinEngine 的設定選項
- * @typedef {Object} SkinEngineOptions
- * @property {HTMLElement} stageEl - 用來渲染虛擬人物的容器 DOM 元素。
- * @property {string} [modelUrl] - 2D 模型檔案的 URL。
- * @property {string} [startMode] - 初始渲染模式（2D / 3D）。
- * @property {string} [fitMode] - 2D 模型的初始適應模式 (fit mode)。
- * @property {Skin2DConfig} [skin2d] - 2D 視覺變換設定。
- * @property {number} [zoom] - 2D 縮放倍率 (skin2d.zoom 的別名)。
- * @property {number} [offsetX] - 2D 水平偏移像素 (skin2d.offsetX 的別名)。
- * @property {number} [offsetY] - 2D 垂直偏移像素 (skin2d.offsetY 的別名)。
- * @property {{x: number, y: number}} [anchor] - 2D 模型錨點 (skin2d.anchor 的別名)。
- * @property {string} [vrmUrl] - 3D VRM 模型檔案的 URL。
- * @property {Skin3DConfig} [skin3d] - 3D 視覺與行為設定。
- * @property {Skin3DCameraConfig} [camera] - 3D 攝影機設定 (skin3d.camera 的別名)。
- * @property {Skin3DModelConfig} [modelTransform] - 3D 模型變換設定 (skin3d.model 的別名)。
- * @property {boolean} [pointerLook] - 是否啟用 3D 眼睛跟隨滑鼠游標 (skin3d.pointerLook 的別名)。
- * @property {(skinEngine: SkinEngine, emotionName: string) => void} [gesture3D] - 自訂的 3D 手勢處理函式。
- * @property {(skinEngine: SkinEngine, emotionName: string) => void} [gesture2D] - 自訂的 2D 手勢處理函式。
- * @property {(skinEngine: SkinEngine) => number|Promise<number>} [computeMouth] - 用於計算嘴型數值的函式。
- * @property {(error: Error, skinEngine: SkinEngine) => void} [onThreeDimensionalError] - 初始化 3D 發生錯誤時的回呼函式。
- * @property {(error: Error, skinEngine: SkinEngine) => void} [onTwoDimensionalError] - 初始化 2D 發生錯誤時的回呼函式。
- * @property {(error: Error) => void} [VRMFileChangeFail] - 載入自訂 VRM 檔案失敗時的回呼函式。
- * @property {(vrmUrl: string) => void} [VRMFileChangeSuccess] - 載入自訂 VRM 檔案成功時的回呼函式。
- * @property {() => void} [onMounted] - 虛擬人物掛載成功時的回呼函式。
- * @property {string} [gender] - 虛擬人物的性別。
- * @property {(gestureName: string, skinEngine: SkinEngine) => void} [onGesture] - 手勢開始播放時的回呼函式。
- * @property {(error: Error, gestureName: string, skinEngine: SkinEngine) => void} [onGestureError] - 手勢播放失敗時的回呼函式。
- * @property {(gestureName: string, skinEngine: SkinEngine) => void} [onGestureEnd] - 手勢播放結束時的回呼函式。
- * @property {(mode: string) => void} [onModelChangeStart] - 引擎模式準備切換時的回呼函式。
- * @property {(mode: string) => void} [onModelChange] - 引擎模式準備切換時的回呼函式（onModelChangeStart 之別名）。
- * @property {(renderer: import('./renderer-2d').Renderer2D|import('./renderer-3d').Renderer3D, mode: string) => void} [onModelChangeEnd] - 引擎模式切換完畢時的回呼函式。
- * @property {(error: Error) => void} [onModelChangeError] - 引擎模式切換發生錯誤時的回呼函式。
+ * Initialization options for creating a SkinEngine.
+ * @typedef {import('../../index.d.ts').SkinEngineOptions} SkinEngineOptions
  */
 
 /**
- * 初始化並建立新的皮 (skin) 引擎實例的工廠函式。
- * @param {SkinEngineOptions} [setting={}] - 引擎的設定選項。
- * @returns {SkinEngine|void} 建立完成的引擎實例，發生錯誤時則為 void。
+ * Factory function to initialize and create a new SkinEngine controller instance.
+ * @param {import('../../index.d.ts').SkinEngineOptions} [setting={}] - Skin engine initialization options.
+ * @returns {import('../../index.d.ts').SkinEngine | void} Initialized skin engine instance, or void on error.
  */
 export function initSkinEngine(setting = {}) {
   const {
@@ -543,8 +439,8 @@ export function initSkinEngine(setting = {}) {
       };
     },
 
-    // 主要是 animationLoop 時使用
-    // ①情緒表情狀態：speak 時從文字判斷 → 3D 表情 preset 慢慢 ease 進、講完 ease 回中性（2D 模型表情規格不一，先不套）
+    // Primarily used during animationLoop
+    // Emotion expression state: during speech, determined from text -> 3D expression preset eases in, eases back to neutral after speech
     emo: {
       _name: 'neutral',
       get name() {
@@ -762,9 +658,9 @@ export function initSkinEngine(setting = {}) {
       }
     },
 
-    // 狀態
-    // 皮的引擎判斷：data-vrm 指向 .vrm → 走 3D(VRM)；否則 data-model(.model3.json) → 走 2D(Live2D)
-    _vrmUrl: safeVrmUrl, // let：拖放自己的 VRM 時可換,
+    // State
+    // Skin engine resolution: .vrm path targets 3D (VRM); .model3.json path targets 2D (Live2D)
+    _vrmUrl: safeVrmUrl, // Mutable: updated when dragging & dropping custom VRM
     get vrmUrl() {
       return this._vrmUrl;
     },

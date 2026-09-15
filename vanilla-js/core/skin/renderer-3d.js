@@ -19,25 +19,16 @@ import {
 import { createCanvas } from './canvas';
 
 /**
- * 3D 渲染器實例
- * @typedef {Object} Renderer3D
- * @property {Object} gltf - 載入的 GLTF 物件
- * @property {Object} vrm - 建立的 VRM 模型物件
- * @property {string[]} TAP_GESTURES - 支援的點擊手勢清單
- * @property {HTMLCanvasElement} canvas - 渲染用畫布
- * @property {Object} camera - THREE.PerspectiveCamera 實例
- * @property {Object} scene - THREE.Scene 實例
- * @property {(gestureName: string) => void} playGesture - 播放指定手勢的方法
- * @property {(paused: boolean) => void} setPaused - 暫停或恢復渲染的方法
- * @property {(config: import('./index').Skin3DConfig) => void} updateTransform - 更新 3D 變換設定的方法
- * @property {() => void} dispose - 清除並釋放記憶體的方法
+ * 3D VRM renderer controller instance.
+ * @typedef {import('../../index.d.ts').Renderer3D} Renderer3D
  */
 
 /**
- * 將來源座標套用至 THREE.Vector3 或具有 set 方法的物件中。
- * @param {{set: (x: number, y: number, z: number) => void}} target - 目標 Vector3 物件
- * @param {Array<number>|{x?: number, y?: number, z?: number}|null|undefined} source - 來源座標 (陣列或物件)
- * @param {{x: number, y: number, z: number}} defaultValues - 預設座標
+ * Applies source coordinates onto a THREE.Vector3 target object.
+ * @param {{ set: (x: number, y: number, z: number) => void }} target - Target Vector3 object.
+ * @param {number[] | { x?: number, y?: number, z?: number } | null | undefined} source - Source coordinates (array or object).
+ * @param {{ x: number, y: number, z: number }} defaultValues - Default coordinate values.
+ * @returns {void}
  */
 function applyVector3(target, source, defaultValues) {
   if (Array.isArray(source) === true && source.length >= 3) {
@@ -58,10 +49,11 @@ function applyVector3(target, source, defaultValues) {
 }
 
 /**
- * 將來源縮放套用至 THREE.Vector3 物件中。
- * @param {{set: (x: number, y: number, z: number) => void}} target - 目標 Vector3 物件
- * @param {number|Array<number>|{x?: number, y?: number, z?: number}|null|undefined} source - 來源縮放
- * @param {{x: number, y: number, z: number}} defaultValues - 預設縮放
+ * Applies source scale onto a THREE.Vector3 target object.
+ * @param {{ set: (x: number, y: number, z: number) => void }} target - Target Vector3 object.
+ * @param {number | number[] | { x?: number, y?: number, z?: number } | null | undefined} source - Source scale (scalar number, array, or object).
+ * @param {{ x: number, y: number, z: number }} defaultValues - Default scale values.
+ * @returns {void}
  */
 function applyScale(target, source, defaultValues) {
   if (typeof source === 'number' && Number.isFinite(source)) {
@@ -84,24 +76,14 @@ function applyScale(target, source, defaultValues) {
 }
 
 /**
- * VRM 手勢與行為設定
- * @typedef {Object} VRMSettings
- * @property {import('./index').Skin3DCameraConfig} [camera] - 攝影機設定
- * @property {import('./index').Skin3DModelConfig} [model] - 模型變換設定
- * @property {boolean} [pointerLook] - 是否啟用眼睛跟隨滑鼠游標
- * @property {string} [bow] - 鞠躬動畫 URL
- * @property {string} [wave] - 揮手動畫 URL
- * @property {string} [thinking] - 思考動畫 URL
- * @property {string} [look] - 環顧動畫 URL
- * @property {string} [relax] - 放鬆動畫 URL
- * @property {string} [surprised] - 驚訝動畫 URL
- * @property {string} [vrmaRootPath] - VRMA 動畫根目錄 URL
+ * VRM gesture and behavior settings.
+ * @typedef {import('../../index.d.ts').VRMSettings} VRMSettings
  */
 
 /**
- * 執行預設的 3D 肢體手勢動作。
- * @param {Object|null} [skinEngine=null] - 引擎實例。
- * @param {string} emotionName - 準備表達的手勢動作名稱（例如：'wave'、'bow'、'thinking'、'surprised'）。
+ * Executes the default 3D body gesture animation.
+ * @param {import('../../index.d.ts').SkinEngine | Record<string, any> | null} [skinEngine=null] - Skin engine instance.
+ * @param {string} emotionName - Name of the gesture animation to play (e.g., 'wave', 'bow', 'thinking', 'surprised').
  * @returns {Promise<void>}
  */
 export async function defaultGesture3D(skinEngine = null, emotionName) {
@@ -112,7 +94,7 @@ export async function defaultGesture3D(skinEngine = null, emotionName) {
     return;
   }
 
-  // 播放 3D 肢體手勢 (VRMA 動畫)
+  // Play 3D body gesture (VRMA animation)
   if (typeof skinEngine.renderer?.playGesture === 'function') {
     try {
       skinEngine.renderer.playGesture(emotionName);
@@ -122,12 +104,12 @@ export async function defaultGesture3D(skinEngine = null, emotionName) {
   }
 }
 
-// ===== 3D 皮：VRM（three + three-vrm，ESM 動態 import）=====
+// ===== 3D Skin: VRM (three + three-vrm, dynamic ESM import) =====
 /**
- * 初始化並啟動 3D VRM 虛擬人物模型。
- * @param {Object} skinEngine - 引擎實例。
- * @param {VRMSettings} [setting={}] - VRM 手勢與行為的設定物件。
- * @returns {Promise<Renderer3D|void>} 初始化後的 3D 渲染器實例，發生錯誤時則為 void。
+ * Initializes and boots the 3D VRM avatar model using Three.js and @pixiv/three-vrm.
+ * @param {import('../../index.d.ts').SkinEngine | Record<string, any>} skinEngine - Skin engine instance.
+ * @param {import('../../index.d.ts').VRMSettings} [setting={}] - VRM gesture and behavior configuration object.
+ * @returns {Promise<import('../../index.d.ts').Renderer3D | void>} Initialized 3D renderer instance, or void on error.
  */
 export async function bootVRM(skinEngine, setting = {}) {
   const stageEl = skinEngine?.stageEl;
@@ -156,7 +138,7 @@ export async function bootVRM(skinEngine, setting = {}) {
         : DEFAULT_VRMA_ROOT_PATH;
 
     const GESTURES = {
-      // 情境手勢 + 待機變化（body-only，不碰嘴）`
+      // Context gestures + idle variations (body-only, no mouth manipulation)
       wave: wave || safeVrmaRootPath + 'Goodbye.vrma',
       // bow:
       //   bow ||
@@ -165,9 +147,9 @@ export async function bootVRM(skinEngine, setting = {}) {
       thinking: thinking || safeVrmaRootPath + 'Thinking.vrma',
       look: look || safeVrmaRootPath + 'LookAround.vrma',
       relax: relax || safeVrmaRootPath + 'Relax.vrma',
-      surprised: surprised || safeVrmaRootPath + 'Surprised.vrma' // ①情緒用：驚訝的小反應（不在點擊問候清單裡）
+      surprised: surprised || safeVrmaRootPath + 'Surprised.vrma' // Emotion reaction (not in click-greeting pool)
     };
-    const TAP_GESTURES = ['wave', 'bow']; // 點一下隨機：揮手/鞠躬問候（歡迎感）
+    const TAP_GESTURES = ['wave', 'bow']; // Random click greetings: wave / bow
 
     const canvas = createCanvas(skinEngine);
     const webGLRenderer = new THREE.WebGLRenderer({
@@ -236,16 +218,16 @@ export async function bootVRM(skinEngine, setting = {}) {
     window.addEventListener('resize', resize);
 
     const scene = new THREE.Scene();
-    // 調暗：原本 key=π / fill=π*0.35 / ambient=0.6 太亮（MToon 易過曝），整體降約 4 成
+    // Balanced lighting setup for MToon shader to prevent overexposure
     const key = new THREE.DirectionalLight(0xffffff, Math.PI * 0.6);
     key.position.set(1, 1.5, 2);
     const fill = new THREE.DirectionalLight(0xfff0e8, Math.PI * 0.2);
     fill.position.set(-1.5, 0.5, 1);
     scene.add(key, fill, new THREE.AmbientLight(0xffffff, 0.38));
     const lookTarget = new THREE.Object3D();
-    scene.add(lookTarget); // lookAt 目標：跟著滑鼠
+    scene.add(lookTarget); // lookAt target follows cursor
     let cursorX = 0;
-    let cursorY = 0; // 游標相對位置 -1..1
+    let cursorY = 0; // Cursor relative position -1..1
     const onMove = (event) => {
       const stageElClientRect = stageEl.getBoundingClientRect();
       if (stageElClientRect.width === 0) {
@@ -283,7 +265,7 @@ export async function bootVRM(skinEngine, setting = {}) {
     const clock = new THREE.Clock();
     const loader = new GLTFLoader();
     loader.register((parser) => new VRMLoaderPlugin(parser));
-    loader.register((parser) => new VRMAnimationLoaderPlugin(parser)); // 同一個 loader 也能讀 .vrma
+    loader.register((parser) => new VRMAnimationLoaderPlugin(parser)); // Loader also supports reading .vrma
     const gltf = await new Promise((resolve, reject) =>
       loader.load(
         skinEngine.vrmUrl,
@@ -308,9 +290,9 @@ export async function bootVRM(skinEngine, setting = {}) {
     let vrm = gltf.userData.vrm;
 
     VRMUtils.combineMorphs(vrm);
-    VRMUtils.rotateVRM0(vrm); // VRM0.x 轉正；VRM1 為安全 no-op
+    VRMUtils.rotateVRM0(vrm); // VRM0.x orient upright; VRM1 is safe no-op
 
-    // VRM0 被 rotateVRM0 轉 180°，手臂 z 旋轉方向會相反；VRM1 不轉 → 用版本決定正負號
+    // VRM0 is rotated 180° by rotateVRM0, inverting arm Z rotation; VRM1 is not -> use version to determine sign
     const armSign = String(vrm.meta && vrm.meta.metaVersion) === '1' ? -1 : 1;
     vrm.scene.traverse((sceneObject) => {
       sceneObject.frustumCulled = false;
@@ -469,21 +451,21 @@ export async function bootVRM(skinEngine, setting = {}) {
       if (typeof vrm.lookAt === 'object' && vrm.lookAt !== null) {
         vrm.lookAt.target = lookTarget;
       }
-    } catch (_error) {} // 眼睛跟著滑鼠
+    } catch (_error) {} // Eye gaze tracking towards mouse
 
-    // VRMA 情境手勢庫（body-only，不碰嘴）：點擊/出場揮手、思考托腮、待機變化(環顧/放鬆)
+    // VRMA gesture library (body-only): greetings, thinking, idle variations
     await (async () => {
       /**
-       * 過濾動畫軌道，僅保留骨架旋轉 (quaternion)，過濾掉位移與表情軌道，避免與程序化動畫衝突。
-       * @param {THREE.AnimationClip} clip - 原始的 AnimationClip。
-       * @returns {THREE.AnimationClip} 過濾後只剩旋轉軌道的 AnimationClip。
+       * Filters animation tracks to retain only bone quaternion rotations, stripping blend shapes and position tracks.
+       * @param {any} clip - Source THREE.AnimationClip.
+       * @returns {any} Filtered AnimationClip containing only rotation tracks.
        */
       const bodyOnly = (clip) => {
         clip.tracks = clip.tracks.filter((track) =>
           /\.quaternion$/.test(track.name)
         );
         return clip;
-      }; // 只留骨架旋轉、剝臉部表情與位移
+      }; // Keep only bone quaternion rotation; strip facial expressions and translations
       try {
         mixer = new THREE.AnimationMixer(vrm.scene);
         for (const [gestureName, gestureFilePath] of Object.entries(GESTURES)) {
@@ -502,11 +484,11 @@ export async function bootVRM(skinEngine, setting = {}) {
             clipAction.clampWhenFinished = true;
             gestureActions[gestureName] = clipAction;
           } catch (error) {
-            console.warn('VRMA ' + gestureName + ' 載入失敗：', error?.message);
+            console.warn('VRMA ' + gestureName + ' load failed:', error?.message);
           }
         }
         mixer.addEventListener('finished', (event) => {
-          // 手勢播完 → 立刻停、交回程序化站姿（不 fadeOut，避免露出 bind T-pose）
+          // Gesture playback finished: stop immediately and return to procedural posture (avoid fade-out revealing T-pose)
           if (event.action === currentGesture) {
             try {
               event.action.stop();
@@ -516,10 +498,10 @@ export async function bootVRM(skinEngine, setting = {}) {
           }
         });
         if (typeof gestureActions.wave !== 'undefined') {
-          setTimeout(() => playGesture('wave'), 800); // 出場招呼
+          setTimeout(() => playGesture('wave'), 800); // Entrance greeting
         }
         idleBreak = setInterval(() => {
-          // 待機變化：偶爾環顧/放鬆，不死板
+          // Idle variation: occasional look-around or relax motion
           if (
             waving === false &&
             skinEngine.getState().isSpeaking !== true &&
@@ -529,7 +511,7 @@ export async function bootVRM(skinEngine, setting = {}) {
           }
         }, 15000);
       } catch (error) {
-        console.warn('VRMA 手勢庫載入失敗：', error?.message);
+        console.warn('VRMA gesture library load failed:', error?.message);
       }
     })();
 
@@ -538,21 +520,22 @@ export async function bootVRM(skinEngine, setting = {}) {
     }
 
     /**
-     * 播放指定的 3D 手勢動畫 (例如揮手、鞠躬)。
-     * 播放期間會將 waving 設為 true 避免被程序化站姿打斷。
-     * @param {string} gestureName - 要播放的手勢動作名稱對應鍵值。
+     * Plays a specific 3D gesture animation (e.g., 'wave', 'bow').
+     * Sets waving flag to true during playback to avoid interruption by procedural idle motions.
+     * @param {string} gestureName - Name key of the gesture animation to play.
+     * @returns {void}
      */
     function playGesture(gestureName) {
-      // 播一個手勢（期間 mixer 控身體），平時用程序化站姿
+      // Play a gesture (mixer controls body during gesture; procedural posture otherwise)
       const clipAction = gestureActions[gestureName];
       if (clipAction === undefined || clipAction === null || waving === true) {
-        return; // 一次一個，播放中不打斷
+        return; // Play one gesture at a time without interruption
       }
       waving = true;
       currentGesture = clipAction;
       clipAction.reset();
       clipAction.setEffectiveWeight(1);
-      clipAction.play(); // 硬切，不 fadeIn（fade 低權重會露出 bind T-pose）
+      clipAction.play(); // Play directly without fadeIn to avoid low-weight T-pose artifact
     }
 
     let alive = true;
@@ -561,9 +544,10 @@ export async function bootVRM(skinEngine, setting = {}) {
     let lastMouthValue = 0;
     let isComputingMouth = false;
     /**
-     * 3D 虛擬人的核心渲染與動畫更新迴圈 (Animation Loop)。
-     * 負責計算 delta time，更新 AnimationMixer (手勢)、表情 (對嘴/眨眼/情緒)，
-     * 以及待機/說話時的程序化細微動作 (呼吸、轉頭、手部擺動)，最後呼叫 render 重繪畫面。
+     * 3D avatar core rendering and animation loop.
+     * Calculates delta time, updates AnimationMixer (gestures), expressions (lip sync/blink/emotion),
+     * and procedural subtle motions (breathing, head tracking, arm gestures) before invoking WebGLRenderer.
+     * @returns {void}
      */
     function animationLoop() {
       if (alive !== true || paused === true) {
@@ -576,10 +560,10 @@ export async function bootVRM(skinEngine, setting = {}) {
       const elapsedTime = clock.elapsedTime;
       if (typeof vrm === 'object' && vrm !== null) {
         if (typeof mixer === 'object' && mixer !== null) {
-          mixer.update(delta); // 揮手時 mixer 控身體
+          mixer.update(delta); // Mixer controls body during gestures
         }
         const expressionManager = vrm.expressionManager;
-        // 對嘴 + 眨眼（永遠歸我們，mixer 之後 vrm.update 之前）
+        // Lip sync + blink (applied before vrm.update)
         if (
           typeof skinEngine.computeMouth === 'function' &&
           isComputingMouth === false
@@ -622,7 +606,7 @@ export async function bootVRM(skinEngine, setting = {}) {
           }
         }
 
-        // ①情緒表情：慢慢 ease 進／出；換情緒時把舊的歸零，缺這個 preset 的模型自動 no-op
+        // Emotion blend shapes: smoothly ease in/out; reset previous emotion on switch
         if (
           typeof expressionManager === 'object' &&
           expressionManager !== null &&
@@ -664,7 +648,7 @@ export async function bootVRM(skinEngine, setting = {}) {
                 expression?.overrideMouth &&
                 String(expression.overrideMouth) !== 'none'
                   ? Math.min(skinEngine.emo.weight, 0.4)
-                  : skinEngine.emo.weight; // 別把對嘴蓋死
+                  : skinEngine.emo.weight; // Limit weight to avoid blocking mouth lip sync
               expressionManager.setValue(skinEngine.emo.name, weight);
               skinEngine.emo.applied = skinEngine.emo.name;
             } catch (_error) {}
@@ -677,11 +661,11 @@ export async function bootVRM(skinEngine, setting = {}) {
             : DEFAULT_3D_POINTER_LOOK;
 
         if (isPointerLookEnabled === true) {
-          lookTarget.position.set(cursorX * 0.9, 1.42 - cursorY * 0.55, 1.6); // 眼睛 lookAt 目標跟游標（永遠更新）
+          lookTarget.position.set(cursorX * 0.9, 1.42 - cursorY * 0.55, 1.6); // Eye gaze tracking towards cursor
         }
 
         if (waving === false) {
-          // 待機：直立、手放下、輕呼吸、頭跟游標
+          // Idle stance: upright, resting arms, gentle breathing, head tracks cursor
           const humanoid = vrm.humanoid;
           const leftUpperArmNode =
             humanoid.getNormalizedBoneNode('leftUpperArm');
@@ -701,12 +685,12 @@ export async function bootVRM(skinEngine, setting = {}) {
             (isPointerLookEnabled === true ? cursorY * 0.12 : 0) +
             Math.sin(elapsedTime * 0.5) * 0.01;
           if (skinEngine.getState().isSpeaking === true) {
-            // 講話時：身體/頭/手持續小動作（疊在站姿上）
+            // Speech animation: procedural nodding, head turning, and arm gestures
             const speechTime = elapsedTime * 3.0;
             spineRotationY += Math.sin(speechTime) * 0.03;
-            headRotationX += Math.abs(Math.sin(speechTime * 0.9)) * 0.045; // 點頭
-            headRotationY += Math.sin(speechTime * 0.55) * 0.05; // 轉頭
-            leftArmRotationZ += Math.sin(speechTime * 0.7) * 0.06; // 手臂比劃
+            headRotationX += Math.abs(Math.sin(speechTime * 0.9)) * 0.045; // Nod
+            headRotationY += Math.sin(speechTime * 0.55) * 0.05; // Head turn
+            leftArmRotationZ += Math.sin(speechTime * 0.7) * 0.06; // Arm gestures
             rightArmRotationZ -= Math.sin(speechTime * 0.62) * 0.06;
           }
           if (
@@ -730,7 +714,7 @@ export async function bootVRM(skinEngine, setting = {}) {
             headNode.rotation.x = headRotationX;
           }
         }
-        vrm.update(delta); // 套用骨架/表情/springbone
+        vrm.update(delta); // Apply skeleton, expressions, and spring bones
       }
       webGLRenderer.render(scene, camera);
     }
@@ -796,7 +780,7 @@ export async function bootVRM(skinEngine, setting = {}) {
           if (typeof vrm === 'object' && vrm !== null) {
             VRMUtils.deepDispose(vrm.scene);
           }
-        } catch (_error) {} // 釋放 3D 幾何/材質，避免殘骸與 WebGL context 累積
+        } catch (_error) {} // Deep dispose 3D geometries and textures to prevent memory leaks
         try {
           webGLRenderer.dispose();
         } catch (_error) {}
@@ -815,11 +799,12 @@ export async function bootVRM(skinEngine, setting = {}) {
   }
 }
 
-// ===== 拖放自己的 VRM：把 .vrm 拖到角色上就直接換成你的 3D 角色（零改 code）=====
+// ===== Drag & Drop Custom VRM File Loading =====
 /**
- * 載入使用者自行提供的自訂 VRM 檔案。
- * @param {Object|null} [skinEngine=null] - 引擎實例。
- * @param {File} vrmFile - 準備載入的 VRM 檔案。
+ * Loads a user-provided custom VRM File object and switches engine to 3D mode.
+ * @param {import('../../index.d.ts').SkinEngine | Record<string, any> | null} [skinEngine=null] - Skin engine instance.
+ * @param {File} vrmFile - Custom VRM file object to load.
+ * @returns {void}
  */
 export function loadVRMFile(skinEngine = null, vrmFile) {
   const stageEl = skinEngine?.stageEl;
@@ -852,6 +837,6 @@ export function loadVRMFile(skinEngine = null, vrmFile) {
   if (typeof skinEngine.VRMFileChangeSuccess === 'function') {
     skinEngine.VRMFileChangeSuccess(skinEngine.vrmUrl);
   }
-  skinEngine._engineMode = null; // 強制重 boot（即使已在 3D）
+  skinEngine._engineMode = null; // Force reboot even if already in 3D
   skinEngine.engineMode = ENGINE_MODE_MAP.threeDimensional;
 }

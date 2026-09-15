@@ -12,20 +12,14 @@ import {
 import { createCanvas } from './canvas';
 
 /**
- * 2D 渲染器實例
- * @typedef {Object} Renderer2D
- * @property {HTMLCanvasElement} canvas - 渲染用畫布
- * @property {Object} avatarModel - Live2D 模型實例
- * @property {Object} pixiApp - PIXI Application 實例
- * @property {() => void} fit - 重新適應並重繪尺寸位置的方法
- * @property {(config: import('./index').Skin2DConfig) => void} updateTransform - 更新 2D 變換設定的方法
- * @property {() => void} dispose - 清除並釋放記憶體的方法
+ * 2D Live2D renderer controller instance.
+ * @typedef {import('../../index.d.ts').Renderer2D} Renderer2D
  */
 
-// 2D 引擎相依（pixi + live2d）改成「用到才載」，3D 模式就不會下載 Live2D
+// 2D engine dependencies (pixi + live2d) are lazy-loaded on demand to avoid downloading Live2D in 3D mode
 /**
- * 動態載入 2D 引擎所需的 UMD 相依套件（pixi.js 與 live2d）。
- * @returns {Promise<void>} 所有的相依套件載入完成後會 resolve 的 Promise。
+ * Dynamically loads external UMD scripts required by the 2D engine (pixi.js and live2d cubism core).
+ * @returns {Promise<void>} Resolves once all dependencies are loaded onto window.
  */
 export function loadUMD() {
   const cdnDependencyUrlArray = [
@@ -77,9 +71,9 @@ export function loadUMD() {
 }
 
 /**
- * 根據虛擬人物的性別，執行預設的 2D 手勢（情緒表情）。
- * @param {Object|null} [skinEngine=null] - 引擎實例。
- * @param {string} emotionName - 準備表達的情緒名稱（例如：'neutral'、'happy'）。
+ * Executes the default 2D emotion expression / gesture corresponding to avatar gender.
+ * @param {import('../../index.d.ts').SkinEngine | Record<string, any> | null} [skinEngine=null] - Skin engine instance.
+ * @param {string} emotionName - Emotion name to express (e.g., 'neutral', 'happy', 'sad', 'surprised').
  * @returns {Promise<void>}
  */
 export async function defaultGesture2D(skinEngine = null, emotionName) {
@@ -87,14 +81,14 @@ export async function defaultGesture2D(skinEngine = null, emotionName) {
     return;
   }
 
-  // f00 微笑眨眼
-  // f01 （與f00很像）
-  // f02 困惑
-  // f03 難過
-  // f04 開心
-  // f05 驚訝
-  // f06 害羞
-  // f07 傻眼
+  // f00 smile & blink
+  // f01 similar to f00
+  // f02 confused
+  // f03 sad
+  // f04 happy
+  // f05 surprised
+  // f06 shy
+  // f07 dumbfounded
   const emotionFemaleNameMap = {
     neutral: 'f00',
     happy: 'f04',
@@ -128,12 +122,12 @@ export async function defaultGesture2D(skinEngine = null, emotionName) {
   }
 }
 
-// ===== 2D 皮：Live2D 載入 + 對嘴 =====
+// ===== 2D Skin: Live2D Loading & Lip Sync =====
 /**
- * 初始化並啟動 2D Live2D 虛擬人物模型。
- * @param {Object} skinEngine - 引擎實例。
- * @param {string} modelUrl - Live2D 模型檔案的 URL。
- * @returns {Promise<Renderer2D|void>} 初始化後的 2D 渲染器實例，發生錯誤時則為 void。
+ * Initializes and boots the 2D Live2D avatar model within PIXI Application.
+ * @param {import('../../index.d.ts').SkinEngine | Record<string, any>} skinEngine - Skin engine instance.
+ * @param {string} modelUrl - URL to the Live2D model configuration file (.model3.json).
+ * @returns {Promise<import('../../index.d.ts').Renderer2D | void>} Initialized 2D renderer instance, or void on error.
  */
 export async function bootAvatar(skinEngine, modelUrl) {
   const stageEl = skinEngine?.stageEl;
@@ -142,7 +136,7 @@ export async function bootAvatar(skinEngine, modelUrl) {
     return;
   }
   try {
-    await loadUMD(); // 用到才載 pixi + live2d
+    await loadUMD(); // Lazy-load pixi + live2d on demand
     const Live2DModel = window.PIXI.live2d.Live2DModel;
     try {
       Live2DModel.registerTicker(window.PIXI.Ticker);
@@ -160,7 +154,7 @@ export async function bootAvatar(skinEngine, modelUrl) {
     skinEngine.avatarModel = await Live2DModel.from(modelUrl);
     pixiApp.stage.addChild(skinEngine.avatarModel);
 
-    // 關掉 Live2D 模型自帶的（日文）動作語音 — 只保留我們自己的 TTS（兩者來源不同，互不影響）
+    // Disable built-in Live2D motion sound to keep only our TTS audio output
     try {
       if (
         typeof window.PIXI.live2d.SoundManager === 'object' &&
@@ -185,8 +179,9 @@ export async function bootAvatar(skinEngine, modelUrl) {
     } catch (_error) {}
 
     /**
-     * 根據設定的模式 (fitMode) 與 skin2d 設定調整 2D 虛擬人的縮放與位置，使其適應畫布尺寸。
-     * 若模式為 HALF，則會放大並將位置下移以呈現半身特寫。
+     * Re-calculates and applies 2D model scale and position to fit the canvas based on fitMode and skin2d config.
+     * In HALF mode, model is magnified and repositioned for a portrait view.
+     * @returns {void}
      */
     function fit() {
       if (
@@ -296,7 +291,7 @@ export async function bootAvatar(skinEngine, modelUrl) {
       }
     } catch (_error) {}
 
-    // 對嘴：攔截 coreModel.update（計算頂點前的最後一刻寫入嘴巴，保證不被 motion/loadParameters 洗掉）
+    // Lip sync: Intercept coreModel.update at vertex calculation to prevent motion/loadParameters override
     try {
       const core = skinEngine.avatarModel.internalModel.coreModel;
       const originalUpdate = core.update.bind(core);
