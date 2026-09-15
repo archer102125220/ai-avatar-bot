@@ -1,0 +1,176 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { setHistoryOpen, renderHistory } from '../../../core/ui/history';
+import { initUi } from '../../../core/ui/dom';
+import { initI18nEngine } from '../../../core/i18n';
+
+describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
+  let container;
+  let stageEl;
+  let i18nEngine;
+  let uiDom;
+  let mockContext;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    stageEl = document.createElement('div');
+    i18nEngine = initI18nEngine({ locale: 'zh-TW' });
+    uiDom = initUi(container, stageEl, i18nEngine);
+
+    mockContext = {
+      uiDom,
+      i18nEngine,
+      speechEngine: {
+        isListening: false,
+        convoOn: false,
+        spokenDisplayText: '',
+        speak: vi.fn()
+      },
+      brainEngine: {
+        chatLog: []
+      },
+      toolsEngine: {
+        executePendingTool: vi.fn(),
+        cancelPendingTool: vi.fn(),
+        chooseTool: vi.fn()
+      }
+    };
+  });
+
+  describe('setHistoryOpen', () => {
+    it('should toggle history panel open/closed attributes and accessibility states', () => {
+      setHistoryOpen(mockContext, true);
+
+      expect(uiDom.historyPanelEl.getAttribute('css-is-open')).toBe('true');
+      expect(uiDom.historyPanelEl.inert).toBe(false);
+      expect(uiDom.historyButtonEl.getAttribute('aria-expanded')).toBe('true');
+      expect(uiDom.suggestionsEl.style.display).toBe('none');
+      expect(uiDom.bubbleEl.style.opacity).toBe('0');
+
+      setHistoryOpen(mockContext, false);
+
+      expect(uiDom.historyPanelEl.getAttribute('css-is-open')).toBeNull();
+      expect(uiDom.historyPanelEl.inert).toBe(true);
+      expect(uiDom.historyButtonEl.getAttribute('aria-expanded')).toBe('false');
+      expect(uiDom.suggestionsEl.style.display).toBe('flex');
+      expect(uiDom.bubbleEl.style.opacity).toBe('');
+    });
+  });
+
+  describe('renderHistory', () => {
+    it('should render empty history notice when chatLog is empty', () => {
+      mockContext.brainEngine.chatLog = [];
+      renderHistory(mockContext);
+
+      const historyListEl = uiDom.historyPanelEl.querySelector('#history-list');
+      expect(historyListEl.children.length).toBe(1);
+      expect(historyListEl.querySelector('.history-empty')).toBeDefined();
+    });
+
+    it('should render user and assistant chat messages with streaming indicators', () => {
+      mockContext.brainEngine.chatLog = [
+        { role: 'user', text: '你好！' },
+        { role: 'assistant', text: '你好，很高興為你服務。' },
+        { role: 'assistant', text: '', streaming: true }
+      ];
+
+      renderHistory(mockContext);
+
+      const historyListEl = uiDom.historyPanelEl.querySelector('#history-list');
+      expect(historyListEl.children.length).toBe(3);
+
+      const userRow = historyListEl.children[0];
+      expect(userRow.className).toContain('history-item user');
+      expect(userRow.querySelector('.history-message').textContent).toBe('你好！');
+
+      const assistantRow = historyListEl.children[1];
+      expect(assistantRow.className).toContain('history-item assistant');
+      expect(assistantRow.querySelector('.history-message').textContent).toBe('你好，很高興為你服務。');
+
+      const streamingRow = historyListEl.children[2];
+      expect(streamingRow.querySelector('.history-message').textContent).toBe('…');
+    });
+
+    it('should render tool confirmation buttons and dispatch confirm/cancel actions', () => {
+      mockContext.brainEngine.chatLog = [
+        {
+          id: 'tool_call_1',
+          role: 'assistant',
+          text: '準備執行工具...',
+          pendingTool: { name: 'calculator' }
+        }
+      ];
+
+      renderHistory(mockContext);
+
+      const historyListEl = uiDom.historyPanelEl.querySelector('#history-list');
+      const confirmContainer = historyListEl.querySelector('.history-confirm');
+      expect(confirmContainer).toBeDefined();
+
+      const confirmBtn = confirmContainer.querySelector('button.confirm');
+      const cancelBtn = confirmContainer.querySelector('button.cancel');
+
+      confirmBtn.click();
+      expect(mockContext.toolsEngine.executePendingTool).toHaveBeenCalledWith('tool_call_1');
+
+      cancelBtn.click();
+      expect(mockContext.toolsEngine.cancelPendingTool).toHaveBeenCalledWith('tool_call_1');
+    });
+
+    it('should render disabled state when tool call has timed out or cancelled', () => {
+      mockContext.brainEngine.chatLog = [
+        {
+          id: 'tool_call_2',
+          role: 'assistant',
+          text: '逾時工具',
+          pendingTool: { name: 'test' },
+          timedOut: true
+        }
+      ];
+
+      renderHistory(mockContext);
+
+      const historyListEl = uiDom.historyPanelEl.querySelector('#history-list');
+      const confirmBtn = historyListEl.querySelector('button.confirm');
+      expect(confirmBtn.disabled).toBe(true);
+      expect(confirmBtn.textContent).toBe('已逾時');
+    });
+
+    it('should render tool choices buttons and dispatch chooseTool on click', () => {
+      mockContext.brainEngine.chatLog = [
+        {
+          id: 'tool_choice_1',
+          role: 'assistant',
+          text: '請選擇工具',
+          pendingChoices: [
+            { tool: { label: '選項 A' } },
+            { tool: { label: '選項 B' } }
+          ]
+        }
+      ];
+
+      renderHistory(mockContext);
+
+      const historyListEl = uiDom.historyPanelEl.querySelector('#history-list');
+      const choiceBtns = historyListEl.querySelectorAll('.history-confirm button');
+      expect(choiceBtns.length).toBe(2);
+
+      choiceBtns[1].click();
+      expect(mockContext.toolsEngine.chooseTool).toHaveBeenCalledWith('tool_choice_1', 1);
+    });
+
+    it('should render copy and replay buttons for completed assistant messages', () => {
+      mockContext.brainEngine.chatLog = [
+        { role: 'assistant', text: '可重播與複製的文字' }
+      ];
+
+      renderHistory(mockContext);
+
+      const historyListEl = uiDom.historyPanelEl.querySelector('#history-list');
+      const replayBtn = historyListEl.querySelector('.history-tools button:last-child');
+      expect(replayBtn.textContent).toBe('重播');
+
+      replayBtn.click();
+      expect(mockContext.speechEngine.speak).toHaveBeenCalledWith('可重播與複製的文字');
+    });
+  });
+});
