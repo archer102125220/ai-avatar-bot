@@ -132,5 +132,38 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
       expect(onGestureError).toHaveBeenCalledWith(gestureError, 'surprised', engine);
       expect(onGestureEnd).toHaveBeenCalledWith('surprised', engine);
     });
+
+    it('should handle unassigned gesture2D and gesture3D warning fallbacks and null engineMode', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const engine = initSkinEngine({ stageEl });
+      engine.gesture2D = null;
+      engine.gesture3D = null;
+
+      // calling unassigned gesture getters
+      const g2 = engine.gesture2D('smile');
+      expect(warnSpy).toHaveBeenCalledWith('2D hand movement function is not registered');
+      if (typeof g2 === 'function') {
+        g2();
+        expect(warnSpy).toHaveBeenCalledWith('gesture2D is not registered');
+      }
+
+      const g3 = engine.gesture3D('wave');
+      expect(warnSpy).toHaveBeenCalledWith('3D hand movement function is not registered');
+      if (typeof g3 === 'function') {
+        g3();
+        expect(warnSpy).toHaveBeenCalledWith('gesture3D is not registered');
+      }
+
+      // null engineMode
+      engine._engineMode = null;
+      expect(engine.gesture).toBeNull();
+
+      // invalid gestureName
+      engine.gestureName = '';
+      engine.gestureName = null;
+
+      warnSpy.mockRestore();
+    });
   });
 });

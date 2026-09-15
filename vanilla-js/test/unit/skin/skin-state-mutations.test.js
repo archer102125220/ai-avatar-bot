@@ -127,7 +127,7 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
     });
   });
 
-  describe('computeMouth', () => {
+  describe('computeMouth and Property Setters', () => {
     it('should bind custom computeMouth function and evaluate amplitude', async () => {
       const computeMouthMock = vi.fn().mockReturnValue(0.75);
       const engine = initSkinEngine({
@@ -138,6 +138,73 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
       const val = await engine.computeMouth(engine);
       expect(val).toBe(0.75);
       expect(computeMouthMock).toHaveBeenCalledWith(engine);
+    });
+
+    it('should handle switching, lipIds, startMode, fitMode setters and edge branches', () => {
+      const engine = initSkinEngine({ stageEl });
+
+      expect(typeof engine.switching).toBe('boolean');
+      engine.switching = true;
+      expect(engine.switching).toBe(true);
+      engine.switching = false;
+      expect(engine.switching).toBe(false);
+      engine.switching = 'invalid';
+      expect(engine.switching).toBe(false);
+
+      expect(engine.lipIds).toEqual(['ParamMouthOpenY']);
+      engine.lipIds = ['ParamA', 'ParamI'];
+      expect(engine.lipIds).toEqual(['ParamA', 'ParamI']);
+      engine.lipIds = null;
+      expect(engine.lipIds).toBeNull();
+
+      expect(engine.startMode).toBe('2d');
+      engine.startMode = '3d';
+      expect(engine.startMode).toBe('3d');
+      engine.startMode = '';
+      expect(engine.startMode).toBe('3d');
+
+      engine.fitMode = FIT_MODE_MAP.HALF;
+      expect(engine.fitMode).toBe(FIT_MODE_MAP.HALF);
+      engine.fitMode = 'unknown_fit';
+      expect(engine.fitMode).toBe(FIT_MODE_MAP.FULL); // DEFAULT_FIT_MODE is full
+    });
+
+    it('should invoke VRMFileChangeFail, VRMFileChangeSuccess and handle emo.name branch conditions', () => {
+      const VRMFileChangeFail = vi.fn();
+      const VRMFileChangeSuccess = vi.fn();
+
+      const engine = initSkinEngine({
+        stageEl,
+        VRMFileChangeFail,
+        VRMFileChangeSuccess
+      });
+
+      const mockError = new Error('VRM file invalid');
+      engine.VRMFileChangeFail(mockError);
+      expect(VRMFileChangeFail).toHaveBeenCalledWith(mockError);
+
+      engine.VRMFileChangeSuccess('blob:http://localhost/new_vrm');
+      expect(VRMFileChangeSuccess).toHaveBeenCalledWith('blob:http://localhost/new_vrm');
+
+      // Test emo.name branches
+      expect(engine.emo.name).toBe('neutral');
+      // 1. same name
+      engine.emo.name = 'neutral';
+      expect(engine.emo.target).toBe(0);
+
+      // 2. valid target emotion
+      engine.emo.name = 'happy';
+      expect(engine.emo.name).toBe('happy');
+      expect(engine.emo.target).toBe(EMOTION_TARGET_MAP.happy);
+
+      // 3. invalid emotion name (not in map and not neutral)
+      engine.emo.name = 'non_existent_emo';
+      expect(engine.emo.name).toBe('happy');
+
+      // 4. reset back to neutral
+      engine.emo.name = 'neutral';
+      expect(engine.emo.name).toBe('neutral');
+      expect(engine.emo.target).toBe(0);
     });
   });
 });

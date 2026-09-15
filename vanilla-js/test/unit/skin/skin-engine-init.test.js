@@ -134,5 +134,95 @@ describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
       expect(engine.modelUrl).toBe(DEFAULT_MALE_2D_MODEL_URL);
       expect(engine.vrmUrl).toBe(DEFAULT_MALE_3D_MODEL_URL);
     });
+
+    it('should invoke onModelChange, onModelChangeEnd, and onModelChangeError callbacks', () => {
+      const onModelChange = vi.fn();
+      const onModelChangeEnd = vi.fn();
+      const onModelChangeError = vi.fn();
+
+      const engine = initSkinEngine({
+        stageEl,
+        onModelChange,
+        onModelChangeEnd,
+        onModelChangeError
+      });
+
+      engine.onModelChange('2d');
+      expect(onModelChange).toHaveBeenCalledWith('2d');
+
+      engine.onModelChangeEnd(null, '2d');
+      expect(onModelChangeEnd).toHaveBeenCalledWith(null, '2d');
+
+      const mockErr = new Error('Model error');
+      engine.onModelChangeError(mockErr);
+      expect(onModelChangeError).toHaveBeenCalledWith(mockErr);
+    });
+
+    it('should invoke onMounted, onTwoDimensionalError, and onThreeDimensionalError callbacks when provided and return undefined when not provided', () => {
+      const onMounted = vi.fn();
+      const onTwoDimensionalError = vi.fn();
+      const onThreeDimensionalError = vi.fn();
+
+      const engineWithCallbacks = initSkinEngine({
+        stageEl,
+        onMounted,
+        onTwoDimensionalError,
+        onThreeDimensionalError
+      });
+
+      engineWithCallbacks.onMounted('mounted');
+      expect(onMounted).toHaveBeenCalledWith('mounted');
+
+      const err2d = new Error('2D Error');
+      engineWithCallbacks.onTwoDimensionalError(err2d);
+      expect(onTwoDimensionalError).toHaveBeenCalledWith(err2d);
+
+      const err3d = new Error('3D Error');
+      engineWithCallbacks.onThreeDimensionalError(err3d);
+      expect(onThreeDimensionalError).toHaveBeenCalledWith(err3d);
+
+      // Default engine without callbacks
+      const engineWithoutCallbacks = initSkinEngine({ stageEl });
+      expect(engineWithoutCallbacks.onMounted()).toBeUndefined();
+      expect(engineWithoutCallbacks.onTwoDimensionalError()).toBeUndefined();
+      expect(engineWithoutCallbacks.onThreeDimensionalError()).toBeUndefined();
+    });
+
+    it('should handle gesture2D and gesture3D warning fallbacks when handlers are not functions', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const engine = initSkinEngine({ stageEl });
+
+      engine.gesture2D = null;
+      const fn2d = engine.gesture2D('happy');
+      expect(warnSpy).toHaveBeenCalledWith('2D hand movement function is not registered');
+      fn2d();
+      expect(warnSpy).toHaveBeenCalledWith('gesture2D is not registered');
+
+      engine.gesture3D = null;
+      const fn3d = engine.gesture3D('happy');
+      expect(warnSpy).toHaveBeenCalledWith('3D hand movement function is not registered');
+      fn3d();
+      expect(warnSpy).toHaveBeenCalledWith('gesture3D is not registered');
+
+      warnSpy.mockRestore();
+    });
+
+    it('should return null for gesture getter when engineMode is not 2d or 3d', () => {
+      const engine = initSkinEngine({ stageEl });
+      engine._engineMode = null;
+      expect(engine.gesture).toBeNull();
+    });
+
+    it('should early-return when engineMode is set to the current engineMode', () => {
+      const onModelChangeSpy = vi.fn();
+      const engine = initSkinEngine({ stageEl, onModelChange: onModelChangeSpy });
+      const currentMode = engine.engineMode;
+      onModelChangeSpy.mockClear();
+
+      engine.engineMode = currentMode;
+      expect(onModelChangeSpy).not.toHaveBeenCalled();
+    });
+
   });
 });
+

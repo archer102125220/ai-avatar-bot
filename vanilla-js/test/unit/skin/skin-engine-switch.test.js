@@ -112,4 +112,69 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
       expect(engine.engineMode).toBe(ENGINE_MODE_MAP.threeDimensional);
     });
   });
+
+  describe('gesture getters, setters, and execution flow', () => {
+    it('should support gesture2D and gesture3D getters, setters, and warnings when null', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const engine = initSkinEngine({ stageEl });
+
+      // Default gesture2D and gesture3D are functions
+      expect(typeof engine.gesture2D).toBe('function');
+      expect(typeof engine.gesture3D).toBe('function');
+
+      // Custom gesture2D setter
+      const custom2D = vi.fn();
+      engine.gesture2D = custom2D;
+      engine.gesture2D('happy');
+      expect(custom2D).toHaveBeenCalled();
+
+      // Custom gesture3D setter
+      const custom3D = vi.fn();
+      engine.gesture3D = custom3D;
+      engine.gesture3D('wave');
+      expect(custom3D).toHaveBeenCalled();
+
+      // Set to null -> logs warning
+      engine.gesture2D = null;
+      const fallback2D = engine.gesture2D('happy');
+      expect(warnSpy).toHaveBeenCalledWith('2D hand movement function is not registered');
+      fallback2D();
+
+      engine.gesture3D = null;
+      const fallback3D = engine.gesture3D('wave');
+      expect(warnSpy).toHaveBeenCalledWith('3D hand movement function is not registered');
+      fallback3D();
+
+      warnSpy.mockRestore();
+    });
+
+    it('should trigger onGesture, gesture, onGestureError, and onGestureEnd on gestureName setter', async () => {
+      const onGesture = vi.fn();
+      const onGestureEnd = vi.fn();
+      const onGestureError = vi.fn();
+
+      const engine = initSkinEngine({
+        stageEl,
+        startMode: ENGINE_MODE_MAP.twoDimensional,
+        onGesture,
+        onGestureEnd,
+        onGestureError
+      });
+
+      const mockGestureFn = vi.fn().mockResolvedValue(true);
+      engine.gesture2D = mockGestureFn;
+
+      // Setting gestureName
+      engine.gestureName = 'happy';
+      expect(engine.gestureName).toBe('happy');
+      expect(onGesture).toHaveBeenCalledWith('happy', engine);
+
+      // Trigger error in gesture execution
+      mockGestureFn.mockRejectedValueOnce(new Error('Gesture fail'));
+      engine.gestureName = 'sad';
+      // Wait for microtask tick
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  });
 });

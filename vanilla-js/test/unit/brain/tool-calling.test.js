@@ -1,108 +1,207 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   extractToolCallsFromText,
   executeToolCallsLoop
 } from '../../../core/brain/tool-calling';
 import { BRAIN_ENGINE_TYPE_MAP } from '../../../core/constants';
 
-describe('Unit Test: core/brain/tool-calling.js', () => {
+describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
   describe('extractToolCallsFromText', () => {
-    it('should parse <tool_call> tags containing JSON name and arguments', () => {
-      const text = `
-        讓我為您查詢天氣：
-        <tool_call>{"name":"get_weather","arguments":{"city":"Tokyo"}}</tool_call>
+    it('should extract tool calls from text and handle non-string arguments', () => {
+      expect(extractToolCallsFromText('')).toEqual([]);
+      expect(extractToolCallsFromText(null)).toEqual([]);
+
+      const xmlText = `
+        Let me check the weather:
+        <tool_call>
+        {"name": "get_weather", "arguments": {"city": "Taipei"}}
+        </tool_call>
+        and another:
+        <tool_call>
+        {"name": "get_time", "arguments": "direct_str"}
+        </tool_call>
+        and malformed:
+        <tool_call>
+        {invalid_json}
+        </tool_call>
       `;
 
-      const toolCalls = extractToolCallsFromText(text);
-      expect(toolCalls).toHaveLength(1);
-      expect(toolCalls[0].function.name).toBe('get_weather');
-      expect(JSON.parse(toolCalls[0].function.arguments)).toEqual({ city: 'Tokyo' });
-    });
-
-    it('should return empty array when no tool_call tags are present', () => {
-      expect(extractToolCallsFromText('普通對話內容')).toEqual([]);
-      expect(extractToolCallsFromText('')).toEqual([]);
+      const tools = extractToolCallsFromText(xmlText);
+      expect(tools.length).toBe(2);
+      expect(tools[0].function.name).toBe('get_weather');
+      expect(tools[0].function.arguments).toBe('{"city":"Taipei"}');
+      expect(tools[1].function.name).toBe('get_time');
+      expect(tools[1].function.arguments).toBe('direct_str');
     });
   });
 
   describe('executeToolCallsLoop', () => {
-    it('should execute tool and request second-round summary from AI Provider', async () => {
-      const mockTool = {
-        name: 'calc_sum',
-        description: 'Calculate sum',
-        execute: vi.fn().mockResolvedValue({ sum: 42 })
-      };
+    let mockBrainEngine;
 
-      const emitAnswer = vi.fn();
-      const mockAiChat = vi.fn().mockResolvedValue({
-        type: 'text',
-        content: '計算結果是 42！'
-      });
-
-      const brainEngine = {
-        getToolByName: vi.fn().mockReturnValue(mockTool),
-        executeTool: vi.fn().mockResolvedValue({ sum: 42 }),
-        aiProvider: { chat: mockAiChat },
-        emitAnswer
-      };
-
-      const toolCallResponse = {
-        type: 'tool_calls',
-        toolCalls: [
-          {
-            id: 'call_1',
-            type: 'function',
-            function: { name: 'calc_sum', arguments: '{"a":20,"b":22}' }
+    beforeEach(() => {
+      mockBrainEngine = {
+        getToolByName: vi.fn((name) => {
+          if (name === 'registered_tool') {
+            return { name: 'registered_tool', requiresConfirmation: false };
           }
-        ],
-        message: { role: 'assistant', content: '' }
+          if (name === 'dangerous_tool') {
+            return { name: 'dangerous_tool', requiresConfirmation: true };
+          }
+          return null;
+        }),
+        executeTool: vi.fn(async (_tool, args) => ({ ok: true, data: args })),
+        offerToolConfirmation: vi.fn(),
+        onToolNotFound: vi.fn(async ({ toolName }) => ({ ok: false, error: `Custom not found: ${toolName}` })),
+        onToolError: vi.fn(async ({ error }) => ({ ok: false, error: `Custom error: ${error.message}` })),
+        emitAnswer: vi.fn(),
+        aiProvider: {
+          chat: vi.fn(async () => 'AI Provider Summary of Tool')
+        },
+        llm: {
+          chat: vi.fn(async (_msgs, onChunk) => {
+            onChunk('Chunk 1', 'Chunk 1');
+            onChunk('Chunk 2', 'Chunk 1Chunk 2');
+            return 'WebLLM Tool Summary';
+          })
+        },
+        memory: {
+          enabled: true,
+          addTurn: vi.fn()
+        },
+        onStreamStart: vi.fn(),
+        onStreamChunk: vi.fn(),
+        onStreamEnd: vi.fn(),
+        onSpokenDisplayTextChange: vi.fn(),
+        updateChatMessage: vi.fn(),
+        applyEmotionFromText: vi.fn(),
+        triggerRollingSummaryIfNeeded: vi.fn()
       };
-
-      await executeToolCallsLoop(
-        brainEngine,
-        toolCallResponse,
-        [{ role: 'user', content: '20 + 22 是多少？' }],
-        BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER
-      );
-
-      expect(brainEngine.executeTool).toHaveBeenCalledOnce();
-      expect(mockAiChat).toHaveBeenCalledOnce();
-      expect(emitAnswer).toHaveBeenCalledWith('計算結果是 42！');
     });
 
-    it('should handle tool confirmation when tool.requiresConfirmation is true', async () => {
-      const mockTool = {
-        name: 'delete_file',
-        requiresConfirmation: true
+    it('should safely return if toolCalls is empty', async () => {
+      await executeToolCallsLoop(mockBrainEngine, { toolCalls: [] }, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      expect(mockBrainEngine.emitAnswer).not.toHaveBeenCalled();
+    });
+
+    it('should handle tool not found and trigger onToolNotFound hook', async () => {
+      const toolCallResponse = {
+        toolCalls: [
+          { id: 'call_1', function: { name: 'missing_tool', arguments: '{"q": 1}' } }
+        ],
+        message: { content: '' }
       };
 
-      const offerToolConfirmation = vi.fn();
+      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
 
-      const brainEngine = {
-        getToolByName: vi.fn().mockReturnValue(mockTool),
-        offerToolConfirmation
-      };
+      expect(mockBrainEngine.onToolNotFound).toHaveBeenCalled();
+      expect(mockBrainEngine.aiProvider.chat).toHaveBeenCalled();
+      expect(mockBrainEngine.emitAnswer).toHaveBeenCalledWith('AI Provider Summary of Tool');
+    });
+
+    it('should handle tool execution error and trigger onToolError hook', async () => {
+      mockBrainEngine.executeTool = vi.fn().mockRejectedValue(new Error('Boom!'));
 
       const toolCallResponse = {
-        type: 'tool_calls',
         toolCalls: [
-          {
-            id: 'call_del',
-            type: 'function',
-            function: { name: 'delete_file', arguments: '{"path":"/tmp/a"}' }
-          }
+          { id: 'call_1', function: { name: 'registered_tool', arguments: '{"q": 1}' } }
         ],
-        message: { role: 'assistant', content: '' }
+        message: { content: '' }
       };
 
-      await executeToolCallsLoop(
-        brainEngine,
-        toolCallResponse,
-        [{ role: 'user', content: '刪除檔案' }],
-        BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER
-      );
+      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
 
-      expect(offerToolConfirmation).toHaveBeenCalledOnce();
+      expect(mockBrainEngine.onToolError).toHaveBeenCalled();
+      expect(mockBrainEngine.emitAnswer).toHaveBeenCalled();
+    });
+
+    it('should handle tool confirmation required and resume after confirmation', async () => {
+      let confirmationContext;
+      mockBrainEngine.offerToolConfirmation = vi.fn((tool, args, ctx) => {
+        confirmationContext = ctx;
+      });
+
+      const toolCallResponse = {
+        toolCalls: [
+          { id: 'call_1', function: { name: 'dangerous_tool', arguments: '{"action":"delete"}' } }
+        ],
+        message: { content: '' }
+      };
+
+      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+
+      expect(mockBrainEngine.offerToolConfirmation).toHaveBeenCalled();
+
+      // Test cancelled
+      await confirmationContext.onConfirmResume({ cancelled: true });
+      expect(mockBrainEngine.emitAnswer).not.toHaveBeenCalled();
+
+      // Test confirmed
+      await confirmationContext.onConfirmResume({ ok: true, deleted: true });
+      expect(mockBrainEngine.emitAnswer).toHaveBeenCalledWith('AI Provider Summary of Tool');
+    });
+
+    it('should execute WebLLM streaming second round summary', async () => {
+      const toolCallResponse = {
+        toolCalls: [
+          { id: 'call_1', function: { name: 'registered_tool', arguments: '{"q": 1}' } }
+        ],
+        message: { content: '' }
+      };
+
+      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.WEB_LLM);
+
+      expect(mockBrainEngine.onStreamStart).toHaveBeenCalled();
+      expect(mockBrainEngine.llm.chat).toHaveBeenCalled();
+      expect(mockBrainEngine.onStreamChunk).toHaveBeenCalledWith('Chunk 1');
+      expect(mockBrainEngine.memory.addTurn).toHaveBeenCalledWith('assistant', 'WebLLM Tool Summary');
+      expect(mockBrainEngine.onStreamEnd).toHaveBeenCalledWith('WebLLM Tool Summary');
+      expect(mockBrainEngine.triggerRollingSummaryIfNeeded).toHaveBeenCalled();
+    });
+
+    it('should fallback to lastResult error, message, or default string when summary response is empty', async () => {
+      // 1. AI Provider with empty summary and lastResult has error
+      mockBrainEngine.aiProvider.chat = vi.fn().mockResolvedValue('');
+      mockBrainEngine.executeTool = vi.fn().mockResolvedValue({ ok: false, error: 'Database timeout' });
+
+      const toolCallResponse = {
+        toolCalls: [
+          { id: 'call_1', function: { name: 'registered_tool', arguments: '{}' } }
+        ],
+        message: { content: '' }
+      };
+
+      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      expect(mockBrainEngine.emitAnswer).toHaveBeenCalledWith('Database timeout');
+
+      // 2. AI Provider with empty summary and lastResult is a plain string
+      mockBrainEngine.executeTool = vi.fn().mockResolvedValue('Plain result string');
+      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      expect(mockBrainEngine.emitAnswer).toHaveBeenCalledWith('Plain result string');
+
+      // 3. AI Provider with empty summary and lastResult has message
+      mockBrainEngine.executeTool = vi.fn().mockResolvedValue({ ok: true, message: 'Updated 5 items' });
+      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      expect(mockBrainEngine.emitAnswer).toHaveBeenCalledWith('Updated 5 items');
+
+      // 4. AI Provider with empty summary and empty lastResult -> defaults to brain.toolExecutionError
+      mockBrainEngine.executeTool = vi.fn().mockResolvedValue({});
+      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      expect(mockBrainEngine.emitAnswer).toHaveBeenCalled();
+    });
+
+    it('should fallback to WebLLM lastResult when streaming summary is empty', async () => {
+      mockBrainEngine.llm.chat = vi.fn().mockResolvedValue({ content: '' });
+      mockBrainEngine.executeTool = vi.fn().mockResolvedValue({ ok: false, error: 'WebLLM tool error' });
+
+      const toolCallResponse = {
+        toolCalls: [
+          { id: 'call_1', function: { name: 'registered_tool', arguments: '{}' } }
+        ],
+        message: { content: '' }
+      };
+
+      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.WEB_LLM);
+      expect(mockBrainEngine.onStreamEnd).toHaveBeenCalledWith('WebLLM tool error');
     });
   });
 });

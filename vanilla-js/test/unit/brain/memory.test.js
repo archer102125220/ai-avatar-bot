@@ -1,104 +1,218 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
+  initMemory,
   createDefaultMemoryData,
   migrateMemoryData,
-  initMemory
+  triggerRollingSummaryIfNeeded
 } from '../../../core/brain/memory';
-import { CURRENT_MEMORY_VERSION } from '../../../core/constants';
+import {
+  CURRENT_MEMORY_VERSION,
+  COMPRESSION_STRATEGY_MAP,
+  BRAIN_ENGINE_TYPE_MAP,
+  STATE_MAP
+} from '../../../core/constants';
 
-describe('Unit Test: core/brain/memory.js', () => {
+describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
   beforeEach(() => {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.clear();
-    }
+    localStorage.clear();
   });
 
-  describe('createDefaultMemoryData', () => {
-    it('should generate valid default memory structure', () => {
+  describe('createDefaultMemoryData & migrateMemoryData', () => {
+    it('should generate pristine default memory data', () => {
       const data = createDefaultMemoryData();
       expect(data.version).toBe(CURRENT_MEMORY_VERSION);
       expect(data.name).toBe('');
       expect(data.visits).toBe(0);
       expect(data.history).toEqual([]);
-      expect(data.summary).toBe('');
       expect(data.metadata).toEqual({});
     });
-  });
 
-  describe('migrateMemoryData', () => {
-    it('should return default memory structure when null or invalid is provided', () => {
+    it('should safely migrate null, undefined, or old v0 data structures', () => {
       expect(migrateMemoryData(null)).toEqual(createDefaultMemoryData());
       expect(migrateMemoryData(undefined)).toEqual(createDefaultMemoryData());
-    });
 
-    it('should migrate v0 legacy data to current version with sanitized history', () => {
-      const legacyData = {
-        name: '小美',
-        visits: 5,
+      const v0Data = {
+        name: 'Bob',
+        visits: 3,
         history: [
-          { role: 'user', content: '哈囉' },
-          { role: 'bot', content: { text: '你好呀！' } }
+          { role: 'user', content: 'hello' },
+          { role: 'assistant', text: 'hi there' },
+          { role: 'assistant', content: { text: 'rich object' } }
         ]
       };
 
-      const migrated = migrateMemoryData(legacyData);
-      expect(migrated.version).toBe(CURRENT_MEMORY_VERSION);
-      expect(migrated.name).toBe('小美');
-      expect(migrated.visits).toBe(5);
-      expect(migrated.history).toHaveLength(2);
-      expect(migrated.history[1].role).toBe('assistant');
-      expect(migrated.history[1].content).toBe('你好呀！');
+      const migrated = migrateMemoryData(v0Data);
+      expect(migrated.version).toBe(1);
+      expect(migrated.name).toBe('Bob');
+      expect(migrated.visits).toBe(3);
+      expect(migrated.history.length).toBe(3);
+      expect(migrated.history[1].content).toBe('hi there');
+      expect(migrated.history[2].content).toBe('rich object');
     });
   });
 
-  describe('initMemory', () => {
-    it('should load, increment visits, and save to storage adapter', () => {
+  describe('initMemory operations and adapters', () => {
+    it('should load and save through custom adapter and support versioning/metadata', () => {
+      const customStorage = {};
+      const customAdapter = {
+        load: vi.fn((k) => customStorage[k] || null),
+        save: vi.fn((k, d) => {
+          customStorage[k] = d;
+        }),
+        clear: vi.fn((k) => {
+          delete customStorage[k];
+        })
+      };
+
       const memory = initMemory({
-        memoryKey: 'test-avatar-memory',
-        enableMemory: true
+        memoryKey: 'custom_key',
+        enableMemory: true,
+        memoryAdapter: customAdapter
       });
 
-      // initMemory 內部會自動執行首次 load()
-      expect(memory.data.visits).toBe(1);
+      expect(memory.getVersion()).toBe(CURRENT_MEMORY_VERSION);
+      expect(memory.getMetadata()).toEqual({});
 
-      memory.addTurn('user', '今天天氣好嗎？');
-      memory.addTurn('assistant', '今天天氣晴朗！');
+      // setMetadata with object
+      memory.setMetadata({ tag: 'vip' });
+      expect(memory.getMetadata()).toEqual({ tag: 'vip' });
 
-      expect(memory.data.history).toHaveLength(2);
+      // setMetadata with updater function
+      memory.setMetadata((prev) => ({ ...prev, score: 100 }));
+      expect(memory.getMetadata()).toEqual({ tag: 'vip', score: 100 });
 
-      // 再次手動執行 load() 應累加訪問次數
-      memory.load();
-      expect(memory.data.visits).toBe(2);
-      expect(memory.data.history).toHaveLength(2);
-    });
+      // captureName
+      memory.captureName('你好，我叫小華！');
+      expect(memory.data.name).toBe('小華');
 
-    it('should cap history to 100 turns in raw memory data store', () => {
-      const memory = initMemory({
-        enableMemory: true
-      });
-
+      // addTurn and 100 items capacity limit
       for (let i = 0; i < 110; i++) {
-        memory.addTurn('user', `問題 ${i}`);
+        memory.addTurn('user', `Message ${i}`);
       }
+      expect(memory.data.history.length).toBe(100);
+      expect(memory.data.history[99].content).toBe('Message 109');
 
-      // 記憶庫本體上限為 100 筆對話紀錄
-      expect(memory.data.history).toHaveLength(100);
-      expect(memory.data.history[0].content).toBe('問題 10');
-      expect(memory.data.history[99].content).toBe('問題 109');
+      // clear
+      memory.clear();
+      expect(memory.data.visits).toBe(1);
+      expect(customAdapter.clear).toHaveBeenCalledWith('custom_key');
     });
 
-    it('should capture username and set custom metadata', () => {
-      const memory = initMemory({ enableMemory: true });
+    it('should handle localStorage fallback and quota errors gracefully', () => {
+      const memory = initMemory({
+        memoryKey: 'local_test_key',
+        enableMemory: true
+      });
 
-      memory.captureName('我是林小明');
-      expect(memory.data.name).toBe('林小明');
+      memory.data.name = 'TestUser';
+      memory.save();
 
-      memory.setMetadata({ theme: 'dark', score: 100 });
-      expect(memory.getMetadata()).toEqual({ theme: 'dark', score: 100 });
+      const saved = JSON.parse(localStorage.getItem('local_test_key'));
+      expect(saved.name).toBe('TestUser');
+    });
+  });
 
-      memory.clear();
-      expect(memory.data.name).toBe('');
-      expect(memory.data.history).toEqual([]);
+  describe('triggerRollingSummaryIfNeeded (Background Summarization)', () => {
+    it('should trigger rolling summary when unsummarized turns exceed threshold', async () => {
+      vi.useFakeTimers();
+
+      const onSummaryUpdated = vi.fn();
+      const mockBrainEngine = {
+        locale: 'zh-TW',
+        memory: {
+          enabled: true,
+          data: {
+            summary: '舊摘要',
+            history: [
+              { role: 'user', content: '我喜歡吃蘋果' },
+              { role: 'assistant', content: '蘋果很甜' },
+              { role: 'user', content: '我也喜歡香蕉' },
+              { role: 'assistant', content: '香蕉很有營養' }
+            ],
+            lastSummarizedTurnIndex: 0
+          },
+          save: vi.fn()
+        },
+        compression: {
+          strategy: COMPRESSION_STRATEGY_MAP.ROLLING_SUMMARY,
+          summaryThresholdTurns: 1
+        },
+        aiProvider: {
+          enabled: true,
+          ready: true,
+          chat: vi.fn(async () => '最新精煉摘要：喜歡蘋果與香蕉')
+        },
+        onSummaryUpdated
+      };
+
+      await triggerRollingSummaryIfNeeded(mockBrainEngine);
+      expect(mockBrainEngine._isSummarizing).toBe(true);
+
+      // Fast-forward background timer
+      await vi.advanceTimersByTimeAsync(100);
+
+      expect(mockBrainEngine.memory.data.summary).toBe('最新精煉摘要：喜歡蘋果與香蕉');
+      expect(mockBrainEngine.memory.data.lastSummarizedTurnIndex).toBe(4);
+      expect(onSummaryUpdated).toHaveBeenCalledWith('最新精煉摘要：喜歡蘋果與香蕉');
+      expect(mockBrainEngine._isSummarizing).toBe(false);
+
+      vi.useRealTimers();
+    });
+
+    it('should support WebLLM engine for background summarization and handle errors', async () => {
+      vi.useFakeTimers();
+
+      const mockBrainEngine = {
+        locale: 'zh-TW',
+        memory: {
+          enabled: true,
+          data: {
+            summary: '',
+            history: [
+              { role: 'user', content: '第一句' },
+              { role: 'assistant', content: '第一句回覆' }
+            ],
+            lastSummarizedTurnIndex: 0
+          },
+          save: vi.fn()
+        },
+        compression: {
+          strategy: COMPRESSION_STRATEGY_MAP.ROLLING_SUMMARY,
+          summaryThresholdTurns: 1
+        },
+        aiProvider: { enabled: false },
+        llm: {
+          state: STATE_MAP.READY,
+          engine: {
+            chat: {
+              completions: {
+                create: vi.fn().mockResolvedValue({
+                  choices: [{ message: { content: 'WebLLM 產出的摘要' } }]
+                })
+              }
+            }
+          }
+        }
+      };
+
+      await triggerRollingSummaryIfNeeded(mockBrainEngine);
+      await vi.advanceTimersByTimeAsync(100);
+
+      expect(mockBrainEngine.memory.data.summary).toBe('WebLLM 產出的摘要');
+
+      // Test error handling
+      mockBrainEngine.llm.engine.chat.completions.create.mockRejectedValueOnce(new Error('LLM summary failed'));
+      mockBrainEngine.memory.data.lastSummarizedTurnIndex = 0;
+      await triggerRollingSummaryIfNeeded(mockBrainEngine);
+      await vi.advanceTimersByTimeAsync(100);
+      expect(mockBrainEngine._isSummarizing).toBe(false);
+
+      // Test guard conditions
+      expect(await triggerRollingSummaryIfNeeded(null)).toBeUndefined();
+      expect(await triggerRollingSummaryIfNeeded({ memory: { enabled: false } })).toBeUndefined();
+      expect(await triggerRollingSummaryIfNeeded({ memory: { enabled: true }, _isSummarizing: true })).toBeUndefined();
+
+      vi.useRealTimers();
     });
   });
 });

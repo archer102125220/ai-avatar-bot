@@ -46,6 +46,9 @@ describe('UI DOM & Scaffolding (initUi)', () => {
     expect(uiDom.langButtonEl.id).toBe('btn-lang');
     expect(uiDom.historyButtonEl.id).toBe('btn-history');
     expect(uiDom.closeButtonEl.id).toBe('btn-close');
+    expect(uiDom.dockRow1El).toBeDefined();
+    expect(uiDom.dockRow2El).toBeDefined();
+    expect(uiDom.directWarnEl).toBeDefined();
     expect(uiDom.minimalEl.className).toBe('aw-minimal');
 
     expect(container.contains(stageEl)).toBe(true);
@@ -66,6 +69,11 @@ describe('UI DOM & Scaffolding (initUi)', () => {
     expect(uiDom.voiceStatusEl.textContent).toBe('正在聆聽…');
     expect(uiDom.voiceLevelEl.style.width).toBe('75%');
 
+    // Convo active but state is empty string -> removes css-state
+    uiDom.updateVoiceStatus(true, '', '', 50);
+    expect(uiDom.voiceLiveEl.getAttribute('css-state')).toBeNull();
+    expect(uiDom.voiceStatusEl.textContent).toBeTruthy();
+
     uiDom.updateVoiceStatus(false, undefined, undefined, 0, i18nEngine);
     expect(uiDom.voiceLiveEl.getAttribute('css-is-active')).toBeNull();
     expect(uiDom.voiceLiveEl.getAttribute('css-state')).toBeNull();
@@ -74,11 +82,18 @@ describe('UI DOM & Scaffolding (initUi)', () => {
   it('should update mic button and suggestions visibility via uiDom.updateMicState', () => {
     const uiDom = initUi(container, stageEl, i18nEngine);
 
-    uiDom.updateMicState(true, true, false, i18nEngine);
+    // 1. Listening + companion
+    uiDom.updateMicState(true, true, true, i18nEngine);
     expect(uiDom.micButtonEl.getAttribute('css-state')).toBe('listening');
     expect(uiDom.micButtonEl.getAttribute('aria-pressed')).toBe('true');
     expect(uiDom.suggestionsEl.style.display).toBe('none');
 
+    // 2. ConvoOn without listening
+    uiDom.updateMicState(false, true, false);
+    expect(uiDom.micButtonEl.getAttribute('css-state')).toBeNull();
+    expect(uiDom.micButtonEl.getAttribute('aria-pressed')).toBe('true');
+
+    // 3. Completely idle
     uiDom.updateMicState(false, false, false, i18nEngine);
     expect(uiDom.micButtonEl.getAttribute('css-state')).toBeNull();
     expect(uiDom.micButtonEl.getAttribute('aria-pressed')).toBe('false');

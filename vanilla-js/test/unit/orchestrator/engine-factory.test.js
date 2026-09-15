@@ -9,6 +9,9 @@ import { createBaseStore } from '../../../core/store';
 import { initI18nEngine } from '../../../core/i18n';
 import { ENGINE_MODE_MAP, DEFAULT_EMOTION_TOOL_NAME } from '../../../core/constants';
 
+import * as SpeechModule from '../../../core/speech';
+import * as SkinModule from '../../../core/skin';
+
 describe('Orchestrator Engine Factory', () => {
   let rootStore;
   let i18nEngine;
@@ -38,21 +41,30 @@ describe('Orchestrator Engine Factory', () => {
 
     i18nEngine = initI18nEngine({ locale: 'zh-TW' });
 
-    mockWidget = {
-      name: 'MockWidget',
-      onReady: vi.fn(),
-      onError: vi.fn()
-    };
+    const historyPanelEl = document.createElement('section');
+    const historyListEl = document.createElement('div');
+    historyListEl.id = 'history-list';
+    historyPanelEl.appendChild(historyListEl);
 
     mockUiDom = {
       btnLlmEl: document.createElement('button'),
       bubbleEl: document.createElement('p'),
-      historyPanelEl: document.createElement('section'),
+      historyPanelEl,
       directWarnEl: document.createElement('p'),
       engineButtonEl: document.createElement('button'),
       langButtonEl: document.createElement('button'),
       updateMicState: vi.fn(),
       updateVoiceStatus: vi.fn()
+    };
+
+    mockWidget = {
+      name: 'MockWidget',
+      uiDom: mockUiDom,
+      brainEngine: { chatLog: [] },
+      i18nEngine,
+      store: rootStore,
+      onReady: vi.fn(),
+      onError: vi.fn()
     };
 
     mockStreamPipeline = {
@@ -256,9 +268,175 @@ describe('Orchestrator Engine Factory', () => {
       expect(mockUiDom.btnLlmEl.textContent).toBe('🧠✓');
       expect(mockUiDom.btnLlmEl.getAttribute('css-llm-on')).toBe('true');
 
-      // test onEmotionChange
+      // test onLlmLoadError
+      capturedBrainOptions.onLlmLoadError(new Error('LLM load failed'));
+      expect(mockUiDom.btnLlmEl.textContent).toBe('🧠✗');
+      expect(mockEngines.speechEngine.spokenDisplayText).toContain('LLM load failed');
+
+      // test onEmotionChange with setEmotion
       capturedBrainOptions.onEmotionChange('happy');
       expect(mockEngines.skinEngine.setEmotion).toHaveBeenCalledWith('happy');
+
+      // test onEmotionChange fallback to gestureName
+      const skinWithoutSetEmotion = { gestureName: 'neutral' };
+      mockEngines.skinEngine = skinWithoutSetEmotion;
+      capturedBrainOptions.onEmotionChange('sad');
+      expect(skinWithoutSetEmotion.gestureName).toBe('sad');
+    });
+
+    it('should test all AI provider callbacks and state transitions in setupBrainEngine', async () => {
+      vi.useFakeTimers();
+      let capturedBrainOptions;
+      const customBrainFactory = vi.fn(async (opts) => {
+        capturedBrainOptions = opts;
+        return {
+          addChatMessage: vi.fn(),
+          updateChatMessage: vi.fn(),
+          answerQuestion: vi.fn(),
+          getWelcomeText: vi.fn(),
+          buildLLMMessages: vi.fn(),
+          classifyEmotion: vi.fn(),
+          applyEmotionFromText: vi.fn(),
+          memory: {},
+          llm: {},
+          aiProvider: { model: 'gpt-4o' },
+          chatLog: [],
+          chatSeq: 0
+        };
+      });
+
+      const onBrainFallback = vi.fn();
+      const onToolNotFound = vi.fn();
+      const onToolError = vi.fn();
+
+      await setupBrainEngine({
+        options: {
+          customEngines: { brain: customBrainFactory },
+          onBrainFallback,
+          onToolNotFound,
+          onToolError
+        },
+        widget: mockWidget,
+        rootStore,
+        i18nEngine,
+        getEngines,
+        getUiDom,
+        streamPipeline: mockStreamPipeline
+      });
+
+      // onAiProviderConnecting
+      capturedBrainOptions.onAiProviderConnecting();
+      expect(mockUiDom.btnLlmEl.textContent).toBe('🧠…');
+      expect(mockUiDom.btnLlmEl.title).toBe('AI 伺服器大腦（連線中）');
+
+      // onAiProviderConnected (success)
+      capturedBrainOptions.onAiProviderConnected({ ok: true }, {}, { model: 'gpt-4o' });
+      expect(mockUiDom.btnLlmEl.textContent).toBe('🧠✓');
+      expect(mockUiDom.btnLlmEl.getAttribute('css-llm-on')).toBe('true');
+      expect(mockUiDom.btnLlmEl.getAttribute('aria-pressed')).toBe('true');
+      expect(mockUiDom.btnLlmEl.title).toContain('gpt-4o');
+
+      vi.advanceTimersByTime(1400);
+      expect(mockEngines.speechEngine.spokenDisplayText).toContain('已接上 AI 伺服器大腦');
+
+      // onAiProviderConnected (failure)
+      capturedBrainOptions.onAiProviderConnected({ ok: false }, {}, { model: 'gpt-4o' });
+      expect(mockUiDom.btnLlmEl.textContent).toBe('🧠✗');
+      expect(mockUiDom.btnLlmEl.hasAttribute('css-llm-on')).toBe(false);
+      expect(mockUiDom.btnLlmEl.getAttribute('aria-pressed')).toBe('false');
+      expect(mockUiDom.btnLlmEl.title).toContain('AI 伺服器連不上');
+
+      // onSummaryUpdated, onChatHistoryChanged, onSpokenAudioPlayNow, onSpokenDisplayTextChange, onSpokenAudioTextChange
+      capturedBrainOptions.onSummaryUpdated('New Summary');
+      capturedBrainOptions.onChatHistoryChanged([{ role: 'user', content: 'hi' }]);
+      capturedBrainOptions.onSpokenAudioPlayNow('Hello audio');
+      expect(mockEngines.speechEngine.speak).toHaveBeenCalledWith('Hello audio');
+
+      capturedBrainOptions.onSpokenDisplayTextChange('Display text');
+      expect(mockEngines.speechEngine.spokenDisplayText).toBe('Display text');
+
+      capturedBrainOptions.onSpokenAudioTextChange('Audio text');
+      expect(mockEngines.speechEngine.spokenAudioText).toBe('Audio text');
+
+      // onAddChatMessage & onUpdateChatMessage with history panel open
+      mockUiDom.historyPanelEl.setAttribute('css-is-open', 'true');
+      capturedBrainOptions.onAddChatMessage({ id: 1, text: 'Hello' });
+      capturedBrainOptions.onUpdateChatMessage({ id: 1, text: 'Hello updated' });
+
+      // onBrainFallback
+      capturedBrainOptions.onBrainFallback('aiProvider', 'webLLM', new Error('Err'));
+      expect(onBrainFallback).toHaveBeenCalled();
+
+      // onToolNotFound & onToolError
+      capturedBrainOptions.onToolNotFound({ name: 'unknown' });
+      expect(onToolNotFound).toHaveBeenCalled();
+      capturedBrainOptions.onToolError({ name: 'calc', error: 'failed' });
+      expect(onToolError).toHaveBeenCalled();
+
+      vi.useRealTimers();
+    });
+
+    it('should test tool delegation edge branches in setupBrainEngine', async () => {
+      let capturedBrainOptions;
+      const customBrainFactory = vi.fn(async (opts) => {
+        capturedBrainOptions = opts;
+        return {
+          addChatMessage: vi.fn(),
+          updateChatMessage: vi.fn(),
+          answerQuestion: vi.fn(),
+          getWelcomeText: vi.fn(),
+          buildLLMMessages: vi.fn(),
+          classifyEmotion: vi.fn(),
+          applyEmotionFromText: vi.fn(),
+          memory: {},
+          llm: {},
+          aiProvider: {},
+          chatLog: [],
+          chatSeq: 0
+        };
+      });
+
+      await setupBrainEngine({
+        options: {
+          customEngines: { brain: customBrainFactory }
+        },
+        widget: mockWidget,
+        rootStore,
+        i18nEngine,
+        getEngines: () => ({
+          ...mockEngines,
+          toolsEngine: null
+        }),
+        getUiDom,
+        streamPipeline: mockStreamPipeline
+      });
+
+      expect(capturedBrainOptions.getTools()).toEqual([]);
+      expect(capturedBrainOptions.getToolByName('any')).toBeNull();
+      capturedBrainOptions.offerToolConfirmation('any', {}, {});
+      const nullExec = await capturedBrainOptions.executeTool('any', {}, {});
+      expect(nullExec).toBeNull();
+    });
+
+    it('should handle custom brain factory throwing error and fallback to default', async () => {
+      const brainEngine = await setupBrainEngine({
+        options: {
+          customEngines: {
+            brain: () => {
+              throw new Error('Factory crashed');
+            }
+          }
+        },
+        widget: mockWidget,
+        rootStore,
+        i18nEngine,
+        getEngines,
+        getUiDom,
+        streamPipeline: mockStreamPipeline
+      });
+
+      expect(brainEngine).toBeDefined();
+      expect(typeof brainEngine.answerQuestion).toBe('function');
     });
   });
 
@@ -285,6 +463,109 @@ describe('Orchestrator Engine Factory', () => {
       expect(speechEngine).toBeDefined();
       expect(typeof speechEngine.speak).toBe('function');
       expect(typeof speechEngine.startListening).toBe('function');
+    });
+
+    it('should trigger all callbacks and UI updates in setupSpeechEngine', async () => {
+      let capturedSpeechOptions;
+      const initSpeechSpy = vi.spyOn(SpeechModule, 'initSpeechEngine').mockImplementation(async (opts) => {
+        capturedSpeechOptions = opts;
+        return {
+          speak: vi.fn(),
+          startListening: vi.fn(),
+          stopListening: vi.fn(),
+          toggleVoice: vi.fn(),
+          setGender: vi.fn(),
+          spokenDisplayText: '',
+          spokenAudioText: '',
+          convoOn: false,
+          isListening: false
+        };
+      });
+
+      const onSpeaking = vi.fn();
+      const onSpeakingEnd = vi.fn();
+      const onLanguageChanged = vi.fn();
+      const onMicStateChanged = vi.fn();
+      const onVoiceStatusChanged = vi.fn();
+      const onSpokenDisplayTextChange = vi.fn();
+      const onSpokenDisplayTextTimeout = vi.fn();
+      const handleUser = vi.fn();
+      const onTapAvatar = vi.fn();
+      const container = document.createElement('div');
+
+      await setupSpeechEngine({
+        options: {
+          onSpeaking,
+          onSpeakingEnd,
+          onLanguageChanged,
+          onMicStateChanged,
+          onVoiceStatusChanged,
+          onSpokenDisplayTextChange,
+          onSpokenDisplayTextTimeout
+        },
+        widget: mockWidget,
+        rootStore,
+        i18nEngine,
+        getEngines,
+        getUiDom,
+        handleUser,
+        onTapAvatar,
+        streamPipeline: mockStreamPipeline,
+        container,
+        safeNeuralVoice: 'zh-TW-HsiaoChenNeural'
+      });
+
+      expect(typeof capturedSpeechOptions.getGender()).toBe('string');
+      expect(capturedSpeechOptions.getContainer()).toBe(container);
+
+      // onSpokenDisplayTextChange
+      capturedSpeechOptions.onSpokenDisplayTextChange('Hello bubble');
+      expect(mockUiDom.bubbleEl.textContent).toBe('Hello bubble');
+      expect(mockUiDom.bubbleEl.getAttribute('css-is-show')).toBe('true');
+      expect(onSpokenDisplayTextChange).toHaveBeenCalledWith('Hello bubble');
+
+      // onSpokenDisplayTextTimeout
+      capturedSpeechOptions.onSpokenDisplayTextTimeout();
+      expect(mockUiDom.bubbleEl.hasAttribute('css-is-show')).toBe(false);
+      expect(onSpokenDisplayTextTimeout).toHaveBeenCalled();
+
+      // onMicStateChanged
+      capturedSpeechOptions.onMicStateChanged(true, true);
+      expect(mockUiDom.updateMicState).toHaveBeenCalled();
+      expect(onMicStateChanged).toHaveBeenCalledWith(true, true);
+
+      // onVoiceStatusChanged
+      capturedSpeechOptions.onVoiceStatusChanged(true, 'Ready', 'standby', 0);
+      expect(mockUiDom.updateVoiceStatus).toHaveBeenCalled();
+      expect(onVoiceStatusChanged).toHaveBeenCalled();
+
+      // onUserInput, onTapAvatar, onInterrupt, onSpeechWait
+      capturedSpeechOptions.onUserInput('Hello AI');
+      expect(handleUser).toHaveBeenCalledWith('Hello AI');
+
+      capturedSpeechOptions.onTapAvatar();
+      expect(onTapAvatar).toHaveBeenCalled();
+
+      capturedSpeechOptions.onInterrupt();
+      expect(mockStreamPipeline.onInterrupt).toHaveBeenCalled();
+
+      capturedSpeechOptions.onSpeechWait('seq_123');
+      expect(mockStreamPipeline.onSpeechWait).toHaveBeenCalledWith('seq_123');
+
+      // onLanguageChanged
+      capturedSpeechOptions.onLanguageChanged('zh-TW', '繁體中文', '繁中');
+      expect(mockUiDom.langButtonEl.textContent).toBe('繁中');
+      expect(onLanguageChanged).toHaveBeenCalledWith('zh-TW', '繁體中文', '繁中');
+
+      // onSpeaking & onSpeakingEnd
+      capturedSpeechOptions.onSpeaking('Speaking text');
+      expect(onSpeaking).toHaveBeenCalledWith('Speaking text');
+
+      capturedSpeechOptions.onSpeakingEnd();
+      expect(mockEngines.skinEngine.setEmotion).toHaveBeenCalledWith('neutral');
+      expect(onSpeakingEnd).toHaveBeenCalled();
+
+      initSpeechSpy.mockRestore();
     });
   });
 
@@ -335,6 +616,116 @@ describe('Orchestrator Engine Factory', () => {
 
       expect(toolsEngine).toBe(customTools);
     });
+
+    it('should test tools callbacks and history toggling in setupToolsEngine', () => {
+      let capturedToolsOptions;
+      const customToolsFactory = vi.fn((opts) => {
+        capturedToolsOptions = opts;
+        return {
+          HOST_TOOLS: [],
+          routeHostTool: vi.fn(),
+          prepareTool: vi.fn(),
+          continueToolInput: vi.fn(),
+          offerToolChoices: vi.fn(),
+          continueToolChoice: vi.fn(),
+          chooseTool: vi.fn(),
+          offerHostTool: vi.fn(),
+          executePendingTool: vi.fn(),
+          cancelPendingTool: vi.fn(),
+          continueToolConfirmation: vi.fn(),
+          handleToolResult: vi.fn()
+        };
+      });
+
+      const onToolCall = vi.fn();
+      const onSetHistoryOpen = vi.fn();
+      const onRenderHistory = vi.fn();
+      const onSpokenAudioPlayNow = vi.fn();
+
+      mockEngines.brainEngine = {
+        addChatMessage: vi.fn(),
+        updateChatMessage: vi.fn(),
+        chatLog: [{ role: 'user', content: 'test' }],
+        chatSeq: 4
+      };
+
+      setupToolsEngine({
+        options: {
+          customEngines: { tools: customToolsFactory },
+          toolConfirmationTimeoutMs: 5000,
+          onToolCall,
+          onSetHistoryOpen,
+          onRenderHistory,
+          onSpokenAudioPlayNow,
+          enableEmotionTools: false
+        },
+        widget: mockWidget,
+        getEngines,
+        getUiDom
+      });
+
+      expect(capturedToolsOptions.confirmationTimeoutMs).toBe(5000);
+
+      // onToolCall
+      capturedToolsOptions.onToolCall({ name: 'calc' });
+      expect(onToolCall).toHaveBeenCalled();
+
+      // onAddChatMessage & onUpdateChatMessage
+      capturedToolsOptions.onAddChatMessage('assistant', 'Text', {});
+      expect(mockEngines.brainEngine.addChatMessage).toHaveBeenCalledWith('assistant', 'Text', {});
+
+      capturedToolsOptions.onUpdateChatMessage('msg_1', 'New Text', false);
+      expect(mockEngines.brainEngine.updateChatMessage).toHaveBeenCalledWith('msg_1', 'New Text', false);
+
+      // onSetHistoryOpen true / false
+      capturedToolsOptions.onSetHistoryOpen(true);
+      expect(mockUiDom.historyPanelEl.getAttribute('css-is-open')).toBe('true');
+      expect(onSetHistoryOpen).toHaveBeenCalledWith(true);
+
+      capturedToolsOptions.onSetHistoryOpen(false);
+      expect(mockUiDom.historyPanelEl.hasAttribute('css-is-open')).toBe(false);
+      expect(onSetHistoryOpen).toHaveBeenCalledWith(false);
+
+      // onRenderHistory
+      capturedToolsOptions.onRenderHistory();
+      expect(onRenderHistory).toHaveBeenCalled();
+
+      // onSpokenAudioPlayNow
+      capturedToolsOptions.onSpokenAudioPlayNow('Voice now');
+      expect(mockEngines.speechEngine.speak).toHaveBeenCalledWith('Voice now');
+      expect(onSpokenAudioPlayNow).toHaveBeenCalledWith('Voice now');
+
+      // getChatLog, getChatSeq, isConvoOn
+      expect(capturedToolsOptions.getChatLog()).toEqual([{ role: 'user', content: 'test' }]);
+      expect(capturedToolsOptions.getChatSeq()).toBe(4);
+      expect(capturedToolsOptions.isConvoOn()).toBe(false);
+    });
+
+    it('should fallback to default tools engine when custom engine is invalid or throws', () => {
+      const toolsEngineInvalid = setupToolsEngine({
+        options: {
+          customEngines: { tools: { invalid: true } }
+        },
+        widget: mockWidget,
+        getEngines,
+        getUiDom
+      });
+      expect(toolsEngineInvalid).toBeDefined();
+
+      const toolsEngineThrows = setupToolsEngine({
+        options: {
+          customEngines: {
+            tools: () => {
+              throw new Error('Factory crashed');
+            }
+          }
+        },
+        widget: mockWidget,
+        getEngines,
+        getUiDom
+      });
+      expect(toolsEngineThrows).toBeDefined();
+    });
   });
 
   describe('setupSkinEngine', () => {
@@ -378,6 +769,159 @@ describe('Orchestrator Engine Factory', () => {
       });
 
       expect(skinEngine).toBe(customSkin);
+    });
+
+    it('should test all skin callbacks and canvas pointerdown bindings', async () => {
+      let capturedSkinOptions;
+      const initSkinSpy = vi.spyOn(SkinModule, 'initSkinEngine').mockImplementation((opts) => {
+        capturedSkinOptions = opts;
+        return {
+          name: 'CustomSkin',
+          has2D: true,
+          has3D: false,
+          stageEl: opts.stageEl,
+          setGender: vi.fn(),
+          loadVRMFile: vi.fn(),
+          setEmotion: vi.fn()
+        };
+      });
+
+      const onThreeDimensionalError = vi.fn();
+      const onTwoDimensionalError = vi.fn();
+      const VRMFileChangeFail = vi.fn();
+      const VRMFileChangeSuccess = vi.fn();
+      const onModelChangeStart = vi.fn();
+      const onModelChangeEnd = vi.fn();
+      const stageEl = document.createElement('div');
+
+      mockEngines.brainEngine = {
+        getWelcomeText: vi.fn(async () => 'Welcome!')
+      };
+
+      await setupSkinEngine({
+        options: {
+          onThreeDimensionalError,
+          onTwoDimensionalError,
+          VRMFileChangeFail,
+          VRMFileChangeSuccess,
+          onModelChangeStart,
+          onModelChangeEnd
+        },
+        widget: mockWidget,
+        rootStore,
+        getEngines,
+        getUiDom,
+        stageEl
+      });
+
+      // computeMouth
+      expect(capturedSkinOptions.computeMouth()).toBe(0.4);
+
+      // onMounted
+      await capturedSkinOptions.onMounted();
+      expect(mockEngines.speechEngine.spokenDisplayText).toBe('Welcome!');
+      expect(mockWidget.onReady).toHaveBeenCalledWith(mockWidget);
+
+      // onThreeDimensionalError
+      capturedSkinOptions.onThreeDimensionalError(new Error('3D failed'));
+      expect(mockWidget.onError).toHaveBeenCalled();
+      expect(onThreeDimensionalError).toHaveBeenCalled();
+
+      // onTwoDimensionalError
+      capturedSkinOptions.onTwoDimensionalError(new Error('2D failed'));
+      expect(mockUiDom.directWarnEl.textContent).toContain('2D 啟動失敗');
+      expect(mockUiDom.directWarnEl.style.display).toBe('flex');
+      expect(onTwoDimensionalError).toHaveBeenCalled();
+
+      // VRMFileChangeFail
+      capturedSkinOptions.VRMFileChangeFail(new Error('VRM failed'));
+      expect(mockEngines.speechEngine.spokenDisplayText).toBe('VRM failed');
+      expect(VRMFileChangeFail).toHaveBeenCalled();
+
+      // VRMFileChangeSuccess
+      capturedSkinOptions.VRMFileChangeSuccess();
+      expect(mockEngines.speechEngine.spokenDisplayText).toContain('換上你的角色了');
+      expect(VRMFileChangeSuccess).toHaveBeenCalled();
+
+      // onModelChangeStart (3D vs 2D)
+      capturedSkinOptions.onModelChangeStart(ENGINE_MODE_MAP.threeDimensional);
+      expect(mockUiDom.engineButtonEl.textContent).toBe('3D');
+      expect(onModelChangeStart).toHaveBeenCalledWith(ENGINE_MODE_MAP.threeDimensional);
+
+      capturedSkinOptions.onModelChangeStart(ENGINE_MODE_MAP.twoDimensional);
+      expect(mockUiDom.engineButtonEl.textContent).toBe('2D');
+
+      // onModelChangeEnd in 3D mode with TAP_GESTURES
+      mockEngines.skinEngine.engineMode = ENGINE_MODE_MAP.threeDimensional;
+      mockEngines.skinEngine.renderer = {
+        canvas: document.createElement('canvas'),
+        TAP_GESTURES: ['wave', 'nod'],
+        playGesture: vi.fn()
+      };
+      capturedSkinOptions.onModelChangeEnd();
+      expect(mockUiDom.engineButtonEl.textContent).toBe('3D');
+      expect(onModelChangeEnd).toHaveBeenCalled();
+
+      // simulate pointerdown on 3D canvas
+      mockEngines.skinEngine.renderer.canvas.dispatchEvent(new Event('pointerdown'));
+      expect(mockEngines.skinEngine.renderer.playGesture).toHaveBeenCalled();
+      expect(mockEngines.speechEngine.triggerTap).toHaveBeenCalled();
+
+      // onModelChangeEnd in 2D mode with avatarModel hit
+      mockEngines.skinEngine.engineMode = ENGINE_MODE_MAP.twoDimensional;
+      const hitHandlers = [];
+      mockEngines.skinEngine.avatarModel = {
+        on: vi.fn((event, cb) => {
+          if (event === 'hit') hitHandlers.push(cb);
+        })
+      };
+      mockEngines.skinEngine.renderer = {
+        canvas: document.createElement('canvas')
+      };
+      capturedSkinOptions.onModelChangeEnd();
+      expect(mockUiDom.engineButtonEl.textContent).toBe('2D');
+
+      // trigger hit handler
+      expect(hitHandlers.length).toBeGreaterThan(0);
+      hitHandlers[0]();
+      expect(mockEngines.speechEngine.triggerTap).toHaveBeenCalled();
+
+      // trigger 2D canvas pointerdown
+      mockEngines.skinEngine.renderer.canvas.dispatchEvent(new Event('pointerdown'));
+      expect(mockEngines.speechEngine.triggerTap).toHaveBeenCalled();
+
+      initSkinSpy.mockRestore();
+    });
+
+    it('should fallback to default skin engine when custom engine is invalid or throws', async () => {
+      const stageEl = document.createElement('div');
+      const skinInvalid = await setupSkinEngine({
+        options: {
+          customEngines: { skin: { invalid: true } }
+        },
+        widget: mockWidget,
+        rootStore,
+        getEngines,
+        getUiDom,
+        stageEl
+      });
+      expect(skinInvalid).toBeDefined();
+
+      const skinThrows = await setupSkinEngine({
+        options: {
+          customEngines: {
+            skin: () => {
+              throw new Error('Factory crashed');
+            }
+          }
+        },
+        widget: mockWidget,
+        rootStore,
+        getEngines,
+        getUiDom,
+        stageEl
+      });
+      expect(skinThrows).toBeDefined();
     });
   });
 });

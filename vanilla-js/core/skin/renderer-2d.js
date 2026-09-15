@@ -43,7 +43,12 @@ export function loadUMD() {
     }
   ];
 
-  if (window.__cdnDependenciePromise__ instanceof Promise === true) {
+  if (
+    window.__cdnDependenciePromise__ instanceof Promise === true ||
+    (typeof window.__cdnDependenciePromise__ === 'object' &&
+      window.__cdnDependenciePromise__ !== null &&
+      typeof window.__cdnDependenciePromise__.then === 'function')
+  ) {
     return window.__cdnDependenciePromise__;
   }
 

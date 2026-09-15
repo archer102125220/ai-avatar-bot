@@ -182,11 +182,101 @@ describe('UI Events Binding', () => {
       expect(mockContext.brainEngine.chatLog.length).toBe(0);
     });
 
-    it('should trigger WebLLM load on btnLlmEl click', async () => {
+    it('should handle companion mode stop voice session and standard mode active stop', () => {
       bindUiEvent(mockContext);
 
+      // Companion mode active -> stop session
+      mockContext.avatarMode = 'companion';
+      mockContext.speechEngine.isListening = true;
+      mockContext.speechEngine.isProcessing = false;
+      uiDom.micButtonEl.click();
+      expect(mockContext.speechEngine.convoOn).toBe(false);
+      expect(mockContext.speechEngine.stopVoiceSession).toHaveBeenCalled();
+
+      // Standard mode active -> stop session
+      mockContext.avatarMode = 'assistant';
+      mockContext.speechEngine.isListening = true;
+      uiDom.micButtonEl.click();
+      expect(mockContext.speechEngine.stopVoiceSession).toHaveBeenCalled();
+    });
+
+    it('should cycle languages without i18nEngine and format fallback strings', () => {
+      const customContext = {
+        ...mockContext,
+        i18nEngine: null,
+        locale: 'zh-TW'
+      };
+      bindUiEvent(customContext);
+
+      // zh-TW -> en-US
+      uiDom.langButtonEl.click();
+      expect(customContext.locale).toBe('en-US');
+      expect(customContext.speechEngine.spokenDisplayText).toBe('Language: English');
+
+      // en-US -> ja-JP
+      uiDom.langButtonEl.click();
+      expect(customContext.locale).toBe('ja-JP');
+      expect(customContext.speechEngine.spokenDisplayText).toBe('言語：日本語');
+
+      // ja-JP -> ko-KR
+      uiDom.langButtonEl.click();
+      expect(customContext.locale).toBe('ko-KR');
+      expect(customContext.speechEngine.spokenDisplayText).toBe('언어: 한국어');
+
+      // ko-KR -> zh-TW
+      uiDom.langButtonEl.click();
+      expect(customContext.locale).toBe('zh-TW');
+      expect(customContext.speechEngine.spokenDisplayText).toBe('語言：繁體中文');
+    });
+
+    it('should handle AI provider and WebLLM readiness states on btnLlmEl click', async () => {
+      bindUiEvent(mockContext);
+
+      // 1. AI Provider enabled and ready
+      mockContext.brainEngine.aiProvider = {
+        enabled: true,
+        ready: true,
+        model: 'llama3:latest',
+        ping: vi.fn().mockResolvedValue(true)
+      };
+      await uiDom.btnLlmEl.onclick();
+      expect(uiDom.btnLlmEl.textContent).toBe('🧠✓');
+      expect(uiDom.btnLlmEl.getAttribute('css-llm-on')).toBe('true');
+      expect(mockContext.speechEngine.spokenDisplayText).toContain('AI 伺服器大腦運作中');
+
+      // 2. AI Provider enabled but not ready
+      mockContext.brainEngine.aiProvider.ready = false;
+      mockContext.brainEngine.aiProvider.ping = vi.fn().mockResolvedValue(false);
+      await uiDom.btnLlmEl.onclick();
+      expect(uiDom.btnLlmEl.textContent).toBe('🧠✗');
+      expect(uiDom.btnLlmEl.getAttribute('css-llm-on')).toBeNull();
+      expect(mockContext.speechEngine.spokenDisplayText).toContain('AI 伺服器連不上');
+
+      // 3. WebLLM not supported
+      mockContext.brainEngine.aiProvider = { enabled: false };
+      mockContext.brainEngine.llm = { supported: false };
+      await uiDom.btnLlmEl.onclick();
+      expect(mockContext.speechEngine.spokenDisplayText).toContain('這個裝置不支援 WebGPU');
+
+      // 4. WebLLM already ready
+      mockContext.brainEngine.llm = { supported: true, state: STATE_MAP.READY };
+      await uiDom.btnLlmEl.onclick();
+      expect(mockContext.speechEngine.spokenDisplayText).toContain('AI 大腦已啟用');
+
+      // 5. WebLLM loading
+      mockContext.brainEngine.llm = { supported: true, state: STATE_MAP.LOADING, progress: 0.45 };
+      await uiDom.btnLlmEl.onclick();
+      expect(mockContext.speechEngine.spokenDisplayText).toContain('45%');
+
+      // 6. WebLLM unloaded -> trigger load
+      mockContext.brainEngine.llm = { supported: true, state: STATE_MAP.UNLOADED, load: vi.fn() };
       await uiDom.btnLlmEl.onclick();
       expect(mockContext.brainEngine.llm.load).toHaveBeenCalled();
+    });
+
+    it('should handle missing questionInputEl gracefully', () => {
+      expect(() => bindTyping(null)).not.toThrow();
+      expect(() => bindTyping({ uiDom: { questionInputEl: null } })).not.toThrow();
     });
   });
 });

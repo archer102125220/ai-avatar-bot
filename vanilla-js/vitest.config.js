@@ -16,7 +16,13 @@ export default defineConfig({
       reporter: ['text', 'json', 'html'],
       reportsDirectory: resolve(__dirname, 'coverage'),
       include: ['core/**/*.js'],
-      exclude: ['core/index.js']
+      exclude: [
+        'core/index.js',
+        'core/orchestrator/types.js',
+        'core/ui/index.js',
+        'core/plugins/index.js',
+        'core/i18n/locales/**'
+      ]
     }
   }
 });

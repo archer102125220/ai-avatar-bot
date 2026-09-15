@@ -148,6 +148,24 @@ describe('Orchestrator Store & i18n Subscribers', () => {
       // Individual override
       rootStore.setState({ brainGender: 'female' });
       expect(mockEngines.brainEngine.setGender).toHaveBeenCalledWith('female');
+
+      // speechGender and skinGender overrides
+      rootStore.setState({ speechGender: 'male' });
+      expect(mockEngines.speechEngine.setGender).toHaveBeenCalledWith('male');
+      rootStore.setState({ skinGender: 'female' });
+      expect(mockEngines.skinEngine.setGender).toHaveBeenCalledWith('female');
+
+      // Setting sub-gender to empty string falls back to rootStore.gender
+      rootStore.setState({ brainGender: '', speechGender: '', skinGender: '' });
+      expect(mockEngines.brainEngine.setGender).toHaveBeenCalledWith('male');
+      expect(mockEngines.speechEngine.setGender).toHaveBeenCalledWith('male');
+      expect(mockEngines.skinEngine.setGender).toHaveBeenCalledWith('male');
+
+      // Generic gender change when sub-genders are not null does not overwrite overridden sub-genders
+      rootStore.setState({ brainGender: 'female', speechGender: 'female', skinGender: 'female' });
+      rootStore.setState({ gender: 'male' });
+      // Should not call setGender with 'male' since sub-genders are non-null
+      expect(mockEngines.brainEngine.setGender).toHaveBeenLastCalledWith('female');
     });
 
     it('should propagate locale changes to brainEngine and speechEngine', () => {
@@ -162,6 +180,32 @@ describe('Orchestrator Store & i18n Subscribers', () => {
       rootStore.setState({ locale: 'en-US' });
       expect(mockEngines.brainEngine.setLocale).toHaveBeenCalledWith('en-US');
       expect(mockEngines.speechEngine.setLocale).toHaveBeenCalledWith('en-US');
+    });
+
+    it('should re-render suggestions on all suggestion store key updates and handle null engines gracefully', () => {
+      setupStoreSubscribers({
+        widget: mockWidget,
+        rootStore,
+        i18nEngine,
+        getUiDom: () => null,
+        getEngines: () => ({ brainEngine: null, speechEngine: null, skinEngine: null })
+      });
+
+      // Triggers avatarMode without uiDom or engines
+      expect(() => rootStore.setState({ avatarMode: 'companion' })).not.toThrow();
+
+      // Suggestion state keys
+      const suggestionKeys = [
+        'suggestedQuestions',
+        'companionSuggestedQuestions',
+        'assistantSuggestedQuestions',
+        'suggestedTitle',
+        'companionSuggestedTitle',
+        'assistantSuggestedTitle'
+      ];
+      suggestionKeys.forEach((key) => {
+        expect(() => rootStore.setState({ [key]: ['問題1'] })).not.toThrow();
+      });
     });
   });
 
@@ -188,6 +232,46 @@ describe('Orchestrator Store & i18n Subscribers', () => {
       expect(mockEngines.speechEngine.setLocale).toHaveBeenCalledWith('en-US');
       expect(mockUiDom.langButtonEl.textContent).toBe('EN');
       expect(options.onLanguageChanged).toHaveBeenCalledWith('en-US', 'English (US)', 'EN');
+      expect(mockUiDom.updateVoiceStatus).toHaveBeenCalled();
+    });
+
+    it('should handle i18n messages change and button label fallbacks', () => {
+      const options = {};
+      const customUiDom = {
+        langButtonEl: document.createElement('button'),
+        updateMicState: null,
+        updateVoiceStatus: null
+      };
+
+      setupI18nSubscribers({
+        widget: mockWidget,
+        options,
+        rootStore,
+        i18nEngine,
+        container,
+        getUiDom: () => customUiDom,
+        getEngines: () => ({ brainEngine: null, speechEngine: null })
+      });
+
+      // Test messages subscription
+      i18nEngine.addMessages('zh-TW', { hello: '你好' });
+
+      // Test locale change with missing shortLabel
+      i18nEngine.setLocale('ja-JP');
+      expect(customUiDom.langButtonEl.textContent).toBeTruthy();
+
+      // Test with null i18nEngine
+      expect(() => {
+        setupI18nSubscribers({
+          widget: mockWidget,
+          options: {},
+          rootStore,
+          i18nEngine: null,
+          container,
+          getUiDom: () => null,
+          getEngines: () => ({})
+        });
+      }).not.toThrow();
     });
   });
 });

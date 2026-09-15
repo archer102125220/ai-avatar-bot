@@ -240,22 +240,110 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       expect(emitAnswer).toHaveBeenCalledWith('今天天氣很好！');
     });
 
-    it('should handle auto-continue when finishReason is length', async () => {
+    it('should handle auto-continue in STREAM mode with live updates and hooks', async () => {
       const mockChat = vi
         .fn()
         .mockResolvedValueOnce({
           type: 'text',
-          content: '前半段回答...',
+          content: '串流第一段...',
           finishReason: LLM_FINISH_REASON_MAP.LENGTH
         })
         .mockResolvedValueOnce({
           type: 'text',
-          content: '後半段回答結束。',
+          content: '串流第二段完成。',
+          finishReason: LLM_FINISH_REASON_MAP.STOP
+        });
+
+      const updateChatMessage = vi.fn();
+      const applyEmotionFromText = vi.fn();
+      const onSpokenAudioPlayNow = vi.fn();
+      const onAutoContinueStart = vi.fn();
+      const onAutoContinueResume = vi.fn();
+      const onAutoContinueEnd = vi.fn();
+      const triggerRollingSummaryIfNeeded = vi.fn();
+      const addTurn = vi.fn();
+
+      const brainEngine = {
+        aiProvider: { chat: mockChat },
+        enableAutoContinue: true,
+        maxAutoContinuations: 2,
+        autoContinueMode: AUTO_CONTINUE_MODE_MAP.STREAM,
+        locale: 'zh-TW',
+        knowledge: [],
+        memory: { enabled: true, addTurn },
+        compression: {},
+        updateChatMessage,
+        applyEmotionFromText,
+        onSpokenAudioPlayNow,
+        onAutoContinueStart,
+        onAutoContinueResume,
+        onAutoContinueEnd,
+        triggerRollingSummaryIfNeeded
+      };
+
+      await chatWithAiProvider(brainEngine, '請串流輸出');
+
+      expect(mockChat).toHaveBeenCalledTimes(2);
+      expect(onAutoContinueStart).toHaveBeenCalled();
+      expect(onAutoContinueResume).toHaveBeenCalled();
+      expect(onAutoContinueEnd).toHaveBeenCalled();
+      expect(updateChatMessage).toHaveBeenCalled();
+      expect(applyEmotionFromText).toHaveBeenCalled();
+      expect(onSpokenAudioPlayNow).toHaveBeenCalled();
+      expect(addTurn).toHaveBeenCalledWith('assistant', '串流第一段...\n串流第二段完成。');
+      expect(triggerRollingSummaryIfNeeded).toHaveBeenCalled();
+    });
+
+    it('should support custom createFetchSetting, createFetchPayload, and responseFormat', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { role: 'assistant', content: 'Custom Response' }, finish_reason: 'stop' }]
+        })
+      });
+
+      const customCreateFetchSetting = vi.fn((_url, body) => ({
+        method: 'POST',
+        headers: { 'X-Custom-Auth': 'secret' },
+        body: JSON.stringify(body)
+      }));
+
+      const customCreateFetchPayload = vi.fn((msgs, tools, format) => ({
+        custom_messages: msgs,
+        custom_tools: tools,
+        response_format: format
+      }));
+
+      const provider = await initAiProvider({
+        enableAiProvider: true,
+        providerBaseUrl: 'https://custom-api.example.com',
+        providerCreateFetchSetting: customCreateFetchSetting,
+        providerCreateFetchPayload: customCreateFetchPayload,
+        providerResponseFormat: { type: 'json_object' }
+      });
+
+      const result = await provider.chat([{ role: 'user', content: 'hello' }]);
+
+      expect(customCreateFetchSetting).toHaveBeenCalled();
+      expect(customCreateFetchPayload).toHaveBeenCalled();
+      expect(result.content).toBe('Custom Response');
+    });
+
+    it('should handle auto-continue in BUFFERED mode and emit final joined answer', async () => {
+      const mockChat = vi
+        .fn()
+        .mockResolvedValueOnce({
+          type: 'text',
+          content: '緩衝第一段...',
+          finishReason: LLM_FINISH_REASON_MAP.LENGTH
+        })
+        .mockResolvedValueOnce({
+          type: 'text',
+          content: '緩衝第二段結束。',
           finishReason: LLM_FINISH_REASON_MAP.STOP
         });
 
       const emitAnswer = vi.fn();
-
       const brainEngine = {
         aiProvider: { chat: mockChat },
         enableAutoContinue: true,
@@ -268,10 +356,45 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         emitAnswer
       };
 
-      await chatWithAiProvider(brainEngine, '請詳細說明');
+      await chatWithAiProvider(brainEngine, '緩衝測試');
 
-      expect(mockChat).toHaveBeenCalledTimes(2);
-      expect(emitAnswer).toHaveBeenCalledWith('前半段回答...\n後半段回答結束。');
+      expect(emitAnswer).toHaveBeenCalledWith('緩衝第一段...\n緩衝第二段結束。');
+    });
+
+    it('should handle tool_calls response in chatWithAiProvider and route to tools execution', async () => {
+      const mockChat = vi.fn().mockResolvedValue({
+        type: 'tool_calls',
+        toolCalls: [{ id: 'call_1', function: { name: 'get_weather', arguments: '{}' } }],
+        message: { role: 'assistant', content: '' }
+      });
+
+      const brainEngine = {
+        aiProvider: { chat: mockChat },
+        locale: 'zh-TW',
+        knowledge: [],
+        memory: { enabled: true, addTurn: vi.fn() },
+        executeTool: vi.fn(async () => ({ result: 'sunny' })),
+        getToolByName: vi.fn(() => ({ name: 'get_weather' })),
+        getTools: vi.fn(() => []),
+        emitAnswer: vi.fn()
+      };
+
+      await chatWithAiProvider(brainEngine, '天氣如何');
+      expect(mockChat).toHaveBeenCalled();
+    });
+
+    it('should throw error when initial AI Provider response is empty', async () => {
+      const mockChat = vi.fn().mockResolvedValue({
+        type: 'text',
+        content: '   '
+      });
+
+      const brainEngine = {
+        aiProvider: { chat: mockChat },
+        locale: 'zh-TW'
+      };
+
+      await expect(chatWithAiProvider(brainEngine, '測試空回覆')).rejects.toThrow('AI Provider 回應為空或格式錯誤');
     });
   });
 });

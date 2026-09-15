@@ -466,6 +466,7 @@ export function initWebLLM(setting = {}, brain) {
               : '';
         if (
           createOptions.tools !== undefined &&
+          response?.type !== 'tool_calls' &&
           (response === null ||
             response === undefined ||
             textContent.trim() === '')

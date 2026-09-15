@@ -1,21 +1,32 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   validateTTSEngine,
   loadVoice,
   splitSentences,
+  localeVoice,
   initDefaultTTSEngine
 } from '../../../core/speech/tts';
 import { GENDER_MAP } from '../../../core/constants';
 
 describe('Unit Test: core/speech/tts.js', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
   describe('validateTTSEngine', () => {
-    it('should report missing methods when invalid engine is passed', () => {
+    it('should report missing methods when invalid or non-object engine is passed', () => {
+      expect(validateTTSEngine(null).isValid).toBe(false);
+      expect(validateTTSEngine(null).missing).toContain('engine instance');
+
       const result = validateTTSEngine({});
       expect(result.isValid).toBe(false);
       expect(result.missing).toContain('speak()');
       expect(result.missing).toContain('stop()');
       expect(result.missing).toContain('computeMouth()');
+      expect(result.missing).toContain('setGender()');
+      expect(result.missing).toContain('setLocale()');
       expect(result.missing).toContain('isSpeaking');
+      expect(result.missing).toContain('isMuted');
     });
 
     it('should pass validation for valid engine implementation', () => {
@@ -47,63 +58,309 @@ describe('Unit Test: core/speech/tts.js', () => {
       ]);
     });
 
+    it('should split long sentences exceeding 80 characters with comma', () => {
+      const longTextWithComma =
+        '這是一段非常非常非常長的一段測試用文本用來測試切分機制'.repeat(2) +
+        '，' +
+        '而後半段依然是非常非常長的一段文字必須要在逗號處切開'.repeat(2);
+      const sentences = splitSentences(longTextWithComma);
+      expect(sentences.length).toBeGreaterThan(1);
+    });
+
+    it('should split long sentences exceeding 80 characters without comma', () => {
+      const longTextNoComma = '測試'.repeat(50);
+      const sentences = splitSentences(longTextNoComma);
+      expect(sentences.length).toBeGreaterThan(1);
+    });
+
+    it('should merge very short sentence fragments (< 3 chars)', () => {
+      const shortFragments = '好。的。沒問題！';
+      const sentences = splitSentences(shortFragments);
+      expect(sentences.length).toBeLessThanOrEqual(2);
+    });
+
+    it('should merge when sentence count exceeds 10', () => {
+      const manySentences = Array.from({ length: 15 }, (_, i) => `第${i}句。`).join('');
+      const sentences = splitSentences(manySentences);
+      expect(sentences.length).toBeLessThanOrEqual(10);
+    });
+
     it('should return whole text if no punctuation exists', () => {
       expect(splitSentences('這是一段沒有標點符號的文字')).toEqual([
         '這是一段沒有標點符號的文字'
       ]);
+      expect(splitSentences('')).toEqual([]);
+      expect(splitSentences(null)).toEqual([]);
+    });
+  });
+
+  describe('localeVoice', () => {
+    it('should return correct default neural voices for each supported locale', () => {
+      expect(localeVoice('en-US')).toBe('en-US-JennyNeural');
+      expect(localeVoice('ja-JP')).toBe('ja-JP-NanamiNeural');
+      expect(localeVoice('ko-KR')).toBe('ko-KR-SunHiNeural');
+      expect(localeVoice('zh-TW')).toBe('zh-TW-HsiaoChenNeural');
+      expect(localeVoice('')).toBe('zh-TW-HsiaoChenNeural');
     });
   });
 
   describe('loadVoice', () => {
-    it('should load matching voice from speechSynthesis.getVoices()', () => {
-      const voice = loadVoice(GENDER_MAP.female, 'zh-TW');
-      expect(voice).not.toBeNull();
-      expect(voice?.lang).toBe('zh-TW');
+    it('should return null when speechSynthesis is not supported', () => {
+      const origSpeech = window.speechSynthesis;
+      // @ts-ignore
+      delete window.speechSynthesis;
+      expect(loadVoice('female', 'zh-TW')).toBeNull();
+      window.speechSynthesis = origSpeech;
+    });
+
+    it('should match en-US male and female voices', () => {
+      const mockVoices = [
+        { name: 'Microsoft Guy Online (Natural) - English (United States)', lang: 'en-US' },
+        { name: 'Microsoft Jenny Online (Natural) - English (United States)', lang: 'en-US' }
+      ];
+      vi.spyOn(speechSynthesis, 'getVoices').mockReturnValue(mockVoices);
+
+      const maleVoice = loadVoice(GENDER_MAP.male, 'en-US');
+      expect(maleVoice?.name).toContain('Guy');
+
+      const femaleVoice = loadVoice(GENDER_MAP.female, 'en-US');
+      expect(femaleVoice?.name).toContain('Jenny');
+    });
+
+    it('should match ja-JP male and female voices', () => {
+      const mockVoices = [
+        { name: 'Microsoft Keita Online (Natural) - Japanese (Japan)', lang: 'ja-JP' },
+        { name: 'Microsoft Nanami Online (Natural) - Japanese (Japan)', lang: 'ja-JP' }
+      ];
+      vi.spyOn(speechSynthesis, 'getVoices').mockReturnValue(mockVoices);
+
+      const maleVoice = loadVoice(GENDER_MAP.male, 'ja-JP');
+      expect(maleVoice?.name).toContain('Keita');
+
+      const femaleVoice = loadVoice(GENDER_MAP.female, 'ja-JP');
+      expect(femaleVoice?.name).toContain('Nanami');
+    });
+
+    it('should match ko-KR male and female voices', () => {
+      const mockVoices = [
+        { name: 'Microsoft InJoon Online (Natural) - Korean (Korea)', lang: 'ko-KR' },
+        { name: 'Microsoft SunHi Online (Natural) - Korean (Korea)', lang: 'ko-KR' }
+      ];
+      vi.spyOn(speechSynthesis, 'getVoices').mockReturnValue(mockVoices);
+
+      const maleVoice = loadVoice(GENDER_MAP.male, 'ko-KR');
+      expect(maleVoice?.name).toContain('InJoon');
+
+      const femaleVoice = loadVoice(GENDER_MAP.female, 'ko-KR');
+      expect(femaleVoice?.name).toContain('SunHi');
+    });
+
+    it('should match zh-TW male and female voices', () => {
+      const mockVoices = [
+        { name: 'Microsoft YunJhe Online (Natural) - Chinese (Taiwan)', lang: 'zh-TW' },
+        { name: 'Microsoft HsiaoChen Online (Natural) - Chinese (Taiwan)', lang: 'zh-TW' }
+      ];
+      vi.spyOn(speechSynthesis, 'getVoices').mockReturnValue(mockVoices);
+
+      const maleVoice = loadVoice(GENDER_MAP.male, 'zh-TW');
+      expect(maleVoice?.name).toContain('YunJhe');
+
+      const femaleVoice = loadVoice(GENDER_MAP.female, 'zh-TW');
+      expect(femaleVoice?.name).toContain('HsiaoChen');
     });
   });
 
   describe('initDefaultTTSEngine', () => {
-    it('should initialize TTS engine and handle speak and stop lifecycle', () => {
-      const onSpokenDisplayTextChange = vi.fn();
-      const onSpeakStart = vi.fn();
-      const onSpeakEnd = vi.fn();
+    it('should handle isMuted and ttsRate getters and setters', () => {
+      const tts = initDefaultTTSEngine();
+      expect(tts.isMuted).toBe(false);
 
+      tts.isMuted = true;
+      expect(tts.isMuted).toBe(true);
+
+      expect(tts.ttsRate).toBe(1.0);
+      tts.ttsRate = 1.5;
+      expect(tts.ttsRate).toBe(1.5);
+      // invalid rate guard
+      tts.ttsRate = -0.5;
+      expect(tts.ttsRate).toBe(1.0);
+    });
+
+    it('should early return and trigger onSpeakEnd when isMuted is true in speak()', () => {
+      const onSpeakEnd = vi.fn();
+      const tts = initDefaultTTSEngine({ onSpeakEnd });
+      tts.isMuted = true;
+
+      tts.speak('這句不會播放');
+      expect(onSpeakEnd).toHaveBeenCalled();
+    });
+
+    it('should manage beginSpeech, pushSpeech, and endSpeech queue transitions', () => {
+      const onSpeechWait = vi.fn();
+      const onSpeakEnd = vi.fn();
+      const tts = initDefaultTTSEngine({ onSpeechWait, onSpeakEnd });
+
+      const seq = tts.beginSpeech();
+      expect(seq).toBeGreaterThan(0);
+
+      // push with wrong seq or empty string
+      tts.pushSpeech(seq + 99, '無視');
+      tts.pushSpeech(seq, '   ');
+
+      // push valid text
+      tts.pushSpeech(seq, '第一句。');
+      tts.endSpeech(seq);
+    });
+
+    it('should compute smooth mouth openness in different speaking states', () => {
+      const tts = initDefaultTTSEngine();
+
+      // State 1: isSpeaking = false (closing mouth)
+      tts.setState({ isSpeaking: false, mouthValue: 0.5 });
+      const val1 = tts.computeMouth();
+      expect(val1).toBeLessThan(0.5);
+
+      // State 2: isSpeaking = true, useAudioMouth = false (browser rhythm simulation)
+      tts.setState({ isSpeaking: true, useAudioMouth: false, mouthTarget: 0.8, mouthValue: 0.2 });
+      const val2 = tts.computeMouth();
+      expect(val2).toBeGreaterThanOrEqual(0);
+
+      // State 3: isSpeaking = true, useAudioMouth = true (audio responsive)
+      tts.setState({ isSpeaking: true, useAudioMouth: true, audioMouth: 0.9, mouthValue: 0.3 });
+      const val3 = tts.computeMouth();
+      expect(val3).toBeGreaterThan(0.3);
+
+      tts.setState({ isSpeaking: true, useAudioMouth: true, audioMouth: 0.1, mouthValue: 0.5 });
+      const val4 = tts.computeMouth();
+      expect(val4).toBeLessThan(0.5);
+    });
+
+    it('should stop active playback and clear state in stop()', () => {
+      const tts = initDefaultTTSEngine();
+      tts.setState({
+        isSpeaking: true,
+        speechQueue: [{ text: '測試' }],
+        audioMouth: 0.8,
+        mouthValue: 0.8,
+        currentFps: 10
+      });
+
+      tts.stop();
+
+      expect(tts.isSpeaking).toBe(false);
+      expect(tts.getState().speechQueue).toEqual([]);
+      expect(tts.getState().audioMouth).toBe(0);
+      expect(tts.getState().mouthValue).toBe(0);
+    });
+
+    it('should update gender and locale with matched voice', () => {
+      const tts = initDefaultTTSEngine();
+      tts.setGender(GENDER_MAP.male);
+      expect(tts.getState().gender).toBe(GENDER_MAP.male);
+
+      tts.setLocale('ja-JP');
+      expect(tts.locale).toBe('ja-JP');
+      expect(tts.getState().neuralVoice).toBe('ja-JP-NanamiNeural');
+    });
+
+    it('should handle preloadTapGreeting caching and neuralDisabled state', async () => {
+      const tts = initDefaultTTSEngine({ ttsEndpoint: 'https://tts.example.com/api' });
+
+      // neuralDisabled: true
+      tts.setState({ neuralDisabled: true });
+      const resNull = await tts.preloadTapGreeting('哈囉');
+      expect(resNull).toBeNull();
+
+      tts.setState({ neuralDisabled: false });
+
+      // mock global fetch
+      const mockAudioBuffer = { duration: 1.5 };
+      window.AudioContext = class MockAudioContext {
+        decodeAudioData() {
+          return Promise.resolve(mockAudioBuffer);
+        }
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: async () => new ArrayBuffer(1024)
+      });
+
+      const buffer = await tts.preloadTapGreeting('歡迎光臨');
+      expect(buffer).toBe(mockAudioBuffer);
+
+      // cached retrieval
+      const cached = await tts.preloadTapGreeting('歡迎光臨');
+      expect(cached).toBe(mockAudioBuffer);
+    });
+
+    it('should trigger onvoiceschanged and playBuffer with audio context during neural speech', async () => {
+      const mockBufferSource = {
+        buffer: null,
+        playbackRate: { value: 1.0 },
+        connect: vi.fn(),
+        start: vi.fn(),
+        stop: vi.fn(),
+        onended: null
+      };
+
+      const mockAnalyser = {
+        fftSize: 2048,
+        smoothingTimeConstant: 0.8,
+        frequencyBinCount: 1024,
+        getByteFrequencyData: vi.fn(),
+        getByteTimeDomainData: vi.fn(),
+        connect: vi.fn()
+      };
+
+      const mockAudioBuffer = { duration: 1.0 };
+      window.AudioContext = class MockAudioContext {
+        constructor() {
+          this.destination = {};
+          this.state = 'running';
+        }
+        createBufferSource() {
+          return mockBufferSource;
+        }
+        createAnalyser() {
+          return mockAnalyser;
+        }
+        decodeAudioData() {
+          return Promise.resolve(mockAudioBuffer);
+        }
+        resume() {
+          return Promise.resolve();
+        }
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: async () => new ArrayBuffer(1024)
+      });
+
+      const onSpeakEnd = vi.fn();
       const tts = initDefaultTTSEngine({
-        gender: GENDER_MAP.female,
-        locale: 'zh-TW',
-        onSpokenDisplayTextChange,
-        onSpeakStart,
+        ttsEndpoint: 'https://tts.example.com/api',
         onSpeakEnd
       });
 
-      expect(tts.isSpeaking).toBe(false);
-      expect(tts.isMuted).toBe(false);
+      // Trigger voiceschanged
+      if (typeof window.speechSynthesis?.onvoiceschanged === 'function') {
+        window.speechSynthesis.onvoiceschanged();
+      }
 
-      tts.speak('你好，歡迎使用 AI Avatar');
-      expect(onSpokenDisplayTextChange).toHaveBeenCalledWith(
-        '你好，歡迎使用 AI Avatar'
-      );
+      // Speak neural chunk
+      tts.speak('神經語音測試');
+      // Wait for fetch & decode microtasks and queue processing
+      await new Promise((r) => setTimeout(r, 50));
 
-      tts.stop();
-      expect(tts.isSpeaking).toBe(false);
-    });
+      expect(mockBufferSource.start).toHaveBeenCalled();
 
-    it('should compute mouth openness value within 0 to 1', () => {
-      const tts = initDefaultTTSEngine();
-      const mouthValue = tts.computeMouth();
-      expect(typeof mouthValue).toBe('number');
-      expect(mouthValue).toBeGreaterThanOrEqual(0);
-      expect(mouthValue).toBeLessThanOrEqual(1);
-    });
-
-    it('should support updating gender and locale', () => {
-      const tts = initDefaultTTSEngine();
-      tts.setGender(GENDER_MAP.male);
-      tts.setLocale('en-US');
-
-      const state = tts.getState();
-      expect(state.gender).toBe(GENDER_MAP.male);
-      expect(state.locale).toBe('en-US');
+      // Trigger onended
+      if (typeof mockBufferSource.onended === 'function') {
+        mockBufferSource.onended();
+      }
+      expect(onSpeakEnd).toHaveBeenCalled();
     });
   });
 });

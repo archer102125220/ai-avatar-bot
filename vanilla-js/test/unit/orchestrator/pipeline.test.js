@@ -171,6 +171,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
     });
 
     it('should route tools and trigger prepareTool or offerToolChoices if matched', () => {
+      // 1. Tool match
       mockEngines.toolsEngine.routeHostTool = vi.fn(() => ({
         match: { tool: { name: 'search' }, score: 0.9, reason: 'keyword' },
         ambiguous: []
@@ -185,9 +186,28 @@ describe('Orchestrator Pipelines & Interactions', () => {
       });
 
       handleUser('搜尋台北天氣');
-
       expect(mockEngines.toolsEngine.prepareTool).toHaveBeenCalled();
       expect(mockEngines.brainEngine.answerQuestion).not.toHaveBeenCalled();
+
+      // 2. Ambiguous tool choice
+      mockEngines.toolsEngine.routeHostTool = vi.fn(() => ({
+        match: null,
+        ambiguous: [{ tool: { name: 'a' } }, { tool: { name: 'b' } }]
+      }));
+      handleUser('曖昧指令');
+      expect(mockEngines.toolsEngine.offerToolChoices).toHaveBeenCalledWith('曖昧指令', expect.any(Array));
+
+      // 3. Pending tool choice and pending tool input
+      mockEngines.toolsEngine.pendingToolChoice = { options: [] };
+      mockEngines.toolsEngine.continueToolChoice = vi.fn(() => true);
+      handleUser('選項 1');
+      expect(mockEngines.toolsEngine.continueToolChoice).toHaveBeenCalledWith('選項 1');
+
+      delete mockEngines.toolsEngine.pendingToolChoice;
+      mockEngines.toolsEngine.pendingToolInput = { field: 'name' };
+      mockEngines.toolsEngine.continueToolInput = vi.fn(() => true);
+      handleUser('填入名字');
+      expect(mockEngines.toolsEngine.continueToolInput).toHaveBeenCalledWith('填入名字');
     });
   });
 
@@ -255,6 +275,119 @@ describe('Orchestrator Pipelines & Interactions', () => {
       streamPipeline.onInterrupt();
       expect(autoContinueState.isActive).toBe(false);
       expect(mockEngines.brainEngine.llm.controller.abort).toHaveBeenCalled();
+    });
+
+    it('should handle ttsMuted, missing speechEngine, and setStreamSpeechId', () => {
+      const streamSpeechState = { sentenceBuffer: '', buf: '' };
+      const autoContinueState = { isActive: false, continuationIndex: 0, maxContinuations: 0, accumulatedText: '' };
+      let speechEngine = {
+        ttsMuted: true,
+        beginSpeech: vi.fn(() => 10),
+        speakSeq: 10,
+        drainSentences: vi.fn(() => ['句1']),
+        pushSpeech: vi.fn(),
+        endSpeech: vi.fn(),
+        onUtteranceEnd: vi.fn()
+      };
+
+      const streamPipeline = createStreamPipeline({
+        widget: { id: 'test-w' },
+        options: {},
+        getEngines: () => ({ speechEngine, skinEngine: null, brainEngine: null }),
+        autoContinueState,
+        streamSpeechState
+      });
+
+      // 1. ttsMuted is true -> streamSpeechId = 0
+      streamPipeline.onStreamStart();
+      expect(streamPipeline.getStreamSpeechId()).toBe(0);
+
+      // onStreamChunk does nothing when streamSpeechId is 0
+      streamPipeline.onStreamChunk('文字');
+      expect(speechEngine.pushSpeech).not.toHaveBeenCalled();
+
+      // onStreamEnd calls speechEngine.onUtteranceEnd() when streamSpeechId is 0
+      streamPipeline.onStreamEnd('文字');
+      expect(speechEngine.onUtteranceEnd).toHaveBeenCalled();
+
+      // Test setStreamSpeechId
+      streamPipeline.setStreamSpeechId(99);
+      expect(streamPipeline.getStreamSpeechId()).toBe(99);
+
+      // 2. speechEngine is null
+      speechEngine = null;
+      streamPipeline.onStreamStart();
+      expect(streamPipeline.getStreamSpeechId()).toBe(0);
+      streamPipeline.onStreamChunk('文字2');
+      streamPipeline.onStreamEnd('文字2');
+    });
+
+    it('should handle speech sequence mismatch (barge-in chunk discard) and skinEngine gestureName', () => {
+      const streamSpeechState = { sentenceBuffer: '', buf: '' };
+      const autoContinueState = { isActive: false, continuationIndex: 0, maxContinuations: 0, accumulatedText: '' };
+      const speechEngine = {
+        ttsMuted: false,
+        beginSpeech: vi.fn(() => 5),
+        speakSeq: 6, // mismatch! (5 !== 6)
+        drainSentences: vi.fn(() => ['句']),
+        pushSpeech: vi.fn(),
+        endSpeech: vi.fn(),
+        onUtteranceEnd: vi.fn()
+      };
+      const skinEngine = {
+        gestureName: 'idle'
+      };
+      const options = {
+        onAutoContinueWait: vi.fn()
+      };
+
+      const streamPipeline = createStreamPipeline({
+        options,
+        getEngines: () => ({ speechEngine, skinEngine, brainEngine: { llm: { controller: null } } }),
+        autoContinueState,
+        streamSpeechState
+      });
+
+      streamPipeline.onStreamStart();
+      expect(streamPipeline.getStreamSpeechId()).toBe(5);
+
+      // Chunk is discarded because speakSeq !== streamSpeechId
+      streamPipeline.onStreamChunk('忽略這句');
+      expect(speechEngine.pushSpeech).not.toHaveBeenCalled();
+
+      // onStreamEnd sequence mismatch -> does not call pushSpeech / endSpeech
+      streamPipeline.onStreamEnd('忽略這句');
+      expect(speechEngine.endSpeech).not.toHaveBeenCalled();
+
+      // onAutoContinueWait with gestureName
+      streamPipeline.onAutoContinueWait({});
+      expect(skinEngine.gestureName).toBe('thinking');
+
+      // onSpeechWait with isActive true
+      autoContinueState.isActive = true;
+      streamPipeline.onSpeechWait(5);
+      expect(skinEngine.gestureName).toBe('thinking');
+      expect(options.onAutoContinueWait).toHaveBeenCalledWith(
+        expect.objectContaining({ speechSequenceId: 5 })
+      );
+
+      // onInterrupt with error during abort
+      const throwingBrain = {
+        llm: {
+          controller: {
+            abort: vi.fn(() => {
+              throw new Error('Abort fail');
+            })
+          }
+        }
+      };
+      const pipelineWithThrowingBrain = createStreamPipeline({
+        options: {},
+        getEngines: () => ({ speechEngine, skinEngine, brainEngine: throwingBrain }),
+        autoContinueState,
+        streamSpeechState
+      });
+      expect(() => pipelineWithThrowingBrain.onInterrupt()).not.toThrow();
     });
   });
 

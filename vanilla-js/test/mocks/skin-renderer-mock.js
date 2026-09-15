@@ -111,7 +111,18 @@ export function setupWindowPixiMock() {
   class MockLive2DModel {
     constructor() {
       this.internalModel = {
-        settings: { motions: {} },
+        settings: {
+          motions: {
+            idle: [{ File: 'idle.motion3.json', Sound: 'idle.mp3' }]
+          },
+          groups: [
+            { Name: 'Lipsync', Ids: ['ParamMouthOpenY'] }
+          ]
+        },
+        coreModel: {
+          update: vi.fn(),
+          setParameterValueById: vi.fn()
+        },
         height: 1000
       };
       this.position = { set: vi.fn() };
@@ -119,6 +130,8 @@ export function setupWindowPixiMock() {
       this.anchor = { set: vi.fn() };
       this.expression = vi.fn(() => Promise.resolve(true));
       this.on = vi.fn();
+      this.x = 0;
+      this.y = 0;
     }
     static from() {
       return Promise.resolve(new MockLive2DModel());
@@ -126,12 +139,16 @@ export function setupWindowPixiMock() {
     static registerTicker() {}
   }
 
+  class MockPIXIApplication {
+    constructor() {
+      this.stage = { addChild: vi.fn(), removeChild: vi.fn() };
+      this.renderer = { width: 800, height: 600, resize: vi.fn() };
+      this.destroy = vi.fn();
+    }
+  }
+
   window.PIXI = {
-    Application: vi.fn().mockImplementation(() => ({
-      stage: { addChild: vi.fn(), removeChild: vi.fn() },
-      renderer: { width: 800, height: 600, resize: vi.fn() },
-      destroy: vi.fn()
-    })),
+    Application: MockPIXIApplication,
     Ticker: {},
     live2d: {
       Live2DModel: MockLive2DModel,
