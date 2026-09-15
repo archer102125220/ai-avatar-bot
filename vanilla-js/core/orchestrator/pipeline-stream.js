@@ -1,16 +1,16 @@
 import { callOptionEvent } from './options';
 
 /**
- * 建立大腦串流文字與語音/口型同步管線 (Stream Pipeline)。
+ * Creates the Brain streaming text and Speech audio/lip-sync synchronization pipeline (Stream Pipeline).
  *
  * @param {Object} params
- * @param {import('./types').AiAvatarWidget} [params.widget] - Widget 實例
- * @param {() => import('./types').AiAvatarWidget} [params.getWidget] - 取得 Widget 實例的函式
- * @param {import('./types').AvatarBotOptions} params.options - 原始設定選項
- * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - 取得各引擎實例的函式
- * @param {{ isActive: boolean, continuationIndex: number, maxContinuations: number, accumulatedText: string }} params.autoContinueState - 自動接續狀態物件
- * @param {{ sentenceBuffer: string, buf: string }} params.streamSpeechState - 語音串流緩衝區狀態物件
- * @returns {Object} 串流相關回呼事件集合
+ * @param {import('../../index.d.ts').AiAvatarWidget} [params.widget] - Widget instance.
+ * @param {() => import('../../index.d.ts').AiAvatarWidget} [params.getWidget] - Getter returning the widget instance.
+ * @param {import('../../index.d.ts').AvatarBotOptions} params.options - Raw configuration options.
+ * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - Getter returning all engine instances.
+ * @param {{ isActive: boolean, continuationIndex: number, maxContinuations: number, accumulatedText: string }} params.autoContinueState - Auto-continue state tracking object.
+ * @param {{ sentenceBuffer: string, buf: string }} params.streamSpeechState - Speech streaming buffer state object.
+ * @returns {Object} Stream lifecycle callback methods.
  */
 export function createStreamPipeline({
   widget,
@@ -64,10 +64,10 @@ export function createStreamPipeline({
     },
 
     /**
-     * 大腦文字串流輸出結束時的回調。
-     * 用於將殘餘字串送入語音合成佇列並宣告文字結尾，同時對外派發 onStreamEnd 事件通知開發者回答文字已生成完畢。
+     * Callback invoked when the Brain LLM stream completes.
+     * Flushes any remaining text to the speech synthesis queue and emits the `onStreamEnd` event.
      *
-     * @param {string} fullText - LLM 完整回答文字內容
+     * @param {string} fullText - Full generated LLM answer text.
      */
     onStreamEnd(fullText) {
       const { speechEngine } = getEngines();

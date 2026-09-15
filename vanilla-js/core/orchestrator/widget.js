@@ -20,19 +20,19 @@ import {
 import { initSkinModeChangeButton, renderSuggestions } from '@/core/ui';
 
 /**
- * 建立並封裝對外公開的 AiAvatarWidget 實例物件。
+ * Constructs and encapsulates the public AiAvatarWidget controller instance.
  *
- * @param {Object} params
- * @param {import('./types').AvatarBotOptions} params.options - 原始設定選項
- * @param {HTMLElement} params.container - Widget 根容器 DOM
- * @param {import('../store').BaseStore} params.rootStore - 狀態管理 Store
- * @param {any} params.i18nEngine - 多語系引擎實例
- * @param {boolean} params.initialMinimal - 初始是否為極簡模式
- * @param {() => any} params.getUiDom - 取得 UI DOM 物件的函式
- * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - 取得各引擎實例的函式
- * @param {(text: string) => Promise<void>|void} params.handleUser - 使用者輸入處理函式
- * @param {(enabled: boolean) => void} [params.updateModelDropListeners] - 更新模型拖曳換裝監聽器的函式
- * @returns {import('./types').AiAvatarWidget}
+ * @param {Object} params - Initialization parameters.
+ * @param {import('../../index.d.ts').AvatarBotOptions} params.options - Raw configuration options.
+ * @param {HTMLElement} params.container - Root widget HTML container.
+ * @param {import('../../index.d.ts').BaseStore} params.rootStore - Central reactive state store.
+ * @param {import('../../index.d.ts').I18nEngine} params.i18nEngine - Internationalization engine instance.
+ * @param {boolean} params.initialMinimal - Whether to start in minimal UI mode.
+ * @param {() => any} params.getUiDom - Function returning UI DOM management object.
+ * @param {() => { brainEngine: import('../../index.d.ts').BrainEngine, speechEngine: import('../../index.d.ts').SpeechEngine, skinEngine: import('../../index.d.ts').SkinEngine, toolsEngine: import('../../index.d.ts').ToolsEngine }} params.getEngines - Function returning active engine instances.
+ * @param {(text: string) => Promise<void> | void} params.handleUser - User input handling pipeline function.
+ * @param {(enabled: boolean) => void} [params.updateModelDropListeners] - Function to attach or detach drag-and-drop model listeners.
+ * @returns {import('../../index.d.ts').AiAvatarWidget} The created avatar widget controller.
  */
 export function createAvatarWidget({
   options,

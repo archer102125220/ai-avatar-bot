@@ -16,17 +16,17 @@ import { renderHistory, initSkinModeChangeButton } from '@/core/ui';
 import { callOptionEvent } from './options';
 
 /**
- * 建立並初始化 Brain 大腦引擎實例。
+ * Creates and initializes the Brain engine instance.
  *
  * @param {Object} params
- * @param {import('./types').AvatarBotOptions} params.options - 原始設定選項
- * @param {import('./types').AiAvatarWidget} params.widget - Widget 實例
- * @param {import('../store').BaseStore} params.rootStore - 狀態 Store
- * @param {any} params.i18nEngine - 多語系引擎實例
- * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - 取得各引擎實例的函式
- * @param {() => any} params.getUiDom - 取得 UI DOM 物件的函式
- * @param {any} params.streamPipeline - 串流處理管線物件
- * @returns {Promise<any>}
+ * @param {import('../../index.d.ts').AvatarBotOptions} params.options - Raw configuration options.
+ * @param {import('../../index.d.ts').AiAvatarWidget} params.widget - Widget instance.
+ * @param {import('../../index.d.ts').BaseStore} params.rootStore - Central reactive state store.
+ * @param {any} params.i18nEngine - Internationalization engine instance.
+ * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - Getter returning all engine instances.
+ * @param {() => any} params.getUiDom - Getter returning UI DOM elements bundle.
+ * @param {any} params.streamPipeline - Stream response pipeline controller.
+ * @returns {Promise<any>} Initialized Brain engine instance.
  */
 export async function setupBrainEngine({
   options,
@@ -447,21 +447,21 @@ export async function setupBrainEngine({
 }
 
 /**
- * 建立並初始化 Speech 語音引擎實例。
+ * Creates and initializes the Speech engine instance (STT and TTS).
  *
  * @param {Object} params
- * @param {import('./types').AvatarBotOptions} params.options - 原始設定選項
- * @param {import('./types').AiAvatarWidget} params.widget - Widget 實例
- * @param {import('../store').BaseStore} params.rootStore - 狀態 Store
- * @param {any} params.i18nEngine - 多語系引擎實例
- * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - 取得各引擎實例的函式
- * @param {() => any} params.getUiDom - 取得 UI DOM 物件的函式
- * @param {(text?: string) => void} params.handleUser - 使用者輸入處理函式
- * @param {() => void} params.onTapAvatar - Avatar 點擊互動函式
- * @param {any} params.streamPipeline - 串流處理管線物件
- * @param {HTMLElement} params.container - Widget 根容器 DOM
- * @param {string} params.safeNeuralVoice - 安全的語音識別名稱
- * @returns {Promise<any>}
+ * @param {import('../../index.d.ts').AvatarBotOptions} params.options - Raw configuration options.
+ * @param {import('../../index.d.ts').AiAvatarWidget} params.widget - Widget instance.
+ * @param {import('../../index.d.ts').BaseStore} params.rootStore - Central reactive state store.
+ * @param {any} params.i18nEngine - Internationalization engine instance.
+ * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - Getter returning all engine instances.
+ * @param {() => any} params.getUiDom - Getter returning UI DOM elements bundle.
+ * @param {(text?: string) => void} params.handleUser - User input handling pipeline.
+ * @param {() => void} params.onTapAvatar - Avatar tap interaction handler.
+ * @param {any} params.streamPipeline - Stream response pipeline controller.
+ * @param {HTMLElement} params.container - Widget root container DOM element.
+ * @param {string} params.safeNeuralVoice - Neural voice identifier.
+ * @returns {Promise<any>} Initialized Speech engine instance.
  */
 export async function setupSpeechEngine({
   options,
@@ -594,14 +594,14 @@ export async function setupSpeechEngine({
 }
 
 /**
- * 建立並初始化 Tools 外部工具引擎實例。
+ * Creates and initializes the Tools engine instance for external function calls.
  *
  * @param {Object} params
- * @param {import('./types').AvatarBotOptions} params.options - 原始設定選項
- * @param {import('./types').AiAvatarWidget} params.widget - Widget 實例
- * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - 取得各引擎實例的函式
- * @param {() => any} params.getUiDom - 取得 UI DOM 物件的函式
- * @returns {any}
+ * @param {import('../../index.d.ts').AvatarBotOptions} params.options - Raw configuration options.
+ * @param {import('../../index.d.ts').AiAvatarWidget} params.widget - Widget instance.
+ * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - Getter returning all engine instances.
+ * @param {() => any} params.getUiDom - Getter returning UI DOM elements bundle.
+ * @returns {any} Initialized Tools engine instance.
  */
 export function setupToolsEngine({ options, widget, getEngines, getUiDom }) {
   const { customEngines = {} } = options;
@@ -727,16 +727,16 @@ export function setupToolsEngine({ options, widget, getEngines, getUiDom }) {
 }
 
 /**
- * 建立並初始化 Skin 模型渲染外觀引擎實例。
+ * Creates and initializes the Skin rendering engine instance (2D Live2D / 3D VRM).
  *
  * @param {Object} params
- * @param {import('./types').AvatarBotOptions} params.options - 原始設定選項
- * @param {import('./types').AiAvatarWidget} params.widget - Widget 實例
- * @param {import('../store').BaseStore} params.rootStore - 狀態 Store
- * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - 取得各引擎實例的函式
- * @param {() => any} params.getUiDom - 取得 UI DOM 物件的函式
- * @param {HTMLElement} params.stageEl - 虛擬人渲染畫布容器 DOM
- * @returns {Promise<any>}
+ * @param {import('../../index.d.ts').AvatarBotOptions} params.options - Raw configuration options.
+ * @param {import('../../index.d.ts').AiAvatarWidget} params.widget - Widget instance.
+ * @param {import('../../index.d.ts').BaseStore} params.rootStore - Central reactive state store.
+ * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - Getter returning all engine instances.
+ * @param {() => any} params.getUiDom - Getter returning UI DOM elements bundle.
+ * @param {HTMLElement} params.stageEl - Avatar canvas container DOM element.
+ * @returns {Promise<any>} Initialized Skin engine instance.
  */
 export async function setupSkinEngine({
   options,

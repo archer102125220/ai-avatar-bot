@@ -3,16 +3,16 @@ import { resolveLocalized } from '@/core/i18n';
 import { callOptionEvent } from './options';
 
 /**
- * 建立點擊 Avatar 虛擬人的互動事件處理函式 (onTapAvatar)。
+ * Creates the avatar tap interaction event handler (`onTapAvatar`).
  *
  * @param {Object} params
- * @param {import('./types').AiAvatarWidget} [params.widget] - Widget 實例
- * @param {() => import('./types').AiAvatarWidget} [params.getWidget] - 取得 Widget 實例的函式
- * @param {import('./types').AvatarBotOptions} params.options - 原始設定選項
- * @param {import('../store').BaseStore} params.rootStore - 狀態 Store
- * @param {any} params.i18nEngine - 多語系引擎實例
- * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - 取得各引擎實例的函式
- * @returns {() => void} onTapAvatar 函式
+ * @param {import('../../index.d.ts').AiAvatarWidget} [params.widget] - Widget instance.
+ * @param {() => import('../../index.d.ts').AiAvatarWidget} [params.getWidget] - Getter returning the widget instance.
+ * @param {import('../../index.d.ts').AvatarBotOptions} params.options - Raw configuration options.
+ * @param {import('../../index.d.ts').BaseStore} params.rootStore - Central reactive state store.
+ * @param {any} params.i18nEngine - Internationalization engine instance.
+ * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - Getter returning all engine instances.
+ * @returns {() => void} Tap interaction callback function.
  */
 export function createTapAvatarHandler({
   widget,
@@ -146,12 +146,12 @@ export function createTapAvatarHandler({
 }
 
 /**
- * 建立 VRM 3D 模型檔案拖曳至畫布即時換裝之監聽處理器。
+ * Creates drag-and-drop event handlers for dynamically loading 3D VRM models onto the avatar canvas.
  *
  * @param {Object} params
- * @param {HTMLElement} params.container - Widget 根容器 DOM
- * @param {() => any} params.getSkinEngine - 取得 Skin 引擎實例的函式
- * @returns {{(enabled: boolean): void}} 更新模型拖曳換裝監聽器的函式
+ * @param {HTMLElement} params.container - Widget root container DOM element.
+ * @param {() => any} params.getSkinEngine - Getter returning the Skin engine instance.
+ * @returns {{(enabled: boolean): void}} Function to attach or detach drag-and-drop listeners.
  */
 export function createModelDropHandler({ container, getSkinEngine }) {
   function handleDragPrevent(event) {

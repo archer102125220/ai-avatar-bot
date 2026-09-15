@@ -16,13 +16,13 @@ import {
 } from '@/core/constants';
 
 /**
- * 安全調用使用者傳入的事件回呼函式。
+ * Safely invokes a user-defined event callback function with optional context and arguments.
  *
- * @param {Object} options - 初始化設定選項物件
- * @param {any} context - 呼叫時綁定的 this 上下文 (通常為 aiAvatarWidget)
- * @param {string} eventName - 事件名稱
- * @param {...any} eventArguments - 傳遞給回呼函式的參數
- * @returns {any}
+ * @param {Record<string, any>} options - Configuration options object.
+ * @param {any} context - The `this` context binding for the callback.
+ * @param {string} eventName - Name of the callback hook.
+ * @param {...any} eventArguments - Arguments to forward to the callback.
+ * @returns {any} Result of the callback execution.
  */
 export function callOptionEvent(
   options,
@@ -40,14 +40,14 @@ export function callOptionEvent(
 }
 
 /**
- * 驗證並標準化傳入的 AvatarBotOptions 設定，同時建立根狀態 Store 與多語系引擎實例。
+ * Validates and normalizes raw AvatarBotOptions, initializing the root reactive store and i18n engine.
  *
- * @param {import('./types').AvatarBotOptions} rawOptions - 使用者傳入的原始設定選項
+ * @param {import('../../index.d.ts').AvatarBotOptions} [rawOptions={}] - User-provided initialization options.
  * @returns {{
- *   rawOptions: import('./types').AvatarBotOptions,
+ *   rawOptions: import('../../index.d.ts').AvatarBotOptions,
  *   container: HTMLElement,
- *   rootStore: import('../store').BaseStore,
- *   i18nEngine: any,
+ *   rootStore: import('../../index.d.ts').BaseStore,
+ *   i18nEngine: import('../../index.d.ts').I18nEngine,
  *   initialMinimal: boolean,
  *   isModelDropEnabled: boolean,
  *   isEngineToggleEnabled: boolean,

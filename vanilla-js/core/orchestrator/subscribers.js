@@ -3,14 +3,14 @@ import { renderSuggestions, updateUIStrings } from '@/core/ui';
 import { callOptionEvent } from './options';
 
 /**
- * 設定 rootStore 狀態變更訂閱，將變更同步至各引擎與 UI。
+ * Subscribes to central rootStore state changes and synchronizes updates to sub-engines and UI components.
  *
  * @param {Object} params
- * @param {import('./types').AiAvatarWidget} params.widget - Widget 實例
- * @param {import('../store').BaseStore} params.rootStore - 狀態 Store
- * @param {any} params.i18nEngine - 多語系引擎實例
- * @param {() => any} params.getUiDom - 取得 UI DOM 物件的函式
- * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - 取得各引擎實例的函式
+ * @param {import('../../index.d.ts').AiAvatarWidget} params.widget - Widget instance.
+ * @param {import('../../index.d.ts').BaseStore} params.rootStore - Central reactive state store.
+ * @param {any} params.i18nEngine - Internationalization engine instance.
+ * @param {() => any} params.getUiDom - Getter returning UI DOM elements bundle.
+ * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - Getter returning all engine instances.
  */
 export function setupStoreSubscribers({
   widget,
@@ -182,16 +182,16 @@ export function setupStoreSubscribers({
 }
 
 /**
- * 設定 i18n 多語系引擎訂閱，同步更新 UI 文字、麥克風、語音狀態並派發 onLanguageChanged。
+ * Subscribes to i18n engine changes, synchronizing UI translations, mic states, voice indicators, and triggering `onLanguageChanged`.
  *
  * @param {Object} params
- * @param {import('./types').AiAvatarWidget} params.widget - Widget 實例
- * @param {import('./types').AvatarBotOptions} params.options - 原始設定選項
- * @param {import('../store').BaseStore} params.rootStore - 狀態 Store
- * @param {any} params.i18nEngine - 多語系引擎實例
- * @param {HTMLElement} params.container - Widget 根容器 DOM
- * @param {() => any} params.getUiDom - 取得 UI DOM 物件的函式
- * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - 取得各引擎實例的函式
+ * @param {import('../../index.d.ts').AiAvatarWidget} params.widget - Widget instance.
+ * @param {import('../../index.d.ts').AvatarBotOptions} params.options - Raw configuration options.
+ * @param {import('../../index.d.ts').BaseStore} params.rootStore - Central reactive state store.
+ * @param {any} params.i18nEngine - Internationalization engine instance.
+ * @param {HTMLElement} params.container - Widget root container DOM element.
+ * @param {() => any} params.getUiDom - Getter returning UI DOM elements bundle.
+ * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - Getter returning all engine instances.
  */
 export function setupI18nSubscribers({
   widget,

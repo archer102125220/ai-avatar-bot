@@ -1,14 +1,14 @@
 /**
- * 建立使用者輸入處理管線 (User Input Pipeline: handleUser)。
+ * Creates the user input handling pipeline (`handleUser`).
  *
  * @param {Object} params
- * @param {import('./types').AiAvatarWidget} [params.widget] - Widget 實例
- * @param {() => import('./types').AiAvatarWidget} [params.getWidget] - 取得 Widget 實例的函式
- * @param {import('../store').BaseStore} params.rootStore - 狀態 Store
- * @param {any} params.i18nEngine - 多語系引擎實例
- * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - 取得各引擎實例的函式
- * @param {{ isActive: boolean, continuationIndex: number, maxContinuations: number, accumulatedText: string }} params.autoContinueState - 自動接續狀態物件
- * @returns {(text?: string) => void} handleUser 函式
+ * @param {import('../../index.d.ts').AiAvatarWidget} [params.widget] - Widget instance.
+ * @param {() => import('../../index.d.ts').AiAvatarWidget} [params.getWidget] - Getter returning the widget instance.
+ * @param {import('../../index.d.ts').BaseStore} params.rootStore - Central reactive state store.
+ * @param {any} params.i18nEngine - Internationalization engine instance.
+ * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - Getter returning all engine instances.
+ * @param {{ isActive: boolean, continuationIndex: number, maxContinuations: number, accumulatedText: string }} params.autoContinueState - Auto-continue state tracking object.
+ * @returns {(text?: string) => void} User input pipeline handler function.
  */
 export function createUserPipeline({
   widget,
