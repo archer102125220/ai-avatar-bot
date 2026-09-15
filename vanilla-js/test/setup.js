@@ -107,6 +107,25 @@ class MockAudioContext {
       disconnect: vi.fn()
     };
   }
+  createBufferSource() {
+    return {
+      buffer: null,
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      start: vi.fn(),
+      stop: vi.fn(),
+      onended: null
+    };
+  }
+  decodeAudioData(buffer) {
+    return Promise.resolve({
+      duration: 1,
+      length: 44100,
+      sampleRate: 44100,
+      numberOfChannels: 1,
+      getChannelData: () => new Float32Array(44100)
+    });
+  }
   resume() {
     this.state = 'running';
     return Promise.resolve();
@@ -212,8 +231,28 @@ const mockSpeechSynthesis = {
 globalThis.SpeechSynthesisUtterance = MockSpeechSynthesisUtterance;
 globalThis.speechSynthesis = mockSpeechSynthesis;
 
-// 5. Mock WebGPU (navigator.gpu)
+// 5. Mock WebGPU (navigator.gpu) & MediaDevices
 if (typeof navigator !== 'undefined') {
+  if (!navigator.mediaDevices) {
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: {
+        getUserMedia: vi.fn(() =>
+          Promise.resolve({
+            getTracks: () => [{ stop: vi.fn(), enabled: true }]
+          })
+        )
+      },
+      configurable: true,
+      writable: true
+    });
+  } else {
+    navigator.mediaDevices.getUserMedia = vi.fn(() =>
+      Promise.resolve({
+        getTracks: () => [{ stop: vi.fn(), enabled: true }]
+      })
+    );
+  }
+
   Object.defineProperty(navigator, 'gpu', {
     value: {
       requestAdapter: vi.fn(() =>
