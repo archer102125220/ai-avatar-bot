@@ -7,7 +7,7 @@
  * Traverses and updates all elements in the container matching `data-i18n`, `data-i18n-html`, `data-i18n-placeholder`, and `data-i18n-aria`.
  *
  * @param {HTMLElement} container - Target container element containing UI nodes.
- * @param {import('../../index.d.ts').I18nEngine} i18nEngine - Internationalization engine instance.
+ * @param {import('@types').I18nEngine} i18nEngine - Internationalization engine instance.
  * @returns {void}
  */
 export function updateUIStrings(container, i18nEngine) {
@@ -80,7 +80,7 @@ export function copyText(text) {
 /**
  * Initializes and syncs the 2D / 3D model engine toggle button based on model availability and configuration.
  *
- * @param {import('../../index.d.ts').UiContext|null} [context=null] - Shared UI context references (containing uiDom, skinEngine, etc.).
+ * @param {import('@types').UiContext|null} [context=null] - Shared UI context references (containing uiDom, skinEngine, etc.).
  * @param {boolean} [has2D=false] - Whether 2D Live2D model assets are configured.
  * @param {boolean} [has3D=false] - Whether 3D VRM model assets are configured.
  * @param {boolean} [isEngineToggleEnabled=true] - Whether 2D/3D mode toggling is allowed.

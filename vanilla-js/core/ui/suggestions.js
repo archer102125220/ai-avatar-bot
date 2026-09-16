@@ -8,7 +8,7 @@ import { resolveLocalized } from '../i18n';
 /**
  * Renders suggested dialogue prompts and titles based on the current persona mode ('companion' | 'assistant') and i18n configuration.
  *
- * @param {import('../../index.d.ts').UiContext|null} [context=null] - Shared UI context state and handler references.
+ * @param {import('@types').UiContext|null} [context=null] - Shared UI context state and handler references.
  * @returns {void}
  */
 export function renderSuggestions(context = null) {

@@ -5,7 +5,7 @@ import { normaliseSchema, normaliseTool } from './schema';
  * Extracts a property value from a query string or execution context based on its schema definition.
  *
  * @param {string} propertyName - Property field name.
- * @param {import('../../index.d.ts').ToolSchemaProperty} propertySchema - Property schema definition.
+ * @param {import('@types').ToolSchemaProperty} propertySchema - Property schema definition.
  * @param {string} query - User natural language query.
  * @param {Record<string, any>} context - Execution context object.
  * @param {boolean} [allowWhole] - Whether to allow absorbing the entire query as a single string parameter.
@@ -112,13 +112,13 @@ export function extractPropertyValue(
 
 /**
  * Validation result for tool input parameters against its schema.
- * @typedef {import('../../index.d.ts').ToolValidationResult} ToolValidationResult
+ * @typedef {import('@types').ToolValidationResult} ToolValidationResult
  */
 
 /**
  * Validates an input arguments dictionary against the tool parameter schema.
  *
- * @param {import('../../index.d.ts').ToolSchema | Record<string, any>} schema - Tool parameter schema.
+ * @param {import('@types').ToolSchema | Record<string, any>} schema - Tool parameter schema.
  * @param {Record<string, any>} input - Input arguments dictionary to validate.
  * @returns {ToolValidationResult} Validation result containing status, sanitized arguments, and error list.
  */
@@ -244,13 +244,13 @@ export function validate(schema, input) {
 
 /**
  * Parameter extraction result from natural language query.
- * @typedef {import('../../index.d.ts').ToolExtractResult} ToolExtractResult
+ * @typedef {import('@types').ToolExtractResult} ToolExtractResult
  */
 
 /**
  * Extracts and validates parameters for a specific tool from user natural language query and context.
  *
- * @param {import('../../index.d.ts').ToolDefinition | Record<string, any>} tool - Target tool definition.
+ * @param {import('@types').ToolDefinition | Record<string, any>} tool - Target tool definition.
  * @param {string} query - User input query string.
  * @param {Record<string, any>} [context] - Session context dictionary.
  * @param {Record<string, any>} [existing] - Existing/previously collected arguments.

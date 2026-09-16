@@ -8,7 +8,7 @@ import { copyText } from './utils';
 /**
  * Toggles the open/closed state of the conversation history panel and synchronizes aria attributes and related elements.
  *
- * @param {import('../../index.d.ts').UiContext} context - Shared UI context state and engine references.
+ * @param {import('@types').UiContext} context - Shared UI context state and engine references.
  * @param {boolean} open - Whether to open (`true`) or close (`false`) the history panel.
  * @returns {void}
  */
@@ -56,7 +56,7 @@ export function setHistoryOpen(context, open) {
 /**
  * Renders or refreshes the multi-turn chat history message timeline, pending tool confirmations, and copy/replay actions.
  *
- * @param {import('../../index.d.ts').UiContext} context - Shared UI context state and engine references.
+ * @param {import('@types').UiContext} context - Shared UI context state and engine references.
  * @returns {void}
  */
 export function renderHistory(context) {

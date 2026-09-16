@@ -4,8 +4,8 @@
  */
 
 /**
- * @typedef {import('../../index.d.ts').UiDom} UiDom
- * @typedef {import('../../index.d.ts').UiContext} UiContext
+ * @typedef {import('@types').UiDom} UiDom
+ * @typedef {import('@types').UiContext} UiContext
  */
 
 export * from './dom';

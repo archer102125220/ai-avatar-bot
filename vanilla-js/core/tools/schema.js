@@ -9,17 +9,17 @@ import { sanitizeText } from './utils';
 
 /**
  * Property definition inside a tool's JSON input schema.
- * @typedef {import('../../index.d.ts').ToolSchemaProperty} ToolSchemaProperty
+ * @typedef {import('@types').ToolSchemaProperty} ToolSchemaProperty
  */
 
 /**
  * JSON input schema for tool parameters.
- * @typedef {import('../../index.d.ts').ToolSchema} ToolSchema
+ * @typedef {import('@types').ToolSchema} ToolSchema
  */
 
 /**
  * Declarative definition of a tool callable by the AI or client rules.
- * @typedef {import('../../index.d.ts').ToolDefinition} ToolDefinition
+ * @typedef {import('@types').ToolDefinition} ToolDefinition
  */
 
 /**

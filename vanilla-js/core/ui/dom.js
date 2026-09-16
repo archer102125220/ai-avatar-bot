@@ -4,7 +4,7 @@
  */
 
 /**
- * @typedef {import('../../index.d.ts').UiDom} UiDom
+ * @typedef {import('@types').UiDom} UiDom
  */
 
 /**
@@ -12,7 +12,7 @@
  *
  * @param {HTMLElement} container - Main container element housing the avatar bot widget.
  * @param {HTMLElement} stageEl - Stage container element housing the 2D canvas or 3D viewport.
- * @param {import('../../index.d.ts').I18nEngine|null} [i18nEngine=null] - Internationalization engine instance.
+ * @param {import('@types').I18nEngine|null} [i18nEngine=null] - Internationalization engine instance.
  * @returns {UiDom|void} Object containing UI DOM references and status updater helpers, or void on invalid inputs.
  */
 export function initUi(container, stageEl, i18nEngine = null) {

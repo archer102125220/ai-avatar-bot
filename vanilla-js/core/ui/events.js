@@ -9,7 +9,7 @@ import { setHistoryOpen, renderHistory } from './history';
 /**
  * Binds keyboard Enter key and send button click events for user question submission.
  *
- * @param {import('../../index.d.ts').UiContext|null} [context=null] - Shared UI context state and handler references.
+ * @param {import('@types').UiContext|null} [context=null] - Shared UI context state and handler references.
  * @returns {void}
  */
 export function bindTyping(context = null) {
@@ -45,7 +45,7 @@ export function bindTyping(context = null) {
 /**
  * Binds click events and interactive handlers for toolbar control buttons (mic, mute, speed, lang, history, LLM, minimize).
  *
- * @param {import('../../index.d.ts').UiContext|null} [context=null] - Shared UI context state and engine references.
+ * @param {import('@types').UiContext|null} [context=null] - Shared UI context state and engine references.
  * @returns {void}
  */
 export function bindUiEvent(context = null) {

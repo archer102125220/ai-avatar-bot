@@ -15,27 +15,27 @@ export * from './validator';
 
 /**
  * State of a tool execution pending missing parameter input from user.
- * @typedef {import('../../index.d.ts').PendingToolInput} PendingToolInput
+ * @typedef {import('@types').PendingToolInput} PendingToolInput
  */
 
 /**
  * State of multiple ambiguous tool candidates presented to the user.
- * @typedef {import('../../index.d.ts').PendingToolChoice} PendingToolChoice
+ * @typedef {import('@types').PendingToolChoice} PendingToolChoice
  */
 
 /**
  * Result data payload when a tool finishes execution.
- * @typedef {import('../../index.d.ts').ToolResultData} ToolResultData
+ * @typedef {import('@types').ToolResultData} ToolResultData
  */
 
 /**
  * Settings for initializing the ToolsEngine.
- * @typedef {import('../../index.d.ts').ToolsEngineSetting} ToolsEngineSetting
+ * @typedef {import('@types').ToolsEngineSetting} ToolsEngineSetting
  */
 
 /**
  * Tools Engine instance for parameter extraction, intent routing, and function execution.
- * @typedef {import('../../index.d.ts').ToolsEngine} ToolsEngine
+ * @typedef {import('@types').ToolsEngine} ToolsEngine
  */
 
 /**

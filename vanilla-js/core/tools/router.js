@@ -3,14 +3,14 @@ import { normalizeText, similarity } from './utils';
 import { normaliseTool } from './schema';
 
 /**
- * Scoring evaluation result for a tool against a user query.
- * @typedef {import('../../index.d.ts').ToolScoreResult} ToolScoreResult
+ * Scoring evaluation result for a tool against a user query referencing types/index.d.ts via @types.
+ * @typedef {import('@types').ToolScoreResult} ToolScoreResult
  */
 
 /**
  * Evaluates and scores a tool definition against a user query string based on keywords, examples, labels, and descriptions.
  *
- * @param {import('../../index.d.ts').ToolDefinition} tool - Target tool definition to score.
+ * @param {import('@types').ToolDefinition} tool - Target tool definition to score.
  * @param {string} query - User natural language query string.
  * @returns {ToolScoreResult} Object containing confidence score (0 to 1) and match reason.
  */
@@ -70,19 +70,19 @@ export function scoreTool(tool, query) {
 }
 
 /**
- * Candidate tool matched during routing evaluation.
- * @typedef {import('../../index.d.ts').ToolRouteCandidate} ToolRouteCandidate
+ * Candidate tool matched during routing evaluation referencing types/index.d.ts via @types.
+ * @typedef {import('@types').ToolRouteCandidate} ToolRouteCandidate
  */
 
 /**
- * Result of tool intent routing.
- * @typedef {import('../../index.d.ts').ToolRouteResult} ToolRouteResult
+ * Result of tool intent routing referencing types/index.d.ts via @types.
+ * @typedef {import('@types').ToolRouteResult} ToolRouteResult
  */
 
 /**
  * Routes user query across available tools to determine the best candidate match or ambiguous choices.
  *
- * @param {Array<import('../../index.d.ts').ToolDefinition | Record<string, any>>} tools - Array of available tool definitions.
+ * @param {Array<import('@types').ToolDefinition | Record<string, any>>} tools - Array of available tool definitions.
  * @param {string} query - User natural language query string.
  * @returns {ToolRouteResult} Routing result containing best match, ambiguous candidate list, and all candidates.
  */
