@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    "allowJs": true,
+    "checkJs": false,
+    "strict": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@/*": ["./*"],
+      "@types": ["./types/index.d.ts"],
+      "@types/*": ["./types/*"]
+    }
+  },
+  "include": [
+    "core/**/*",
+    "test/**/*",
+    "types/**/*",
+    "plugins/**/*",
+    "example/**/*",
+    "bin/**/*"
+  ]
+}

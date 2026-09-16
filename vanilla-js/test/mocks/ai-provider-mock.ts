@@ -2,11 +2,14 @@ import { vi } from 'vitest';
 
 /**
  * 建立 Mock 串流回傳生成器 (Async Iterable)
- * @param {string[]} chunks - 欲依序輸出的文字片段陣列
- * @param {Object} [options={}] - 其他選項 (如附加 tool_calls)
- * @returns {AsyncIterable<Object>}
+ * @param chunks - 欲依序輸出的文字片段陣列
+ * @param options - 其他選項 (如附加 tool_calls)
+ * @returns AsyncIterable<any>
  */
-export async function* createMockChatCompletionStream(chunks, options = {}) {
+export async function* createMockChatCompletionStream(
+  chunks: string[],
+  options: { tool_calls?: any[]; finish_reason?: string } = {}
+): AsyncGenerator<any, void, unknown> {
   for (const chunk of chunks) {
     yield {
       choices: [
@@ -34,14 +37,14 @@ export async function* createMockChatCompletionStream(chunks, options = {}) {
 
 /**
  * 建立 Mock AI Provider 實例
- * @param {Object} [options={}]
- * @returns {Object}
+ * @param options
+ * @returns Mock AI Provider Object
  */
-export function createMockAiProvider(options = {}) {
+export function createMockAiProvider(options: { defaultText?: string; name?: string; toolCalls?: any[] } = {}) {
   const defaultText = options.defaultText || '你好！我是你的 AI 助理。';
   return {
     name: options.name || 'openai',
-    chat: vi.fn(async ({ messages: _messages, onStream, stream = true }) => {
+    chat: vi.fn(async ({ messages: _messages, onStream, stream = true }: { messages?: any[]; onStream?: (text: string) => void; stream?: boolean }) => {
       const chunks = [defaultText.slice(0, 3), defaultText.slice(3)];
       if (stream && typeof onStream === 'function') {
         for (const chunk of chunks) {
@@ -61,17 +64,17 @@ export function createMockAiProvider(options = {}) {
 
 /**
  * 建立 Mock WebLLM MLCEngine
- * @param {Object} [options={}]
- * @returns {Object}
+ * @param options
+ * @returns Mock WebLLM Engine Object
  */
-export function createMockWebLLMEngine(options = {}) {
+export function createMockWebLLMEngine(options: { defaultResponse?: string } = {}) {
   const defaultResponse = options.defaultResponse || '來自 WebLLM 的回應';
   return {
     setInitProgressCallback: vi.fn(),
     reload: vi.fn(() => Promise.resolve()),
     chat: {
       completions: {
-        create: vi.fn(async (params) => {
+        create: vi.fn(async (params: { stream?: boolean } = {}): Promise<any> => {
           if (params.stream) {
             return createMockChatCompletionStream([defaultResponse]);
           }

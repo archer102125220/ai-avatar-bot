@@ -11,8 +11,8 @@ export default defineConfig({
 
     globals: true,
     environment: 'jsdom',
-    setupFiles: [resolve(__dirname, 'test/setup.js')],
-    include: ['test/**/*.{test,spec}.js'],
+    setupFiles: [resolve(__dirname, 'test/setup.ts')],
+    include: ['test/**/*.{test,spec}.{js,ts}'],
     outputFile: resolve(__dirname, 'html/index.html'),
     // api: {
     //   token: false

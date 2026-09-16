@@ -2,11 +2,10 @@ import { vi } from 'vitest';
 
 /**
  * 建立 Mock 2D Live2D 渲染器實例
- * @param {Object} [overrides={}]
- * @returns {import('@/core/skin/renderer-2d').Renderer2D}
+ * @param overrides
+ * @returns Mocked 2D Live2D Renderer
  */
-export function createMockRenderer2D(overrides = {}) {
-
+export function createMockRenderer2D(overrides: Record<string, any> = {}) {
   const canvas = document.createElement('canvas');
   const avatarModel = {
     internalModel: {
@@ -54,11 +53,10 @@ export function createMockRenderer2D(overrides = {}) {
 
 /**
  * 建立 Mock 3D VRM 渲染器實例
- * @param {Object} [overrides={}]
- * @returns {import('@/core/skin/renderer-3d').Renderer3D}
+ * @param overrides
+ * @returns Mocked 3D VRM Renderer
  */
-export function createMockRenderer3D(overrides = {}) {
-
+export function createMockRenderer3D(overrides: Record<string, any> = {}) {
   const canvas = document.createElement('canvas');
   const vrm = {
     scene: {},
@@ -108,9 +106,18 @@ export function createMockRenderer3D(overrides = {}) {
  * 全域安裝 PIXI 與 Live2D Mock
  */
 export function setupWindowPixiMock() {
-  window.__cdnDependenciePromise__ = Promise.resolve();
+  (window as any).__cdnDependenciePromise__ = Promise.resolve();
 
   class MockLive2DModel {
+    internalModel: any;
+    position: any;
+    scale: any;
+    anchor: any;
+    expression: any;
+    on: any;
+    x: number;
+    y: number;
+
     constructor() {
       this.internalModel = {
         settings: {
@@ -142,6 +149,10 @@ export function setupWindowPixiMock() {
   }
 
   class MockPIXIApplication {
+    stage: { addChild: any; removeChild: any };
+    renderer: { width: number; height: number; resize: any };
+    destroy: any;
+
     constructor() {
       this.stage = { addChild: vi.fn(), removeChild: vi.fn() };
       this.renderer = { width: 800, height: 600, resize: vi.fn() };
@@ -149,7 +160,7 @@ export function setupWindowPixiMock() {
     }
   }
 
-  window.PIXI = {
+  (window as any).PIXI = {
     Application: MockPIXIApplication,
     Ticker: {},
     live2d: {

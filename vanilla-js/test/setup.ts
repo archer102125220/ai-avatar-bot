@@ -1,8 +1,34 @@
 import { vi } from 'vitest';
 
+declare global {
+  interface Navigator {
+    gpu?: {
+      requestAdapter: (options?: any) => Promise<{
+        requestDevice: (options?: any) => Promise<{
+          queue: { submit: (commandBuffers: any[]) => void; writeBuffer: (...args: any[]) => void };
+          createShaderModule: (descriptor: any) => any;
+          createBindGroupLayout: (descriptor: any) => any;
+          createPipelineLayout: (descriptor: any) => any;
+          createComputePipeline: (descriptor: any) => any;
+          createBuffer: (descriptor: any) => any;
+        } | null>;
+      } | null>;
+    };
+  }
+
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+    AudioContext: any;
+    webkitAudioContext: any;
+    PIXI: any;
+    __cdnDependenciePromise__?: Promise<void>;
+  }
+}
+
 // 1. Mock Canvas 2D & WebGL Context
 if (typeof HTMLCanvasElement !== 'undefined') {
-  HTMLCanvasElement.prototype.getContext = vi.fn((type) => {
+  HTMLCanvasElement.prototype.getContext = vi.fn((type: string) => {
     if (type === '2d') {
       return {
         clearRect: vi.fn(),
@@ -30,7 +56,7 @@ if (typeof HTMLCanvasElement !== 'undefined') {
         rect: vi.fn(),
         clip: vi.fn(),
         canvas: { width: 800, height: 600 }
-      };
+      } as unknown as CanvasRenderingContext2D;
     }
     if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
       return {
@@ -61,18 +87,17 @@ if (typeof HTMLCanvasElement !== 'undefined') {
         drawArrays: vi.fn(),
         drawElements: vi.fn(),
         canvas: { width: 800, height: 600 }
-      };
+      } as unknown as WebGLRenderingContext;
     }
     return null;
-  });
+  }) as any;
 }
 
 // 2. Mock Web Audio API
 class MockAudioContext {
-  constructor() {
-    this.state = 'running';
-    this.sampleRate = 44100;
-  }
+  state: AudioContextState = 'running';
+  sampleRate: number = 44100;
+
   createAnalyser() {
     return {
       fftSize: 2048,
@@ -80,12 +105,12 @@ class MockAudioContext {
       minDecibels: -100,
       maxDecibels: -30,
       smoothingTimeConstant: 0.8,
-      getByteFrequencyData: vi.fn((array) => {
+      getByteFrequencyData: vi.fn((array: Uint8Array) => {
         if (array && array.length > 0) {
           array.fill(128);
         }
       }),
-      getByteTimeDomainData: vi.fn((array) => {
+      getByteTimeDomainData: vi.fn((array: Uint8Array) => {
         if (array && array.length > 0) {
           array.fill(128);
         }
@@ -117,7 +142,7 @@ class MockAudioContext {
       onended: null
     };
   }
-  decodeAudioData(_buffer) {
+  decodeAudioData(_buffer: ArrayBuffer) {
     return Promise.resolve({
       duration: 1,
       length: 44100,
@@ -140,20 +165,19 @@ class MockAudioContext {
   }
 }
 
-globalThis.AudioContext = MockAudioContext;
-globalThis.webkitAudioContext = MockAudioContext;
+(globalThis as any).AudioContext = MockAudioContext;
+(globalThis as any).webkitAudioContext = MockAudioContext;
 
 // 3. Mock SpeechRecognition
 class MockSpeechRecognition {
-  constructor() {
-    this.continuous = false;
-    this.interimResults = false;
-    this.lang = 'zh-TW';
-    this.onstart = null;
-    this.onresult = null;
-    this.onerror = null;
-    this.onend = null;
-  }
+  continuous: boolean = false;
+  interimResults: boolean = false;
+  lang: string = 'zh-TW';
+  onstart: ((event: Event) => void) | null = null;
+  onresult: ((event: any) => void) | null = null;
+  onerror: ((event: any) => void) | null = null;
+  onend: ((event: Event) => void) | null = null;
+
   start() {
     if (typeof this.onstart === 'function') {
       this.onstart(new Event('start'));
@@ -171,24 +195,26 @@ class MockSpeechRecognition {
   }
 }
 
-globalThis.SpeechRecognition = MockSpeechRecognition;
-globalThis.webkitSpeechRecognition = MockSpeechRecognition;
+(globalThis as any).SpeechRecognition = MockSpeechRecognition;
+(globalThis as any).webkitSpeechRecognition = MockSpeechRecognition;
 
 // 4. Mock SpeechSynthesis & SpeechSynthesisUtterance
 class MockSpeechSynthesisUtterance {
-  constructor(text = '') {
+  text: string;
+  lang: string = 'zh-TW';
+  pitch: number = 1;
+  rate: number = 1;
+  volume: number = 1;
+  voice: SpeechSynthesisVoice | null = null;
+  onstart: ((event: Event) => void) | null = null;
+  onend: ((event: Event) => void) | null = null;
+  onerror: ((event: any) => void) | null = null;
+  onpause: ((event: any) => void) | null = null;
+  onresume: ((event: any) => void) | null = null;
+  onboundary: ((event: any) => void) | null = null;
+
+  constructor(text: string = '') {
     this.text = text;
-    this.lang = 'zh-TW';
-    this.pitch = 1;
-    this.rate = 1;
-    this.volume = 1;
-    this.voice = null;
-    this.onstart = null;
-    this.onend = null;
-    this.onerror = null;
-    this.onpause = null;
-    this.onresume = null;
-    this.onboundary = null;
   }
 }
 
@@ -197,7 +223,7 @@ const mockSpeechSynthesis = {
   pending: false,
   paused: false,
   onvoiceschanged: null,
-  speak: vi.fn((utterance) => {
+  speak: vi.fn((utterance: MockSpeechSynthesisUtterance) => {
     mockSpeechSynthesis.speaking = true;
     setTimeout(() => {
       if (typeof utterance.onstart === 'function') {
@@ -222,14 +248,14 @@ const mockSpeechSynthesis = {
     mockSpeechSynthesis.paused = false;
   }),
   getVoices: vi.fn(() => [
-    { name: 'Google 國語（臺灣）', lang: 'zh-TW', default: true, localService: true },
-    { name: 'Google US English', lang: 'en-US', default: false, localService: true },
-    { name: 'Google 日本語', lang: 'ja-JP', default: false, localService: true }
+    { name: 'Google 國語（臺灣）', lang: 'zh-TW', default: true, localService: true } as SpeechSynthesisVoice,
+    { name: 'Google US English', lang: 'en-US', default: false, localService: true } as SpeechSynthesisVoice,
+    { name: 'Google 日本語', lang: 'ja-JP', default: false, localService: true } as SpeechSynthesisVoice
   ])
 };
 
-globalThis.SpeechSynthesisUtterance = MockSpeechSynthesisUtterance;
-globalThis.speechSynthesis = mockSpeechSynthesis;
+(globalThis as any).SpeechSynthesisUtterance = MockSpeechSynthesisUtterance;
+(globalThis as any).speechSynthesis = mockSpeechSynthesis;
 
 // 5. Mock WebGPU (navigator.gpu) & MediaDevices
 if (typeof navigator !== 'undefined') {
@@ -250,7 +276,7 @@ if (typeof navigator !== 'undefined') {
       Promise.resolve({
         getTracks: () => [{ stop: vi.fn(), enabled: true }]
       })
-    );
+    ) as any;
   }
 
   Object.defineProperty(navigator, 'gpu', {
@@ -282,11 +308,11 @@ class MockObserver {
   disconnect() {}
 }
 
-globalThis.ResizeObserver = MockObserver;
-globalThis.IntersectionObserver = MockObserver;
+(globalThis as any).ResizeObserver = MockObserver;
+(globalThis as any).IntersectionObserver = MockObserver;
 
 // 7. Mock requestAnimationFrame & cancelAnimationFrame
 if (typeof globalThis.requestAnimationFrame === 'undefined') {
-  globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 16);
-  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
+  (globalThis as any).requestAnimationFrame = (callback: FrameRequestCallback) => setTimeout(callback, 16);
+  (globalThis as any).cancelAnimationFrame = (id: number) => clearTimeout(id);
 }

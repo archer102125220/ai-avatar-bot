@@ -10,8 +10,7 @@ import {
   createMockChatCompletionStream
 } from '@/test/mocks/ai-provider-mock';
 
-
-describe('Phase 1: Test Infrastructure & Global Mocks Sanity Check', () => {
+describe('Phase 1: Test Infrastructure & Global Mocks Sanity Check (TypeScript)', () => {
   it('should have DOM environment properly set up by jsdom', () => {
     const div = document.createElement('div');
     div.id = 'avatar-container';
@@ -27,10 +26,10 @@ describe('Phase 1: Test Infrastructure & Global Mocks Sanity Check', () => {
     const ctx3d = canvas.getContext('webgl');
 
     expect(ctx2d).not.toBeNull();
-    expect(typeof ctx2d.clearRect).toBe('function');
+    expect(typeof ctx2d?.clearRect).toBe('function');
 
     expect(ctx3d).not.toBeNull();
-    expect(typeof ctx3d.clear).toBe('function');
+    expect(typeof ctx3d?.clear).toBe('function');
   });
 
   it('should mock Web Audio API (AudioContext & AnalyserNode)', () => {
@@ -60,10 +59,10 @@ describe('Phase 1: Test Infrastructure & Global Mocks Sanity Check', () => {
 
   it('should mock WebGPU (navigator.gpu)', async () => {
     expect(navigator.gpu).toBeDefined();
-    const adapter = await navigator.gpu.requestAdapter();
-    const device = await adapter.requestDevice();
+    const adapter = await navigator.gpu?.requestAdapter();
+    const device = await adapter?.requestDevice();
     expect(device).toBeDefined();
-    expect(typeof device.createShaderModule).toBe('function');
+    expect(typeof device?.createShaderModule).toBe('function');
   });
 
   it('should verify Skin renderer mocks work', () => {
@@ -83,7 +82,7 @@ describe('Phase 1: Test Infrastructure & Global Mocks Sanity Check', () => {
   it('should verify AI Provider & WebLLM mocks work', async () => {
     const aiProvider = createMockAiProvider({ defaultText: 'AI 回覆' });
     const stream = createMockChatCompletionStream(['你好', '，世界！']);
-    const chunks = [];
+    const chunks: string[] = [];
     for await (const chunk of stream) {
       if (chunk.choices[0].delta.content) {
         chunks.push(chunk.choices[0].delta.content);
