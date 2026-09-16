@@ -1,8 +1,9 @@
 /**
- * 將輸入值轉換為字串，去除前後空白，並限制最大長度。
- * @param {any} value - 要處理的值
- * @param {number} [maxLength=240] - 字串的最大長度，預設為 240
- * @returns {string} 處理後的字串
+ * Converts an arbitrary input value to a trimmed string, bounded by a maximum character length.
+ *
+ * @param {any} value - Input value to sanitize.
+ * @param {number} [maxLength=240] - Maximum allowed character length (default 240).
+ * @returns {string} Sanitized string.
  */
 export function sanitizeText(value, maxLength = 240) {
   const safeMaxLength =
@@ -18,9 +19,10 @@ export function sanitizeText(value, maxLength = 240) {
 }
 
 /**
- * 將輸入值標準化：轉小寫、去除常見標點符號與空白，長度限制為 1200。
- * @param {any} value - 要標準化的值
- * @returns {string} 標準化後的字串
+ * Normalizes an input string: converts to lowercase, strips common punctuation and whitespace, capped at 1200 characters.
+ *
+ * @param {any} value - Value to normalize.
+ * @returns {string} Normalized plain text.
  */
 export function normalizeText(value) {
   return sanitizeText(value, 1200)
@@ -29,18 +31,20 @@ export function normalizeText(value) {
 }
 
 /**
- * 轉義正則表達式中的特殊字元，以避免語法錯誤或非預期的比對。
- * @param {string|any} patternString - 需轉義的字串
- * @returns {string} 轉義後的字串
+ * Escapes special regex metacharacters in a string to safely embed it in dynamic Regular Expressions.
+ *
+ * @param {string | any} patternString - Pattern string to escape.
+ * @returns {string} Escaped regex-safe string.
  */
 export function escapeRegExp(patternString) {
   return String(patternString).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
- * 將字串轉換為二元字元組 (Bigrams) 陣列，用於字串相似度計算。
- * @param {any} textValue - 要處理的字串
- * @returns {string[]} 二元字元組陣列
+ * Converts a string into an array of character bigrams (2-grams) for similarity matching.
+ *
+ * @param {any} textValue - String to extract bigrams from.
+ * @returns {string[]} Array of 2-character bigrams.
  */
 export function generateBigrams(textValue) {
   const normalizedText = normalizeText(textValue);
@@ -55,10 +59,11 @@ export function generateBigrams(textValue) {
 }
 
 /**
- * 計算兩個字串基於二元字元組 (Bigrams) 的相似度。
- * @param {string} sourceString - 第一個字串
- * @param {string} targetString - 第二個字串
- * @returns {number} 相似度分數，範圍為 0 到 1
+ * Computes Dice/Sørensen-like similarity coefficient between two strings based on bigram overlap.
+ *
+ * @param {string} sourceString - First comparison string.
+ * @param {string} targetString - Second comparison string.
+ * @returns {number} Similarity score ranging from 0 to 1.
  */
 export function similarity(sourceString, targetString) {
   const sourceBigrams = generateBigrams(sourceString);
@@ -76,10 +81,11 @@ export function similarity(sourceString, targetString) {
 }
 
 /**
- * 從查詢字串中，尋找符合指定前綴 (Prefixes) 之後的內容。
- * @param {string} query - 使用者查詢字串
- * @param {string[]} prefixes - 允許的前綴陣列
- * @returns {string} 匹配到的內容，若無則為空字串
+ * Searches user query text for parameter values following designated keyword prefixes (e.g. "地點是", "name:").
+ *
+ * @param {string} query - User natural language query string.
+ * @param {string[]} prefixes - Array of prefix strings to look for.
+ * @returns {string} Extracted parameter value string, or empty string if no match found.
  */
 export function findPrefixedValue(query, prefixes) {
   for (let index = 0; index < prefixes.length; index++) {

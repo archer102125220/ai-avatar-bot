@@ -14,80 +14,35 @@ export * from './router';
 export * from './validator';
 
 /**
- * @typedef {object} PendingToolInput
- * @property {import('./schema').ToolDefinition} tool - 執行中的工具
- * @property {string} query - 使用者查詢字串
- * @property {object} routeMeta - 路由相關資訊
- * @property {Record<string, any>} args - 目前已收集的參數
- * @property {string[]} missing - 尚未收集的必填參數
+ * State of a tool execution pending missing parameter input from user.
+ * @typedef {import('../../index.d.ts').PendingToolInput} PendingToolInput
  */
 
 /**
- * @typedef {object} PendingToolChoice
- * @property {string} messageId - 選擇訊息的 ID
- * @property {import('./router').ToolRouteCandidate[]} choices - 提供給使用者的選項清單
+ * State of multiple ambiguous tool candidates presented to the user.
+ * @typedef {import('../../index.d.ts').PendingToolChoice} PendingToolChoice
  */
 
 /**
- * @typedef {object} ToolResultData
- * @property {boolean} [ok] - 執行是否成功
- * @property {string} [error] - 錯誤訊息
- * @property {string} [message] - 成功訊息
- * @property {string} callId - 呼叫 ID
- * @property {string} [name] - 工具名稱
+ * Result data payload when a tool finishes execution.
+ * @typedef {import('../../index.d.ts').ToolResultData} ToolResultData
  */
 
 /**
- * @typedef {object} ToolsEngineSetting
- * @property {number} [confirmationTimeoutMs] - 工具確認的逾時毫秒數
- * @property {function} [onAddChatMessage] - 新增對話訊息的回呼函數
- * @property {function} [onUpdateChatMessage] - 更新對話訊息的回呼函數
- * @property {function} [onSetHistoryOpen] - 設定歷史紀錄面板開啟狀態的回呼函數
- * @property {function} [onRenderHistory] - 觸發重新渲染歷史紀錄的回呼函數
- * @property {function} [onSpokenAudioPlayNow] - 語音播放回呼函數
- * @property {function} [onToolCall] - 工具準備執行時的回呼函數
- * @property {(offer: object) => void} [onToolOffer] - 工具發起確認或準備執行時的回呼函式
- * @property {(confirm: object) => void} [onToolConfirm] - 工具確認執行時的回呼函式
- * @property {(cancel: object) => void} [onToolCancel] - 工具取消時的回呼函式
- * @property {() => Array<object>} getChatLog - 取得對話紀錄陣列
- * @property {() => number} getChatSeq - 取得目前對話序號
- * @property {() => boolean} isConvoOn - 取得是否開啟連續對話
+ * Settings for initializing the ToolsEngine.
+ * @typedef {import('../../index.d.ts').ToolsEngineSetting} ToolsEngineSetting
  */
 
 /**
- * @typedef {object} ToolsEngine
- * @property {import('./schema').ToolDefinition[]} HOST_TOOLS - 註冊的宿主工具清單
- * @property {PendingToolInput | null} pendingToolInput - 待補齊參數的工具狀態
- * @property {PendingToolChoice | null} pendingToolChoice - 待選擇的模糊匹配狀態
- * @property {string | null} pendingToolConfirmation - 待確認執行的工具訊息 ID
- * @property {number} confirmationTimeoutMs - 工具確認逾時毫秒數
- * @property {function} onAddChatMessage - 來自 setting 的對應方法
- * @property {function} onUpdateChatMessage - 來自 setting 的對應方法
- * @property {function} onSetHistoryOpen - 來自 setting 的對應方法
- * @property {function} onRenderHistory - 來自 setting 的對應方法
- * @property {function} onSpokenAudioPlayNow - 來自 setting 的對應方法
- * @property {(text: string) => import('./router').ToolRouteResult} routeHostTool - 路由宿主工具
- * @property {() => import('./schema').ToolDefinition[]} getAiAvailableTools - 取得可供 AI 呼叫的工具清單
- * @property {() => Array<object>} toOpenAiTools - 取得 OpenAI 相容 tools 格式清單
- * @property {(tool: import('./schema').ToolDefinition, propertyName: string, errorText?: string) => string} parameterPrompt - 產生補齊參數的提示語
- * @property {(tool: import('./schema').ToolDefinition, query: string, routeMeta?: object, existingArgs?: Record<string, any>) => void} prepareTool - 準備執行工具
- * @property {(inputText: string) => boolean} continueToolInput - 繼續處理工具參數輸入
- * @property {(query: string, candidates: import('./router').ToolRouteCandidate[]) => void} offerToolChoices - 處理工具模糊匹配
- * @property {(inputText: string) => boolean} continueToolChoice - 繼續處理工具選擇
- * @property {(messageId: string, choiceIndex: number) => void} chooseTool - 選擇工具
- * @property {(tool: import('./schema').ToolDefinition, query: string, routeMeta?: object, args?: Record<string, any>, options?: object) => void} offerHostTool - 準備確認執行宿主工具
- * @property {(messageId: string) => void} executePendingTool - 執行待確認工具
- * @property {(messageId: string, options?: { reason?: string }) => void} cancelPendingTool - 取消待確認工具
- * @property {(inputText: string) => boolean} continueToolConfirmation - 繼續處理確認結果
- * @property {(resultData: ToolResultData) => void} handleToolResult - 處理工具執行完畢的回應
- * @property {(tool: import('./schema').ToolDefinition, args: Record<string, any>, pendingToolData: object) => Promise<any>} executeToolDirectly - 直接執行工具
+ * Tools Engine instance for parameter extraction, intent routing, and function execution.
+ * @typedef {import('../../index.d.ts').ToolsEngine} ToolsEngine
  */
 
 /**
- * 初始化並建立工具執行引擎 (Tools Engine)。
- * 處理工具路由、參數收集、使用者互動 (補齊參數、選擇模糊工具、確認執行) 及最終執行邏輯。
- * @param {ToolsEngineSetting} [setting={}] - 引擎設定物件，包含回呼函數與狀態讀取器
- * @returns {ToolsEngine} 工具引擎實體 (Tools Engine Instance)
+ * Creates and initializes the Tools Engine instance for host tool routing, parameter extraction, and execution.
+ *
+ * @param {ToolsEngineSetting} [setting={}] - Engine configuration options and event callbacks.
+ * @returns {ToolsEngine} Tools engine controller instance.
  */
 export function initToolsEngine(setting = {}) {
   function routeHostTool(queryText) {
@@ -600,7 +555,7 @@ export function initToolsEngine(setting = {}) {
       return true;
     }
 
-    // 若使用者輸入其他全新訊息，自動取消前次未完成之操作，並允許主流程繼續處理新訊息
+    // If user inputs a completely new message, automatically cancel previous pending tool and allow main flow to process new input
     cancelPendingTool(toolsEngine.pendingToolConfirmation, {
       reason: TOOL_CANCEL_REASON_MAP.NEW_INPUT
     });
@@ -722,9 +677,10 @@ export function initToolsEngine(setting = {}) {
 }
 
 /**
- * 驗證自訂 Tools Engine 是否實作了必要的介面
- * @param {object} engine - 待驗證的引擎實例
- * @returns {{isValid: boolean, missing: string[]}} 驗證結果與缺少的實作名稱
+ * Validates whether a custom tools engine satisfies the required ToolsEngine interface methods.
+ *
+ * @param {ToolsEngine | Record<string, any> | null | undefined} engine - Engine instance to validate.
+ * @returns {{ isValid: boolean, missing: string[] }} Validation result and missing method names list.
  */
 export function validateToolsEngine(engine) {
   if (typeof engine !== 'object' || engine === null) {

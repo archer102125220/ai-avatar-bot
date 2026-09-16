@@ -785,6 +785,46 @@ export interface SpeechEngine {
 // ============================================================================
 
 /**
+ * Property definition inside a tool's JSON input schema.
+ */
+export interface ToolSchemaProperty {
+  /** Property type ('string' | 'number' | 'integer' | 'boolean'). */
+  type?: 'string' | 'number' | 'integer' | 'boolean' | string;
+  /** Property display title. */
+  title?: string;
+  /** Property description for LLM or human prompt. */
+  description?: string;
+  /** Key to look up property value from session context. */
+  contextKey?: string;
+  /** Format constraints ('email' | 'url' | 'phone' | 'contact'). */
+  format?: 'email' | 'url' | 'phone' | 'contact' | string;
+  /** Keyword prefixes indicating this parameter in natural language. */
+  prefixes?: string[];
+  /** Allowed enumeration values. */
+  enum?: string[];
+  /** Minimum numeric value. */
+  minimum?: number;
+  /** Maximum numeric value. */
+  maximum?: number;
+  /** Maximum string character length. */
+  maxLength?: number;
+  [key: string]: any;
+}
+
+/**
+ * JSON input schema for tool parameters.
+ */
+export interface ToolSchema {
+  /** Root schema type (usually 'object'). */
+  type?: 'object' | string;
+  /** Dictionary of parameter properties. */
+  properties?: Record<string, ToolSchemaProperty>;
+  /** Array of required parameter names. */
+  required?: string[];
+  [key: string]: any;
+}
+
+/**
  * Declarative definition of a tool callable by the AI or client rules.
  */
 export interface ToolDefinition {
@@ -794,30 +834,93 @@ export interface ToolDefinition {
   label?: string;
   /** Detailed description of what the tool does (used by LLM for function calling). */
   description: string;
+  /** Keywords for fuzzy client-side routing. */
+  keywords?: string[];
+  /** Example phrases for intent similarity routing. */
+  examples?: string[];
+  /** Keywords that disqualify/exclude this tool. */
+  excludeKeywords?: string[];
+  /** Tool priority weighting (-10 to 10). */
+  priority?: number;
+  /** Routing confidence threshold score (0.15 to 0.95). */
+  routeThreshold?: number;
+  /** Whether execution requires explicit user confirmation. */
+  requiresConfirmation?: boolean;
   /** Routing decision mode ('client' | 'ai' | 'hybrid'). */
   routingMode?: 'ai' | 'client' | 'hybrid' | string;
   /** Result handling mode ('ai_summary' | 'direct'). */
   resultMode?: 'ai_summary' | 'direct' | string;
-  /** Whether execution requires explicit user confirmation. */
-  requiresConfirmation?: boolean;
   /** User confirmation timeout in milliseconds (default 60000). */
-  confirmationTimeoutMs?: number;
-  /** JSON Schema describing the tool's input parameters. */
-  inputSchema?: {
-    type?: string;
-    properties?: Record<string, any>;
-    required?: string[];
-    [key: string]: any;
-  };
+  confirmationTimeoutMs?: number | null;
+  /** Legacy timeout in milliseconds. */
+  timeoutMs?: number;
   /** Regex patterns or string keywords for client-side intent routing. */
   patterns?: Array<RegExp | string>;
-  /** Keywords for fuzzy client-side routing. */
-  keywords?: string[];
   /** Execution callback function. */
-  execute: (
+  execute?: (
     payload: { args: Record<string, any>; context?: any; query?: string } | any,
     context?: any
   ) => Promise<any> | any;
+  /** JSON Schema describing the tool's input parameters. */
+  inputSchema?: ToolSchema;
+}
+
+/**
+ * Scoring evaluation result for a tool against a user query.
+ */
+export interface ToolScoreResult {
+  /** Match confidence score (0 to 1). */
+  score: number;
+  /** Reason for match score (e.g. 'keyword', 'example', 'label', 'description', 'excluded'). */
+  reason: string;
+}
+
+/**
+ * Candidate tool matched during routing evaluation.
+ */
+export interface ToolRouteCandidate {
+  /** Candidate tool definition. */
+  tool: ToolDefinition;
+  /** Match score (0 to 1). */
+  score: number;
+  /** Reason for match score. */
+  reason: string;
+}
+
+/**
+ * Result of tool intent routing.
+ */
+export interface ToolRouteResult {
+  /** Best unambiguous matching tool candidate, or null if ambiguous or none matched. */
+  match: ToolRouteCandidate | null;
+  /** Ambiguous candidate tools presented to the user when scores are close. */
+  ambiguous: ToolRouteCandidate[];
+  /** All candidates exceeding routing threshold sorted by score descending. */
+  candidates: ToolRouteCandidate[];
+}
+
+/**
+ * Validation result for tool input parameters against its schema.
+ */
+export interface ToolValidationResult {
+  /** Whether all validation checks passed. */
+  ok: boolean;
+  /** Validated and sanitized argument dictionary. */
+  args: Record<string, any>;
+  /** Array of validation error messages. */
+  errors: string[];
+}
+
+/**
+ * Parameter extraction result from natural language query.
+ */
+export interface ToolExtractResult {
+  /** Successfully extracted arguments. */
+  args: Record<string, any>;
+  /** Required parameter names that are missing. */
+  missing: string[];
+  /** Parameter validation errors encountered during extraction. */
+  errors: string[];
 }
 
 /**
@@ -840,10 +943,15 @@ export interface ToolResultData {
  * State of a tool execution pending missing parameter input from user.
  */
 export interface PendingToolInput {
+  /** Tool being prepared. */
   tool: ToolDefinition;
+  /** Original user query text. */
   query: string;
+  /** Intent routing metadata. */
   routeMeta: Record<string, any>;
+  /** Currently collected parameter arguments. */
   args: Record<string, any>;
+  /** Missing required parameter names. */
   missing: string[];
 }
 
@@ -851,26 +959,41 @@ export interface PendingToolInput {
  * State of multiple ambiguous tool candidates presented to the user.
  */
 export interface PendingToolChoice {
+  /** Chat message ID containing the choice prompt. */
   messageId: string;
-  choices: Array<{ tool: ToolDefinition; score: number }>;
+  /** Candidate choices offered to the user. */
+  choices: ToolRouteCandidate[];
 }
 
 /**
  * Settings for initializing the ToolsEngine.
  */
 export interface ToolsEngineSetting {
+  /** User confirmation timeout in milliseconds. */
   confirmationTimeoutMs?: number;
+  /** Callback to append a chat message. */
   onAddChatMessage?: (role: string, text: string, options?: Record<string, any>) => string | void;
+  /** Callback to update an existing chat message. */
   onUpdateChatMessage?: (id: string, text: string, streaming?: boolean) => void;
+  /** Callback to set chat history drawer open state. */
   onSetHistoryOpen?: (isOpen: boolean) => void;
+  /** Callback to re-render chat history. */
   onRenderHistory?: () => void;
+  /** Callback to immediately speak dialogue audio. */
   onSpokenAudioPlayNow?: (text: string) => void;
+  /** Callback fired when a tool is triggered for execution. */
   onToolCall?: (pendingToolData: any) => void;
+  /** Callback fired when a tool confirmation is offered. */
   onToolOffer?: (offer: { name: string; confirmation: boolean; toolCallId?: string | null }) => void;
+  /** Callback fired when a tool execution is confirmed by the user. */
   onToolConfirm?: (confirm: { name: string; toolCallId?: string | null }) => void;
+  /** Callback fired when a tool is cancelled. */
   onToolCancel?: (cancel: { name: string; reason: string; toolCallId?: string | null }) => void;
+  /** Function returning current chat log array. */
   getChatLog?: () => any[];
+  /** Function returning current chat message sequence number. */
   getChatSeq?: () => number;
+  /** Function returning whether continuous conversation mode is active. */
   isConvoOn?: () => boolean;
 }
 
@@ -878,25 +1001,45 @@ export interface ToolsEngineSetting {
  * Tools Engine instance for parameter extraction, intent routing, and function execution.
  */
 export interface ToolsEngine {
+  /** Registered host tool definitions. */
   HOST_TOOLS: ToolDefinition[];
+  /** Active tool pending missing parameter input. */
   pendingToolInput: PendingToolInput | null;
+  /** Active ambiguous tool choices pending user selection. */
   pendingToolChoice: PendingToolChoice | null;
+  /** Active tool message ID pending user confirmation. */
   pendingToolConfirmation: string | null;
+  /** Current confirmation timeout in milliseconds. */
   confirmationTimeoutMs: number;
-  routeHostTool(queryText: string): any;
+  /** Routes query to the best host tool candidate. */
+  routeHostTool(queryText: string): ToolRouteResult;
+  /** Gets tools available for AI model calling. */
   getAiAvailableTools(): ToolDefinition[];
+  /** Converts tools to OpenAI-compatible function calling schemas. */
   toOpenAiTools(): any[];
+  /** Generates parameter collection prompt for missing field. */
   parameterPrompt(tool: ToolDefinition, propertyName: string, errorText?: string): string;
+  /** Prepares a tool for execution by extracting parameters. */
   prepareTool(tool: ToolDefinition, query: string, routeMeta?: any, existingArgs?: Record<string, any>): void;
+  /** Continues collecting missing parameters from user input. */
   continueToolInput(inputText: string): boolean;
-  offerToolChoices(query: string, candidates: any[]): void;
+  /** Offers ambiguous tool choices to the user. */
+  offerToolChoices(query: string, candidates: ToolRouteCandidate[]): void;
+  /** Processes user response to ambiguous tool choice. */
   continueToolChoice(inputText: string): boolean;
+  /** Selects a specific tool choice. */
   chooseTool(messageId: string, choiceIndex: number): void;
+  /** Offers host tool execution confirmation or executes directly. */
   offerHostTool(tool: ToolDefinition, query: string, routeMeta?: any, args?: Record<string, any>, options?: any): void;
+  /** Executes a confirmed pending tool. */
   executePendingTool(messageId: string): void;
+  /** Cancels a pending tool. */
   cancelPendingTool(messageId: string, options?: { reason?: string }): void;
+  /** Handles user confirmation answer ('yes', 'no', 'cancel'). */
   continueToolConfirmation(inputText: string): boolean;
+  /** Handles tool execution result response. */
   handleToolResult(resultData: ToolResultData): void;
+  /** Executes a tool directly with arguments and context. */
   executeToolDirectly(tool: ToolDefinition, args: Record<string, any>, pendingToolData?: any): Promise<any>;
 }
 

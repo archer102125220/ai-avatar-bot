@@ -8,49 +8,25 @@ import {
 import { sanitizeText } from './utils';
 
 /**
- * @typedef {object} ToolSchemaProperty
- * @property {string} type - 屬性型別 (如 'string', 'number', 'boolean')
- * @property {string} title - 屬性名稱標題
- * @property {string} description - 屬性描述
- * @property {string} contextKey - 上下文中對應的鍵值
- * @property {string} format - 格式限制 (如 'email', 'url', 'phone', 'contact')
- * @property {string[]} prefixes - 允許的前綴陣列
- * @property {string[]} [enum] - 允許的列舉值
- * @property {number} [minimum] - 數值下限
- * @property {number} [maximum] - 數值上限
- * @property {number} maxLength - 字串最大長度
+ * Property definition inside a tool's JSON input schema.
+ * @typedef {import('../../index.d.ts').ToolSchemaProperty} ToolSchemaProperty
  */
 
 /**
- * @typedef {object} ToolSchema
- * @property {string} type - 類型，通常為 'object'
- * @property {Record<string, ToolSchemaProperty>} properties - 屬性定義集合
- * @property {string[]} required - 必填屬性名稱陣列
+ * JSON input schema for tool parameters.
+ * @typedef {import('../../index.d.ts').ToolSchema} ToolSchema
  */
 
 /**
- * @typedef {object} ToolDefinition
- * @property {string} name - 工具名稱
- * @property {string} label - 工具顯示名稱
- * @property {string} description - 工具描述
- * @property {string[]} keywords - 觸發工具的關鍵字
- * @property {string[]} examples - 觸發工具的範例語句
- * @property {string[]} excludeKeywords - 排除的關鍵字
- * @property {number} priority - 工具優先權 (-10 ~ 10)
- * @property {number} routeThreshold - 路由的門檻分數 (0.15 ~ 0.95)
- * @property {boolean} requiresConfirmation - 執行前是否需要確認
- * @property {'client'|'ai'|'hybrid'} [routingMode] - 路由決策模式 (client: 純前端, ai: 純AI, hybrid: 雙軌)
- * @property {'ai_summary'|'direct'} [resultMode] - 執行結果處理模式 (ai_summary: AI總結, direct: 直接輸出)
- * @property {number} [confirmationTimeoutMs] - 工具確認的逾時毫秒數
- * @property {number} [timeoutMs] - 相容舊版的逾時毫秒數
- * @property {function({args: Record<string, any>, context: any, query: string}): (Promise<any>|any)} [execute] - 工具執行函式
- * @property {ToolSchema} inputSchema - 工具參數的輸入綱要
+ * Declarative definition of a tool callable by the AI or client rules.
+ * @typedef {import('../../index.d.ts').ToolDefinition} ToolDefinition
  */
 
 /**
- * 標準化工具的輸入綱要 (Schema)，確保其格式與屬性符合預期。
- * @param {object|ToolSchema} schema - 原始的輸入綱要
- * @returns {ToolSchema} 標準化後的輸入綱要
+ * Normalizes a tool's input parameter schema, ensuring compliant structure, valid property types, and safety limits.
+ *
+ * @param {ToolSchema | Record<string, any>} schema - Raw input schema to normalize.
+ * @returns {ToolSchema} Normalized JSON schema object with valid properties and required fields.
  */
 export function normaliseSchema(schema) {
   if (
@@ -144,9 +120,10 @@ export function normaliseSchema(schema) {
 }
 
 /**
- * 標準化工具定義物件，補齊預設值並確保格式正確。
- * @param {object|ToolDefinition} tool - 原始的工具定義物件
- * @returns {ToolDefinition} 標準化後的工具定義物件
+ * Normalizes a tool definition object, applying default options, sanitizing fields, and formatting input schemas.
+ *
+ * @param {ToolDefinition | Record<string, any>} tool - Raw tool definition object.
+ * @returns {ToolDefinition} Fully normalized tool definition instance.
  */
 export function normaliseTool(tool) {
   const targetTool = typeof tool === 'object' && tool !== null ? tool : {};
@@ -229,9 +206,10 @@ export function normaliseTool(tool) {
 }
 
 /**
- * 取得可供 AI 大模型呼叫的工具清單 (過濾掉純前端模式的工具)
- * @param {Array<object|ToolDefinition>} tools - 工具清單
- * @returns {ToolDefinition[]} 可供 AI 使用的工具清單
+ * Filters the list of registered tools to return those callable by AI models (excluding client-only routing tools).
+ *
+ * @param {Array<ToolDefinition | Record<string, any>>} tools - Array of tool definitions.
+ * @returns {ToolDefinition[]} Array of tools available for AI invocation.
  */
 export function getAiAvailableTools(tools) {
   return (Array.isArray(tools) === true ? tools : [])
@@ -243,9 +221,10 @@ export function getAiAvailableTools(tools) {
 }
 
 /**
- * 將工具定義轉換為 OpenAI 相容的 JSON Schema tools 格式
- * @param {Array<object|ToolDefinition>} tools - 工具清單
- * @returns {Array<object>} OpenAI 相容的 tools 陣列
+ * Transforms registered tool definitions into OpenAI-compatible JSON Schema function definitions.
+ *
+ * @param {Array<ToolDefinition | Record<string, any>>} tools - Array of tool definitions.
+ * @returns {Array<Record<string, any>>} Array of OpenAI function tool schema objects.
  */
 export function toOpenAiTools(tools) {
   const aiTools = getAiAvailableTools(tools);
@@ -286,10 +265,11 @@ export function toOpenAiTools(tools) {
 }
 
 /**
- * 產生工具參數的中文摘要，用於與使用者確認。
- * @param {object|ToolDefinition} tool - 工具定義
- * @param {Record<string, any>} args - 工具的參數物件
- * @returns {string} 中文參數摘要字串，以頓號分隔
+ * Generates a human-readable argument summary string for user confirmation dialogue.
+ *
+ * @param {ToolDefinition | Record<string, any>} tool - Tool definition object.
+ * @param {Record<string, any>} args - Tool arguments dictionary.
+ * @returns {string} Formatted parameter summary string.
  */
 export function argumentSummary(tool, args) {
   const normalizedTool = normaliseTool(tool);

@@ -2,13 +2,14 @@ import { sanitizeText, normalizeText, findPrefixedValue } from './utils';
 import { normaliseSchema, normaliseTool } from './schema';
 
 /**
- * 根據屬性定義，從查詢字串或上下文中提取出該屬性的值。
- * @param {string} propertyName - 屬性名稱
- * @param {import('./schema').ToolSchemaProperty} propertySchema - 屬性定義
- * @param {string} query - 使用者查詢字串
- * @param {Record<string, any>} context - 上下文資料物件
- * @param {boolean} allowWhole - 是否允許將整個查詢作為字串值
- * @returns {any} 提取出的屬性值，若無則為 undefined
+ * Extracts a property value from a query string or execution context based on its schema definition.
+ *
+ * @param {string} propertyName - Property field name.
+ * @param {import('../../index.d.ts').ToolSchemaProperty} propertySchema - Property schema definition.
+ * @param {string} query - User natural language query.
+ * @param {Record<string, any>} context - Execution context object.
+ * @param {boolean} [allowWhole] - Whether to allow absorbing the entire query as a single string parameter.
+ * @returns {any} Extracted property value, or undefined if no value could be extracted.
  */
 export function extractPropertyValue(
   propertyName,
@@ -110,17 +111,16 @@ export function extractPropertyValue(
 }
 
 /**
- * @typedef {object} ToolValidationResult
- * @property {boolean} ok - 驗證是否成功
- * @property {Record<string, any>} args - 驗證通過的參數
- * @property {string[]} errors - 錯誤訊息陣列
+ * Validation result for tool input parameters against its schema.
+ * @typedef {import('../../index.d.ts').ToolValidationResult} ToolValidationResult
  */
 
 /**
- * 驗證輸入資料是否符合指定的綱要 (Schema)。
- * @param {object|import('./schema').ToolSchema} schema - 工具的輸入綱要
- * @param {Record<string, any>} input - 要驗證的輸入資料
- * @returns {ToolValidationResult} 驗證結果，包含是否成功、有效的參數及錯誤訊息陣列
+ * Validates an input arguments dictionary against the tool parameter schema.
+ *
+ * @param {import('../../index.d.ts').ToolSchema | Record<string, any>} schema - Tool parameter schema.
+ * @param {Record<string, any>} input - Input arguments dictionary to validate.
+ * @returns {ToolValidationResult} Validation result containing status, sanitized arguments, and error list.
  */
 export function validate(schema, input) {
   const normalizedSchema = normaliseSchema(schema);
@@ -243,21 +243,20 @@ export function validate(schema, input) {
 }
 
 /**
- * @typedef {object} ToolExtractResult
- * @property {Record<string, any>} args - 成功提取的參數
- * @property {string[]} missing - 缺失的必填參數名稱
- * @property {string[]} errors - 驗證錯誤訊息陣列
+ * Parameter extraction result from natural language query.
+ * @typedef {import('../../index.d.ts').ToolExtractResult} ToolExtractResult
  */
 
 /**
- * 從使用者的查詢中提取並驗證工具所需的參數。
- * @param {object|import('./schema').ToolDefinition} tool - 目標工具定義
- * @param {string} query - 使用者的輸入查詢
- * @param {Record<string, any>} [context] - 上下文資料
- * @param {Record<string, any>} [existing] - 已存在的參數
- * @param {string[]} [onlyNames] - 限制只提取指定的參數名稱
- * @param {boolean} [allowWhole] - 是否允許單一字串參數吸收整個查詢
- * @returns {ToolExtractResult} 提取結果，包含成功提取的參數、缺失的必填參數及驗證錯誤
+ * Extracts and validates parameters for a specific tool from user natural language query and context.
+ *
+ * @param {import('../../index.d.ts').ToolDefinition | Record<string, any>} tool - Target tool definition.
+ * @param {string} query - User input query string.
+ * @param {Record<string, any>} [context] - Session context dictionary.
+ * @param {Record<string, any>} [existing] - Existing/previously collected arguments.
+ * @param {string[]} [onlyNames] - Filter list of specific property names to extract.
+ * @param {boolean} [allowWhole] - Whether to allow single string parameter to absorb entire query.
+ * @returns {ToolExtractResult} Extraction result containing extracted args, missing required fields, and errors.
  */
 export function extract(tool, query, context, existing, onlyNames, allowWhole) {
   const normalizedTool = normaliseTool(tool);

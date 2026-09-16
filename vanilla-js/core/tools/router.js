@@ -3,16 +3,16 @@ import { normalizeText, similarity } from './utils';
 import { normaliseTool } from './schema';
 
 /**
- * @typedef {object} ToolScoreResult
- * @property {number} score - 評分分數 (0-1)
- * @property {string} reason - 評分原因 (如 keyword, example, label, description 等)
+ * Scoring evaluation result for a tool against a user query.
+ * @typedef {import('../../index.d.ts').ToolScoreResult} ToolScoreResult
  */
 
 /**
- * 根據使用者的輸入 (Query)，為指定的工具進行評分，評估其適用性。
- * @param {import('./schema').ToolDefinition} tool - 要評分的工具定義物件 (需先標準化)
- * @param {string} query - 使用者的輸入查詢
- * @returns {ToolScoreResult} 包含分數 (0-1) 與評分原因的物件
+ * Evaluates and scores a tool definition against a user query string based on keywords, examples, labels, and descriptions.
+ *
+ * @param {import('../../index.d.ts').ToolDefinition} tool - Target tool definition to score.
+ * @param {string} query - User natural language query string.
+ * @returns {ToolScoreResult} Object containing confidence score (0 to 1) and match reason.
  */
 export function scoreTool(tool, query) {
   const normalizedQuery = normalizeText(query);
@@ -70,24 +70,21 @@ export function scoreTool(tool, query) {
 }
 
 /**
- * @typedef {object} ToolRouteCandidate
- * @property {import('./schema').ToolDefinition} tool - 候選工具
- * @property {number} score - 評分分數
- * @property {string} reason - 評分原因
+ * Candidate tool matched during routing evaluation.
+ * @typedef {import('../../index.d.ts').ToolRouteCandidate} ToolRouteCandidate
  */
 
 /**
- * @typedef {object} ToolRouteResult
- * @property {ToolRouteCandidate|null} match - 最佳匹配工具
- * @property {ToolRouteCandidate[]} ambiguous - 模糊匹配選項
- * @property {ToolRouteCandidate[]} candidates - 所有候選工具
+ * Result of tool intent routing.
+ * @typedef {import('../../index.d.ts').ToolRouteResult} ToolRouteResult
  */
 
 /**
- * 根據使用者輸入，在多個工具中路由出最適合的工具與候選名單。
- * @param {Array<object|import('./schema').ToolDefinition>} tools - 可用的工具清單
- * @param {string} query - 使用者的輸入查詢
- * @returns {ToolRouteResult} 路由結果，包含最佳匹配、模糊匹配選項與所有候選工具
+ * Routes user query across available tools to determine the best candidate match or ambiguous choices.
+ *
+ * @param {Array<import('../../index.d.ts').ToolDefinition | Record<string, any>>} tools - Array of available tool definitions.
+ * @param {string} query - User natural language query string.
+ * @returns {ToolRouteResult} Routing result containing best match, ambiguous candidate list, and all candidates.
  */
 export function route(tools, query) {
   const candidateList = (Array.isArray(tools) === true ? tools : [])
