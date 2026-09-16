@@ -1,4 +1,4 @@
-import { createBaseStore } from '../store';
+import { createBaseStore } from '@/core/store';
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES, LOCALE_LABELS } from './constants';
 import zhTW from './locales/zh-TW';
 import enUS from './locales/en-US';

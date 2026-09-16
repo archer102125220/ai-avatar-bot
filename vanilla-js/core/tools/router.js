@@ -1,4 +1,4 @@
-import { TOOL_ROUTING_MODE_MAP } from '../constants';
+import { TOOL_ROUTING_MODE_MAP } from '@/core/constants';
 import { normalizeText, similarity } from './utils';
 import { normaliseTool } from './schema';
 

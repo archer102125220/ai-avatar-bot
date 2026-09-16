@@ -3,7 +3,7 @@
  * @module core/ui/events
  */
 
-import { SUPPORTED_LOCALES } from '../i18n';
+import { SUPPORTED_LOCALES } from '@/core/i18n';
 import { setHistoryOpen, renderHistory } from './history';
 
 /**

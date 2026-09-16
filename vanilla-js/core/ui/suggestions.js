@@ -3,7 +3,7 @@
  * @module core/ui/suggestions
  */
 
-import { resolveLocalized } from '../i18n';
+import { resolveLocalized } from '@/core/i18n';
 
 /**
  * Renders suggested dialogue prompts and titles based on the current persona mode ('companion' | 'assistant') and i18n configuration.
