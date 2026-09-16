@@ -5,7 +5,7 @@ import {
   bindUiEvent,
   initSkinModeChangeButton,
   updateUIStrings
-} from '../ui';
+} from '@/core/ui';
 import { normalizeOptions } from './options';
 import { createAvatarWidget } from './widget';
 import { setupStoreSubscribers, setupI18nSubscribers } from './subscribers';
