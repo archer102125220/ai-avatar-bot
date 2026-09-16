@@ -31,8 +31,8 @@ export * from './engine-factory';
 /**
  * Initializes, mounts, and wires together all subsystems of the AI Avatar Bot.
  *
- * @param {import('../../index.d.ts').AvatarBotOptions} [rawOptions={}] - Configuration options for initializing the avatar bot.
- * @returns {Promise<import('../../index.d.ts').AiAvatarWidget | void>} Promise resolving to the initialized widget controller instance.
+ * @param {import('@types').AvatarBotOptions} [rawOptions={}] - Configuration options for initializing the avatar bot.
+ * @returns {Promise<import('@types').AiAvatarWidget | void>} Promise resolving to the initialized widget controller instance.
  */
 export async function initAvatarBot(rawOptions = {}) {
   if (typeof window !== 'object') {

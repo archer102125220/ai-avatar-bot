@@ -19,9 +19,9 @@ import { callOptionEvent } from './options';
  * Creates and initializes the Brain engine instance.
  *
  * @param {Object} params
- * @param {import('../../index.d.ts').AvatarBotOptions} params.options - Raw configuration options.
- * @param {import('../../index.d.ts').AiAvatarWidget} params.widget - Widget instance.
- * @param {import('../../index.d.ts').BaseStore} params.rootStore - Central reactive state store.
+ * @param {import('@types').AvatarBotOptions} params.options - Raw configuration options.
+ * @param {import('@types').AiAvatarWidget} params.widget - Widget instance.
+ * @param {import('@types').BaseStore} params.rootStore - Central reactive state store.
  * @param {any} params.i18nEngine - Internationalization engine instance.
  * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - Getter returning all engine instances.
  * @param {() => any} params.getUiDom - Getter returning UI DOM elements bundle.
@@ -450,9 +450,9 @@ export async function setupBrainEngine({
  * Creates and initializes the Speech engine instance (STT and TTS).
  *
  * @param {Object} params
- * @param {import('../../index.d.ts').AvatarBotOptions} params.options - Raw configuration options.
- * @param {import('../../index.d.ts').AiAvatarWidget} params.widget - Widget instance.
- * @param {import('../../index.d.ts').BaseStore} params.rootStore - Central reactive state store.
+ * @param {import('@types').AvatarBotOptions} params.options - Raw configuration options.
+ * @param {import('@types').AiAvatarWidget} params.widget - Widget instance.
+ * @param {import('@types').BaseStore} params.rootStore - Central reactive state store.
  * @param {any} params.i18nEngine - Internationalization engine instance.
  * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - Getter returning all engine instances.
  * @param {() => any} params.getUiDom - Getter returning UI DOM elements bundle.
@@ -597,8 +597,8 @@ export async function setupSpeechEngine({
  * Creates and initializes the Tools engine instance for external function calls.
  *
  * @param {Object} params
- * @param {import('../../index.d.ts').AvatarBotOptions} params.options - Raw configuration options.
- * @param {import('../../index.d.ts').AiAvatarWidget} params.widget - Widget instance.
+ * @param {import('@types').AvatarBotOptions} params.options - Raw configuration options.
+ * @param {import('@types').AiAvatarWidget} params.widget - Widget instance.
  * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - Getter returning all engine instances.
  * @param {() => any} params.getUiDom - Getter returning UI DOM elements bundle.
  * @returns {any} Initialized Tools engine instance.
@@ -730,9 +730,9 @@ export function setupToolsEngine({ options, widget, getEngines, getUiDom }) {
  * Creates and initializes the Skin rendering engine instance (2D Live2D / 3D VRM).
  *
  * @param {Object} params
- * @param {import('../../index.d.ts').AvatarBotOptions} params.options - Raw configuration options.
- * @param {import('../../index.d.ts').AiAvatarWidget} params.widget - Widget instance.
- * @param {import('../../index.d.ts').BaseStore} params.rootStore - Central reactive state store.
+ * @param {import('@types').AvatarBotOptions} params.options - Raw configuration options.
+ * @param {import('@types').AiAvatarWidget} params.widget - Widget instance.
+ * @param {import('@types').BaseStore} params.rootStore - Central reactive state store.
  * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - Getter returning all engine instances.
  * @param {() => any} params.getUiDom - Getter returning UI DOM elements bundle.
  * @param {HTMLElement} params.stageEl - Avatar canvas container DOM element.

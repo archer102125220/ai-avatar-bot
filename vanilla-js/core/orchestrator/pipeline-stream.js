@@ -4,9 +4,9 @@ import { callOptionEvent } from './options';
  * Creates the Brain streaming text and Speech audio/lip-sync synchronization pipeline (Stream Pipeline).
  *
  * @param {Object} params
- * @param {import('../../index.d.ts').AiAvatarWidget} [params.widget] - Widget instance.
- * @param {() => import('../../index.d.ts').AiAvatarWidget} [params.getWidget] - Getter returning the widget instance.
- * @param {import('../../index.d.ts').AvatarBotOptions} params.options - Raw configuration options.
+ * @param {import('@types').AiAvatarWidget} [params.widget] - Widget instance.
+ * @param {() => import('@types').AiAvatarWidget} [params.getWidget] - Getter returning the widget instance.
+ * @param {import('@types').AvatarBotOptions} params.options - Raw configuration options.
  * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - Getter returning all engine instances.
  * @param {{ isActive: boolean, continuationIndex: number, maxContinuations: number, accumulatedText: string }} params.autoContinueState - Auto-continue state tracking object.
  * @param {{ sentenceBuffer: string, buf: string }} params.streamSpeechState - Speech streaming buffer state object.

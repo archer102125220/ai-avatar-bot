@@ -23,16 +23,16 @@ import { initSkinModeChangeButton, renderSuggestions } from '@/core/ui';
  * Constructs and encapsulates the public AiAvatarWidget controller instance.
  *
  * @param {Object} params - Initialization parameters.
- * @param {import('../../index.d.ts').AvatarBotOptions} params.options - Raw configuration options.
+ * @param {import('@types').AvatarBotOptions} params.options - Raw configuration options.
  * @param {HTMLElement} params.container - Root widget HTML container.
- * @param {import('../../index.d.ts').BaseStore} params.rootStore - Central reactive state store.
- * @param {import('../../index.d.ts').I18nEngine} params.i18nEngine - Internationalization engine instance.
+ * @param {import('@types').BaseStore} params.rootStore - Central reactive state store.
+ * @param {import('@types').I18nEngine} params.i18nEngine - Internationalization engine instance.
  * @param {boolean} params.initialMinimal - Whether to start in minimal UI mode.
  * @param {() => any} params.getUiDom - Function returning UI DOM management object.
- * @param {() => { brainEngine: import('../../index.d.ts').BrainEngine, speechEngine: import('../../index.d.ts').SpeechEngine, skinEngine: import('../../index.d.ts').SkinEngine, toolsEngine: import('../../index.d.ts').ToolsEngine }} params.getEngines - Function returning active engine instances.
+ * @param {() => { brainEngine: import('@types').BrainEngine, speechEngine: import('@types').SpeechEngine, skinEngine: import('@types').SkinEngine, toolsEngine: import('@types').ToolsEngine }} params.getEngines - Function returning active engine instances.
  * @param {(text: string) => Promise<void> | void} params.handleUser - User input handling pipeline function.
  * @param {(enabled: boolean) => void} [params.updateModelDropListeners] - Function to attach or detach drag-and-drop model listeners.
- * @returns {import('../../index.d.ts').AiAvatarWidget} The created avatar widget controller.
+ * @returns {import('@types').AiAvatarWidget} The created avatar widget controller.
  */
 export function createAvatarWidget({
   options,

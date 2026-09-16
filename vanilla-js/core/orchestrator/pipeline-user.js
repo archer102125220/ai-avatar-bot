@@ -2,9 +2,9 @@
  * Creates the user input handling pipeline (`handleUser`).
  *
  * @param {Object} params
- * @param {import('../../index.d.ts').AiAvatarWidget} [params.widget] - Widget instance.
- * @param {() => import('../../index.d.ts').AiAvatarWidget} [params.getWidget] - Getter returning the widget instance.
- * @param {import('../../index.d.ts').BaseStore} params.rootStore - Central reactive state store.
+ * @param {import('@types').AiAvatarWidget} [params.widget] - Widget instance.
+ * @param {() => import('@types').AiAvatarWidget} [params.getWidget] - Getter returning the widget instance.
+ * @param {import('@types').BaseStore} params.rootStore - Central reactive state store.
  * @param {any} params.i18nEngine - Internationalization engine instance.
  * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - Getter returning all engine instances.
  * @param {{ isActive: boolean, continuationIndex: number, maxContinuations: number, accumulatedText: string }} params.autoContinueState - Auto-continue state tracking object.

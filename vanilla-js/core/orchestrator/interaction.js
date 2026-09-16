@@ -6,10 +6,10 @@ import { callOptionEvent } from './options';
  * Creates the avatar tap interaction event handler (`onTapAvatar`).
  *
  * @param {Object} params
- * @param {import('../../index.d.ts').AiAvatarWidget} [params.widget] - Widget instance.
- * @param {() => import('../../index.d.ts').AiAvatarWidget} [params.getWidget] - Getter returning the widget instance.
- * @param {import('../../index.d.ts').AvatarBotOptions} params.options - Raw configuration options.
- * @param {import('../../index.d.ts').BaseStore} params.rootStore - Central reactive state store.
+ * @param {import('@types').AiAvatarWidget} [params.widget] - Widget instance.
+ * @param {() => import('@types').AiAvatarWidget} [params.getWidget] - Getter returning the widget instance.
+ * @param {import('@types').AvatarBotOptions} params.options - Raw configuration options.
+ * @param {import('@types').BaseStore} params.rootStore - Central reactive state store.
  * @param {any} params.i18nEngine - Internationalization engine instance.
  * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - Getter returning all engine instances.
  * @returns {() => void} Tap interaction callback function.

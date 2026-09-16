@@ -42,12 +42,12 @@ export function callOptionEvent(
 /**
  * Validates and normalizes raw AvatarBotOptions, initializing the root reactive store and i18n engine.
  *
- * @param {import('../../index.d.ts').AvatarBotOptions} [rawOptions={}] - User-provided initialization options.
+ * @param {import('@types').AvatarBotOptions} [rawOptions={}] - User-provided initialization options.
  * @returns {{
- *   rawOptions: import('../../index.d.ts').AvatarBotOptions,
+ *   rawOptions: import('@types').AvatarBotOptions,
  *   container: HTMLElement,
- *   rootStore: import('../../index.d.ts').BaseStore,
- *   i18nEngine: import('../../index.d.ts').I18nEngine,
+ *   rootStore: import('@types').BaseStore,
+ *   i18nEngine: import('@types').I18nEngine,
  *   initialMinimal: boolean,
  *   isModelDropEnabled: boolean,
  *   isEngineToggleEnabled: boolean,

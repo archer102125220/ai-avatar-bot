@@ -6,8 +6,8 @@ import { callOptionEvent } from './options';
  * Subscribes to central rootStore state changes and synchronizes updates to sub-engines and UI components.
  *
  * @param {Object} params
- * @param {import('../../index.d.ts').AiAvatarWidget} params.widget - Widget instance.
- * @param {import('../../index.d.ts').BaseStore} params.rootStore - Central reactive state store.
+ * @param {import('@types').AiAvatarWidget} params.widget - Widget instance.
+ * @param {import('@types').BaseStore} params.rootStore - Central reactive state store.
  * @param {any} params.i18nEngine - Internationalization engine instance.
  * @param {() => any} params.getUiDom - Getter returning UI DOM elements bundle.
  * @param {() => { brainEngine: any, speechEngine: any, skinEngine: any, toolsEngine: any }} params.getEngines - Getter returning all engine instances.
@@ -185,9 +185,9 @@ export function setupStoreSubscribers({
  * Subscribes to i18n engine changes, synchronizing UI translations, mic states, voice indicators, and triggering `onLanguageChanged`.
  *
  * @param {Object} params
- * @param {import('../../index.d.ts').AiAvatarWidget} params.widget - Widget instance.
- * @param {import('../../index.d.ts').AvatarBotOptions} params.options - Raw configuration options.
- * @param {import('../../index.d.ts').BaseStore} params.rootStore - Central reactive state store.
+ * @param {import('@types').AiAvatarWidget} params.widget - Widget instance.
+ * @param {import('@types').AvatarBotOptions} params.options - Raw configuration options.
+ * @param {import('@types').BaseStore} params.rootStore - Central reactive state store.
  * @param {any} params.i18nEngine - Internationalization engine instance.
  * @param {HTMLElement} params.container - Widget root container DOM element.
  * @param {() => any} params.getUiDom - Getter returning UI DOM elements bundle.
