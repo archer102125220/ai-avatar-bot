@@ -219,8 +219,8 @@ const avatarWidget = await initAvatarBot({
 | `maxAutoContinuations` | `number` | `3` | 最大自動接續次數上限（防止死循環） |
 | `autoContinueMode` | `'stream'\|'buffered'` | `'stream'` | 自動接續輸出模式（`'stream'` 即時串流接續 \| `'buffered'` 全生成完再輸出） |
 | `autoContinuePrompt` | `string\|Function` | `null` | 自訂自動接續提示詞字串或動態回呼函式 `(index, accumulatedText) => string` |
-| `knowledge` | `Array\|string` | `null` | 助理模式預載的知識庫資料 (JSON Array 或字串) |
-| `companionKnowledge` | `Array\|string` | `null` | 陪伴模式預載的知識庫資料 |
+| `knowledge` | `KnowledgeEntry[]\|string` | `null` | 助理模式預載的知識庫資料 (JSON Array 或字串，[詳見 1.1 節](#11-知識庫資料結構規格-knowledge-entry-schema)) |
+| `companionKnowledge` | `KnowledgeEntry[]\|string` | `null` | 陪伴模式預載的知識庫資料 |
 | `modes` | `Object` | `null` | 宣告式自訂模式註冊表（自訂專屬人格、Prompt、問候語） |
 
 ### 記憶與上下文壓縮設定 (Memory & Compression)
@@ -231,7 +231,7 @@ const avatarWidget = await initAvatarBot({
 | `maxHistoryTurns` | `number` | `6` | 保留的最大對話輪數（1 輪 = 1 問 + 1 答） |
 | `memoryKey` | `string` | `'avatar-widget-memory'` | 本機 Storage 記憶儲存的 Key 名稱 |
 | `memoryAdapter` | `MemoryAdapter` | `null` | 自訂儲存轉接器實例（需實作 `load`, `save`, `clear`，[詳見章節](#3-記憶管理資料結構與自訂儲存轉接器)） |
-| `compression` | `Object` | `{}` | 上下文動態壓縮與顯存控制設定（包含 `strategy`, `maxTurns`, `maxTotalChars`, `webLlm`, `aiProvider`, `customCompressor`） |
+| `compression` | `BrainCompressionOptions\|Object` | `{}` | 上下文動態壓縮與顯存控制設定（包含 `strategy`, `maxTurns`, `maxTotalChars`, `webLlm`, `aiProvider`, `customCompressor`，[詳見 3.1 節](#31-上下文動態壓縮設定-context-compression)） |
 | `systemContextTemplate` | `string\|Function` | `null` | 助理模式系統提示詞模板 |
 | `companionSystemContextTemplate` | `string\|Function` | `null` | 陪伴模式系統提示詞模板 |
 | `ragTemplate` | `string\|Function` | `null` | RAG 參考資料模板 |
@@ -341,6 +341,25 @@ const widget = await initAvatarBot({
     stream: isStream
   })
 });
+```
+
+#### 1.1 知識庫資料結構規格 (Knowledge Entry Schema)
+
+當使用預設檢索或 RAG 輔助問答時，`knowledge` 與 `companionKnowledge` 支援以符合 `KnowledgeEntry` 介面的物件陣列形式傳入：
+
+```typescript
+interface KnowledgeEntry {
+  /** 問題或檢索比對目標字串 */
+  q: string;
+  /** 關鍵字（支援以空白分隔之字串或字串陣列） */
+  kw?: string | string[];
+  /** 回答或回覆內容 */
+  a: string;
+  /** 知識來源標記（選填） */
+  source?: string;
+  /** 開發者自訂擴充欄位（可自由存放自訂分類、ID 等資訊） */
+  [key: string]: any;
+}
 ```
 
 ---
@@ -788,6 +807,26 @@ import { initI18nEngine, defaultLocales } from 'ai-avatar-bot-vanilla-js/i18n';
 
 // 6. 引入核心常數映射表
 import { GENDER_MAP, ENGINE_MODE_MAP, AVATAR_MODE_MAP } from 'ai-avatar-bot-vanilla-js/constants';
+
+// 7. 引入完整 TypeScript 型別定義 (Type Definitions)
+import type {
+  AvatarBotOptions,
+  AiAvatarWidget,
+  BrainEngine,
+  BrainEngineOptions,
+  BrainCompressionOptions,
+  SkinEngine,
+  SpeechEngine,
+  ToolsEngine,
+  ToolDefinition,
+  I18nEngine,
+  KnowledgeEntry,
+  MemoryData,
+  MemoryAdapter
+} from 'ai-avatar-bot-vanilla-js';
+
+// 亦可直接從 /types 子路徑引入型別
+import type { AvatarBotOptions } from 'ai-avatar-bot-vanilla-js/types';
 ```
 
 ---

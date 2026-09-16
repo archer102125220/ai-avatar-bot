@@ -26,7 +26,7 @@
 
 | 套件目錄 | 套件名稱 / 類型 | 狀態 | 定位與特點說明 | 快速連結 |
 | :--- | :--- | :---: | :--- | :---: |
-| [`/vanilla-js`](./vanilla-js) | `ai-avatar-bot-vanilla-js` | 🟢 **最完整 (核心主力)** | **零框架依賴**的純 JavaScript 核心 SDK。具備多引擎架構、記憶壓縮、Auto-Continue、無頭模式 (Headless) 與 Vite/Webpack 離線構建插件。後續所有版本的基石。 | [📄 詳細文件](./vanilla-js/README.md) |
+| [`/vanilla-js`](./vanilla-js) | `ai-avatar-bot-vanilla-js` | 🟢 **最完整 (核心主力)** | **零框架依賴**的純 JavaScript 核心 SDK，內建完整 TypeScript 定義檔 (`types/index.d.ts`)。具備多引擎架構、記憶壓縮、Auto-Continue、無頭模式 (Headless) 與 Vite/Webpack 離線構建插件。後續所有版本的基石。 | [📄 詳細文件](./vanilla-js/README.md) |
 | [`/iframe`](./iframe) | `ai-avatar-bot-iframe` | 🟡 **經典重構** | **原版初步模組化重構**。保留原作者經典的 Iframe 與 `embed.js` 一行腳本嵌入設計，提供極致的 DOM / CSS 隔離與開箱即用的 Standalone Demo。 | [📄 詳細文件](./iframe/README.md) |
 | [`/typescript`](./typescript) | `ai-avatar-bot-typescript` | 🚧 **進行中** | 以 `vanilla-js` 為基礎移植的 **TypeScript 型別安全版**。提供完整的型別定義檔 (`.d.ts`)、介面約束與更佳的 IDE 自動補全體驗。 | [📁 原始碼](./typescript) |
 | [`/vue`](./vue) | `ai-avatar-bot-vue` | 🚧 **進行中** | 針對 **Vue 3** 封裝的專屬元件庫。提供 `<AiAvatarBot />` 元件與 `useAvatar` 組合式函式 (Composables)，支援響應式 Props 與自訂插槽。 | [📁 原始碼](./vue) |

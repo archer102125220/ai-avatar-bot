@@ -219,8 +219,8 @@ Options object accepted by `initAvatarBot(options)`:
 | `maxAutoContinuations` | `number` | `3` | Maximum consecutive auto-continuation turns limit (prevents infinite loops). |
 | `autoContinueMode` | `'stream'\|'buffered'` | `'stream'` | Output mode for auto-continuation (`'stream'` for real-time streaming continuation \| `'buffered'` for full-generation output). |
 | `autoContinuePrompt` | `string\|Function` | `null` | Custom continue prompt string or dynamic prompt generator function `(index, accumulatedText) => string`. |
-| `knowledge` | `Array\|string` | `null` | Preloaded knowledge base for assistant mode (JSON array or string). |
-| `companionKnowledge` | `Array\|string` | `null` | Preloaded knowledge base for companion mode. |
+| `knowledge` | `KnowledgeEntry[]\|string` | `null` | Preloaded knowledge base for assistant mode (JSON array or string, [see Section 1.1](#11-knowledge-entry-schema)). |
+| `companionKnowledge` | `KnowledgeEntry[]\|string` | `null` | Preloaded knowledge base for companion mode. |
 | `modes` | `Object` | `null` | Declarative custom mode definitions (prompts, greetings, rules). |
 
 ### Memory & Context Compression
@@ -231,7 +231,7 @@ Options object accepted by `initAvatarBot(options)`:
 | `maxHistoryTurns` | `number` | `6` | Maximum conversation turns retained (1 turn = 1 user msg + 1 AI reply). |
 | `memoryKey` | `string` | `'avatar-widget-memory'` | Key name for browser LocalStorage persistence. |
 | `memoryAdapter` | `MemoryAdapter` | `null` | Custom storage adapter instance (must implement `load`, `save`, `clear`, [see guide](#3-memory-management-data-schema--custom-storage-adapter)). |
-| `compression` | `Object` | `{}` | Context compression settings (supports `strategy`, `maxTurns`, `maxTotalChars`, `webLlm`, `aiProvider`, `customCompressor`). |
+| `compression` | `BrainCompressionOptions\|Object` | `{}` | Context compression settings (supports `strategy`, `maxTurns`, `maxTotalChars`, `webLlm`, `aiProvider`, `customCompressor`, [see Section 3.1](#31-context-dynamic-compression)). |
 | `systemContextTemplate` | `string\|Function` | `null` | System prompt template for assistant mode. |
 | `companionSystemContextTemplate` | `string\|Function` | `null` | System prompt template for companion mode. |
 | `ragTemplate` | `string\|Function` | `null` | RAG reference material template. |
@@ -341,6 +341,25 @@ const widget = await initAvatarBot({
     stream: isStream
   })
 });
+```
+
+#### 1.1 Knowledge Entry Schema
+
+When using default retrieval matching or RAG-assisted Q&A, `knowledge` and `companionKnowledge` accept an array of objects conforming to the `KnowledgeEntry` interface:
+
+```typescript
+interface KnowledgeEntry {
+  /** Target question or query matching string */
+  q: string;
+  /** Keywords (space-separated string or string array) */
+  kw?: string | string[];
+  /** Answer response content */
+  a: string;
+  /** Knowledge source reference label (optional) */
+  source?: string;
+  /** Developer custom extension metadata fields */
+  [key: string]: any;
+}
 ```
 
 ---
@@ -785,6 +804,26 @@ import { initI18nEngine, defaultLocales } from 'ai-avatar-bot-vanilla-js/i18n';
 
 // 6. Core Constants Map
 import { GENDER_MAP, ENGINE_MODE_MAP, AVATAR_MODE_MAP } from 'ai-avatar-bot-vanilla-js/constants';
+
+// 7. Full TypeScript Type Definitions
+import type {
+  AvatarBotOptions,
+  AiAvatarWidget,
+  BrainEngine,
+  BrainEngineOptions,
+  BrainCompressionOptions,
+  SkinEngine,
+  SpeechEngine,
+  ToolsEngine,
+  ToolDefinition,
+  I18nEngine,
+  KnowledgeEntry,
+  MemoryData,
+  MemoryAdapter
+} from 'ai-avatar-bot-vanilla-js';
+
+// Or import types directly from the /types subpath
+import type { AvatarBotOptions } from 'ai-avatar-bot-vanilla-js/types';
 ```
 
 ---
