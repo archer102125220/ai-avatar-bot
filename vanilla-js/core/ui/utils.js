@@ -1,7 +1,14 @@
 /**
- * 遍歷並更新容器內所有帶有 data-i18n 屬性的 UI 元素。
- * @param {HTMLElement} container - 包含 UI 元素的容器
- * @param {Object} i18nEngine - 多語系引擎實例
+ * @file UI utility helpers for localized DOM updating, clipboard copying, and skin mode switch button setup.
+ * @module core/ui/utils
+ */
+
+/**
+ * Traverses and updates all elements in the container matching `data-i18n`, `data-i18n-html`, `data-i18n-placeholder`, and `data-i18n-aria`.
+ *
+ * @param {HTMLElement} container - Target container element containing UI nodes.
+ * @param {import('../../index.d.ts').I18nEngine} i18nEngine - Internationalization engine instance.
+ * @returns {void}
  */
 export function updateUIStrings(container, i18nEngine) {
   if (
@@ -41,9 +48,10 @@ export function updateUIStrings(container, i18nEngine) {
 }
 
 /**
- * 複製指定文字到系統剪貼簿。
- * @param {string} text - 要複製的文字內容。
- * @returns {Promise<void>} 複製完成後解析的 Promise。
+ * Copies the provided string text to the system clipboard using the modern Clipboard API or execCommand fallback.
+ *
+ * @param {string} text - Text string content to copy to clipboard.
+ * @returns {Promise<void>} Resolves when copy operation finishes.
  */
 export function copyText(text) {
   if (
@@ -70,11 +78,13 @@ export function copyText(text) {
 }
 
 /**
- * 根據是否具備 2D 與 3D 模型設定以及開發者設定，初始化切換引擎模式的按鈕。
- * @param {import('./index').UiContext|null} context - 應用程式的共用狀態與參考（需包含 uiDom, skinEngine 等）。
- * @param {boolean} [has2D=false] - 是否具備 2D 模型。
- * @param {boolean} [has3D=false] - 是否具備 3D 模型。
- * @param {boolean} [isEngineToggleEnabled=true] - 是否啟用 2D/3D 切換按鈕。
+ * Initializes and syncs the 2D / 3D model engine toggle button based on model availability and configuration.
+ *
+ * @param {import('../../index.d.ts').UiContext|null} [context=null] - Shared UI context references (containing uiDom, skinEngine, etc.).
+ * @param {boolean} [has2D=false] - Whether 2D Live2D model assets are configured.
+ * @param {boolean} [has3D=false] - Whether 3D VRM model assets are configured.
+ * @param {boolean} [isEngineToggleEnabled=true] - Whether 2D/3D mode toggling is allowed.
+ * @returns {void}
  */
 export function initSkinModeChangeButton(
   context = null,
@@ -96,7 +106,7 @@ export function initSkinModeChangeButton(
     has3D === true;
 
   if (shouldShow === true) {
-    // 啟用且兩個皮都給 → 顯示切換鈕，並同步當前模式文字
+    // Enabled and both models present -> display switch button and sync active mode label
     engineButtonEl.style.display = '';
     if (
       context?.skinEngine?.engineMode ===
@@ -128,4 +138,5 @@ export function initSkinModeChangeButton(
     engineButtonEl.style.display = 'none';
   }
 }
+
 

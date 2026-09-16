@@ -1,3 +1,8 @@
+/**
+ * @file AnalogJS (Angular Meta-framework) Vite plugin for streaming avatar-skin assets in dev and copying on build (CommonJS).
+ * @module plugins/analog
+ */
+
 const path = require('path');
 const fs = require('fs');
 const { getAvatarSkinPath, copyDirRecursive } = require('./node.cjs');
@@ -21,6 +26,12 @@ const MIME_TYPES = {
   '.wav': 'audio/wav'
 };
 
+/**
+ * Resolves appropriate MIME content-type string for a given file path.
+ *
+ * @param {string} filePath - Target file path.
+ * @returns {string} MIME content-type string.
+ */
 function getMimeType(filePath) {
   const lower = String(filePath || '').toLowerCase();
   for (const ext in MIME_TYPES) {
@@ -32,12 +43,10 @@ function getMimeType(filePath) {
 }
 
 /**
- * AnalogJS 專用 Vite 插件 (CommonJS)
+ * AnalogJS Vite plugin for streaming avatar-skin static assets during dev and auto-copying on build (CommonJS).
  *
- * @param {Object} [options={}] - 設定選項
- * @param {string} [options.route='/avatar-skin'] - 模型虛擬路由（預設 '/avatar-skin'）
- * @param {string} [options.assetsDir] - 自訂靜態模型根目錄（預設為套件內部 avatar-skin）
- * @returns {any} Vite Plugin 物件
+ * @param {import('../index.d.ts').AvatarBotPluginOptions} [options={}] - Plugin configuration options.
+ * @returns {any} Vite Plugin object.
  */
 function avatarBotAnalogPlugin(options = {}) {
   const route =
@@ -69,7 +78,7 @@ function avatarBotAnalogPlugin(options = {}) {
           const relativePath = pathname.slice(cleanRoute.length).replace(/^[/\\]+/, '');
           const filePath = path.resolve(assetsDir, relativePath);
 
-          // 防止路徑遍歷攻擊
+          // Prevent path traversal attacks
           if (filePath.startsWith(path.resolve(assetsDir)) === false) {
             res.statusCode = 403;
             return res.end('Forbidden');
@@ -103,7 +112,7 @@ function avatarBotAnalogPlugin(options = {}) {
             copyDirRecursive(assetsDir, targetDir, { overwrite: true });
             console.log(`[ai-avatar-bot/analog] Assets copied to ${targetDir}`);
           } catch (_err) {
-            // 忽略非目標目錄的複製錯誤
+            // Ignore non-applicable target directory copy errors
           }
         }
       }
@@ -118,3 +127,4 @@ module.exports = {
   getAnalogNitroConfig,
   default: avatarBotAnalogPlugin
 };
+

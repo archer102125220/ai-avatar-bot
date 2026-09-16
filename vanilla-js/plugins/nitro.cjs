@@ -1,13 +1,15 @@
+/**
+ * @file Nitro server engine helper generating `publicAssets` configurations for Nuxt 3, AnalogJS, and Nitro standalone (CommonJS).
+ * @module plugins/nitro
+ */
+
 const { getAvatarSkinPath } = require('./node.cjs');
 
 /**
- * 產生 Nitro 伺服器引擎相容之 publicAssets 設定物件 (CommonJS)
+ * Generates a Nitro server configuration object exposing bundled `avatar-skin` static assets (CommonJS).
  *
- * @param {Object} [options={}] - 設定選項
- * @param {string} [options.route='/avatar-skin'] - 模型虛擬路由（預設 '/avatar-skin'）
- * @param {string} [options.assetsDir] - 自訂靜態模型根目錄（預設為套件內部 avatar-skin）
- * @param {number} [options.maxAge=2592000] - HTTP 快取時間（秒）
- * @returns {{ publicAssets: Array<{ dir: string, baseURL: string, maxAge: number }> }}
+ * @param {import('../index.d.ts').AvatarBotPluginOptions} [options={}] - Nitro publicAssets configuration options.
+ * @returns {{ publicAssets: Array<{ dir: string, baseURL: string, maxAge: number }> }} Nitro configuration snippet.
  */
 function createNitroAvatarConfig(options = {}) {
   const route =
@@ -24,7 +26,7 @@ function createNitroAvatarConfig(options = {}) {
   const maxAge =
     typeof options?.maxAge === 'number' && Number.isFinite(options.maxAge) === true
       ? options.maxAge
-      : 60 * 60 * 24 * 30; // 30 天
+      : 60 * 60 * 24 * 30; // 30 days
 
   return {
     publicAssets: [
@@ -41,3 +43,4 @@ module.exports = {
   createNitroAvatarConfig,
   default: createNitroAvatarConfig
 };
+

@@ -1067,6 +1067,26 @@ export interface EmotionToolsPluginOptions {
   onEmotionTrigger?: (emotion: string, context?: Record<string, any>) => void;
 }
 
+/**
+ * Common configuration options for build tool plugins (Vite, Webpack, Next.js, Nuxt, Nitro, Analog).
+ */
+export interface AvatarBotPluginOptions {
+  /** Virtual URL route intercepted to serve avatar skin assets (default: '/avatar-skin'). */
+  route?: string;
+  /** Physical directory path where avatar-skin model files are stored. */
+  assetsDir?: string;
+  /** Public directory name for Next.js / framework builds (default: 'public'). */
+  publicDir?: string;
+  /** Whether to automatically sync assets during build (default: true). */
+  autoSync?: boolean;
+  /** Whether to suppress console log output (default: false). */
+  silent?: boolean;
+  /** Cache-Control max-age in seconds for static assets (default: 2592000). */
+  maxAge?: number;
+  /** Whether to overwrite existing destination files (default: true). */
+  overwrite?: boolean;
+}
+
 // ============================================================================
 // I18n Subsystem Types
 // ============================================================================
@@ -1351,6 +1371,114 @@ export interface BrainEngine {
   readonly llm: any;
   readonly memory: MemoryInstance | null;
   readonly aiProvider: any;
+}
+
+// ============================================================================
+// UI Subsystem Types
+// ============================================================================
+
+/**
+ * Avatar frontend UI DOM elements and controller methods.
+ */
+export interface UiDom {
+  /** 3D or 2D avatar viewport stage container element. */
+  readonly stageEl: HTMLElement;
+  /** Dialogue text bubble element. */
+  readonly bubbleEl: HTMLElement;
+  /** Suggested questions list container element. */
+  readonly suggestionsEl: HTMLElement;
+  /** Chat history slide-out panel element. */
+  readonly historyPanelEl: HTMLElement;
+  /** Real-time voice conversation status bar container element. */
+  readonly voiceLiveEl: HTMLElement;
+  /** Real-time voice state label element. */
+  readonly voiceStatusEl: HTMLElement;
+  /** Audio volume level meter indicator element. */
+  readonly voiceLevelEl: HTMLElement;
+  /** Updates voice conversation status bar and volume meter. */
+  updateVoiceStatus(convoOn: boolean, text?: string, state?: string, level?: number, i18n?: I18nEngine): void;
+  /** Updates microphone button UI state and label. */
+  updateMicState(isListening?: boolean, convoOn?: boolean, isCompanion?: boolean, i18n?: I18nEngine): void;
+  /** Main control bar container. */
+  readonly controlBarEl: HTMLElement;
+  /** Text input dock row. */
+  readonly dockRow1El: HTMLElement;
+  /** Toolbar buttons dock row. */
+  readonly dockRow2El: HTMLElement;
+  /** Text input field element. */
+  readonly questionInputEl: HTMLInputElement;
+  /** Message send button element. */
+  readonly sendButtonEl: HTMLButtonElement;
+  /** Voice conversation microphone button element. */
+  readonly micButtonEl: HTMLButtonElement;
+  /** 2D / 3D model engine switch button element. */
+  readonly engineButtonEl: HTMLButtonElement;
+  /** TTS mute toggle button element. */
+  readonly muteButtonEl: HTMLButtonElement;
+  /** In-browser WebLLM AI brain load/status button element. */
+  readonly btnLlmEl: HTMLButtonElement;
+  /** Speech rate cycle button element. */
+  readonly speedButtonEl: HTMLButtonElement;
+  /** Interface language switch button element. */
+  readonly langButtonEl: HTMLButtonElement;
+  /** Chat history open button element. */
+  readonly historyButtonEl: HTMLButtonElement;
+  /** Minimize widget close button element. */
+  readonly closeButtonEl: HTMLButtonElement;
+  /** Direct open warning banner element. */
+  readonly directWarnEl: HTMLElement;
+  /** Floating circular wake-up trigger button element when minimized. */
+  readonly minimalEl: HTMLElement;
+  /** Tap timer tracking state. */
+  onTapTimer: boolean;
+}
+
+/**
+ * Contextual state and engine references passed into UI event and rendering handlers.
+ */
+export interface UiContext {
+  /** UI DOM elements and controller methods. */
+  uiDom: UiDom;
+  /** Speech STT / TTS engine coordinator. */
+  speechEngine?: SpeechEngine;
+  /** AI Brain LLM and conversation memory engine coordinator. */
+  brainEngine?: BrainEngine;
+  /** Function Calling and tools engine coordinator. */
+  toolsEngine?: ToolsEngine;
+  /** Live2D / VRM rendering engine coordinator. */
+  skinEngine?: SkinEngine;
+  /** Internationalization (i18n) engine instance. */
+  i18nEngine?: I18nEngine;
+  /** Current active locale code. */
+  locale?: string;
+  /** Suggested questions list or resolver. */
+  suggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
+  /** Suggested title text or resolver. */
+  suggestedTitle?: string | Record<string, string> | ((context: any) => string);
+  /** Companion mode suggested questions list or resolver. */
+  companionSuggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
+  /** Companion mode suggested title text or resolver. */
+  companionSuggestedTitle?: string | Record<string, string> | ((context: any) => string);
+  /** Assistant mode suggested questions list or resolver. */
+  assistantSuggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
+  /** Assistant mode suggested title text or resolver. */
+  assistantSuggestedTitle?: string | Record<string, string> | ((context: any) => string);
+  /** Current avatar personality mode ('companion' | 'assistant'). */
+  avatarMode?: string;
+  /** Avatar mode constant mapping. */
+  AVATAR_MODE_MAP?: Record<string, string>;
+  /** Engine mode constant mapping. */
+  ENGINE_MODE_MAP?: Record<string, string>;
+  /** Lifecycle state constant mapping. */
+  STATE_MAP?: Record<string, string>;
+  /** Whether the widget is currently minimized. */
+  isMinimal?: boolean;
+  /** Whether widget is running inside an iframe embedding container. */
+  isIframe?: boolean;
+  /** Main handler function for processing user input text. */
+  handleUser?: (text: string) => Promise<void> | void;
+  /** Callback fired when minimal mode is toggled. */
+  onMinimalTrigger?: (isMinimal: boolean, context: UiContext) => void;
 }
 
 // ============================================================================
@@ -1650,7 +1778,7 @@ export interface AiAvatarWidget {
   /** Mounted root HTML container. */
   readonly container: HTMLElement;
   /** UI DOM management helper. */
-  readonly uiDom: any;
+  readonly uiDom: UiDom;
   /** Internationalization engine instance. */
   readonly i18nEngine: I18nEngine;
   /** Tools and function calling engine instance. */
@@ -1910,6 +2038,32 @@ export function resolveLocalized<T>(value: T | Record<string, T> | ((args: any) 
 export function formatParams(text: string, params?: Record<string, any>): string;
 export const defaultLocales: Record<string, any>;
 
-// Plugins
+// Plugins & Tools Extensions
 export function createEmotionToolsPlugin(options?: EmotionToolsPluginOptions): ToolDefinition[];
+
+// UI Layer Utilities
+export function initUi(container: HTMLElement, stateMap?: Record<string, string>): UiDom;
+export function updateUIStrings(uiDom: UiDom, i18nEngine: I18nEngine, stateMap?: Record<string, string>): void;
+export function copyText(text: string, bubbleEl?: HTMLElement, directWarnEl?: HTMLElement, i18nEngine?: I18nEngine): Promise<boolean>;
+export function initSkinModeChangeButton(engineButtonEl: HTMLButtonElement, options?: any): void;
+export function renderSuggestions(context: UiContext): void;
+export function setHistoryOpen(isOpen: boolean, context: UiContext): void;
+export function renderHistory(context: UiContext): void;
+export function bindTyping(context: UiContext): void;
+export function bindUiEvent(context: UiContext): void;
+
+// Build Framework Plugins & Node Helpers
+export function getAvatarSkinPath(): string;
+export function copyDirRecursive(src: string, dest: string, overwrite?: boolean): void;
+export function copyAvatarSkin(destDir?: string, options?: { overwrite?: boolean; silent?: boolean }): void;
+export function avatarBotVitePlugin(options?: AvatarBotPluginOptions): any;
+export class AvatarBotWebpackPlugin {
+  constructor(options?: AvatarBotPluginOptions);
+  apply(compiler: any): void;
+}
+export function withAiAvatarBot(nextConfig?: any, pluginOptions?: AvatarBotPluginOptions): any;
+export const avatarBotNuxtModule: any;
+export function createNitroAvatarConfig(options?: AvatarBotPluginOptions): any;
+export function avatarBotAnalogPlugin(options?: AvatarBotPluginOptions): any;
+
 

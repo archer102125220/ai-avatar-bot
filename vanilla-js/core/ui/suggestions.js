@@ -1,10 +1,15 @@
-import { resolveLocalized } from '@/core/i18n';
+/**
+ * @file UI suggestions module responsible for rendering quick prompt buttons and localized suggestion lists.
+ * @module core/ui/suggestions
+ */
+
+import { resolveLocalized } from '../i18n';
 
 /**
- * 渲染建議對話選項。
- * 會根據使用者設定或助理模式（companion/assistant）顯示預設的建議選項。
+ * Renders suggested dialogue prompts and titles based on the current persona mode ('companion' | 'assistant') and i18n configuration.
  *
- * @param {import('./index').UiContext|null} [context=null] - 應用程式的共用狀態與參考。
+ * @param {import('../../index.d.ts').UiContext|null} [context=null] - Shared UI context state and handler references.
+ * @returns {void}
  */
 export function renderSuggestions(context = null) {
   const suggestionsEl = context?.uiDom?.suggestionsEl;

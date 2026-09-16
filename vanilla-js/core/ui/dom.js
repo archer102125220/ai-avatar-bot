@@ -1,39 +1,19 @@
 /**
- * 虛擬人前端 UI 元素的集合與相關控制方法
- * @typedef {Object} UiDom
- * @property {HTMLElement} stageEl - 3D 或 2D 虛擬人所在的舞台元素
- * @property {HTMLElement} bubbleEl - 對話泡泡元素
- * @property {HTMLElement} suggestionsEl - 建議對話容器元素
- * @property {HTMLElement} historyPanelEl - 聊天紀錄面板元素
- * @property {HTMLElement} voiceLiveEl - 語音即時狀態元素
- * @property {HTMLElement} voiceStatusEl - 語音狀態文字元素
- * @property {HTMLElement} voiceLevelEl - 語音音量條元素
- * @property {(convoOn: boolean, text?: string, state?: string, level?: number, i18n?: Object) => void} updateVoiceStatus - 更新語音狀態 (convoOn, text, state, level, i18n)
- * @property {(isListening: boolean, convoOn: boolean, isCompanion?: boolean, i18n?: Object) => void} updateMicState - 更新麥克風按鈕狀態 (isListening, convoOn, isCompanion, i18n)
- * @property {HTMLElement} controlBarEl - 控制列容器
- * @property {HTMLElement} dockRow1El - 控制列第一排（文字輸入列）
- * @property {HTMLElement} dockRow2El - 控制列第二排（功能按鈕列）
- * @property {HTMLElement} questionInputEl - 文字輸入框
- * @property {HTMLElement} sendButtonEl - 送出按鈕
- * @property {HTMLElement} micButtonEl - 麥克風按鈕
- * @property {HTMLElement} engineButtonEl - 2D/3D 切換按鈕
- * @property {HTMLElement} muteButtonEl - 靜音按鈕
- * @property {HTMLElement} btnLlmEl - AI 大腦啟用按鈕
- * @property {HTMLElement} speedButtonEl - 語速調整按鈕
- * @property {HTMLElement} langButtonEl - 語言切換按鈕
- * @property {HTMLElement} historyButtonEl - 聊天紀錄按鈕
- * @property {HTMLElement} closeButtonEl - 關閉按鈕
- * @property {HTMLElement} directWarnEl - 直接開啟警告提示元素
- * @property {HTMLElement} minimalEl - 最小化時的喚醒按鈕
- * @property {boolean} onTapTimer - 點擊計時器狀態
+ * @file UI DOM module for scaffolding HTML structure, buttons, control bars, panels, and voice status bars.
+ * @module core/ui/dom
  */
 
 /**
- * 初始化使用者介面元件並附加至指定的容器中。
- * @param {HTMLElement} container - 要容納虛擬人助理的主要容器元素。
- * @param {HTMLElement} stageEl - 3D 或 2D 虛擬人所在的舞台元素。
- * @param {Object} [i18nEngine] - 多語系引擎實例。
- * @returns {UiDom|void} 包含各種 UI DOM 元素及控制方法的物件，若參數無效則回傳 undefined。
+ * @typedef {import('../../index.d.ts').UiDom} UiDom
+ */
+
+/**
+ * Initializes and mounts UI elements (dialogue bubble, suggestions container, history panel, control dock) into the target container.
+ *
+ * @param {HTMLElement} container - Main container element housing the avatar bot widget.
+ * @param {HTMLElement} stageEl - Stage container element housing the 2D canvas or 3D viewport.
+ * @param {import('../../index.d.ts').I18nEngine|null} [i18nEngine=null] - Internationalization engine instance.
+ * @returns {UiDom|void} Object containing UI DOM references and status updater helpers, or void on invalid inputs.
  */
 export function initUi(container, stageEl, i18nEngine = null) {
   if (container instanceof HTMLElement === false) {

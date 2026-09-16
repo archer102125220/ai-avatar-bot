@@ -1,3 +1,8 @@
+/**
+ * @file Webpack plugin for serving avatar-skin 2D/3D model assets via devServer middleware and copying on build emission (CommonJS).
+ * @module plugins/webpack
+ */
+
 const path = require('path');
 const fs = require('fs');
 
@@ -20,9 +25,10 @@ const MIME_TYPES = {
 };
 
 /**
- * 取得檔案對應的 Content-Type
- * @param {string} filePath - 檔案路徑
- * @returns {string} MIME Type
+ * Resolves appropriate MIME content-type string for a given file path.
+ *
+ * @param {string} filePath - Target file path.
+ * @returns {string} MIME content-type string.
  */
 function getMimeType(filePath) {
   const lower = String(filePath || '').toLowerCase();
@@ -35,9 +41,11 @@ function getMimeType(filePath) {
 }
 
 /**
- * 遞迴複製資料夾
- * @param {string} srcDir - 來源路徑
- * @param {string} destDir - 目的路徑
+ * Recursively copies all files and directories from source to destination.
+ *
+ * @param {string} srcDir - Source directory path.
+ * @param {string} destDir - Destination directory path.
+ * @returns {void}
  */
 function copyDirRecursive(srcDir, destDir) {
   if (fs.existsSync(srcDir) === false) {
@@ -61,13 +69,13 @@ function copyDirRecursive(srcDir, destDir) {
 }
 
 /**
- * Webpack 專屬離線與自動搬移插件 (CommonJS 版本)
+ * Webpack plugin for serving and bundling avatar-skin static assets (CommonJS).
  */
 class AvatarBotWebpackPlugin {
   /**
-   * @param {Object} [options={}] - 外掛設定選項
-   * @param {string} [options.route='/avatar-skin'] - 欲攔截的虛擬路由（預設 '/avatar-skin'）
-   * @param {string} [options.assetsDir] - 自訂靜態模型根目錄（預設為套件內部的 avatar-skin 目錄）
+   * Initializes a new AvatarBotWebpackPlugin instance.
+   *
+   * @param {import('../index.d.ts').AvatarBotPluginOptions} [options={}] - Plugin configuration options.
    */
   constructor(options = {}) {
     this.route =
@@ -82,14 +90,16 @@ class AvatarBotWebpackPlugin {
   }
 
   /**
-   * Webpack 外掛入口方法
-   * @param {any} compiler - Webpack Compiler 實例
+   * Webpack plugin lifecycle apply method.
+   *
+   * @param {any} compiler - Webpack compiler instance.
+   * @returns {void}
    */
   apply(compiler) {
     const cleanRoute = this.cleanRoute;
     const assetsDir = this.assetsDir;
 
-    // 1. 開發階段：掛載 Webpack DevServer 中介軟體
+    // 1. Development: Mount DevServer middleware to intercept avatar-skin routes
     const middleware = (req, res, next) => {
       const url = req?.url || '';
       const pathname = decodeURIComponent(url.split('?')[0]);
@@ -98,7 +108,7 @@ class AvatarBotWebpackPlugin {
         const relativePath = pathname.slice(cleanRoute.length).replace(/^[/\\]+/, '');
         const filePath = path.resolve(assetsDir, relativePath);
 
-        // 防止路徑遍歷攻擊
+        // Prevent path traversal attacks
         if (filePath.startsWith(path.resolve(assetsDir)) === false) {
           res.statusCode = 403;
           return res.end('Forbidden');
@@ -125,7 +135,7 @@ class AvatarBotWebpackPlugin {
       };
     }
 
-    // 2. 打包階段：在 afterEmit 鉤子自動複製資產到 Webpack 輸出目錄
+    // 2. Production build: Copy assets into Webpack output directory on afterEmit hook
     compiler.hooks.afterEmit.tapAsync('AvatarBotWebpackPlugin', (compilation, callback) => {
       const outputPath = compiler.options.output?.path || path.resolve(process.cwd(), 'dist');
       const targetDir = path.join(outputPath, cleanRoute.replace(/^[/\\]+/, ''));
@@ -144,3 +154,4 @@ module.exports = {
   AvatarBotWebpackPlugin,
   default: AvatarBotWebpackPlugin
 };
+

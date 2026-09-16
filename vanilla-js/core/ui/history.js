@@ -1,9 +1,16 @@
+/**
+ * @file UI history module providing slide-out panel rendering, message timeline, and pending tool confirmation controls.
+ * @module core/ui/history
+ */
+
 import { copyText } from './utils';
 
 /**
- * 設定聊天紀錄面板的開關狀態。
- * @param {import('./index').UiContext} context - 應用程式的共用狀態與參考（需包含 uiDom, speechEngine 等）。
- * @param {boolean} open - true 表示開啟面板，false 表示關閉。
+ * Toggles the open/closed state of the conversation history panel and synchronizes aria attributes and related elements.
+ *
+ * @param {import('../../index.d.ts').UiContext} context - Shared UI context state and engine references.
+ * @param {boolean} open - Whether to open (`true`) or close (`false`) the history panel.
+ * @returns {void}
  */
 export function setHistoryOpen(context, open) {
   const historyPanelEl = context.uiDom.historyPanelEl;
@@ -47,8 +54,10 @@ export function setHistoryOpen(context, open) {
 }
 
 /**
- * 渲染或更新聊天紀錄列表。
- * @param {import('./index').UiContext} context - 應用程式的共用狀態與參考（需包含 uiDom, brainEngine 等）。
+ * Renders or refreshes the multi-turn chat history message timeline, pending tool confirmations, and copy/replay actions.
+ *
+ * @param {import('../../index.d.ts').UiContext} context - Shared UI context state and engine references.
+ * @returns {void}
  */
 export function renderHistory(context) {
   const historyListEl =

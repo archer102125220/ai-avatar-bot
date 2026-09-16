@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 
+/**
+ * @file CLI binary tool for synchronizing avatar-skin 2D/3D assets into user application public/assets folders.
+ * @module bin/cli
+ */
+
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -17,11 +22,13 @@ try {
     }
   }
 } catch {
-  // 忽略讀取 package.json 的錯誤，保留預設版本
+  // Ignore error reading package.json and retain default fallback version
 }
 
 /**
- * 格式化輸出幫助訊息
+ * Prints formatted CLI help text and usage instructions to the console.
+ *
+ * @returns {void}
  */
 function printHelp() {
   console.log(`
@@ -53,12 +60,13 @@ function printHelp() {
 }
 
 /**
- * 自動偵測當前專案類型並決定最佳目標目錄
- * @param {string} cwd - 當前工作目錄
- * @returns {{ targetDir: string, projectType: string, tip: string }}
+ * Automatically inspects the current project files to determine the optimal target directory for model assets.
+ *
+ * @param {string} cwd - Current working directory.
+ * @returns {{ targetDir: string, projectType: string, tip: string }} Resolved target configuration.
  */
 function detectProjectTarget(cwd) {
-  // 1. Angular 專案偵測
+  // 1. Angular project detection
   const angularJsonPath = path.join(cwd, 'angular.json');
   if (fs.existsSync(angularJsonPath) === true) {
     return {
@@ -68,7 +76,7 @@ function detectProjectTarget(cwd) {
     };
   }
 
-  // 2. Next.js 專案偵測
+  // 2. Next.js project detection
   const nextConfigs = ['next.config.js', 'next.config.mjs', 'next.config.ts', 'next.config.cjs'];
   for (const config of nextConfigs) {
     if (fs.existsSync(path.join(cwd, config)) === true) {
@@ -80,7 +88,7 @@ function detectProjectTarget(cwd) {
     }
   }
 
-  // 3. Nuxt 專案偵測
+  // 3. Nuxt project detection
   const nuxtConfigs = ['nuxt.config.js', 'nuxt.config.ts', 'nuxt.config.mjs'];
   for (const config of nuxtConfigs) {
     if (fs.existsSync(path.join(cwd, config)) === true) {
@@ -92,7 +100,7 @@ function detectProjectTarget(cwd) {
     }
   }
 
-  // 4. 檢查一般 public 目錄
+  // 4. Check for generic public directory
   const publicDirPath = path.join(cwd, 'public');
   if (fs.existsSync(publicDirPath) === true && fs.statSync(publicDirPath).isDirectory() === true) {
     return {
@@ -110,10 +118,11 @@ function detectProjectTarget(cwd) {
 }
 
 /**
- * 取得目錄內部所有檔案列表
- * @param {string} dirPath - 目錄路徑
- * @param {string} [basePath=''] - 相對基準路徑
- * @returns {string[]} 檔案相對路徑陣列
+ * Traverses a filesystem directory recursively to collect all relative file paths.
+ *
+ * @param {string} dirPath - Physical directory path.
+ * @param {string} [basePath=''] - Relative base directory path.
+ * @returns {string[]} Array of relative file paths.
  */
 function getFilesRecursive(dirPath, basePath = '') {
   const result = [];
@@ -139,12 +148,14 @@ function getFilesRecursive(dirPath, basePath = '') {
 }
 
 /**
- * 主執行入口
+ * Main execution entry point for the CLI command runner.
+ *
+ * @returns {Promise<void>}
  */
 async function main() {
   const args = process.argv.slice(2);
 
-  // 參數解析
+  // Parse command line arguments
   let command = 'sync';
   let customOut = '';
   let overwrite = true;

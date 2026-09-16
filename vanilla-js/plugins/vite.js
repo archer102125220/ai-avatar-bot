@@ -1,3 +1,8 @@
+/**
+ * @file Vite plugin for serving avatar-skin 2D/3D model assets during dev and auto-copying to dist on build.
+ * @module plugins/vite
+ */
+
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -21,9 +26,10 @@ const MIME_TYPES = {
 };
 
 /**
- * 取得檔案對應的 Content-Type
- * @param {string} filePath - 檔案路徑
- * @returns {string} MIME Type
+ * Resolves appropriate MIME content-type string for a given file path.
+ *
+ * @param {string} filePath - Target file path.
+ * @returns {string} MIME content-type string.
  */
 function getMimeType(filePath) {
   const lower = String(filePath || '').toLowerCase();
@@ -36,9 +42,11 @@ function getMimeType(filePath) {
 }
 
 /**
- * 遞迴複製資料夾
- * @param {string} srcDir - 來源路徑
- * @param {string} destDir - 目的路徑
+ * Recursively copies all files and directories from source to destination.
+ *
+ * @param {string} srcDir - Source directory path.
+ * @param {string} destDir - Destination directory path.
+ * @returns {void}
  */
 function copyDirRecursive(srcDir, destDir) {
   if (fs.existsSync(srcDir) === false) {
@@ -62,12 +70,10 @@ function copyDirRecursive(srcDir, destDir) {
 }
 
 /**
- * Vite 專屬離線與自動搬移插件
+ * Creates a Vite plugin that intercepts avatar-skin asset routes in dev server and copies assets during production build.
  *
- * @param {Object} [options={}] - 外掛設定選項
- * @param {string} [options.route='/avatar-skin'] - 欲攔截的虛擬路由（預設 '/avatar-skin'）
- * @param {string} [options.assetsDir] - 自訂靜態模型根目錄（預設為套件內部的 avatar-skin 目錄）
- * @returns {import('vite').Plugin} Vite Plugin 物件
+ * @param {import('../index.d.ts').AvatarBotPluginOptions} [options={}] - Plugin configuration options.
+ * @returns {import('vite').Plugin} Configured Vite plugin object.
  */
 export function avatarBotVitePlugin(options = {}) {
   const route = typeof options?.route === 'string' && options.route !== '' ? options.route : '/avatar-skin';
@@ -100,7 +106,7 @@ export function avatarBotVitePlugin(options = {}) {
           const relativePath = pathname.slice(cleanRoute.length).replace(/^[/\\]+/, '');
           const filePath = path.resolve(assetsDir, relativePath);
 
-          // 防止路徑遍歷攻擊
+          // Prevent path traversal attacks
           if (filePath.startsWith(path.resolve(assetsDir)) === false) {
             res.statusCode = 403;
             return res.end('Forbidden');
@@ -118,7 +124,7 @@ export function avatarBotVitePlugin(options = {}) {
     },
 
     closeBundle() {
-      // 在生產構建 (build) 結束時，自動複製 avatar-skin 到打包輸出目錄 (dist)
+      // Automatically copy avatar-skin assets to dist output directory during production build
       if (viteConfig?.build && viteConfig?.command === 'build') {
         const outDir = path.resolve(viteConfig.root || process.cwd(), viteConfig.build.outDir || 'dist');
         const targetDir = path.join(outDir, cleanRoute.replace(/^[/\\]+/, ''));
@@ -134,3 +140,4 @@ export function avatarBotVitePlugin(options = {}) {
 }
 
 export default avatarBotVitePlugin;
+

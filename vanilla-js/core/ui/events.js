@@ -1,10 +1,16 @@
-import { SUPPORTED_LOCALES } from '@/core/i18n';
+/**
+ * @file UI event bindings for user input typing, toolbar buttons, speech session toggles, and WebLLM initialization.
+ * @module core/ui/events
+ */
+
+import { SUPPORTED_LOCALES } from '../i18n';
 import { setHistoryOpen, renderHistory } from './history';
 
 /**
- * 綁定文字輸入框與發送按鈕的事件。
- * 處理使用者的文字輸入並觸發對話引擎。
- * @param {import('./index').UiContext|null} context - 應用程式的共用狀態與參考。
+ * Binds keyboard Enter key and send button click events for user question submission.
+ *
+ * @param {import('../../index.d.ts').UiContext|null} [context=null] - Shared UI context state and handler references.
+ * @returns {void}
  */
 export function bindTyping(context = null) {
   const questionInputEl = context?.uiDom?.questionInputEl;
@@ -37,9 +43,10 @@ export function bindTyping(context = null) {
 }
 
 /**
- * 綁定所有 UI 控制按鈕的點擊事件。
- * 包含語音、靜音、語速、語言切換、大腦（LLM）狀態等互動邏輯。
- * @param {import('./index').UiContext|null} context - 應用程式的共用狀態與參考。
+ * Binds click events and interactive handlers for toolbar control buttons (mic, mute, speed, lang, history, LLM, minimize).
+ *
+ * @param {import('../../index.d.ts').UiContext|null} [context=null] - Shared UI context state and engine references.
+ * @returns {void}
  */
 export function bindUiEvent(context = null) {
   const uiDom = context?.uiDom || {};
@@ -50,7 +57,7 @@ export function bindUiEvent(context = null) {
     };
   }
 
-  // ===== 控制列 =====
+  // ===== Control Bar =====
   if (uiDom.closeButtonEl instanceof HTMLElement) {
     uiDom.closeButtonEl.onclick = () => {
       if (context.isIframe === true) {
@@ -83,7 +90,7 @@ export function bindUiEvent(context = null) {
         return;
       }
 
-      // 非 companion 模式
+      // Non-companion mode
       if (context.speechEngine.isSpeaking === true) {
         context.speechEngine.interruptForVoice();
         context.speechEngine.startListening();
@@ -111,7 +118,7 @@ export function bindUiEvent(context = null) {
         String(context.speechEngine.ttsMuted === true)
       );
       if (context.speechEngine.ttsMuted === true) {
-        context.speechEngine.stopSpeaking(); // 立刻停掉正在播的（神經語音 + 瀏覽器語音）
+        context.speechEngine.stopSpeaking(); // Immediately stop active playback (Neural TTS + Web Speech)
       }
       context.speechEngine.spokenDisplayText =
         context.speechEngine.ttsMuted === true
@@ -214,7 +221,7 @@ export function bindUiEvent(context = null) {
     uiDom.btnLlmEl.onclick = async () => {
       const btnLlmEl = uiDom.btnLlmEl;
 
-      // 啟用 AI 伺服器模式時：🧠 用來顯示狀態 / 重新連線，不下載 WebLLM
+      // When AI provider mode is active: 🧠 shows status / reconnects without downloading WebLLM
       if (context.brainEngine.aiProvider?.enabled === true) {
         const isServerReady =
           context.brainEngine.aiProvider.ready === true ||

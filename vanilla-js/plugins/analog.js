@@ -1,3 +1,8 @@
+/**
+ * @file AnalogJS (Angular Meta-framework) Vite plugin for streaming avatar-skin assets in dev and copying on build.
+ * @module plugins/analog
+ */
+
 import path from 'path';
 import fs from 'fs';
 import { getAvatarSkinPath, copyDirRecursive } from './node.js';
@@ -21,6 +26,12 @@ const MIME_TYPES = {
   '.wav': 'audio/wav'
 };
 
+/**
+ * Resolves appropriate MIME content-type string for a given file path.
+ *
+ * @param {string} filePath - Target file path.
+ * @returns {string} MIME content-type string.
+ */
 function getMimeType(filePath) {
   const lower = String(filePath || '').toLowerCase();
   for (const ext in MIME_TYPES) {
@@ -32,16 +43,10 @@ function getMimeType(filePath) {
 }
 
 /**
- * AnalogJS (Angular Meta-framework) 專用 Vite 插件 (ESM)
+ * AnalogJS Vite plugin for streaming avatar-skin static assets during dev and auto-copying on build (ESM).
  *
- * 【核心特性】
- * • 開發階段：掛載 Vite 中介軟體攔截 /avatar-skin/* 請求，即時串流本地資產。
- * • 打包階段：在 closeBundle 鉤子自動複製資產至 AnalogJS 輸出目錄 (dist/analog/public 或 .output/public)。
- *
- * @param {Object} [options={}] - 設定選項
- * @param {string} [options.route='/avatar-skin'] - 模型虛擬路由（預設 '/avatar-skin'）
- * @param {string} [options.assetsDir] - 自訂靜態模型根目錄（預設為套件內部 avatar-skin）
- * @returns {import('vite').Plugin} Vite Plugin 物件
+ * @param {import('../index.d.ts').AvatarBotPluginOptions} [options={}] - Plugin configuration options.
+ * @returns {import('vite').Plugin} Configured Vite plugin object.
  */
 export function avatarBotAnalogPlugin(options = {}) {
   const route =
@@ -73,7 +78,7 @@ export function avatarBotAnalogPlugin(options = {}) {
           const relativePath = pathname.slice(cleanRoute.length).replace(/^[/\\]+/, '');
           const filePath = path.resolve(assetsDir, relativePath);
 
-          // 防止路徑遍歷攻擊
+          // Prevent path traversal attacks
           if (filePath.startsWith(path.resolve(assetsDir)) === false) {
             res.statusCode = 403;
             return res.end('Forbidden');
@@ -93,7 +98,7 @@ export function avatarBotAnalogPlugin(options = {}) {
     closeBundle() {
       if (viteConfig?.build && viteConfig?.command === 'build') {
         const root = viteConfig.root || process.cwd();
-        // AnalogJS 常見輸出目錄: dist/analog/public, .output/public, dist
+        // AnalogJS candidate output directories: dist/analog/public, .output/public, dist
         const candidateOutDirs = [
           path.resolve(root, 'dist/analog/public'),
           path.resolve(root, '.output/public'),
@@ -108,7 +113,7 @@ export function avatarBotAnalogPlugin(options = {}) {
             copyDirRecursive(assetsDir, targetDir, { overwrite: true });
             console.log(`[ai-avatar-bot/analog] Assets copied to ${targetDir}`);
           } catch (_err) {
-            // 忽略非目標目錄的複製錯誤
+            // Ignore non-applicable target directory copy errors
           }
         }
       }
@@ -117,8 +122,9 @@ export function avatarBotAnalogPlugin(options = {}) {
 }
 
 /**
- * 取得 AnalogJS Nitro publicAssets 配置
+ * Re-exported helper for generating Nitro publicAssets configuration in AnalogJS.
  */
 export const getAnalogNitroConfig = createNitroAvatarConfig;
 
 export default avatarBotAnalogPlugin;
+

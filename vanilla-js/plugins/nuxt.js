@@ -1,18 +1,19 @@
+/**
+ * @file Nuxt 3 module for registering avatar-skin assets into Nitro publicAssets pipeline.
+ * @module plugins/nuxt
+ */
+
 import { getAvatarSkinPath } from './node.js';
 
 /**
- * Nuxt 3 專用模組 (ESM)
+ * Nuxt 3 integration module (ESM).
  *
- * 【核心機制】
- * 透過監聽 Nuxt / Nitro 的 `nitro:config` 生命週期鉤子，將 avatar-skin 目錄註冊為 Nitro 的 publicAssets。
- * • 本地開發 (nuxt dev)：Nitro 直接由 node_modules 串流服務 /avatar-skin/*，0 磁碟複製、秒級啟動。
- * • 生產打包 (nuxt build / nuxt generate)：Nitro 自動將資產複製至 .output/public/avatar-skin/，相容所有部屬環境。
+ * Hooks into Nuxt's `nitro:config` lifecycle to serve model files with zero disk copies in dev
+ * and automatically bundles assets into `.output/public/avatar-skin/` during production build.
  *
- * @param {Object} [inlineOptions={}] - 模組設定選項
- * @param {string} [inlineOptions.route='/avatar-skin'] - 模型虛擬路由（預設 '/avatar-skin'）
- * @param {string} [inlineOptions.assetsDir] - 自訂靜態模型根目錄（預設為套件內部 avatar-skin）
- * @param {number} [inlineOptions.maxAge=2592000] - HTTP Cache-Control 快取時間 (秒，預設 30 天)
- * @param {any} [nuxt] - Nuxt 實例（由 Nuxt 運行時注入）
+ * @param {import('../index.d.ts').AvatarBotPluginOptions} [inlineOptions={}] - Module options.
+ * @param {any} [nuxtApp] - Nuxt runtime instance.
+ * @returns {void}
  */
 export function avatarBotNuxtModule(inlineOptions = {}, nuxtApp) {
   const nuxt = nuxtApp || (typeof this !== 'undefined' ? this?.nuxt : null);
@@ -31,7 +32,7 @@ export function avatarBotNuxtModule(inlineOptions = {}, nuxtApp) {
   const maxAge =
     typeof inlineOptions?.maxAge === 'number' && Number.isFinite(inlineOptions.maxAge) === true
       ? inlineOptions.maxAge
-      : 60 * 60 * 24 * 30; // 30 天
+      : 60 * 60 * 24 * 30; // 30 days
 
   if (nuxt?.hook) {
     nuxt.hook('nitro:config', (nitroConfig) => {
@@ -59,3 +60,4 @@ avatarBotNuxtModule.meta = {
 };
 
 export default avatarBotNuxtModule;
+
