@@ -7,8 +7,8 @@ import {
   BRAIN_ENGINE_TYPE_MAP,
   DEFAULT_MAX_AUTO_CONTINUATIONS,
   isWebLLMFunctionCallingSupported
-} from '../constants.js';
-import { toOpenAiTools } from '../tools';
+} from '@/core/constants';
+import { toOpenAiTools } from '@/core/tools';
 import {
   extractToolCallsFromText,
   executeToolCallsLoop

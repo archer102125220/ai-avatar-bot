@@ -1,5 +1,5 @@
-import { createBaseStore } from '../store.js';
-import { resolveLocalized } from '../i18n';
+import { createBaseStore } from '@/core/store';
+import { resolveLocalized } from '@/core/i18n';
 import {
   STATE_MAP,
   AVATAR_MODE_MAP,
@@ -18,7 +18,7 @@ import {
   DEFAULT_AUTO_CONTINUE_MODE,
   LLM_FINISH_REASON_MAP,
   FINISH_REASON_MAP
-} from '../constants.js';
+} from '@/core/constants';
 import { fetchKnowledge, findBestMatch } from './knowledge.js';
 import { classifyEmotion, applyEmotionFromText } from './emotion.js';
 import { initMemory, triggerRollingSummaryIfNeeded } from './memory.js';

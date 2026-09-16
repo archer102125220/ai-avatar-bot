@@ -2,7 +2,7 @@ import {
   CHAT_ROLE_MAP,
   CHAT_SOURCE_MAP,
   BRAIN_ENGINE_TYPE_MAP
-} from '../constants.js';
+} from '@/core/constants';
 import { getBrainMessage } from './messages.js';
 
 /**

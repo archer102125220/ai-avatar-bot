@@ -11,7 +11,7 @@ import {
   DEFAULT_SUMMARY_MAX_CHARS,
   CHAT_ROLE_MAP,
   BRAIN_ENGINE_TYPE_MAP
-} from '../constants.js';
+} from '@/core/constants';
 
 /**
  * Resolved context compression limits and strategy configuration.
