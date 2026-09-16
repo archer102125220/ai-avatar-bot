@@ -5,7 +5,7 @@
   "type": "module",
   "main": "./dist/ai-avatar-bot.cjs",
   "module": "./dist/ai-avatar-bot.js",
-  "types": "./index.d.ts",
+  "types": "./types/index.d.ts",
   "bin": {
     "ai-avatar-bot": "./bin/cli.js"
   },
@@ -14,7 +14,7 @@
     "avatar-skin",
     "plugins",
     "bin",
-    "index.d.ts"
+    "types"
   ],
   "sideEffects": [
     "*.css",
@@ -23,42 +23,42 @@
   ],
   "exports": {
     ".": {
-      "types": "./index.d.ts",
+      "types": "./types/index.d.ts",
       "import": "./dist/ai-avatar-bot.js",
       "require": "./dist/ai-avatar-bot.cjs"
     },
     "./brain": {
-      "types": "./index.d.ts",
+      "types": "./types/index.d.ts",
       "import": "./dist/brain.js",
       "require": "./dist/brain.cjs"
     },
     "./skin": {
-      "types": "./index.d.ts",
+      "types": "./types/index.d.ts",
       "import": "./dist/skin.js",
       "require": "./dist/skin.cjs"
     },
     "./speech": {
-      "types": "./index.d.ts",
+      "types": "./types/index.d.ts",
       "import": "./dist/speech.js",
       "require": "./dist/speech.cjs"
     },
     "./tools": {
-      "types": "./index.d.ts",
+      "types": "./types/index.d.ts",
       "import": "./dist/tools.js",
       "require": "./dist/tools.cjs"
     },
     "./i18n": {
-      "types": "./index.d.ts",
+      "types": "./types/index.d.ts",
       "import": "./dist/i18n.js",
       "require": "./dist/i18n.cjs"
     },
     "./plugins": {
-      "types": "./index.d.ts",
+      "types": "./types/index.d.ts",
       "import": "./dist/plugins.js",
       "require": "./dist/plugins.cjs"
     },
     "./constants": {
-      "types": "./index.d.ts",
+      "types": "./types/index.d.ts",
       "import": "./dist/constants.js",
       "require": "./dist/constants.cjs"
     },

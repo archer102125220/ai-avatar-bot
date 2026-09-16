@@ -6,7 +6,9 @@
     "allowJs": true,
     "checkJs": false,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@types": ["./types/index.d.ts"],
+      "@types/*": ["./types/*"]
     }
   },
   "include": [
@@ -15,7 +17,7 @@
     "example/**/*",
     "plugins/**/*",
     "bin/**/*",
-    "index.d.ts",
+    "types/**/*",
     "index.html"
   ]
 }
