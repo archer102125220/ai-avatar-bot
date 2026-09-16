@@ -19,8 +19,8 @@ import {
 import { createCanvas } from './canvas';
 
 /**
- * 3D VRM renderer controller instance.
- * @typedef {import('../../index.d.ts').Renderer3D} Renderer3D
+ * 3D VRM renderer controller instance referencing types/index.d.ts via @types.
+ * @typedef {import('@types').Renderer3D} Renderer3D
  */
 
 /**
@@ -76,13 +76,13 @@ function applyScale(target, source, defaultValues) {
 }
 
 /**
- * VRM gesture and behavior settings.
- * @typedef {import('../../index.d.ts').VRMSettings} VRMSettings
+ * VRM gesture and behavior settings referencing types/index.d.ts via @types.
+ * @typedef {import('@types').VRMSettings} VRMSettings
  */
 
 /**
  * Executes the default 3D body gesture animation.
- * @param {import('../../index.d.ts').SkinEngine | Record<string, any> | null} [skinEngine=null] - Skin engine instance.
+ * @param {import('@types').SkinEngine | null} [skinEngine=null] - Skin engine instance.
  * @param {string} emotionName - Name of the gesture animation to play (e.g., 'wave', 'bow', 'thinking', 'surprised').
  * @returns {Promise<void>}
  */
@@ -107,9 +107,9 @@ export async function defaultGesture3D(skinEngine = null, emotionName) {
 // ===== 3D Skin: VRM (three + three-vrm, dynamic ESM import) =====
 /**
  * Initializes and boots the 3D VRM avatar model using Three.js and @pixiv/three-vrm.
- * @param {import('../../index.d.ts').SkinEngine | Record<string, any>} skinEngine - Skin engine instance.
- * @param {import('../../index.d.ts').VRMSettings} [setting={}] - VRM gesture and behavior configuration object.
- * @returns {Promise<import('../../index.d.ts').Renderer3D | void>} Initialized 3D renderer instance, or void on error.
+ * @param {import('@types').SkinEngine} skinEngine - Skin engine instance.
+ * @param {import('@types').VRMSettings} [setting={}] - VRM gesture and behavior configuration object.
+ * @returns {Promise<import('@types').Renderer3D | void>} Initialized 3D renderer instance, or void on error.
  */
 export async function bootVRM(skinEngine, setting = {}) {
   const stageEl = skinEngine?.stageEl;
@@ -802,7 +802,7 @@ export async function bootVRM(skinEngine, setting = {}) {
 // ===== Drag & Drop Custom VRM File Loading =====
 /**
  * Loads a user-provided custom VRM File object and switches engine to 3D mode.
- * @param {import('../../index.d.ts').SkinEngine | Record<string, any> | null} [skinEngine=null] - Skin engine instance.
+ * @param {import('@types').SkinEngine | null} [skinEngine=null] - Skin engine instance.
  * @param {File} vrmFile - Custom VRM file object to load.
  * @returns {void}
  */

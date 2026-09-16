@@ -13,13 +13,13 @@ export {
 };
 
 /**
- * Central speech orchestrator engine instance coordinating STT and TTS.
- * @typedef {import('../../index.d.ts').SpeechEngine} SpeechEngine
+ * Central speech orchestrator engine instance coordinating STT and TTS referencing types/index.d.ts via @types.
+ * @typedef {import('@types').SpeechEngine} SpeechEngine
  */
 
 /**
- * Options for initializing the SpeechEngine.
- * @typedef {import('../../index.d.ts').SpeechEngineOptions} SpeechEngineOptions
+ * Options for initializing the SpeechEngine referencing types/index.d.ts via @types.
+ * @typedef {import('@types').SpeechEngineOptions} SpeechEngineOptions
  */
 
 /**

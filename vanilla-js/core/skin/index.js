@@ -31,48 +31,48 @@ export * from './renderer-3d';
 
 /**
  * 2D visual transformation settings for a specific display mode.
- * @typedef {import('../../index.d.ts').Skin2DModeConfig} Skin2DModeConfig
+ * @typedef {import('@types').Skin2DModeConfig} Skin2DModeConfig
  */
 
 /**
  * Comprehensive 2D visual configuration object.
- * @typedef {import('../../index.d.ts').Skin2DConfig} Skin2DConfig
+ * @typedef {import('@types').Skin2DConfig} Skin2DConfig
  */
 
 /**
  * 3D camera transformation and field-of-view configuration.
- * @typedef {import('../../index.d.ts').Skin3DCameraConfig} Skin3DCameraConfig
+ * @typedef {import('@types').Skin3DCameraConfig} Skin3DCameraConfig
  */
 
 /**
  * 3D VRM model spatial transformation configuration.
- * @typedef {import('../../index.d.ts').Skin3DModelConfig} Skin3DModelConfig
+ * @typedef {import('@types').Skin3DModelConfig} Skin3DModelConfig
  */
 
 /**
  * 3D visual configuration for a specific display mode.
- * @typedef {import('../../index.d.ts').Skin3DModeConfig} Skin3DModeConfig
+ * @typedef {import('@types').Skin3DModeConfig} Skin3DModeConfig
  */
 
 /**
  * Comprehensive 3D VRM visual and animation configuration object.
- * @typedef {import('../../index.d.ts').Skin3DConfig} Skin3DConfig
+ * @typedef {import('@types').Skin3DConfig} Skin3DConfig
  */
 
 /**
  * Skin Engine controller for managing 2D Live2D and 3D VRM avatar rendering.
- * @typedef {import('../../index.d.ts').SkinEngine} SkinEngine
+ * @typedef {import('@types').SkinEngine} SkinEngine
  */
 
 /**
  * Initialization options for creating a SkinEngine.
- * @typedef {import('../../index.d.ts').SkinEngineOptions} SkinEngineOptions
+ * @typedef {import('@types').SkinEngineOptions} SkinEngineOptions
  */
 
 /**
  * Factory function to initialize and create a new SkinEngine controller instance.
- * @param {import('../../index.d.ts').SkinEngineOptions} [setting={}] - Skin engine initialization options.
- * @returns {import('../../index.d.ts').SkinEngine | void} Initialized skin engine instance, or void on error.
+ * @param {import('@types').SkinEngineOptions} [setting={}] - Skin engine initialization options.
+ * @returns {import('@types').SkinEngine | void} Initialized skin engine instance, or void on error.
  */
 export function initSkinEngine(setting = {}) {
   const {

@@ -12,8 +12,8 @@ import {
 import { createCanvas } from './canvas';
 
 /**
- * 2D Live2D renderer controller instance.
- * @typedef {import('../../index.d.ts').Renderer2D} Renderer2D
+ * 2D Live2D renderer controller instance referencing types/index.d.ts via @types.
+ * @typedef {import('@types').Renderer2D} Renderer2D
  */
 
 // 2D engine dependencies (pixi + live2d) are lazy-loaded on demand to avoid downloading Live2D in 3D mode
@@ -72,7 +72,7 @@ export function loadUMD() {
 
 /**
  * Executes the default 2D emotion expression / gesture corresponding to avatar gender.
- * @param {import('../../index.d.ts').SkinEngine | Record<string, any> | null} [skinEngine=null] - Skin engine instance.
+ * @param {import('@types').SkinEngine | null} [skinEngine=null] - Skin engine instance.
  * @param {string} emotionName - Emotion name to express (e.g., 'neutral', 'happy', 'sad', 'surprised').
  * @returns {Promise<void>}
  */
@@ -125,9 +125,9 @@ export async function defaultGesture2D(skinEngine = null, emotionName) {
 // ===== 2D Skin: Live2D Loading & Lip Sync =====
 /**
  * Initializes and boots the 2D Live2D avatar model within PIXI Application.
- * @param {import('../../index.d.ts').SkinEngine | Record<string, any>} skinEngine - Skin engine instance.
+ * @param {import('@types').SkinEngine} skinEngine - Skin engine instance.
  * @param {string} modelUrl - URL to the Live2D model configuration file (.model3.json).
- * @returns {Promise<import('../../index.d.ts').Renderer2D | void>} Initialized 2D renderer instance, or void on error.
+ * @returns {Promise<import('@types').Renderer2D | void>} Initialized 2D renderer instance, or void on error.
  */
 export async function bootAvatar(skinEngine, modelUrl) {
   const stageEl = skinEngine?.stageEl;

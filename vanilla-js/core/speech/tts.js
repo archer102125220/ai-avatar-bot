@@ -3,23 +3,23 @@ import { createBaseStore } from '@/core/store';
 
 /**
  * Options for TTS speech synthesis playback.
- * @typedef {import('../../index.d.ts').TTSSpeakOptions} TTSSpeakOptions
+ * @typedef {import('@types').TTSSpeakOptions} TTSSpeakOptions
  */
 
 /**
  * Text-to-Speech (TTS) engine internal state.
- * @typedef {import('../../index.d.ts').TTSEngineState} TTSEngineState
+ * @typedef {import('@types').TTSEngineState} TTSEngineState
  */
 
 /**
- * Text-to-Speech (TTS) engine controller interface.
- * @typedef {import('../../index.d.ts').TTSEngine} TTSEngine
+ * Text-to-Speech (TTS) engine controller interface referencing types/index.d.ts via @types.
+ * @typedef {import('@types').TTSEngine} TTSEngine
  */
 
 /**
  * Validates whether the provided Text-to-Speech (TTS) engine complies with the TTSEngine interface specification.
  *
- * @param {TTSEngine | Record<string, any> | null | undefined} engine - TTS engine instance to validate.
+ * @param {TTSEngine | Record<string, any>} engine - TTS engine instance to validate.
  * @returns {{ isValid: boolean, missing: string[] }} Object containing validation result and missing properties/methods array.
  */
 export function validateTTSEngine(engine) {
@@ -227,7 +227,7 @@ export function localeVoice(locale) {
 
 /**
  * Options for configuring the TTSEngine.
- * @typedef {import('../../index.d.ts').TTSEngineOptions} TTSEngineOptions
+ * @typedef {import('@types').TTSEngineOptions} TTSEngineOptions
  */
 
 /**

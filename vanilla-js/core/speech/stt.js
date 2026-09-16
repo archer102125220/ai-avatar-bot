@@ -3,7 +3,7 @@ import { createBaseStore } from '@/core/store';
 /**
  * Validates whether the provided Speech-to-Text (STT) engine complies with the STTEngine interface specification.
  *
- * @param {import('../../index.d.ts').STTEngine | Record<string, any> | null | undefined} engine - STT engine instance to validate.
+ * @param {import('@types').STTEngine | Record<string, any>} engine - STT engine instance to validate.
  * @returns {{ isValid: boolean, missing: string[] }} Object containing validation result and missing properties/methods array.
  */
 export function validateSTTEngine(engine) {
@@ -27,12 +27,12 @@ export function validateSTTEngine(engine) {
 
 /**
  * Speech-to-Text (STT) engine internal state.
- * @typedef {import('../../index.d.ts').STTEngineState} STTEngineState
+ * @typedef {import('@types').STTEngineState} STTEngineState
  */
 
 /**
  * Options for configuring the STTEngine.
- * @typedef {import('../../index.d.ts').STTEngineOptions} STTEngineOptions
+ * @typedef {import('@types').STTEngineOptions} STTEngineOptions
  */
 
 /**
@@ -125,8 +125,8 @@ export function getSttMessage(locale, key, params = {}) {
 }
 
 /**
- * Speech-to-Text (STT) engine controller instance.
- * @typedef {import('../../index.d.ts').STTEngine} STTEngine
+ * Speech-to-Text (STT) engine controller instance referencing types/index.d.ts via @types.
+ * @typedef {import('@types').STTEngine} STTEngine
  */
 
 /**

@@ -2,7 +2,7 @@ import { ENGINE_MODE_MAP } from '@/core/constants';
 
 /**
  * Validates whether the provided engine object complies with the SkinEngine interface specification.
- * @param {import('../../index.d.ts').SkinEngine | Record<string, any> | null} engine - Engine instance to validate.
+ * @param {import('@types').SkinEngine | Record<string, any> | null} engine - Engine instance to validate.
  * @returns {{ isValid: boolean, missing: string[] }} Object containing validation result and missing properties array.
  */
 export function validateSkinEngine(engine) {
@@ -36,7 +36,7 @@ export function validateSkinEngine(engine) {
 
 /**
  * Creates a new canvas element and prepends it to the stage container for avatar rendering.
- * @param {import('../../index.d.ts').SkinEngine | null} [skinEngine=null] - Skin engine instance containing the stage element.
+ * @param {import('@types').SkinEngine | null} [skinEngine=null] - Skin engine instance containing the stage element.
  * @returns {HTMLCanvasElement} Newly created canvas element.
  * @throws {Error} If stageEl is not an HTMLElement instance.
  */
@@ -57,7 +57,7 @@ export function createCanvas(skinEngine = null) {
 
 /**
  * Resolves and initializes the starting rendering mode (2D or 3D) on the skin engine instance.
- * @param {import('../../index.d.ts').SkinEngine | Record<string, any> | null} [skinEngine=null] - Skin engine instance.
+ * @param {import('@types').SkinEngine | null} [skinEngine=null] - Skin engine instance.
  * @returns {void}
  */
 export function initSkinMode(skinEngine = null) {
