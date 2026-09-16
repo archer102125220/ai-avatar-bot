@@ -61,7 +61,7 @@ import {
  * Initializes the WebLLM in-browser inference engine.
  *
  * @param {LLMEngineOptions} [setting={}] - WebLLM options.
- * @param {import('../../index.d.ts').BrainEngine | Object} [brain] - Parent Brain engine instance.
+ * @param {import('@types').BrainEngine} [brain] - Parent Brain engine instance.
  * @returns {LLMEngine} Initialized WebLLM engine controller.
  */
 export function initWebLLM(setting = {}, brain) {
@@ -504,7 +504,7 @@ export function initWebLLM(setting = {}, brain) {
 /**
  * Executes a conversational query using the in-browser WebLLM engine with streaming and auto-continuation support.
  *
- * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {import('@types').BrainEngine} brainEngine - Brain engine instance.
  * @param {string} question - User question text.
  * @returns {Promise<void>}
  */

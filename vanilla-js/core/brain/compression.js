@@ -25,7 +25,7 @@ import {
  * Resolves context compression limits for a specific inference engine.
  * Precedence: Engine-specific (`webLlm` / `aiProvider`) -> Global (`maxTurns` / `maxTotalChars`) -> Default values.
  *
- * @param {import('../../index.d.ts').CompressionOptions} [compressionOptions={}] - Compression options.
+ * @param {import('@types').BrainCompressionOptions} [compressionOptions={}] - Compression options.
  * @param {string} [engineType=BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER] - Active inference engine type.
  * @returns {ResolvedCompressionLimits} Resolved limits and strategy configuration.
  */
@@ -543,7 +543,7 @@ export function rollingSummaryCompressor({
  * @param {string} [context.provider] - Inference provider identifier.
  * @param {string} [context.engineType] - Engine type identifier.
  * @param {string} [context.model] - Active model identifier.
- * @param {import('../../index.d.ts').CompressionOptions} [context.compressionOptions] - Compression configuration options.
+ * @param {import('@types').BrainCompressionOptions} [context.compressionOptions] - Compression configuration options.
  * @returns {Promise<Array<Object>> | Array<Object>} Compressed messages array.
  */
 export async function compressContext({

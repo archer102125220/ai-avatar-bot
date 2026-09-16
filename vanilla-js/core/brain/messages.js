@@ -6,7 +6,7 @@ import { compressContext } from './compression.js';
 /**
  * Retrieves localized string for internal Brain messages.
  *
- * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {import('@types').BrainEngine} brainEngine - Brain engine instance.
  * @param {string} key - Translation key.
  * @param {Record<string, any>} [params={}] - Interpolation parameters.
  * @returns {string} Formatted localized string.
@@ -29,7 +29,7 @@ export function getBrainMessage(brainEngine, key, params = {}) {
 /**
  * Generates the dynamic welcome text according to persona mode, memory visits, and locale.
  *
- * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {import('@types').BrainEngine} brainEngine - Brain engine instance.
  * @returns {Promise<string>} Welcome message text.
  */
 export async function getWelcomeText(brainEngine) {
@@ -181,7 +181,7 @@ export async function getWelcomeText(brainEngine) {
 /**
  * Resolves or generates the continuation prompt for multi-step responses.
  *
- * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {import('@types').BrainEngine} brainEngine - Brain engine instance.
  * @param {number} [continuationIndex=1] - Current continuation sequence index (1-indexed).
  * @param {string} [accumulatedText=''] - Cumulative generated text so far.
  * @returns {string} Continuation prompt string.
@@ -233,7 +233,7 @@ export function resolveAutoContinuePrompt(
 /**
  * Builds standard LLM chat messages array including RAG context, persona, and compression pipeline.
  *
- * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {import('@types').BrainEngine} brainEngine - Brain engine instance.
  * @param {string} question - Current user question text.
  * @param {string} [engineType=BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER] - Active inference engine type.
  * @returns {Array<{ role: string, content: string }>} Compressed LLM messages array ready for inference.

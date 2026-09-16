@@ -416,7 +416,7 @@ export async function initAiProvider(setting = {}) {
 /**
  * Executes a conversational query using the server-side AI Provider backend with auto-continuation support.
  *
- * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {import('@types').BrainEngine} brainEngine - Brain engine instance.
  * @param {string} question - User question text.
  * @returns {Promise<void>}
  */

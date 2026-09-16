@@ -29,7 +29,7 @@ export function classifyEmotion(text) {
 /**
  * Triggers avatar emotion/gesture updates based on the sentiment of the response text.
  *
- * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {import('@types').BrainEngine} brainEngine - Brain engine instance.
  * @param {string} text - Response text.
  */
 export function applyEmotionFromText(brainEngine, text) {

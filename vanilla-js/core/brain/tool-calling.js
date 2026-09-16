@@ -47,7 +47,7 @@ export function extractToolCallsFromText(content) {
 /**
  * Executes the LLM tool-calling cycle (execution -> user confirmation / direct execution -> follow-up synthesis).
  *
- * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {import('@types').BrainEngine} brainEngine - Brain engine instance.
  * @param {{ type: string, toolCalls: Array<any>, message: any }} toolCallResponse - Tool calls payload emitted by model.
  * @param {Array<any>} initialMessages - Original prompt messages array sent to the model.
  * @param {'aiProvider' | 'webLLM'} providerType - AI provider backend type.

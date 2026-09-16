@@ -40,20 +40,20 @@ export * from './web-llm.js';
 export * from './ai-provider.js';
 
 /**
- * Brain engine options definition referencing central index.d.ts.
- * @typedef {import('../../index.d.ts').BrainEngineOptions} BrainEngineOptions
+ * Brain engine options definition referencing types/index.d.ts via @types.
+ * @typedef {import('@types').BrainEngineOptions} BrainEngineOptions
  */
 
 /**
- * Brain engine instance interface referencing central index.d.ts.
- * @typedef {import('../../index.d.ts').BrainEngine} BrainEngine
+ * Brain engine instance interface referencing types/index.d.ts via @types.
+ * @typedef {import('@types').BrainEngine} BrainEngine
  */
 
 /**
  * Creates and initializes the Brain cognitive engine instance (orchestrating AI Provider, WebLLM, RAG knowledge, and memory).
  *
- * @param {import('../../index.d.ts').BrainEngineOptions} [setting={}] - Brain engine options.
- * @returns {Promise<import('../../index.d.ts').BrainEngine>} Initialized Brain engine instance.
+ * @param {import('@types').BrainEngineOptions} [setting={}] - Brain engine options.
+ * @returns {Promise<import('@types').BrainEngine>} Initialized Brain engine instance.
  */
 export async function initBrainEngine(setting = {}) {
   const {
@@ -533,7 +533,7 @@ export async function initBrainEngine(setting = {}) {
 /**
  * Generates default fallback response text for companion persona mode when question is not found in knowledge.
  *
- * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {import('@types').BrainEngine} brainEngine - Brain engine instance.
  * @param {string} question - User question text.
  * @returns {string} Fallback response string.
  */
@@ -608,7 +608,7 @@ export function getCompanionFallbackResponse(brainEngine, question) {
 /**
  * Processes question retrieval and ranking against knowledge bases.
  *
- * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {import('@types').BrainEngine} brainEngine - Brain engine instance.
  * @param {string} rawQuestion - Raw user question text.
  * @returns {string} Matched answer or fallback response text.
  */
@@ -728,7 +728,7 @@ export function getRetrievalAnswer(brainEngine, rawQuestion) {
 /**
  * Appends a conversation turn message to internal history log.
  *
- * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {import('@types').BrainEngine} brainEngine - Brain engine instance.
  * @param {string} role - Message author role ('user' | 'assistant').
  * @param {string} text - Message text content.
  * @param {Object} [options={}] - Additional message options.
@@ -764,7 +764,7 @@ export function addChatMessage(brainEngine, role, text, options = {}) {
 /**
  * Updates an existing message in conversation history log.
  *
- * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {import('@types').BrainEngine} brainEngine - Brain engine instance.
  * @param {string} id - Target message ID.
  * @param {string} text - Updated text content.
  * @param {boolean} streaming - Whether message is still streaming.
@@ -789,7 +789,7 @@ export function updateChatMessage(brainEngine, id, text, streaming) {
 /**
  * Handles full question answering lifecycle with priority routing (AI Provider -> WebLLM -> Knowledge Retrieval).
  *
- * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {import('@types').BrainEngine} brainEngine - Brain engine instance.
  * @param {string} question - User question text.
  * @returns {Promise<void>}
  */
@@ -890,7 +890,7 @@ export async function answerQuestion(brainEngine, question) {
 /**
  * Emits and records assistant answer text (history turn, chat UI, voice synthesis, emotion).
  *
- * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {import('@types').BrainEngine} brainEngine - Brain engine instance.
  * @param {string} text - Answer content text.
  */
 export function emitAnswer(brainEngine, text) {

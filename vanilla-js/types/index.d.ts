@@ -1161,10 +1161,18 @@ export interface I18nEngine {
  * Knowledge base entry structure for RAG / retrieval questions.
  */
 export interface KnowledgeEntry {
-  /** Question prompt or trigger keywords. */
-  question: string;
-  /** Answer text response. */
-  answer: string;
+  /** Question or prompt text. */
+  q?: string;
+  /** Keywords associated with the entry. */
+  kw?: string;
+  /** Answer or response text. */
+  a?: string;
+  /** Optional source attribution data. */
+  source?: {
+    title?: string;
+    url?: string;
+    [key: string]: any;
+  };
   /** Optional metadata tags or category. */
   [key: string]: any;
 }

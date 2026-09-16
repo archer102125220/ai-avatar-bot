@@ -1,12 +1,6 @@
 /**
- * Knowledge base entry item.
- * @typedef {Object} KnowledgeEntry
- * @property {string} [q] - Question or prompt text.
- * @property {string} [kw] - Keywords associated with the entry.
- * @property {string} [a] - Answer or response text.
- * @property {Object} [source] - Optional source attribution data.
- * @property {string} [source.title] - Source title.
- * @property {string} [source.url] - Source URL.
+ * Knowledge base entry item referencing types/index.d.ts via @types.
+ * @typedef {import('@types').KnowledgeEntry} KnowledgeEntry
  */
 
 /**
@@ -109,7 +103,7 @@ export function scoreKnowledgeEntry(question, entry) {
 /**
  * Retrieves top K relevant knowledge entries matching the user question.
  *
- * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {import('@types').BrainEngine} brainEngine - Brain engine instance.
  * @param {string | Array<any>} question - User question text or messages array.
  * @param {number} limit - Maximum number of knowledge items to return.
  * @returns {Array<KnowledgeEntry>} Array of ranked matching knowledge entries.

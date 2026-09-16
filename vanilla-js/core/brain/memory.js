@@ -17,30 +17,17 @@ import {
 
 /**
  * Multi-turn conversation memory data structure.
- * @typedef {import('../../index.d.ts').MemoryData} MemoryData
+ * @typedef {import('@types').MemoryData} MemoryData
  */
 
 /**
  * Storage adapter interface for persistent conversation memory.
- * @typedef {import('../../index.d.ts').MemoryAdapter} MemoryAdapter
+ * @typedef {import('@types').MemoryAdapter} MemoryAdapter
  */
 
 /**
- * Initialized memory controller instance.
- * @typedef {Object} MemoryInstance
- * @property {string} key - Local storage key or namespace.
- * @property {boolean} enabled - Whether persistent memory is active.
- * @property {number} maxHistoryTurns - Maximum number of history turns retained.
- * @property {MemoryAdapter} adapter - Storage adapter instance.
- * @property {MemoryData} data - Memory state data object.
- * @property {() => void} load - Loads memory from storage and runs version migration.
- * @property {() => void} save - Persists memory data to storage.
- * @property {(role: string, content: string) => void} addTurn - Appends a conversation turn.
- * @property {(name: string) => void} captureName - Attempts to extract and save the user's name.
- * @property {() => void} clear - Resets conversation memory.
- * @property {() => number} getVersion - Returns current schema version.
- * @property {() => Record<string, any>} getMetadata - Returns custom metadata object.
- * @property {(patchOrUpdater: Object | ((prev: Record<string, any>) => Record<string, any>)) => void} setMetadata - Updates custom metadata.
+ * Initialized memory controller instance referencing types/index.d.ts via @types.
+ * @typedef {import('@types').MemoryInstance} MemoryInstance
  */
 
 /**
@@ -204,7 +191,7 @@ export function migrateMemoryData(rawData) {
  * Initializes the conversation memory subsystem.
  *
  * @param {Object} [params={}] - Initialization parameters.
- * @param {import('../../index.d.ts').AvatarMode} [params.avatarMode=DEFAULT_AVATAR_MODE] - Avatar persona mode.
+ * @param {import('@types').AvatarMode} [params.avatarMode=DEFAULT_AVATAR_MODE] - Avatar persona mode.
  * @param {boolean} [params.enableMemory=DEFAULT_ENABLE_MEMORY] - Whether memory is enabled.
  * @param {string} [params.memoryKey=DEFAULT_MEMORY_KEY] - Storage key identifier.
  * @param {number} [params.maxHistoryTurns=DEFAULT_MAX_HISTORY_TURNS] - Maximum history turns retained.
@@ -370,7 +357,7 @@ export function initMemory({
 /**
  * Checks and triggers non-blocking background rolling summarization if criteria are met.
  *
- * @param {import('../../index.d.ts').BrainEngine | Object} brainEngine - Brain engine instance.
+ * @param {import('@types').BrainEngine} brainEngine - Brain engine instance.
  * @returns {Promise<void>}
  */
 export async function triggerRollingSummaryIfNeeded(brainEngine) {
