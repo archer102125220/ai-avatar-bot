@@ -1044,6 +1044,30 @@ export interface ToolsEngine {
 }
 
 // ============================================================================
+// Plugin Types
+// ============================================================================
+
+/**
+ * Options for configuring the emotion and gesture tools plugin.
+ */
+export interface EmotionToolsPluginOptions {
+  /** Function providing the SkinEngine instance when used standalone. */
+  getSkinEngine?: () => SkinEngine | null;
+  /** List of supported emotion or gesture trigger names. */
+  emotions?: string[];
+  /** Name of the tool registered for emotion dispatching. */
+  toolName?: string;
+  /** Natural language description explaining to the LLM when to call this tool. */
+  description?: string;
+  /** Tool routing decision mode ('ai' | 'client' | 'hybrid'). */
+  routingMode?: 'ai' | 'client' | 'hybrid' | string;
+  /** Tool execution result handling mode ('ai_summary' | 'direct'). */
+  resultMode?: 'ai_summary' | 'direct' | string;
+  /** Callback triggered when an emotion action is executed. */
+  onEmotionTrigger?: (emotion: string, context?: Record<string, any>) => void;
+}
+
+// ============================================================================
 // I18n Subsystem Types
 // ============================================================================
 
@@ -1885,3 +1909,7 @@ export function initI18nEngine(options?: I18nEngineOptions): I18nEngine;
 export function resolveLocalized<T>(value: T | Record<string, T> | ((args: any) => T), locale?: string, fallbackValue?: T | ((args: any) => T), templateContext?: any): T;
 export function formatParams(text: string, params?: Record<string, any>): string;
 export const defaultLocales: Record<string, any>;
+
+// Plugins
+export function createEmotionToolsPlugin(options?: EmotionToolsPluginOptions): ToolDefinition[];
+

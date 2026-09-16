@@ -7,6 +7,10 @@ import koKR from './locales/ko-KR';
 
 export * from './constants';
 
+/**
+ * Built-in default dictionary mappings for standard supported locales.
+ * @type {Record<string, Record<string, any>>}
+ */
 export const defaultLocales = {
   'zh-TW': zhTW,
   'en-US': enUS,
@@ -15,15 +19,15 @@ export const defaultLocales = {
 };
 
 /**
- * 通用多語系值解析工具函式。
- * 支援「函式 / 多語系物件 / 單一值 / 回退值」的安全解析。
+ * Universal localized value resolver utility.
+ * Safely resolves values from functions, multi-locale objects, literal values, or fallbacks.
  *
  * @template T
- * @param {T | Record<string, T> | ((args: any) => T)} [value] - 欲解析的值、多語系物件或函式。
- * @param {string} [locale=DEFAULT_LOCALE] - 當前語系代碼。
- * @param {T | ((args: any) => T)} [fallbackValue] - 當解析不到時的回退值或回退函式。
- * @param {any} [templateContext={}] - 傳遞給函式的上下文參數物件。
- * @returns {T} 解析後的最終值。
+ * @param {T | Record<string, T> | ((args: any) => T)} [value] - Target value, multi-locale mapping object, or resolver function.
+ * @param {string} [locale=DEFAULT_LOCALE] - Current active locale code.
+ * @param {T | ((args: any) => T)} [fallbackValue] - Fallback value or fallback function when unresolved.
+ * @param {any} [templateContext={}] - Context arguments object passed to resolver functions.
+ * @returns {T} Resolved final localized value.
  */
 export function resolveLocalized(
   value,
@@ -70,11 +74,11 @@ export function resolveLocalized(
 }
 
 /**
- * 格式化字串中的變數標記 (例如將 "{name}" 或 "{{name}}" 替換為實際名稱)。
+ * Formats template parameters in a string (e.g. replacing "{name}" or "{{name}}" with parameter values).
  *
- * @param {string} text - 原始字串。
- * @param {Record<string, any>} [params={}] - 替換參數。
- * @returns {string} 替換後的字串。
+ * @param {string} text - Source template string.
+ * @param {Record<string, any>} [params={}] - Key-value replacement parameters.
+ * @returns {string} Formatted output string.
  */
 export function formatParams(text, params = {}) {
   if (typeof text !== 'string') {
@@ -87,6 +91,13 @@ export function formatParams(text, params = {}) {
   });
 }
 
+/**
+ * Retrieves a nested value from a dictionary using dot notation or direct key lookup.
+ *
+ * @param {Record<string, any>} dictionary - Dictionary object.
+ * @param {string} keyPath - Key path string (e.g. 'ui.history.title').
+ * @returns {any} Value or undefined.
+ */
 function getFromDictionary(dictionary, keyPath) {
   if (typeof dictionary !== 'object' || dictionary === null) {
     return undefined;
@@ -106,40 +117,16 @@ function getFromDictionary(dictionary, keyPath) {
 }
 
 /**
- * @typedef {Object} I18nEngineOptions
- * @property {string} [locale=DEFAULT_LOCALE] - 預設語系代碼。
- * @property {Record<string, Record<string, any>>} [messages={}] - 自訂/覆寫的語系字典。
- * @property {((key: string, params?: Record<string, any>) => any)} [t] - 自訂外部翻譯函式 (簡短別名)。
- * @property {((key: string, params?: Record<string, any>) => any)} [translate] - 自訂外部翻譯函式。
+ * @typedef {import('../../index.d.ts').I18nEngineOptions} I18nEngineOptions
+ * @typedef {import('../../index.d.ts').I18nEngineState} I18nEngineState
+ * @typedef {import('../../index.d.ts').I18nEngine} I18nEngine
  */
 
 /**
- * @typedef {Object} I18nEngineState
- * @property {string} locale - 當前語系代碼。
- * @property {Record<string, Record<string, any>>} messages - 當前所有載入的字典資料。
- */
-
-/**
- * @typedef {Object} I18nEngine
- * @property {((key: string, params?: Record<string, any>) => any)} t - 翻譯指定鍵值。
- * @property {((key: string, params?: Record<string, any>) => any)} translate - 翻譯指定鍵值。
- * @property {((newLocale: string) => void)} setLocale - 動態切換語系。
- * @property {((locale: string, newMessages: Record<string, any>) => void)} addMessages - 動態新增或覆寫語系字典內容。
- * @property {typeof formatParams} formatParams - 格式化變數標記。
- * @property {<T>(value: T | Record<string, T> | ((args: any) => T), fallbackValue?: T | ((args: any) => T), templateContext?: any) => T} resolveLocalized - 使用當前語系解析多語系值。
- * @property {string} locale - 當前語系代碼。
- * @property {Record<string, Record<string, any>>} messages - 所有載入的字典資料。
- * @property {{label: string, shortLabel: string}} labels - 當前語系的顯示標籤資訊。
- * @property {(selector: any, callback?: Function) => () => void} subscribe - 訂閱狀態變更。
- * @property {() => I18nEngineState} getState - 取得內部狀態。
- * @property {(updates: Partial<I18nEngineState> | ((state: I18nEngineState) => Partial<I18nEngineState>)) => void} setState - 覆寫或更新部分狀態。
- */
-
-/**
- * 初始化獨立的多語系引擎 (i18nEngine)。
+ * Initializes the standalone Internationalization (i18n) Engine.
  *
- * @param {I18nEngineOptions} [options={}] - 初始化選項。
- * @returns {I18nEngine} i18nEngine 實例。
+ * @param {I18nEngineOptions} [options={}] - Initialization options.
+ * @returns {I18nEngine} Standalone i18n engine instance.
  */
 export function initI18nEngine(options = {}) {
   const initialLocale =
@@ -152,7 +139,7 @@ export function initI18nEngine(options = {}) {
       ? options.messages
       : {};
 
-  // 合併內建字典與使用者自訂字典
+  // Merge built-in dictionaries with user custom dictionary
   const mergedMessages = {};
   for (const supportedLocale of SUPPORTED_LOCALES) {
     mergedMessages[supportedLocale] = {
@@ -161,7 +148,7 @@ export function initI18nEngine(options = {}) {
     };
   }
 
-  // 納入其他非預設語系（例如使用者自行加入 'fr-FR' 等）
+  // Include additional custom locales (e.g. user-defined 'fr-FR')
   for (const customLocale in customMessages) {
     if (SUPPORTED_LOCALES.includes(customLocale) === false) {
       mergedMessages[customLocale] = { ...customMessages[customLocale] };
@@ -181,11 +168,11 @@ export function initI18nEngine(options = {}) {
   });
 
   /**
-   * 翻譯指定鍵值。
+   * Translates a dictionary key with optional parameter substitution.
    *
-   * @param {string} key - 字典鍵值 (例如: 'ui.history.title')。
-   * @param {Record<string, any>} [params={}] - 變數替換參數。
-   * @returns {any} 翻譯後的字串或陣列。
+   * @param {string} key - Dictionary key (e.g. 'ui.history.title').
+   * @param {Record<string, any>} [params={}] - Parameter substitution map.
+   * @returns {any} Translated string or string array.
    */
   function translate(key, params = {}) {
     if (customTranslateFunction !== null) {
@@ -219,9 +206,9 @@ export function initI18nEngine(options = {}) {
   }
 
   /**
-   * 動態切換語系。
+   * Dynamically switches the active locale.
    *
-   * @param {string} newLocale - 新的語系代碼。
+   * @param {string} newLocale - New locale code.
    */
   function setLocale(newLocale) {
     if (typeof newLocale === 'string' && newLocale !== '') {
@@ -230,10 +217,10 @@ export function initI18nEngine(options = {}) {
   }
 
   /**
-   * 動態新增或覆寫語系字典內容。
+   * Dynamically registers or overrides translation messages for a locale.
    *
-   * @param {string} locale - 目標語系代碼。
-   * @param {Record<string, any>} newMessages - 字典內容。
+   * @param {string} locale - Target locale code.
+   * @param {Record<string, any>} newMessages - Dictionary content map.
    */
   function addMessages(locale, newMessages) {
     if (

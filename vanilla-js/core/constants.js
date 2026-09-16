@@ -1,262 +1,262 @@
 /**
- * 虛擬形象狀態映射表。
+ * Avatar lifecycle state mapping enum.
  * @readonly
  * @enum {string}
  */
 export const STATE_MAP = {
-  /** 閒置狀態 */
+  /** Idle state. */
   IDLE: 'idle',
-  /** 載入中狀態 */
+  /** Loading state. */
   LOADING: 'loading',
-  /** 準備就緒狀態 */
+  /** Ready state. */
   READY: 'ready',
-  /** 發生錯誤狀態 */
+  /** Error state. */
   ERROR: 'error'
 };
 
 /**
- * 虛擬形象角色模式映射表（內建人格預設包）。
+ * Avatar personality role mode mapping enum.
  * @readonly
  * @enum {string}
  */
 export const AVATAR_MODE_MAP = {
-  /** 陪伴模式預設包 */
+  /** Companion mode preset bundle. */
   companion: 'companion',
-  /** 助理模式預設包 */
+  /** Assistant mode preset bundle. */
   assistant: 'assistant'
 };
 
 /**
- * 預設虛擬形象模式。
+ * Default avatar personality role mode.
  * @type {'companion'|'assistant'}
  */
 export const DEFAULT_AVATAR_MODE = AVATAR_MODE_MAP.assistant;
 
 /**
- * 預設是否啟用記憶體模組（多輪對話與上下文歷史）。
+ * Default flag indicating whether conversation memory module is enabled.
  * @type {boolean}
  */
 export const DEFAULT_ENABLE_MEMORY = true;
 
 /**
- * 預設保留最大對話輪數（1 輪包含 1 次使用者發言與 1 次 AI 回覆）。
+ * Default maximum conversation history turns preserved (1 turn = 1 user message + 1 AI response).
  * @type {number}
  */
 export const DEFAULT_MAX_HISTORY_TURNS = 6;
 
 /**
- * 上下文壓縮策略映射表。
+ * Conversation context compression strategy mapping enum.
  * @readonly
  * @enum {string}
  */
 export const COMPRESSION_STRATEGY_MAP = {
-  /** 滑動窗口壓縮策略（依輪數與字元預算由新到舊截取完整對話輪次） */
+  /** Sliding window strategy (preserves most recent full dialogue turns within turn and character budget). */
   SLIDING_WINDOW: 'sliding-window',
-  /** 滾動摘要壓縮策略（背景自動摘要對話重點注入系統提示詞） */
+  /** Rolling summary strategy (automatically summarizes earlier dialogues into system prompts in the background). */
   ROLLING_SUMMARY: 'rolling-summary',
-  /** 直通模式（不壓縮，全量傳遞） */
+  /** Pass-through mode (no compression, sends entire raw history). */
   NONE: 'none'
 };
 
 /**
- * 預設上下文壓縮策略。
+ * Default conversation context compression strategy.
  * @type {'sliding-window'|'rolling-summary'|'none'}
  */
 export const DEFAULT_COMPRESSION_STRATEGY =
   COMPRESSION_STRATEGY_MAP.SLIDING_WINDOW;
 
 /**
- * 預設全域上下文總字元預算上限。
+ * Default global context total character budget limit.
  * @type {number}
  */
 export const DEFAULT_MAX_TOTAL_CHARS = 4000;
 
 /**
- * 預設端側 WebLLM 引擎最大對話輪數（嚴格控制顯存）。
+ * Default maximum conversation turns for in-browser WebLLM engine (conserves VRAM).
  * @type {number}
  */
 export const DEFAULT_WEB_LLM_MAX_TURNS = 3;
 
 /**
- * 預設端側 WebLLM 引擎最大字元預算上限。
+ * Default character budget limit for in-browser WebLLM engine.
  * @type {number}
  */
 export const DEFAULT_WEB_LLM_MAX_CHARS = 1500;
 
 /**
- * 預設雲端 AI Provider 伺服器最大對話輪數。
+ * Default maximum conversation turns for cloud AI Provider engine.
  * @type {number}
  */
 export const DEFAULT_AI_PROVIDER_MAX_TURNS = 8;
 
 /**
- * 預設雲端 AI Provider 伺服器最大字元預算上限。
+ * Default character budget limit for cloud AI Provider engine.
  * @type {number}
  */
 export const DEFAULT_AI_PROVIDER_MAX_CHARS = 6000;
 
 /**
- * 預設滾動摘要觸發輪數門檻（每累積達此輪數則在背景觸發摘要更新）。
+ * Default turn threshold to trigger rolling summary updates in the background.
  * @type {number}
  */
 export const DEFAULT_SUMMARY_THRESHOLD_TURNS = 4;
 
 /**
- * 預設滾動摘要模式下保留的最新完整對話輪數。
+ * Default number of recent full dialogue turns kept intact in rolling summary mode.
  * @type {number}
  */
 export const DEFAULT_SUMMARY_RECENT_TURNS = 2;
 
 /**
- * 預設摘要文字長度上限（字元）。
+ * Default maximum character length limit for generated rolling summary.
  * @type {number}
  */
 export const DEFAULT_SUMMARY_MAX_CHARS = 1000;
 
 /**
- * 預設本機 LocalStorage 記憶體儲存鍵名。
+ * Default LocalStorage persistence key for conversation memory.
  * @type {string}
  */
 export const DEFAULT_MEMORY_KEY = 'avatar-widget-memory';
 
 /**
- * 當前記憶體結構版本號（Schema Version）。
+ * Current conversation memory schema version.
  * @type {number}
  */
 export const CURRENT_MEMORY_VERSION = 1;
 
 /**
- * 預設用於網頁端推論的 LLM 模型（例如 WebLLM）。
+ * Default in-browser LLM model identifier (WebLLM).
  * @type {string}
  */
 export const DEFAULT_LLM_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 
 /**
- * 預設用於 API 提供者的 AI 模型（例如 Ollama）。
+ * Default AI Provider server model identifier (e.g. Ollama).
  * @type {string}
  */
 export const DEFAULT_AI_PROVIDER_MODEL = 'qwen2.5:latest';
 
 /**
- * 預設端側 WebLLM 引擎單次回答的最大 Token 數。
+ * Default maximum generated tokens for in-browser WebLLM engine.
  * @type {number}
  */
 export const DEFAULT_LLM_MAX_TOKENS = 1024;
 
 /**
- * 預設雲端 AI Provider 伺服器單次回答的最大 Token 數。
+ * Default maximum generated tokens for cloud AI Provider engine.
  * @type {number}
  */
 export const DEFAULT_AI_PROVIDER_MAX_TOKENS = 2048;
 
 /**
- * 預設是否在模型回答達到 Token 上限被截斷時啟用自動接續。
+ * Default flag indicating whether auto-continuation is enabled when response is truncated by token limits.
  * @type {boolean}
  */
 export const DEFAULT_ENABLE_AUTO_CONTINUE = false;
 
 /**
- * 預設單次問題回答的最大自動接續次數上限（防止無限接續循環）。
+ * Default maximum number of auto-continuation iterations per user turn.
  * @type {number}
  */
 export const DEFAULT_MAX_AUTO_CONTINUATIONS = 3;
 
 /**
- * 自動接續輸出模式映射表。
+ * Auto-continuation output delivery mode mapping enum.
  * @readonly
  * @enum {string}
  */
 export const AUTO_CONTINUE_MODE_MAP = {
-  /** 串流即時模式：邊說邊顯示第一段，接續文字抵達時無縫串入既有訊息與語音佇列 */
+  /** Stream mode: plays TTS and displays text immediately, chaining continuation chunks seamlessly. */
   STREAM: 'stream',
-  /** 緩衝模式：等待所有接續片段全部生成完畢後再一次性輸出語音與文字 */
+  /** Buffered mode: waits for all continuation segments to complete before rendering audio and text. */
   BUFFERED: 'buffered'
 };
 
 /**
- * 預設自動接續輸出模式。
+ * Default auto-continuation output delivery mode.
  * @type {'stream'|'buffered'}
  */
 export const DEFAULT_AUTO_CONTINUE_MODE = AUTO_CONTINUE_MODE_MAP.STREAM;
 
 /**
- * 情緒目標值映射表。
+ * Emotion animation target value mapping enum.
  * @readonly
  * @enum {number}
  */
 export const EMOTION_TARGET_MAP = {
-  /** 快樂情緒的目標值 */
+  /** Target value for happy emotion. */
   happy: 0.65,
-  /** 驚訝情緒的目標值 */
+  /** Target value for surprised emotion. */
   surprised: 0.6,
-  /** 悲傷情緒的目標值 */
+  /** Target value for sad emotion. */
   sad: 0.5
 };
 
 /**
- * 情緒目標值映射表（相容別名）。
- * @deprecated 請改用 EMOTION_TARGET_MAP
+ * Emotion animation target value mapping enum (compatibility alias).
+ * @deprecated Use EMOTION_TARGET_MAP instead.
  * @readonly
  * @enum {number}
  */
 export const EMO_TARGET_MAP = EMOTION_TARGET_MAP;
 
 /**
- * 虛擬形象渲染引擎模式映射表。
+ * Avatar skin rendering engine mode mapping enum.
  * @readonly
  * @enum {string}
  */
 export const ENGINE_MODE_MAP = {
-  /** 2D 渲染引擎模式 */
+  /** 2D Live2D rendering engine mode. */
   twoDimensional: '2d',
-  /** 3D 渲染引擎模式 */
+  /** 3D VRM rendering engine mode. */
   threeDimensional: '3d'
 };
 
 /**
- * 預設啟動的渲染引擎模式。
+ * Default initial skin rendering engine mode.
  * @type {'2d'|'3d'}
  */
 export const DEFAULT_START_MODE = ENGINE_MODE_MAP.twoDimensional;
 
 /**
- * 預設 VRMA 根目錄 URL 路徑。
+ * Default root URL path for 3D VRMA animation files.
  * @type {string}
  */
 export const DEFAULT_VRMA_ROOT_PATH = '/avatar-skin/3d-model/vrma/';
 
 /**
- * 畫面顯示比例模式映射表。
+ * Screen aspect framing fit mode mapping enum.
  * @readonly
  * @enum {string}
  */
 export const FIT_MODE_MAP = {
-  /** 半身顯示模式 */
+  /** Half-body framing mode. */
   HALF: 'half',
-  /** 全身顯示模式 */
+  /** Full-body framing mode. */
   FULL: 'full'
 };
 
 /**
- * 預設畫面顯示比例模式。
+ * Default screen framing fit mode.
  * @type {'half'|'full'}
  */
 export const DEFAULT_FIT_MODE = FIT_MODE_MAP.FULL;
 
 /**
- * 預設 2D Live2D 半身模式縮放倍率。
+ * Default 2D Live2D zoom scale in half-body mode.
  * @type {number}
  */
 export const DEFAULT_2D_HALF_ZOOM = 1.9;
 
 /**
- * 預設 2D Live2D 全身模式縮放倍率。
+ * Default 2D Live2D zoom scale in full-body mode.
  * @type {number}
  */
 export const DEFAULT_2D_FULL_ZOOM = 1.0;
 
 /**
- * 預設 2D Live2D 縮放倍率（依據預設畫面比例連動）。
+ * Default 2D Live2D zoom scale (linked to default fit mode).
  * @type {number}
  */
 export const DEFAULT_2D_ZOOM =
@@ -265,19 +265,19 @@ export const DEFAULT_2D_ZOOM =
     : DEFAULT_2D_FULL_ZOOM;
 
 /**
- * 預設 2D Live2D 水平偏移像素。
+ * Default 2D Live2D horizontal offset pixels.
  * @type {number}
  */
 export const DEFAULT_2D_OFFSET_X = 0;
 
 /**
- * 預設 2D Live2D 垂直偏移像素。
+ * Default 2D Live2D vertical offset pixels.
  * @type {number}
  */
 export const DEFAULT_2D_OFFSET_Y = 0;
 
 /**
- * 預設 2D Live2D 半身模式模型錨點。
+ * Default 2D Live2D model anchor coordinates in half-body mode.
  * @type {Readonly<{x: number, y: number}>}
  */
 export const DEFAULT_2D_HALF_ANCHOR = Object.freeze({
@@ -286,7 +286,7 @@ export const DEFAULT_2D_HALF_ANCHOR = Object.freeze({
 });
 
 /**
- * 預設 2D Live2D 全身模式模型錨點 (y=3.0 保留上方對話框安全邊距)。
+ * Default 2D Live2D model anchor coordinates in full-body mode (y=3.0 reserves top dialogue bubble margin).
  * @type {Readonly<{x: number, y: number}>}
  */
 export const DEFAULT_2D_FULL_ANCHOR = Object.freeze({
@@ -295,7 +295,7 @@ export const DEFAULT_2D_FULL_ANCHOR = Object.freeze({
 });
 
 /**
- * 預設 2D Live2D 模型錨點（依據預設畫面比例連動）。
+ * Default 2D Live2D model anchor coordinates (linked to default fit mode).
  * @type {Readonly<{x: number, y: number}>}
  */
 export const DEFAULT_2D_ANCHOR =
@@ -304,19 +304,19 @@ export const DEFAULT_2D_ANCHOR =
     : DEFAULT_2D_FULL_ANCHOR;
 
 /**
- * 預設 3D VRM 半身模式攝影機視野 (FOV)。
+ * Default 3D VRM camera field of view (FOV) in half-body mode.
  * @type {number}
  */
 export const DEFAULT_3D_HALF_CAMERA_FOV = 26;
 
 /**
- * 預設 3D VRM 全身模式攝影機視野 (FOV)。
+ * Default 3D VRM camera field of view (FOV) in full-body mode.
  * @type {number}
  */
 export const DEFAULT_3D_FULL_CAMERA_FOV = 30;
 
 /**
- * 預設 3D VRM 攝影機視角視野 (FOV)（依據預設畫面比例連動）。
+ * Default 3D VRM camera field of view (FOV) (linked to default fit mode).
  * @type {number}
  */
 export const DEFAULT_3D_CAMERA_FOV =
@@ -325,19 +325,19 @@ export const DEFAULT_3D_CAMERA_FOV =
     : DEFAULT_3D_FULL_CAMERA_FOV;
 
 /**
- * 預設 3D VRM 攝影機近裁剪面距離 (Near)。
+ * Default 3D VRM camera near clipping plane distance.
  * @type {number}
  */
 export const DEFAULT_3D_CAMERA_NEAR = 0.1;
 
 /**
- * 預設 3D VRM 攝影機遠裁剪面距離 (Far)。
+ * Default 3D VRM camera far clipping plane distance.
  * @type {number}
  */
 export const DEFAULT_3D_CAMERA_FAR = 20;
 
 /**
- * 預設 3D VRM 半身模式攝影機世界座標位置。
+ * Default 3D VRM camera world position in half-body mode.
  * @type {Readonly<{x: number, y: number, z: number}>}
  */
 export const DEFAULT_3D_HALF_CAMERA_POSITION = Object.freeze({
@@ -347,7 +347,7 @@ export const DEFAULT_3D_HALF_CAMERA_POSITION = Object.freeze({
 });
 
 /**
- * 預設 3D VRM 全身模式攝影機世界座標位置。
+ * Default 3D VRM camera world position in full-body mode.
  * @type {Readonly<{x: number, y: number, z: number}>}
  */
 export const DEFAULT_3D_FULL_CAMERA_POSITION = Object.freeze({
@@ -357,7 +357,7 @@ export const DEFAULT_3D_FULL_CAMERA_POSITION = Object.freeze({
 });
 
 /**
- * 預設 3D VRM 攝影機世界座標位置（依據預設畫面比例連動）。
+ * Default 3D VRM camera world position (linked to default fit mode).
  * @type {Readonly<{x: number, y: number, z: number}>}
  */
 export const DEFAULT_3D_CAMERA_POSITION =
@@ -366,7 +366,7 @@ export const DEFAULT_3D_CAMERA_POSITION =
     : DEFAULT_3D_FULL_CAMERA_POSITION;
 
 /**
- * 預設 3D VRM 半身模式攝影機注視焦點座標。
+ * Default 3D VRM camera target lookAt coordinates in half-body mode.
  * @type {Readonly<{x: number, y: number, z: number}>}
  */
 export const DEFAULT_3D_HALF_CAMERA_LOOK_AT = Object.freeze({
@@ -376,7 +376,7 @@ export const DEFAULT_3D_HALF_CAMERA_LOOK_AT = Object.freeze({
 });
 
 /**
- * 預設 3D VRM 全身模式攝影機注視焦點座標。
+ * Default 3D VRM camera target lookAt coordinates in full-body mode.
  * @type {Readonly<{x: number, y: number, z: number}>}
  */
 export const DEFAULT_3D_FULL_CAMERA_LOOK_AT = Object.freeze({
@@ -386,7 +386,7 @@ export const DEFAULT_3D_FULL_CAMERA_LOOK_AT = Object.freeze({
 });
 
 /**
- * 預設 3D VRM 攝影機注視焦點座標（依據預設畫面比例連動）。
+ * Default 3D VRM camera target lookAt coordinates (linked to default fit mode).
  * @type {Readonly<{x: number, y: number, z: number}>}
  */
 export const DEFAULT_3D_CAMERA_LOOK_AT =
@@ -395,7 +395,7 @@ export const DEFAULT_3D_CAMERA_LOOK_AT =
     : DEFAULT_3D_FULL_CAMERA_LOOK_AT;
 
 /**
- * 預設 3D VRM 模型世界座標偏移。
+ * Default 3D VRM model world position offset.
  * @type {Readonly<{x: number, y: number, z: number}>}
  */
 export const DEFAULT_3D_MODEL_POSITION = Object.freeze({
@@ -405,7 +405,7 @@ export const DEFAULT_3D_MODEL_POSITION = Object.freeze({
 });
 
 /**
- * 預設 3D VRM 模型額外縮放比例。
+ * Default 3D VRM model scale multipliers.
  * @type {Readonly<{x: number, y: number, z: number}>}
  */
 export const DEFAULT_3D_MODEL_SCALE = Object.freeze({
@@ -415,7 +415,7 @@ export const DEFAULT_3D_MODEL_SCALE = Object.freeze({
 });
 
 /**
- * 預設 3D VRM 模型旋轉角度 (歐拉角 Euler)。
+ * Default 3D VRM model rotation angles (Euler radians).
  * @type {Readonly<{x: number, y: number, z: number}>}
  */
 export const DEFAULT_3D_MODEL_ROTATION = Object.freeze({
@@ -425,45 +425,45 @@ export const DEFAULT_3D_MODEL_ROTATION = Object.freeze({
 });
 
 /**
- * 預設是否啟用 3D VRM 眼睛跟隨滑鼠游標。
+ * Default flag indicating whether 3D VRM avatar eyes track the mouse pointer.
  * @type {boolean}
  */
 export const DEFAULT_3D_POINTER_LOOK = true;
 
 /**
- * 性別選項映射表。
+ * Avatar gender character options mapping enum.
  * @readonly
  * @enum {string}
  */
 export const GENDER_MAP = {
-  /** 女性 */
+  /** Female character. */
   female: 'female',
-  /** 男性 */
+  /** Male character. */
   male: 'male'
 };
 
 /**
- * 預設性別。
+ * Default character gender.
  * @type {'female'|'male'}
  */
 export const DEFAULT_GENDER = GENDER_MAP.female;
 
 /**
- * 預設女性 2D Live2D 模型的 URL 路徑。
+ * Default female 2D Live2D model descriptor URL.
  * @type {string}
  */
 export const DEFAULT_FEMALE_2D_MODEL_URL =
   '/avatar-skin/2d-model/female/haru_greeter_t03.model3.json';
 
 /**
- * 預設男性 2D Live2D 模型的 URL 路徑。
+ * Default male 2D Live2D model descriptor URL.
  * @type {string}
  */
 export const DEFAULT_MALE_2D_MODEL_URL =
   '/avatar-skin/2d-model/male/natori_pro_t06.model3.json';
 
 /**
- * 預設 2D Live2D 模型的 URL 路徑（依據預設性別連動）。
+ * Default 2D Live2D model descriptor URL (linked to default gender).
  * @type {string}
  */
 export const DEFAULT_2D_MODEL_URL =
@@ -472,20 +472,20 @@ export const DEFAULT_2D_MODEL_URL =
     : DEFAULT_MALE_2D_MODEL_URL;
 
 /**
- * 預設女性 3D 模型 URL 路徑。
+ * Default female 3D VRM model URL.
  * @type {string}
  */
 export const DEFAULT_FEMALE_3D_MODEL_URL =
   '/avatar-skin/3d-model/HatsuneMiku.vrm';
 
 /**
- * 預設男性 3D 模型 URL 路徑。
+ * Default male 3D VRM model URL.
  * @type {string}
  */
 export const DEFAULT_MALE_3D_MODEL_URL = '/avatar-skin/3d-model/RockmanEXE.vrm';
 
 /**
- * 預設 3D VRM 模型的 URL 路徑（依據預設性別連動）。
+ * Default 3D VRM model URL (linked to default gender).
  * @type {string}
  */
 export const DEFAULT_3D_MODEL_URL =
@@ -494,13 +494,13 @@ export const DEFAULT_3D_MODEL_URL =
     : DEFAULT_MALE_3D_MODEL_URL;
 
 /**
- * 預設 3D VRM 模型的 URL 路徑（相容別名）。
+ * Default 3D VRM model URL (compatibility alias).
  * @type {string}
  */
 export const DEFAULT_VRM_URL = DEFAULT_3D_MODEL_URL;
 
 /**
- * 預設虛擬形象模型 URL 路徑（依據預設啟動引擎模式與預設性別連動）。
+ * Default avatar model URL (linked to default start mode and gender).
  * @type {string}
  */
 export const DEFAULT_MODEL_URL =
@@ -509,37 +509,37 @@ export const DEFAULT_MODEL_URL =
     : DEFAULT_2D_MODEL_URL;
 
 /**
- * 預設是否允許使用者拖曳 3D 模型檔案 (.vrm) 至畫布進行即時換裝（預設關閉以符合正式上線產品需求）。
+ * Default flag indicating whether dragging and dropping 3D VRM files onto canvas is enabled.
  * @type {boolean}
  */
 export const DEFAULT_ENABLE_MODEL_DROP = false;
 
 /**
- * 預設是否在同時具備 2D 與 3D 模型時顯示 2D/3D 切換按鈕。
+ * Default flag indicating whether the 2D/3D engine switch button is displayed when both models exist.
  * @type {boolean}
  */
 export const DEFAULT_ENABLE_ENGINE_TOGGLE = true;
 
 /**
- * 預設語音合成 (TTS) API 終端節點。
+ * Default Text-to-Speech (TTS) API endpoint path.
  * @type {string}
  */
 export const DEFAULT_TTS_ENDPOINT = 'api/tts';
 
 /**
- * 預設女性神經語音 ID。（例如微軟神經語音「曉臻」）
+ * Default female neural voice identifier.
  * @type {string}
  */
-export const DEFAULT_FEMALE_NEURAL_VOICE = 'zh-TW-HsiaoChenNeural'; // 微軟神經語音「曉臻」
+export const DEFAULT_FEMALE_NEURAL_VOICE = 'zh-TW-HsiaoChenNeural';
 
 /**
- * 預設男性神經語音 ID。（例如微軟神經語音「雲哲」）
+ * Default male neural voice identifier.
  * @type {string}
  */
-export const DEFAULT_MALE_NEURAL_VOICE = 'zh-TW-YunJheNeural'; // 微軟神經語音「雲哲」
+export const DEFAULT_MALE_NEURAL_VOICE = 'zh-TW-YunJheNeural';
 
 /**
- * 預設神經語音 ID（依據預設性別連動）。
+ * Default neural voice identifier (linked to default gender).
  * @type {string}
  */
 export const DEFAULT_NEURAL_VOICE =
@@ -548,9 +548,9 @@ export const DEFAULT_NEURAL_VOICE =
     : DEFAULT_MALE_NEURAL_VOICE;
 
 /**
- * 依據性別取得預設神經語音 ID。
- * @param {string} [gender=DEFAULT_GENDER] - 角色性別 ('female'|'male')
- * @returns {string} 神經語音 ID
+ * Retrieves default neural voice identifier based on gender.
+ * @param {string} [gender=DEFAULT_GENDER] - Character gender ('female' | 'male').
+ * @returns {string} Neural voice identifier.
  */
 export function getDefaultNeuralVoice(gender = DEFAULT_GENDER) {
   return gender === GENDER_MAP.female
@@ -559,9 +559,9 @@ export function getDefaultNeuralVoice(gender = DEFAULT_GENDER) {
 }
 
 /**
- * 依據性別取得預設 2D Live2D 模型 URL。
- * @param {string} [gender=DEFAULT_GENDER] - 角色性別 ('female'|'male')
- * @returns {string} 2D 模型 URL
+ * Retrieves default 2D Live2D model URL based on gender.
+ * @param {string} [gender=DEFAULT_GENDER] - Character gender ('female' | 'male').
+ * @returns {string} 2D model descriptor URL.
  */
 export function getDefault2DModelUrl(gender = DEFAULT_GENDER) {
   return gender === GENDER_MAP.female
@@ -570,9 +570,9 @@ export function getDefault2DModelUrl(gender = DEFAULT_GENDER) {
 }
 
 /**
- * 依據性別取得預設 3D VRM 模型 URL。
- * @param {string} [gender=DEFAULT_GENDER] - 角色性別 ('female'|'male')
- * @returns {string} 3D 模型 URL
+ * Retrieves default 3D VRM model URL based on gender.
+ * @param {string} [gender=DEFAULT_GENDER] - Character gender ('female' | 'male').
+ * @returns {string} 3D model URL.
  */
 export function getDefault3DModelUrl(gender = DEFAULT_GENDER) {
   return gender === GENDER_MAP.female
@@ -581,10 +581,10 @@ export function getDefault3DModelUrl(gender = DEFAULT_GENDER) {
 }
 
 /**
- * 依據性別與引擎模式取得預設模型 URL。
- * @param {string} [gender=DEFAULT_GENDER] - 角色性別 ('female'|'male')
- * @param {string} [engineMode=DEFAULT_START_MODE] - 引擎模式 ('2d'|'3d')
- * @returns {string} 模型 URL
+ * Retrieves default model URL based on gender and engine mode.
+ * @param {string} [gender=DEFAULT_GENDER] - Character gender ('female' | 'male').
+ * @param {string} [engineMode=DEFAULT_START_MODE] - Engine mode ('2d' | '3d').
+ * @returns {string} Model URL.
  */
 export function getDefaultModelUrl(
   gender = DEFAULT_GENDER,
@@ -597,9 +597,9 @@ export function getDefaultModelUrl(
 }
 
 /**
- * 依據畫面比例模式 (fitMode) 取得預設 2D 變換設定。
- * @param {string} [fitMode=DEFAULT_FIT_MODE] - 畫面比例模式 ('half'|'full')
- * @returns {{zoom: number, offsetX: number, offsetY: number, anchor: Readonly<{x: number, y: number}>}} 預設 2D 變換設定物件
+ * Retrieves default 2D Live2D transform configuration based on fit mode.
+ * @param {string} [fitMode=DEFAULT_FIT_MODE] - Screen framing fit mode ('half' | 'full').
+ * @returns {{zoom: number, offsetX: number, offsetY: number, anchor: Readonly<{x: number, y: number}>}} Default 2D transform configuration object.
  */
 export function getDefault2DConfig(fitMode = DEFAULT_FIT_MODE) {
   const isHalf = fitMode === FIT_MODE_MAP.HALF;
@@ -612,9 +612,9 @@ export function getDefault2DConfig(fitMode = DEFAULT_FIT_MODE) {
 }
 
 /**
- * 依據畫面比例模式 (fitMode) 取得預設 3D 攝影機設定。
- * @param {string} [fitMode=DEFAULT_FIT_MODE] - 畫面比例模式 ('half'|'full')
- * @returns {{fov: number, near: number, far: number, position: Readonly<{x: number, y: number, z: number}>, lookAt: Readonly<{x: number, y: number, z: number}>}} 預設 3D 攝影機設定物件
+ * Retrieves default 3D VRM camera configuration based on fit mode.
+ * @param {string} [fitMode=DEFAULT_FIT_MODE] - Screen framing fit mode ('half' | 'full').
+ * @returns {{fov: number, near: number, far: number, position: Readonly<{x: number, y: number, z: number}>, lookAt: Readonly<{x: number, y: number, z: number}>}} Default 3D camera configuration object.
  */
 export function getDefault3DCameraConfig(fitMode = DEFAULT_FIT_MODE) {
   const isHalf = fitMode === FIT_MODE_MAP.HALF;
@@ -637,89 +637,89 @@ export function getDefault3DCameraConfig(fitMode = DEFAULT_FIT_MODE) {
 }
 
 /**
- * 工具路由決策模式映射表。
+ * Tool routing decision mode mapping enum.
  * @readonly
  * @enum {string}
  */
 export const TOOL_ROUTING_MODE_MAP = {
-  /** 純前端規則比對（0 Token 消耗，< 1ms 反應） */
+  /** Client-side rule matcher (0 Token overhead, < 1ms response). */
   CLIENT: 'client',
-  /** 純 AI 大模型語意決策（透過 Function Calling） */
+  /** AI LLM semantic decision (via Function Calling). */
   AI: 'ai',
-  /** 雙軌模式（前端高信心直接命中，複雜語句交由 AI 決策） */
+  /** Dual-track hybrid mode (client rules hit high-confidence patterns, falls back to AI). */
   HYBRID: 'hybrid'
 };
 
 /**
- * 預設工具路由模式。
+ * Default tool routing decision mode.
  * @type {string}
  */
 export const DEFAULT_TOOL_ROUTING_MODE = TOOL_ROUTING_MODE_MAP.HYBRID;
 
 /**
- * 工具執行結果處理模式映射表。
+ * Tool execution result handling mode mapping enum.
  * @readonly
  * @enum {string}
  */
 export const TOOL_RESULT_MODE_MAP = {
-  /** 將工具回傳結果送回 AI 大腦進行自然語言摘要 */
+  /** Sends tool execution result back to LLM for natural language summarization. */
   AI_SUMMARY: 'ai_summary',
-  /** 直接輸出/顯示工具回傳訊息，不耗費第二次 LLM Token */
+  /** Directly outputs and displays tool result message without second LLM call. */
   DIRECT: 'direct'
 };
 
 /**
- * 預設工具結果處理模式。
+ * Default tool result handling mode.
  * @type {string}
  */
 export const DEFAULT_TOOL_RESULT_MODE = TOOL_RESULT_MODE_MAP.AI_SUMMARY;
 
 /**
- * 預設工具確認逾時時間（毫秒），預設 60 秒。
+ * Default tool confirmation timeout in milliseconds (60 seconds).
  * @type {number}
  */
 export const DEFAULT_TOOL_CONFIRMATION_TIMEOUT_MS = 60000;
 
 /**
- * 工具取消或失效原因映射表。
+ * Tool cancellation and expiry reason mapping enum.
  * @readonly
  * @enum {string}
  */
 export const TOOL_CANCEL_REASON_MAP = {
-  /** 使用者主動取消（點擊取消按鈕或語音/打字說取消） */
+  /** User explicitly cancelled action (via cancel button or voice/text cancel). */
   USER_CANCEL: 'user_cancel',
-  /** 確認逾時失效（超過設定時限未回覆） */
+  /** Confirmation timed out without response. */
   TIMEOUT: 'timeout',
-  /** 使用者輸入新訊息而自動取消前次未完成之操作 */
+  /** User sent new input message, cancelling previous unconfirmed action. */
   NEW_INPUT: 'new_input',
-  /** 使用者拒絕授權或同意條款 */
+  /** User declined consent or terms. */
   CONSENT_DECLINED: 'consent_declined'
 };
 
 /**
- * 工具生命週期與事件名稱映射表。
+ * Tool lifecycle event names mapping enum.
  * @readonly
  * @enum {string}
  */
 export const TOOL_EVENT_MAP = {
-  /** 提議執行工具事件 */
+  /** Tool execution offer event. */
   OFFER: 'tool_offer',
-  /** 需使用者補填參數事件 */
+  /** Additional user input required event. */
   INPUT_REQUIRED: 'tool_input_required',
-  /** 工具歧義多選事件 */
+  /** Tool ambiguity resolution event. */
   AMBIGUOUS: 'tool_ambiguous',
-  /** 確認執行工具事件 */
+  /** Tool execution confirmed event. */
   CONFIRM: 'tool_confirm',
-  /** 取消執行工具事件 */
+  /** Tool execution cancelled event. */
   CANCEL: 'tool_cancel',
-  /** 開始執行工具事件 */
+  /** Tool execution started event. */
   EXECUTE: 'tool_execute',
-  /** 工具執行結果事件 */
+  /** Tool execution result event. */
   RESULT: 'tool_result'
 };
 
 /**
- * 工具 Schema 支援的屬性型別映射表。
+ * Tool Schema supported property types mapping enum.
  * @readonly
  * @enum {string}
  */
@@ -732,7 +732,7 @@ export const TOOL_SCHEMA_TYPE_MAP = {
 };
 
 /**
- * 工具 Schema 支援的格式驗證映射表。
+ * Tool Schema supported format validations mapping enum.
  * @readonly
  * @enum {string}
  */
@@ -744,7 +744,7 @@ export const TOOL_SCHEMA_FORMAT_MAP = {
 };
 
 /**
- * 對話訊息的角色映射表。
+ * Chat message role mapping enum.
  * @readonly
  * @enum {string}
  */
@@ -756,7 +756,7 @@ export const CHAT_ROLE_MAP = {
 };
 
 /**
- * 對話訊息來源映射表。
+ * Chat message source mapping enum.
  * @readonly
  * @enum {string}
  */
@@ -767,54 +767,54 @@ export const CHAT_SOURCE_MAP = {
 };
 
 /**
- * LLM 模型推論結束原因映射表（符合 OpenAI / WebLLM 標準規範）。
+ * LLM inference finish reason mapping enum (OpenAI / WebLLM standard).
  * @readonly
  * @enum {string}
  */
 export const LLM_FINISH_REASON_MAP = {
-  /** 正常生成完畢或達到停止詞標記 */
+  /** Normal completion or stop token reached. */
   STOP: 'stop',
-  /** 達到單次回答最大 Token 數限制而被截斷（觸發自動接續之關鍵判斷依據） */
+  /** Truncated due to max_tokens limit (triggers auto-continuation). */
   LENGTH: 'length',
-  /** 模型觸發外部工具調用 (Function Calling) */
+  /** Triggered external tool/function calling. */
   TOOL_CALLS: 'tool_calls',
-  /** 觸發內容安全過濾機制 */
+  /** Triggered content safety filter. */
   CONTENT_FILTER: 'content_filter'
 };
 
 /**
- * LLM 模型推論結束原因映射表（相容別名）。
+ * LLM inference finish reason mapping enum (compatibility alias).
  * @readonly
  * @enum {string}
  */
 export const FINISH_REASON_MAP = LLM_FINISH_REASON_MAP;
 
 /**
- * 大腦推論與降級引擎類型映射表。
+ * Brain inference and fallback engine type mapping enum.
  * @readonly
  * @enum {string}
  */
 export const BRAIN_ENGINE_TYPE_MAP = {
-  /** 遠端 AI 伺服器提供者 (例如 Ollama, vLLM, OpenAI 相容 API) */
+  /** Remote AI server provider (e.g. Ollama, vLLM, OpenAI-compatible API). */
   AI_PROVIDER: 'aiProvider',
-  /** 瀏覽器端 WebLLM 引擎 (WebGPU 本地推論) */
+  /** In-browser WebLLM engine (WebGPU local inference). */
   WEB_LLM: 'webLLM',
-  /** 本地知識庫檢索式回答 (Bigram 關鍵字比對後備) */
+  /** Local knowledge base retrieval fallback (Bigram keyword matching). */
   RETRIEVAL: 'retrieval'
 };
 
 /**
- * 大腦降級引擎類型映射表（別名）。
+ * Brain fallback engine type mapping enum (alias).
  * @readonly
  * @enum {string}
  */
 export const BRAIN_FALLBACK_TYPE_MAP = BRAIN_ENGINE_TYPE_MAP;
 
 /**
- * 檢查指定的 WebLLM 模型是否支援原生 Function Calling (tools)。
- * WebLLM 目前官方主要針對 Hermes 系列模型提供 Function Calling 支援。
- * @param {string} model - 模型名稱
- * @returns {boolean} 是否支援 Function Calling
+ * Checks whether a given WebLLM model supports native Function Calling (tools).
+ * WebLLM officially supports Function Calling primarily on Hermes series models.
+ * @param {string} model - Model identifier name.
+ * @returns {boolean} Whether model supports Function Calling.
  */
 export function isWebLLMFunctionCallingSupported(model) {
   if (typeof model !== 'string' || model === '') {
@@ -824,7 +824,7 @@ export function isWebLLMFunctionCallingSupported(model) {
 }
 
 /**
- * 預設支援的人像情緒與手勢動作清單。
+ * Default list of supported avatar emotions and gestures.
  * @type {string[]}
  */
 export const DEFAULT_SUPPORTED_EMOTIONS = [
@@ -839,7 +839,8 @@ export const DEFAULT_SUPPORTED_EMOTIONS = [
 ];
 
 /**
- * 預設情緒工具名稱。
+ * Default emotion dispatcher tool name.
  * @type {string}
  */
 export const DEFAULT_EMOTION_TOOL_NAME = 'express_emotion';
+

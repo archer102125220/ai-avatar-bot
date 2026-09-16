@@ -4,26 +4,17 @@ import {
   TOOL_ROUTING_MODE_MAP,
   TOOL_RESULT_MODE_MAP,
   TOOL_SCHEMA_TYPE_MAP
-} from '@/core/constants';
+} from '../constants';
 
 /**
- * 情緒工具插件的配置選項。
- *
- * @typedef {Object} EmotionToolsPluginOptions
- * @property {(() => Object|null)} [getSkinEngine=null] - 獨立使用時提供 skinEngine 實例的函式。
- * @property {string[]} [emotions=DEFAULT_SUPPORTED_EMOTIONS] - 支援的情緒或手勢清單。
- * @property {string} [toolName=DEFAULT_EMOTION_TOOL_NAME] - 工具名稱。
- * @property {string} [description] - 工具說明（供 LLM 理解調用時機）。
- * @property {'ai'|'client'|'hybrid'|string} [routingMode=TOOL_ROUTING_MODE_MAP.AI] - 路由模式（'ai' | 'client' | 'hybrid'）。
- * @property {'ai_summary'|'direct'|string} [resultMode=TOOL_RESULT_MODE_MAP.AI_SUMMARY] - 結果處理模式（'ai_summary' | 'direct'）。
- * @property {((emotion: string, context?: Object) => void)} [onEmotionTrigger=null] - 情緒觸發時的回呼函式。
+ * @typedef {import('../../index.d.ts').EmotionToolsPluginOptions} EmotionToolsPluginOptions
  */
 
 /**
- * 建立情緒與動作控制工具插件的工廠函式。
+ * Factory function to create the emotion and gesture control tools plugin.
  *
- * @param {EmotionToolsPluginOptions} [options={}] - 插件配置選項。
- * @returns {import('../tools').ToolDefinition[]} 註冊的工具定義陣列。
+ * @param {EmotionToolsPluginOptions} [options={}] - Plugin configuration options.
+ * @returns {import('../../index.d.ts').ToolDefinition[]} Array of registered tool definitions.
  */
 export function createEmotionToolsPlugin(options = {}) {
   const {

@@ -1,23 +1,21 @@
 /**
- * @typedef {Object} LocaleLabelInfo
- * @property {string} label - 語系完整名稱 (例如: '繁體中文')。
- * @property {string} shortLabel - 語系簡稱代碼 (例如: '繁中')。
+ * @typedef {import('../../index.d.ts').LocaleLabelInfo} LocaleLabelInfo
  */
 
 /**
- * 預設語系代碼。
+ * Default locale code.
  * @type {string}
  */
 export const DEFAULT_LOCALE = 'zh-TW';
 
 /**
- * 預設支援的多語系代碼清單。
+ * Default list of supported locale codes.
  * @type {string[]}
  */
 export const SUPPORTED_LOCALES = ['zh-TW', 'en-US', 'ja-JP', 'ko-KR'];
 
 /**
- * 各語系代碼對應的顯示標籤對照表。
+ * Mapping table of locale codes to display labels.
  * @type {Record<string, LocaleLabelInfo>}
  */
 export const LOCALE_LABELS = {

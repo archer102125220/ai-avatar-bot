@@ -1,40 +1,37 @@
 /**
  * @template [T=Record<string, any>]
- * @typedef {Object} BaseStore
- * @property {() => T} getState - 取得目前的狀態。
- * @property {(updates: Partial<T> | ((state: T) => Partial<T>)) => void} setState - 更新狀態。
- * @property {(selector: ((state: T, previousState: T) => void) | keyof T | ((state: T) => any), callback?: (currentValue: any, previousValue: any) => void) => () => void} subscribe - 訂閱狀態變更。
+ * @typedef {import('../index.d.ts').BaseStore<T>} BaseStore
  */
 
 /**
- * 建立一個簡單且相容於 Vue / React 的狀態管理工具 (Store)。
- * 提供類似 Zustand 的狀態更新機制與特定屬性訂閱功能。
+ * Creates a lightweight reactive state management store compatible with Vue, React, and Vanilla JS.
+ * Provides a Zustand-like state update mechanism and property-specific subscriptions.
  *
  * @template [T=Record<string, any>]
- * @param {T} [initialState={}] - 初始狀態物件。
- * @returns {BaseStore<T>} 包含狀態操作方法的 Store 物件。
+ * @param {T} [initialState={}] - Initial state object.
+ * @returns {BaseStore<T>} Store instance containing getState, setState, and subscribe methods.
  */
 export function createBaseStore(initialState = {}) {
   const state = { ...initialState };
   const subscribers = new Set();
 
   /**
-   * 取得目前的狀態。
+   * Retrieves the current snapshot of the store's state.
    *
-   * @returns {T} 目前的狀態物件。
+   * @returns {T} Current state snapshot.
    */
   const getState = () => {
     return state;
   };
 
   /**
-   * 更新狀態。
-   * 支援直接傳入物件，或傳入一個接收前次狀態並回傳更新物件的函式。
+   * Updates store state and notifies relevant subscribers if any values changed.
+   * Supports direct partial objects or updater functions receiving the previous state.
    *
-   * @param {Partial<T> | ((state: T) => Partial<T>)} updates - 欲更新的狀態物件或函式。
+   * @param {Partial<T> | ((state: T) => Partial<T>)} updates - Partial state object or updater function.
    */
   function setState(updates) {
-    // 支援函式更新：setState((previousState) => ({ count: previousState.count + 1 }))
+    // Support updater function: setState((previousState) => ({ count: previousState.count + 1 }))
     const newValues = typeof updates === 'function' ? updates(state) : updates;
 
     let hasChanges = false;
@@ -47,7 +44,7 @@ export function createBaseStore(initialState = {}) {
       }
     }
 
-    // 只有在狀態確實改變時才發送通知
+    // Notify subscribers only when state values actually change
     if (hasChanges === true) {
       subscribers.forEach((listener) => {
         listener(state, previousState);
@@ -56,31 +53,31 @@ export function createBaseStore(initialState = {}) {
   }
 
   /**
-   * 訂閱狀態變更。
+   * Subscribes to store state mutations.
    *
    * @example
-   * // 用法 1：訂閱所有變更
+   * // Pattern 1: Subscribe to all state mutations
    * subscribe((state, previousState) => console.log(state, previousState))
    * @example
-   * // 用法 2：訂閱特定鍵值
+   * // Pattern 2: Subscribe to a specific key
    * subscribe('gender', (newGender, previousGender) => console.log(newGender, previousGender))
    * @example
-   * // 用法 3：透過選取器函式訂閱
+   * // Pattern 3: Subscribe via selector function
    * subscribe(state => state.gender, (newGender, previousGender) => console.log(newGender, previousGender))
    *
-   * @param {((state: T, previousState: T) => void) | keyof T | ((state: T) => any)} selector - 監聽器函式、狀態鍵值字串，或狀態選取器函式。
-   * @param {(currentValue: any, previousValue: any) => void} [callback] - 當特定狀態變更時觸發的回呼函式（適用於用法 2 與 3）。
-   * @returns {() => void} 取消訂閱的函式。
-   * @throws {Error} 當傳入無效的參數組合時拋出錯誤。
+   * @param {((state: T, previousState: T) => void) | keyof T | ((state: T) => any)} selector - Listener callback, state property key, or selector function.
+   * @param {(currentValue: any, previousValue: any) => void} [callback] - Callback triggered when the selected property changes (Patterns 2 and 3).
+   * @returns {() => void} Unsubscribe function.
+   * @throws {Error} If invalid argument combinations are provided.
    */
   function subscribe(selector, callback) {
     let listener;
 
-    // 用法 1：訂閱所有變更
+    // Pattern 1: Subscribe to all state mutations
     if (typeof selector === 'function' && typeof callback !== 'function') {
       listener = selector;
     }
-    // 用法 2：訂閱特定字串鍵值
+    // Pattern 2: Subscribe to a specific string key
     else if (typeof selector === 'string' && typeof callback === 'function') {
       listener = function (currentState, previousState) {
         if (currentState[selector] !== previousState[selector]) {
@@ -88,7 +85,7 @@ export function createBaseStore(initialState = {}) {
         }
       };
     }
-    // 用法 3：透過選取器函式訂閱特定值
+    // Pattern 3: Subscribe to a specific property via selector function
     else if (typeof selector === 'function' && typeof callback === 'function') {
       listener = function (currentState, previousState) {
         const currentValue = selector(currentState);
@@ -103,7 +100,7 @@ export function createBaseStore(initialState = {}) {
 
     subscribers.add(listener);
 
-    // 回傳取消訂閱的函式
+    // Return unsubscribe callback
     return () => {
       subscribers.delete(listener);
     };
