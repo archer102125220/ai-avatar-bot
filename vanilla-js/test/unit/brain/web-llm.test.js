@@ -103,6 +103,27 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       expect(llm.state).toBe(STATE_MAP.ERROR);
       expect(onLoadError).toHaveBeenCalled();
     });
+
+    it('should be idempotent if load() is called multiple times while already loaded', async () => {
+      const llm = initWebLLM({ llmModel: 'Llama-3-8B-Instruct' });
+      await llm.load();
+      expect(llm.state).toBe(STATE_MAP.READY);
+
+      // Second load call should return same engine immediately
+      const engine2 = await llm.load();
+      expect(engine2).toBeDefined();
+    });
+
+    it('should handle supported flag when navigator.gpu is unavailable', () => {
+      const origGpu = navigator.gpu;
+      try {
+        delete navigator.gpu;
+        const llm = initWebLLM();
+        expect(llm.supported).toBe(false);
+      } finally {
+        navigator.gpu = origGpu;
+      }
+    });
   });
 
 
@@ -111,6 +132,69 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       const llm = initWebLLM({ llmModel: 'Llama-3-8B-Instruct' });
       const res = await llm.chat([{ role: 'user', content: 'hi' }]);
       expect(res).toBeNull();
+    });
+
+    it('should fallback and remove tools if tool execution returns empty string', async () => {
+      let callCount = 0;
+      WebLLMModule.CreateMLCEngine.mockResolvedValueOnce({
+        chat: {
+          completions: {
+            create: vi.fn().mockImplementation((opt) => {
+              callCount++;
+              if (opt.tools) {
+                return Promise.resolve({
+                  choices: [{ message: { role: 'assistant', content: '  ' }, finish_reason: 'stop' }]
+                });
+              }
+              return Promise.resolve({
+                choices: [{ message: { role: 'assistant', content: '純文字重試成功' }, finish_reason: 'stop' }]
+              });
+            })
+          }
+        }
+      });
+
+      const llm = initWebLLM({ llmModel: 'Hermes-2-Pro-Llama-3-8B-q4f32_1-MLC', llmIsStream: false });
+      await llm.load();
+
+      const res = await llm.chat(
+        [{ role: 'user', content: 'hi' }],
+        null,
+        [{ name: 'mockTool', inputSchema: { type: 'object', properties: {} } }]
+      );
+
+      expect(callCount).toBe(2);
+      expect(res.content).toBe('純文字重試成功');
+    });
+
+    it('should catch UnsupportedModelIdError and fallback to standard chat', async () => {
+      let callCount = 0;
+      WebLLMModule.CreateMLCEngine.mockResolvedValueOnce({
+        chat: {
+          completions: {
+            create: vi.fn().mockImplementation((opt) => {
+              callCount++;
+              if (opt.tools) {
+                throw new Error('UnsupportedModelIdError: not supported for ChatCompletionRequest.tools');
+              }
+              return Promise.resolve({
+                choices: [{ message: { role: 'assistant', content: '模型不支援工具，純文字回覆' }, finish_reason: 'stop' }]
+              });
+            })
+          }
+        }
+      });
+
+      const llm = initWebLLM({ llmModel: 'Non-Hermes-Model', llmIsStream: false });
+      await llm.load();
+
+      const res = await llm.chat(
+        [{ role: 'user', content: 'test' }],
+        null,
+        [{ name: 't', inputSchema: { type: 'object', properties: {} } }]
+      );
+      expect(callCount).toBe(2);
+      expect(res.content).toBe('模型不支援工具，純文字回覆');
     });
 
     it('should support Hermes Function Calling model and tool_calls response', async () => {
@@ -408,5 +492,254 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       expect(onStreamChunk).toHaveBeenCalled();
       expect(onStreamEnd).toHaveBeenCalledWith('第一句。第二句。');
     });
+
+    it('should handle tool_calls response, custom buildLLMMessages, and early break in auto-continue', async () => {
+      // 1. chatResponse with type 'tool_calls'
+      const mockLlmToolCall = {
+        chat: vi.fn().mockResolvedValue({
+          type: 'tool_calls',
+          toolCalls: [{ id: 'call_1', function: { name: 'calc', arguments: '{}' } }]
+        })
+      };
+
+      const executeTool = vi.fn().mockResolvedValue({ ok: true });
+      const brainEngineTool = {
+        llm: mockLlmToolCall,
+        locale: 'zh-TW',
+        buildLLMMessages: vi.fn().mockResolvedValue([{ role: 'user', content: '算一下' }]),
+        getTools: vi.fn(() => [{ name: 'calc' }]),
+        executeTool,
+        aiProvider: { chat: vi.fn().mockResolvedValue('計算結果總結') },
+        emitAnswer: vi.fn(),
+        updateChatMessage: vi.fn(),
+        onSpokenDisplayTextChange: vi.fn(),
+        onEmotionChange: vi.fn()
+      };
+
+      await chatWithWebLLM(brainEngineTool, '算一下');
+      expect(brainEngineTool.buildLLMMessages).toHaveBeenCalled();
+      expect(brainEngineTool.onEmotionChange).toHaveBeenCalledWith('thinking');
+
+      // 2. Auto-continue with empty next chunk breaks loop early
+      let continueCount = 0;
+      const mockLlmEmptyChunk = {
+        chat: vi.fn().mockImplementation((msgs, onChunk) => {
+          continueCount++;
+          if (continueCount === 1) {
+            if (typeof onChunk === 'function') onChunk('開頭...', '開頭...');
+            return Promise.resolve({
+              type: 'text',
+              content: '開頭...',
+              finishReason: LLM_FINISH_REASON_MAP.LENGTH
+            });
+          }
+          if (typeof onChunk === 'function') onChunk('', '');
+          return Promise.resolve({
+            type: 'text',
+            content: '   ', // empty next chunk -> breaks
+            finishReason: LLM_FINISH_REASON_MAP.LENGTH
+          });
+        })
+      };
+
+      const onAutoContinueEnd = vi.fn();
+      const brainEngineAuto = {
+        llm: mockLlmEmptyChunk,
+        enableAutoContinue: true,
+        maxAutoContinuations: 3,
+        locale: 'zh-TW',
+        memory: { enabled: true, addTurn: vi.fn() },
+        onAutoContinueStart: vi.fn(),
+        onAutoContinueResume: vi.fn(),
+        onAutoContinueEnd,
+        onStreamEnd: vi.fn(),
+        triggerRollingSummaryIfNeeded: vi.fn(),
+        applyEmotionFromText: vi.fn(),
+        updateChatMessage: vi.fn()
+      };
+
+      await chatWithWebLLM(brainEngineAuto, '講故事');
+      expect(onAutoContinueEnd).toHaveBeenCalled();
+      expect(brainEngineAuto.triggerRollingSummaryIfNeeded).toHaveBeenCalled();
+    });
+
+    it('should handle streaming tool call delta chunks and JSON text tool call extraction', async () => {
+      // 1. Streaming delta tool calls
+      WebLLMModule.CreateMLCEngine.mockResolvedValueOnce({
+        chat: {
+          completions: {
+            create: vi.fn().mockImplementation(() => (async function* () {
+              yield {
+                choices: [
+                  {
+                    delta: {
+                      tool_calls: [
+                        {
+                          index: 0,
+                          id: 'call_stream_1',
+                          function: { name: 'search_data', arguments: '{"q":' }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              };
+              yield {
+                choices: [
+                  {
+                    delta: {
+                      tool_calls: [
+                        {
+                          index: 0,
+                          function: { arguments: '"avatar"}' }
+                        }
+                      ]
+                    },
+                    finish_reason: 'tool_calls'
+                  }
+                ]
+              };
+            })())
+          }
+        }
+      });
+
+      const llm = initWebLLM({ llmIsStream: true });
+      await llm.load();
+      const res = await llm.chat([{ role: 'user', content: '搜尋' }], vi.fn(), [{ name: 'search_data' }]);
+      expect(res.type).toBe('tool_calls');
+      expect(res.toolCalls[0].function.arguments).toBe('{"q":"avatar"}');
+
+      // 2. Stream fallback text tool calls
+      WebLLMModule.CreateMLCEngine.mockResolvedValueOnce({
+        chat: {
+          completions: {
+            create: vi.fn().mockImplementation(() => (async function* () {
+              yield {
+                choices: [
+                  {
+                    delta: {
+                      content: '<tool_call>{"name":"get_time","arguments":{"zone":"UTC"}}</tool_call>'
+                    },
+                    finish_reason: 'stop'
+                  }
+                ]
+              };
+            })())
+          }
+        }
+      });
+
+      const llm2 = initWebLLM({ llmIsStream: true });
+      await llm2.load();
+      const res2 = await llm2.chat([{ role: 'user', content: '現在時間' }], vi.fn());
+      expect(res2.type).toBe('tool_calls');
+      expect(res2.toolCalls[0].function.name).toBe('get_time');
+    });
+
+    it('should degrade to pure conversation mode when Function Calling is not supported by model', async () => {
+      let attempt = 0;
+      WebLLMModule.CreateMLCEngine.mockResolvedValueOnce({
+        chat: {
+          completions: {
+            create: vi.fn().mockImplementation((opt) => {
+              attempt++;
+              if (attempt === 1 && opt.tools) {
+                throw new Error('not supported for ChatCompletionRequest.tools on this model');
+              }
+              return Promise.resolve({
+                choices: [
+                  {
+                    message: { role: 'assistant', content: '降級純對話回答' },
+                    finish_reason: 'stop'
+                  }
+                ]
+              });
+            })
+          }
+        }
+      });
+
+      const llm = initWebLLM({ llmIsStream: false });
+      await llm.load();
+      const res = await llm.chat([{ role: 'user', content: '測試降級' }], null, [{ name: 'tool_a' }]);
+      expect(res.type).toBe('text');
+      expect(res.content).toBe('降級純對話回答');
+    });
+
+    it('should test resolvedIsStream options and streaming continuation in chatWithWebLLM', async () => {
+      // 1. isStream & LLMIsStream options resolution
+      const llm1 = initWebLLM({ isStream: false });
+      expect(llm1.isStream).toBe(false);
+
+      const llm2 = initWebLLM({ LLMIsStream: false });
+      expect(llm2.isStream).toBe(false);
+
+      // 2. chatWithWebLLM with streaming auto-continue triggering stream callbacks
+      let chatCallCount = 0;
+      const onSpokenDisplayTextChange = vi.fn();
+      const updateChatMessage = vi.fn();
+      const applyEmotionFromText = vi.fn();
+      const onStreamChunk = vi.fn();
+      const onAutoContinueStart = vi.fn();
+      const onAutoContinueResume = vi.fn();
+      const onAutoContinueEnd = vi.fn();
+
+      const mockLlm = {
+        state: STATE_MAP.READY,
+        isStream: true,
+        chat: vi.fn().mockImplementation((msgs, streamCb) => {
+          chatCallCount++;
+          if (chatCallCount === 1) {
+            if (typeof streamCb === 'function') {
+              streamCb('第一段文字', '第一段文字');
+            }
+            return Promise.resolve({
+              type: 'text',
+              content: '第一段文字',
+              finishReason: LLM_FINISH_REASON_MAP.LENGTH
+            });
+          }
+          if (typeof streamCb === 'function') {
+            streamCb('接續第二段', '接續第二段');
+          }
+          return Promise.resolve({
+            type: 'text',
+            content: '接續第二段',
+            finishReason: LLM_FINISH_REASON_MAP.STOP
+          });
+        })
+      };
+
+      const onStreamEnd = vi.fn();
+
+      const brainEngine = {
+        llm: mockLlm,
+        onSpokenDisplayTextChange,
+        updateChatMessage,
+        applyEmotionFromText,
+        onStreamChunk,
+        onStreamEnd,
+        onAutoContinueStart,
+        onAutoContinueResume,
+        onAutoContinueEnd,
+        enableAutoContinue: true,
+        maxAutoContinuations: 2
+      };
+
+      await chatWithWebLLM(brainEngine, [{ role: 'user', content: '長篇故事' }]);
+
+      expect(onStreamEnd).toHaveBeenCalledWith(expect.stringContaining('第一段文字'));
+      expect(onStreamEnd).toHaveBeenCalledWith(expect.stringContaining('接續第二段'));
+      expect(onSpokenDisplayTextChange).toHaveBeenCalled();
+      expect(updateChatMessage).toHaveBeenCalled();
+      expect(applyEmotionFromText).toHaveBeenCalled();
+      expect(onStreamChunk).toHaveBeenCalled();
+      expect(onAutoContinueStart).toHaveBeenCalled();
+      expect(onAutoContinueResume).toHaveBeenCalled();
+      expect(onAutoContinueEnd).toHaveBeenCalled();
+    });
   });
 });
+
+

@@ -183,5 +183,75 @@ describe('Orchestrator Options & Configuration', () => {
       });
       expect(normExplicitFalse.rootStore.getState().enableAiProvider).toBe(false);
     });
+
+    it('should configure autoContinue options, autoContinueMode, and custom prompt', () => {
+      const container = document.createElement('div');
+
+      const norm = normalizeOptions({
+        container,
+        enableAutoContinue: true,
+        maxAutoContinuations: -1, // invalid -> fallback to default (3)
+        autoContinueMode: 'invalid_mode', // invalid -> fallback to default
+        autoContinuePrompt: '請接續回答'
+      });
+
+      const state = norm.rootStore.getState();
+      expect(state.enableAutoContinue).toBe(true);
+      expect(state.maxAutoContinuations).toBe(3);
+      expect(state.autoContinueMode).toBe(DEFAULT_AUTO_CONTINUE_MODE);
+      expect(state.autoContinuePrompt).toBe('請接續回答');
+    });
+
+    it('should retain customEngines inside rawOptions and initialize custom i18n', () => {
+      const container = document.createElement('div');
+
+      const mockBrain = { query: vi.fn() };
+      const mockSpeech = { speak: vi.fn() };
+      const mockSkin = { render: vi.fn() };
+      const mockTools = { execute: vi.fn() };
+
+      const customEngines = {
+        brain: vi.fn(() => mockBrain),
+        speech: vi.fn(() => mockSpeech),
+        skin: vi.fn(() => mockSkin),
+        tools: vi.fn(() => mockTools)
+      };
+
+      const norm = normalizeOptions({
+        container,
+        customEngines
+      });
+
+      expect(norm.rawOptions.customEngines).toBe(customEngines);
+    });
+
+    it('should test preloadWebLLM, autoFallbackWebLLM, autoContinuePrompt function, and specific component gender overrides', () => {
+      const container = document.createElement('div');
+      const promptFn = (accum) => `繼續：${accum}`;
+
+      const norm = normalizeOptions({
+        container,
+        preloadWebLLM: true,
+        autoFallbackWebLLM: false,
+        autoContinuePrompt: promptFn,
+        locale: 'en-US',
+        enableModelDrop: true,
+        enableEngineToggle: false,
+        skinGender: 'male',
+        brainGender: 'female',
+        speechGender: 'male'
+      });
+
+      const state = norm.rootStore.getState();
+      expect(state.preloadWebLLM).toBe(true);
+      expect(state.autoFallbackWebLLM).toBe(false);
+      expect(state.autoContinuePrompt).toBe(promptFn);
+      expect(state.locale).toBe('en-US');
+      expect(state.enableModelDrop).toBe(true);
+      expect(state.enableEngineToggle).toBe(false);
+      expect(state.skinGender).toBe('male');
+      expect(state.brainGender).toBe('female');
+      expect(state.speechGender).toBe('male');
+    });
   });
 });

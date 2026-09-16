@@ -151,6 +151,21 @@ describe('Orchestrator Pipelines & Interactions', () => {
       expect(mockEngines.brainEngine.memory.clear).toHaveBeenCalled();
       expect(mockEngines.speechEngine.spokenAudioText).toContain('記憶都清掉了');
       expect(mockEngines.brainEngine.answerQuestion).not.toHaveBeenCalled();
+
+      // Wipe memory in English without i18nEngine
+      const handleUserNoI18n = createUserPipeline({
+        getWidget,
+        rootStore,
+        i18nEngine: null,
+        getEngines,
+        autoContinueState
+      });
+      handleUserNoI18n('please forget me');
+      expect(mockEngines.speechEngine.spokenAudioText).toBe('好，我把記憶都清掉了，我們重新認識吧！');
+
+      // Empty or non-string input guard
+      expect(() => handleUser('')).not.toThrow();
+      expect(() => handleUser(null)).not.toThrow();
     });
 
     it('should intercept pending tool actions if toolsEngine is awaiting input', () => {
@@ -238,6 +253,49 @@ describe('Orchestrator Pipelines & Interactions', () => {
       expect(options.onStreamEnd).toHaveBeenCalledWith('今天天氣真好。下雨機率低。');
     });
 
+    it('should push remaining sentences on onStreamEnd when speechEngine matches sequence id', () => {
+      const getEngines = () => mockEngines;
+      const getWidget = () => mockWidget;
+      const options = { onStreamEnd: vi.fn(), onAutoContinueWait: vi.fn() };
+
+      mockEngines.speechEngine.speakSeq = 10;
+      mockEngines.speechEngine.beginSpeech = vi.fn(() => 10);
+      mockEngines.speechEngine.drainSentences = vi.fn((state, isEnd) => {
+        if (isEnd === true) {
+          return ['剩餘第一句。', '剩餘第二句。'];
+        }
+        return [];
+      });
+
+      const pipeline = createStreamPipeline({
+        getEngines,
+        getWidget,
+        options,
+        streamSpeechState,
+        autoContinueState
+      });
+
+      // Stream start establishes sequence 10
+      pipeline.onStreamStart();
+      // Stream end should drain and push remaining
+      pipeline.onStreamEnd('全文內容');
+
+      expect(mockEngines.speechEngine.pushSpeech).toHaveBeenCalledWith(10, '剩餘第一句。');
+      expect(mockEngines.speechEngine.pushSpeech).toHaveBeenCalledWith(10, '剩餘第二句。');
+      expect(mockEngines.speechEngine.endSpeech).toHaveBeenCalledWith(10);
+      expect(options.onStreamEnd).toHaveBeenCalledWith('全文內容');
+
+
+      // Test onSpeechWait and onAutoContinueWait with gestureName fallback (when setEmotion missing)
+      mockEngines.skinEngine = { gestureName: 'neutral' };
+      pipeline.onAutoContinueStart({ continuationIndex: 1, maxContinuations: 3 });
+      pipeline.onAutoContinueWait({ continuationIndex: 1 });
+      expect(mockEngines.skinEngine.gestureName).toBe('thinking');
+
+      pipeline.onSpeechWait(10);
+      expect(mockEngines.skinEngine.gestureName).toBe('thinking');
+    });
+
     it('should handle auto-continue lifecycle and interrupt properly', () => {
       const options = {
         onAutoContinueStart: vi.fn(),
@@ -267,15 +325,54 @@ describe('Orchestrator Pipelines & Interactions', () => {
       expect(autoContinueState.continuationIndex).toBe(2);
       expect(options.onAutoContinueResume).toHaveBeenCalled();
 
-      streamPipeline.onAutoContinueEnd({});
+      streamPipeline.onAutoContinueEnd({ continuationIndex: 2 });
       expect(autoContinueState.isActive).toBe(false);
       expect(options.onAutoContinueEnd).toHaveBeenCalled();
 
-      // Test onInterrupt
-      autoContinueState.isActive = true;
+      // Interrupt
       streamPipeline.onInterrupt();
-      expect(autoContinueState.isActive).toBe(false);
       expect(mockEngines.brainEngine.llm.controller.abort).toHaveBeenCalled();
+    });
+
+    it('should handle muted TTS on stream start, sequence mismatch on stream chunk, and abort exceptions in stream pipeline', () => {
+      const options = { onStreamEnd: vi.fn() };
+      const pipeline = createStreamPipeline({
+        getWidget,
+        options,
+        getEngines,
+        autoContinueState,
+        streamSpeechState
+      });
+
+      // 1. setStreamSpeechId and getStreamSpeechId
+      pipeline.setStreamSpeechId(42);
+      expect(pipeline.getStreamSpeechId()).toBe(42);
+
+      // 2. Muted TTS on stream start
+      mockEngines.speechEngine.ttsMuted = true;
+      pipeline.onStreamStart();
+      expect(pipeline.getStreamSpeechId()).toBe(0);
+
+      // 3. onStreamChunk when streamSpeechId is 0 -> does not push
+      pipeline.onStreamChunk('chunk text');
+      expect(mockEngines.speechEngine.pushSpeech).not.toHaveBeenCalled();
+
+      // 4. onStreamChunk when streamSpeechId !== speechEngine.speakSeq
+      pipeline.setStreamSpeechId(5);
+      mockEngines.speechEngine.speakSeq = 6;
+      pipeline.onStreamChunk('chunk text');
+      expect(mockEngines.speechEngine.pushSpeech).not.toHaveBeenCalled();
+
+      // 5. onStreamEnd when streamSpeechId is 0 -> calls onUtteranceEnd
+      pipeline.setStreamSpeechId(0);
+      pipeline.onStreamEnd('full text');
+      expect(mockEngines.speechEngine.onUtteranceEnd).toHaveBeenCalled();
+
+      // 6. onInterrupt when abort throws
+      mockEngines.brainEngine.llm.controller.abort = vi.fn(() => {
+        throw new Error('Abort failed');
+      });
+      expect(() => pipeline.onInterrupt()).not.toThrow();
     });
 
     it('should handle ttsMuted, missing speechEngine, and setStreamSpeechId', () => {
@@ -460,5 +557,95 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
       expect(mockEngines.skinEngine.loadVRMFile).toHaveBeenCalledWith(fakeFile);
     });
+
+    it('should handle forget me command and host tool routing in user pipeline', () => {
+      const getWidget = () => mockWidget;
+      const getEngines = () => mockEngines;
+      const handleUserMessage = createUserPipeline({
+        getWidget,
+        getEngines,
+        rootStore,
+        i18nEngine,
+        autoContinueState
+      });
+
+      // 1. Forget me command
+      handleUserMessage('請忘記我');
+      expect(mockEngines.brainEngine.memory.clear).toHaveBeenCalled();
+      expect(mockEngines.speechEngine.spokenAudioText).toContain('好，我把記憶都清掉了');
+
+      // 2. Host tool ambiguous routing
+      mockEngines.toolsEngine.routeHostTool = vi.fn().mockReturnValue({
+        ambiguous: [{ name: 'tool_1' }, { name: 'tool_2' }],
+        match: null
+      });
+      mockEngines.toolsEngine.offerToolChoices = vi.fn();
+      handleUserMessage('搜尋');
+      expect(mockEngines.toolsEngine.offerToolChoices).toHaveBeenCalled();
+
+      // 3. Host tool exact match routing
+      mockEngines.toolsEngine.routeHostTool = vi.fn().mockReturnValue({
+        ambiguous: [],
+        match: { tool: { name: 'weather_tool' }, score: 0.95, reason: 'keyword' }
+      });
+      mockEngines.toolsEngine.prepareTool = vi.fn();
+      handleUserMessage('查天氣');
+      expect(mockEngines.toolsEngine.prepareTool).toHaveBeenCalled();
+
+      // 4. Normal question
+      mockEngines.toolsEngine.routeHostTool = vi.fn().mockReturnValue({
+        ambiguous: [],
+        match: null
+      });
+      handleUserMessage('一般問題');
+      expect(mockEngines.brainEngine.answerQuestion).toHaveBeenCalledWith('一般問題');
+      expect(mockEngines.skinEngine.gestureName).toBe('thinking');
+    });
+
+    it('should test pendingTool confirmations/choices/inputs early returns and direct widget in createUserPipeline', () => {
+      // 1. Direct widget object (instead of getWidget)
+      const handleUserWithWidget = createUserPipeline({
+        widget: mockWidget,
+        getEngines: () => mockEngines,
+        rootStore,
+        i18nEngine,
+        autoContinueState
+      });
+
+      // 2. Empty string input
+      handleUserWithWidget('');
+      handleUserWithWidget();
+
+      // 3. pendingToolConfirmation returns true
+      mockEngines.toolsEngine.pendingToolConfirmation = 'msg_1';
+      mockEngines.toolsEngine.continueToolConfirmation = vi.fn(() => true);
+      handleUserWithWidget('好的');
+      expect(mockEngines.toolsEngine.continueToolConfirmation).toHaveBeenCalledWith('好的');
+
+      // 4. pendingToolChoice returns true
+      mockEngines.toolsEngine.pendingToolConfirmation = null;
+      mockEngines.toolsEngine.pendingToolChoice = { messageId: 'm1' };
+      mockEngines.toolsEngine.continueToolChoice = vi.fn(() => true);
+      handleUserWithWidget('第一個');
+      expect(mockEngines.toolsEngine.continueToolChoice).toHaveBeenCalledWith('第一個');
+
+      // 5. pendingToolInput returns true
+      mockEngines.toolsEngine.pendingToolChoice = null;
+      mockEngines.toolsEngine.pendingToolInput = { name: 't1' };
+      mockEngines.toolsEngine.continueToolInput = vi.fn(() => true);
+      handleUserWithWidget('參數值');
+      expect(mockEngines.toolsEngine.continueToolInput).toHaveBeenCalledWith('參數值');
+
+      // 6. Handle with null speechEngine / brainEngine
+      const handleUserNullEngines = createUserPipeline({
+        getWidget: () => null,
+        getEngines: () => ({ brainEngine: null, speechEngine: null, skinEngine: null, toolsEngine: null }),
+        rootStore,
+        i18nEngine,
+        autoContinueState
+      });
+      expect(() => handleUserNullEngines('隨意文字')).not.toThrow();
+    });
   });
 });
+

@@ -100,4 +100,35 @@ describe('UI DOM & Scaffolding (initUi)', () => {
     expect(uiDom.micButtonEl.getAttribute('aria-pressed')).toBe('false');
     expect(uiDom.suggestionsEl.style.display).toBe('flex');
   });
+
+  it('should handle static container positioning and fallback mic/voice translations without i18nEngine', () => {
+    const staticContainer = document.createElement('div');
+    staticContainer.style.position = 'static';
+    const subStage = document.createElement('div');
+
+    const uiDom = initUi(staticContainer, subStage, null);
+    expect(uiDom).toBeDefined();
+    expect(staticContainer.style.position).toBe('relative');
+
+    // 1. Listening in assistant mode without i18nEngine
+    uiDom.updateMicState(true, true, false, null);
+    expect(uiDom.micButtonEl.textContent).toBe('● 聆聽中');
+
+    // 2. Listening in companion mode without i18nEngine
+    uiDom.updateMicState(true, true, true, null);
+    expect(uiDom.micButtonEl.textContent).toBe('● 對話中');
+
+    // 3. Convo standby without i18nEngine
+    uiDom.updateMicState(false, true, false, null);
+    expect(uiDom.micButtonEl.textContent).toBe('◌ 對話中');
+
+    // 4. Idle live without i18nEngine
+    uiDom.updateMicState(false, false, false, null);
+    expect(uiDom.micButtonEl.textContent).toBe('🎙️ 即時');
+
+    // 5. Voice status with undefined text and level clamp > 100
+    uiDom.updateVoiceStatus(true, undefined, 'processing', 150, null);
+    expect(uiDom.voiceStatusEl.textContent).toBe('即時語音待命');
+    expect(uiDom.voiceLevelEl.style.width).toBe('100%');
+  });
 });

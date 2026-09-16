@@ -163,5 +163,36 @@ describe('Unit Test: core/tools/schema.js', () => {
 
       expect(summary).toBe('目的地：台北、張數：2');
     });
+
+    it('should support string minimum and maximum in normaliseSchema, and timeoutMs fallback in normaliseTool', () => {
+      const rawSchema = {
+        type: 'object',
+        properties: {
+          age: {
+            type: 'number',
+            minimum: '18',
+            maximum: '65',
+            enum: ['18', '30', '65']
+          }
+        }
+      };
+      const normalized = normaliseSchema(rawSchema);
+      expect(normalized.properties.age.minimum).toBe(18);
+      expect(normalized.properties.age.maximum).toBe(65);
+
+      const rawTool = {
+        name: 'test_timeout',
+        timeoutMs: 5000,
+        inputSchema: rawSchema
+      };
+      const normalizedTool = normaliseTool(rawTool);
+      expect(normalizedTool.confirmationTimeoutMs).toBe(5000);
+
+      const openAiTools = toOpenAiTools([rawTool]);
+      expect(openAiTools[0].function.parameters.properties.age.enum).toEqual(['18', '30', '65']);
+
+      expect(argumentSummary(rawTool, null)).toBe('');
+    });
   });
 });
+

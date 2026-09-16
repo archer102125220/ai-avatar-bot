@@ -401,5 +401,46 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
       expect(validation.isValid).toBe(false);
       expect(validation.missing.length).toBeGreaterThan(0);
     });
+
+    it('should handle onBrainFallback error, trigger background WebLLM load, and fallback to default emitAnswer', async () => {
+      const loadMock = vi.fn().mockRejectedValue(new Error('Load rejected'));
+      const onBrainFallback = vi.fn().mockImplementation(() => {
+        throw new Error('Hook failed');
+      });
+
+      const addChatMessage = vi.fn();
+      const onSpokenAudioPlayNow = vi.fn();
+      const onSpokenDisplayTextChange = vi.fn();
+      const onEmotionChange = vi.fn();
+
+      const brainEngine = {
+        aiProvider: { enabled: true, ready: false },
+        autoFallbackWebLLM: true,
+        llm: { supported: true, state: STATE_MAP.IDLE, load: loadMock },
+        STATE_MAP,
+        onBrainFallback,
+        knowledge: [{ q: '知識', a: '答案' }],
+        memory: { enabled: true, addTurn: vi.fn() },
+        chatLog: [],
+        addChatMessage,
+        onSpokenAudioPlayNow,
+        onSpokenDisplayTextChange,
+        onEmotionChange
+      };
+
+      // 1. aiProvider enabled but not ready -> triggers triggerBackgroundWebLLMLoad -> falls back to retrieval
+      await brainEngine.answerQuestion ? brainEngine.answerQuestion('知識') : null;
+
+      // 2. aiProvider throws error -> onBrainFallback throws -> catches safely
+      brainEngine.aiProvider.ready = true;
+      brainEngine.aiProvider.chat = vi.fn().mockRejectedValue(new Error('AI Provider crash'));
+      const { answerQuestion } = await import('@/core/brain/index');
+      await answerQuestion(brainEngine, '知識');
+
+      expect(loadMock).toHaveBeenCalled();
+      expect(onBrainFallback).toHaveBeenCalled();
+      expect(onSpokenAudioPlayNow).toHaveBeenCalled();
+    });
   });
 });
+

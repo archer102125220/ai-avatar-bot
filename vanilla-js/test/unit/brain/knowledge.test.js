@@ -39,13 +39,31 @@ describe('Unit Test: core/brain/knowledge.js', () => {
 
       const emptyResult = await fetchKnowledge('');
       expect(emptyResult).toEqual([]);
+
+      // Test response without json function
+      global.fetch = vi.fn().mockResolvedValue([]);
+      const noJsonResult = await fetchKnowledge('https://nojson.url');
+      expect(noJsonResult).toEqual([]);
+
+      // Test response.json() returning non-array
+      global.fetch = vi.fn().mockResolvedValue({
+        json: async () => ({ not: 'array' })
+      });
+      const nonArrayResult = await fetchKnowledge('https://nonarray.url');
+      expect(nonArrayResult).toEqual([]);
     });
   });
+
 
   describe('getBigrams & calculateKnowledgeSimilarity', () => {
     it('should generate bigram pairs from Chinese and alphanumeric text', () => {
       const bigrams = getBigrams('語音虛擬人');
       expect(bigrams).toEqual(['語音', '音虛', '虛擬', '擬人']);
+
+      // Single character normalized text
+      expect(getBigrams('A')).toEqual(['a']);
+      expect(getBigrams('')).toEqual([]);
+      expect(getBigrams(null)).toEqual([]);
     });
 
     it('should calculate similarity between query and target string', () => {
@@ -54,6 +72,10 @@ describe('Unit Test: core/brain/knowledge.js', () => {
 
       expect(scoreHigh).toBeGreaterThan(0.5);
       expect(scoreLow).toBe(0);
+
+      // Empty queries
+      expect(calculateKnowledgeSimilarity('', '目標文字')).toBe(0);
+      expect(calculateKnowledgeSimilarity('查詢', '')).toBe(0);
     });
   });
 
@@ -86,8 +108,35 @@ describe('Unit Test: core/brain/knowledge.js', () => {
       const brainEngine = { knowledge };
       const top = getTopKnowledge(brainEngine, '我想吃蘋果', 2);
 
-      expect(top.length).toBeLessThanOrEqual(2);
-      expect(top[0].kw).toContain('蘋果');
+      expect(top.length).toBe(2);
+      expect(top.some((item) => item.a === '蘋果是水果')).toBe(true);
+
+      // Null brainEngine guard
+      expect(getTopKnowledge(null, '蘋果', 2)).toEqual([]);
+    });
+
+    it('should score knowledge entry with message array question and handle null findBestMatch', () => {
+      const entry = { q: '如何安裝', kw: '安裝 install' };
+
+      // Array question format with items and empty array
+      const scoreArr = scoreKnowledgeEntry([{ role: 'user', content: '請教如何安裝' }], entry);
+      expect(scoreArr).toBeGreaterThan(0.3);
+
+      const scoreEmptyArr = scoreKnowledgeEntry([], entry);
+      expect(scoreEmptyArr).toBe(0);
+
+      // Non-string entry properties
+      const nonStringEntry = { q: 12345, kw: null };
+      const scoreNonString = scoreKnowledgeEntry(12345, nonStringEntry);
+      expect(scoreNonString).toBeGreaterThanOrEqual(0);
+
+      // Entry with null q and kw
+      const emptyEntry = {};
+      expect(scoreKnowledgeEntry('測試', emptyEntry)).toBe(0);
+
+      // findBestMatch with null or undefined
+      expect(findBestMatch(null, '查詢')).toEqual({ entry: null, score: 0 });
+      expect(findBestMatch(undefined, '查詢')).toEqual({ entry: null, score: 0 });
     });
   });
 });

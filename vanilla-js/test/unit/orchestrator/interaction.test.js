@@ -200,6 +200,14 @@ describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
 
       updateListeners(true);
 
+      // Test dragenter and dragover preventDefault
+      const dragenterEvent = new Event('dragenter', { cancelable: true });
+      const dragoverEvent = new Event('dragover', { cancelable: true });
+      container.dispatchEvent(dragenterEvent);
+      container.dispatchEvent(dragoverEvent);
+      expect(dragenterEvent.defaultPrevented).toBe(true);
+      expect(dragoverEvent.defaultPrevented).toBe(true);
+
       const dropEvent = new Event('drop');
       Object.defineProperty(dropEvent, 'dataTransfer', {
         value: { files: [{ notAFile: true }] }
@@ -207,6 +215,41 @@ describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
 
       container.dispatchEvent(dropEvent);
       expect(mockEngines.skinEngine.loadVRMFile).not.toHaveBeenCalled();
+
+      // Remove listeners
+      updateListeners(false);
+    });
+
+    it('should handle onTapTimer guard, avatarModel motion error, and timer reset', () => {
+      vi.useFakeTimers();
+
+      // Catch error when avatarModel.motion throws
+      mockEngines.skinEngine.avatarModel.motion = vi.fn().mockImplementation(() => {
+        throw new Error('Motion error');
+      });
+
+      const onTap = createTapAvatarHandler({
+        widget: mockWidget,
+        options: { onTapAvatar: vi.fn() },
+        rootStore,
+        i18nEngine,
+        getEngines
+      });
+
+      onTap();
+      expect(mockEngines.speechEngine.onTapTimer).toBe(true);
+
+      // Subsequent tap within timer should return early
+      mockEngines.speechEngine.spokenAudioText = 'changed';
+      onTap();
+      // Should not re-run greeting logic while onTapTimer is true
+      expect(mockEngines.speechEngine.spokenAudioText).toBe('changed');
+
+      // Advance timer by 400ms
+      vi.advanceTimersByTime(400);
+      expect(mockEngines.speechEngine.onTapTimer).toBe(false);
+
+      vi.useRealTimers();
     });
   });
 });

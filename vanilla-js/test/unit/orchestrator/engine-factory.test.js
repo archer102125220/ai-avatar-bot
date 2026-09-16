@@ -215,7 +215,16 @@ describe('Orchestrator Engine Factory', () => {
       expect(capturedBrainOptions.getTools()).toEqual([]);
       expect(capturedBrainOptions.getToolByName('test_tool')).toBe(mockEngines.toolsEngine.HOST_TOOLS[0]);
 
-      const execResult = await capturedBrainOptions.executeTool('test_tool', { foo: 'bar' });
+      // Test default onBrainFallback
+      expect(capturedBrainOptions.onBrainFallback('webllm', 'ai_provider', new Error('WebLLM failed'))).toBeUndefined();
+
+      // Test offerToolConfirmation
+      capturedBrainOptions.offerToolConfirmation('test_tool', { a: 1 }, {});
+      expect(mockEngines.toolsEngine.offerHostTool).toHaveBeenCalled();
+
+      const execResult = await capturedBrainOptions.executeTool('test_tool', { foo: 'bar' }, {
+        input: { query: '使用者問題', context: { customContext: true } }
+      });
       expect(execResult).toEqual({
         result: 'ok',
         tool: 'test_tool',
@@ -223,6 +232,7 @@ describe('Orchestrator Engine Factory', () => {
       });
       expect(mockEngines.toolsEngine.executeToolDirectly).toHaveBeenCalled();
     });
+
 
     it('should trigger UI and speech updates on LLM lifecycle callbacks', async () => {
       let capturedBrainOptions;
@@ -891,6 +901,28 @@ describe('Orchestrator Engine Factory', () => {
       mockEngines.skinEngine.renderer.canvas.dispatchEvent(new Event('pointerdown'));
       expect(mockEngines.speechEngine.triggerTap).toHaveBeenCalled();
 
+      // onModelChangeStart (3D and 2D)
+      capturedSkinOptions.onModelChangeStart(ENGINE_MODE_MAP.threeDimensional);
+      expect(mockUiDom.engineButtonEl.textContent).toBe('3D');
+
+      capturedSkinOptions.onModelChangeStart(ENGINE_MODE_MAP.twoDimensional);
+      expect(mockUiDom.engineButtonEl.textContent).toBe('2D');
+
+      // onModelChangeEnd in 3D mode
+      mockEngines.skinEngine.engineMode = ENGINE_MODE_MAP.threeDimensional;
+      const playGestureMock = vi.fn();
+      mockEngines.skinEngine.renderer = {
+        canvas: document.createElement('canvas'),
+        TAP_GESTURES: ['Wave', 'Bow'],
+        playGesture: playGestureMock
+      };
+      capturedSkinOptions.onModelChangeEnd();
+      expect(mockUiDom.engineButtonEl.textContent).toBe('3D');
+
+      mockEngines.skinEngine.renderer.canvas.dispatchEvent(new Event('pointerdown'));
+      expect(playGestureMock).toHaveBeenCalled();
+      expect(mockEngines.speechEngine.triggerTap).toHaveBeenCalled();
+
       initSkinSpy.mockRestore();
     });
 
@@ -923,6 +955,53 @@ describe('Orchestrator Engine Factory', () => {
         stageEl
       });
       expect(skinThrows).toBeDefined();
+    });
+
+    it('should test onTwoDimensionalError, VRMFileChangeFail, and VRMFileChangeSuccess handlers in setupSkinEngine options', async () => {
+      let capturedSkinOptions = null;
+      const initSkinSpy = vi.spyOn(SkinModule, 'initSkinEngine').mockImplementation((opts) => {
+        capturedSkinOptions = opts;
+        return mockEngines.skinEngine;
+      });
+
+      const onTwoDimensionalError = vi.fn();
+      const VRMFileChangeFail = vi.fn();
+      const VRMFileChangeSuccess = vi.fn();
+
+      const stageEl = document.createElement('div');
+      await setupSkinEngine({
+        options: {
+          onTwoDimensionalError,
+          VRMFileChangeFail,
+          VRMFileChangeSuccess
+        },
+        widget: mockWidget,
+        rootStore,
+        getEngines,
+        getUiDom,
+        stageEl
+      });
+
+      expect(capturedSkinOptions).toBeDefined();
+
+      // 1. onTwoDimensionalError
+      capturedSkinOptions.onTwoDimensionalError(new Error('2D failed'));
+      expect(mockUiDom.directWarnEl.textContent).toContain('2D 啟動失敗');
+      expect(mockUiDom.directWarnEl.style.display).toBe('flex');
+      expect(mockWidget.onError).toHaveBeenCalled();
+      expect(onTwoDimensionalError).toHaveBeenCalled();
+
+      // 2. VRMFileChangeFail
+      capturedSkinOptions.VRMFileChangeFail(new Error('VRM drop failed'));
+      expect(mockEngines.speechEngine.spokenDisplayText).toBe('VRM drop failed');
+      expect(VRMFileChangeFail).toHaveBeenCalled();
+
+      // 3. VRMFileChangeSuccess
+      capturedSkinOptions.VRMFileChangeSuccess();
+      expect(mockEngines.speechEngine.spokenDisplayText).toBe('換上你的角色了！🎭');
+      expect(VRMFileChangeSuccess).toHaveBeenCalled();
+
+      initSkinSpy.mockRestore();
     });
   });
 });

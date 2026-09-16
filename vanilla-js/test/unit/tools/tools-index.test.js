@@ -502,6 +502,19 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
       expect(res.ok).toBe(false);
       expect(res.error).toBe('Database locked');
       expect(onConfirmResume).toHaveBeenCalledWith({ ok: false, error: 'Database locked' });
+
+      // Test without onConfirmResume and with AI_SUMMARY / normal result mode
+      const successTool = {
+        name: 'success_tool',
+        execute: vi.fn(async () => ({ other: 'no-message-prop' }))
+      };
+      const res2 = await engine.executeToolDirectly(successTool, {}, { callId: 'call_2' });
+      expect(res2).toEqual({ other: 'no-message-prop' });
+
+      // Test tool without execute function returns null
+      const noExecTool = { name: 'no_exec' };
+      const res3 = await engine.executeToolDirectly(noExecTool, {});
+      expect(res3).toBeNull();
     });
 
     it('should handle cancelPendingTool and executePendingTool edge cases and callbacks', () => {
@@ -571,5 +584,266 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
       // continueToolConfirmation when no pending confirmation is active
       expect(engine.continueToolConfirmation('好')).toBe(false);
     });
+
+    it('should test answerPendingChoices, chooseTool, and confirmation timer expiration', () => {
+      vi.useFakeTimers();
+      const onRenderHistory = vi.fn();
+      const onSpokenAudioPlayNow = vi.fn();
+      const onToolCancel = vi.fn();
+
+      const chatLog = [
+        {
+          id: 'choice_msg_1',
+          pendingChoices: [
+            { tool: { name: 'tool_a', label: '工具A', inputSchema: {} }, score: 0.9 },
+            { tool: { name: 'tool_b', label: '工具B', inputSchema: {} }, score: 0.8 }
+          ],
+          choiceQuery: '執行A'
+        }
+      ];
+
+      const onAddChatMessage = vi.fn((role, text, opts) => {
+        const msg = { id: opts?.id || `msg-${Date.now()}`, role, text, ...opts };
+        chatLog.push(msg);
+        return msg.id;
+      });
+
+      const engine = initToolsEngine({
+        confirmationTimeoutMs: 5000,
+        onRenderHistory,
+        onSpokenAudioPlayNow,
+        onAddChatMessage,
+        onToolCancel,
+        getChatLog: () => chatLog,
+        getChatSeq: () => 1
+      });
+
+
+      // 1. answerPendingChoices when null -> returns false
+      expect(engine.continueToolChoice('第一個')).toBe(false);
+
+      // 2. Set pendingToolChoice and answer "取消"
+      engine.pendingToolChoice = {
+        messageId: 'choice_msg_1',
+        choices: chatLog[0].pendingChoices
+      };
+      expect(engine.continueToolChoice('取消')).toBe(true);
+      expect(onSpokenAudioPlayNow).toHaveBeenCalledWith('好的，已取消這個操作。');
+
+      // 3. Set pendingToolChoice and answer "第一個" / "第二個"
+      chatLog[0].pendingChoices = [
+        { tool: { name: 'tool_a', label: '工具A', inputSchema: {} }, score: 0.9 },
+        { tool: { name: 'tool_b', label: '工具B', inputSchema: {} }, score: 0.8 }
+      ];
+      engine.pendingToolChoice = {
+        messageId: 'choice_msg_1',
+        choices: chatLog[0].pendingChoices
+      };
+      expect(engine.continueToolChoice('第一個')).toBe(true);
+
+      // 4. Set pendingToolChoice and answer unmatched text -> prompts
+      chatLog[0].pendingChoices = [
+        { tool: { name: 'tool_a', label: '工具A', inputSchema: {} }, score: 0.9 }
+      ];
+      engine.pendingToolChoice = {
+        messageId: 'choice_msg_1',
+        choices: chatLog[0].pendingChoices
+      };
+      expect(engine.continueToolChoice('隨便啦')).toBe(true);
+      expect(onAddChatMessage).toHaveBeenCalledWith('assistant', expect.stringContaining('請說「第一個'), { source: 'tool' });
+
+      // 5. chooseTool edge cases (missing message or missing choice)
+      engine.chooseTool('missing_id', 0);
+      engine.chooseTool('choice_msg_1', 99);
+
+      // 6. Test offerHostTool without confirmation and with confirmation timer timeout
+      const autoTool = {
+        name: 'auto_tool',
+        label: '自動工具',
+        requiresConfirmation: false,
+        execute: vi.fn(async () => 'Done auto')
+      };
+      engine.offerHostTool(autoTool, '查詢', {}, { q: 1 }, { source: 'custom' });
+      expect(onAddChatMessage).toHaveBeenCalledWith('assistant', expect.stringContaining('正在執行「自動工具」'), expect.any(Object));
+
+      const confirmTool = {
+        name: 'confirm_tool',
+        label: '確認工具',
+        requiresConfirmation: true,
+        confirmationTimeoutMs: 3000
+      };
+      engine.offerHostTool(confirmTool, '查詢', {}, { q: 1 }, { callId: 'confirm_call_1' });
+      expect(engine.pendingToolConfirmation).toBe('confirm_call_1');
+
+      // Fast-forward timers to trigger confirmation timeout
+      vi.advanceTimersByTime(3500);
+      expect(engine.pendingToolConfirmation).toBe('');
+      expect(onToolCancel).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'confirm_tool',
+        reason: TOOL_CANCEL_REASON_MAP.TIMEOUT
+      }));
+
+      vi.useRealTimers();
+    });
+
+    it('should test prepareTool without confirmation and executeToolDirectly with onConfirmResume and DIRECT result mode', async () => {
+      const onAddChatMessage = vi.fn();
+      const onToolCall = vi.fn();
+      const onToolResult = vi.fn();
+
+      const engine = initToolsEngine({
+        onAddChatMessage,
+        onToolCall,
+        onToolResult,
+        getChatLog: () => [],
+        getChatSeq: () => 1
+      });
+
+      // 1. Tool without execute function triggers onToolCall hook
+      const externalTool = {
+        name: 'external_tool',
+        label: '外部工具',
+        requiresConfirmation: false,
+        execute: null
+      };
+      engine.prepareTool(externalTool, '查詢外部', { confidence: 0.9, reason: 'test' });
+      expect(onToolCall).toHaveBeenCalled();
+
+      // 2. Tool with onConfirmResume resolving result
+      const onConfirmResume = vi.fn();
+      const directTool = {
+        name: 'direct_calc',
+        label: '直接計算',
+        requiresConfirmation: false,
+        resultMode: 'direct',
+        execute: vi.fn().mockResolvedValue({ val: 42 })
+      };
+      engine.offerHostTool(directTool, '計算', {}, {}, { onConfirmResume });
+      await new Promise((r) => setTimeout(r, 20));
+      expect(onConfirmResume).toHaveBeenCalledWith({ val: 42 });
+
+      // 3. Tool with DIRECT result mode throwing error
+      const throwingDirectTool = {
+        name: 'direct_error',
+        label: '失敗計算',
+        requiresConfirmation: false,
+        resultMode: 'direct',
+        execute: vi.fn().mockRejectedValue(new Error('Calculation failed'))
+      };
+      const onConfirmErrorResume = vi.fn();
+      engine.offerHostTool(throwingDirectTool, '算錯', {}, {}, { onConfirmResume: onConfirmErrorResume });
+      await new Promise((r) => setTimeout(r, 20));
+      expect(onConfirmErrorResume).toHaveBeenCalledWith({ ok: false, error: 'Calculation failed' });
+    });
+
+    it('should test executePendingTool and cancelPendingTool edge cases and continueToolConfirmation routing', () => {
+      const chatLog = [];
+      const onRenderHistory = vi.fn();
+      const onSpokenAudioPlayNow = vi.fn();
+      const onToolCall = vi.fn();
+      const onToolConfirm = vi.fn();
+      const onToolCancel = vi.fn();
+      const onConfirmResume = vi.fn();
+      const convoOn = true;
+
+      const engine = initToolsEngine({
+        onRenderHistory,
+        onSpokenAudioPlayNow,
+        onToolCall,
+        onToolConfirm,
+        onToolCancel,
+        isConvoOn: () => convoOn,
+        getChatLog: () => chatLog,
+        getChatSeq: () => chatLog.length
+      });
+
+      // 1. continueToolConfirmation when pendingToolConfirmation is empty string
+      expect(engine.continueToolConfirmation('好')).toBe(false);
+
+      // 2. executePendingTool on non-existent message or message without pendingTool
+      engine.executePendingTool('non_existent_id');
+      chatLog.push({ id: 'msg_no_pending', text: 'no pending tool', pendingTool: null });
+      engine.executePendingTool('msg_no_pending');
+
+      // 3. cancelPendingTool on non-existent message or message without pendingTool
+      engine.cancelPendingTool('non_existent_id');
+      engine.cancelPendingTool('msg_no_pending');
+
+      // 4. Setup message with pendingTool (without execute function -> triggers onToolCall & onToolConfirm)
+      const pendingMsg1 = {
+        id: 'msg_pending_1',
+        text: '需要確認嗎？',
+        pendingTool: {
+          label: '刪除檔案',
+          name: 'delete_file',
+          toolCallId: 'call_del_1',
+          tool: { name: 'delete_file', execute: null },
+          input: { args: { path: '/tmp/test.txt' } }
+        }
+      };
+      chatLog.push(pendingMsg1);
+      engine.pendingToolConfirmation = 'msg_pending_1';
+
+      // Test continueToolConfirmation with "好" -> triggers executePendingTool
+      expect(engine.continueToolConfirmation('好')).toBe(true);
+      expect(pendingMsg1.text).toContain('正在執行「刪除檔案」');
+      expect(onToolCall).toHaveBeenCalledWith(expect.objectContaining({ name: 'delete_file' }));
+      expect(onToolConfirm).toHaveBeenCalledWith({ name: 'delete_file', toolCallId: 'call_del_1' });
+
+      // 5. Setup message with pendingTool for cancel with USER_CANCEL (convoOn is true)
+      const pendingMsg2 = {
+        id: 'msg_pending_2',
+        text: '確認操作嗎？',
+        pendingTool: {
+          label: '關機',
+          name: 'shutdown',
+          toolCallId: 'call_shut_1',
+          tool: { name: 'shutdown' },
+          onConfirmResume
+        }
+      };
+      chatLog.push(pendingMsg2);
+      engine.pendingToolConfirmation = 'msg_pending_2';
+
+      // Test continueToolConfirmation with "不要" -> triggers cancelPendingTool with USER_CANCEL
+      expect(engine.continueToolConfirmation('不要')).toBe(true);
+      expect(pendingMsg2.text).toBe('好的，已取消。');
+      expect(onSpokenAudioPlayNow).toHaveBeenCalledWith('好的，已取消。');
+      expect(onConfirmResume).toHaveBeenCalledWith({ cancelled: true, reason: TOOL_CANCEL_REASON_MAP.USER_CANCEL });
+      expect(onToolCancel).toHaveBeenCalledWith({
+        name: 'shutdown',
+        reason: TOOL_CANCEL_REASON_MAP.USER_CANCEL,
+        toolCallId: 'call_shut_1'
+      });
+
+      // 6. Setup message with pendingTool for cancel with NEW_INPUT
+      const pendingMsg3 = {
+        id: 'msg_pending_3',
+        text: '確認搜尋嗎？',
+        pendingTool: {
+          label: '搜尋',
+          name: 'search',
+          toolCallId: 'call_search_1',
+          tool: { name: 'search' }
+        }
+      };
+      chatLog.push(pendingMsg3);
+      engine.pendingToolConfirmation = 'msg_pending_3';
+
+      // Test continueToolConfirmation with new topic message -> returns false & cancels with NEW_INPUT
+      expect(engine.continueToolConfirmation('今天天氣如何')).toBe(false);
+      expect(pendingMsg3.text).toBe('已取消（已轉移話題）。');
+      expect(pendingMsg3.cancelled).toBe(true);
+      expect(onToolCancel).toHaveBeenCalledWith({
+        name: 'search',
+        reason: TOOL_CANCEL_REASON_MAP.NEW_INPUT,
+        toolCallId: 'call_search_1'
+      });
+    });
   });
 });
+
+
+
+
+

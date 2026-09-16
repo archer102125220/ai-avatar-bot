@@ -318,7 +318,7 @@ describe('Unit Test: core/speech/tts.js', () => {
       window.AudioContext = class MockAudioContext {
         constructor() {
           this.destination = {};
-          this.state = 'running';
+          this.state = 'suspended';
         }
         createBufferSource() {
           return mockBufferSource;
@@ -330,6 +330,7 @@ describe('Unit Test: core/speech/tts.js', () => {
           return Promise.resolve(mockAudioBuffer);
         }
         resume() {
+          this.state = 'running';
           return Promise.resolve();
         }
       };
@@ -341,7 +342,7 @@ describe('Unit Test: core/speech/tts.js', () => {
 
       const onSpeakEnd = vi.fn();
       const tts = initDefaultTTSEngine({
-        ttsEndpoint: 'https://tts.example.com/api',
+        ttsEndpoint: 'https://tts.example.com/api?existing=1',
         onSpeakEnd
       });
 
@@ -363,5 +364,214 @@ describe('Unit Test: core/speech/tts.js', () => {
       }
       expect(onSpeakEnd).toHaveBeenCalled();
     });
+
+    it('should handle small audio buffer error (< 800 bytes) and HTTP errors in fetchTTSBuffer', async () => {
+      window.AudioContext = class MockAudioContext {
+        decodeAudioData() {
+          return Promise.resolve({});
+        }
+      };
+
+      // 1. Audio too small
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: async () => new ArrayBuffer(100) // < 800 bytes
+      });
+
+      const tts = initDefaultTTSEngine({ ttsEndpoint: 'https://tts.example.com/api' });
+      await expect(tts.preloadTapGreeting('太短的音訊')).rejects.toThrow('audio too small');
+
+      // 2. HTTP error
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 503
+      });
+      await expect(tts.preloadTapGreeting('伺服器錯誤')).rejects.toThrow('http 503');
+    });
+
+    it('should fallback to browser speech synthesis when ttsEndpoint is empty', async () => {
+      let createdUtterance;
+      window.SpeechSynthesisUtterance = class MockUtterance {
+        constructor(text) {
+          this.text = text;
+          this.onstart = null;
+          this.onend = null;
+          this.onerror = null;
+          createdUtterance = this;
+        }
+      };
+
+      window.speechSynthesis.speak = vi.fn((utt) => {
+        if (typeof utt.onstart === 'function') {
+          utt.onstart();
+        }
+      });
+
+      const onSpeechWait = vi.fn();
+      const onSpeakEnd = vi.fn();
+      const tts = initDefaultTTSEngine({
+        ttsEndpoint: '', // Pure browser mode
+        onSpeechWait,
+        onSpeakEnd
+      });
+
+      tts.speak('瀏覽器原生語音合成測試');
+      await new Promise((r) => setTimeout(r, 50));
+      expect(window.speechSynthesis.speak).toHaveBeenCalled();
+      expect(tts.isSpeaking).toBe(true);
+
+      // Trigger onend
+      if (typeof createdUtterance.onend === 'function') {
+        createdUtterance.onend();
+      }
+      expect(tts.isSpeaking).toBe(false);
+      expect(onSpeakEnd).toHaveBeenCalled();
+    });
+
+    it('should handle onvoiceschanged event and reload browser voice when null', () => {
+      let voicesChangedCb;
+      Object.defineProperty(window.speechSynthesis, 'onvoiceschanged', {
+        set(cb) {
+          voicesChangedCb = cb;
+        },
+        get() {
+          return voicesChangedCb;
+        },
+        configurable: true
+      });
+
+      const tts = initDefaultTTSEngine();
+      expect(typeof voicesChangedCb).toBe('function');
+      voicesChangedCb();
+      expect(tts.getState().browserVoice).toBeDefined();
+    });
+
+    it('should handle pending or active speech synthesis cancel and boundary events', async () => {
+      let createdUtterance;
+      window.SpeechSynthesisUtterance = class MockUtterance {
+        constructor(text) {
+          this.text = text;
+          this.onstart = null;
+          this.onend = null;
+          this.onboundary = null;
+          createdUtterance = this;
+        }
+      };
+
+      window.speechSynthesis.speaking = true;
+      window.speechSynthesis.pending = true;
+      window.speechSynthesis.cancel = vi.fn(() => {
+        window.speechSynthesis.speaking = false;
+        window.speechSynthesis.pending = false;
+      });
+      window.speechSynthesis.resume = vi.fn(() => {
+        throw new Error('Resume failed');
+      });
+
+      const onSpeakStart = vi.fn();
+      const tts = initDefaultTTSEngine({
+        ttsEndpoint: '',
+        onSpeakStart
+      });
+
+      tts.speak('測試打斷與邊界事件');
+      await new Promise((r) => setTimeout(r, 160));
+
+      expect(window.speechSynthesis.cancel).toHaveBeenCalled();
+      expect(tts.isSpeaking).toBe(true);
+
+      // Trigger boundary event
+      if (typeof createdUtterance.onboundary === 'function') {
+        createdUtterance.onboundary();
+        expect(tts.getState().mouthTarget).toBeGreaterThanOrEqual(0.5);
+      }
+
+      // Finish utterance
+      if (typeof createdUtterance.onend === 'function') {
+        createdUtterance.onend();
+      }
+      expect(tts.isSpeaking).toBe(false);
+    });
+
+    it('should handle neural TTS rate limiting and network error fallback', async () => {
+      const tts = initDefaultTTSEngine({
+        ttsEndpoint: 'https://tts.example.com/api'
+      });
+
+      // 1. Rate limited 429
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 429
+      });
+      const seq1 = tts.beginSpeech();
+      tts.pushSpeech(seq1, '頻率限制測試');
+      tts.endSpeech(seq1);
+      await new Promise((r) => setTimeout(r, 50));
+      expect(tts.getState().neuralDisabled).toBe(false);
+
+      // 2. Fatal 404 / Network error disables neural TTS
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 404
+      });
+      const seq2 = tts.beginSpeech();
+      tts.pushSpeech(seq2, '網路錯誤測試');
+      tts.endSpeech(seq2);
+      await new Promise((r) => setTimeout(r, 50));
+      expect(tts.getState().neuralDisabled).toBe(true);
+    });
+
+    it('should trigger preloadTapGreeting and instant browser speak when tapGreetingBuffer is null and neural is disabled', async () => {
+      let createdUtterance;
+      window.SpeechSynthesisUtterance = class MockUtterance {
+        constructor(text) {
+          this.text = text;
+          createdUtterance = this;
+        }
+      };
+
+      const tts = initDefaultTTSEngine({
+        ttsEndpoint: 'https://tts.example.com/api'
+      });
+
+      tts.setState({
+        neuralDisabled: true,
+        tapGreetingBuffer: null
+      });
+
+      const seq = tts.beginSpeech();
+      tts.pushSpeech(seq, '哈囉你好！', { instant: true });
+      tts.endSpeech(seq);
+
+      await new Promise((r) => setTimeout(r, 50));
+      expect(window.speechSynthesis.speak).toHaveBeenCalled();
+      if (createdUtterance?.onend) {
+        createdUtterance.onend();
+      }
+    });
+
+    it('should test fetchTTSBuffer rejection in playNextChunk and onvoiceschanged handler', async () => {
+      // 1. fetch rejecting with network error during playNextChunk
+      global.fetch = vi.fn().mockRejectedValue(new Error('Network offline'));
+
+      const tts = initDefaultTTSEngine({
+        ttsEndpoint: 'https://tts.example.com/api'
+      });
+
+      const seq = tts.beginSpeech();
+      tts.pushSpeech(seq, '斷線合成測試');
+      tts.endSpeech(seq);
+
+      await new Promise((r) => setTimeout(r, 50));
+      expect(window.speechSynthesis.speak).toHaveBeenCalled();
+
+      // 2. onvoiceschanged event handler
+      tts.setState({ browserVoice: null });
+      if (typeof window.speechSynthesis.onvoiceschanged === 'function') {
+        window.speechSynthesis.onvoiceschanged();
+        expect(tts.getState().browserVoice).toBeDefined();
+      }
+    });
   });
 });
+

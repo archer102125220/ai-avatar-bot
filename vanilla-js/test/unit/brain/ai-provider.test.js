@@ -295,39 +295,80 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       expect(triggerRollingSummaryIfNeeded).toHaveBeenCalled();
     });
 
-    it('should support custom createFetchSetting, createFetchPayload, and responseFormat', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          choices: [{ message: { role: 'assistant', content: 'Custom Response' }, finish_reason: 'stop' }]
-        })
+    it('should sanitize nested and non-string message contents before sending', async () => {
+      let sentBody;
+      global.fetch = vi.fn().mockImplementation((_url, opt) => {
+        sentBody = JSON.parse(opt.body);
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            choices: [{ message: { role: 'assistant', content: 'OK' } }],
+            done_reason: 'length'
+          })
+        });
       });
 
-      const customCreateFetchSetting = vi.fn((_url, body) => ({
-        method: 'POST',
-        headers: { 'X-Custom-Auth': 'secret' },
-        body: JSON.stringify(body)
-      }));
+      const provider = await initAiProvider({
+        enableAiProvider: true,
+        providerBaseUrl: 'https://api.openai.com/v1'
+      });
 
-      const customCreateFetchPayload = vi.fn((msgs, tools, format) => ({
-        custom_messages: msgs,
-        custom_tools: tools,
-        response_format: format
+      const res = await provider.chat([
+        { role: 'user', content: { content: '從 content.content 取出的文字' } },
+        { role: 'assistant', content: { other: 123 } },
+        { role: 'user', content: 8888 }
+      ]);
+
+      expect(sentBody.messages[0].content).toBe('從 content.content 取出的文字');
+      expect(sentBody.messages[1].content).toBe('{"other":123}');
+      expect(sentBody.messages[2].content).toBe('8888');
+      expect(res.finishReason).toBe('length');
+    });
+
+    it('should support custom extractToolCalls and custom responseFormat function', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ raw_custom_data: 123 })
+      });
+
+      const customFormat = vi.fn(async () => ({
+        type: 'text',
+        content: '自訂格式化結果'
       }));
 
       const provider = await initAiProvider({
         enableAiProvider: true,
-        providerBaseUrl: 'https://custom-api.example.com',
-        providerCreateFetchSetting: customCreateFetchSetting,
-        providerCreateFetchPayload: customCreateFetchPayload,
-        providerResponseFormat: { type: 'json_object' }
+        providerBaseUrl: 'https://api.openai.com/v1',
+        providerResponseFormat: customFormat
       });
 
-      const result = await provider.chat([{ role: 'user', content: 'hello' }]);
+      const result = await provider.chat([{ role: 'user', content: 'test' }]);
+      expect(customFormat).toHaveBeenCalled();
+      expect(result.content).toBe('自訂格式化結果');
+    });
 
-      expect(customCreateFetchSetting).toHaveBeenCalled();
-      expect(customCreateFetchPayload).toHaveBeenCalled();
-      expect(result.content).toBe('Custom Response');
+    it('should support custom extractToolCalls function', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          custom_tool_payload: [{ id: '99', fn: 'my_custom_tool' }]
+        })
+      });
+
+      const customExtractToolCalls = vi.fn((res) => [
+        { id: res.custom_tool_payload[0].id, function: { name: res.custom_tool_payload[0].fn, arguments: '{}' } }
+      ]);
+
+      const provider = await initAiProvider({
+        enableAiProvider: true,
+        providerBaseUrl: 'https://api.openai.com/v1',
+        providerExtractToolCalls: customExtractToolCalls
+      });
+
+      const result = await provider.chat([{ role: 'user', content: 'call custom' }]);
+      expect(customExtractToolCalls).toHaveBeenCalled();
+      expect(result.type).toBe('tool_calls');
+      expect(result.toolCalls[0].function.name).toBe('my_custom_tool');
     });
 
     it('should handle auto-continue in BUFFERED mode and emit final joined answer', async () => {
@@ -384,18 +425,144 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       expect(mockChat).toHaveBeenCalled();
     });
 
-    it('should throw error when initial AI Provider response is empty', async () => {
-      const mockChat = vi.fn().mockResolvedValue({
-        type: 'text',
-        content: '   '
-      });
-
+    it('should throw error when AI Provider response is empty or invalid format', async () => {
+      const mockChat = vi.fn().mockResolvedValue(null);
       const brainEngine = {
         aiProvider: { chat: mockChat },
-        locale: 'zh-TW'
+        locale: 'zh-TW',
+        knowledge: [],
+        memory: { enabled: true, addTurn: vi.fn() },
+        emitAnswer: vi.fn()
+      };
+      await expect(chatWithAiProvider(brainEngine, '測試空回覆')).rejects.toThrow('AI Provider 回應為空或格式錯誤');
+    });
+
+    it('should handle auto-continue loop in stream mode and single_turn mode', async () => {
+      // 1. Auto-continue in STREAM mode
+      let callCount = 0;
+      const mockChatStream = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            type: 'text',
+            content: '這是第一段文字...',
+            finishReason: LLM_FINISH_REASON_MAP.LENGTH
+          });
+        }
+        return Promise.resolve({
+          type: 'text',
+          content: '這是第二段文字結束。',
+          finishReason: LLM_FINISH_REASON_MAP.STOP
+        });
+      });
+
+      const onAutoContinueStart = vi.fn();
+      const onAutoContinueResume = vi.fn();
+      const onAutoContinueEnd = vi.fn();
+      const addChatMessage = vi.fn().mockReturnValue('msg_stream_1');
+      const updateChatMessage = vi.fn();
+      const applyEmotionFromText = vi.fn();
+      const onSpokenAudioPlayNow = vi.fn();
+      const triggerRollingSummaryIfNeeded = vi.fn();
+
+      const brainEngineStream = {
+        aiProvider: { chat: mockChatStream },
+        enableAutoContinue: true,
+        maxAutoContinuations: 2,
+        autoContinueMode: AUTO_CONTINUE_MODE_MAP.STREAM,
+        locale: 'zh-TW',
+        memory: { enabled: true, addTurn: vi.fn() },
+        buildLLMMessages: vi.fn().mockResolvedValue([{ role: 'user', content: '故事' }]),
+        onAutoContinueStart,
+        onAutoContinueResume,
+        onAutoContinueEnd,
+        addChatMessage,
+        updateChatMessage,
+        applyEmotionFromText,
+        onSpokenAudioPlayNow,
+        triggerRollingSummaryIfNeeded,
+        onSpokenDisplayTextChange: vi.fn(),
+        onEmotionChange: vi.fn()
       };
 
-      await expect(chatWithAiProvider(brainEngine, '測試空回覆')).rejects.toThrow('AI Provider 回應為空或格式錯誤');
+      await chatWithAiProvider(brainEngineStream, '講長故事');
+
+      expect(callCount).toBe(2);
+      expect(onAutoContinueStart).toHaveBeenCalled();
+      expect(onAutoContinueResume).toHaveBeenCalled();
+      expect(onAutoContinueEnd).toHaveBeenCalled();
+      expect(addChatMessage).toHaveBeenCalledWith('assistant', '這是第一段文字...');
+      expect(updateChatMessage).toHaveBeenCalledWith('msg_stream_1', expect.stringContaining('這是第二段文字結束'), false);
+      expect(onSpokenAudioPlayNow).toHaveBeenCalled();
+      expect(triggerRollingSummaryIfNeeded).toHaveBeenCalled();
+    });
+
+    it('should support custom createFetchPayload and format HTTP error with text body', async () => {
+      // 1. Custom createFetchPayload
+      let customPayloadPassed;
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: '自訂負載成功' } }]
+        })
+      });
+
+      const provider = await initAiProvider({
+        enableAiProvider: true,
+        providerBaseUrl: 'https://api.custom.com',
+        providerCreateFetchPayload: async (msgs, _t, _m, _d, _s) => {
+          customPayloadPassed = true;
+          return JSON.stringify({ custom_msgs: msgs });
+        }
+      });
+
+      const res = await provider.chat([{ role: 'user', content: 'hello' }]);
+      expect(customPayloadPassed).toBe(true);
+      expect(res.content).toBe('自訂負載成功');
+
+      // 2. HTTP error with error text
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        text: async () => 'Invalid model parameter'
+      });
+
+      await expect(provider.chat([{ role: 'user', content: 'test' }])).rejects.toThrow('HTTP 400 Bad Request - Invalid model parameter');
+    });
+
+    it('should break auto-continue loop early on empty next chunk and handle missing emitAnswer in BUFFERED mode', async () => {
+      // 1. Empty next chunk break in auto-continue
+      const mockChat = vi
+        .fn()
+        .mockResolvedValueOnce({
+          type: 'text',
+          content: '開頭篇章',
+          finishReason: LLM_FINISH_REASON_MAP.LENGTH
+        })
+        .mockResolvedValueOnce({
+          type: 'text',
+          content: '   ', // empty chunk -> breaks loop
+          finishReason: LLM_FINISH_REASON_MAP.LENGTH
+        });
+
+      const onAutoContinueEnd = vi.fn();
+      const brainEngine = {
+        aiProvider: { chat: mockChat },
+        enableAutoContinue: true,
+        maxAutoContinuations: 3,
+        autoContinueMode: AUTO_CONTINUE_MODE_MAP.BUFFERED,
+        locale: 'zh-TW',
+        memory: { enabled: false },
+        onAutoContinueEnd
+      };
+
+      await chatWithAiProvider(brainEngine, '講故事');
+      expect(onAutoContinueEnd).toHaveBeenCalledWith(expect.objectContaining({
+        totalContinuations: 1
+      }));
     });
   });
 });
+
+

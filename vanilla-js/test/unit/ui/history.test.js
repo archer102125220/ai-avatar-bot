@@ -118,6 +118,7 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
     });
 
     it('should render disabled state when tool call has timed out or cancelled', () => {
+      // 1. Timed out
       mockContext.brainEngine.chatLog = [
         {
           id: 'tool_call_2',
@@ -125,15 +126,26 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
           text: '逾時工具',
           pendingTool: { name: 'test' },
           timedOut: true
+        },
+        {
+          id: 'tool_call_3',
+          role: 'assistant',
+          text: '取消工具',
+          pendingTool: { name: 'test' },
+          cancelled: true
         }
       ];
 
       renderHistory(mockContext);
 
       const historyListEl = uiDom.historyPanelEl.querySelector('#history-list');
-      const confirmBtn = historyListEl.querySelector('button.confirm');
+      const confirmBtn = historyListEl.querySelectorAll('button.confirm')[0];
       expect(confirmBtn.disabled).toBe(true);
       expect(confirmBtn.textContent).toBe('已逾時');
+
+      const cancelBtn = historyListEl.querySelectorAll('button.cancel')[1];
+      expect(cancelBtn.disabled).toBe(true);
+      expect(cancelBtn.textContent).toBe('已取消');
     });
 
     it('should render tool choices buttons and dispatch chooseTool on click', () => {
@@ -159,7 +171,14 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
       expect(mockContext.toolsEngine.chooseTool).toHaveBeenCalledWith('tool_choice_1', 1);
     });
 
-    it('should render copy and replay buttons for completed assistant messages', () => {
+    it('should render copy and replay buttons for completed assistant messages', async () => {
+      // Mock navigator.clipboard
+      Object.assign(navigator, {
+        clipboard: {
+          writeText: vi.fn().mockResolvedValue(true)
+        }
+      });
+
       mockContext.brainEngine.chatLog = [
         { role: 'assistant', text: '可重播與複製的文字' }
       ];
@@ -167,11 +186,19 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
       renderHistory(mockContext);
 
       const historyListEl = uiDom.historyPanelEl.querySelector('#history-list');
+      const copyBtn = historyListEl.querySelector('.history-tools button:first-child');
       const replayBtn = historyListEl.querySelector('.history-tools button:last-child');
+
+      expect(copyBtn.textContent).toBe('複製');
       expect(replayBtn.textContent).toBe('重播');
+
+      copyBtn.click();
+      await Promise.resolve();
+      expect(mockContext.speechEngine.spokenDisplayText).toBe('已複製回答');
 
       replayBtn.click();
       expect(mockContext.speechEngine.speak).toHaveBeenCalledWith('可重播與複製的文字');
     });
   });
 });
+

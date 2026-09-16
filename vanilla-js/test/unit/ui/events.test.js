@@ -279,5 +279,85 @@ describe('UI Events Binding', () => {
       expect(() => bindTyping(null)).not.toThrow();
       expect(() => bindTyping({ uiDom: { questionInputEl: null } })).not.toThrow();
     });
+
+    it('should handle history button open, close, and clear in bindUiEvent', () => {
+      bindUiEvent(mockContext);
+
+      // 1. Open history panel
+      uiDom.historyButtonEl.click();
+      expect(uiDom.historyPanelEl.getAttribute('css-is-open')).toBe('true');
+
+      // 2. Close history panel with close button
+      const btnHistoryClose = uiDom.historyPanelEl.querySelector('#btn-history-close');
+      if (btnHistoryClose) {
+        btnHistoryClose.click();
+        expect(uiDom.historyPanelEl.getAttribute('css-is-open')).toBeNull();
+      }
+
+      // 3. Clear history button
+      const btnHistoryClear = uiDom.historyPanelEl.querySelector('#btn-history-clear');
+      if (btnHistoryClear) {
+        btnHistoryClear.click();
+        expect(mockContext.brainEngine.memory.clear).toHaveBeenCalled();
+        expect(mockContext.brainEngine.chatLog.length).toBe(0);
+        expect(mockContext.speechEngine.spokenDisplayText).toContain('清除');
+      }
+    });
+
+    it('should test speed cycling, mute toggle without i18nEngine, and non-enter keydowns', () => {
+      const customContext = {
+        ...mockContext,
+        i18nEngine: null,
+        speechEngine: {
+          ttsRate: 0.9,
+          ttsMuted: false,
+          spokenDisplayText: '',
+          stopSpeaking: vi.fn()
+        }
+      };
+
+      bindUiEvent(customContext);
+      bindTyping(customContext);
+
+      // 1. Speed button cycling: 0.9 -> 1.0 -> 1.2 -> 1.4 -> 0.9
+      uiDom.speedButtonEl.click();
+      expect(customContext.speechEngine.ttsRate).toBe(1.0);
+      expect(customContext.speechEngine.spokenDisplayText).toBe('語速：1.0×');
+
+      uiDom.speedButtonEl.click();
+      expect(customContext.speechEngine.ttsRate).toBe(1.2);
+      expect(customContext.speechEngine.spokenDisplayText).toBe('語速：1.2×');
+
+      uiDom.speedButtonEl.click();
+      expect(customContext.speechEngine.ttsRate).toBe(1.4);
+      expect(customContext.speechEngine.spokenDisplayText).toBe('語速：1.4×');
+
+      uiDom.speedButtonEl.click();
+      expect(customContext.speechEngine.ttsRate).toBe(0.9);
+      expect(customContext.speechEngine.spokenDisplayText).toBe('語速：0.9×');
+
+      // 2. Mute button without i18nEngine
+      uiDom.muteButtonEl.click();
+      expect(customContext.speechEngine.ttsMuted).toBe(true);
+      expect(customContext.speechEngine.spokenDisplayText).toBe('已靜音');
+      expect(customContext.speechEngine.stopSpeaking).toHaveBeenCalled();
+
+      uiDom.muteButtonEl.click();
+      expect(customContext.speechEngine.ttsMuted).toBe(false);
+      expect(customContext.speechEngine.spokenDisplayText).toBe('已開啟語音');
+
+      // 3. Non-Enter keydown on input
+      uiDom.questionInputEl.value = '測試按鍵';
+      const aEvent = new KeyboardEvent('keydown', { key: 'a', bubbles: true });
+      uiDom.questionInputEl.dispatchEvent(aEvent);
+      expect(customContext.handleUser).not.toHaveBeenCalled();
+
+      // 4. Enter with isComposing = true
+      const composingEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
+      Object.defineProperty(composingEvent, 'isComposing', { value: true });
+      uiDom.questionInputEl.dispatchEvent(composingEvent);
+      expect(customContext.handleUser).not.toHaveBeenCalled();
+    });
   });
 });
+

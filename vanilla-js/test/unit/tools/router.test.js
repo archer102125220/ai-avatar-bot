@@ -101,5 +101,32 @@ describe('Unit Test: core/tools/router.js', () => {
       expect(result.match).toBeNull();
       expect(result.ambiguous.length).toBe(2);
     });
+
+    it('should score and match by label and description', () => {
+      // 1. Label match
+      const toolLabel = normaliseTool({
+        name: 'booking_tool',
+        label: '預約餐廳',
+        keywords: []
+      });
+      const resLabel = scoreTool(toolLabel, '我想預約餐廳');
+      expect(resLabel.score).toBeGreaterThan(0.3);
+      expect(resLabel.reason).toBe('label');
+
+      // 2. Description match
+      const toolDesc = normaliseTool({
+        name: 'traffic_tool',
+        label: 'T',
+        keywords: [],
+        description: '協助使用者查詢即時路況與交通阻塞情況'
+      });
+      const resDesc = scoreTool(toolDesc, '即時路況與交通阻塞情況');
+      expect(resDesc.score).toBeGreaterThan(0.3);
+      expect(resDesc.reason).toBe('description');
+
+      // 3. Empty query returns 0
+      expect(scoreTool(toolDesc, '').score).toBe(0);
+    });
   });
 });
+

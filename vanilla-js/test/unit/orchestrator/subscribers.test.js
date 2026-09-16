@@ -208,7 +208,40 @@ describe('Orchestrator Store & i18n Subscribers', () => {
         expect(() => rootStore.setState({ [key]: ['問題1'] })).not.toThrow();
       });
     });
+
+    it('should synchronize brainGender, speechGender, skinGender, and locale to engines', () => {
+      setupStoreSubscribers({
+        widget: mockWidget,
+        rootStore,
+        i18nEngine,
+        getUiDom,
+        getEngines
+      });
+
+      // Test brainGender, speechGender, skinGender with specific values and empty fallback
+      rootStore.setState({ brainGender: 'male' });
+      expect(mockEngines.brainEngine.setGender).toHaveBeenCalledWith('male');
+      rootStore.setState({ brainGender: '' });
+      expect(mockEngines.brainEngine.setGender).toHaveBeenCalledWith('female');
+
+      rootStore.setState({ speechGender: 'male' });
+      expect(mockEngines.speechEngine.setGender).toHaveBeenCalledWith('male');
+      rootStore.setState({ speechGender: '' });
+      expect(mockEngines.speechEngine.setGender).toHaveBeenCalledWith('female');
+
+      rootStore.setState({ skinGender: 'male' });
+      expect(mockEngines.skinEngine.setGender).toHaveBeenCalledWith('male');
+      rootStore.setState({ skinGender: '' });
+      expect(mockEngines.skinEngine.setGender).toHaveBeenCalledWith('female');
+
+      // Test store locale subscriber
+      rootStore.setState({ locale: 'ja-JP' });
+      expect(mockEngines.brainEngine.setLocale).toHaveBeenCalledWith('ja-JP');
+      expect(mockEngines.speechEngine.setLocale).toHaveBeenCalledWith('ja-JP');
+    });
   });
+
+
 
   describe('setupI18nSubscribers', () => {
     it('should update locale and UI when i18n locale changes', () => {
@@ -274,5 +307,23 @@ describe('Orchestrator Store & i18n Subscribers', () => {
         });
       }).not.toThrow();
     });
+
+    it('should trigger suggestion rendering on all suggestion store keys', () => {
+      setupStoreSubscribers({
+        widget: mockWidget,
+        rootStore,
+        i18nEngine,
+        getUiDom,
+        getEngines
+      });
+
+      rootStore.setState({ companionSuggestedQuestions: ['問題1'] });
+      rootStore.setState({ assistantSuggestedQuestions: ['問題2'] });
+      rootStore.setState({ suggestedTitle: '推薦問題' });
+      rootStore.setState({ companionSuggestedTitle: '陪聊標題' });
+      rootStore.setState({ assistantSuggestedTitle: '助理標題' });
+      expect(mockUiDom.suggestionsEl).toBeDefined();
+    });
   });
 });
+

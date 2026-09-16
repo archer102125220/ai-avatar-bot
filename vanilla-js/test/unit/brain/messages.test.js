@@ -162,6 +162,34 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       expect(msgsEn[1].role).toBe('user');
       expect(msgsEn[1].content).toBe('How are you?');
 
+      // Female in JA
+      mockBrainEngine.locale = 'ja-JP';
+      mockBrainEngine.gender = 'female';
+      mockBrainEngine.customContext = null;
+      const msgsJaFem = await buildDefaultLLMMessages(mockBrainEngine, 'お元気ですか？');
+      expect(msgsJaFem[0].content).toContain('あなたは女性です');
+      expect(msgsJaFem[0].content).toContain('【参考資料】');
+
+      // Female in KO
+      mockBrainEngine.locale = 'ko-KR';
+      mockBrainEngine.gender = 'female';
+      const msgsKoFem = await buildDefaultLLMMessages(mockBrainEngine, '잘 지내세요?');
+      expect(msgsKoFem[0].content).toContain('당신은 여성입니다');
+      expect(msgsKoFem[0].content).toContain('【참고자료】');
+
+      // Female in ZH
+      mockBrainEngine.locale = 'zh-TW';
+      mockBrainEngine.gender = 'female';
+      const msgsZhFem = await buildDefaultLLMMessages(mockBrainEngine, '你好嗎？');
+      expect(msgsZhFem[0].content).toContain('你是一名女性');
+      expect(msgsZhFem[0].content).toContain('【參考資料】');
+
+      // Male in EN
+      mockBrainEngine.locale = 'en-US';
+      mockBrainEngine.gender = 'male';
+      const msgsEnMale = await buildDefaultLLMMessages(mockBrainEngine, 'Hello');
+      expect(msgsEnMale[0].content).toContain('masculine phrasing');
+
       // Male in JA
       mockBrainEngine.locale = 'ja-JP';
       mockBrainEngine.gender = 'male';
@@ -181,15 +209,52 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       expect(msgsZh[0].content).toContain('你是一名男性');
     });
 
-    it('should assemble companion persona in companion mode with memory and summary', async () => {
+    it('should assemble companion persona in companion mode with memory and summary across languages', async () => {
       mockBrainEngine.avatarMode = AVATAR_MODE_MAP.companion;
       mockBrainEngine.memory.data.name = '小美';
       mockBrainEngine.memory.data.summary = '上次聊到喜歡貓咪';
       mockBrainEngine.compression = { strategy: 'rolling-summary' };
 
-      const msgs = await buildDefaultLLMMessages(mockBrainEngine, '今天好嗎？');
-      expect(msgs[0].content).toContain('小美');
-      expect(msgs[0].content).toContain('喜歡貓咪');
+      // zh-TW
+      mockBrainEngine.locale = 'zh-TW';
+      const msgsZh = await buildDefaultLLMMessages(mockBrainEngine, '今天好嗎？');
+      expect(msgsZh[0].content).toContain('小美');
+      expect(msgsZh[0].content).toContain('喜歡貓咪');
+
+      // en-US
+      mockBrainEngine.locale = 'en-US';
+      const msgsEn = await buildDefaultLLMMessages(mockBrainEngine, 'How is your day?');
+      expect(msgsEn[0].content).toContain('visitor\'s name is "小美"');
+
+      // ja-JP
+      mockBrainEngine.locale = 'ja-JP';
+      const msgsJa = await buildDefaultLLMMessages(mockBrainEngine, 'こんにちは');
+      expect(msgsJa[0].content).toContain('訪問者の名前は「小美」です');
+
+      // ko-KR
+      mockBrainEngine.locale = 'ko-KR';
+      const msgsKo = await buildDefaultLLMMessages(mockBrainEngine, '안녕하세요');
+      expect(msgsKo[0].content).toContain('방문자의 이름은 "小美"입니다');
+    });
+
+    it('should support custom mode with systemPrompt string and localized dictionary', async () => {
+      mockBrainEngine.avatarMode = 'docMode';
+      mockBrainEngine.modes = {
+        docMode: {
+          systemPrompt: {
+            'zh-TW': '專屬醫生模式：{{RAG}} {{styleRule}}',
+            'en-US': 'Dedicated doctor mode: {{RAG}} {{styleRule}}'
+          }
+        }
+      };
+
+      mockBrainEngine.locale = 'zh-TW';
+      const msgsZh = await buildDefaultLLMMessages(mockBrainEngine, '頭痛');
+      expect(msgsZh[0].content).toContain('專屬醫生模式');
+
+      mockBrainEngine.locale = 'en-US';
+      const msgsEn = await buildDefaultLLMMessages(mockBrainEngine, 'headache');
+      expect(msgsEn[0].content).toContain('Dedicated doctor mode');
     });
 
     it('should format different historyItem content structures and handle custom systemContextTemplate', async () => {
@@ -214,5 +279,95 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       expect(msgs.find((m) => m.content === '{"detail":"純物件"}')).toBeDefined();
       expect(msgs.find((m) => m.content === '12345')).toBeDefined();
     });
+
+    it('should test assistant welcome text and default greetings across all locales', async () => {
+      mockBrainEngine.avatarMode = AVATAR_MODE_MAP.assistant;
+
+      // 1. assistantWelcomeText as Promise and string
+      mockBrainEngine.assistantWelcomeText = async () => '非同步助理歡迎詞';
+      expect(await getWelcomeText(mockBrainEngine)).toBe('非同步助理歡迎詞');
+
+      mockBrainEngine.assistantWelcomeText = '助理字串歡迎詞';
+      expect(await getWelcomeText(mockBrainEngine)).toBe('助理字串歡迎詞');
+
+      delete mockBrainEngine.assistantWelcomeText;
+
+      // 2. Default assistant welcome across locales
+      mockBrainEngine.locale = 'en-US';
+      expect(await getWelcomeText(mockBrainEngine)).toContain('Click 🎤 to speak');
+
+      mockBrainEngine.locale = 'ja-JP';
+      expect(await getWelcomeText(mockBrainEngine)).toContain('🎤 を押して話すか');
+
+      mockBrainEngine.locale = 'ko-KR';
+      expect(await getWelcomeText(mockBrainEngine)).toContain('🎤를 눌러 말하거나');
+
+      mockBrainEngine.locale = 'zh-TW';
+      expect(await getWelcomeText(mockBrainEngine)).toContain('點 🎤 說話');
+    });
+
+    it('should test companionWelcomeText as Promise and string', async () => {
+      mockBrainEngine.avatarMode = AVATAR_MODE_MAP.companion;
+
+      mockBrainEngine.companionWelcomeText = async () => '非同步陪聊歡迎詞';
+      expect(await getWelcomeText(mockBrainEngine)).toBe('非同步陪聊歡迎詞');
+
+      mockBrainEngine.companionWelcomeText = '陪聊字串歡迎詞';
+      expect(await getWelcomeText(mockBrainEngine)).toBe('陪聊字串歡迎詞');
+    });
+
+    it('should format RAG knowledge sources with title and url, and test female gender phrasing', async () => {
+      mockBrainEngine.knowledge = [
+        {
+          q: '知識問題',
+          a: '知識答案',
+          source: { title: '知識庫手冊', url: 'https://kb.example.com' }
+        }
+      ];
+
+      // Female in EN
+      mockBrainEngine.gender = 'female';
+      mockBrainEngine.locale = 'en-US';
+      const msgsEn = await buildDefaultLLMMessages(mockBrainEngine, '知識問題');
+      expect(msgsEn[0].content).toContain('來源：知識庫手冊 https://kb.example.com');
+      expect(msgsEn[0].content).toContain('You are female');
+
+      // Female in JA
+      mockBrainEngine.locale = 'ja-JP';
+      const msgsJa = await buildDefaultLLMMessages(mockBrainEngine, '知識問題');
+      expect(msgsJa[0].content).toContain('あなたは女性です');
+
+      // Female in KO
+      mockBrainEngine.locale = 'ko-KR';
+      const msgsKo = await buildDefaultLLMMessages(mockBrainEngine, '知識問題');
+      expect(msgsKo[0].content).toContain('당신은 여성입니다');
+
+      // Female in ZH
+      mockBrainEngine.locale = 'zh-TW';
+      const msgsZh = await buildDefaultLLMMessages(mockBrainEngine, '知識問題');
+      expect(msgsZh[0].content).toContain('你是一名女性');
+    });
+
+    it('should resolve autoContinuePrompt as function, string, or localized object', () => {
+      // 1. autoContinuePrompt as function
+      mockBrainEngine.autoContinuePrompt = vi.fn((_b, idx) => `第 ${idx} 續講提示`);
+      expect(resolveAutoContinuePrompt(mockBrainEngine, 1, '第一段')).toBe('第 1 續講提示');
+
+      // 2. autoContinuePrompt as string
+      mockBrainEngine.autoContinuePrompt = '固定續講指令';
+      expect(resolveAutoContinuePrompt(mockBrainEngine, 2, '前文')).toBe('固定續講指令');
+
+      // 3. autoContinuePrompt across locales
+      delete mockBrainEngine.autoContinuePrompt;
+      mockBrainEngine.locale = 'en-US';
+      expect(resolveAutoContinuePrompt(mockBrainEngine, 1, 'text')).toContain('Please continue directly from where you left off');
+
+      mockBrainEngine.locale = 'ja-JP';
+      expect(resolveAutoContinuePrompt(mockBrainEngine, 1, 'text')).toContain('先ほどの続きから');
+
+      mockBrainEngine.locale = 'ko-KR';
+      expect(resolveAutoContinuePrompt(mockBrainEngine, 1, 'text')).toContain('이전 문장을 반복하지 말고');
+    });
   });
 });
+

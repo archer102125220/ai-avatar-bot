@@ -461,5 +461,154 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       // Test dispose cleanup
       renderer.dispose();
     });
+
+    it('should execute animationLoop ticks covering lip sync, blink, emotions, speaking procedural motions, and pause/resume', async () => {
+      vi.useFakeTimers();
+      let mouthResolve;
+      const mouthPromise = new Promise((resolve) => {
+        mouthResolve = resolve;
+      });
+
+      const currentState = {
+        fitMode: FIT_MODE_MAP.FULL,
+        isSpeaking: true,
+        skin3d: {
+          pointerLook: true,
+          camera: {},
+          model: {}
+        }
+      };
+
+      const skinEngine = {
+        stageEl,
+        vrmUrl: 'valid.vrm',
+        getState: () => currentState,
+        subscribe: vi.fn(),
+        setSkin3d: vi.fn(),
+        onMounted: vi.fn(),
+        computeMouth: vi.fn().mockImplementationOnce(() => mouthPromise).mockImplementation(() => 0.7),
+        emo: {
+          target: 0.8,
+          weight: 0.001,
+          name: 'surprised',
+          applied: 'happy'
+        }
+      };
+
+      const rendererPromise = bootVRM(skinEngine);
+      await vi.runOnlyPendingTimersAsync();
+      const renderer = await rendererPromise;
+
+      expect(renderer).toBeDefined();
+
+      // Tick 1: trigger computeMouth promise branch
+      await vi.advanceTimersByTimeAsync(20);
+      mouthResolve(0.85);
+      await vi.advanceTimersByTimeAsync(20);
+
+      // Tick 2: test emotion reset and easing
+      skinEngine.emo.target = 0;
+      skinEngine.emo.weight = 0.002;
+      skinEngine.emo.applied = 'surprised';
+      await vi.advanceTimersByTimeAsync(50);
+
+      // Tick 3: test computeMouth rejected promise
+      skinEngine.computeMouth = vi.fn(() => Promise.reject(new Error('Mouth fail')));
+      await vi.advanceTimersByTimeAsync(50);
+
+      // Tick 4: test blink progression
+      await vi.advanceTimersByTimeAsync(3000);
+
+      // Tick 5: test pause and resume
+      renderer.setPaused(true);
+      await vi.advanceTimersByTimeAsync(50);
+      renderer.setPaused(false);
+      await vi.advanceTimersByTimeAsync(50);
+
+      renderer.dispose();
+      vi.useRealTimers();
+    });
+
+    it('should test pointermove clamping, expression overrideMouth clamping, neutral emotion, and speech animation procedural calculations', async () => {
+      vi.useFakeTimers();
+
+      let isSpeaking = true;
+      const currentState = {
+        fitMode: FIT_MODE_MAP.FULL,
+        get isSpeaking() {
+          return isSpeaking;
+        },
+        skin3d: {
+          pointerLook: true,
+          camera: {},
+          model: {}
+        }
+      };
+
+      const skinEngine = {
+        stageEl,
+        vrmUrl: 'valid.vrm',
+        getState: () => currentState,
+        subscribe: vi.fn(),
+        setSkin3d: vi.fn(),
+        onMounted: vi.fn(),
+        computeMouth: vi.fn(() => 0.4),
+        emo: {
+          target: 0.9,
+          weight: 0.8,
+          name: 'happy',
+          applied: ''
+        }
+      };
+
+      // Mock getBoundingClientRect on stageEl
+      stageEl.getBoundingClientRect = () => ({
+        left: 0,
+        top: 0,
+        width: 800,
+        height: 600
+      });
+
+      const rendererPromise = bootVRM(skinEngine);
+      await vi.runOnlyPendingTimersAsync();
+      const renderer = await rendererPromise;
+
+      expect(renderer).toBeDefined();
+
+      // 1. Dispatch pointermove event with extreme coordinates to test clamping
+      const moveEvent = new MouseEvent('pointermove', {
+        clientX: 1200, // Beyond width -> clamped to 1
+        clientY: -200 // Above top -> clamped to -1
+      });
+      stageEl.dispatchEvent(moveEvent);
+
+      // Advance timers to trigger animation loop with pointerLook true and isSpeaking true
+      await vi.advanceTimersByTimeAsync(100);
+
+      // 2. Test emotion with overrideMouth !== 'none'
+      const vrm = renderer.vrm;
+      if (vrm?.expressionManager) {
+        vrm.expressionManager.getExpression = vi.fn((name) => ({
+          name,
+          overrideMouth: 'block'
+        }));
+      }
+      skinEngine.emo.target = 0.8;
+      skinEngine.emo.weight = 0.7;
+      skinEngine.emo.name = 'happy';
+      await vi.advanceTimersByTimeAsync(50);
+
+      // 3. Test emotion with name = 'neutral'
+      skinEngine.emo.name = 'neutral';
+      await vi.advanceTimersByTimeAsync(50);
+
+      // 4. Test speaking = false
+      isSpeaking = false;
+      await vi.advanceTimersByTimeAsync(50);
+
+      renderer.dispose();
+      vi.useRealTimers();
+    });
   });
 });
+

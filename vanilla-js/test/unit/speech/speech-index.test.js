@@ -334,5 +334,142 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
       expect(engine.convoOn).toBe(false);
       expect(engine.spokenDisplayText).toContain('頁面進入背景');
     });
+
+
+    it('should test pushSpeech and endSpeech mismatch guard, and sentence buffer updates', async () => {
+      const onUserInput = vi.fn();
+      const engine = await initSpeechEngine({ onUserInput });
+
+      // Test beginSpeech and pushSpeech
+      const seq = engine.beginSpeech();
+      expect(seq).toBeGreaterThan(0);
+
+      // pushSpeech with correct seq
+      engine.pushSpeech(seq, '測試文字');
+      expect(engine._speechBuffer).toContain('測試文字');
+
+      // pushSpeech with wrong seq -> should ignore
+      engine.pushSpeech(seq + 999, '略過文字');
+      expect(engine._speechBuffer).not.toContain('略過文字');
+
+      // endSpeech with wrong seq -> should ignore
+      engine.endSpeech(seq + 999);
+      expect(engine._speechEndedFlag).toBe(false);
+
+      // Test drainSentences with state having only sentenceBuffer or buf
+      const state1 = { buf: '文字。' };
+      drainSentences(state1, false);
+      expect(state1.buf).toBe('');
+
+      const state2 = { sentenceBuffer: '文字。' };
+      drainSentences(state2, false);
+      expect(state2.sentenceBuffer).toBe('');
+
+      // Comma index < 12 with length >= 40
+      const state3 = { buf: '123,45' + 'a'.repeat(40) };
+      const sentences = drainSentences(state3, false);
+      expect(sentences).toEqual([]);
+    });
+
+    it('should test triggerTap, interruptForVoice, and onUtteranceEnd', async () => {
+      vi.useFakeTimers();
+      const onTapAvatar = vi.fn();
+      const onInterrupt = vi.fn();
+      const onVoiceStatusChanged = vi.fn();
+
+      const engine = await initSpeechEngine({
+        onTapAvatar,
+        onInterrupt,
+        onVoiceStatusChanged
+      });
+
+      // 1. triggerTap
+      engine.triggerTap();
+      expect(onTapAvatar).toHaveBeenCalled();
+
+      // 2. interruptForVoice
+      engine.convoOn = true;
+      engine.interruptForVoice();
+      expect(onInterrupt).toHaveBeenCalled();
+      expect(onVoiceStatusChanged).toHaveBeenCalledWith(true, expect.any(String), 'listening', 0);
+      vi.advanceTimersByTime(120);
+
+      // 3. onUtteranceEnd
+      engine.convoOn = true;
+      engine.onUtteranceEnd();
+      expect(engine.isProcessing).toBe(false);
+
+      // 4. preloadTapGreeting
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: async () => new ArrayBuffer(2000)
+      });
+      engine.preloadTapGreeting('你好');
+
+      vi.useRealTimers();
+    });
+
+    it('should handle custom TTS and STT engine validation failures and throwing factories', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      // 1. Non-streaming custom TTS engine
+      const mockCustomTTS = {
+        speak: vi.fn(),
+        stop: vi.fn(),
+        computeMouth: vi.fn(() => 0),
+        setGender: vi.fn(),
+        setLocale: vi.fn(),
+        isSpeaking: false,
+        isMuted: false
+      };
+
+      const engine = await initSpeechEngine({
+        customEngines: { tts: mockCustomTTS }
+      });
+
+      const seq = engine.beginSpeech();
+      engine.pushSpeech(seq, '一般合成測試');
+      expect(mockCustomTTS.speak).toHaveBeenCalledWith('一般合成測試', {});
+      engine.endSpeech(seq);
+      expect(engine.isProcessing).toBe(false);
+
+      // 2. Invalid custom TTS (missing methods)
+      const engineWithInvalidTTS = await initSpeechEngine({
+        customEngines: { tts: { speak: vi.fn() } }
+      });
+      expect(engineWithInvalidTTS).toBeDefined();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Custom ttsEngine validation failed'));
+
+      // 3. Throwing custom TTS factory
+      const engineWithThrowingTTS = await initSpeechEngine({
+        customEngines: {
+          tts: () => {
+            throw new Error('TTS factory exploded');
+          }
+        }
+      });
+      expect(engineWithThrowingTTS).toBeDefined();
+
+      // 4. Invalid custom STT (missing methods)
+      const engineWithInvalidSTT = await initSpeechEngine({
+        customEngines: { stt: { start: vi.fn() } }
+      });
+      expect(engineWithInvalidSTT).toBeDefined();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Custom sttEngine validation failed'));
+
+      // 5. Throwing custom STT factory
+      const engineWithThrowingSTT = await initSpeechEngine({
+        customEngines: {
+          stt: () => {
+            throw new Error('STT factory exploded');
+          }
+        }
+      });
+      expect(engineWithThrowingSTT).toBeDefined();
+
+      consoleErrorSpy.mockRestore();
+    });
   });
 });
+
+

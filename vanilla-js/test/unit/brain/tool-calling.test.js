@@ -101,6 +101,9 @@ describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
 
     it('should handle tool execution error and trigger onToolError hook', async () => {
       mockBrainEngine.executeTool = vi.fn().mockRejectedValue(new Error('Boom!'));
+      mockBrainEngine.onToolError = vi.fn().mockImplementation(() => {
+        throw new Error('Hook threw');
+      });
 
       const toolCallResponse = {
         toolCalls: [
@@ -114,6 +117,35 @@ describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
       expect(mockBrainEngine.onToolError).toHaveBeenCalled();
       expect(mockBrainEngine.emitAnswer).toHaveBeenCalled();
     });
+
+    it('should fallback to string or message in lastResult when summary response is empty', async () => {
+      // 1. lastResult as direct string
+      mockBrainEngine.executeTool = vi.fn().mockResolvedValue('直接字串結果');
+      mockBrainEngine.aiProvider.chat = vi.fn().mockResolvedValue('');
+
+      const toolCallResponse1 = {
+        toolCalls: [
+          { id: 'call_str', function: { name: 'registered_tool', arguments: '{}' } }
+        ],
+        message: { content: '' }
+      };
+
+      await executeToolCallsLoop(mockBrainEngine, toolCallResponse1, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      expect(mockBrainEngine.emitAnswer).toHaveBeenCalledWith('直接字串結果');
+
+      // 2. lastResult as object with message property
+      mockBrainEngine.executeTool = vi.fn().mockResolvedValue({ message: '物件訊息回傳' });
+      const toolCallResponse2 = {
+        toolCalls: [
+          { id: 'call_msg', function: { name: 'registered_tool', arguments: '{}' } }
+        ],
+        message: { content: '' }
+      };
+
+      await executeToolCallsLoop(mockBrainEngine, toolCallResponse2, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      expect(mockBrainEngine.emitAnswer).toHaveBeenCalledWith('物件訊息回傳');
+    });
+
 
     it('should handle tool confirmation required and resume after confirmation', async () => {
       let confirmationContext;
@@ -203,6 +235,43 @@ describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
 
       await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.WEB_LLM);
       expect(mockBrainEngine.onStreamEnd).toHaveBeenCalledWith('WebLLM tool error');
+
+      // Test with plain string result in WebLLM mode
+      mockBrainEngine.executeTool = vi.fn().mockResolvedValue('WebLLM plain string result');
+      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.WEB_LLM);
+      expect(mockBrainEngine.onStreamEnd).toHaveBeenCalledWith('WebLLM plain string result');
+
+      // Test with message property in WebLLM mode
+      mockBrainEngine.executeTool = vi.fn().mockResolvedValue({ message: 'WebLLM message result' });
+      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.WEB_LLM);
+      expect(mockBrainEngine.onStreamEnd).toHaveBeenCalledWith('WebLLM message result');
+
+      // Test with empty lastResult in WebLLM mode -> error fallback
+      mockBrainEngine.executeTool = vi.fn().mockResolvedValue({});
+      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.WEB_LLM);
+      expect(mockBrainEngine.onStreamEnd).toHaveBeenCalled();
+    });
+
+    it('should handle malformed JSON in tool call arguments and throwing onToolNotFound hook', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      mockBrainEngine.onToolNotFound = vi.fn(() => {
+        throw new Error('onToolNotFound hook exploded');
+      });
+
+      const toolCallResponse = {
+        toolCalls: [
+          { id: 'call_bad', function: { name: 'unknown_tool', arguments: '{invalid JSON' } }
+        ],
+        message: { content: '' }
+      };
+
+      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('onToolNotFound 回呼執行錯誤'), expect.any(Error));
+
+      consoleErrorSpy.mockRestore();
+      warnSpy.mockRestore();
     });
   });
 });

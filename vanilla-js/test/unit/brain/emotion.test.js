@@ -24,6 +24,10 @@ describe('Unit Test: core/brain/emotion.js', () => {
       expect(classifyEmotion('台北今天氣溫攝氏 24 度。')).toBe('neutral');
       expect(classifyEmotion('')).toBe('neutral');
       expect(classifyEmotion(null)).toBe('neutral');
+      expect(classifyEmotion(undefined)).toBe('neutral');
+      // Sad and happy count tie / balanced
+      expect(classifyEmotion('謝謝你，但是連不上伺服器。')).toBe('happy');
+      expect(classifyEmotion('抱歉失敗了，謝謝大家！')).toBe('sad');
     });
   });
 
@@ -34,6 +38,12 @@ describe('Unit Test: core/brain/emotion.js', () => {
 
       applyEmotionFromText(brainEngine, '太棒了，完成囉！');
       expect(onEmotionChange).toHaveBeenCalledWith('happy');
+    });
+
+    it('should handle null or invalid brainEngine safely without errors', () => {
+      expect(() => applyEmotionFromText(null, '太棒了')).not.toThrow();
+      expect(() => applyEmotionFromText({}, '太棒了')).not.toThrow();
+      expect(() => applyEmotionFromText({ onEmotionChange: null }, '太棒了')).not.toThrow();
     });
   });
 });

@@ -89,4 +89,30 @@ describe('UI Suggestions (renderSuggestions)', () => {
     buttons[0].click();
     expect(mockContext.handleUser).toHaveBeenCalledWith('English Question?');
   });
+
+  it('should handle function suggestedQuestions, invalid element guard, and filter non-string items', () => {
+    // 1. Invalid suggestions element guard
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    renderSuggestions(null);
+    renderSuggestions({ uiDom: { suggestionsEl: null } });
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+
+    // 2. suggestedQuestions as function
+    mockContext.suggestedQuestions = (ctx) => [`動態問題 (${ctx.locale})`];
+    renderSuggestions(mockContext);
+
+    let buttons = uiDom.suggestionsEl.querySelectorAll('button.sugg');
+    expect(buttons.length).toBe(1);
+    expect(buttons[0].textContent).toBe('動態問題 (zh-TW)');
+
+    // 3. Array with non-string and empty string items
+    mockContext.suggestedQuestions = [null, '', '有效問題？', 123];
+    renderSuggestions(mockContext);
+
+    buttons = uiDom.suggestionsEl.querySelectorAll('button.sugg');
+    expect(buttons.length).toBe(1);
+    expect(buttons[0].textContent).toBe('有效問題？');
+  });
 });
+

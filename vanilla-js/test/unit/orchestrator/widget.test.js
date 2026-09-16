@@ -644,5 +644,72 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     expect(widget.toolsEngine).toEqual({ HOST_TOOLS: [] });
     expect(widget.buildLLMMessages()).toEqual([{ role: 'system', content: 'default' }]);
   });
+
+  it('should initialize full bot via initAvatarBot and wire isSpeaking subscriber', async () => {
+    const stage = document.createElement('div');
+    document.body.appendChild(container);
+    document.body.appendChild(stage);
+
+    const botWidget = await initAvatarBot({
+      container,
+      modelUrl: 'https://models.test/avatar.model3.json',
+      welcomeText: 'Hello from Bot!',
+      onReady: vi.fn()
+    });
+
+    expect(botWidget).toBeDefined();
+    expect(botWidget.container).toBe(container);
+
+    // Test speechEngine isSpeaking subscription trigger
+    if (typeof botWidget.speechEngine?.subscribe === 'function') {
+      // Simulate isSpeaking change
+      botWidget.speechEngine.speak('測試語音播報');
+    }
+  });
+
+  it('should handle iframe mode with onMinimalTrigger and enableModelDrop in initAvatarBot', async () => {
+    const onMinimalTrigger = vi.fn();
+    const botIframe = await initAvatarBot({
+      container,
+      isIframe: true,
+      isMinimal: true,
+      enableModelDrop: true,
+      onMinimalTrigger
+    });
+
+    expect(botIframe.isIframe).toBe(true);
+    expect(onMinimalTrigger).toHaveBeenCalledWith(true, botIframe);
+
+    // Test window undefined guard
+    const origWindow = global.window;
+    // @ts-ignore
+    delete global.window;
+    const noWindowRes = await initAvatarBot({});
+    expect(noWindowRes).toBeUndefined();
+    global.window = origWindow;
+  });
+
+  it('should test initAvatarBot with custom onReady, non-iframe isMinimal, and i18n label fallbacks', async () => {
+    const onReady = vi.fn();
+    const onMinimalTrigger = vi.fn();
+
+    const bot = await initAvatarBot({
+      container,
+      isIframe: false,
+      isMinimal: false,
+      onReady,
+      onMinimalTrigger,
+      locale: 'zh-TW'
+    });
+
+    expect(bot).toBeDefined();
+    expect(bot.isMinimal).toBe(false);
+    expect(bot.onReady).toBeDefined();
+    expect(bot.onMinimalTrigger).toBeDefined();
+    bot.onReady();
+    expect(onReady).toHaveBeenCalled();
+  });
 });
+
+
 

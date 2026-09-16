@@ -226,5 +226,60 @@ describe('Unit Test: core/brain/compression.js', () => {
       expect(customCompressor).toHaveBeenCalledOnce();
       expect(result[0].content).toBe('Custom compressed system');
     });
+
+    it('should handle customCompressor error/invalid return, rolling summary strategy, and empty input guards', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // 1. Empty messages guard
+      expect(await compressContext({ messages: [] })).toEqual([]);
+      expect(await compressContext({ messages: null })).toEqual([]);
+      expect(slidingWindowCompressor({ messages: [] })).toEqual([]);
+      expect(rollingSummaryCompressor({ messages: [] })).toEqual([]);
+
+      const sampleMessages = [
+        { role: 'system', content: '系統設定' },
+        { role: 'user', content: '用戶問題' },
+        { role: 'assistant', content: '助手回答' }
+      ];
+
+      // 2. customCompressor throwing error -> falls back to sliding window
+      const throwingCompressor = vi.fn().mockRejectedValue(new Error('Compression failure'));
+      const fallbackResult1 = await compressContext({
+        messages: sampleMessages,
+        compressionOptions: { customCompressor: throwingCompressor }
+      });
+      expect(fallbackResult1).toHaveLength(3);
+      expect(warnSpy).toHaveBeenCalled();
+
+      // 3. customCompressor returning empty/invalid -> falls back
+      const invalidCompressor = vi.fn().mockResolvedValue([]);
+      const fallbackResult2 = await compressContext({
+        messages: sampleMessages,
+        compressionOptions: { customCompressor: invalidCompressor }
+      });
+      expect(fallbackResult2).toHaveLength(3);
+
+      // 4. ROLLING_SUMMARY strategy via memoryData.summary and custom recentTurns
+      const rollingResult = await compressContext({
+        messages: sampleMessages,
+        memoryData: { summary: '用戶是工程師' },
+        compressionOptions: {
+          strategy: COMPRESSION_STRATEGY_MAP.ROLLING_SUMMARY,
+          recentTurns: 2
+        }
+      });
+      expect(rollingResult[0].content).toContain('用戶是工程師');
+
+      // 5. generateRollingSummary with llmChat throwing error -> heuristic fallback
+      const failingLlmChat = vi.fn().mockRejectedValue(new Error('LLM error'));
+      const summaryResult = await generateRollingSummary({
+        oldSummary: '',
+        newTurns: [{ role: 'user', content: '今天想吃拉麵' }],
+        llmChat: failingLlmChat
+      });
+      expect(summaryResult).toContain('拉麵');
+
+      warnSpy.mockRestore();
+    });
   });
 });
