@@ -11,7 +11,7 @@ import { getAvatarSkinPath } from './node.js';
  * Hooks into Nuxt's `nitro:config` lifecycle to serve model files with zero disk copies in dev
  * and automatically bundles assets into `.output/public/avatar-skin/` during production build.
  *
- * @param {import('../index.d.ts').AvatarBotPluginOptions} [inlineOptions={}] - Module options.
+ * @param {import('@types').AvatarBotPluginOptions} [inlineOptions={}] - Module options.
  * @param {any} [nuxtApp] - Nuxt runtime instance.
  * @returns {void}
  */

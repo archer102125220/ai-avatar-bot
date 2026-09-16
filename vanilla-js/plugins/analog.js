@@ -45,7 +45,7 @@ function getMimeType(filePath) {
 /**
  * AnalogJS Vite plugin for streaming avatar-skin static assets during dev and auto-copying on build (ESM).
  *
- * @param {import('../index.d.ts').AvatarBotPluginOptions} [options={}] - Plugin configuration options.
+ * @param {import('@types').AvatarBotPluginOptions} [options={}] - Plugin configuration options.
  * @returns {import('vite').Plugin} Configured Vite plugin object.
  */
 export function avatarBotAnalogPlugin(options = {}) {

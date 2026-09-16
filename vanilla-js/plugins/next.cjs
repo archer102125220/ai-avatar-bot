@@ -42,7 +42,7 @@ function syncAssets(options) {
  * Enhances the Next.js configuration object with avatar-skin asset synchronization and webpack hooks.
  *
  * @param {Object} [baseConfig={}] - Original Next.js configuration object.
- * @param {import('../index.d.ts').AvatarBotPluginOptions} [options={}] - Plugin configuration options.
+ * @param {import('@types').AvatarBotPluginOptions} [options={}] - Plugin configuration options.
  * @returns {Object} Enhanced Next.js configuration object.
  */
 function enhanceNextConfig(baseConfig = {}, options = {}) {
@@ -111,7 +111,7 @@ function enhanceNextConfig(baseConfig = {}, options = {}) {
  * Compatible with both Turbopack (Next.js 14 / 15+) and Webpack builders.
  *
  * @param {Object|Function} [nextConfig={}] - Original Next.js configuration object or async factory function.
- * @param {import('../index.d.ts').AvatarBotPluginOptions} [options={}] - Plugin configuration options.
+ * @param {import('@types').AvatarBotPluginOptions} [options={}] - Plugin configuration options.
  * @returns {Object|Function} Wrapped Next.js configuration.
  */
 function withAiAvatarBot(nextConfig = {}, options = {}) {

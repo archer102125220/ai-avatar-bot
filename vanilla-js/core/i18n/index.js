@@ -117,9 +117,9 @@ function getFromDictionary(dictionary, keyPath) {
 }
 
 /**
- * @typedef {import('../../index.d.ts').I18nEngineOptions} I18nEngineOptions
- * @typedef {import('../../index.d.ts').I18nEngineState} I18nEngineState
- * @typedef {import('../../index.d.ts').I18nEngine} I18nEngine
+ * @typedef {import('@types').I18nEngineOptions} I18nEngineOptions
+ * @typedef {import('@types').I18nEngineState} I18nEngineState
+ * @typedef {import('@types').I18nEngine} I18nEngine
  */
 
 /**

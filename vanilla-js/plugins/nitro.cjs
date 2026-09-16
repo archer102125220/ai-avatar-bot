@@ -8,7 +8,7 @@ const { getAvatarSkinPath } = require('./node.cjs');
 /**
  * Generates a Nitro server configuration object exposing bundled `avatar-skin` static assets (CommonJS).
  *
- * @param {import('../index.d.ts').AvatarBotPluginOptions} [options={}] - Nitro publicAssets configuration options.
+ * @param {import('@types').AvatarBotPluginOptions} [options={}] - Nitro publicAssets configuration options.
  * @returns {{ publicAssets: Array<{ dir: string, baseURL: string, maxAge: number }> }} Nitro configuration snippet.
  */
 function createNitroAvatarConfig(options = {}) {

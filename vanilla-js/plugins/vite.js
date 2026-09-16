@@ -72,7 +72,7 @@ function copyDirRecursive(srcDir, destDir) {
 /**
  * Creates a Vite plugin that intercepts avatar-skin asset routes in dev server and copies assets during production build.
  *
- * @param {import('../index.d.ts').AvatarBotPluginOptions} [options={}] - Plugin configuration options.
+ * @param {import('@types').AvatarBotPluginOptions} [options={}] - Plugin configuration options.
  * @returns {import('vite').Plugin} Configured Vite plugin object.
  */
 export function avatarBotVitePlugin(options = {}) {

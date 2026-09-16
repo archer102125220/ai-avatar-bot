@@ -13,7 +13,7 @@ import { getAvatarSkinPath } from './node.js';
  * - AnalogJS (`vite.config.ts` -> `analog({ nitro: ... })`)
  * - SolidStart / Nitro standalone server builds
  *
- * @param {import('../index.d.ts').AvatarBotPluginOptions} [options={}] - Nitro publicAssets configuration options.
+ * @param {import('@types').AvatarBotPluginOptions} [options={}] - Nitro publicAssets configuration options.
  * @returns {{ publicAssets: Array<{ dir: string, baseURL: string, maxAge: number }> }} Nitro configuration snippet.
  */
 export function createNitroAvatarConfig(options = {}) {

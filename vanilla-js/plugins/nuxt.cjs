@@ -8,7 +8,7 @@ const { getAvatarSkinPath } = require('./node.cjs');
 /**
  * Nuxt 3 integration module (CommonJS).
  *
- * @param {import('../index.d.ts').AvatarBotPluginOptions} [inlineOptions={}] - Module options.
+ * @param {import('@types').AvatarBotPluginOptions} [inlineOptions={}] - Module options.
  * @param {any} [nuxtApp] - Nuxt runtime instance.
  * @returns {void}
  */

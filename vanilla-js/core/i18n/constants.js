@@ -1,5 +1,5 @@
 /**
- * @typedef {import('../../index.d.ts').LocaleLabelInfo} LocaleLabelInfo
+ * @typedef {import('@types').LocaleLabelInfo} LocaleLabelInfo
  */
 
 /**

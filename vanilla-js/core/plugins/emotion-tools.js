@@ -7,14 +7,14 @@ import {
 } from '../constants';
 
 /**
- * @typedef {import('../../index.d.ts').EmotionToolsPluginOptions} EmotionToolsPluginOptions
+ * @typedef {import('@types').EmotionToolsPluginOptions} EmotionToolsPluginOptions
  */
 
 /**
  * Factory function to create the emotion and gesture control tools plugin.
  *
  * @param {EmotionToolsPluginOptions} [options={}] - Plugin configuration options.
- * @returns {import('../../index.d.ts').ToolDefinition[]} Array of registered tool definitions.
+ * @returns {import('@types').ToolDefinition[]} Array of registered tool definitions.
  */
 export function createEmotionToolsPlugin(options = {}) {
   const {

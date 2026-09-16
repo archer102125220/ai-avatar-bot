@@ -1,6 +1,6 @@
 /**
  * @template [T=Record<string, any>]
- * @typedef {import('../index.d.ts').BaseStore<T>} BaseStore
+ * @typedef {import('@types').BaseStore<T>} BaseStore
  */
 
 /**

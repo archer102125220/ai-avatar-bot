@@ -76,7 +76,7 @@ export class AvatarBotWebpackPlugin {
   /**
    * Initializes a new AvatarBotWebpackPlugin instance.
    *
-   * @param {import('../index.d.ts').AvatarBotPluginOptions} [options={}] - Plugin configuration options.
+   * @param {import('@types').AvatarBotPluginOptions} [options={}] - Plugin configuration options.
    */
   constructor(options = {}) {
     this.route =
