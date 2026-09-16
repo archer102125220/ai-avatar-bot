@@ -448,6 +448,200 @@ export interface SkinEngine {
 // ============================================================================
 
 /**
+ * Speech-to-Text (STT) engine internal state.
+ */
+export interface STTEngineState {
+  /** Microphone media stream instance. */
+  micStream: MediaStream | null;
+  /** AudioContext instance for microphone audio graph. */
+  micAudioCtx: AudioContext | null;
+  /** AnalyserNode for audio volume and frequency analysis. */
+  micAnalyser: AnalyserNode | null;
+  /** Byte frequency data array. */
+  micData: Uint8Array | null;
+  /** Computed dynamic microphone noise floor level. */
+  micNoiseFloor: number;
+  /** Consecutive detected speech frame counter. */
+  voiceFrames: number;
+  /** Timestamp (ms) of the last barge-in trigger. */
+  lastBargeIn: number;
+  /** Animation frame request ID for microphone volume monitoring. */
+  micRaf: number;
+  /** Web Speech API SpeechRecognition instance. */
+  recognition: any;
+  /** Whether the STT engine is actively listening. */
+  isListening: boolean;
+  /** Current language locale code (e.g. 'zh-TW', 'en-US'). */
+  locale: string;
+  /** Consecutive no-speech count. */
+  noSpeechRuns: number;
+  /** Timestamp (ms) of the last recognition restart. */
+  lastRestart: number;
+  /** Timestamp (ms) when speech recognition started. */
+  speechStartTime: number;
+  /** Timestamp (ms) when interim result was first received. */
+  interimStartTime: number;
+  /** Hint / subtitle text emitted by speech recognition. */
+  spokenDisplayText: string;
+  /** Whether speech recognition was intentionally aborted. */
+  isAborted: boolean;
+}
+
+/**
+ * Options for configuring the STTEngine.
+ */
+export interface STTEngineOptions {
+  /** Callback fired when speech recognition produces text results. */
+  onResult?: (text: string, isFinal: boolean, isInterim?: boolean) => void;
+  /** Callback fired with real-time microphone volume level and speech activity state. */
+  onMicLevel?: (rms: number, showVoiceUI: boolean, stateString: string, levelAmp: number) => void;
+  /** Callback fired when user voice barge-in is detected. */
+  onBargeIn?: () => void;
+  /** Callback fired when speech recognition encounters an error. */
+  onError?: (errorMessage: string, isNotAllowed: boolean) => void;
+  /** Callback fired when speech recognition listening state changes. */
+  onStatusChange?: (isListening: boolean, statusMessage?: string, isAborted?: boolean) => void;
+  /** Callback fired when recognition stops due to consecutive no-speech timeouts. */
+  onNoSpeechAbort?: () => void;
+  /** Function to check whether avatar assistant is currently active / speaking. */
+  getAssistantActive?: () => boolean;
+  /** Function returning assistant speech duration in ms. */
+  getSpeechDuration?: () => number;
+  /** Function returning whether continuous conversation mode is active. */
+  getConvoOn?: () => boolean;
+  /** Initial language locale code (e.g. 'zh-TW', 'en-US'). */
+  locale?: string;
+}
+
+/**
+ * Speech-to-Text (STT) engine controller.
+ */
+export interface STTEngine {
+  /** Subscribes to STT state changes. */
+  subscribe(selector: any, callback?: Function): () => void;
+  /** Gets current STT state snapshot. */
+  getState(): STTEngineState;
+  /** Updates partial STT state. */
+  setState(updates: Partial<STTEngineState> | ((state: STTEngineState) => Partial<STTEngineState>)): void;
+  /** Current language locale. */
+  locale: string;
+  /** Sets active language locale. */
+  setLocale(locale: string): void;
+  /** Whether microphone is actively listening. */
+  readonly isListening: boolean;
+  /** Consecutive no-speech count. */
+  noSpeechRuns: number;
+  /** Starts microphone listening. */
+  startListening(): Promise<void>;
+  /** Stops microphone listening. */
+  stopListening(): void;
+}
+
+/**
+ * Options for TTS speech synthesis playback.
+ */
+export interface TTSSpeakOptions {
+  /** Whether to play immediately, bypassing sequential queue scheduling. */
+  instant?: boolean;
+  /** Whether to synchronize and update subtitle display text. */
+  updateDisplay?: boolean;
+}
+
+/**
+ * Text-to-Speech (TTS) engine internal state.
+ */
+export interface TTSEngineState {
+  /** Neural TTS API endpoint URL. */
+  ttsEndpoint: string;
+  /** Neural voice model name. */
+  neuralVoice: string;
+  /** Voice gender ('female' | 'male'). */
+  gender: string;
+  /** Language locale code (e.g. 'zh-TW', 'en-US'). */
+  locale: string;
+  /** Whether speech audio is currently playing. */
+  isSpeaking: boolean;
+  /** Whether audio output is muted. */
+  isMuted: boolean;
+  /** Speech sentence queue. */
+  speechQueue: Array<{ text: string; prefetchPromise: Promise<AudioBuffer | null> | null; error: Error | null; instant: boolean }>;
+  /** Browser SpeechSynthesisVoice instance. */
+  browserVoice: any;
+  /** Current speech sequence ID. */
+  speakSeq: number;
+  /** Speech playback rate multiplier. */
+  ttsRate: number;
+  /** Target mouth viseme value. */
+  mouthTarget: number;
+  /** Current smoothed mouth viseme opening value (0 to 1). */
+  mouthValue: number;
+  /** Real-time audio energy mouth opening value. */
+  audioMouth: number;
+  /** Whether real-time audio energy drives mouth viseme. */
+  useAudioMouth: boolean;
+}
+
+/**
+ * Options for configuring the TTSEngine.
+ */
+export interface TTSEngineOptions {
+  /** Neural TTS API endpoint URL. */
+  ttsEndpoint?: string;
+  /** Neural voice model identifier. */
+  neuralVoice?: string;
+  /** Voice gender ('female' | 'male'). */
+  gender?: string;
+  /** Language locale code. */
+  locale?: string;
+  /** Callback fired when speech synthesis playback begins. */
+  onSpeakStart?: (audioText?: string) => void;
+  /** Callback fired when speech synthesis playback completes. */
+  onSpeakEnd?: () => void;
+  /** Callback fired when speech queue is waiting for next streaming text chunk. */
+  onSpeechWait?: (speechSequenceId?: number) => void;
+  /** Callback fired when currently spoken subtitle text changes. */
+  onSpokenDisplayTextChange?: (text: string) => void;
+}
+
+/**
+ * Text-to-Speech (TTS) engine controller.
+ */
+export interface TTSEngine {
+  /** Subscribes to TTS state changes. */
+  subscribe(selector: any, callback?: Function): () => void;
+  /** Gets current TTS state snapshot. */
+  getState(): TTSEngineState;
+  /** Updates partial TTS state. */
+  setState(updates: Partial<TTSEngineState> | ((state: TTSEngineState) => Partial<TTSEngineState>)): void;
+  /** Whether audio is currently speaking. */
+  readonly isSpeaking: boolean;
+  /** Whether audio is muted. */
+  isMuted: boolean;
+  /** Current language locale code. */
+  readonly locale: string;
+  /** TTS playback rate multiplier. */
+  ttsRate?: number;
+  /** Synthesizes and speaks the given text. */
+  speak(text: string, options?: TTSSpeakOptions): void;
+  /** Stops ongoing speech playback immediately. */
+  stop(): void;
+  /** Computes and returns the current mouth opening amplitude (0 to 1). */
+  computeMouth(): number;
+  /** Sets speech voice gender. */
+  setGender(gender: string): void;
+  /** Sets speech language locale. */
+  setLocale(locale: string): void;
+  /** Preloads audio greeting for tap interaction. */
+  preloadTapGreeting(text: string): Promise<AudioBuffer | null>;
+  /** Begins a new speech sequence stream. */
+  beginSpeech?(): number;
+  /** Pushes a text chunk to speech queue. */
+  pushSpeech?(speechSequenceId: number, text: string, options?: TTSSpeakOptions): void;
+  /** Ends speech sequence stream. */
+  endSpeech?(speechSequenceId: number): void;
+}
+
+/**
  * Spoken audio state intent object for triggering speech synthesis.
  */
 export interface SpokenAudioState {
@@ -467,8 +661,8 @@ export interface SpokenAudioState {
 export interface SpeechEngineOptions {
   /** Custom STT and TTS engine instances or factory functions. */
   customEngines?: {
-    stt?: any | ((options: any) => Promise<any> | any);
-    tts?: any | ((options: any) => Promise<any> | any);
+    stt?: STTEngine | ((options: STTEngineOptions) => Promise<STTEngine> | STTEngine);
+    tts?: TTSEngine | ((options: TTSEngineOptions) => Promise<TTSEngine> | TTSEngine);
   };
   /** TTS API endpoint URL. */
   ttsEndpoint?: string;
@@ -552,8 +746,8 @@ export interface SpeechEngine {
   stopSpeaking(): void;
   /** Interrupts speech playback and transitions to voice listening (barge-in). */
   interruptForVoice(): void;
-  /** Computes current mouth viseme values for lip sync. */
-  computeMouth(): number[];
+  /** Computes current mouth opening value (0 to 1) for lip sync. */
+  computeMouth(): number;
   /** Triggers avatar tap interaction event. */
   triggerTap(): void;
   /** Stops voice session. */

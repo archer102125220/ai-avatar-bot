@@ -2,64 +2,25 @@ import { GENDER_MAP } from '@/core/constants';
 import { createBaseStore } from '@/core/store';
 
 /**
- * 語音播放選項。
- *
- * @typedef {Object} TTSSpeakOptions
- * @property {boolean} [instant=false] - 是否立即播放，忽略常規排程。
- * @property {boolean} [updateDisplay=true] - 是否同步更新字幕文字。
+ * Options for TTS speech synthesis playback.
+ * @typedef {import('../../index.d.ts').TTSSpeakOptions} TTSSpeakOptions
  */
 
 /**
- * 語音合成 (TTS) 引擎內部狀態定義。
- *
- * @typedef {Object} TTSEngineState
- * @property {string} ttsEndpoint - 神經網路語音合成 API 的端點網址。
- * @property {string} neuralVoice - 欲使用的神經網路語音模型名稱。
- * @property {string} gender - 語音性別。
- * @property {string} locale - 語系代碼。
- * @property {boolean} isSpeaking - 是否正在播放語音。
- * @property {boolean} isMuted - 是否處於靜音狀態。
- * @property {Array<{text: string, prefetchPromise: Promise<AudioBuffer|null>|null, error: Error|null, instant: boolean}>} speechQueue - 語音播放佇列。
- * @property {SpeechSynthesisVoice|null} browserVoice - 瀏覽器原生語音物件。
- * @property {number} speakSeq - 語音播放序號。
- * @property {number} ttsRate - 語音播放速率。
- * @property {number} mouthTarget - 嘴型開合目標值。
- * @property {number} mouthValue - 當前平滑後的嘴型開合數值 (0~1)。
- * @property {number} audioMouth - 音訊即時能量對應的嘴型開合數值。
- * @property {boolean} useAudioMouth - 是否使用即時音訊能量計算嘴型。
+ * Text-to-Speech (TTS) engine internal state.
+ * @typedef {import('../../index.d.ts').TTSEngineState} TTSEngineState
  */
 
 /**
- * 語音合成 (TTS) 引擎的介面定義。
- *
- * @typedef {Object} TTSEngine
- * @property {(selector: any, callback?: Function) => () => void} subscribe - 訂閱狀態變更的函數。
- * @property {() => TTSEngineState} getState - 取得當前狀態的函數。
- * @property {(updates: Partial<TTSEngineState> | ((state: TTSEngineState) => Partial<TTSEngineState>)) => void} setState - 設定狀態的函數。
- * @property {boolean} isSpeaking - 指示引擎是否正在播放語音。
- * @property {boolean} isMuted - 指示引擎是否處於靜音狀態。
- * @property {string} locale - 當前語系代碼 (例如: 'zh-TW', 'en-US')。
- * @property {(text: string, options?: TTSSpeakOptions) => void} speak - 播放指定的文本語音。
- * @property {() => void} stop - 停止當前正在播放的語音。
- * @property {() => number} computeMouth - 計算並回傳當前的嘴型開合數值 (0~1)。
- * @property {(newGender: string) => void} setGender - 設定語音的性別 (例如: 'male', 'female')。
- * @property {(locale: string) => void} setLocale - 設定語音的語系代碼 (例如: 'zh-TW', 'en-US')。
- * @property {(text: string) => Promise<AudioBuffer|null>} preloadTapGreeting - 預先載入指定的歡迎詞語音。
+ * Text-to-Speech (TTS) engine controller interface.
+ * @typedef {import('../../index.d.ts').TTSEngine} TTSEngine
  */
 
 /**
- * 驗證結果物件。
+ * Validates whether the provided Text-to-Speech (TTS) engine complies with the TTSEngine interface specification.
  *
- * @typedef {Object} TTSEngineValidationResult
- * @property {boolean} isValid - 是否為有效的 TTS 引擎。
- * @property {string[]} missing - 缺失的方法或屬性列表。
- */
-
-/**
- * 驗證傳入的語音合成 (TTS) 引擎是否實作了必要的方法與屬性。
- *
- * @param {TTSEngine|Object|null|undefined} engine - 欲驗證的 TTS 引擎實例。
- * @returns {TTSEngineValidationResult} 包含驗證結果及缺失的方法或屬性列表。
+ * @param {TTSEngine | Record<string, any> | null | undefined} engine - TTS engine instance to validate.
+ * @returns {{ isValid: boolean, missing: string[] }} Object containing validation result and missing properties/methods array.
  */
 export function validateTTSEngine(engine) {
   const missing = [];
@@ -83,12 +44,12 @@ export function validateTTSEngine(engine) {
 }
 
 /**
- * 根據指定性別與語系載入適用的瀏覽器原生語音 (SpeechSynthesisVoice)。
- * 會優先尋找特定名稱的高品質語音，若無則依序退回尋找符合語言特徵的預設語音。
+ * Loads the matching browser native voice (SpeechSynthesisVoice) based on specified gender and locale.
+ * Prioritizes high-quality natural voices by name patterns, falling back to locale-matched default voices.
  *
- * @param {string} gender - 性別標識，參考 GENDER_MAP (例如: 'male', 'female')。
- * @param {string} [locale='zh-TW'] - 語系代碼 (例如: 'zh-TW', 'en-US', 'ja-JP', 'ko-KR')。
- * @returns {SpeechSynthesisVoice|null} 匹配到的語音物件，如果找不到則回傳 null。
+ * @param {string} gender - Voice gender ('female' | 'male').
+ * @param {string} [locale='zh-TW'] - Language locale code (e.g., 'zh-TW', 'en-US', 'ja-JP', 'ko-KR').
+ * @returns {SpeechSynthesisVoice | null} Matched voice object, or null if unavailable.
  */
 export function loadVoice(gender, locale = 'zh-TW') {
   if (
@@ -181,11 +142,11 @@ export function loadVoice(gender, locale = 'zh-TW') {
 }
 
 /**
- * 將長篇文本切割成適合語音合成播放的短句陣列。
- * 會根據標點符號與長度限制進行智慧斷句，並嘗試合併過短的片段。
+ * Splits a continuous long text into an array of short, speakable sentences for TTS playback.
+ * Performs intelligent segmentation based on punctuation marks and sentence length limits, merging short fragments.
  *
- * @param {string} text - 欲切割的完整文本。
- * @returns {string[]} 切割後的短句陣列。
+ * @param {string} text - Full raw text to segment.
+ * @returns {string[]} Array of segmented speakable sentences.
  */
 export function splitSentences(text) {
   const sentenceList = [];
@@ -248,10 +209,10 @@ export function splitSentences(text) {
 }
 
 /**
- * 根據傳入的語系代碼，取得對應的神經網路語音模型名稱 (Neural Voice)。
+ * Resolves the default neural voice model identifier for the specified language locale.
  *
- * @param {string} locale - 語系代碼 (例如: 'zh-TW', 'en-US')。
- * @returns {string} 預設的神經網路語音模型名稱。
+ * @param {string} locale - Language locale code (e.g., 'zh-TW', 'en-US', 'ja-JP', 'ko-KR').
+ * @returns {string} Default neural voice model identifier string.
  */
 export function localeVoice(locale) {
   const normalizedLocale = typeof locale === 'string' ? locale : '';
@@ -265,25 +226,16 @@ export function localeVoice(locale) {
 }
 
 /**
- * 語音合成 (TTS) 引擎的初始化選項。
- *
- * @typedef {Object} TTSEngineOptions
- * @property {string} [ttsEndpoint=''] - 神經網路語音合成 API 的端點網址。
- * @property {string} [neuralVoice=''] - 欲使用的神經網路語音模型名稱。
- * @property {string} [gender=GENDER_MAP.female] - 預設性別。
- * @property {string} [locale='zh-TW'] - 預設語系代碼。
- * @property {() => void} [onSpeakStart] - 當開始播放語音時的處理函數。
- * @property {() => void} [onSpeakEnd] - 當播放語音結束時的處理函數。
- * @property {(speechSequenceId?: number) => void} [onSpeechWait] - 當語音佇列暫時排空但串流尚未結束（等待後續 LLM 生成片段）時的處理函數。
- * @property {(text: string) => void} [onSpokenDisplayTextChange] - 當正在播放的文字內容改變時的處理函數。
+ * Options for configuring the TTSEngine.
+ * @typedef {import('../../index.d.ts').TTSEngineOptions} TTSEngineOptions
  */
 
 /**
- * 建立並初始化預設的語音合成 (TTS) 引擎，負責管理神經網路語音 (Web API) 與瀏覽器原生語音的播放與排程。
- * 支援分段載入與嘴型同步計算。
+ * Creates and initializes the default Text-to-Speech (TTS) engine.
+ * Manages neural voice API fetching, Web Audio playback, browser SpeechSynthesis fallback, and real-time lip sync viseme computation.
  *
- * @param {TTSEngineOptions} [options={}] - 初始化設定與回調函數。
- * @returns {TTSEngine} 包含狀態管理與播放控制方法的 TTS 引擎實例。
+ * @param {TTSEngineOptions} [options={}] - Initialization options and event callbacks.
+ * @returns {TTSEngine} Initialized TTS engine controller instance.
  */
 export function initDefaultTTSEngine(options = {}) {
   const {
@@ -470,13 +422,13 @@ export function initDefaultTTSEngine(options = {}) {
     computeMouth() {
       const currentState = store.getState();
       if (this.isSpeaking === true && currentState.useAudioMouth === true) {
-        // 平滑開合響應：適度降低響應係數，使嘴型隨音節自然過渡，避免高頻震顫
+        // Smooth opening response: lower coefficient to naturally transition without high-frequency jitter
         const smoothingFactor =
           currentState.audioMouth > currentState.mouthValue ? 0.42 : 0.22;
         currentState.mouthValue +=
           (currentState.audioMouth - currentState.mouthValue) * smoothingFactor;
       } else if (this.isSpeaking === true) {
-        // 瀏覽器語音 / 備份模式：降頻至自然說話節奏 (約 1.6 次/秒)，以平滑 lerp 計算開合
+        // Browser voice / fallback mode: sample at natural speaking rhythm (~1.6/sec) with smooth lerp
         const currentTimeInSeconds = performance.now() / 1000;
         const targetMouth =
           0.06 +
@@ -486,7 +438,7 @@ export function initDefaultTTSEngine(options = {}) {
         currentState.mouthValue +=
           (targetMouth - currentState.mouthValue) * 0.32;
       } else {
-        // 停止說話時平滑淡出閉嘴
+        // Smooth fade-out close when stopped speaking
         currentState.mouthValue = Math.max(0, currentState.mouthValue - 0.12);
       }
       return currentState.mouthValue;
@@ -706,7 +658,9 @@ export function initDefaultTTSEngine(options = {}) {
         ? error.message
         : '';
     if (/http 429/.test(errorMessage) === true) {
-      console.warn('TTS 被限流，這句退瀏覽器語音');
+      console.warn(
+        '[AvatarBot] TTS rate limited, falling back to browser synthesis for this sentence'
+      );
       return;
     }
     if (
@@ -716,7 +670,10 @@ export function initDefaultTTSEngine(options = {}) {
     ) {
       currentState.neuralDisabled = true;
     }
-    console.warn('神經語音失敗，退回瀏覽器語音：', errorMessage);
+    console.warn(
+      '[AvatarBot] Neural TTS failed, falling back to browser synthesis:',
+      errorMessage
+    );
   };
 
   const speakBrowserChunk = (text, speechSequenceId, onChunkCompleted) => {

@@ -1,4 +1,3 @@
-// TODO: 等到環境可以測試麥克風跟喇叭時，要徹底測過這份檔案內部的所有機制有沒有因為重構而出問題
 import { DEFAULT_TTS_ENDPOINT, GENDER_MAP } from '@/core/constants';
 import { createBaseStore } from '@/core/store';
 import { getSttMessage, initDefaultSTTEngine, validateSTTEngine } from './stt';
@@ -14,84 +13,23 @@ export {
 };
 
 /**
- * 語音引擎實例，作為 STT 與 TTS 的中央統籌，並負責整合事件與串接 LLM 回應。
- *
- * @typedef {Object} SpeechEngine
- * @property {(selector: any, callback?: Function) => () => void} subscribe - 訂閱狀態變更 (例如: 'spokenDisplayText', 'gender' 等)。
- * @property {() => Object} getState - 取得當前所有內部狀態。
- * @property {(updates: Object | ((state: Object) => Object)) => void} setState - 覆寫或更新部分狀態。
- * @property {string} gender - 目前設定的性別 (例如: 'female', 'male')。
- * @property {(gender: string) => void} setGender - 設定語音性別。
- * @property {HTMLElement|null} container - 虛擬人的根容器 DOM 元素。
- * @property {(convoOn: boolean, text: string, state: string, level: number) => void} [onVoiceStatusChanged] - 語音狀態變更回調。
- * @property {(isListening: boolean, convoOn: boolean) => void} [onMicStateChanged] - 麥克風開關狀態變更回調。
- * @property {(locale: string, label: string, shortLabel?: string) => void} [onLanguageChanged] - 語言變更回調。
- * @property {string} ttsEndpoint - 神經網路語音合成的 API 端點。
- * @property {string} neuralVoice - 指定的神經網路語音模型名稱。
- * @property {number} speakSeq - 目前語音播放的序列號，用於追蹤最新的語音播放。
- * @property {boolean} isSpeaking - 目前是否正在播放語音 (TTS 說話中)。
- * @property {boolean} isListening - 目前是否正在接收麥克風音訊 (STT 聆聽中)。
- * @property {boolean} ttsMuted - 語音合成是否靜音。
- * @property {boolean} convoOn - 是否處於連續對話模式。
- * @property {boolean} isProcessing - 是否正在處理中。
- * @property {number} assistantSpeechStartedAt - 助理開始說話的時間戳。
- * @property {string} spokenDisplayText - 目前在畫面上顯示的對話字幕。
- * @property {string} spokenAudioText - 最新準備或正在轉換為語音的純文字（支援資料驅動賦值，自動遞增內部序號觸發發音）。
- * @property {{ text: string, seq: number, options?: Object, timestamp?: number }} spokenAudioState - 語音發音狀態意圖物件（供 Store 響應式訂閱）。
- * @property {(text: string, options?: Object) => void} speak - 將指定文字轉換為語音並播放。
- * @property {() => void} stopSpeaking - 停止當前的語音播放。
- * @property {() => void} interruptForVoice - 打斷當前助理的回應 (包含中斷 LLM) 並進入聆聽狀態。
- * @property {() => Array<number>} computeMouth - 計算並回傳當前語音對應的嘴型資料 (Viseme)。
- * @property {() => void} triggerTap - 觸發使用者點擊虛擬人的互動事件。
- * @property {(message?: string) => void} stopVoiceSession - 停止即時語音對話工作階段。
- * @property {(isListening: boolean) => void} setMic - 設定並通知麥克風開關狀態變更。
- * @property {() => void} startListening - 開始透過麥克風聆聽語音輸入。
- * @property {(text: string) => Promise<void>|void} preloadTapGreeting - 預載點擊時的問候語音。
- * @property {string} locale - 當前語系與地區 (例如 'zh-TW', 'en-US')。
- * @property {(locale: string) => void} setLocale - 設定 STT/TTS 語言與地區 (例如 'zh-TW', 'en-US')。
- * @property {string} _speechBuf - [內部屬性] 語音文字緩衝區。
- * @property {Array<string>} _speechQueue - [內部屬性] 語音句子播放佇列。
- * @property {(state: Object, force?: boolean) => Array<string>} drainSentences - [內部方法] 從狀態緩衝區提取完整句子。
- * @property {() => number} beginSpeech - 標記開始一段新的語音生成，回傳新的 speakSeq。
- * @property {(speechSequenceId: number, text: string, options?: Object) => void} pushSpeech - 將文字片段推入語音佇列並依序播放。
- * @property {(speechSequenceId: number, options?: Object) => void} _playNextQueue - [內部方法] 播放佇列中的下一段語音。
- * @property {() => void} _onTTSSpeakEnd - [內部方法] TTS 單句播放結束的回調處理。
- * @property {boolean} _speechEndedFlag - [內部屬性] 標記目前文字流是否已全部生成完畢。
- * @property {(speechSequenceId: number) => void} endSpeech - 標記特定序號的語音流文字生成結束。
- * @property {() => void} onUtteranceEnd - 整段語音完全結束的處理邏輯 (解除 processing 狀態)。
+ * Central speech orchestrator engine instance coordinating STT and TTS.
+ * @typedef {import('../../index.d.ts').SpeechEngine} SpeechEngine
  */
 
 /**
- * @typedef {Object} SpeechEngineOptions
- * @property {Object} [customEngines={}] - 開發者自訂注入的 STT 與 TTS 引擎實例。
- * @property {Object|((options: Object) => Promise<Object>|Object)} [customEngines.stt] - 自訂的 STT 引擎或其初始化函數。
- * @property {Object|((options: Object) => Promise<Object>|Object)} [customEngines.tts] - 自訂的 TTS 引擎或其初始化函數。
- * @property {string} [ttsEndpoint] - 神經網路語音合成的 API 端點。
- * @property {string} [neuralVoice] - 指定的神經網路語音模型名稱。
- * @property {string} [locale] - 初始語系設定 (例如 'zh-TW')。
- * @property {() => string} [getGender] - 取得目前的性別。
- * @property {() => HTMLElement} [getContainer] - 取得根容器元素。
- * @property {(convoOn: boolean, text: string, state: string, level: number) => void} [onVoiceStatusChanged] - 語音狀態改變的回調。
- * @property {(isListening: boolean, convoOn: boolean) => void} [onMicStateChanged] - 麥克風開關狀態改變的回調 (isListening, convoOn)。
- * @property {(locale: string, label: string, shortLabel?: string) => void} [onLanguageChanged] - 語言改變的回調 (locale, label, shortLabel)。
- * @property {(displayText: string) => void} [onSpokenDisplayTextChange] - 語音文字改變的回調。
- * @property {() => void} [onSpokenDisplayTextTimeout] - 語音文字氣泡顯示逾時的回調。
- * @property {(audioText: string) => void} [onSpeaking] - 語音準備播放的回調。
- * @property {() => void} [onSpeakingEnd] - 語音播放完全結束的回調。
- * @property {(speechSequenceId?: number) => void} [onSpeechWait] - 語音佇列暫時排空但串流尚未結束（等待後續 LLM 生成片段）的回調。
- * @property {(text: string) => void} [onUserInput] - 使用者文字輸入回調。
- * @property {() => void} [onTapAvatar] - 使用者點擊虛擬人回調。
- * @property {() => void} [onInterrupt] - 語音被打斷的回調。
+ * Options for initializing the SpeechEngine.
+ * @typedef {import('../../index.d.ts').SpeechEngineOptions} SpeechEngineOptions
  */
 
 /**
- * 串流文字即時斷句方法。
- * 監聽累積字元緩衝區，一旦出現句尾標點符號便立即切出完整句子供 TTS 排程播放。
- * 同時具備超長子句防呆機制，若字數過長且偵測到逗號即提前斷句，大幅縮短首句語音延遲。
+ * Segments a streaming sentence text buffer into ready-to-synthesize sentences.
+ * Monitors character accumulation and immediately slices complete sentences upon encountering end punctuation.
+ * Features safeguards for long clauses that split early at comma boundaries to reduce initial speech synthesis latency.
  *
- * @param {{buf?: string, sentenceBuffer?: string}} state - 包含即時文字緩衝區的狀態物件。
- * @param {boolean} [force=false] - 是否強制輸出最後留在緩衝區內的文字（例如串流已結束）。
- * @returns {string[]} 切出可立即發送至 TTS 合成的句子陣列。
+ * @param {{ buf?: string, sentenceBuffer?: string }} state - State object containing the streaming text buffer.
+ * @param {boolean} [force=false] - Whether to forcefully extract all remaining buffer content (e.g. stream finished).
+ * @returns {string[]} Array of sentences ready for TTS synthesis.
  */
 export function drainSentences(state, force = false) {
   if (typeof state !== 'object' || state === null) {
@@ -118,7 +56,7 @@ export function drainSentences(state, force = false) {
   const extractedSentences = [];
 
   while (sentenceBuffer.length > 0) {
-    // 尋找句尾標點符號：中文標點 [。！？!?；;\n…\r] 或 英文句點+空白/換行
+    // Look for end-of-sentence punctuation: Chinese punctuation [。！？!?；;\n…\r] or English period + whitespace/newline
     const punctuationMatch = sentenceBuffer.match(/[。！？!?；;\n…\r]|\.\s+/);
     if (
       punctuationMatch !== null &&
@@ -131,7 +69,7 @@ export function drainSentences(state, force = false) {
         extractedSentences.push(sentence);
       }
     } else if (sentenceBuffer.length >= 40) {
-      // 若長度達 40 字元仍未偵測到句號，在逗號處提前切分，避免長句子延遲發聲
+      // If length reaches 40 characters without end punctuation, split early at comma to avoid delay
       const commaMatch = sentenceBuffer.match(/[，,]\s*/);
       if (
         commaMatch !== null &&
@@ -145,7 +83,7 @@ export function drainSentences(state, force = false) {
           extractedSentences.push(sentence);
         }
       } else if (sentenceBuffer.length >= 80) {
-        // 80 字元超長防呆切分
+        // 80-character fallback split
         const sentence = sentenceBuffer.slice(0, 80).trim();
         sentenceBuffer = sentenceBuffer.slice(80);
         if (sentence !== '') {
@@ -169,12 +107,12 @@ export function drainSentences(state, force = false) {
 }
 
 /**
- * 建立並初始化作為 STT 與 TTS 中央統籌的語音引擎 (Speech Orchestrator)。
- * 負責整合語音辨識、語音合成、事件派發以及串接 LLM 回應的斷句與佇列播放。
- * 支援透過 customEngines 動態抽換底層的語音轉文字 (STT) 與語音合成 (TTS) 引擎。
+ * Creates and initializes the central Speech Orchestrator engine coordinating STT and TTS subsystems.
+ * Handles speech recognition, audio synthesis, barge-in interrupts, event dispatching, and streaming LLM chunk queuing.
+ * Supports custom STT and TTS engine injection via `customEngines`.
  *
- * @param {SpeechEngineOptions} [setting={}] - 初始化設定選項。
- * @returns {Promise<SpeechEngine>} 包含完整語音控制介面的 SpeechEngine 實例。
+ * @param {SpeechEngineOptions} [setting={}] - Speech engine initialization options.
+ * @returns {Promise<SpeechEngine>} SpeechEngine controller instance.
  */
 export async function initSpeechEngine(setting = {}) {
   const { customEngines = {}, ttsEndpoint, neuralVoice } = setting;
@@ -314,11 +252,11 @@ export async function initSpeechEngine(setting = {}) {
         ttsEngine = customInstance;
       } else {
         console.error(
-          `[AvatarBot] 自訂 ttsEngine 驗證失敗，缺少以下實作: ${validation.missing.join(', ')}。將退回使用預設引擎。`
+          `[AvatarBot] Custom ttsEngine validation failed, missing implementations: ${validation.missing.join(', ')}. Falling back to default engine.`
         );
       }
     } catch (error) {
-      console.error('[AvatarBot] 初始化自訂 ttsEngine 發生錯誤:', error);
+      console.error('[AvatarBot] Error initializing custom ttsEngine:', error);
     }
   }
   if (ttsEngine === null) {
@@ -753,11 +691,11 @@ export async function initSpeechEngine(setting = {}) {
         sttEngine = customInstance;
       } else {
         console.error(
-          `[AvatarBot] 自訂 sttEngine 驗證失敗，缺少以下實作: ${validation.missing.join(', ')}。將退回使用預設引擎。`
+          `[AvatarBot] Custom sttEngine validation failed, missing implementations: ${validation.missing.join(', ')}. Falling back to default engine.`
         );
       }
     } catch (error) {
-      console.error('[AvatarBot] 初始化自訂 sttEngine 發生錯誤:', error);
+      console.error('[AvatarBot] Error initializing custom sttEngine:', error);
     }
   }
   if (sttEngine === null) {

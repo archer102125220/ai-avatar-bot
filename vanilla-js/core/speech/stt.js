@@ -1,16 +1,10 @@
 import { createBaseStore } from '@/core/store';
 
 /**
- * @typedef {Object} STTEngineValidationResult
- * @property {boolean} isValid - 標示引擎是否實作了所有必要的方法與屬性。
- * @property {string[]} missing - 缺失的方法或屬性名稱列表。
- */
-
-/**
- * 驗證傳入的語音轉文字 (STT) 引擎是否實作了必要的方法與屬性。
+ * Validates whether the provided Speech-to-Text (STT) engine complies with the STTEngine interface specification.
  *
- * @param {Object|null|undefined} engine - 欲驗證的 STT 引擎實例。
- * @returns {STTEngineValidationResult} 包含驗證結果及缺失的方法或屬性列表。
+ * @param {import('../../index.d.ts').STTEngine | Record<string, any> | null | undefined} engine - STT engine instance to validate.
+ * @returns {{ isValid: boolean, missing: string[] }} Object containing validation result and missing properties/methods array.
  */
 export function validateSTTEngine(engine) {
   const missing = [];
@@ -32,44 +26,17 @@ export function validateSTTEngine(engine) {
 }
 
 /**
- * 語音轉文字 (STT) 引擎的內部狀態。
- *
- * @typedef {Object} STTEngineState
- * @property {MediaStream|null} micStream - 麥克風音訊串流。
- * @property {AudioContext|null} micAudioCtx - 音訊上下文。
- * @property {AnalyserNode|null} micAnalyser - 音訊分析節點。
- * @property {Uint8Array|null} micData - 音訊頻率資料。
- * @property {number} micNoiseFloor - 麥克風底噪位準。
- * @property {number} voiceFrames - 連續偵測到語音的幀數。
- * @property {number} lastBargeIn - 上次插話的時間戳記。
- * @property {number} micRaf - 麥克風音量監控的 requestAnimationFrame ID。
- * @property {SpeechRecognition|null} recognition - Web Speech API 語音辨識實例。
- * @property {boolean} isListening - 目前是否正在聆聽語音。
- * @property {string} locale - 當前語系代碼（例如 'zh-TW', 'en-US'）。
- * @property {number} noSpeechRuns - 連續未偵測到語音的次數。
- * @property {number} lastRestart - 上次重啟辨識的時間戳記。
- * @property {number} speechStartTime - 語音辨識開始的時間戳記。
- * @property {number} interimStartTime - 臨時辨識結果開始的時間戳記。
- * @property {string} spokenDisplayText - 目前由語音模組產生的提示文字。
- * @property {boolean} isAborted - 是否主動中止語音辨識。
+ * Speech-to-Text (STT) engine internal state.
+ * @typedef {import('../../index.d.ts').STTEngineState} STTEngineState
  */
 
 /**
- * @typedef {Object} STTEngineOptions
- * @property {(text: string, isFinal: boolean, isInterim: boolean) => void} [onResult] - 當取得辨識結果時的回調函數。
- * @property {(rms: number, showVoiceUI: boolean, stateString: string, levelAmp: number) => void} [onMicLevel] - 當麥克風音量位準更新時的回調函數。
- * @property {() => void} [onBargeIn] - 當偵測到使用者插話時的回調函數。
- * @property {(errorMessage: string, isNotAllowed: boolean) => void} [onError] - 當語音辨識發生錯誤時的回調函數。
- * @property {(isListening: boolean, statusMessage?: string, isAborted?: boolean) => void} [onStatusChange] - 當語音辨識狀態變更時的回調函數。
- * @property {() => void} [onNoSpeechAbort] - 當連續多次未偵測到語音而中止時的回調函數。
- * @property {() => boolean} [getAssistantActive] - 取得助理目前是否處於活動狀態（例如正在說話或處理中）的函數。
- * @property {() => number} [getSpeechDuration] - 取得目前虛擬人說話持續時間的函數。
- * @property {() => boolean} [getConvoOn] - 取得目前連續對話模式是否開啟的函數。
- * @property {string} [locale='zh-TW'] - 初始語系代碼。
+ * Options for configuring the STTEngine.
+ * @typedef {import('../../index.d.ts').STTEngineOptions} STTEngineOptions
  */
 
 /**
- * 預設 STT 引擎的多語系訊息字典。
+ * Default localized message dictionary for the STT engine.
  */
 const DEFAULT_STT_MESSAGES = {
   'zh-TW': {
@@ -130,12 +97,12 @@ const DEFAULT_STT_MESSAGES = {
 };
 
 /**
- * 取得指定語系的 STT 提示訊息。
+ * Retrieves the localized prompt/notification message for the specified language locale and message key.
  *
- * @param {string} locale - 語系代碼。
- * @param {string} key - 訊息鍵值。
- * @param {Object} [params={}] - 替換參數。
- * @returns {string} 格式化後的提示訊息。
+ * @param {string} locale - Language locale code (e.g., 'zh-TW', 'en-US', 'ja-JP', 'ko-KR').
+ * @param {string} key - Message dictionary key identifier.
+ * @param {Record<string, any>} [params={}] - Parameters for template interpolation (e.g. `{ error: '...' }`).
+ * @returns {string} Formatted localized message string.
  */
 export function getSttMessage(locale, key, params = {}) {
   const currentLocale =
@@ -158,24 +125,16 @@ export function getSttMessage(locale, key, params = {}) {
 }
 
 /**
- * 語音轉文字 (STT) 引擎實例介面。
- *
- * @typedef {Object} STTEngine
- * @property {(selector: any, callback?: Function) => () => void} subscribe - 訂閱狀態變更。
- * @property {() => STTEngineState} getState - 取得當前所有內部狀態。
- * @property {(updates: Partial<STTEngineState> | ((state: STTEngineState) => Partial<STTEngineState>)) => void} setState - 覆寫或更新部分狀態。
- * @property {string} locale - 當前語系代碼（例如 'zh-TW', 'en-US'）。
- * @property {(newLocale: string) => void} setLocale - 設定 STT 語系。
- * @property {boolean} isListening - 目前是否正在聆聽語音。
- * @property {() => Promise<void>} startListening - 開始聆聽語音輸入。
- * @property {() => void} stopListening - 停止聆聽語音輸入。
+ * Speech-to-Text (STT) engine controller instance.
+ * @typedef {import('../../index.d.ts').STTEngine} STTEngine
  */
 
 /**
- * 建立並初始化預設的語音轉文字 (STT) 引擎，負責管理麥克風權限、音量分析與瀏覽器內建語音辨識 (Web Speech API)。
+ * Creates and initializes the default Speech-to-Text (STT) engine.
+ * Manages microphone media streams, real-time volume RMS calculation, and the Web Speech API (SpeechRecognition).
  *
- * @param {STTEngineOptions} [options={}] - 初始化設定與回調函數。
- * @returns {STTEngine} 包含狀態管理與操作方法的 STT 引擎實例。
+ * @param {STTEngineOptions} [options={}] - Initialization options and event callbacks.
+ * @returns {STTEngine} Initialized STT engine controller instance.
  */
 export function initDefaultSTTEngine(options = {}) {
   const {
