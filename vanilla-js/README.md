@@ -30,6 +30,7 @@
 - [🛠️ Build Tool Plugins (Vite & Webpack Offline Support)](#️-build-tool-plugins-vite--webpack-offline-support)
 - [🌐 Internationalization (i18n)](#-internationalization-i18n)
 - [📦 Third-Party Assets & Licenses](#-third-party-assets--licenses-must-read)
+- [🧪 Testing & Quality Assurance](#-testing--quality-assurance)
 - [⚠️ Risk & Limitations Disclosure](#️-risk--limitations-disclosure)
 - [🔐 Privacy & Data Flow](#-privacy--data-flow)
 - [❓ Frequently Asked Questions (FAQ)](#-frequently-asked-questions-faq)
@@ -1045,6 +1046,42 @@ The source code of this package is licensed under the **MIT License** (see [`LIC
 | **Pixi.js / pixi-live2d-display** | **MIT License** | Open-source 2D WebGL rendering engine and Live2D integration plugin. |
 | **Three.js / @pixiv/three-vrm** | **MIT License** | Open-source 3D WebGL renderer and VRM avatar standard library. |
 | **@mlc-ai/web-llm** (WebLLM) | **Apache-2.0** | In-browser WebGPU language model inference engine. Downloaded model weights (e.g. Qwen2.5, Hermes Llama 3.1, Gemma 2) are governed by their respective creators' license terms. |
+
+---
+
+## 🧪 Testing & Quality Assurance
+
+This package provides a comprehensive automated testing suite covering unit tests, UI contract parity, and real WebGL/Web Audio engine validation. See the [Dual-Track E2E Testing & Migration Guide](./test/e2e/README.md) for full architectural details.
+
+### 1. Test Commands
+
+```bash
+# Run 470+ unit tests for algorithms, state machines & memory (Vitest)
+yarn test:unit
+
+# Run Track A: Cross-framework UI contract parity E2E tests (Playwright, ~15s)
+yarn test:e2e:contract
+
+# Run Track B: Real engine smoke tests (WebGL / Web Audio / Brain SSE)
+yarn test:e2e:engine
+
+# Run full dual-track E2E test suite
+yarn test:e2e
+
+# Run production bundle smoke test (builds and validates dist/ package in HTML)
+yarn test:smoke
+```
+
+### 2. Isolated HTML Reports
+
+Each test track outputs to an isolated report directory to prevent overwriting results:
+
+```bash
+yarn test:e2e:report           # View full E2E report (playwright-report/all)
+yarn test:e2e:report:contract  # View Track A report (playwright-report/contract)
+yarn test:e2e:report:engine    # View Track B report (playwright-report/engine)
+yarn test:e2e:report:smoke     # View bundle smoke report (playwright-report/smoke)
+```
 
 ---
 

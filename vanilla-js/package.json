@@ -134,7 +134,9 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report playwright-report/all",
     "test:e2e:report:contract": "playwright show-report playwright-report/contract",
-    "test:e2e:report:engine": "playwright show-report playwright-report/engine"
+    "test:e2e:report:engine": "playwright show-report playwright-report/engine",
+    "test:smoke": "yarn build && PLAYWRIGHT_HTML_REPORT_DIR=playwright-report/smoke playwright test test/e2e/specs/engine/dist-smoke.spec.ts",
+    "test:e2e:report:smoke": "playwright show-report playwright-report/smoke"
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.84",

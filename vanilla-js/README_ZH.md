@@ -30,6 +30,7 @@
 - [🛠️ 構建工具插件 (Vite & Webpack 離線開箱即用)](#️-構建工具插件-vite--webpack-離線開箱即用)
 - [🌐 多語系支援 (i18n)](#-多語系支援-i18n)
 - [📦 第三方資產與授權](#-第三方資產與授權請務必詳閱)
+- [🧪 測試體系與品質保證 (Testing)](#-測試體系與品質保證-testing)
 - [⚠️ 風險與限制揭露](#️-風險與限制揭露)
 - [🔐 隱私與資料流向](#-隱私與資料流向)
 - [❓ 常見問題 (FAQ)](#-常見問題-faq)
@@ -1048,6 +1049,42 @@ widget.i18nEngine.setLocale('zh-TW');
 | **Pixi.js / pixi-live2d-display** | **MIT License** | 開源 2D WebGL 渲染引擎與 Live2D 整合插件。 |
 | **Three.js / @pixiv/three-vrm** | **MIT License** | 開源 3D 渲染器與 VRM 角色模型標準規範庫。 |
 | **@mlc-ai/web-llm** (WebLLM) | **Apache-2.0** | 瀏覽器端 WebGPU 語言模型推論引擎。使用者下載之各開源模型權重（如 Qwen2.5, Hermes Llama 3.1 等）各受原創作者之授權條款約束。 |
+
+---
+
+## 🧪 測試體系與品質保證 (Testing)
+
+本套件建立了涵蓋「底層核心單元」、「UI 交互合約」與「真實 WebGL/音訊引擎」的多層自動化測試網，詳情請參閱 [E2E 測試與跨框架遷移指引](./test/e2e/README_ZH.md)。
+
+### 1. 測試指令清單
+
+```bash
+# 執行 470+ 核心演算法與狀態機單元測試 (Vitest)
+yarn test:unit
+
+# 執行軌道 A：跨框架 UI 合約同構驗收測試（Playwright，約 15 秒）
+yarn test:e2e:contract
+
+# 執行軌道 B：真實底層引擎冒煙測試（真實 WebGL / Web Audio / Brain SSE）
+yarn test:e2e:engine
+
+# 執行雙軌完整 E2E 測試
+yarn test:e2e
+
+# 執行發布產物冒煙測試（先執行 yarn build 再驗證 dist/ 純 HTML 載入）
+yarn test:smoke
+```
+
+### 2. 獨立測試報告檢視
+
+每個測試軌道各自擁有獨立的報告輸出目錄，執行後**不會相互覆蓋**：
+
+```bash
+yarn test:e2e:report           # 檢視雙軌完整報告 (playwright-report/all)
+yarn test:e2e:report:contract  # 檢視合約驗收報告 (playwright-report/contract)
+yarn test:e2e:report:engine    # 檢視引擎冒煙報告 (playwright-report/engine)
+yarn test:e2e:report:smoke     # 檢視發布產物冒煙報告 (playwright-report/smoke)
+```
 
 ---
 
