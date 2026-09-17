@@ -14,7 +14,7 @@ import {
   STATE_MAP,
   BRAIN_ENGINE_TYPE_MAP
 } from '@/core/constants';
-
+import type { BrainEngine } from '@types';
 
 describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', () => {
   beforeEach(() => {
@@ -36,7 +36,7 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
       const onAiProviderChatting = vi.fn();
       const onAiProviderStreamChatting = vi.fn();
 
-      const brainEngine = await initBrainEngine({
+      const brainEngine: BrainEngine = await initBrainEngine({
         enableAiProvider: true,
         enableMemory: true,
         locale: 'zh-TW',
@@ -80,7 +80,7 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
     });
 
     it('should support string welcomeTexts and custom modes registration', async () => {
-      const brainEngine = await initBrainEngine({
+      const brainEngine: BrainEngine = await initBrainEngine({
         welcomeText: '靜態歡迎詞',
         companionWelcomeText: '靜態陪伴詞',
         assistantWelcomeText: '靜態助理詞',
@@ -107,31 +107,31 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
         ]
       };
 
-      const answer = getRetrievalAnswer(brainEngine, '請問有支援 3D 嗎？');
+      const answer = getRetrievalAnswer(brainEngine as any, '請問有支援 3D 嗎？');
       expect(answer).toBe('完全支援 Live2D 與 VRM 3D 模型！');
     });
 
     it('should return empty question prompt across all locales', () => {
-      expect(getRetrievalAnswer({ locale: 'en-US' }, '')).toContain('say it again');
-      expect(getRetrievalAnswer({ locale: 'ja-JP' }, '   ')).toContain('もう一度');
-      expect(getRetrievalAnswer({ locale: 'ko-KR' }, '')).toContain('다시 한 번');
-      expect(getRetrievalAnswer({ locale: 'zh-TW' }, '')).toContain('沒聽清楚');
+      expect(getRetrievalAnswer({ locale: 'en-US' } as any, '')).toContain('say it again');
+      expect(getRetrievalAnswer({ locale: 'ja-JP' } as any, '   ')).toContain('もう一度');
+      expect(getRetrievalAnswer({ locale: 'ko-KR' } as any, '')).toContain('다시 한 번');
+      expect(getRetrievalAnswer({ locale: 'zh-TW' } as any, '')).toContain('沒聽清楚');
     });
 
     it('should return localized assistant fallback when no knowledge matches across all locales', () => {
-      expect(getRetrievalAnswer({ locale: 'en-US', knowledge: [] }, 'Quantum physics')).toContain('knowledge base does not cover');
-      expect(getRetrievalAnswer({ locale: 'ja-JP', knowledge: [] }, '量子力学')).toContain('知識ベースにまだ登録されていません');
-      expect(getRetrievalAnswer({ locale: 'ko-KR', knowledge: [] }, '양자역학')).toContain('지식 베이스에 아직');
-      expect(getRetrievalAnswer({ locale: 'zh-TW', knowledge: [] }, '量子力學')).toContain('這題我的知識庫還沒收錄');
+      expect(getRetrievalAnswer({ locale: 'en-US', knowledge: [] } as any, 'Quantum physics')).toContain('knowledge base does not cover');
+      expect(getRetrievalAnswer({ locale: 'ja-JP', knowledge: [] } as any, '量子力学')).toContain('知識ベースにまだ登録されていません');
+      expect(getRetrievalAnswer({ locale: 'ko-KR', knowledge: [] } as any, '양자역학')).toContain('지식 베이스에 아직');
+      expect(getRetrievalAnswer({ locale: 'zh-TW', knowledge: [] } as any, '量子力學')).toContain('這題我的知識庫還沒收錄');
     });
 
     it('should support assistantFallbackContext and custom modes fallback in getRetrievalAnswer', () => {
       const brainEngineWithContext = {
         locale: 'zh-TW',
         knowledge: [],
-        assistantFallbackContext: ({ question }) => `找不到「${question}」的資料喔！`
+        assistantFallbackContext: ({ question }: { question: string }) => `找不到「${question}」的資料喔！`
       };
-      expect(getRetrievalAnswer(brainEngineWithContext, '火星')).toBe('找不到「火星」的資料喔！');
+      expect(getRetrievalAnswer(brainEngineWithContext as any, '火星')).toBe('找不到「火星」的資料喔！');
 
       const customModeEngine = {
         locale: 'zh-TW',
@@ -143,7 +143,7 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
           }
         }
       };
-      expect(getRetrievalAnswer(customModeEngine, '門票')).toBe('導覽員目前不知道這題喔！');
+      expect(getRetrievalAnswer(customModeEngine as any, '門票')).toBe('導覽員目前不知道這題喔！');
 
       const customModeFunctionEngine = {
         locale: 'zh-TW',
@@ -151,11 +151,11 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
         modes: {
           guide: {
             knowledge: [],
-            fallback: ({ question }) => `導覽員小提示：${question}`
+            fallback: ({ question }: { question: string }) => `導覽員小提示：${question}`
           }
         }
       };
-      expect(getRetrievalAnswer(customModeFunctionEngine, '廁所在哪')).toBe('導覽員小提示：廁所在哪');
+      expect(getRetrievalAnswer(customModeFunctionEngine as any, '廁所在哪')).toBe('導覽員小提示：廁所在哪');
     });
 
     it('should handle companion mode knowledge matching and fallback', () => {
@@ -163,45 +163,46 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
         locale: 'zh-TW',
         avatarMode: AVATAR_MODE_MAP.companion,
         knowledge: [{ q: '網站介紹', kw: '網站', a: '這是官網' }],
-        companionKnowledge: [{ q: '你開心嗎', kw: '開心', a: '我很開心！' }]
+        companionKnowledge: [{ q: '你開心嗎', kw: '開心', a: '我很開心！' }],
+        companionFallbackIdx: 0
       };
 
       // Companion knowledge match
-      expect(getRetrievalAnswer(brainEngine, '你今天開心嗎')).toBe('我很開心！');
+      expect(getRetrievalAnswer(brainEngine as any, '你今天開心嗎')).toBe('我很開心！');
 
       // Site knowledge match in companion mode
-      expect(getRetrievalAnswer(brainEngine, '網站介紹')).toBe('這是官網');
+      expect(getRetrievalAnswer(brainEngine as any, '網站介紹')).toBe('這是官網');
 
       // Fallback in companion mode
       brainEngine.companionFallbackIdx = 0;
-      const fallback = getRetrievalAnswer(brainEngine, '外太空有外星人嗎');
+      const fallback = getRetrievalAnswer(brainEngine as any, '外太空有外星人嗎');
       expect(typeof fallback).toBe('string');
     });
 
     it('should cycle through companion fallback responses across different locales and custom contexts', () => {
       const enEngine = { locale: 'en-US', memory: { data: { name: 'Alice' } }, companionFallbackIdx: 0 };
-      expect(getCompanionFallbackResponse(enEngine, 'hi')).toContain('Alice');
+      expect(getCompanionFallbackResponse(enEngine as any, 'hi')).toContain('Alice');
 
       const jaEngine = { locale: 'ja-JP', memory: { data: { name: 'さくら' } }, companionFallbackIdx: 0 };
-      expect(getCompanionFallbackResponse(jaEngine, 'こんにちは')).toContain('さくら');
+      expect(getCompanionFallbackResponse(jaEngine as any, 'こんにちは')).toContain('さくら');
 
       const koEngine = { locale: 'ko-KR', memory: { data: { name: '지우' } }, companionFallbackIdx: 0 };
-      expect(getCompanionFallbackResponse(koEngine, '안녕')).toContain('지우');
+      expect(getCompanionFallbackResponse(koEngine as any, '안녕')).toContain('지우');
 
       const customFallbackEngine = {
         locale: 'zh-TW',
         companionFallbackContext: '自訂陪伴兜底回覆',
         companionFallbackIdx: 0
       };
-      expect(getCompanionFallbackResponse(customFallbackEngine, '哈囉')).toBe('自訂陪伴兜底回覆');
+      expect(getCompanionFallbackResponse(customFallbackEngine as any, '哈囉')).toBe('自訂陪伴兜底回覆');
 
       const arrayFallbackEngine = {
         locale: 'zh-TW',
         companionFallback: ['自訂清單回覆一', '自訂清單回覆二'],
         companionFallbackIdx: 0
       };
-      expect(getCompanionFallbackResponse(arrayFallbackEngine, '哈囉')).toBe('自訂清單回覆一');
-      expect(getCompanionFallbackResponse(arrayFallbackEngine, '哈囉')).toBe('自訂清單回覆二');
+      expect(getCompanionFallbackResponse(arrayFallbackEngine as any, '哈囉')).toBe('自訂清單回覆一');
+      expect(getCompanionFallbackResponse(arrayFallbackEngine as any, '哈囉')).toBe('自訂清單回覆二');
     });
   });
 
@@ -217,15 +218,15 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
         onChatHistoryChanged
       };
 
-      const messageId = addChatMessage(brainEngine, 'user', '哈囉！');
+      const messageId = addChatMessage(brainEngine as any, 'user', '哈囉！');
       expect(brainEngine.chatLog).toHaveLength(1);
-      expect(brainEngine.chatLog[0].text).toBe('哈囉！');
+      expect((brainEngine.chatLog[0] as any).text).toBe('哈囉！');
       expect(onAddChatMessage).toHaveBeenCalledOnce();
       expect(onChatHistoryChanged).toHaveBeenCalledOnce();
 
-      updateChatMessage(brainEngine, messageId, '哈囉～更新版！', false);
-      expect(brainEngine.chatLog[0].text).toBe('哈囉～更新版！');
-      expect(brainEngine.chatLog[0].streaming).toBe(false);
+      updateChatMessage(brainEngine as any, messageId, '哈囉～更新版！', false);
+      expect((brainEngine.chatLog[0] as any).text).toBe('哈囉～更新版！');
+      expect((brainEngine.chatLog[0] as any).streaming).toBe(false);
     });
 
     it('should shift oldest message when chatLog exceeds 80 messages and fallback to addChatMessage on unknown id update', () => {
@@ -234,12 +235,12 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
         chatSeq: 80
       };
 
-      addChatMessage(brainEngine, 'assistant', '第 81 則訊息');
+      addChatMessage(brainEngine as any, 'assistant', '第 81 則訊息');
       expect(brainEngine.chatLog).toHaveLength(80);
       expect(brainEngine.chatLog[79].text).toBe('第 81 則訊息');
 
       // Update non-existing message id -> adds message
-      const newId = updateChatMessage(brainEngine, 'non_existent_id', '新加入的訊息', false);
+      const newId = updateChatMessage(brainEngine as any, 'non_existent_id', '新加入的訊息', false);
       expect(newId).toBeDefined();
     });
   });
@@ -260,7 +261,7 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
         triggerRollingSummaryIfNeeded
       };
 
-      emitAnswer(brainEngine, '今天天氣很棒！');
+      emitAnswer(brainEngine as any, '今天天氣很棒！');
 
       expect(addTurn).toHaveBeenCalledWith('assistant', '今天天氣很棒！');
       expect(brainEngine.chatLog).toHaveLength(1);
@@ -269,8 +270,9 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
       expect(triggerRollingSummaryIfNeeded).toHaveBeenCalled();
 
       // Empty text returns safely
-      emitAnswer(brainEngine, '');
-      emitAnswer(brainEngine, null);
+      emitAnswer(brainEngine as any, '');
+      // @ts-ignore: Defensive runtime type checking test
+      emitAnswer(brainEngine as any, null);
     });
   });
 
@@ -282,19 +284,19 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
         onSpokenAudioTextChange
       };
 
-      await answerQuestion(brainEngine, '   ');
+      await answerQuestion(brainEngine as any, '   ');
       expect(onSpokenAudioTextChange).toHaveBeenCalled();
     });
 
     it('should route to AI Provider when enabled and ready', async () => {
-      const chatWithAiProvider = vi.fn().mockResolvedValue();
+      const chatWithAiProvider = vi.fn().mockResolvedValue(undefined);
 
       const brainEngine = {
         aiProvider: { enabled: true, ready: true },
         chatWithAiProvider
       };
 
-      await answerQuestion(brainEngine, '測試問題');
+      await answerQuestion(brainEngine as any, '測試問題');
       expect(chatWithAiProvider).toHaveBeenCalledWith('測試問題');
     });
 
@@ -306,13 +308,13 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
         aiProvider: { enabled: true, ready: true },
         chatWithAiProvider: vi.fn().mockRejectedValue(new Error('AI Provider offline')),
         llm: { state: STATE_MAP.READY },
-        chatWithWebLLM: vi.fn().mockResolvedValue(),
+        chatWithWebLLM: vi.fn().mockResolvedValue(undefined),
         onBrainFallback,
         emitAnswer: emitAnswerMock,
         STATE_MAP
       };
 
-      await answerQuestion(brainEngine, '測試問題');
+      await answerQuestion(brainEngine as any, '測試問題');
 
       expect(onBrainFallback).toHaveBeenCalledWith(
         BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER,
@@ -323,7 +325,7 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
     });
 
     it('should trigger background WebLLM loading when AI provider is enabled but not ready', async () => {
-      const loadMock = vi.fn().mockResolvedValue();
+      const loadMock = vi.fn().mockResolvedValue(undefined);
       const emitAnswerMock = vi.fn();
 
       const brainEngine = {
@@ -335,7 +337,7 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
         STATE_MAP
       };
 
-      await answerQuestion(brainEngine, '測試');
+      await answerQuestion(brainEngine as any, '測試');
       expect(loadMock).toHaveBeenCalled();
       expect(emitAnswerMock).toHaveBeenCalledWith('測試回答');
     });
@@ -354,7 +356,7 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
         STATE_MAP
       };
 
-      await answerQuestion(brainEngine, '你好');
+      await answerQuestion(brainEngine as any, '你好');
       expect(onBrainFallback).toHaveBeenCalledWith(
         BRAIN_ENGINE_TYPE_MAP.WEB_LLM,
         BRAIN_ENGINE_TYPE_MAP.RETRIEVAL,
@@ -366,8 +368,11 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
 
   describe('validateBrainEngine', () => {
     it('should return isValid false when argument is not an object', () => {
+      // @ts-ignore: Defensive runtime type checking test
       expect(validateBrainEngine(null)).toEqual({ isValid: false, missing: ['engine object'] });
+      // @ts-ignore: Defensive runtime type checking test
       expect(validateBrainEngine(undefined)).toEqual({ isValid: false, missing: ['engine object'] });
+      // @ts-ignore: Defensive runtime type checking test
       expect(validateBrainEngine('string')).toEqual({ isValid: false, missing: ['engine object'] });
     });
 
@@ -387,7 +392,7 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
         chatSeq: 0
       };
 
-      const validation = validateBrainEngine(validEngine);
+      const validation = validateBrainEngine(validEngine as any);
       expect(validation.isValid).toBe(true);
       expect(validation.missing).toEqual([]);
     });
@@ -397,7 +402,7 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
         addChatMessage: () => {}
       };
 
-      const validation = validateBrainEngine(incompleteEngine);
+      const validation = validateBrainEngine(incompleteEngine as any);
       expect(validation.isValid).toBe(false);
       expect(validation.missing.length).toBeGreaterThan(0);
     });
@@ -408,12 +413,12 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
         throw new Error('Hook failed');
       });
 
-      const addChatMessage = vi.fn();
+      const addChatMessageMock = vi.fn();
       const onSpokenAudioPlayNow = vi.fn();
       const onSpokenDisplayTextChange = vi.fn();
       const onEmotionChange = vi.fn();
 
-      const brainEngine = {
+      const brainEngine: any = {
         aiProvider: { enabled: true, ready: false },
         autoFallbackWebLLM: true,
         llm: { supported: true, state: STATE_MAP.IDLE, load: loadMock },
@@ -422,14 +427,16 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
         knowledge: [{ q: '知識', a: '答案' }],
         memory: { enabled: true, addTurn: vi.fn() },
         chatLog: [],
-        addChatMessage,
+        addChatMessage: addChatMessageMock,
         onSpokenAudioPlayNow,
         onSpokenDisplayTextChange,
         onEmotionChange
       };
 
       // 1. aiProvider enabled but not ready -> triggers triggerBackgroundWebLLMLoad -> falls back to retrieval
-      await brainEngine.answerQuestion ? brainEngine.answerQuestion('知識') : null;
+      if (typeof brainEngine.answerQuestion === 'function') {
+        await brainEngine.answerQuestion('知識');
+      }
 
       // 2. aiProvider throws error -> onBrainFallback throws -> catches safely
       brainEngine.aiProvider.ready = true;
@@ -443,4 +450,3 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
     });
   });
 });
-

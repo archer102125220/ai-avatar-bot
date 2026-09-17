@@ -12,7 +12,9 @@ import {
   COMPRESSION_STRATEGY_MAP,
   STATE_MAP
 } from '@/core/constants';
+import type { MemoryInstance, MemoryData } from '@types';
 
+type MemoryEngine = any;
 
 describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
   beforeEach(() => {
@@ -30,7 +32,9 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
     });
 
     it('should safely migrate null, undefined, or old v0 data structures', () => {
+      // @ts-ignore: Defensive runtime type checking test
       expect(migrateMemoryData(null)).toEqual(createDefaultMemoryData());
+      // @ts-ignore: Defensive runtime type checking test
       expect(migrateMemoryData(undefined)).toEqual(createDefaultMemoryData());
 
       const v0Data = {
@@ -52,7 +56,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
         ]
       };
 
-      const migrated = migrateMemoryData(v0Data);
+      const migrated = migrateMemoryData(v0Data as any);
       expect(migrated.version).toBe(1);
       expect(migrated.name).toBe('Bob');
       expect(migrated.visits).toBe(3);
@@ -81,7 +85,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
         metadata: 'not an object' // invalid type
       };
 
-      const sanitized = migrateMemoryData(corruptedData);
+      const sanitized = migrateMemoryData(corruptedData as any);
       expect(sanitized.name).toBe('');
       expect(sanitized.visits).toBe(0);
       expect(sanitized.last).toBe(0);
@@ -94,7 +98,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
 
   describe('initMemory operations and adapters', () => {
     it('should auto-enable memory when avatarMode is companion', () => {
-      const memory = initMemory({
+      const memory: MemoryEngine = initMemory({
         avatarMode: 'companion',
         enableMemory: undefined,
         memoryKey: ''
@@ -105,7 +109,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
     });
 
     it('should stay disabled when enableMemory is false and ignore operations', () => {
-      const memory = initMemory({
+      const memory: MemoryEngine = initMemory({
         enableMemory: false,
         maxHistoryTurns: -5
       });
@@ -124,18 +128,18 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
     });
 
     it('should load and save through custom adapter and support versioning/metadata', () => {
-      const customStorage = {};
+      const customStorage: Record<string, any> = {};
       const customAdapter = {
-        load: vi.fn((k) => customStorage[k] || null),
-        save: vi.fn((k, d) => {
+        load: vi.fn((k: string) => customStorage[k] || null),
+        save: vi.fn((k: string, d: MemoryData) => {
           customStorage[k] = d;
         }),
-        clear: vi.fn((k) => {
+        clear: vi.fn((k: string) => {
           delete customStorage[k];
         })
       };
 
-      const memory = initMemory({
+      const memory: any = initMemory({
         memoryKey: 'custom_key',
         enableMemory: true,
         memoryAdapter: customAdapter
@@ -149,10 +153,11 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
       expect(memory.getMetadata()).toEqual({ tag: 'vip' });
 
       // setMetadata with updater function returning valid object
-      memory.setMetadata((prev) => ({ ...prev, score: 100 }));
+      memory.setMetadata((prev: any) => ({ ...prev, score: 100 }));
       expect(memory.getMetadata()).toEqual({ tag: 'vip', score: 100 });
 
       // setMetadata with updater function returning invalid
+      // @ts-ignore: Defensive runtime type checking test for updater returning null
       memory.setMetadata(() => null);
       expect(memory.getMetadata()).toEqual({ tag: 'vip', score: 100 });
 
@@ -178,6 +183,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
 
       // addTurn ignores non-string or empty content
       memory.addTurn('user', '');
+      // @ts-ignore: Defensive runtime type checking test for null content
       memory.addTurn('user', null);
       expect(memory.data.history.length).toBe(0);
 
@@ -201,7 +207,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
         throw new Error('QuotaExceeded');
       });
 
-      const memory = initMemory({
+      const memory: MemoryEngine = initMemory({
         memoryKey: 'local_test_key',
         enableMemory: true
       });
@@ -213,14 +219,14 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
 
       // Mock localStorage containing corrupted JSON
       localStorage.setItem('corrupted_key', '{ invalid json');
-      const corruptedMem = initMemory({
+      const corruptedMem: MemoryEngine = initMemory({
         memoryKey: 'corrupted_key',
         enableMemory: true
       });
       expect(corruptedMem.data.visits).toBe(1);
 
       // Clear with adapter without clear method
-      corruptedMem.adapter = {};
+      corruptedMem.adapter = {} as any;
       corruptedMem.clear(); // Should not throw
       expect(corruptedMem.data.visits).toBe(1);
     });
@@ -249,17 +255,19 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
         },
         compression: {
           strategy: COMPRESSION_STRATEGY_MAP.ROLLING_SUMMARY,
-          summaryThresholdTurns: 1
+          summaryThresholdTurns: 1,
+          summaryGenerator: undefined as any
         },
         aiProvider: {
           enabled: true,
           ready: true,
           chat: vi.fn(async () => ({ content: '最新精煉摘要：喜歡蘋果與香蕉' }))
         },
-        onSummaryUpdated
+        onSummaryUpdated,
+        _isSummarizing: false
       };
 
-      await triggerRollingSummaryIfNeeded(mockBrainEngine);
+      await triggerRollingSummaryIfNeeded(mockBrainEngine as any);
       expect(mockBrainEngine._isSummarizing).toBe(true);
 
       // Fast-forward background timer
@@ -273,7 +281,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
       // Trigger again with empty summary generated (should not update summary)
       mockBrainEngine.compression.summaryGenerator = vi.fn(async () => '');
       mockBrainEngine.memory.data.lastSummarizedTurnIndex = 0;
-      await triggerRollingSummaryIfNeeded(mockBrainEngine);
+      await triggerRollingSummaryIfNeeded(mockBrainEngine as any);
       await vi.advanceTimersByTimeAsync(100);
       expect(mockBrainEngine.memory.data.summary).toBe('最新精煉摘要：喜歡蘋果與香蕉'); // preserved
 
@@ -313,10 +321,11 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
               }
             }
           }
-        }
+        },
+        _isSummarizing: false
       };
 
-      await triggerRollingSummaryIfNeeded(mockBrainEngine);
+      await triggerRollingSummaryIfNeeded(mockBrainEngine as any);
       await vi.advanceTimersByTimeAsync(100);
 
       expect(mockBrainEngine.memory.data.summary).toBe('WebLLM 產出的摘要');
@@ -324,18 +333,21 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
       // Test error handling
       mockBrainEngine.llm.engine.chat.completions.create.mockRejectedValueOnce(new Error('LLM summary failed'));
       mockBrainEngine.memory.data.lastSummarizedTurnIndex = 0;
-      await triggerRollingSummaryIfNeeded(mockBrainEngine);
+      await triggerRollingSummaryIfNeeded(mockBrainEngine as any);
       await vi.advanceTimersByTimeAsync(100);
       expect(mockBrainEngine._isSummarizing).toBe(false);
 
       // Test guard conditions
+      // @ts-ignore: Defensive runtime type checking test
       expect(await triggerRollingSummaryIfNeeded(null)).toBeUndefined();
+      // @ts-ignore: Defensive runtime type checking test
       expect(await triggerRollingSummaryIfNeeded({ memory: { enabled: false } })).toBeUndefined();
+      // @ts-ignore: Defensive runtime type checking test
       expect(await triggerRollingSummaryIfNeeded({ memory: { enabled: true }, _isSummarizing: true })).toBeUndefined();
       expect(await triggerRollingSummaryIfNeeded({
         memory: { enabled: true, data: { history: [] } },
         compression: { strategy: 'other' }
-      })).toBeUndefined();
+      } as any)).toBeUndefined();
 
       vi.useRealTimers();
     });

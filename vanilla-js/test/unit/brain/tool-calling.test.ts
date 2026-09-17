@@ -4,12 +4,13 @@ import {
   executeToolCallsLoop
 } from '@/core/brain/tool-calling';
 import { BRAIN_ENGINE_TYPE_MAP } from '@/core/constants';
-
+import type { BrainEngine } from '@types';
 
 describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
   describe('extractToolCallsFromText', () => {
     it('should extract tool calls from text and handle non-string arguments', () => {
       expect(extractToolCallsFromText('')).toEqual([]);
+      // @ts-ignore: Defensive runtime type checking test for null input
       expect(extractToolCallsFromText(null)).toEqual([]);
 
       const xmlText = `
@@ -37,11 +38,11 @@ describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
   });
 
   describe('executeToolCallsLoop', () => {
-    let mockBrainEngine;
+    let mockBrainEngine: any;
 
     beforeEach(() => {
       mockBrainEngine = {
-        getToolByName: vi.fn((name) => {
+        getToolByName: vi.fn((name: string) => {
           if (name === 'registered_tool') {
             return { name: 'registered_tool', requiresConfirmation: false };
           }
@@ -50,16 +51,16 @@ describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
           }
           return null;
         }),
-        executeTool: vi.fn(async (_tool, args) => ({ ok: true, data: args })),
+        executeTool: vi.fn(async (_tool: any, args: any) => ({ ok: true, data: args })),
         offerToolConfirmation: vi.fn(),
-        onToolNotFound: vi.fn(async ({ toolName }) => ({ ok: false, error: `Custom not found: ${toolName}` })),
-        onToolError: vi.fn(async ({ error }) => ({ ok: false, error: `Custom error: ${error.message}` })),
+        onToolNotFound: vi.fn(async ({ toolName }: { toolName: string }) => ({ ok: false, error: `Custom not found: ${toolName}` })),
+        onToolError: vi.fn(async ({ error }: { error: Error }) => ({ ok: false, error: `Custom error: ${error.message}` })),
         emitAnswer: vi.fn(),
         aiProvider: {
           chat: vi.fn(async () => 'AI Provider Summary of Tool')
         },
         llm: {
-          chat: vi.fn(async (_msgs, onChunk) => {
+          chat: vi.fn(async (_msgs: any, onChunk: any) => {
             onChunk('Chunk 1', 'Chunk 1');
             onChunk('Chunk 2', 'Chunk 1Chunk 2');
             return 'WebLLM Tool Summary';
@@ -80,7 +81,7 @@ describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
     });
 
     it('should safely return if toolCalls is empty', async () => {
-      await executeToolCallsLoop(mockBrainEngine, { toolCalls: [] }, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      await executeToolCallsLoop(mockBrainEngine as BrainEngine, { toolCalls: [] } as any, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER as any);
       expect(mockBrainEngine.emitAnswer).not.toHaveBeenCalled();
     });
 
@@ -92,7 +93,7 @@ describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
         message: { content: '' }
       };
 
-      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      await executeToolCallsLoop(mockBrainEngine as BrainEngine, toolCallResponse as any, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER as any);
 
       expect(mockBrainEngine.onToolNotFound).toHaveBeenCalled();
       expect(mockBrainEngine.aiProvider.chat).toHaveBeenCalled();
@@ -112,7 +113,7 @@ describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
         message: { content: '' }
       };
 
-      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      await executeToolCallsLoop(mockBrainEngine as BrainEngine, toolCallResponse as any, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER as any);
 
       expect(mockBrainEngine.onToolError).toHaveBeenCalled();
       expect(mockBrainEngine.emitAnswer).toHaveBeenCalled();
@@ -130,7 +131,7 @@ describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
         message: { content: '' }
       };
 
-      await executeToolCallsLoop(mockBrainEngine, toolCallResponse1, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      await executeToolCallsLoop(mockBrainEngine as BrainEngine, toolCallResponse1 as any, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER as any);
       expect(mockBrainEngine.emitAnswer).toHaveBeenCalledWith('直接字串結果');
 
       // 2. lastResult as object with message property
@@ -142,14 +143,13 @@ describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
         message: { content: '' }
       };
 
-      await executeToolCallsLoop(mockBrainEngine, toolCallResponse2, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      await executeToolCallsLoop(mockBrainEngine as BrainEngine, toolCallResponse2 as any, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER as any);
       expect(mockBrainEngine.emitAnswer).toHaveBeenCalledWith('物件訊息回傳');
     });
 
-
     it('should handle tool confirmation required and resume after confirmation', async () => {
-      let confirmationContext;
-      mockBrainEngine.offerToolConfirmation = vi.fn((tool, args, ctx) => {
+      let confirmationContext: any;
+      mockBrainEngine.offerToolConfirmation = vi.fn((_tool: any, _args: any, ctx: any) => {
         confirmationContext = ctx;
       });
 
@@ -160,7 +160,7 @@ describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
         message: { content: '' }
       };
 
-      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      await executeToolCallsLoop(mockBrainEngine as BrainEngine, toolCallResponse as any, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER as any);
 
       expect(mockBrainEngine.offerToolConfirmation).toHaveBeenCalled();
 
@@ -181,7 +181,7 @@ describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
         message: { content: '' }
       };
 
-      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.WEB_LLM);
+      await executeToolCallsLoop(mockBrainEngine as BrainEngine, toolCallResponse as any, [], BRAIN_ENGINE_TYPE_MAP.WEB_LLM as any);
 
       expect(mockBrainEngine.onStreamStart).toHaveBeenCalled();
       expect(mockBrainEngine.llm.chat).toHaveBeenCalled();
@@ -203,22 +203,22 @@ describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
         message: { content: '' }
       };
 
-      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      await executeToolCallsLoop(mockBrainEngine as BrainEngine, toolCallResponse as any, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER as any);
       expect(mockBrainEngine.emitAnswer).toHaveBeenCalledWith('Database timeout');
 
       // 2. AI Provider with empty summary and lastResult is a plain string
       mockBrainEngine.executeTool = vi.fn().mockResolvedValue('Plain result string');
-      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      await executeToolCallsLoop(mockBrainEngine as BrainEngine, toolCallResponse as any, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER as any);
       expect(mockBrainEngine.emitAnswer).toHaveBeenCalledWith('Plain result string');
 
       // 3. AI Provider with empty summary and lastResult has message
       mockBrainEngine.executeTool = vi.fn().mockResolvedValue({ ok: true, message: 'Updated 5 items' });
-      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      await executeToolCallsLoop(mockBrainEngine as BrainEngine, toolCallResponse as any, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER as any);
       expect(mockBrainEngine.emitAnswer).toHaveBeenCalledWith('Updated 5 items');
 
       // 4. AI Provider with empty summary and empty lastResult -> defaults to brain.toolExecutionError
       mockBrainEngine.executeTool = vi.fn().mockResolvedValue({});
-      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      await executeToolCallsLoop(mockBrainEngine as BrainEngine, toolCallResponse as any, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER as any);
       expect(mockBrainEngine.emitAnswer).toHaveBeenCalled();
     });
 
@@ -233,22 +233,22 @@ describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
         message: { content: '' }
       };
 
-      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.WEB_LLM);
+      await executeToolCallsLoop(mockBrainEngine as BrainEngine, toolCallResponse as any, [], BRAIN_ENGINE_TYPE_MAP.WEB_LLM as any);
       expect(mockBrainEngine.onStreamEnd).toHaveBeenCalledWith('WebLLM tool error');
 
       // Test with plain string result in WebLLM mode
       mockBrainEngine.executeTool = vi.fn().mockResolvedValue('WebLLM plain string result');
-      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.WEB_LLM);
+      await executeToolCallsLoop(mockBrainEngine as BrainEngine, toolCallResponse as any, [], BRAIN_ENGINE_TYPE_MAP.WEB_LLM as any);
       expect(mockBrainEngine.onStreamEnd).toHaveBeenCalledWith('WebLLM plain string result');
 
       // Test with message property in WebLLM mode
       mockBrainEngine.executeTool = vi.fn().mockResolvedValue({ message: 'WebLLM message result' });
-      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.WEB_LLM);
+      await executeToolCallsLoop(mockBrainEngine as BrainEngine, toolCallResponse as any, [], BRAIN_ENGINE_TYPE_MAP.WEB_LLM as any);
       expect(mockBrainEngine.onStreamEnd).toHaveBeenCalledWith('WebLLM message result');
 
       // Test with empty lastResult in WebLLM mode -> error fallback
       mockBrainEngine.executeTool = vi.fn().mockResolvedValue({});
-      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.WEB_LLM);
+      await executeToolCallsLoop(mockBrainEngine as BrainEngine, toolCallResponse as any, [], BRAIN_ENGINE_TYPE_MAP.WEB_LLM as any);
       expect(mockBrainEngine.onStreamEnd).toHaveBeenCalled();
     });
 
@@ -267,7 +267,7 @@ describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
         message: { content: '' }
       };
 
-      await executeToolCallsLoop(mockBrainEngine, toolCallResponse, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER);
+      await executeToolCallsLoop(mockBrainEngine as BrainEngine, toolCallResponse as any, [], BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER as any);
       expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('onToolNotFound 回呼執行錯誤'), expect.any(Error));
 
       consoleErrorSpy.mockRestore();
