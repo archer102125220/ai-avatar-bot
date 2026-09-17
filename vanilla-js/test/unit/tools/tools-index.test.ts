@@ -5,9 +5,7 @@ import {
   CHAT_SOURCE_MAP
 } from '@/core/constants';
 
-
-
-describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
+describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
   describe('validateToolsEngine', () => {
     it('should validate complete tools engine correctly', () => {
       const validEngine = {
@@ -29,9 +27,12 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
     });
 
     it('should report missing methods for incomplete or non-object engine', () => {
+      // @ts-ignore: Defensive runtime type checking test for null engine
       expect(validateToolsEngine(null).isValid).toBe(false);
+      // @ts-ignore: Defensive runtime type checking test for empty object
       expect(validateToolsEngine({}).isValid).toBe(false);
       const partial = { routeHostTool: vi.fn() };
+      // @ts-ignore: Defensive runtime type checking test for partial engine
       const res = validateToolsEngine(partial);
       expect(res.isValid).toBe(false);
       expect(res.missing).toContain('prepareTool');
@@ -90,7 +91,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
       expect(engine.toOpenAiTools()).toHaveLength(1);
       const routed = engine.routeHostTool('現在幾點');
       expect(routed.match).toBeDefined();
-      expect(routed.match.tool.name).toBe('get_time');
+      expect(routed.match!.tool.name).toBe('get_time');
     });
   });
 
@@ -106,7 +107,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
         },
         required: ['city']
       },
-      execute: vi.fn(async ({ args }) => `天氣：${args.city} 晴天`)
+      execute: vi.fn(async ({ args }: { args: { city: string } }) => `天氣：${args.city} 晴天`)
     };
 
     it('should prompt user for missing parameters during prepareTool', () => {
@@ -123,7 +124,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
       engine.prepareTool(weatherTool, '幫我查天氣', { confidence: 0.9 }, {});
 
       expect(engine.pendingToolInput).toBeDefined();
-      expect(engine.pendingToolInput.missing).toContain('city');
+      expect(engine.pendingToolInput!.missing).toContain('city');
       expect(onAddChatMessage).toHaveBeenCalledWith('assistant', expect.stringContaining('請提供城市名稱'), { source: 'tool' });
       expect(onSpokenAudioPlayNow).toHaveBeenCalled();
     });
@@ -163,11 +164,10 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
 
     it('should collect missing param on continueToolInput and proceed to tool execution', () => {
       const onSpokenAudioPlayNow = vi.fn();
-      const chatLog = [];
+      const chatLog: any[] = [];
 
       const engine = initToolsEngine({
-
-        onAddChatMessage: vi.fn((role, text, opts) => {
+        onAddChatMessage: vi.fn((role: string, text: string, opts?: any) => {
           const id = opts?.id || `msg_${Date.now()}`;
           chatLog.push({ id, role, text, ...opts });
           return id;
@@ -215,13 +215,13 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
       ]);
 
       expect(engine.pendingToolChoice).toBeDefined();
-      expect(engine.pendingToolChoice.messageId).toBe('choice_msg_1');
+      expect(engine.pendingToolChoice!.messageId).toBe('choice_msg_1');
       expect(onSetHistoryOpen).toHaveBeenCalledWith(true);
       expect(onSpokenAudioPlayNow).toHaveBeenCalled();
     });
 
     it('should handle cancel during continueToolChoice', () => {
-      const chatLog = [{ id: 'choice_msg_1', role: 'assistant', text: '', pendingChoices: [{ tool: toolA }] }];
+      const chatLog: any[] = [{ id: 'choice_msg_1', role: 'assistant', text: '', pendingChoices: [{ tool: toolA, score: 1 }] }];
       const onRenderHistory = vi.fn();
       const onSpokenAudioPlayNow = vi.fn();
 
@@ -234,7 +234,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
 
       engine.pendingToolChoice = {
         messageId: 'choice_msg_1',
-        choices: [{ tool: toolA }]
+        choices: [{ tool: toolA, score: 1 }]
       };
 
       const handled = engine.continueToolChoice('取消');
@@ -246,7 +246,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
     });
 
     it('should select choice by ordinal number ("第一個", "2", or routed keyword)', () => {
-      const chatLog = [{ id: 'choice_msg_1', role: 'assistant', text: '', choiceQuery: '我想聽', pendingChoices: [{ tool: toolA }, { tool: toolB }] }];
+      const chatLog: any[] = [{ id: 'choice_msg_1', role: 'assistant', text: '', choiceQuery: '我想聽', pendingChoices: [{ tool: toolA, score: 0.8 }, { tool: toolB, score: 0.7 }] }];
       const onRenderHistory = vi.fn();
       const onAddChatMessage = vi.fn();
 
@@ -282,7 +282,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
 
       engine.pendingToolChoice = {
         messageId: 'msg_1',
-        choices: [{ tool: toolA }]
+        choices: [{ tool: toolA, score: 1 }]
       };
 
       const handled = engine.continueToolChoice('隨便啦');
@@ -402,14 +402,14 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
       engine.pendingToolConfirmation = 'call_del_3';
       const handledNew = engine.continueToolConfirmation('今天天氣如何？');
       expect(handledNew).toBe(false);
-      expect(chatLog[0].cancelled).toBe(true);
+      expect((chatLog[0] as any).cancelled).toBe(true);
       expect(chatLog[0].text).toBe('已取消（已轉移話題）。');
     });
 
     it('should handle tool confirmation timeout automatically', () => {
       vi.useFakeTimers();
       const onToolCancel = vi.fn();
-      const chatLog = [{
+      const chatLog: any[] = [{
         id: 'call_timeout_1',
         role: 'assistant',
         text: '要執行嗎？',
@@ -436,7 +436,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
       // Fast forward past 3000ms
       vi.advanceTimersByTime(3500);
 
-      expect(chatLog[0].timedOut).toBe(true);
+      expect((chatLog[0] as any).timedOut).toBe(true);
       expect(chatLog[0].text).toBe('操作已逾時失效。');
       expect(onToolCancel).toHaveBeenCalledWith(expect.objectContaining({ reason: TOOL_CANCEL_REASON_MAP.TIMEOUT }));
 
@@ -524,7 +524,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
       const onSpokenAudioPlayNow = vi.fn();
       const onRenderHistory = vi.fn();
 
-      const chatLog = [
+      const chatLog: any[] = [
         {
           id: 'msg_tool_1',
           pendingTool: {
@@ -602,7 +602,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
         }
       ];
 
-      const onAddChatMessage = vi.fn((role, text, opts) => {
+      const onAddChatMessage = vi.fn((role: string, text: string, opts?: any) => {
         const msg = { id: opts?.id || `msg-${Date.now()}`, role, text, ...opts };
         chatLog.push(msg);
         return msg.id;
@@ -617,7 +617,6 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
         getChatLog: () => chatLog,
         getChatSeq: () => 1
       });
-
 
       // 1. answerPendingChoices when null -> returns false
       expect(engine.continueToolChoice('第一個')).toBe(false);
@@ -704,7 +703,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
         name: 'external_tool',
         label: '外部工具',
         requiresConfirmation: false,
-        execute: null
+        execute: undefined
       };
       engine.prepareTool(externalTool, '查詢外部', { confidence: 0.9, reason: 'test' });
       expect(onToolCall).toHaveBeenCalled();
@@ -737,7 +736,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
     });
 
     it('should test executePendingTool and cancelPendingTool edge cases and continueToolConfirmation routing', () => {
-      const chatLog = [];
+      const chatLog: any[] = [];
       const onRenderHistory = vi.fn();
       const onSpokenAudioPlayNow = vi.fn();
       const onToolCall = vi.fn();
@@ -833,7 +832,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
       // Test continueToolConfirmation with new topic message -> returns false & cancels with NEW_INPUT
       expect(engine.continueToolConfirmation('今天天氣如何')).toBe(false);
       expect(pendingMsg3.text).toBe('已取消（已轉移話題）。');
-      expect(pendingMsg3.cancelled).toBe(true);
+      expect((pendingMsg3 as any).cancelled).toBe(true);
       expect(onToolCancel).toHaveBeenCalledWith({
         name: 'search',
         reason: TOOL_CANCEL_REASON_MAP.NEW_INPUT,
@@ -842,8 +841,3 @@ describe('Unit Test: core/tools/index.js (Tools Engine)', () => {
     });
   });
 });
-
-
-
-
-

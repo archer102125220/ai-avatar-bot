@@ -8,8 +8,7 @@ import {
   LOCALE_LABELS
 } from '@/core/i18n';
 
-
-describe('Unit Test: core/i18n/index.js', () => {
+describe('Unit Test: core/i18n/index.js (TypeScript)', () => {
   describe('formatParams', () => {
     it('should replace single curly brace placeholder {name}', () => {
       const result = formatParams('Hello, {name}!', { name: 'Alice' });
@@ -32,15 +31,18 @@ describe('Unit Test: core/i18n/index.js', () => {
     });
 
     it('should return non-string inputs unchanged', () => {
+      // @ts-ignore: Defensive runtime type checking test for number
       expect(formatParams(123)).toBe(123);
+      // @ts-ignore: Defensive runtime type checking test for null
       expect(formatParams(null)).toBeNull();
+      // @ts-ignore: Defensive runtime type checking test for undefined
       expect(formatParams(undefined)).toBeUndefined();
     });
   });
 
   describe('resolveLocalized', () => {
     it('should execute function value with templateContext', () => {
-      const valueFn = vi.fn((ctx) => `你好，${ctx.username}`);
+      const valueFn = vi.fn((ctx: any) => `你好，${ctx.username}`);
       const result = resolveLocalized(valueFn, 'zh-TW', undefined, {
         username: '王小美'
       });
@@ -82,7 +84,7 @@ describe('Unit Test: core/i18n/index.js', () => {
         '預設回退'
       );
       expect(
-        resolveLocalized(undefined, 'zh-TW', (ctx) => `回退 ${ctx.id}`, {
+        resolveLocalized(undefined, 'zh-TW', (ctx: any) => `回退 ${ctx.id}`, {
           id: 42
         })
       ).toBe('回退 42');
@@ -198,7 +200,7 @@ describe('Unit Test: core/i18n/index.js', () => {
     });
 
     it('should support custom translation function override', () => {
-      const customT = vi.fn((key) => `[CUSTOM] ${key}`);
+      const customT = vi.fn((key: string) => `[CUSTOM] ${key}`);
       const i18n = initI18nEngine({ t: customT });
 
       expect(i18n.t('some.key')).toBe('[CUSTOM] some.key');
@@ -217,7 +219,7 @@ describe('Unit Test: core/i18n/index.js', () => {
       expect(localizedVal).toBe('你好');
 
       const genericListener = vi.fn();
-      const unsub = i18n.subscribe((state) => state.locale, genericListener);
+      const unsub = i18n.subscribe((state: any) => state.locale, genericListener);
       i18n.setLocale('en-US');
       expect(genericListener).toHaveBeenCalledWith('en-US', 'zh-TW');
       unsub();

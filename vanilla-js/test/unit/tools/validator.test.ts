@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { validate, extractPropertyValue, extract } from '@/core/tools/validator';
 
-
-describe('Unit Test: core/tools/validator.js', () => {
+describe('Unit Test: core/tools/validator.js (TypeScript)', () => {
   describe('validate', () => {
     const schema = {
       type: 'object',

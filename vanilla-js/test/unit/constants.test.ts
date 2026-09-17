@@ -56,9 +56,7 @@ import {
   isWebLLMFunctionCallingSupported
 } from '@/core/constants';
 
-
-
-describe('Unit Test: core/constants.js', () => {
+describe('Unit Test: core/constants.js (TypeScript)', () => {
   describe('Enums and Maps Integrity', () => {
     it('should have correct STATE_MAP values', () => {
       expect(STATE_MAP).toEqual({
@@ -232,8 +230,8 @@ describe('Unit Test: core/constants.js', () => {
         isWebLLMFunctionCallingSupported('Qwen2.5-1.5B-Instruct-q4f16_1-MLC')
       ).toBe(false);
       expect(isWebLLMFunctionCallingSupported('')).toBe(false);
+      // @ts-ignore: Defensive runtime type checking test for null input
       expect(isWebLLMFunctionCallingSupported(null)).toBe(false);
     });
   });
 });
-

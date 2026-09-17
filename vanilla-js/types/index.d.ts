@@ -833,7 +833,7 @@ export interface ToolDefinition {
   /** Human-readable display label. */
   label?: string;
   /** Detailed description of what the tool does (used by LLM for function calling). */
-  description: string;
+  description?: string;
   /** Keywords for fuzzy client-side routing. */
   keywords?: string[];
   /** Example phrases for intent similarity routing. */
@@ -869,14 +869,14 @@ export interface ToolDefinition {
  * Scoring evaluation result for a tool against a user query.
  */
 export interface ToolScoreResult {
-  /** Match confidence score (0 to 1). */
+  /** Calculated match score (0 to 1). */
   score: number;
-  /** Reason for match score (e.g. 'keyword', 'example', 'label', 'description', 'excluded'). */
+  /** Reason for match score calculation. */
   reason: string;
 }
 
 /**
- * Candidate tool matched during routing evaluation.
+ * Candidate tool match returned from routing evaluation.
  */
 export interface ToolRouteCandidate {
   /** Candidate tool definition. */
@@ -884,7 +884,7 @@ export interface ToolRouteCandidate {
   /** Match score (0 to 1). */
   score: number;
   /** Reason for match score. */
-  reason: string;
+  reason?: string;
 }
 
 /**
@@ -995,6 +995,8 @@ export interface ToolsEngineSetting {
   getChatSeq?: () => number;
   /** Function returning whether continuous conversation mode is active. */
   isConvoOn?: () => boolean;
+  /** Callback fired when a tool execution completes or yields a result. */
+  onToolResult?: (resultData: ToolResultData) => void;
 }
 
 /**
@@ -1011,6 +1013,16 @@ export interface ToolsEngine {
   pendingToolConfirmation: string | null;
   /** Current confirmation timeout in milliseconds. */
   confirmationTimeoutMs: number;
+  /** Registered callback to add a chat message. */
+  readonly onAddChatMessage?: (role: string, text: string, options?: Record<string, any>) => string | void;
+  /** Registered callback to update a chat message. */
+  readonly onUpdateChatMessage?: (id: string, text: string, streaming?: boolean) => void;
+  /** Registered callback to set history drawer state. */
+  readonly onSetHistoryOpen?: (isOpen: boolean) => void;
+  /** Registered callback to render history drawer. */
+  readonly onRenderHistory?: () => void;
+  /** Registered callback to speak dialogue audio. */
+  readonly onSpokenAudioPlayNow?: (text: string) => void;
   /** Routes query to the best host tool candidate. */
   routeHostTool(queryText: string): ToolRouteResult;
   /** Gets tools available for AI model calling. */
@@ -1145,8 +1157,8 @@ export interface I18nEngine {
   readonly messages: Record<string, Record<string, any>>;
   /** Display label metadata for the active locale. */
   readonly labels: LocaleLabelInfo;
-  /** Subscribes to locale and dictionary changes. */
-  subscribe(key: string, listener: Function): () => void;
+  /** Subscribes to locale and dictionary changes or state selector. */
+  subscribe(keyOrSelector: string | ((state: I18nEngineState) => any), listener: Function): () => void;
   /** Retrieves internal state. */
   getState(): I18nEngineState;
   /** Updates internal state. */

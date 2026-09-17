@@ -3,8 +3,7 @@ import { scoreTool, route } from '@/core/tools/router';
 import { normaliseTool } from '@/core/tools/schema';
 import { TOOL_ROUTING_MODE_MAP } from '@/core/constants';
 
-
-describe('Unit Test: core/tools/router.js', () => {
+describe('Unit Test: core/tools/router.js (TypeScript)', () => {
   describe('scoreTool', () => {
     it('should return score 0 if query contains excludeKeywords', () => {
       const tool = normaliseTool({
@@ -76,7 +75,7 @@ describe('Unit Test: core/tools/router.js', () => {
 
       expect(result.match).not.toBeNull();
       expect(result.match?.tool.name).toBe('weather_tool');
-      expect(result.candidates.some((c) => c.tool.name === 'ai_only_tool')).toBe(
+      expect(result.candidates.some((c: any) => c.tool.name === 'ai_only_tool')).toBe(
         false
       );
     });
@@ -129,4 +128,3 @@ describe('Unit Test: core/tools/router.js', () => {
     });
   });
 });
-

@@ -1,8 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createBaseStore } from '@/core/store';
 
-
-describe('Unit Test: core/store.js', () => {
+describe('Unit Test: core/store.js (TypeScript)', () => {
   it('should initialize with provided initialState', () => {
     const store = createBaseStore({
       count: 0,
@@ -34,8 +33,8 @@ describe('Unit Test: core/store.js', () => {
   });
 
   it('should update state using updater function', () => {
-    const store = createBaseStore({ count: 10 });
-    store.setState((prev) => ({ count: prev.count + 5 }));
+    const store = createBaseStore<{ count: number }>({ count: 10 });
+    store.setState((prev: { count: number }) => ({ count: prev.count + 5 }));
 
     expect(store.getState().count).toBe(15);
   });
@@ -84,7 +83,7 @@ describe('Unit Test: core/store.js', () => {
     const store = createBaseStore({ user: { age: 18 } });
     const ageListener = vi.fn();
 
-    store.subscribe((state) => state.user?.age, ageListener);
+    store.subscribe((state: any) => state.user?.age, ageListener);
 
     store.setState({ user: { age: 19 } });
     expect(ageListener).toHaveBeenCalledTimes(1);
@@ -108,9 +107,9 @@ describe('Unit Test: core/store.js', () => {
   it('should throw error when invalid arguments are passed to subscribe', () => {
     const store = createBaseStore();
 
-    // @ts-expect-error Testing invalid arguments
+    // @ts-ignore: Defensive runtime type checking test for invalid number selector
     expect(() => store.subscribe(123)).toThrow('Invalid subscribe arguments');
-    // @ts-expect-error Testing invalid arguments
+    // @ts-ignore: Defensive runtime type checking test for null listener
     expect(() => store.subscribe('key', null)).toThrow('Invalid subscribe arguments');
   });
 });

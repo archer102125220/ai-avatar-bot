@@ -8,10 +8,10 @@ import {
 } from '@/core/tools/schema';
 import { TOOL_ROUTING_MODE_MAP, TOOL_RESULT_MODE_MAP } from '@/core/constants';
 
-
-describe('Unit Test: core/tools/schema.js', () => {
+describe('Unit Test: core/tools/schema.js (TypeScript)', () => {
   describe('normaliseSchema', () => {
     it('should return empty schema object if invalid schema is passed', () => {
+      // @ts-ignore: Defensive runtime type checking test for null schema
       expect(normaliseSchema(null)).toEqual({
         type: 'object',
         properties: {},
@@ -50,15 +50,15 @@ describe('Unit Test: core/tools/schema.js', () => {
       const normalized = normaliseSchema(rawSchema);
 
       expect(normalized.type).toBe('object');
-      expect(normalized.properties.city).toBeDefined();
-      expect(normalized.properties.city.type).toBe('string');
-      expect(normalized.properties.city.title).toBe('城市名稱');
-      expect(normalized.properties.days.type).toBe('integer');
-      expect(normalized.properties.days.minimum).toBe(1);
-      expect(normalized.properties.days.maximum).toBe(7);
+      expect(normalized.properties!.city).toBeDefined();
+      expect(normalized.properties!.city.type).toBe('string');
+      expect(normalized.properties!.city.title).toBe('城市名稱');
+      expect(normalized.properties!.days.type).toBe('integer');
+      expect(normalized.properties!.days.minimum).toBe(1);
+      expect(normalized.properties!.days.maximum).toBe(7);
 
       // 非法屬性名應被排除
-      expect(normalized.properties['123_invalid_start_char']).toBeUndefined();
+      expect(normalized.properties!['123_invalid_start_char']).toBeUndefined();
 
       // required 陣列應只包含存在於 properties 的屬性
       expect(normalized.required).toEqual(['city']);
@@ -127,14 +127,14 @@ describe('Unit Test: core/tools/schema.js', () => {
     it('getAiAvailableTools should filter out client-only tools', () => {
       const aiTools = getAiAvailableTools(tools);
       expect(aiTools.length).toBe(2);
-      expect(aiTools.map((t) => t.name)).toEqual(['query_db', 'hybrid_search']);
+      expect(aiTools.map((t: any) => t.name)).toEqual(['query_db', 'hybrid_search']);
     });
 
     it('toOpenAiTools should convert tools to OpenAI Function Calling JSON Schema', () => {
       const openAiTools = toOpenAiTools(tools);
       expect(openAiTools.length).toBe(2);
 
-      const dbTool = openAiTools.find((t) => t.function.name === 'query_db');
+      const dbTool = openAiTools.find((t: any) => t.function.name === 'query_db') as any;
       expect(dbTool).toBeDefined();
       expect(dbTool.type).toBe('function');
       expect(dbTool.function.parameters.type).toBe('object');
@@ -177,8 +177,8 @@ describe('Unit Test: core/tools/schema.js', () => {
         }
       };
       const normalized = normaliseSchema(rawSchema);
-      expect(normalized.properties.age.minimum).toBe(18);
-      expect(normalized.properties.age.maximum).toBe(65);
+      expect(normalized.properties!.age.minimum).toBe(18);
+      expect(normalized.properties!.age.maximum).toBe(65);
 
       const rawTool = {
         name: 'test_timeout',
@@ -189,10 +189,10 @@ describe('Unit Test: core/tools/schema.js', () => {
       expect(normalizedTool.confirmationTimeoutMs).toBe(5000);
 
       const openAiTools = toOpenAiTools([rawTool]);
-      expect(openAiTools[0].function.parameters.properties.age.enum).toEqual(['18', '30', '65']);
+      expect((openAiTools[0] as any).function.parameters.properties.age.enum).toEqual(['18', '30', '65']);
 
+      // @ts-ignore: Defensive runtime type checking test for null args
       expect(argumentSummary(rawTool, null)).toBe('');
     });
   });
 });
-
