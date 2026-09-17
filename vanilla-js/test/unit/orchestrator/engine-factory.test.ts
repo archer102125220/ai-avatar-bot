@@ -51,6 +51,7 @@ describe('Orchestrator Engine Factory', () => {
       btnLlmEl: document.createElement('button'),
       bubbleEl: document.createElement('p'),
       historyPanelEl,
+      historyButtonEl: document.createElement('button'),
       directWarnEl: document.createElement('p'),
       engineButtonEl: document.createElement('button'),
       langButtonEl: document.createElement('button'),
@@ -691,10 +692,14 @@ describe('Orchestrator Engine Factory', () => {
       // onSetHistoryOpen true / false
       capturedToolsOptions.onSetHistoryOpen(true);
       expect(mockUiDom.historyPanelEl.getAttribute('css-is-open')).toBe('true');
+      expect(mockUiDom.historyPanelEl.inert).toBe(false);
+      expect(mockUiDom.historyButtonEl.getAttribute('aria-expanded')).toBe('true');
       expect(onSetHistoryOpen).toHaveBeenCalledWith(true);
 
       capturedToolsOptions.onSetHistoryOpen(false);
       expect(mockUiDom.historyPanelEl.hasAttribute('css-is-open')).toBe(false);
+      expect(mockUiDom.historyPanelEl.inert).toBe(true);
+      expect(mockUiDom.historyButtonEl.getAttribute('aria-expanded')).toBe('false');
       expect(onSetHistoryOpen).toHaveBeenCalledWith(false);
 
       // onRenderHistory
