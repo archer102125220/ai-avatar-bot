@@ -7,13 +7,12 @@ import {
   getDefaultNeuralVoice,
   DEFAULT_AUTO_CONTINUE_MODE
 } from '@/core/constants';
-
-
+import type { AvatarBotOptions } from '@types';
 
 describe('Orchestrator Options & Configuration', () => {
   describe('callOptionEvent', () => {
     it('should invoke the specified option callback with context and arguments', () => {
-      const callback = vi.fn(function (a, b) {
+      const callback = vi.fn(function (this: { name: string }, a: number, b: number) {
         return `${this.name}:${a + b}`;
       });
       const options = { onCustomEvent: callback };
@@ -26,22 +25,29 @@ describe('Orchestrator Options & Configuration', () => {
     });
 
     it('should safely do nothing and return undefined if options is invalid or callback does not exist', () => {
+      // @ts-ignore: Defensive runtime type checking test
       expect(callOptionEvent(null, {}, 'onTest')).toBeUndefined();
+      // @ts-ignore: Defensive runtime type checking test
       expect(callOptionEvent({}, {}, 'onMissing')).toBeUndefined();
+      // @ts-ignore: Defensive runtime type checking test
       expect(callOptionEvent({ notAFunc: 123 }, {}, 'notAFunc')).toBeUndefined();
     });
   });
 
   describe('normalizeOptions', () => {
     it('should throw an error if container is not an HTMLElement', () => {
+      // @ts-ignore: Defensive runtime type checking test
       expect(() => normalizeOptions({})).toThrow('container must be an HTMLElement');
+      // @ts-ignore: Defensive runtime type checking test
       expect(() => normalizeOptions({ container: null })).toThrow('container must be an HTMLElement');
+      // @ts-ignore: Defensive runtime type checking test
       expect(() => normalizeOptions({ container: {} })).toThrow('container must be an HTMLElement');
     });
 
     it('should throw a TypeError if avatarMode is invalid', () => {
       const container = document.createElement('div');
       expect(() =>
+        // @ts-ignore: Defensive runtime type checking test
         normalizeOptions({
           container,
           avatarMode: 'invalid_mode'
@@ -133,15 +139,19 @@ describe('Orchestrator Options & Configuration', () => {
     it('should initialize custom i18n engine if provided as function or object', () => {
       const container = document.createElement('div');
 
-      const customI18nFactory = vi.fn((opts) => ({
+      const customI18nFactory = vi.fn((opts: { locale: string; messages?: Record<string, any> }) => ({
         locale: opts.locale,
-        t: (k) => `custom:${k}`
+        t: (k: string) => `custom:${k}`,
+        addMessages: vi.fn(),
+        setLocale: vi.fn(),
+        subscribe: vi.fn(),
+        subscribeMessages: vi.fn()
       }));
 
       const normWithFactory = normalizeOptions({
         container,
         locale: 'en-US',
-        customEngines: { i18n: customI18nFactory }
+        customEngines: { i18n: customI18nFactory as any }
       });
 
       expect(customI18nFactory).toHaveBeenCalledWith({
@@ -153,12 +163,16 @@ describe('Orchestrator Options & Configuration', () => {
 
       const customI18nObj = {
         locale: 'ja-JP',
-        t: (k) => `ja:${k}`
+        t: (k: string) => `ja:${k}`,
+        addMessages: vi.fn(),
+        setLocale: vi.fn(),
+        subscribe: vi.fn(),
+        subscribeMessages: vi.fn()
       };
 
       const normWithObj = normalizeOptions({
         container,
-        customEngines: { i18n: customI18nObj }
+        customEngines: { i18n: customI18nObj as any }
       });
 
       expect(normWithObj.i18nEngine).toBe(customI18nObj);
@@ -191,6 +205,7 @@ describe('Orchestrator Options & Configuration', () => {
         container,
         enableAutoContinue: true,
         maxAutoContinuations: -1, // invalid -> fallback to default (3)
+        // @ts-ignore: Defensive runtime type checking test
         autoContinueMode: 'invalid_mode', // invalid -> fallback to default
         autoContinuePrompt: '請接續回答'
       });
@@ -211,15 +226,15 @@ describe('Orchestrator Options & Configuration', () => {
       const mockTools = { execute: vi.fn() };
 
       const customEngines = {
-        brain: vi.fn(() => mockBrain),
-        speech: vi.fn(() => mockSpeech),
-        skin: vi.fn(() => mockSkin),
-        tools: vi.fn(() => mockTools)
+        brain: vi.fn(() => mockBrain as any),
+        speech: vi.fn(() => mockSpeech as any),
+        skin: vi.fn(() => mockSkin as any),
+        tools: vi.fn(() => mockTools as any)
       };
 
       const norm = normalizeOptions({
         container,
-        customEngines
+        customEngines: customEngines as any
       });
 
       expect(norm.rawOptions.customEngines).toBe(customEngines);
@@ -227,7 +242,7 @@ describe('Orchestrator Options & Configuration', () => {
 
     it('should test preloadWebLLM, autoFallbackWebLLM, autoContinuePrompt function, and specific component gender overrides', () => {
       const container = document.createElement('div');
-      const promptFn = (accum) => `繼續：${accum}`;
+      const promptFn = (accum: string) => `繼續：${accum}`;
 
       const norm = normalizeOptions({
         container,
@@ -240,7 +255,7 @@ describe('Orchestrator Options & Configuration', () => {
         skinGender: 'male',
         brainGender: 'female',
         speechGender: 'male'
-      });
+      } as AvatarBotOptions);
 
       const state = norm.rootStore.getState();
       expect(state.preloadWebLLM).toBe(true);

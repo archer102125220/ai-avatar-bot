@@ -5,15 +5,15 @@ import {
 } from '@/core/orchestrator/subscribers';
 import { createBaseStore } from '@/core/store';
 import { initI18nEngine } from '@/core/i18n';
-
+import type { I18nEngine } from '@types';
 
 describe('Orchestrator Store & i18n Subscribers', () => {
-  let rootStore;
-  let i18nEngine;
-  let mockWidget;
-  let mockUiDom;
-  let mockEngines;
-  let container;
+  let rootStore: any;
+  let i18nEngine: I18nEngine;
+  let mockWidget: any;
+  let mockUiDom: any;
+  let mockEngines: any;
+  let container: HTMLElement;
 
   beforeEach(() => {
     container = document.createElement('div');
@@ -188,8 +188,8 @@ describe('Orchestrator Store & i18n Subscribers', () => {
         widget: mockWidget,
         rootStore,
         i18nEngine,
-        getUiDom: () => null,
-        getEngines: () => ({ brainEngine: null, speechEngine: null, skinEngine: null })
+        getUiDom: () => null as any,
+        getEngines: () => ({ brainEngine: null, speechEngine: null, skinEngine: null }) as any
       });
 
       // Triggers avatarMode without uiDom or engines
@@ -241,8 +241,6 @@ describe('Orchestrator Store & i18n Subscribers', () => {
     });
   });
 
-
-
   describe('setupI18nSubscribers', () => {
     it('should update locale and UI when i18n locale changes', () => {
       const options = {
@@ -283,8 +281,8 @@ describe('Orchestrator Store & i18n Subscribers', () => {
         rootStore,
         i18nEngine,
         container,
-        getUiDom: () => customUiDom,
-        getEngines: () => ({ brainEngine: null, speechEngine: null })
+        getUiDom: () => customUiDom as any,
+        getEngines: () => ({ brainEngine: null, speechEngine: null }) as any
       });
 
       // Test messages subscription
@@ -300,10 +298,11 @@ describe('Orchestrator Store & i18n Subscribers', () => {
           widget: mockWidget,
           options: {},
           rootStore,
+          // @ts-ignore: Defensive runtime type checking test
           i18nEngine: null,
           container,
-          getUiDom: () => null,
-          getEngines: () => ({})
+          getUiDom: () => null as any,
+          getEngines: () => ({}) as any
         });
       }).not.toThrow();
     });
@@ -326,4 +325,3 @@ describe('Orchestrator Store & i18n Subscribers', () => {
     });
   });
 });
-

@@ -8,7 +8,6 @@ import {
   TOOL_SCHEMA_TYPE_MAP
 } from '@/core/constants';
 
-
 describe('Emotion Tools Plugin', () => {
   it('should generate valid emotion tool definition with defaults', () => {
     const tools = createEmotionToolsPlugin();
@@ -16,7 +15,7 @@ describe('Emotion Tools Plugin', () => {
     expect(Array.isArray(tools)).toBe(true);
     expect(tools.length).toBe(1);
 
-    const tool = tools[0];
+    const tool = tools[0] as any;
     expect(tool.name).toBe(DEFAULT_EMOTION_TOOL_NAME);
     expect(tool.routingMode).toBe(TOOL_ROUTING_MODE_MAP.AI);
     expect(tool.resultMode).toBe(TOOL_RESULT_MODE_MAP.AI_SUMMARY);
@@ -31,11 +30,11 @@ describe('Emotion Tools Plugin', () => {
     const tools = createEmotionToolsPlugin({
       toolName: 'custom_emotion_tool',
       emotions: customEmotions,
-      routingMode: 'client',
-      resultMode: 'direct'
+      routingMode: 'client' as any,
+      resultMode: 'direct' as any
     });
 
-    const tool = tools[0];
+    const tool = tools[0] as any;
     expect(tool.name).toBe('custom_emotion_tool');
     expect(tool.routingMode).toBe('client');
     expect(tool.resultMode).toBe('direct');
@@ -49,11 +48,11 @@ describe('Emotion Tools Plugin', () => {
     const onEmotionTrigger = vi.fn();
 
     const tools = createEmotionToolsPlugin({
-      getSkinEngine: () => mockSkinEngine,
+      getSkinEngine: () => mockSkinEngine as any,
       onEmotionTrigger
     });
 
-    const tool = tools[0];
+    const tool = tools[0] as any;
     const result = await tool.execute({ emotion: 'happy' }, { customContext: true });
 
     expect(result).toEqual({
@@ -70,14 +69,14 @@ describe('Emotion Tools Plugin', () => {
     };
 
     const tools = createEmotionToolsPlugin();
-    const tool = tools[0];
+    const tool = tools[0] as any;
 
     const payload = {
       args: { emotion: 'wave' },
       context: { skinEngine: mockSkinEngine }
     };
 
-    const result = await tool.execute(payload);
+    const result = await tool.execute(payload as any);
 
     expect(result).toEqual({
       success: true,
@@ -88,7 +87,7 @@ describe('Emotion Tools Plugin', () => {
 
   it('should return failure if emotion argument is empty or invalid', async () => {
     const tools = createEmotionToolsPlugin();
-    const tool = tools[0];
+    const tool = tools[0] as any;
 
     const result1 = await tool.execute({ emotion: '' });
     expect(result1).toEqual({
@@ -96,6 +95,7 @@ describe('Emotion Tools Plugin', () => {
       reason: 'Invalid emotion'
     });
 
+    // @ts-ignore: Defensive runtime type checking test
     const result2 = await tool.execute({});
     expect(result2).toEqual({
       success: false,

@@ -2,14 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { setHistoryOpen, renderHistory } from '@/core/ui/history';
 import { initUi } from '@/core/ui/dom';
 import { initI18nEngine } from '@/core/i18n';
-
+import type { I18nEngine } from '@types';
 
 describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
-  let container;
-  let stageEl;
-  let i18nEngine;
-  let uiDom;
-  let mockContext;
+  let container: HTMLElement;
+  let stageEl: HTMLElement;
+  let i18nEngine: I18nEngine;
+  let uiDom: any;
+  let mockContext: any;
 
   beforeEach(() => {
     container = document.createElement('div');
@@ -139,11 +139,11 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
       renderHistory(mockContext);
 
       const historyListEl = uiDom.historyPanelEl.querySelector('#history-list');
-      const confirmBtn = historyListEl.querySelectorAll('button.confirm')[0];
+      const confirmBtn = historyListEl.querySelectorAll('button.confirm')[0] as HTMLButtonElement;
       expect(confirmBtn.disabled).toBe(true);
       expect(confirmBtn.textContent).toBe('已逾時');
 
-      const cancelBtn = historyListEl.querySelectorAll('button.cancel')[1];
+      const cancelBtn = historyListEl.querySelectorAll('button.cancel')[1] as HTMLButtonElement;
       expect(cancelBtn.disabled).toBe(true);
       expect(cancelBtn.textContent).toBe('已取消');
     });
@@ -167,7 +167,7 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
       const choiceBtns = historyListEl.querySelectorAll('.history-confirm button');
       expect(choiceBtns.length).toBe(2);
 
-      choiceBtns[1].click();
+      (choiceBtns[1] as HTMLElement).click();
       expect(mockContext.toolsEngine.chooseTool).toHaveBeenCalledWith('tool_choice_1', 1);
     });
 
@@ -186,8 +186,8 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
       renderHistory(mockContext);
 
       const historyListEl = uiDom.historyPanelEl.querySelector('#history-list');
-      const copyBtn = historyListEl.querySelector('.history-tools button:first-child');
-      const replayBtn = historyListEl.querySelector('.history-tools button:last-child');
+      const copyBtn = historyListEl.querySelector('.history-tools button:first-child') as HTMLElement;
+      const replayBtn = historyListEl.querySelector('.history-tools button:last-child') as HTMLElement;
 
       expect(copyBtn.textContent).toBe('複製');
       expect(replayBtn.textContent).toBe('重播');
@@ -201,4 +201,3 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
     });
   });
 });
-

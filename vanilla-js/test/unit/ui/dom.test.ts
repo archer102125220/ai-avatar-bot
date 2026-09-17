@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { initUi } from '@/core/ui/dom';
 import { initI18nEngine } from '@/core/i18n';
-
+import type { I18nEngine } from '@types';
 
 describe('UI DOM & Scaffolding (initUi)', () => {
-  let container;
-  let stageEl;
-  let i18nEngine;
+  let container: HTMLElement;
+  let stageEl: HTMLElement;
+  let i18nEngine: I18nEngine;
 
   beforeEach(() => {
     container = document.createElement('div');
@@ -18,7 +18,9 @@ describe('UI DOM & Scaffolding (initUi)', () => {
   it('should return undefined and log error if container or stageEl is invalid', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
+    // @ts-ignore: Defensive runtime type checking test
     expect(initUi(null, stageEl, i18nEngine)).toBeUndefined();
+    // @ts-ignore: Defensive runtime type checking test
     expect(initUi(container, null, i18nEngine)).toBeUndefined();
     expect(errorSpy).toHaveBeenCalled();
 
@@ -26,7 +28,7 @@ describe('UI DOM & Scaffolding (initUi)', () => {
   });
 
   it('should create all required DOM elements and attach them to container and stage', () => {
-    const uiDom = initUi(container, stageEl, i18nEngine);
+    const uiDom: any = initUi(container, stageEl, i18nEngine);
 
     expect(uiDom).toBeDefined();
     expect(uiDom.stageEl).toBe(stageEl);
@@ -61,7 +63,7 @@ describe('UI DOM & Scaffolding (initUi)', () => {
   });
 
   it('should update voice status properly via uiDom.updateVoiceStatus', () => {
-    const uiDom = initUi(container, stageEl, i18nEngine);
+    const uiDom: any = initUi(container, stageEl, i18nEngine);
 
     uiDom.updateVoiceStatus(true, '正在聆聽…', 'listening', 75, i18nEngine);
 
@@ -81,7 +83,7 @@ describe('UI DOM & Scaffolding (initUi)', () => {
   });
 
   it('should update mic button and suggestions visibility via uiDom.updateMicState', () => {
-    const uiDom = initUi(container, stageEl, i18nEngine);
+    const uiDom: any = initUi(container, stageEl, i18nEngine);
 
     // 1. Listening + companion
     uiDom.updateMicState(true, true, true, i18nEngine);
@@ -106,28 +108,29 @@ describe('UI DOM & Scaffolding (initUi)', () => {
     staticContainer.style.position = 'static';
     const subStage = document.createElement('div');
 
-    const uiDom = initUi(staticContainer, subStage, null);
+    // @ts-ignore: Defensive runtime type checking test
+    const uiDom: any = initUi(staticContainer, subStage, null);
     expect(uiDom).toBeDefined();
     expect(staticContainer.style.position).toBe('relative');
 
     // 1. Listening in assistant mode without i18nEngine
-    uiDom.updateMicState(true, true, false, null);
+    uiDom.updateMicState(true, true, false, null as any);
     expect(uiDom.micButtonEl.textContent).toBe('● 聆聽中');
 
     // 2. Listening in companion mode without i18nEngine
-    uiDom.updateMicState(true, true, true, null);
+    uiDom.updateMicState(true, true, true, null as any);
     expect(uiDom.micButtonEl.textContent).toBe('● 對話中');
 
     // 3. Convo standby without i18nEngine
-    uiDom.updateMicState(false, true, false, null);
+    uiDom.updateMicState(false, true, false, null as any);
     expect(uiDom.micButtonEl.textContent).toBe('◌ 對話中');
 
     // 4. Idle live without i18nEngine
-    uiDom.updateMicState(false, false, false, null);
+    uiDom.updateMicState(false, false, false, null as any);
     expect(uiDom.micButtonEl.textContent).toBe('🎙️ 即時');
 
     // 5. Voice status with undefined text and level clamp > 100
-    uiDom.updateVoiceStatus(true, undefined, 'processing', 150, null);
+    uiDom.updateVoiceStatus(true, undefined, 'processing', 150, null as any);
     expect(uiDom.voiceStatusEl.textContent).toBe('即時語音待命');
     expect(uiDom.voiceLevelEl.style.width).toBe('100%');
   });

@@ -7,15 +7,15 @@ import {
 } from '@/core/orchestrator/interaction';
 import { createBaseStore } from '@/core/store';
 import { initI18nEngine } from '@/core/i18n';
-
+import type { I18nEngine } from '@types';
 
 describe('Orchestrator Pipelines & Interactions', () => {
-  let rootStore;
-  let i18nEngine;
-  let mockWidget;
-  let mockEngines;
-  let autoContinueState;
-  let streamSpeechState;
+  let rootStore: any;
+  let i18nEngine: I18nEngine;
+  let mockWidget: any;
+  let mockEngines: any;
+  let autoContinueState: any;
+  let streamSpeechState: any;
 
   beforeEach(() => {
     rootStore = createBaseStore({
@@ -71,7 +71,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
         beginSpeech: vi.fn(() => 1),
         pushSpeech: vi.fn(),
         endSpeech: vi.fn(),
-        drainSentences: vi.fn((state, isEnd) => {
+        drainSentences: vi.fn((state: any, isEnd: boolean) => {
           if (isEnd === true && state.buf !== '') {
             const res = [state.buf];
             state.buf = '';
@@ -80,7 +80,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
           if (state.buf.includes('。')) {
             const parts = state.buf.split('。');
             state.buf = parts.pop() || '';
-            return parts.map((p) => p + '。');
+            return parts.map((p: string) => p + '。');
           }
           return [];
         }),
@@ -156,6 +156,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
       const handleUserNoI18n = createUserPipeline({
         getWidget,
         rootStore,
+        // @ts-ignore: Defensive runtime type checking test
         i18nEngine: null,
         getEngines,
         autoContinueState
@@ -165,6 +166,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
       // Empty or non-string input guard
       expect(() => handleUser('')).not.toThrow();
+      // @ts-ignore: Defensive runtime type checking test
       expect(() => handleUser(null)).not.toThrow();
     });
 
@@ -233,7 +235,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
         onStreamEnd: vi.fn()
       };
 
-      const streamPipeline = createStreamPipeline({
+      const streamPipeline: any = createStreamPipeline({
         getWidget,
         options,
         getEngines,
@@ -254,22 +256,22 @@ describe('Orchestrator Pipelines & Interactions', () => {
     });
 
     it('should push remaining sentences on onStreamEnd when speechEngine matches sequence id', () => {
-      const getEngines = () => mockEngines;
-      const getWidget = () => mockWidget;
+      const getEnginesFn = () => mockEngines;
+      const getWidgetFn = () => mockWidget;
       const options = { onStreamEnd: vi.fn(), onAutoContinueWait: vi.fn() };
 
       mockEngines.speechEngine.speakSeq = 10;
       mockEngines.speechEngine.beginSpeech = vi.fn(() => 10);
-      mockEngines.speechEngine.drainSentences = vi.fn((state, isEnd) => {
+      mockEngines.speechEngine.drainSentences = vi.fn((_state: any, isEnd: boolean) => {
         if (isEnd === true) {
           return ['剩餘第一句。', '剩餘第二句。'];
         }
         return [];
       });
 
-      const pipeline = createStreamPipeline({
-        getEngines,
-        getWidget,
+      const pipeline: any = createStreamPipeline({
+        getEngines: getEnginesFn,
+        getWidget: getWidgetFn,
         options,
         streamSpeechState,
         autoContinueState
@@ -284,7 +286,6 @@ describe('Orchestrator Pipelines & Interactions', () => {
       expect(mockEngines.speechEngine.pushSpeech).toHaveBeenCalledWith(10, '剩餘第二句。');
       expect(mockEngines.speechEngine.endSpeech).toHaveBeenCalledWith(10);
       expect(options.onStreamEnd).toHaveBeenCalledWith('全文內容');
-
 
       // Test onSpeechWait and onAutoContinueWait with gestureName fallback (when setEmotion missing)
       mockEngines.skinEngine = { gestureName: 'neutral' };
@@ -304,7 +305,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
         onAutoContinueEnd: vi.fn()
       };
 
-      const streamPipeline = createStreamPipeline({
+      const streamPipeline: any = createStreamPipeline({
         getWidget,
         options,
         getEngines,
@@ -336,7 +337,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
     it('should handle muted TTS on stream start, sequence mismatch on stream chunk, and abort exceptions in stream pipeline', () => {
       const options = { onStreamEnd: vi.fn() };
-      const pipeline = createStreamPipeline({
+      const pipeline: any = createStreamPipeline({
         getWidget,
         options,
         getEngines,
@@ -376,9 +377,9 @@ describe('Orchestrator Pipelines & Interactions', () => {
     });
 
     it('should handle ttsMuted, missing speechEngine, and setStreamSpeechId', () => {
-      const streamSpeechState = { sentenceBuffer: '', buf: '' };
-      const autoContinueState = { isActive: false, continuationIndex: 0, maxContinuations: 0, accumulatedText: '' };
-      let speechEngine = {
+      const localStreamSpeechState = { sentenceBuffer: '', buf: '' };
+      const localAutoContinueState = { isActive: false, continuationIndex: 0, maxContinuations: 0, accumulatedText: '' };
+      let speechEngine: any = {
         ttsMuted: true,
         beginSpeech: vi.fn(() => 10),
         speakSeq: 10,
@@ -388,12 +389,12 @@ describe('Orchestrator Pipelines & Interactions', () => {
         onUtteranceEnd: vi.fn()
       };
 
-      const streamPipeline = createStreamPipeline({
-        widget: { id: 'test-w' },
+      const streamPipeline: any = createStreamPipeline({
+        widget: { id: 'test-w' } as any,
         options: {},
-        getEngines: () => ({ speechEngine, skinEngine: null, brainEngine: null }),
-        autoContinueState,
-        streamSpeechState
+        getEngines: () => ({ speechEngine, skinEngine: null, brainEngine: null }) as any,
+        autoContinueState: localAutoContinueState,
+        streamSpeechState: localStreamSpeechState
       });
 
       // 1. ttsMuted is true -> streamSpeechId = 0
@@ -421,8 +422,8 @@ describe('Orchestrator Pipelines & Interactions', () => {
     });
 
     it('should handle speech sequence mismatch (barge-in chunk discard) and skinEngine gestureName', () => {
-      const streamSpeechState = { sentenceBuffer: '', buf: '' };
-      const autoContinueState = { isActive: false, continuationIndex: 0, maxContinuations: 0, accumulatedText: '' };
+      const localStreamSpeechState = { sentenceBuffer: '', buf: '' };
+      const localAutoContinueState = { isActive: false, continuationIndex: 0, maxContinuations: 0, accumulatedText: '' };
       const speechEngine = {
         ttsMuted: false,
         beginSpeech: vi.fn(() => 5),
@@ -439,11 +440,11 @@ describe('Orchestrator Pipelines & Interactions', () => {
         onAutoContinueWait: vi.fn()
       };
 
-      const streamPipeline = createStreamPipeline({
+      const streamPipeline: any = createStreamPipeline({
         options,
-        getEngines: () => ({ speechEngine, skinEngine, brainEngine: { llm: { controller: null } } }),
-        autoContinueState,
-        streamSpeechState
+        getEngines: () => ({ speechEngine, skinEngine, brainEngine: { llm: { controller: null } } }) as any,
+        autoContinueState: localAutoContinueState,
+        streamSpeechState: localStreamSpeechState
       });
 
       streamPipeline.onStreamStart();
@@ -462,7 +463,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
       expect(skinEngine.gestureName).toBe('thinking');
 
       // onSpeechWait with isActive true
-      autoContinueState.isActive = true;
+      localAutoContinueState.isActive = true;
       streamPipeline.onSpeechWait(5);
       expect(skinEngine.gestureName).toBe('thinking');
       expect(options.onAutoContinueWait).toHaveBeenCalledWith(
@@ -479,11 +480,11 @@ describe('Orchestrator Pipelines & Interactions', () => {
           }
         }
       };
-      const pipelineWithThrowingBrain = createStreamPipeline({
+      const pipelineWithThrowingBrain: any = createStreamPipeline({
         options: {},
-        getEngines: () => ({ speechEngine, skinEngine, brainEngine: throwingBrain }),
-        autoContinueState,
-        streamSpeechState
+        getEngines: () => ({ speechEngine, skinEngine, brainEngine: throwingBrain }) as any,
+        autoContinueState: localAutoContinueState,
+        streamSpeechState: localStreamSpeechState
       });
       expect(() => pipelineWithThrowingBrain.onInterrupt()).not.toThrow();
     });
@@ -497,7 +498,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
       const onTap = createTapAvatarHandler({
         getWidget,
-        options,
+        options: options as any,
         rootStore,
         i18nEngine,
         getEngines
@@ -559,11 +560,11 @@ describe('Orchestrator Pipelines & Interactions', () => {
     });
 
     it('should handle forget me command and host tool routing in user pipeline', () => {
-      const getWidget = () => mockWidget;
-      const getEngines = () => mockEngines;
+      const getWidgetFn = () => mockWidget;
+      const getEnginesFn = () => mockEngines;
       const handleUserMessage = createUserPipeline({
-        getWidget,
-        getEngines,
+        getWidget: getWidgetFn,
+        getEngines: getEnginesFn,
         rootStore,
         i18nEngine,
         autoContinueState
@@ -614,6 +615,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
       // 2. Empty string input
       handleUserWithWidget('');
+      // @ts-ignore: Defensive runtime type checking test
       handleUserWithWidget();
 
       // 3. pendingToolConfirmation returns true
@@ -638,8 +640,8 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
       // 6. Handle with null speechEngine / brainEngine
       const handleUserNullEngines = createUserPipeline({
-        getWidget: () => null,
-        getEngines: () => ({ brainEngine: null, speechEngine: null, skinEngine: null, toolsEngine: null }),
+        getWidget: () => null as any,
+        getEngines: () => ({ brainEngine: null, speechEngine: null, skinEngine: null, toolsEngine: null }) as any,
         rootStore,
         i18nEngine,
         autoContinueState
@@ -648,4 +650,3 @@ describe('Orchestrator Pipelines & Interactions', () => {
     });
   });
 });
-

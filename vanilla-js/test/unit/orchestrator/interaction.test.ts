@@ -6,13 +6,13 @@ import {
 import { createBaseStore } from '@/core/store';
 import { initI18nEngine } from '@/core/i18n';
 import { AVATAR_MODE_MAP } from '@/core/constants';
-
+import type { I18nEngine } from '@types';
 
 describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
-  let rootStore;
-  let i18nEngine;
-  let mockWidget;
-  let mockEngines;
+  let rootStore: any;
+  let i18nEngine: I18nEngine;
+  let mockWidget: any;
+  let mockEngines: any;
 
   beforeEach(() => {
     rootStore = createBaseStore({
@@ -184,6 +184,7 @@ describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
   describe('createModelDropHandler edge cases', () => {
     it('should safely return if container is invalid', () => {
       const updateListeners = createModelDropHandler({
+        // @ts-ignore: Defensive runtime type checking test
         container: null,
         getSkinEngine: () => mockEngines.skinEngine
       });
@@ -230,7 +231,7 @@ describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
 
       const onTap = createTapAvatarHandler({
         widget: mockWidget,
-        options: { onTapAvatar: vi.fn() },
+        options: { onTapAvatar: vi.fn() } as any,
         rootStore,
         i18nEngine,
         getEngines

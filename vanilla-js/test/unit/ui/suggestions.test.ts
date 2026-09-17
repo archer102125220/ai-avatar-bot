@@ -3,14 +3,14 @@ import { renderSuggestions } from '@/core/ui/suggestions';
 import { initUi } from '@/core/ui/dom';
 import { initI18nEngine } from '@/core/i18n';
 import { AVATAR_MODE_MAP } from '@/core/constants';
-
+import type { I18nEngine } from '@types';
 
 describe('UI Suggestions (renderSuggestions)', () => {
-  let container;
-  let stageEl;
-  let i18nEngine;
-  let uiDom;
-  let mockContext;
+  let container: HTMLElement;
+  let stageEl: HTMLElement;
+  let i18nEngine: I18nEngine;
+  let uiDom: any;
+  let mockContext: any;
 
   beforeEach(() => {
     container = document.createElement('div');
@@ -52,7 +52,7 @@ describe('UI Suggestions (renderSuggestions)', () => {
     expect(titleEl.textContent).toContain('可以跟我聊');
 
     const suggestionButtons = uiDom.suggestionsEl.querySelectorAll('button.sugg');
-    const buttonTexts = Array.from(suggestionButtons).map((b) => b.textContent);
+    const buttonTexts = Array.from(suggestionButtons).map((b: any) => b.textContent);
     expect(buttonTexts).toContain('今天過得好嗎？');
   });
 
@@ -93,13 +93,14 @@ describe('UI Suggestions (renderSuggestions)', () => {
   it('should handle function suggestedQuestions, invalid element guard, and filter non-string items', () => {
     // 1. Invalid suggestions element guard
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // @ts-ignore: Defensive runtime type checking test
     renderSuggestions(null);
-    renderSuggestions({ uiDom: { suggestionsEl: null } });
+    renderSuggestions({ uiDom: { suggestionsEl: null } } as any);
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
 
     // 2. suggestedQuestions as function
-    mockContext.suggestedQuestions = (ctx) => [`動態問題 (${ctx.locale})`];
+    mockContext.suggestedQuestions = (ctx: any) => [`動態問題 (${ctx.locale})`];
     renderSuggestions(mockContext);
 
     let buttons = uiDom.suggestionsEl.querySelectorAll('button.sugg');
@@ -107,6 +108,7 @@ describe('UI Suggestions (renderSuggestions)', () => {
     expect(buttons[0].textContent).toBe('動態問題 (zh-TW)');
 
     // 3. Array with non-string and empty string items
+    // @ts-ignore: Defensive runtime type checking test
     mockContext.suggestedQuestions = [null, '', '有效問題？', 123];
     renderSuggestions(mockContext);
 
@@ -115,4 +117,3 @@ describe('UI Suggestions (renderSuggestions)', () => {
     expect(buttons[0].textContent).toBe('有效問題？');
   });
 });
-

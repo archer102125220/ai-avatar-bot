@@ -6,11 +6,11 @@ import {
 } from '@/core/ui/utils';
 import { initI18nEngine } from '@/core/i18n';
 import { ENGINE_MODE_MAP } from '@/core/constants';
-
+import type { I18nEngine } from '@types';
 
 describe('UI Utilities (updateUIStrings, copyText, initSkinModeChangeButton)', () => {
-  let container;
-  let i18nEngine;
+  let container: HTMLElement;
+  let i18nEngine: I18nEngine;
 
   beforeEach(() => {
     container = document.createElement('div');
@@ -44,7 +44,9 @@ describe('UI Utilities (updateUIStrings, copyText, initSkinModeChangeButton)', (
     });
 
     it('should do nothing if container or i18nEngine is invalid', () => {
+      // @ts-ignore: Defensive runtime type checking test
       expect(() => updateUIStrings(null, i18nEngine)).not.toThrow();
+      // @ts-ignore: Defensive runtime type checking test
       expect(() => updateUIStrings(container, null)).not.toThrow();
     });
   });
@@ -78,7 +80,8 @@ describe('UI Utilities (updateUIStrings, copyText, initSkinModeChangeButton)', (
       await copyText('Fallback 複製');
       expect(document.execCommand).toHaveBeenCalledWith('copy');
 
-      delete document.execCommand;
+      // @ts-ignore: Defensive runtime test
+      delete (document as any).execCommand;
       Object.defineProperty(navigator, 'clipboard', {
         value: originalClipboard,
         configurable: true
@@ -87,10 +90,10 @@ describe('UI Utilities (updateUIStrings, copyText, initSkinModeChangeButton)', (
   });
 
   describe('initSkinModeChangeButton', () => {
-    let mockContext;
-    let engineButtonEl;
+    let mockContext: any;
+    let engineButtonEl: HTMLButtonElement;
 
-    beforeEach(() => {
+  beforeEach(() => {
       engineButtonEl = document.createElement('button');
       mockContext = {
         uiDom: { engineButtonEl },

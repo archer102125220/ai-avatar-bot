@@ -8,18 +8,18 @@ import {
 import { createBaseStore } from '@/core/store';
 import { initI18nEngine } from '@/core/i18n';
 import { ENGINE_MODE_MAP, DEFAULT_EMOTION_TOOL_NAME } from '@/core/constants';
+import type { I18nEngine } from '@types';
 
 import * as SpeechModule from '@/core/speech';
 import * as SkinModule from '@/core/skin';
 
-
 describe('Orchestrator Engine Factory', () => {
-  let rootStore;
-  let i18nEngine;
-  let mockWidget;
-  let mockUiDom;
-  let mockEngines;
-  let mockStreamPipeline;
+  let rootStore: any;
+  let i18nEngine: I18nEngine;
+  let mockWidget: any;
+  let mockUiDom: any;
+  let mockEngines: any;
+  let mockStreamPipeline: any;
 
   beforeEach(() => {
     rootStore = createBaseStore({
@@ -101,7 +101,7 @@ describe('Orchestrator Engine Factory', () => {
       toolsEngine: {
         getAiAvailableTools: vi.fn(() => []),
         HOST_TOOLS: [{ name: 'test_tool', execute: vi.fn() }],
-        executeToolDirectly: vi.fn(async (tool, args) => ({ result: 'ok', tool, args })),
+        executeToolDirectly: vi.fn(async (tool: any, args: any) => ({ result: 'ok', tool, args })),
         offerHostTool: vi.fn()
       }
     };
@@ -146,7 +146,7 @@ describe('Orchestrator Engine Factory', () => {
 
       const brainEngine = await setupBrainEngine({
         options: {
-          customEngines: { brain: customBrain }
+          customEngines: { brain: customBrain as any }
         },
         widget: mockWidget,
         rootStore,
@@ -166,6 +166,7 @@ describe('Orchestrator Engine Factory', () => {
 
       const brainEngine = await setupBrainEngine({
         options: {
+          // @ts-ignore: Defensive runtime type checking test
           customEngines: { brain: invalidBrain }
         },
         widget: mockWidget,
@@ -181,8 +182,8 @@ describe('Orchestrator Engine Factory', () => {
     });
 
     it('should route tools execution through getTools and executeTool in brainOptions', async () => {
-      let capturedBrainOptions;
-      const customBrainFactory = vi.fn(async (opts) => {
+      let capturedBrainOptions: any;
+      const customBrainFactory = vi.fn(async (opts: any) => {
         capturedBrainOptions = opts;
         return {
           addChatMessage: vi.fn(),
@@ -202,7 +203,7 @@ describe('Orchestrator Engine Factory', () => {
 
       await setupBrainEngine({
         options: {
-          customEngines: { brain: customBrainFactory }
+          customEngines: { brain: customBrainFactory as any }
         },
         widget: mockWidget,
         rootStore,
@@ -233,10 +234,9 @@ describe('Orchestrator Engine Factory', () => {
       expect(mockEngines.toolsEngine.executeToolDirectly).toHaveBeenCalled();
     });
 
-
     it('should trigger UI and speech updates on LLM lifecycle callbacks', async () => {
-      let capturedBrainOptions;
-      const customBrainFactory = vi.fn(async (opts) => {
+      let capturedBrainOptions: any;
+      const customBrainFactory = vi.fn(async (opts: any) => {
         capturedBrainOptions = opts;
         return {
           addChatMessage: vi.fn(),
@@ -256,7 +256,7 @@ describe('Orchestrator Engine Factory', () => {
 
       await setupBrainEngine({
         options: {
-          customEngines: { brain: customBrainFactory }
+          customEngines: { brain: customBrainFactory as any }
         },
         widget: mockWidget,
         rootStore,
@@ -297,8 +297,8 @@ describe('Orchestrator Engine Factory', () => {
 
     it('should test all AI provider callbacks and state transitions in setupBrainEngine', async () => {
       vi.useFakeTimers();
-      let capturedBrainOptions;
-      const customBrainFactory = vi.fn(async (opts) => {
+      let capturedBrainOptions: any;
+      const customBrainFactory = vi.fn(async (opts: any) => {
         capturedBrainOptions = opts;
         return {
           addChatMessage: vi.fn(),
@@ -322,7 +322,7 @@ describe('Orchestrator Engine Factory', () => {
 
       await setupBrainEngine({
         options: {
-          customEngines: { brain: customBrainFactory },
+          customEngines: { brain: customBrainFactory as any },
           onBrainFallback,
           onToolNotFound,
           onToolError
@@ -388,8 +388,8 @@ describe('Orchestrator Engine Factory', () => {
     });
 
     it('should test tool delegation edge branches in setupBrainEngine', async () => {
-      let capturedBrainOptions;
-      const customBrainFactory = vi.fn(async (opts) => {
+      let capturedBrainOptions: any;
+      const customBrainFactory = vi.fn(async (opts: any) => {
         capturedBrainOptions = opts;
         return {
           addChatMessage: vi.fn(),
@@ -409,7 +409,7 @@ describe('Orchestrator Engine Factory', () => {
 
       await setupBrainEngine({
         options: {
-          customEngines: { brain: customBrainFactory }
+          customEngines: { brain: customBrainFactory as any }
         },
         widget: mockWidget,
         rootStore,
@@ -477,8 +477,8 @@ describe('Orchestrator Engine Factory', () => {
     });
 
     it('should trigger all callbacks and UI updates in setupSpeechEngine', async () => {
-      let capturedSpeechOptions;
-      const initSpeechSpy = vi.spyOn(SpeechModule, 'initSpeechEngine').mockImplementation(async (opts) => {
+      let capturedSpeechOptions: any;
+      const initSpeechSpy = vi.spyOn(SpeechModule, 'initSpeechEngine').mockImplementation(async (opts: any) => {
         capturedSpeechOptions = opts;
         return {
           speak: vi.fn(),
@@ -490,7 +490,7 @@ describe('Orchestrator Engine Factory', () => {
           spokenAudioText: '',
           convoOn: false,
           isListening: false
-        };
+        } as any;
       });
 
       const onSpeaking = vi.fn();
@@ -594,7 +594,7 @@ describe('Orchestrator Engine Factory', () => {
 
       expect(toolsEngine).toBeDefined();
       expect(Array.isArray(toolsEngine.HOST_TOOLS)).toBe(true);
-      const toolNames = toolsEngine.HOST_TOOLS.map((t) => t.name);
+      const toolNames = toolsEngine.HOST_TOOLS.map((t: any) => t.name);
       expect(toolNames).toContain('custom_search');
       expect(toolNames).toContain(DEFAULT_EMOTION_TOOL_NAME);
     });
@@ -618,7 +618,7 @@ describe('Orchestrator Engine Factory', () => {
 
       const toolsEngine = setupToolsEngine({
         options: {
-          customEngines: { tools: customTools }
+          customEngines: { tools: customTools as any }
         },
         widget: mockWidget,
         getEngines,
@@ -629,8 +629,8 @@ describe('Orchestrator Engine Factory', () => {
     });
 
     it('should test tools callbacks and history toggling in setupToolsEngine', () => {
-      let capturedToolsOptions;
-      const customToolsFactory = vi.fn((opts) => {
+      let capturedToolsOptions: any;
+      const customToolsFactory = vi.fn((opts: any) => {
         capturedToolsOptions = opts;
         return {
           HOST_TOOLS: [],
@@ -662,7 +662,7 @@ describe('Orchestrator Engine Factory', () => {
 
       setupToolsEngine({
         options: {
-          customEngines: { tools: customToolsFactory },
+          customEngines: { tools: customToolsFactory as any },
           toolConfirmationTimeoutMs: 5000,
           onToolCall,
           onSetHistoryOpen,
@@ -715,6 +715,7 @@ describe('Orchestrator Engine Factory', () => {
     it('should fallback to default tools engine when custom engine is invalid or throws', () => {
       const toolsEngineInvalid = setupToolsEngine({
         options: {
+          // @ts-ignore: Defensive runtime type checking test
           customEngines: { tools: { invalid: true } }
         },
         widget: mockWidget,
@@ -770,7 +771,7 @@ describe('Orchestrator Engine Factory', () => {
 
       const skinEngine = await setupSkinEngine({
         options: {
-          customEngines: { skin: customSkin }
+          customEngines: { skin: customSkin as any }
         },
         widget: mockWidget,
         rootStore,
@@ -783,8 +784,8 @@ describe('Orchestrator Engine Factory', () => {
     });
 
     it('should test all skin callbacks and canvas pointerdown bindings', async () => {
-      let capturedSkinOptions;
-      const initSkinSpy = vi.spyOn(SkinModule, 'initSkinEngine').mockImplementation((opts) => {
+      let capturedSkinOptions: any;
+      const initSkinSpy = vi.spyOn(SkinModule, 'initSkinEngine').mockImplementation((opts: any) => {
         capturedSkinOptions = opts;
         return {
           name: 'CustomSkin',
@@ -794,7 +795,7 @@ describe('Orchestrator Engine Factory', () => {
           setGender: vi.fn(),
           loadVRMFile: vi.fn(),
           setEmotion: vi.fn()
-        };
+        } as any;
       });
 
       const onThreeDimensionalError = vi.fn();
@@ -880,9 +881,9 @@ describe('Orchestrator Engine Factory', () => {
 
       // onModelChangeEnd in 2D mode with avatarModel hit
       mockEngines.skinEngine.engineMode = ENGINE_MODE_MAP.twoDimensional;
-      const hitHandlers = [];
+      const hitHandlers: Function[] = [];
       mockEngines.skinEngine.avatarModel = {
-        on: vi.fn((event, cb) => {
+        on: vi.fn((event: string, cb: Function) => {
           if (event === 'hit') hitHandlers.push(cb);
         })
       };
@@ -930,6 +931,7 @@ describe('Orchestrator Engine Factory', () => {
       const stageEl = document.createElement('div');
       const skinInvalid = await setupSkinEngine({
         options: {
+          // @ts-ignore: Defensive runtime type checking test
           customEngines: { skin: { invalid: true } }
         },
         widget: mockWidget,
@@ -958,8 +960,8 @@ describe('Orchestrator Engine Factory', () => {
     });
 
     it('should test onTwoDimensionalError, VRMFileChangeFail, and VRMFileChangeSuccess handlers in setupSkinEngine options', async () => {
-      let capturedSkinOptions = null;
-      const initSkinSpy = vi.spyOn(SkinModule, 'initSkinEngine').mockImplementation((opts) => {
+      let capturedSkinOptions: any = null;
+      const initSkinSpy = vi.spyOn(SkinModule, 'initSkinEngine').mockImplementation((opts: any) => {
         capturedSkinOptions = opts;
         return mockEngines.skinEngine;
       });

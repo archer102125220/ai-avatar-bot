@@ -3,14 +3,14 @@ import { bindTyping, bindUiEvent } from '@/core/ui/events';
 import { initUi } from '@/core/ui/dom';
 import { initI18nEngine } from '@/core/i18n';
 import { STATE_MAP } from '@/core/constants';
-
+import type { I18nEngine } from '@types';
 
 describe('UI Events Binding', () => {
-  let container;
-  let stageEl;
-  let i18nEngine;
-  let uiDom;
-  let mockContext;
+  let container: HTMLElement;
+  let stageEl: HTMLElement;
+  let i18nEngine: I18nEngine;
+  let uiDom: any;
+  let mockContext: any;
 
   beforeEach(() => {
     container = document.createElement('div');
@@ -44,7 +44,7 @@ describe('UI Events Binding', () => {
         chatLog: [{ role: 'user', text: 'hi' }],
         memory: { clear: vi.fn() },
         aiProvider: { enabled: false },
-        llm: { supported: true, state: STATE_MAP.UNLOADED, load: vi.fn() }
+        llm: { supported: true, state: (STATE_MAP as any).UNLOADED, load: vi.fn() }
       }
     };
   });
@@ -77,7 +77,7 @@ describe('UI Events Binding', () => {
 
       // IME composition Enter (keyCode 229)
       uiDom.questionInputEl.value = '輸入中';
-      const imeEvent = new KeyboardEvent('keydown', { key: 'Enter', keyCode: 229, bubbles: true });
+      const imeEvent = new KeyboardEvent('keydown', { key: 'Enter', keyCode: 229, bubbles: true } as any);
       uiDom.questionInputEl.dispatchEvent(imeEvent);
       expect(mockContext.handleUser).not.toHaveBeenCalled();
     });
@@ -172,12 +172,12 @@ describe('UI Events Binding', () => {
       expect(uiDom.historyPanelEl.getAttribute('css-is-open')).toBe('true');
 
       // Close history via panel close button
-      const closeBtn = uiDom.historyPanelEl.querySelector('#btn-history-close');
+      const closeBtn = uiDom.historyPanelEl.querySelector('#btn-history-close') as HTMLElement;
       closeBtn.click();
       expect(uiDom.historyPanelEl.getAttribute('css-is-open')).toBeNull();
 
       // Clear history
-      const clearBtn = uiDom.historyPanelEl.querySelector('#btn-history-clear');
+      const clearBtn = uiDom.historyPanelEl.querySelector('#btn-history-clear') as HTMLElement;
       clearBtn.click();
       expect(mockContext.brainEngine.memory.clear).toHaveBeenCalled();
       expect(mockContext.brainEngine.chatLog.length).toBe(0);
@@ -270,14 +270,15 @@ describe('UI Events Binding', () => {
       expect(mockContext.speechEngine.spokenDisplayText).toContain('45%');
 
       // 6. WebLLM unloaded -> trigger load
-      mockContext.brainEngine.llm = { supported: true, state: STATE_MAP.UNLOADED, load: vi.fn() };
+      mockContext.brainEngine.llm = { supported: true, state: (STATE_MAP as any).UNLOADED, load: vi.fn() };
       await uiDom.btnLlmEl.onclick();
       expect(mockContext.brainEngine.llm.load).toHaveBeenCalled();
     });
 
     it('should handle missing questionInputEl gracefully', () => {
+      // @ts-ignore: Defensive runtime type checking test
       expect(() => bindTyping(null)).not.toThrow();
-      expect(() => bindTyping({ uiDom: { questionInputEl: null } })).not.toThrow();
+      expect(() => bindTyping({ uiDom: { questionInputEl: null } } as any)).not.toThrow();
     });
 
     it('should handle history button open, close, and clear in bindUiEvent', () => {
@@ -288,14 +289,14 @@ describe('UI Events Binding', () => {
       expect(uiDom.historyPanelEl.getAttribute('css-is-open')).toBe('true');
 
       // 2. Close history panel with close button
-      const btnHistoryClose = uiDom.historyPanelEl.querySelector('#btn-history-close');
+      const btnHistoryClose = uiDom.historyPanelEl.querySelector('#btn-history-close') as HTMLElement;
       if (btnHistoryClose) {
         btnHistoryClose.click();
         expect(uiDom.historyPanelEl.getAttribute('css-is-open')).toBeNull();
       }
 
       // 3. Clear history button
-      const btnHistoryClear = uiDom.historyPanelEl.querySelector('#btn-history-clear');
+      const btnHistoryClear = uiDom.historyPanelEl.querySelector('#btn-history-clear') as HTMLElement;
       if (btnHistoryClear) {
         btnHistoryClear.click();
         expect(mockContext.brainEngine.memory.clear).toHaveBeenCalled();
@@ -360,4 +361,3 @@ describe('UI Events Binding', () => {
     });
   });
 });
-
