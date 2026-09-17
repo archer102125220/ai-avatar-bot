@@ -5,10 +5,10 @@ import {
   defaultGesture3D
 } from '@/core/skin';
 import { ENGINE_MODE_MAP, GENDER_MAP } from '@/core/constants';
-
+import type { SkinEngine } from '@types';
 
 describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow)', () => {
-  let stageEl;
+  let stageEl: HTMLElement;
 
   beforeEach(() => {
     stageEl = document.createElement('div');
@@ -17,8 +17,8 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
 
   describe('defaultGesture2D', () => {
     it('should map female expressions and trigger avatarModel.expression', async () => {
-      const expressionMock = vi.fn().mockResolvedValue();
-      const skinEngine = {
+      const expressionMock = vi.fn().mockResolvedValue(undefined);
+      const skinEngine: any = {
         gender: GENDER_MAP.female,
         avatarModel: { expression: expressionMock }
       };
@@ -31,8 +31,8 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
     });
 
     it('should map male expressions and trigger avatarModel.expression', async () => {
-      const expressionMock = vi.fn().mockResolvedValue();
-      const skinEngine = {
+      const expressionMock = vi.fn().mockResolvedValue(undefined);
+      const skinEngine: any = {
         gender: GENDER_MAP.male,
         avatarModel: { expression: expressionMock }
       };
@@ -48,7 +48,7 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
   describe('defaultGesture3D', () => {
     it('should invoke renderer.playGesture with target gesture name', async () => {
       const playGestureMock = vi.fn();
-      const skinEngine = {
+      const skinEngine: any = {
         renderer: { playGesture: playGestureMock }
       };
 
@@ -60,8 +60,9 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
     });
 
     it('should handle null engine or empty emotion gracefully', async () => {
+      // @ts-ignore: Defensive runtime type checking test
       await expect(defaultGesture3D(null, 'wave')).resolves.toBeUndefined();
-      await expect(defaultGesture3D({}, '')).resolves.toBeUndefined();
+      await expect(defaultGesture3D({} as any, '')).resolves.toBeUndefined();
     });
   });
 
@@ -70,7 +71,7 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
       const gesture2DMock = vi.fn();
       const gesture3DMock = vi.fn();
 
-      const engine = initSkinEngine({
+      const engine: any = initSkinEngine({
         stageEl,
         startMode: ENGINE_MODE_MAP.twoDimensional,
         gesture2D: gesture2DMock,
@@ -91,15 +92,15 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
     it('should trigger onGesture, execute gesture function, and trigger onGestureEnd upon setting gestureName', async () => {
       const onGesture = vi.fn();
       const onGestureEnd = vi.fn();
-      const gesture2DMock = vi.fn().mockResolvedValue();
+      const gesture2DMock = vi.fn().mockResolvedValue(undefined);
 
-      const engine = initSkinEngine({
+      const engine: SkinEngine = initSkinEngine({
         stageEl,
         startMode: ENGINE_MODE_MAP.twoDimensional,
         gesture2D: gesture2DMock,
         onGesture,
         onGestureEnd
-      });
+      }) as SkinEngine;
 
       engine.gestureName = 'happy';
 
@@ -118,13 +119,13 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
       const gestureError = new Error('Gesture animation failed');
       const gesture2DMock = vi.fn().mockRejectedValue(gestureError);
 
-      const engine = initSkinEngine({
+      const engine: SkinEngine = initSkinEngine({
         stageEl,
         startMode: ENGINE_MODE_MAP.twoDimensional,
         gesture2D: gesture2DMock,
         onGestureError,
         onGestureEnd
-      });
+      }) as SkinEngine;
 
       engine.gestureName = 'surprised';
 
@@ -137,7 +138,7 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
     it('should handle unassigned gesture2D and gesture3D warning fallbacks and null engineMode', () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-      const engine = initSkinEngine({ stageEl });
+      const engine: any = initSkinEngine({ stageEl });
       engine.gesture2D = null;
       engine.gesture3D = null;
 

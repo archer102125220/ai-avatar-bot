@@ -94,7 +94,7 @@ export function createMockRenderer3D(overrides: Record<string, any> = {}) {
     camera,
     scene,
     TAP_GESTURES: ['wave', 'bow', 'thinking', 'surprised', 'relax', 'look'],
-    playGesture: vi.fn(() => Promise.resolve()),
+    playGesture: vi.fn((_gestureName?: string) => Promise.resolve()),
     setPaused: vi.fn(),
     updateTransform: vi.fn(),
     dispose: vi.fn(),

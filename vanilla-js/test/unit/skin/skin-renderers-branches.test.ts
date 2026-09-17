@@ -16,7 +16,7 @@ import {
 import { setupWindowPixiMock } from '@/test/mocks/skin-renderer-mock';
 
 describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderers Deep Coverage)', () => {
-  let stageEl;
+  let stageEl: HTMLElement;
 
   beforeEach(() => {
     stageEl = document.createElement('div');
@@ -30,7 +30,7 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
   describe('defaultGesture2D & defaultGesture3D', () => {
     it('should trigger female expressions correctly and handle errors', async () => {
       const mockExpression = vi.fn().mockResolvedValue(true);
-      const skinEngine = {
+      const skinEngine: any = {
         gender: GENDER_MAP.female,
         avatarModel: { expression: mockExpression }
       };
@@ -52,13 +52,14 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
       await defaultGesture2D(skinEngine, 'happy'); // Should not throw
 
       // Guard conditions
+      // @ts-ignore: Defensive runtime type checking test
       expect(await defaultGesture2D(null, 'happy')).toBeUndefined();
       expect(await defaultGesture2D(skinEngine, 'unknown_emotion')).toBeUndefined();
     });
 
     it('should trigger male expressions correctly', async () => {
       const mockExpression = vi.fn().mockResolvedValue(true);
-      const skinEngine = {
+      const skinEngine: any = {
         gender: GENDER_MAP.male,
         avatarModel: { expression: mockExpression }
       };
@@ -72,7 +73,7 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
 
     it('should trigger defaultGesture3D playGesture correctly', async () => {
       const playGesture = vi.fn();
-      const skinEngine = {
+      const skinEngine: any = {
         renderer: { playGesture }
       };
 
@@ -80,6 +81,7 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
       expect(playGesture).toHaveBeenCalledWith('wave');
 
       // Guard conditions
+      // @ts-ignore: Defensive runtime type checking test
       expect(await defaultGesture3D(null, 'wave')).toBeUndefined();
       expect(await defaultGesture3D(skinEngine, '')).toBeUndefined();
     });
@@ -94,13 +96,13 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
 
     it('should boot 2D avatar, apply fit transform in HALF and FULL modes, and clean up on dispose', async () => {
       const onMounted = vi.fn();
-      let stateCallback;
+      let stateCallback: Function | undefined;
 
-      const skinEngine = {
+      const skinEngine: any = {
         stageEl,
         gender: GENDER_MAP.female,
         fitMode: FIT_MODE_MAP.HALF,
-        subscribe: vi.fn((_selector, cb) => {
+        subscribe: vi.fn((_selector: any, cb: Function) => {
           stateCallback = cb;
           return vi.fn();
         }),
@@ -110,9 +112,9 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
       };
 
       // Mock Live2D model with settings groups for lipsync
-      const origFrom = window.PIXI.live2d.Live2DModel.from;
+      const origFrom = (window as any).PIXI.live2d.Live2DModel.from;
       const setParamSpy = vi.fn();
-      window.PIXI.live2d.Live2DModel.from = vi.fn().mockResolvedValue({
+      (window as any).PIXI.live2d.Live2DModel.from = vi.fn().mockResolvedValue({
         width: 400,
         height: 600,
         anchor: { set: vi.fn() },
@@ -129,7 +131,7 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
         }
       });
 
-      const renderer2D = await bootAvatar(skinEngine, 'model3.json');
+      const renderer2D: any = await bootAvatar(skinEngine, 'model3.json');
       expect(renderer2D).toBeDefined();
       expect(renderer2D.canvas).toBeDefined();
       expect(renderer2D.pixiApp).toBeDefined();
@@ -157,38 +159,38 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
       renderer2D.dispose();
       expect(skinEngine.avatarModel).toBeNull();
 
-      window.PIXI.live2d.Live2DModel.from = origFrom;
+      (window as any).PIXI.live2d.Live2DModel.from = origFrom;
     });
 
     it('should handle bootAvatar error and invoke onTwoDimensionalError', async () => {
       const onTwoDimensionalError = vi.fn();
-      const resNull = await bootAvatar({ stageEl: null, onTwoDimensionalError }, 'model.json');
+      // @ts-ignore: Defensive runtime type checking test
+      const resNull = await bootAvatar({ stageEl: null, onTwoDimensionalError } as any, 'model.json');
       expect(resNull).toBeUndefined();
 
       // Test catch block when Live2DModel.from throws
-      const origFrom = window.PIXI.live2d.Live2DModel.from;
-      window.PIXI.live2d.Live2DModel.from = vi.fn().mockRejectedValue(new Error('Live2D init failed'));
+      const origFrom = (window as any).PIXI.live2d.Live2DModel.from;
+      (window as any).PIXI.live2d.Live2DModel.from = vi.fn().mockRejectedValue(new Error('Live2D init failed'));
 
-      const resError = await bootAvatar({ stageEl: document.createElement('div'), onTwoDimensionalError }, 'model.json');
+      const resError = await bootAvatar({ stageEl: document.createElement('div'), onTwoDimensionalError } as any, 'model.json');
       expect(resError).toBeUndefined();
       expect(onTwoDimensionalError).toHaveBeenCalled();
 
-      window.PIXI.live2d.Live2DModel.from = origFrom;
+      (window as any).PIXI.live2d.Live2DModel.from = origFrom;
     });
   });
-
-
 
   describe('loadVRMFile (Custom VRM Drag & Drop)', () => {
     it('should report error when invalid stageEl or non-VRM file is provided', () => {
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      // @ts-ignore: Defensive runtime type checking test
       loadVRMFile(null, new File([''], 'test.vrm'));
       expect(consoleErrorSpy).toHaveBeenCalled();
       consoleErrorSpy.mockRestore();
 
       const failSpy = vi.fn();
       const nonVrmFile = new File([''], 'model.obj');
-      const skinEngine = { stageEl, VRMFileChangeFail: failSpy };
+      const skinEngine: any = { stageEl, VRMFileChangeFail: failSpy };
 
       loadVRMFile(skinEngine, nonVrmFile);
       expect(failSpy).toHaveBeenCalledWith(expect.any(Error));
@@ -202,7 +204,7 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
 
       const successSpy = vi.fn();
       const vrmFile = new File([''], 'avatar.vrm');
-      const skinEngine = {
+      const skinEngine: any = {
         stageEl,
         vrmUrl: 'blob:old_vrm_url',
         VRMFileChangeSuccess: successSpy,
@@ -232,8 +234,8 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
       };
 
       const setParamSpy = vi.fn();
-      const origFrom = window.PIXI.live2d.Live2DModel.from;
-      window.PIXI.live2d.Live2DModel.from = vi.fn().mockResolvedValue({
+      const origFrom = (window as any).PIXI.live2d.Live2DModel.from;
+      (window as any).PIXI.live2d.Live2DModel.from = vi.fn().mockResolvedValue({
         width: 300,
         height: 500,
         anchor: { set: vi.fn() },
@@ -250,7 +252,7 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
         }
       });
 
-      const skinEngine = {
+      const skinEngine: any = {
         stageEl,
         fitMode: FIT_MODE_MAP.FULL,
         getState: () => state,
@@ -259,7 +261,7 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
         setSkin2d: vi.fn()
       };
 
-      const renderer2D = await bootAvatar(skinEngine, 'model.json');
+      const renderer2D: any = await bootAvatar(skinEngine, 'model.json');
       expect(renderer2D).toBeDefined();
 
       // Trigger fit
@@ -276,7 +278,7 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
 
       // Dispose
       renderer2D.dispose();
-      window.PIXI.live2d.Live2DModel.from = origFrom;
+      (window as any).PIXI.live2d.Live2DModel.from = origFrom;
     });
   });
 });

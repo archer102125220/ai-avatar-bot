@@ -9,10 +9,10 @@ import {
   DEFAULT_MALE_2D_MODEL_URL,
   DEFAULT_MALE_3D_MODEL_URL
 } from '@/core/constants';
-
+import type { SkinEngine } from '@types';
 
 describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Updates)', () => {
-  let stageEl;
+  let stageEl: HTMLElement;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -26,7 +26,7 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
 
   describe('setGender', () => {
     it('should update gender state and synchronize 2D and 3D default model assets', () => {
-      const engine = initSkinEngine({ stageEl, gender: GENDER_MAP.female });
+      const engine: SkinEngine = initSkinEngine({ stageEl, gender: GENDER_MAP.female }) as SkinEngine;
       expect(engine.modelUrl).toBe(DEFAULT_FEMALE_2D_MODEL_URL);
       expect(engine.vrmUrl).toBe(DEFAULT_FEMALE_3D_MODEL_URL);
 
@@ -39,7 +39,7 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
 
   describe('setFitMode', () => {
     it('should update fitMode in state store when valid FIT_MODE is provided', () => {
-      const engine = initSkinEngine({ stageEl, fitMode: FIT_MODE_MAP.HALF });
+      const engine: SkinEngine = initSkinEngine({ stageEl, fitMode: FIT_MODE_MAP.HALF }) as SkinEngine;
       expect(engine.fitMode).toBe(FIT_MODE_MAP.HALF);
 
       engine.setFitMode(FIT_MODE_MAP.FULL);
@@ -54,10 +54,10 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
 
   describe('setSkin2d', () => {
     it('should deeply merge partial 2D configuration including mode overrides', () => {
-      const engine = initSkinEngine({
+      const engine: SkinEngine = initSkinEngine({
         stageEl,
         skin2d: { zoom: 1.5, offsetX: 10 }
-      });
+      }) as SkinEngine;
 
       engine.setSkin2d({
         offsetY: 25,
@@ -70,13 +70,13 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
       expect(updated.offsetX).toBe(10);
       expect(updated.offsetY).toBe(25);
       expect(updated.anchor).toEqual({ x: 0.5, y: 0.8 });
-      expect(updated.half.zoom).toBe(2.2);
+      expect(updated.half?.zoom).toBe(2.2);
     });
   });
 
   describe('setSkin3d', () => {
     it('should deeply merge partial 3D camera and model spatial configurations', () => {
-      const engine = initSkinEngine({ stageEl });
+      const engine: SkinEngine = initSkinEngine({ stageEl }) as SkinEngine;
 
       engine.setSkin3d({
         camera: { fov: 35, near: 0.05 },
@@ -85,17 +85,17 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
       });
 
       const updated = engine.skin3d;
-      expect(updated.camera.fov).toBe(35);
-      expect(updated.camera.near).toBe(0.05);
-      expect(updated.model.position).toEqual({ x: 0, y: -0.5, z: 0 });
-      expect(updated.model.scale).toBe(1.2);
+      expect(updated.camera?.fov).toBe(35);
+      expect(updated.camera?.near).toBe(0.05);
+      expect(updated.model?.position).toEqual({ x: 0, y: -0.5, z: 0 });
+      expect(updated.model?.scale).toBe(1.2);
       expect(updated.pointerLook).toBe(false);
     });
   });
 
   describe('setEmotion & setIsSpeaking (Auto-restore Lifecycle)', () => {
     it('should set emotion, trigger target weight, and auto-restore to neutral after 3 seconds if not speaking', () => {
-      const engine = initSkinEngine({ stageEl });
+      const engine: SkinEngine = initSkinEngine({ stageEl }) as SkinEngine;
       expect(engine.getState().emotion).toBe('neutral');
 
       engine.setEmotion('happy');
@@ -113,7 +113,7 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
     });
 
     it('should maintain emotion while speaking and restore immediately when speaking ends', () => {
-      const engine = initSkinEngine({ stageEl });
+      const engine: SkinEngine = initSkinEngine({ stageEl }) as SkinEngine;
 
       engine.setIsSpeaking(true);
       engine.setEmotion('surprised');
@@ -131,18 +131,18 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
   describe('computeMouth and Property Setters', () => {
     it('should bind custom computeMouth function and evaluate amplitude', async () => {
       const computeMouthMock = vi.fn().mockReturnValue(0.75);
-      const engine = initSkinEngine({
+      const engine: SkinEngine = initSkinEngine({
         stageEl,
         computeMouth: computeMouthMock
-      });
+      }) as SkinEngine;
 
-      const val = await engine.computeMouth(engine);
+      const val = await engine.computeMouth?.(engine);
       expect(val).toBe(0.75);
       expect(computeMouthMock).toHaveBeenCalledWith(engine);
     });
 
     it('should handle switching, lipIds, startMode, fitMode setters and edge branches', () => {
-      const engine = initSkinEngine({ stageEl });
+      const engine: any = initSkinEngine({ stageEl });
 
       expect(typeof engine.switching).toBe('boolean');
       engine.switching = true;
@@ -174,7 +174,7 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
       const VRMFileChangeFail = vi.fn();
       const VRMFileChangeSuccess = vi.fn();
 
-      const engine = initSkinEngine({
+      const engine: any = initSkinEngine({
         stageEl,
         VRMFileChangeFail,
         VRMFileChangeSuccess

@@ -11,10 +11,10 @@ import {
   loadUMD
 } from '@/core/skin/renderer-2d';
 import { defaultGesture3D } from '@/core/skin/renderer-3d';
-
+import type { Renderer2D, Renderer3D } from '@types';
 
 describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)', () => {
-  let stageEl;
+  let stageEl: HTMLElement;
 
   beforeEach(() => {
     stageEl = document.createElement('div');
@@ -31,7 +31,7 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
   describe('defaultGesture2D', () => {
     it('should trigger female expressions correctly', async () => {
       const expressionMock = vi.fn().mockResolvedValue(true);
-      const skinEngine = {
+      const skinEngine: any = {
         gender: 'female',
         avatarModel: { expression: expressionMock }
       };
@@ -51,7 +51,7 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
 
     it('should trigger male expressions correctly and handle errors', async () => {
       const expressionMock = vi.fn().mockResolvedValue(true);
-      const skinEngine = {
+      const skinEngine: any = {
         gender: 'male',
         avatarModel: { expression: expressionMock }
       };
@@ -73,6 +73,7 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
       await expect(defaultGesture2D(skinEngine, 'happy')).resolves.not.toThrow();
 
       // Null skinEngine or invalid emotion
+      // @ts-ignore: Defensive runtime type checking test
       await defaultGesture2D(null, 'happy');
       await defaultGesture2D(skinEngine, 'unknown_emotion');
     });
@@ -80,7 +81,7 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
 
   describe('bootAvatar (2D Live2D)', () => {
     it('should fail gracefully when stageEl is not an HTMLElement', async () => {
-      const skinEngine = { stageEl: null };
+      const skinEngine: any = { stageEl: null };
       const res = await bootAvatar(skinEngine, 'model.json');
       expect(res).toBeUndefined();
     });
@@ -93,12 +94,12 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
           half: { zoom: 2.0, offsetX: 0, offsetY: 50, anchor: { x: 0.5, y: 1.0 } }
         }
       };
-      const subscribers = [];
-      const skinEngine = {
+      const subscribers: Function[] = [];
+      const skinEngine: any = {
         stageEl,
         fitMode: FIT_MODE_MAP.FULL,
         getState: () => state,
-        subscribe: vi.fn((selector, callback) => {
+        subscribe: vi.fn((selector: any, callback: Function) => {
           subscribers.push(callback);
           return vi.fn();
         }),
@@ -107,7 +108,7 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
         onMounted: vi.fn()
       };
 
-      const renderer = await bootAvatar(skinEngine, 'model.json');
+      const renderer = await bootAvatar(skinEngine, 'model.json') as Renderer2D;
       expect(renderer).toBeDefined();
       expect(renderer.canvas).toBeDefined();
       expect(renderer.avatarModel).toBeDefined();
@@ -157,27 +158,26 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
       expect(() => renderer.fit()).not.toThrow();
     });
 
-
     it('should trigger onTwoDimensionalError when bootAvatar throws', async () => {
       const onTwoDimensionalError = vi.fn();
-      const skinEngine = {
+      const skinEngine: any = {
         stageEl,
         onTwoDimensionalError
       };
       // Cause an error by breaking window.PIXI
-      const originalPIXI = window.PIXI;
-      window.PIXI = null;
+      const originalPIXI = (window as any).PIXI;
+      (window as any).PIXI = null;
 
       await bootAvatar(skinEngine, 'model.json');
       expect(onTwoDimensionalError).toHaveBeenCalled();
 
-      window.PIXI = originalPIXI;
+      (window as any).PIXI = originalPIXI;
     });
 
     it('should load UMD scripts or return cached promise if already loading', async () => {
-      delete window.__cdnDependenciePromise__;
+      delete (window as any).__cdnDependenciePromise__;
       const promise1 = loadUMD();
-      expect(window.__cdnDependenciePromise__).toBe(promise1);
+      expect((window as any).__cdnDependenciePromise__).toBe(promise1);
 
       // Subsequent call returns cached promise
       const promise2 = loadUMD();
@@ -185,17 +185,17 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
     });
   });
 
-
   describe('defaultGesture3D', () => {
     it('should invoke renderer.playGesture and handle null/empty gestures', async () => {
       const playGesture = vi.fn();
-      const skinEngine = {
+      const skinEngine: any = {
         renderer: { playGesture }
       };
 
       await defaultGesture3D(skinEngine, 'wave');
       expect(playGesture).toHaveBeenCalledWith('wave');
 
+      // @ts-ignore: Defensive runtime type checking test
       await defaultGesture3D(null, 'wave');
       await defaultGesture3D(skinEngine, '');
 
@@ -225,7 +225,7 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
       renderer2D.fit();
       expect(renderer2D.fit).toHaveBeenCalledOnce();
 
-      renderer2D.updateTransform({ zoom: 2.0, fitMode: FIT_MODE_MAP.HALF });
+      renderer2D.updateTransform({ zoom: 2.0, fitMode: FIT_MODE_MAP.HALF } as any);
       expect(renderer2D.updateTransform).toHaveBeenCalledWith({
         zoom: 2.0,
         fitMode: FIT_MODE_MAP.HALF

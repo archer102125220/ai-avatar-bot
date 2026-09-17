@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { initSkinEngine, loadVRMFile } from '@/core/skin';
 import { ENGINE_MODE_MAP } from '@/core/constants';
-
+import type { SkinEngine } from '@types';
 
 describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM Drop)', () => {
-  let stageEl;
+  let stageEl: HTMLElement;
 
   beforeEach(() => {
     stageEl = document.createElement('div');
@@ -20,11 +20,11 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
   describe('engineMode setter & switching concurrency guard', () => {
     it('should ignore duplicate mode assignments or concurrent switching', () => {
       const onModelChangeStart = vi.fn();
-      const engine = initSkinEngine({
+      const engine: SkinEngine = initSkinEngine({
         stageEl,
         startMode: ENGINE_MODE_MAP.twoDimensional,
         onModelChangeStart
-      });
+      }) as SkinEngine;
 
       expect(engine.engineMode).toBe(ENGINE_MODE_MAP.twoDimensional);
       // 初始化時觸發 1 次
@@ -45,7 +45,7 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
       const onModelChangeStart = vi.fn();
       const onModelChangeEnd = vi.fn();
 
-      const engine = initSkinEngine({
+      const engine: any = initSkinEngine({
         stageEl,
         startMode: ENGINE_MODE_MAP.twoDimensional,
         onModelChangeStart,
@@ -72,10 +72,10 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
   describe('loadVRMFile', () => {
     it('should reject invalid non-VRM files and invoke VRMFileChangeFail', () => {
       const VRMFileChangeFail = vi.fn();
-      const engine = initSkinEngine({
+      const engine: SkinEngine = initSkinEngine({
         stageEl,
         VRMFileChangeFail
-      });
+      }) as SkinEngine;
 
       const invalidFile = new File(['text'], 'model.txt', { type: 'text/plain' });
       loadVRMFile(engine, invalidFile);
@@ -92,7 +92,7 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
       global.URL.createObjectURL = createObjectURLMock;
       global.URL.revokeObjectURL = revokeObjectURLMock;
 
-      const engine = initSkinEngine({
+      const engine: any = initSkinEngine({
         stageEl,
         startMode: ENGINE_MODE_MAP.twoDimensional,
         VRMFileChangeSuccess
@@ -117,7 +117,7 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
   describe('gesture getters, setters, and execution flow', () => {
     it('should support gesture2D and gesture3D getters, setters, and warnings when null', () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const engine = initSkinEngine({ stageEl });
+      const engine: any = initSkinEngine({ stageEl });
 
       // Default gesture2D and gesture3D are functions
       expect(typeof engine.gesture2D).toBe('function');
@@ -154,7 +154,7 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
       const onGestureEnd = vi.fn();
       const onGestureError = vi.fn();
 
-      const engine = initSkinEngine({
+      const engine: any = initSkinEngine({
         stageEl,
         startMode: ENGINE_MODE_MAP.twoDimensional,
         onGesture,
@@ -182,7 +182,7 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
       const onModelChangeError = vi.fn();
       const VRMFileChangeFail = vi.fn();
 
-      const engine = initSkinEngine({
+      const engine: any = initSkinEngine({
         stageEl,
         startMode: ENGINE_MODE_MAP.twoDimensional,
         onModelChangeError,
@@ -215,13 +215,12 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
       expect(engine.engineMode).toBe(ENGINE_MODE_MAP.twoDimensional);
     });
 
-
     it('should test onMounted, onThreeDimensionalError, and onTwoDimensionalError delegators', () => {
       const onMounted = vi.fn();
       const onThreeDimensionalError = vi.fn();
       const onTwoDimensionalError = vi.fn();
 
-      const engine = initSkinEngine({
+      const engine: any = initSkinEngine({
         stageEl,
         onMounted,
         onThreeDimensionalError,
@@ -238,7 +237,7 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
       expect(onTwoDimensionalError).toHaveBeenCalled();
 
       // When callbacks are missing
-      const emptyEngine = initSkinEngine({ stageEl });
+      const emptyEngine: any = initSkinEngine({ stageEl });
       expect(emptyEngine.onMounted()).toBeUndefined();
       expect(emptyEngine.onThreeDimensionalError()).toBeUndefined();
       expect(emptyEngine.onTwoDimensionalError()).toBeUndefined();
@@ -249,7 +248,7 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
       const onModelChangeEnd = vi.fn();
       const onGestureError = vi.fn();
 
-      const engine = initSkinEngine({
+      const engine: any = initSkinEngine({
         stageEl,
         startMode: ENGINE_MODE_MAP.twoDimensional,
         onModelChange,
@@ -280,4 +279,3 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
     });
   });
 });
-

@@ -6,16 +6,18 @@ import {
   loadVRMFile
 } from '@/core/skin/renderer-3d';
 
-
 // Mock Three.js and VRM packages
 vi.mock('three', () => {
   class MockVector3 {
+    x: number;
+    y: number;
+    z: number;
     constructor(x = 0, y = 0, z = 0) {
       this.x = x;
       this.y = y;
       this.z = z;
     }
-    set(x, y, z) {
+    set(x: number, y: number, z: number) {
       this.x = x;
       this.y = y;
       this.z = z;
@@ -24,12 +26,15 @@ vi.mock('three', () => {
   }
 
   class MockEuler {
+    x: number;
+    y: number;
+    z: number;
     constructor(x = 0, y = 0, z = 0) {
       this.x = x;
       this.y = y;
       this.z = z;
     }
-    set(x, y, z) {
+    set(x: number, y: number, z: number) {
       this.x = x;
       this.y = y;
       this.z = z;
@@ -38,6 +43,11 @@ vi.mock('three', () => {
   }
 
   class MockObject3D {
+    position: MockVector3;
+    rotation: MockEuler;
+    scale: MockVector3;
+    children: any[];
+    frustumCulled: boolean;
     constructor() {
       this.position = new MockVector3();
       this.rotation = new MockEuler();
@@ -45,15 +55,20 @@ vi.mock('three', () => {
       this.children = [];
       this.frustumCulled = true;
     }
-    add(...objs) {
+    add(...objs: any[]) {
       this.children.push(...objs);
     }
-    traverse(cb) {
+    traverse(cb: Function) {
       cb(this);
     }
   }
 
   class MockPerspectiveCamera extends MockObject3D {
+    fov: number;
+    aspect: number;
+    near: number;
+    far: number;
+    lookAtTarget: any;
     constructor(fov = 50, aspect = 1, near = 0.1, far = 1000) {
       super();
       this.fov = fov;
@@ -61,13 +76,14 @@ vi.mock('three', () => {
       this.near = near;
       this.far = far;
     }
-    lookAt(v) {
+    lookAt(v: any) {
       this.lookAtTarget = v;
     }
     updateProjectionMatrix() {}
   }
 
   class MockWebGLRenderer {
+    domElement: HTMLCanvasElement;
     constructor() {
       this.domElement = document.createElement('canvas');
     }
@@ -80,6 +96,7 @@ vi.mock('three', () => {
   }
 
   class MockClock {
+    elapsedTime: number;
     constructor() {
       this.elapsedTime = 1.0;
     }
@@ -89,10 +106,11 @@ vi.mock('three', () => {
   }
 
   class MockAnimationMixer {
+    listeners: Record<string, Function>;
     constructor() {
       this.listeners = {};
     }
-    addEventListener(event, fn) {
+    addEventListener(event: string, fn: Function) {
       this.listeners[event] = fn;
     }
     clipAction() {
@@ -127,7 +145,7 @@ vi.mock('three', () => {
 vi.mock('three/addons/loaders/GLTFLoader.js', () => {
   class GLTFLoader {
     register() {}
-    load(url, onLoad, onProgress, onError) {
+    load(url: string, onLoad: Function, _onProgress: Function, onError: Function) {
       if (url === 'error.vrm') {
         onError(new Error('Load VRM failed'));
         return;
@@ -137,11 +155,11 @@ vi.mock('three/addons/loaders/GLTFLoader.js', () => {
           position: { set: vi.fn() },
           rotation: { set: vi.fn() },
           scale: { set: vi.fn() },
-          traverse: (cb) => cb({ frustumCulled: true })
+          traverse: (cb: Function) => cb({ frustumCulled: true })
         };
         const expressionManager = {
           setValue: vi.fn(),
-          getExpression: vi.fn((name) => ({ overrideMouth: name === 'surprised' ? 'none' : 'block' }))
+          getExpression: vi.fn((name: string) => ({ overrideMouth: name === 'surprised' ? 'none' : 'block' }))
         };
         const humanoid = {
           getNormalizedBoneNode: vi.fn(() => ({
@@ -162,7 +180,7 @@ vi.mock('three/addons/loaders/GLTFLoader.js', () => {
         });
       }, 0);
     }
-    async loadAsync(url) {
+    async loadAsync(url: string) {
       if (url.includes('error')) {
         throw new Error('Animation load fail');
       }
@@ -203,7 +221,7 @@ vi.mock('@pixiv/three-vrm-animation', () => {
 });
 
 describe('Unit Test: core/skin/renderer-3d.js', () => {
-  let stageEl;
+  let stageEl: HTMLElement;
 
   beforeEach(() => {
     stageEl = document.createElement('div');
@@ -214,7 +232,12 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       left: 0,
       top: 0,
       width: 640,
-      height: 480
+      height: 480,
+      right: 640,
+      bottom: 480,
+      x: 0,
+      y: 0,
+      toJSON: () => {}
     }));
     document.body.appendChild(stageEl);
   });
@@ -226,14 +249,16 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
 
   describe('defaultGesture3D', () => {
     it('should safely return on invalid arguments', async () => {
+      // @ts-ignore: Defensive runtime type checking test
       await expect(defaultGesture3D(null, 'wave')).resolves.toBeUndefined();
-      await expect(defaultGesture3D({}, '')).resolves.toBeUndefined();
-      await expect(defaultGesture3D({}, null)).resolves.toBeUndefined();
+      await expect(defaultGesture3D({} as any, '')).resolves.toBeUndefined();
+      // @ts-ignore: Defensive runtime type checking test
+      await expect(defaultGesture3D({} as any, null)).resolves.toBeUndefined();
     });
 
     it('should invoke renderer.playGesture and catch errors', async () => {
       const playGesture = vi.fn();
-      const skinEngine = { renderer: { playGesture } };
+      const skinEngine: any = { renderer: { playGesture } };
 
       await defaultGesture3D(skinEngine, 'wave');
       expect(playGesture).toHaveBeenCalledWith('wave');
@@ -248,18 +273,20 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
   describe('loadVRMFile', () => {
     it('should log error when stageEl is not an HTMLElement', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      loadVRMFile({ stageEl: null }, new File(['dummy'], 'model.vrm'));
+      // @ts-ignore: Defensive runtime type checking test
+      loadVRMFile({ stageEl: null } as any, new File(['dummy'], 'model.vrm'));
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
 
     it('should trigger VRMFileChangeFail when file is not a .vrm file', () => {
       const VRMFileChangeFail = vi.fn();
-      const skinEngine = { stageEl, VRMFileChangeFail };
+      const skinEngine: any = { stageEl, VRMFileChangeFail };
 
       loadVRMFile(skinEngine, new File(['dummy'], 'model.png'));
       expect(VRMFileChangeFail).toHaveBeenCalledWith(expect.any(Error));
 
+      // @ts-ignore: Defensive runtime type checking test
       loadVRMFile(skinEngine, null);
       expect(VRMFileChangeFail).toHaveBeenCalledTimes(2);
     });
@@ -269,7 +296,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
       const createSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:http://localhost/new-model');
 
-      const skinEngine = {
+      const skinEngine: any = {
         stageEl,
         vrmUrl: 'blob:http://localhost/old-model',
         _engineMode: 'threeDimensional',
@@ -294,7 +321,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
   describe('bootVRM', () => {
     it('should catch error and trigger onThreeDimensionalError when stageEl is missing', async () => {
       const onThreeDimensionalError = vi.fn();
-      const skinEngine = {
+      const skinEngine: any = {
         stageEl: null,
         onThreeDimensionalError
       };
@@ -332,12 +359,12 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         }
       };
 
-      const callbacks = {};
-      const skinEngine = {
+      const callbacks: Record<string, Function> = {};
+      const skinEngine: any = {
         stageEl,
         vrmUrl: 'valid.vrm',
         getState: () => currentState,
-        subscribe: vi.fn((selector, cb) => {
+        subscribe: vi.fn((selector: any, cb: Function) => {
           const key = selector(currentState) === currentState.skin3d ? 'skin3d' : 'fitMode';
           callbacks[key] = cb;
           return vi.fn();
@@ -353,7 +380,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         }
       };
 
-      const renderer = await bootVRM(skinEngine, {
+      const renderer: any = await bootVRM(skinEngine, {
         vrmaRootPath: 'https://custom.vrma.com/',
         wave: 'https://custom.vrma.com/wave.vrma'
       });
@@ -409,7 +436,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
     });
 
     it('should cover pointerLook false, partial vectors/scales, and animation mixer finished event', async () => {
-      const currentState = {
+      const currentState: any = {
         fitMode: FIT_MODE_MAP.HALF,
         isSpeaking: true,
         skin3d: {
@@ -433,8 +460,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         }
       };
 
-      const skinEngine = {
-
+      const skinEngine: any = {
         stageEl,
         vrmUrl: 'valid.vrm',
         getState: () => currentState,
@@ -449,7 +475,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         }
       };
 
-      const renderer = await bootVRM(skinEngine, {
+      const renderer: any = await bootVRM(skinEngine, {
         vrmaRootPath: 'https://vrma.test/'
       });
 
@@ -464,8 +490,8 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
 
     it('should execute animationLoop ticks covering lip sync, blink, emotions, speaking procedural motions, and pause/resume', async () => {
       vi.useFakeTimers();
-      let mouthResolve;
-      const mouthPromise = new Promise((resolve) => {
+      let mouthResolve!: (val: number) => void;
+      const mouthPromise = new Promise<number>((resolve) => {
         mouthResolve = resolve;
       });
 
@@ -479,7 +505,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         }
       };
 
-      const skinEngine = {
+      const skinEngine: any = {
         stageEl,
         vrmUrl: 'valid.vrm',
         getState: () => currentState,
@@ -497,7 +523,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
 
       const rendererPromise = bootVRM(skinEngine);
       await vi.runOnlyPendingTimersAsync();
-      const renderer = await rendererPromise;
+      const renderer: any = await rendererPromise;
 
       expect(renderer).toBeDefined();
 
@@ -545,7 +571,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         }
       };
 
-      const skinEngine = {
+      const skinEngine: any = {
         stageEl,
         vrmUrl: 'valid.vrm',
         getState: () => currentState,
@@ -566,12 +592,17 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         left: 0,
         top: 0,
         width: 800,
-        height: 600
+        height: 600,
+        right: 800,
+        bottom: 600,
+        x: 0,
+        y: 0,
+        toJSON: () => {}
       });
 
       const rendererPromise = bootVRM(skinEngine);
       await vi.runOnlyPendingTimersAsync();
-      const renderer = await rendererPromise;
+      const renderer: any = await rendererPromise;
 
       expect(renderer).toBeDefined();
 
@@ -588,7 +619,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       // 2. Test emotion with overrideMouth !== 'none'
       const vrm = renderer.vrm;
       if (vrm?.expressionManager) {
-        vrm.expressionManager.getExpression = vi.fn((name) => ({
+        vrm.expressionManager.getExpression = vi.fn((name: string) => ({
           name,
           overrideMouth: 'block'
         }));
@@ -611,4 +642,3 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
     });
   });
 });
-

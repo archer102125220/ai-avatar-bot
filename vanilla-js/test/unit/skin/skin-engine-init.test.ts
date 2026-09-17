@@ -13,11 +13,10 @@ import {
   DEFAULT_MALE_2D_MODEL_URL,
   DEFAULT_MALE_3D_MODEL_URL
 } from '@/core/constants';
-
-
+import type { SkinEngine } from '@types';
 
 describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
-  let stageEl;
+  let stageEl: HTMLElement;
 
   beforeEach(() => {
     stageEl = document.createElement('div');
@@ -35,13 +34,13 @@ describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
         stageEl
       };
 
-      const result = validateSkinEngine(mockEngine);
+      const result = validateSkinEngine(mockEngine as any);
       expect(result.isValid).toBe(true);
       expect(result.missing).toEqual([]);
     });
 
     it('should return isValid false with list of missing properties when invalid', () => {
-      const result = validateSkinEngine({});
+      const result = validateSkinEngine({} as any);
       expect(result.isValid).toBe(false);
       expect(result.missing).toContain('setGender()');
       expect(result.missing).toContain('loadVRMFile()');
@@ -49,6 +48,7 @@ describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
       expect(result.missing).toContain('has3D');
       expect(result.missing).toContain('stageEl');
 
+      // @ts-ignore: Defensive runtime type checking test
       const nullResult = validateSkinEngine(null);
       expect(nullResult.isValid).toBe(false);
       expect(nullResult.missing).toContain('engine instance');
@@ -57,7 +57,9 @@ describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
 
   describe('createCanvas', () => {
     it('should throw error if stageEl is not an HTMLElement', () => {
+      // @ts-ignore: Defensive runtime type checking test
       expect(() => createCanvas(null)).toThrow('[aiAvatar createCanvas] stageEl is not an HTMLElement');
+      // @ts-ignore: Defensive runtime type checking test
       expect(() => createCanvas({})).toThrow('[aiAvatar createCanvas] stageEl is not an HTMLElement');
     });
 
@@ -70,7 +72,7 @@ describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
       uiOverlay.id = 'ui-overlay';
       stageEl.appendChild(uiOverlay);
 
-      const newCanvas = createCanvas({ stageEl });
+      const newCanvas = createCanvas({ stageEl } as any);
 
       expect(newCanvas.tagName.toLowerCase()).toBe('canvas');
       expect(newCanvas.classList.contains('avatar-canvas')).toBe(true);
@@ -81,21 +83,21 @@ describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
 
   describe('initSkinMode', () => {
     it('should resolve startMode and engineMode to twoDimensional if has2D is true', () => {
-      const engine = { has2D: true, has3D: false };
+      const engine: any = { has2D: true, has3D: false };
       initSkinMode(engine);
       expect(engine.startMode).toBe(ENGINE_MODE_MAP.twoDimensional);
       expect(engine.engineMode).toBe(ENGINE_MODE_MAP.twoDimensional);
     });
 
     it('should resolve to threeDimensional if has3D is true and has2D is false', () => {
-      const engine = { has2D: false, has3D: true };
+      const engine: any = { has2D: false, has3D: true };
       initSkinMode(engine);
       expect(engine.startMode).toBe(ENGINE_MODE_MAP.threeDimensional);
       expect(engine.engineMode).toBe(ENGINE_MODE_MAP.threeDimensional);
     });
 
     it('should prioritize explicit startMode when specified', () => {
-      const engine = {
+      const engine: any = {
         startMode: ENGINE_MODE_MAP.threeDimensional,
         has2D: true,
         has3D: true
@@ -109,6 +111,7 @@ describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
   describe('initSkinEngine', () => {
     it('should return undefined and log error if stageEl is invalid', () => {
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      // @ts-ignore: Defensive runtime type checking test
       const engine = initSkinEngine({ stageEl: null });
       expect(engine).toBeUndefined();
       expect(consoleErrorSpy).toHaveBeenCalledWith('[aiAvatar initSkinMode] stageEl is not an HTMLElement');
@@ -116,7 +119,7 @@ describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
     });
 
     it('should initialize skin engine with default female 2D and 3D assets', () => {
-      const engine = initSkinEngine({ stageEl });
+      const engine = initSkinEngine({ stageEl }) as SkinEngine;
 
       expect(engine).toBeDefined();
       expect(engine.stageEl).toBe(stageEl);
@@ -130,7 +133,7 @@ describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
     });
 
     it('should resolve male default URLs when gender is male', () => {
-      const engine = initSkinEngine({ stageEl, gender: 'male' });
+      const engine = initSkinEngine({ stageEl, gender: 'male' }) as SkinEngine;
 
       expect(engine.modelUrl).toBe(DEFAULT_MALE_2D_MODEL_URL);
       expect(engine.vrmUrl).toBe(DEFAULT_MALE_3D_MODEL_URL);
@@ -141,7 +144,7 @@ describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
       const onModelChangeEnd = vi.fn();
       const onModelChangeError = vi.fn();
 
-      const engine = initSkinEngine({
+      const engine: any = initSkinEngine({
         stageEl,
         onModelChange,
         onModelChangeEnd,
@@ -164,7 +167,7 @@ describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
       const onTwoDimensionalError = vi.fn();
       const onThreeDimensionalError = vi.fn();
 
-      const engineWithCallbacks = initSkinEngine({
+      const engineWithCallbacks: any = initSkinEngine({
         stageEl,
         onMounted,
         onTwoDimensionalError,
@@ -183,7 +186,7 @@ describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
       expect(onThreeDimensionalError).toHaveBeenCalledWith(err3d);
 
       // Default engine without callbacks
-      const engineWithoutCallbacks = initSkinEngine({ stageEl });
+      const engineWithoutCallbacks: any = initSkinEngine({ stageEl });
       expect(engineWithoutCallbacks.onMounted()).toBeUndefined();
       expect(engineWithoutCallbacks.onTwoDimensionalError()).toBeUndefined();
       expect(engineWithoutCallbacks.onThreeDimensionalError()).toBeUndefined();
@@ -191,7 +194,7 @@ describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
 
     it('should handle gesture2D and gesture3D warning fallbacks when handlers are not functions', () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const engine = initSkinEngine({ stageEl });
+      const engine: any = initSkinEngine({ stageEl });
 
       engine.gesture2D = null;
       const fn2d = engine.gesture2D('happy');
@@ -209,21 +212,19 @@ describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
     });
 
     it('should return null for gesture getter when engineMode is not 2d or 3d', () => {
-      const engine = initSkinEngine({ stageEl });
+      const engine: any = initSkinEngine({ stageEl });
       engine._engineMode = null;
       expect(engine.gesture).toBeNull();
     });
 
     it('should early-return when engineMode is set to the current engineMode', () => {
       const onModelChangeSpy = vi.fn();
-      const engine = initSkinEngine({ stageEl, onModelChange: onModelChangeSpy });
+      const engine: SkinEngine = initSkinEngine({ stageEl, onModelChange: onModelChangeSpy }) as SkinEngine;
       const currentMode = engine.engineMode;
       onModelChangeSpy.mockClear();
 
       engine.engineMode = currentMode;
       expect(onModelChangeSpy).not.toHaveBeenCalled();
     });
-
   });
 });
-
