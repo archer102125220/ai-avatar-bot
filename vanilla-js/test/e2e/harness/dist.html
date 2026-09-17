@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Production Dist Smoke Harness</title>
+    <link rel="stylesheet" href="/dist/style.css" />
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+      #app {
+        width: 450px;
+        height: 650px;
+        position: relative;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <script type="module">
+      import initAvatarBot, { ENGINE_MODE_MAP } from '/dist/ai-avatar-bot.js';
+
+      window.__distLoaded = false;
+      window.__distError = null;
+
+      try {
+        const app = document.getElementById('app');
+        window.aiAvatarWidget = await initAvatarBot({
+          container: app,
+          startMode: ENGINE_MODE_MAP.twoDimensional,
+          customEngines: {
+            skin: ({ stageEl, aiAvatarWidget }) => {
+              const canvas = document.createElement('canvas');
+              stageEl.insertBefore(canvas, stageEl.firstChild);
+              setTimeout(() => {
+                if (typeof aiAvatarWidget?.onReady === 'function') {
+                  aiAvatarWidget.onReady(aiAvatarWidget);
+                }
+              }, 10);
+              return {
+                stageEl,
+                has2D: true,
+                has3D: false,
+                setGender: () => {},
+                loadVRMFile: () => {},
+                fit: () => {},
+                updateTransform: () => {},
+                dispose: () => canvas.remove()
+              };
+            }
+          },
+          onReady: () => {
+            window.__distLoaded = true;
+          },
+          onError: (err) => {
+            window.__distError = err;
+          }
+        });
+      } catch (err) {
+        window.__distError = err;
+        console.error('[dist-harness] error:', err);
+      }
+    </script>
+  </body>
+</html>
