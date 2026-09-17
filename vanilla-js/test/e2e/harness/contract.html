@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>E2E Contract Harness (Track A)</title>
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+
+      #app {
+        width: 450px;
+        height: 650px;
+        position: relative;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <script type="module">
+      import { initAvatarBot } from '@/core';
+
+      /**
+       * 瀏覽器專用輕量 Mock Skin Engine (零 WebGL 資源負擔)
+       */
+      function createBrowserMockSkinEngine() {
+        const canvas = document.createElement('canvas');
+        canvas.id = 'mock-canvas';
+        canvas.width = 450;
+        canvas.height = 650;
+        return {
+          canvas,
+          avatarModel: {
+            expression: () => Promise.resolve(true),
+            motion: () => Promise.resolve(true),
+            on: () => {},
+            emit: () => {},
+            destroy: () => {}
+          },
+          fit: () => {},
+          updateTransform: () => {},
+          dispose: () => {}
+        };
+      }
+
+      /**
+       * 瀏覽器專用輕量 Mock Brain Engine (確定性毫秒級流式回覆)
+       */
+      function createBrowserMockBrainEngine() {
+        return {
+          chat: async ({ onStream, stream = true }) => {
+            const reply = window.__mockReply || '你好！我是測試機器人。';
+            if (stream && typeof onStream === 'function') {
+              const chunks = reply.match(/.{1,3}/g) || [reply];
+              for (const chunk of chunks) {
+                onStream(chunk);
+                await new Promise((r) => setTimeout(r, 10));
+              }
+            }
+            return {
+              text: reply,
+              toolCalls: window.__mockToolCalls || []
+            };
+          }
+        };
+      }
+
+      /**
+       * 全域掛載函數，方便 Playwright 重新以自訂 options 初始化
+       */
+      window.initHarness = async function (customOptions = {}) {
+        if (window.aiAvatarWidget && typeof window.aiAvatarWidget.destroy === 'function') {
+          try {
+            window.aiAvatarWidget.destroy();
+          } catch (e) {
+            console.warn('[harness] destroy error:', e);
+          }
+        }
+
+        const app = document.getElementById('app');
+        app.innerHTML = '';
+        window.__harnessReady = false;
+
+        const defaultOptions = {
+          container: app,
+          customEngines: {
+            skinEngine: createBrowserMockSkinEngine(),
+            brainEngine: createBrowserMockBrainEngine()
+          },
+          onReady: (widget) => {
+            window.__harnessReady = true;
+            if (typeof customOptions.onReady === 'function') {
+              customOptions.onReady(widget);
+            }
+          }
+        };
+
+        window.aiAvatarWidget = await initAvatarBot({
+          ...defaultOptions,
+          ...customOptions
+        });
+
+        return window.aiAvatarWidget;
+      };
+
+      // 自動執行預設初始化
+      await window.initHarness();
+    </script>
+  </body>
+</html>

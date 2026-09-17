@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>E2E Engine Harness (Track B)</title>
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+
+      #app {
+        width: 450px;
+        height: 650px;
+        position: relative;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <script type="module">
+      import { initAvatarBot, ENGINE_MODE_MAP } from '@/core';
+
+      window.initEngineHarness = async function (customOptions = {}) {
+        if (window.aiAvatarWidget && typeof window.aiAvatarWidget.destroy === 'function') {
+          try {
+            window.aiAvatarWidget.destroy();
+          } catch (e) {
+            console.warn('[engine-harness] destroy error:', e);
+          }
+        }
+
+        const app = document.getElementById('app');
+        app.innerHTML = '';
+        window.__engineReady = false;
+        window.__engineError = null;
+
+        window.aiAvatarWidget = await initAvatarBot({
+          container: app,
+          startMode: ENGINE_MODE_MAP.twoDimensional,
+          onReady: () => {
+            window.__engineReady = true;
+          },
+          onError: (err) => {
+            window.__engineError = err;
+            console.error('[engine-harness] init error:', err);
+          },
+          ...customOptions
+        });
+
+        return window.aiAvatarWidget;
+      };
+
+      await window.initEngineHarness();
+    </script>
+  </body>
+</html>

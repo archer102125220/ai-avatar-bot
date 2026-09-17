@@ -100,3 +100,8 @@ coverage/
 # Vite
 *.timestamp-*-*.mjs
 .env*.local
+
+# Playwright
+test-results/
+playwright-report/
+

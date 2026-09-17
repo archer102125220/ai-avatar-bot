@@ -127,7 +127,11 @@
     "test:unit:watch": "vitest",
     "test:unit:ui": "vitest --ui",
     "test:unit:report": "vitest run --reporter=html",
-    "test:unit:coverage": "vitest run --coverage"
+    "test:unit:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:contract": "playwright test --project=contract",
+    "test:e2e:engine": "playwright test --project=engine",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.84",
@@ -139,6 +143,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
     "@vitest/coverage-v8": "^5.0.0",
     "@vitest/ui": "^5.0.0",
     "eslint": "^10.6.0",

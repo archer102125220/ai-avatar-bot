@@ -13,6 +13,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: [resolve(__dirname, 'test/setup.ts')],
     include: ['test/**/*.{test,spec}.{js,ts}'],
+    exclude: ['test/e2e/**', '**/node_modules/**', '**/dist/**'],
     outputFile: resolve(__dirname, 'html/index.html'),
     // api: {
     //   token: false
