@@ -131,7 +131,8 @@
     "test:e2e": "playwright test",
     "test:e2e:contract": "playwright test --project=contract",
     "test:e2e:engine": "playwright test --project=engine",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.84",
