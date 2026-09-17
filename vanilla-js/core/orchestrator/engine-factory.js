@@ -643,12 +643,17 @@ export function setupToolsEngine({ options, widget, getEngines, getUiDom }) {
       if (uiDom?.historyPanelEl instanceof HTMLElement) {
         if (isOpen === true) {
           uiDom.historyPanelEl.setAttribute('css-is-open', 'true');
+          uiDom.historyPanelEl.inert = false;
         } else {
           uiDom.historyPanelEl.removeAttribute('css-is-open');
+          uiDom.historyPanelEl.inert = true;
         }
         if (uiDom.historyPanelEl.getAttribute('css-is-open') === 'true') {
           renderHistory(widget);
         }
+      }
+      if (uiDom?.historyButtonEl instanceof HTMLElement) {
+        uiDom.historyButtonEl.setAttribute('aria-expanded', String(isOpen === true));
       }
       callOptionEvent(options, widget, 'onSetHistoryOpen', isOpen);
     },

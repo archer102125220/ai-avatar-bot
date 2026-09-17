@@ -90,8 +90,34 @@
         const defaultOptions = {
           container: app,
           customEngines: {
-            skinEngine: createBrowserMockSkinEngine(),
-            brainEngine: createBrowserMockBrainEngine()
+            skin: ({ stageEl, aiAvatarWidget }) => {
+              const canvas = document.createElement('canvas');
+              canvas.id = 'mock-canvas';
+              canvas.style.position = 'absolute';
+              canvas.style.inset = '0';
+              canvas.style.pointerEvents = 'none';
+              canvas.style.zIndex = '0';
+              stageEl.insertBefore(canvas, stageEl.firstChild);
+
+              setTimeout(() => {
+                if (typeof aiAvatarWidget?.onReady === 'function') {
+                  aiAvatarWidget.onReady(aiAvatarWidget);
+                }
+              }, 10);
+
+              return {
+                stageEl,
+                has2D: true,
+                has3D: false,
+                setGender: () => {},
+                loadVRMFile: () => {},
+                fit: () => {},
+                updateTransform: () => {},
+                dispose: () => {
+                  canvas.remove();
+                }
+              };
+            }
           },
           onReady: (widget) => {
             window.__harnessReady = true;
