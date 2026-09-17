@@ -4,6 +4,8 @@ import { defineConfig, devices } from '@playwright/test';
  * Playwright E2E configuration for ai-avatar-bot-vanilla-js.
  * Supports Track A (UI Contract Parity) and Track B (Real Engine Smoke).
  */
+const reportDir = process.env.PLAYWRIGHT_HTML_REPORT_DIR || 'playwright-report/all';
+
 export default defineConfig({
   testDir: './test/e2e/specs',
   timeout: 30000,
@@ -14,7 +16,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
+  reporter: [['list'], ['html', { open: 'never', outputFolder: reportDir }]],
 
   use: {
     baseURL: 'http://127.0.0.1:5173',

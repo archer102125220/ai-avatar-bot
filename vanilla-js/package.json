@@ -128,11 +128,13 @@
     "test:unit:ui": "vitest --ui",
     "test:unit:report": "vitest run --reporter=html",
     "test:unit:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test",
-    "test:e2e:contract": "playwright test --project=contract",
-    "test:e2e:engine": "playwright test --project=engine",
+    "test:e2e": "PLAYWRIGHT_HTML_REPORT_DIR=playwright-report/all playwright test",
+    "test:e2e:contract": "PLAYWRIGHT_HTML_REPORT_DIR=playwright-report/contract playwright test --project=contract",
+    "test:e2e:engine": "PLAYWRIGHT_HTML_REPORT_DIR=playwright-report/engine playwright test --project=engine",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report playwright-report/all",
+    "test:e2e:report:contract": "playwright show-report playwright-report/contract",
+    "test:e2e:report:engine": "playwright show-report playwright-report/engine"
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.84",
@@ -145,6 +147,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",
+    "@types/node": "^22.20.3",
     "@vitest/coverage-v8": "^5.0.0",
     "@vitest/ui": "^5.0.0",
     "eslint": "^10.6.0",

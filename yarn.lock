@@ -2871,6 +2871,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/node@npm:^22.20.3":
+  version: 22.20.3
+  resolution: "@types/node@npm:22.20.3"
+  dependencies:
+    undici-types: "npm:~6.21.0"
+  checksum: 10c0/27034f3f66d7044494f0be7b20b17eecbb1f6deab9e2ea8b004d79e896f4a90cde954da9a433a145e800f3db3e5c5c4761a65366434997c77102ba364dcbedd0
+  languageName: node
+  linkType: hard
+
 "@types/node@npm:^24.13.2":
   version: 24.13.5
   resolution: "@types/node@npm:24.13.5"
@@ -4214,6 +4223,7 @@ __metadata:
     "@pixiv/three-vrm": "npm:^3.5.4"
     "@pixiv/three-vrm-animation": "npm:^3.5.4"
     "@playwright/test": "npm:^1.63.0"
+    "@types/node": "npm:^22.20.3"
     "@vitest/coverage-v8": "npm:^5.0.0"
     "@vitest/ui": "npm:^5.0.0"
     eslint: "npm:^10.6.0"

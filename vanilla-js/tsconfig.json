@@ -23,6 +23,8 @@
     "types/**/*",
     "plugins/**/*",
     "example/**/*",
-    "bin/**/*"
+    "bin/**/*",
+    "playwright.config.ts",
+    "*.config.ts"
   ]
 }
