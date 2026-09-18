@@ -585,7 +585,7 @@ export function initSkinEngine(setting = {}) {
 
     _gesture3D: safeGesture3D,
     get gesture3D() {
-      return function _gesture3D(emotionName) {
+      const _gesture3D = (emotionName) => {
         if (typeof this._gesture3D !== 'function') {
           console.warn('3D hand movement function is not registered');
           return () => {
@@ -594,6 +594,7 @@ export function initSkinEngine(setting = {}) {
         }
         return this._gesture3D.call(this, this, emotionName);
       };
+      return _gesture3D;
     },
     set gesture3D(newGesture3D) {
       if (typeof newGesture3D === 'function' || newGesture3D === null) {
@@ -603,7 +604,7 @@ export function initSkinEngine(setting = {}) {
 
     _gesture2D: safeGesture2D,
     get gesture2D() {
-      return function _gesture2D(emotionName) {
+      const _gesture2D = (emotionName) => {
         if (typeof this._gesture2D !== 'function') {
           console.warn('2D hand movement function is not registered');
           return () => {
@@ -612,6 +613,7 @@ export function initSkinEngine(setting = {}) {
         }
         return this._gesture2D.call(this, this, emotionName);
       };
+      return _gesture2D;
     },
     set gesture2D(newGesture2D) {
       if (typeof newGesture2D === 'function' || newGesture2D === null) {
