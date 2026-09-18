@@ -410,22 +410,26 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
   async function executeToolDirectly(
     tool: ToolDefinition,
     args: Record<string, unknown>,
-    pendingToolData: Record<string, any> = {}
-  ): Promise<any> {
+    pendingToolData: Record<string, unknown> = {}
+  ): Promise<unknown> {
     if (typeof tool?.execute !== 'function') {
       return null;
     }
+    const inputObj =
+      typeof pendingToolData?.input === 'object' &&
+      pendingToolData.input !== null
+        ? (pendingToolData.input as Record<string, unknown>)
+        : null;
     const resolvedContext =
-      typeof pendingToolData?.input?.context === 'object' &&
-      pendingToolData.input.context !== null
-        ? pendingToolData.input.context
+      typeof inputObj?.context === 'object' && inputObj.context !== null
+        ? inputObj.context
         : typeof pendingToolData?.context === 'object' &&
             pendingToolData.context !== null
           ? pendingToolData.context
           : {};
     const resolvedQuery =
-      typeof pendingToolData?.input?.query === 'string'
-        ? pendingToolData.input.query
+      typeof inputObj?.query === 'string'
+        ? inputObj.query
         : typeof pendingToolData?.query === 'string'
           ? pendingToolData.query
           : '';
@@ -438,31 +442,39 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
       });
 
       if (typeof pendingToolData?.onConfirmResume === 'function') {
-        pendingToolData.onConfirmResume(result);
+        (pendingToolData.onConfirmResume as (res: unknown) => void)(result);
       } else if (tool.resultMode !== TOOL_RESULT_MODE_MAP.AI_SUMMARY) {
         const message =
           typeof result === 'string'
             ? result
-            : typeof result?.message === 'string' && result.message !== ''
-              ? result.message
+            : typeof (result as Record<string, unknown>)?.message ===
+                  'string' &&
+                (result as Record<string, unknown>).message !== ''
+              ? ((result as Record<string, unknown>).message as string)
               : '已完成。';
         handleToolResult({
           ok: true,
           message,
-          callId: pendingToolData?.callId,
+          callId: String(pendingToolData?.callId || ''),
           name: tool.name
         });
       }
       return result;
-    } catch (error: any) {
-      const errorMessage = String(error?.message || error || '執行錯誤');
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : String(error || '執行錯誤');
       if (typeof pendingToolData?.onConfirmResume === 'function') {
-        pendingToolData.onConfirmResume({ ok: false, error: errorMessage });
+        (pendingToolData.onConfirmResume as (res: unknown) => void)({
+          ok: false,
+          error: errorMessage
+        });
       } else if (tool.resultMode !== TOOL_RESULT_MODE_MAP.AI_SUMMARY) {
         handleToolResult({
           ok: false,
           error: errorMessage,
-          callId: pendingToolData?.callId,
+          callId: String(pendingToolData?.callId || ''),
           name: tool.name
         });
       }

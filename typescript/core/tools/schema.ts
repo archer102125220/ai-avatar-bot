@@ -15,7 +15,7 @@ import type { ToolSchema, ToolSchemaProperty, ToolDefinition } from '@types';
  * @returns Normalized JSON schema object with valid properties and required fields.
  */
 export function normaliseSchema(
-  schema?: ToolSchema | Record<string, any> | null
+  schema?: ToolSchema | Record<string, unknown> | null
 ): ToolSchema {
   if (
     typeof schema !== 'object' ||
@@ -26,18 +26,19 @@ export function normaliseSchema(
   ) {
     return { type: 'object', properties: {}, required: [] };
   }
+  const propertiesRecord = schema.properties as Record<string, Record<string, unknown>>;
   const normalizedProperties: Record<string, ToolSchemaProperty> = {};
-  Object.keys(schema.properties)
+  Object.keys(propertiesRecord)
     .slice(0, 20)
     .forEach((propertyName) => {
       if (/^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/.test(propertyName) === false) {
         return;
       }
-      const rawProperty =
-        (schema.properties && schema.properties[propertyName]) || {};
+      const rawProperty = propertiesRecord[propertyName] || {};
       const propertyType =
+        typeof rawProperty.type === 'string' &&
         /^(string|number|integer|boolean)$/.test(rawProperty.type) === true
-          ? rawProperty.type
+          ? (rawProperty.type as 'string' | 'number' | 'integer' | 'boolean')
           : 'string';
       const propertyConfig: ToolSchemaProperty = {
         type: propertyType,
@@ -45,14 +46,15 @@ export function normaliseSchema(
         description: sanitizeText(rawProperty.description, 160),
         contextKey: sanitizeText(rawProperty.contextKey, 60),
         format:
+          typeof rawProperty.format === 'string' &&
           /^(email|url|phone|contact)$/.test(rawProperty.format) === true
-            ? rawProperty.format
+            ? (rawProperty.format as 'email' | 'url' | 'phone' | 'contact')
             : '',
         prefixes:
           Array.isArray(rawProperty.prefixes) === true
             ? rawProperty.prefixes
                 .slice(0, 8)
-                .map((prefixItem: any) => sanitizeText(prefixItem, 30))
+                .map((prefixItem: unknown) => sanitizeText(prefixItem, 30))
                 .filter(
                   (prefixItem: string) =>
                     typeof prefixItem === 'string' && prefixItem !== ''
@@ -62,7 +64,7 @@ export function normaliseSchema(
       if (Array.isArray(rawProperty.enum) === true) {
         propertyConfig.enum = rawProperty.enum
           .slice(0, 20)
-          .map((enumItem: any) => sanitizeText(enumItem, 80))
+          .map((enumItem: unknown) => sanitizeText(enumItem, 80))
           .filter(
             (enumItem: string) =>
               typeof enumItem === 'string' && enumItem !== ''
@@ -118,18 +120,21 @@ export function normaliseSchema(
  * @returns Fully normalized tool definition instance.
  */
 export function normaliseTool(
-  tool?: ToolDefinition | Record<string, any> | null
+  tool?: ToolDefinition | Record<string, unknown> | null
 ): ToolDefinition {
-  const targetTool = typeof tool === 'object' && tool !== null ? tool : {};
-  const rawRoutingMode = targetTool.routingMode;
+  const targetTool =
+    typeof tool === 'object' && tool !== null
+      ? (tool as Record<string, unknown>)
+      : {};
+  const rawRoutingMode = targetTool.routingMode as string;
   const routingMode =
-    Object.values(TOOL_ROUTING_MODE_MAP).includes(rawRoutingMode) === true
+    (Object.values(TOOL_ROUTING_MODE_MAP) as string[]).includes(rawRoutingMode) === true
       ? rawRoutingMode
       : DEFAULT_TOOL_ROUTING_MODE;
 
-  const rawResultMode = targetTool.resultMode;
+  const rawResultMode = targetTool.resultMode as string;
   const resultMode =
-    Object.values(TOOL_RESULT_MODE_MAP).includes(rawResultMode) === true
+    (Object.values(TOOL_RESULT_MODE_MAP) as string[]).includes(rawResultMode) === true
       ? rawResultMode
       : DEFAULT_TOOL_RESULT_MODE;
 
@@ -149,7 +154,7 @@ export function normaliseTool(
   }
 
   const execute =
-    typeof targetTool.execute === 'function' ? targetTool.execute : null;
+    typeof targetTool.execute === 'function' ? (targetTool.execute as ToolDefinition['execute']) : undefined;
 
   return {
     name: sanitizeText(targetTool.name, 64).replace(/[^a-zA-Z0-9_.-]/g, ''),
@@ -159,7 +164,7 @@ export function normaliseTool(
       Array.isArray(targetTool.keywords) === true
         ? targetTool.keywords
             .slice(0, 30)
-            .map((keywordItem: any) =>
+            .map((keywordItem: unknown) =>
               sanitizeText(keywordItem, 60).toLowerCase()
             )
             .filter(
@@ -171,7 +176,7 @@ export function normaliseTool(
       Array.isArray(targetTool.examples) === true
         ? targetTool.examples
             .slice(0, 20)
-            .map((exampleItem: any) => sanitizeText(exampleItem, 160))
+            .map((exampleItem: unknown) => sanitizeText(exampleItem, 160))
             .filter(
               (exampleItem: string) =>
                 typeof exampleItem === 'string' && exampleItem !== ''
@@ -181,7 +186,7 @@ export function normaliseTool(
       Array.isArray(targetTool.excludeKeywords) === true
         ? targetTool.excludeKeywords
             .slice(0, 20)
-            .map((excludeItem: any) =>
+            .map((excludeItem: unknown) =>
               sanitizeText(excludeItem, 60).toLowerCase()
             )
             .filter(
@@ -199,7 +204,7 @@ export function normaliseTool(
     resultMode,
     confirmationTimeoutMs,
     execute,
-    inputSchema: normaliseSchema(targetTool.inputSchema)
+    inputSchema: normaliseSchema(targetTool.inputSchema as ToolSchema)
   };
 }
 
@@ -210,7 +215,7 @@ export function normaliseTool(
  * @returns Array of tools available for AI invocation.
  */
 export function getAiAvailableTools(
-  tools?: Array<ToolDefinition | Record<string, any>> | null
+  tools?: Array<ToolDefinition | Record<string, unknown>> | null
 ): ToolDefinition[] {
   return (Array.isArray(tools) === true ? tools : [])
     .map(normaliseTool)
@@ -220,6 +225,25 @@ export function getAiAvailableTools(
     );
 }
 
+export interface OpenAIToolProperty {
+  type: string;
+  description: string;
+  enum?: string[];
+}
+
+export interface OpenAITool {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: string;
+      properties: Record<string, OpenAIToolProperty>;
+      required: string[];
+    };
+  };
+}
+
 /**
  * Transforms registered tool definitions into OpenAI-compatible JSON Schema function definitions.
  *
@@ -227,15 +251,15 @@ export function getAiAvailableTools(
  * @returns Array of OpenAI function tool schema objects.
  */
 export function toOpenAiTools(
-  tools?: Array<ToolDefinition | Record<string, any>> | null
-): Array<Record<string, any>> {
+  tools?: Array<ToolDefinition | Record<string, unknown>> | null
+): OpenAITool[] {
   const aiTools = getAiAvailableTools(tools);
   return aiTools.map((tool) => {
-    const properties: Record<string, any> = {};
+    const properties: Record<string, OpenAIToolProperty> = {};
     const schemaProperties = tool.inputSchema?.properties || {};
     Object.keys(schemaProperties).forEach((propertyKey) => {
       const propertySchema = schemaProperties[propertyKey];
-      properties[propertyKey] = {
+      const prop: OpenAIToolProperty = {
         type: propertySchema.type || TOOL_SCHEMA_TYPE_MAP.STRING,
         description:
           propertySchema.description || propertySchema.title || propertyKey
@@ -244,12 +268,13 @@ export function toOpenAiTools(
         Array.isArray(propertySchema.enum) === true &&
         propertySchema.enum.length > 0
       ) {
-        properties[propertyKey].enum = propertySchema.enum;
+        prop.enum = propertySchema.enum;
       }
+      properties[propertyKey] = prop;
     });
 
     return {
-      type: 'function',
+      type: 'function' as const,
       function: {
         name: tool.name,
         description: tool.description || tool.label || tool.name,
@@ -274,8 +299,8 @@ export function toOpenAiTools(
  * @returns Formatted parameter summary string.
  */
 export function argumentSummary(
-  tool: ToolDefinition | Record<string, any>,
-  args?: Record<string, any> | null
+  tool: ToolDefinition | Record<string, unknown>,
+  args?: Record<string, unknown> | null
 ): string {
   const normalizedTool = normaliseTool(tool);
   const targetArgs = typeof args === 'object' && args !== null ? args : {};

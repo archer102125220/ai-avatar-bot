@@ -54,25 +54,27 @@ export function createEmotionToolsPlugin(
         required: ['emotion']
       },
       execute: async (
-        executionPayloadOrArgs: any,
-        fallbackContext?: Record<string, any>
+        executionPayloadOrArgs: unknown,
+        fallbackContext?: Record<string, unknown>
       ) => {
         const isExecutionPayloadObject =
           typeof executionPayloadOrArgs === 'object' &&
           executionPayloadOrArgs !== null;
 
+        const payloadRecord = isExecutionPayloadObject
+          ? (executionPayloadOrArgs as Record<string, unknown>)
+          : null;
+
         const resolvedArgs =
-          isExecutionPayloadObject === true &&
-          executionPayloadOrArgs.args !== undefined
-            ? executionPayloadOrArgs.args
-            : isExecutionPayloadObject === true
-              ? executionPayloadOrArgs
+          payloadRecord !== null && payloadRecord.args !== undefined
+            ? (payloadRecord.args as Record<string, unknown>)
+            : payloadRecord !== null
+              ? payloadRecord
               : {};
 
         const resolvedContext =
-          isExecutionPayloadObject === true &&
-          executionPayloadOrArgs.context !== undefined
-            ? executionPayloadOrArgs.context
+          payloadRecord !== null && payloadRecord.context !== undefined
+            ? (payloadRecord.context as Record<string, unknown>)
             : typeof fallbackContext === 'object' && fallbackContext !== null
               ? fallbackContext
               : {};
@@ -87,14 +89,14 @@ export function createEmotionToolsPlugin(
           typeof getSkinEngine === 'function' ? getSkinEngine() : null;
         const targetSkinEngine =
           skinEngineFromGetter !== null && skinEngineFromGetter !== undefined
-            ? skinEngineFromGetter
-            : resolvedContext?.skinEngine;
+            ? (skinEngineFromGetter as unknown as Record<string, unknown>)
+            : (resolvedContext?.skinEngine as Record<string, unknown> | undefined);
 
         if (typeof targetSkinEngine === 'object' && targetSkinEngine !== null) {
           if (typeof targetSkinEngine.setEmotion === 'function') {
-            targetSkinEngine.setEmotion(safeEmotion);
+            (targetSkinEngine.setEmotion as (e: string) => void)(safeEmotion);
           } else if (typeof targetSkinEngine.gesture === 'function') {
-            await targetSkinEngine.gesture(safeEmotion);
+            await (targetSkinEngine.gesture as (e: string) => Promise<void>)(safeEmotion);
           }
         } else {
           console.warn(

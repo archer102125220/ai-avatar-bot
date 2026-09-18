@@ -22,9 +22,9 @@ export function extractPropertyValue(
   propertyName: string,
   propertySchema: ToolSchemaProperty,
   query: string,
-  context?: Record<string, any> | null,
+  context?: Record<string, unknown> | null,
   allowWhole?: boolean
-): any {
+): unknown {
   if (
     typeof propertySchema.contextKey === 'string' &&
     propertySchema.contextKey !== '' &&
@@ -127,8 +127,8 @@ export function extractPropertyValue(
  * @returns Validation result containing status, sanitized arguments, and error list.
  */
 export function validate(
-  schema?: ToolSchema | Record<string, any> | null,
-  input?: Record<string, any> | null
+  schema?: ToolSchema | Record<string, unknown> | null,
+  input?: Record<string, unknown> | null
 ): ToolValidationResult {
   const normalizedSchema = normaliseSchema(schema);
   const targetInput =
@@ -137,7 +137,7 @@ export function validate(
     Array.isArray(input) === false
       ? input
       : {};
-  const validatedArgs: Record<string, any> = {};
+  const validatedArgs: Record<string, unknown> = {};
   const validationErrors: string[] = [];
 
   const schemaProperties = normalizedSchema.properties || {};
@@ -176,11 +176,11 @@ export function validate(
     }
 
     if (propertySchema.type === 'integer' || propertySchema.type === 'number') {
-      propertyValue = Number(propertyValue);
+      const numValue = Number(propertyValue);
       if (
         typeof propertySchema.minimum === 'number' &&
         Number.isFinite(propertySchema.minimum) === true &&
-        propertyValue < propertySchema.minimum
+        numValue < propertySchema.minimum
       ) {
         validationErrors.push(
           `${propertyName} 不得小於 ${propertySchema.minimum}`
@@ -189,39 +189,41 @@ export function validate(
       if (
         typeof propertySchema.maximum === 'number' &&
         Number.isFinite(propertySchema.maximum) === true &&
-        propertyValue > propertySchema.maximum
+        numValue > propertySchema.maximum
       ) {
         validationErrors.push(
           `${propertyName} 不得大於 ${propertySchema.maximum}`
         );
       }
+      propertyValue = numValue;
     } else if (propertySchema.type === 'string') {
-      propertyValue = sanitizeText(propertyValue, propertySchema.maxLength);
+      const strValue = sanitizeText(propertyValue, propertySchema.maxLength);
       if (
         propertySchema.format === 'email' &&
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(propertyValue) === false
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(strValue) === false
       ) {
         validationErrors.push(`${propertyName} 電子郵件格式無效`);
       }
       if (
         propertySchema.format === 'url' &&
-        /^https?:\/\//i.test(propertyValue) === false
+        /^https?:\/\//i.test(strValue) === false
       ) {
         validationErrors.push(`${propertyName} 網址格式無效`);
       }
       if (
         propertySchema.format === 'phone' &&
-        /(?:\d[^\d]*){8,18}/.test(propertyValue) === false
+        /(?:\d[^\d]*){8,18}/.test(strValue) === false
       ) {
         validationErrors.push(`${propertyName} 電話格式無效`);
       }
       if (
         propertySchema.format === 'contact' &&
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(propertyValue) === false &&
-        /(?:\+?\d[\s().-]*){8,18}/.test(propertyValue) === false
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(strValue) === false &&
+        /(?:\+?\d[\s().-]*){8,18}/.test(strValue) === false
       ) {
         validationErrors.push(`${propertyName} 必須是電子郵件或電話`);
       }
+      propertyValue = strValue;
     }
 
     if (
@@ -267,17 +269,17 @@ export function validate(
  * @returns Extraction result containing extracted args, missing required fields, and errors.
  */
 export function extract(
-  tool: ToolDefinition | Record<string, any>,
+  tool: ToolDefinition | Record<string, unknown>,
   query: string,
-  context?: Record<string, any> | null,
-  existing?: Record<string, any> | null,
+  context?: Record<string, unknown> | null,
+  existing?: Record<string, unknown> | null,
   onlyNames?: string[] | null,
   allowWhole?: boolean
 ): ToolExtractResult {
   const normalizedTool = normaliseTool(tool);
   const existingArgs =
     typeof existing === 'object' && existing !== null ? existing : {};
-  const extractedArgs: Record<string, any> = {};
+  const extractedArgs: Record<string, unknown> = {};
   const schemaProperties = normalizedTool.inputSchema?.properties || {};
 
   Object.keys(schemaProperties).forEach((propertyName) => {

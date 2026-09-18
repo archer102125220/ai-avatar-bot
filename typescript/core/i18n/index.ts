@@ -1,4 +1,9 @@
-import { createBaseStore } from '@/core/store';
+import {
+  createBaseStore,
+  StoreListener,
+  PropertyListener,
+  Selector
+} from '@/core/store';
 import {
   DEFAULT_LOCALE,
   SUPPORTED_LOCALES,
@@ -12,10 +17,12 @@ import koKR from './locales/ko-KR';
 
 export * from './constants';
 
+export type TranslationDictionary = Record<string, unknown>;
+
 /**
  * Built-in default dictionary mappings for standard supported locales.
  */
-export const defaultLocales: Record<string, Record<string, any>> = {
+export const defaultLocales: Record<string, TranslationDictionary> = {
   'zh-TW': zhTW,
   'en-US': enUS,
   'ja-JP': jaJP,
@@ -32,14 +39,14 @@ export const defaultLocales: Record<string, Record<string, any>> = {
  * @param templateContext - Context arguments object passed to resolver functions.
  * @returns Resolved final localized value.
  */
-export function resolveLocalized<T = any>(
-  value?: T | Record<string, T> | ((args: any) => T),
+export function resolveLocalized<T = unknown>(
+  value?: T | Record<string, T> | ((args: Record<string, unknown>) => T),
   locale: string = DEFAULT_LOCALE,
-  fallbackValue?: T | ((args: any) => T),
-  templateContext: any = {}
+  fallbackValue?: T | ((args: Record<string, unknown>) => T),
+  templateContext: Record<string, unknown> = {}
 ): T {
   if (typeof value === 'function') {
-    return (value as (args: any) => T)(templateContext);
+    return (value as (args: Record<string, unknown>) => T)(templateContext);
   }
 
   if (
@@ -47,22 +54,25 @@ export function resolveLocalized<T = any>(
     value !== null &&
     Array.isArray(value) === false
   ) {
-    const record = value as Record<string, any>;
+    const record = value as Record<string, unknown>;
     if (typeof record[locale] !== 'undefined') {
-      return typeof record[locale] === 'function'
-        ? record[locale](templateContext)
-        : record[locale];
+      const locVal = record[locale];
+      return typeof locVal === 'function'
+        ? (locVal as (args: Record<string, unknown>) => T)(templateContext)
+        : (locVal as T);
     }
     if (typeof record[DEFAULT_LOCALE] !== 'undefined') {
-      return typeof record[DEFAULT_LOCALE] === 'function'
-        ? record[DEFAULT_LOCALE](templateContext)
-        : record[DEFAULT_LOCALE];
+      const defVal = record[DEFAULT_LOCALE];
+      return typeof defVal === 'function'
+        ? (defVal as (args: Record<string, unknown>) => T)(templateContext)
+        : (defVal as T);
     }
     const firstKey = Object.keys(record)[0];
     if (typeof firstKey === 'string' && firstKey !== '') {
-      return typeof record[firstKey] === 'function'
-        ? record[firstKey](templateContext)
-        : record[firstKey];
+      const firstVal = record[firstKey];
+      return typeof firstVal === 'function'
+        ? (firstVal as (args: Record<string, unknown>) => T)(templateContext)
+        : (firstVal as T);
     }
   }
 
@@ -71,7 +81,9 @@ export function resolveLocalized<T = any>(
   }
 
   if (typeof fallbackValue === 'function') {
-    return (fallbackValue as (args: any) => T)(templateContext);
+    return (fallbackValue as (args: Record<string, unknown>) => T)(
+      templateContext
+    );
   }
 
   return fallbackValue as T;
@@ -84,10 +96,10 @@ export function resolveLocalized<T = any>(
  * @param params - Key-value replacement parameters.
  * @returns Formatted output string.
  */
-export function formatParams(
-  text: string,
-  params: Record<string, any> = {}
-): string {
+export function formatParams<T = string>(
+  text: T,
+  params: Record<string, unknown> = {}
+): T {
   if (typeof text !== 'string') {
     return text;
   }
@@ -95,7 +107,7 @@ export function formatParams(
     return typeof params[key] !== 'undefined' && params[key] !== null
       ? String(params[key])
       : match;
-  });
+  }) as unknown as T;
 }
 
 /**
@@ -106,9 +118,9 @@ export function formatParams(
  * @returns Value or undefined.
  */
 function getFromDictionary(
-  dictionary: Record<string, any> | undefined | null,
+  dictionary: TranslationDictionary | undefined | null,
   keyPath: string
-): any {
+): unknown {
   if (typeof dictionary !== 'object' || dictionary === null) {
     return undefined;
   }
@@ -116,47 +128,66 @@ function getFromDictionary(
     return dictionary[keyPath];
   }
   const keySegments = keyPath.split('.');
-  let currentDictionary: any = dictionary;
+  let currentDictionary: unknown = dictionary;
   for (const segment of keySegments) {
     if (typeof currentDictionary !== 'object' || currentDictionary === null) {
       return undefined;
     }
-    currentDictionary = currentDictionary[segment];
+    currentDictionary = (currentDictionary as Record<string, unknown>)[segment];
   }
   return currentDictionary;
 }
 
+export type TranslateFunction = (
+  key: string,
+  params?: Record<string, unknown>
+) => unknown;
+
 export interface I18nEngineOptions {
   locale?: string;
-  messages?: Record<string, Record<string, any>>;
-  t?: (key: string, params?: Record<string, any>) => any;
-  translate?: (key: string, params?: Record<string, any>) => any;
+  messages?: Record<string, TranslationDictionary>;
+  t?: TranslateFunction;
+  translate?: TranslateFunction;
 }
 
-export interface I18nEngineState {
+export interface I18nEngineState extends Record<string, unknown> {
   locale: string;
-  messages: Record<string, Record<string, any>>;
+  messages: Record<string, TranslationDictionary>;
 }
+
+export type LocaleChangeListener = (
+  newLocale: string,
+  labels: LocaleLabelInfo,
+  prevLocale: string
+) => void;
 
 export interface I18nEngine {
-  t: (key: string, params?: Record<string, any>) => any;
-  translate: (key: string, params?: Record<string, any>) => any;
+  t: (key: string, params?: Record<string, unknown>) => unknown;
+  translate: (key: string, params?: Record<string, unknown>) => unknown;
   setLocale: (newLocale: string) => void;
-  addMessages: (locale: string, newMessages: Record<string, any>) => void;
-  formatParams: (text: string, params?: Record<string, any>) => string;
-  resolveLocalized: <T = any>(
-    value?: T | Record<string, T> | ((args: any) => T),
-    fallbackValue?: T | ((args: any) => T),
-    templateContext?: any
+  addMessages: (locale: string, newMessages: TranslationDictionary) => void;
+  formatParams: <T = string>(text: T, params?: Record<string, unknown>) => T;
+  resolveLocalized: <T = unknown>(
+    value?: T | Record<string, T> | ((args: Record<string, unknown>) => T),
+    fallbackValue?: T | ((args: Record<string, unknown>) => T),
+    templateContext?: Record<string, unknown>
   ) => T;
   locale: string;
-  messages: Record<string, Record<string, any>>;
+  messages: Record<string, TranslationDictionary>;
   labels: LocaleLabelInfo;
-  subscribe: (
-    key:
-      string | ((state: I18nEngineState, prevState: I18nEngineState) => void),
-    listener?: any
-  ) => () => void;
+  subscribe: {
+    (key: 'locale', listener: LocaleChangeListener): () => void;
+    (listener: StoreListener<I18nEngineState>): () => void;
+    <K extends keyof I18nEngineState>(
+      key: K,
+      callback: PropertyListener<I18nEngineState[K]>
+    ): () => void;
+    <V>(
+      selector: Selector<I18nEngineState, V>,
+      callback: PropertyListener<V>
+    ): () => void;
+    (selectorOrKey: unknown, callback?: unknown): () => void;
+  };
   getState: () => I18nEngineState;
   setState: (
     updates:
@@ -183,7 +214,7 @@ export function initI18nEngine(options: I18nEngineOptions = {}): I18nEngine {
       : {};
 
   // Merge built-in dictionaries with user custom dictionary
-  const mergedMessages: Record<string, Record<string, any>> = {};
+  const mergedMessages: Record<string, TranslationDictionary> = {};
   for (const supportedLocale of SUPPORTED_LOCALES) {
     mergedMessages[supportedLocale] = {
       ...(defaultLocales[supportedLocale] || {}),
@@ -210,7 +241,10 @@ export function initI18nEngine(options: I18nEngineOptions = {}): I18nEngine {
     messages: mergedMessages
   });
 
-  function translate(key: string, params: Record<string, any> = {}): any {
+  function translate(
+    key: string,
+    params: Record<string, unknown> = {}
+  ): unknown {
     if (customTranslateFunction !== null) {
       return customTranslateFunction(key, params);
     }
@@ -247,7 +281,10 @@ export function initI18nEngine(options: I18nEngineOptions = {}): I18nEngine {
     }
   }
 
-  function addMessages(locale: string, newMessages: Record<string, any>): void {
+  function addMessages(
+    locale: string,
+    newMessages: TranslationDictionary
+  ): void {
     if (
       typeof locale === 'string' &&
       typeof newMessages === 'object' &&
@@ -285,7 +322,7 @@ export function initI18nEngine(options: I18nEngineOptions = {}): I18nEngine {
       setLocale(newLocale);
     },
 
-    get messages(): Record<string, Record<string, any>> {
+    get messages(): Record<string, TranslationDictionary> {
       return store.getState().messages;
     },
 
@@ -298,20 +335,28 @@ export function initI18nEngine(options: I18nEngineOptions = {}): I18nEngine {
       );
     },
 
-    subscribe(key: any, listener: any): () => void {
+    subscribe(key: unknown, listener?: unknown): () => void {
       if (key === 'locale' && typeof listener === 'function') {
         return store.subscribe(
           'locale',
-          (newLocale: string, prevLocale: string) => {
-            const localeLabels = LOCALE_LABELS[newLocale] || {
-              label: newLocale,
-              shortLabel: newLocale
+          (newLocale: unknown, prevLocale: unknown) => {
+            const locStr = String(newLocale);
+            const localeLabels = LOCALE_LABELS[locStr] || {
+              label: locStr,
+              shortLabel: locStr
             };
-            listener(newLocale, localeLabels, prevLocale);
+            (listener as LocaleChangeListener)(
+              locStr,
+              localeLabels,
+              String(prevLocale)
+            );
           }
         );
       }
-      return store.subscribe(key, listener);
+      return (store.subscribe as (k: unknown, l?: unknown) => () => void)(
+        key,
+        listener
+      );
     },
     getState: store.getState,
     setState: store.setState

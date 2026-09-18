@@ -914,7 +914,7 @@ export interface ToolValidationResult {
   /** Whether all validation checks passed. */
   ok: boolean;
   /** Validated and sanitized argument dictionary. */
-  args: Record<string, any>;
+  args: Record<string, unknown>;
   /** Array of validation error messages. */
   errors: string[];
 }
@@ -924,7 +924,7 @@ export interface ToolValidationResult {
  */
 export interface ToolExtractResult {
   /** Successfully extracted arguments. */
-  args: Record<string, any>;
+  args: Record<string, unknown>;
   /** Required parameter names that are missing. */
   missing: string[];
   /** Parameter validation errors encountered during extraction. */

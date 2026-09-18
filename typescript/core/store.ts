@@ -16,9 +16,7 @@ export type Selector<T, V> = (state: T) => V;
 /**
  * Base reactive store interface compatible across Vanilla, Vue, and React.
  */
-export interface BaseStore<
-  T extends Record<string, any> = Record<string, any>
-> {
+export interface BaseStore<T extends object = Record<string, unknown>> {
   /**
    * Retrieves the current snapshot of the store's state.
    */
@@ -58,9 +56,9 @@ export interface BaseStore<
  * @param initialState - Initial state object.
  * @returns Store instance containing getState, setState, and subscribe methods.
  */
-export function createBaseStore<
-  T extends Record<string, any> = Record<string, any>
->(initialState: T = {} as T): BaseStore<T> {
+export function createBaseStore<T extends object = Record<string, unknown>>(
+  initialState: T = {} as T
+): BaseStore<T> {
   const state: T = { ...initialState };
   const subscribers = new Set<StoreListener<T>>();
 
@@ -76,8 +74,9 @@ export function createBaseStore<
 
     for (const key in newValues) {
       if (Object.prototype.hasOwnProperty.call(newValues, key)) {
-        if (state[key] !== newValues[key]) {
-          state[key] = newValues[key] as T[Extract<keyof T, string>];
+        const k = key as unknown as keyof T;
+        if (state[k] !== newValues[k]) {
+          state[k] = newValues[k] as T[keyof T];
           hasChanges = true;
         }
       }
@@ -91,8 +90,8 @@ export function createBaseStore<
   }
 
   function subscribe(
-    selector: StoreListener<T> | keyof T | Selector<T, any>,
-    callback?: PropertyListener<any>
+    selector: unknown,
+    callback?: unknown
   ): () => void {
     let listener: StoreListener<T>;
 
@@ -106,20 +105,22 @@ export function createBaseStore<
       typeof callback === 'function'
     ) {
       const key = selector as keyof T;
+      const propCb = callback as PropertyListener<T[keyof T]>;
       listener = function (currentState: T, previousState: T) {
         if (currentState[key] !== previousState[key]) {
-          callback(currentState[key], previousState[key]);
+          propCb(currentState[key], previousState[key]);
         }
       };
     }
     // Pattern 3: Subscribe to a specific property via selector function
     else if (typeof selector === 'function' && typeof callback === 'function') {
-      const fn = selector as Selector<T, any>;
+      const fn = selector as Selector<T, unknown>;
+      const propCb = callback as PropertyListener<unknown>;
       listener = function (currentState: T, previousState: T) {
         const currentValue = fn(currentState);
         const previousValue = fn(previousState);
         if (currentValue !== previousValue) {
-          callback(currentValue, previousValue);
+          propCb(currentValue, previousValue);
         }
       };
     } else {

@@ -28,7 +28,7 @@ export function getBrainMessage(
   if (typeof messageValue === 'string') {
     return formatParams(messageValue, params);
   }
-  return messageValue;
+  return String(messageValue ?? key);
 }
 
 /**

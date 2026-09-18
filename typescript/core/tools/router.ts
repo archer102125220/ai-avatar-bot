@@ -94,7 +94,7 @@ export function scoreTool(
  * @returns Routing result containing best match, ambiguous candidate list, and all candidates.
  */
 export function route(
-  tools: Array<ToolDefinition | Record<string, any>>,
+  tools: Array<ToolDefinition | Record<string, unknown>>,
   query: string
 ): ToolRouteResult {
   const candidateList: ToolRouteCandidate[] = (

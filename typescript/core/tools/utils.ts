@@ -5,7 +5,7 @@
  * @param maxLength - Maximum allowed character length (default 240).
  * @returns Sanitized string.
  */
-export function sanitizeText(value: any, maxLength: number = 240): string {
+export function sanitizeText(value: unknown, maxLength: number = 240): string {
   const safeMaxLength =
     typeof maxLength === 'number' &&
     Number.isFinite(maxLength) === true &&
@@ -24,7 +24,7 @@ export function sanitizeText(value: any, maxLength: number = 240): string {
  * @param value - Value to normalize.
  * @returns Normalized plain text.
  */
-export function normalizeText(value: any): string {
+export function normalizeText(value: unknown): string {
   return sanitizeText(value, 1200)
     .toLowerCase()
     .replace(/[\s，。、！？,.!?：:；;()（）]+/g, '');
@@ -36,7 +36,7 @@ export function normalizeText(value: any): string {
  * @param patternString - Pattern string to escape.
  * @returns Escaped regex-safe string.
  */
-export function escapeRegExp(patternString: string | any): string {
+export function escapeRegExp(patternString: unknown): string {
   return String(patternString).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
@@ -46,7 +46,7 @@ export function escapeRegExp(patternString: string | any): string {
  * @param textValue - String to extract bigrams from.
  * @returns Array of 2-character bigrams.
  */
-export function generateBigrams(textValue: any): string[] {
+export function generateBigrams(textValue: unknown): string[] {
   const normalizedText = normalizeText(textValue);
   const bigramList: string[] = [];
   if (normalizedText.length === 1) {
