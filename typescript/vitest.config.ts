@@ -34,9 +34,10 @@ export default defineConfig({
       // - test/unit/speech/**
       // [PHASE-3-STEP-5-UNLOCKED]
       // - test/unit/plugins/**
-      'test/unit/skin/**',
-      'test/unit/orchestrator/**',
-      'test/unit/ui/**'
+      // [PHASE-3-STEP-7-UNLOCKED]
+      // - test/unit/orchestrator/**
+      // [PHASE-3-STEP-8-UNLOCKED]
+      // - test/unit/ui/**
     ],
     outputFile: resolve(import.meta.dirname, 'html/index.html'),
     coverage: {

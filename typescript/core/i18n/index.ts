@@ -37,7 +37,7 @@ export function resolveLocalized<T = any>(
   locale: string = DEFAULT_LOCALE,
   fallbackValue?: T | ((args: any) => T),
   templateContext: any = {}
-): T | undefined {
+): T {
   if (typeof value === 'function') {
     return (value as (args: any) => T)(templateContext);
   }
@@ -74,7 +74,7 @@ export function resolveLocalized<T = any>(
     return (fallbackValue as (args: any) => T)(templateContext);
   }
 
-  return fallbackValue;
+  return fallbackValue as T;
 }
 
 /**
@@ -145,7 +145,7 @@ export interface I18nEngine {
     value?: T | Record<string, T> | ((args: any) => T),
     fallbackValue?: T | ((args: any) => T),
     templateContext?: any
-  ) => T | undefined;
+  ) => T;
   locale: string;
   messages: Record<string, Record<string, any>>;
   labels: LocaleLabelInfo;
