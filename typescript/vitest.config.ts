@@ -26,8 +26,10 @@ export default defineConfig({
       // - test/unit/constants.test.ts
       // - test/unit/store.test.ts
       // - test/unit/i18n.test.ts
-      'test/unit/tools/**',
-      'test/unit/brain/**',
+      // [PHASE-3-STEP-2-UNLOCKED]
+      // - test/unit/tools/**
+      // [PHASE-3-STEP-3-UNLOCKED]
+      // - test/unit/brain/**
       'test/unit/speech/**',
       'test/unit/plugins/**',
       'test/unit/skin/**',

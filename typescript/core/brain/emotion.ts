@@ -1,0 +1,54 @@
+import type { BrainEngine } from '@types';
+
+/**
+ * Classifies emotional sentiment from text.
+ *
+ * @param text - Input text to evaluate.
+ * @returns Detected emotion state ('surprised' | 'sad' | 'happy' | 'neutral').
+ */
+export function classifyEmotion(
+  text?: string | null
+): 'surprised' | 'sad' | 'happy' | 'neutral' {
+  const safeText = String(text || '');
+  const countPattern = (regex: RegExp): number =>
+    (safeText.match(regex) || []).length;
+  const surprised = countPattern(/哇|居然|竟然|沒想到|驚|真的嗎|！？|\?!|!\?/g);
+  const sad = countPattern(
+    /抱歉|對不起|可惜|遺憾|失敗|錯誤|沒辦法|不支援|不行|連不上|難過|唉/g
+  );
+  const happy = countPattern(
+    /哈|笑|開心|太好了|好耶|讚|恭喜|歡迎|謝謝|沒問題|完成|成功|一起|囉|喔！|🎉|😊|👋/g
+  );
+  if (surprised > 0 && surprised >= Math.max(happy, sad)) {
+    return 'surprised';
+  }
+  if (sad > happy) {
+    return 'sad';
+  }
+  if (happy > 0) {
+    return 'happy';
+  }
+  return 'neutral';
+}
+
+/**
+ * Triggers avatar emotion/gesture updates based on the sentiment of the response text.
+ *
+ * @param brainEngine - Brain engine instance.
+ * @param text - Response text.
+ */
+export function applyEmotionFromText(
+  brainEngine: BrainEngine | Record<string, unknown> | null | undefined,
+  text: string
+): void {
+  if (
+    typeof brainEngine === 'object' &&
+    brainEngine !== null &&
+    typeof (brainEngine as Record<string, unknown>).onEmotionChange ===
+      'function'
+  ) {
+    ((brainEngine as Record<string, unknown>).onEmotionChange as (emotion: string) => void)(
+      classifyEmotion(text)
+    );
+  }
+}

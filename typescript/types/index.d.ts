@@ -90,14 +90,14 @@ export interface MemoryAdapter {
    * @param key - Storage identifier key.
    * @returns The loaded MemoryData object or null if not found.
    */
-  load(key: string): MemoryData | null | Promise<MemoryData | null>;
+  load(key: string): MemoryData | null | Promise<MemoryData | null> | any;
 
   /**
    * Saves memory data for a given key.
    * @param key - Storage identifier key.
    * @param data - The MemoryData object to persist.
    */
-  save(key: string, data: MemoryData): void | Promise<void>;
+  save(key: string, data: MemoryData | any): void | Promise<void>;
 
   /**
    * Clears memory data for a given key.
@@ -121,15 +121,23 @@ export interface MemoryInstance {
   /** Underlying storage adapter. */
   adapter: MemoryAdapter;
   /** Loads memory data from adapter. */
-  load(): Promise<MemoryData>;
+  load(): Promise<MemoryData> | void;
   /** Saves current memory data to adapter. */
-  save(): Promise<void>;
+  save(): Promise<void> | void;
   /** Clears memory data from adapter. */
-  clear(): Promise<void>;
+  clear(): Promise<void> | void;
   /** Adds a turn to conversation history. */
-  addTurn(role: string, content: string): Promise<void>;
+  addTurn(role: string, content: string): Promise<void> | void;
+  /** Captures visitor name from user input. */
+  captureName(text: string): void;
   /** Updates user visitor name in memory. */
-  setName(name: string): Promise<void>;
+  setName?(name: string): Promise<void> | void;
+  /** Gets current memory schema version. */
+  getVersion(): number;
+  /** Gets memory metadata dictionary. */
+  getMetadata(): Record<string, any>;
+  /** Sets or updates memory metadata dictionary. */
+  setMetadata(patchOrUpdater: Record<string, any> | ((prev: Record<string, any>) => Record<string, any>)): void;
 }
 
 // ============================================================================
@@ -1316,6 +1324,7 @@ export interface BrainEngine {
   maxAutoContinuations: number;
   autoContinueMode: 'stream' | 'buffered';
   autoContinuePrompt: string | Function | null;
+  _isSummarizing?: boolean;
   knowledgeUrl?: string;
   knowledge: KnowledgeEntry[];
   companionKnowledgeUrl?: string;
