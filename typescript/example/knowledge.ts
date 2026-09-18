@@ -9,12 +9,12 @@ export const KNOWLEDGE = [
   {
     q: '這是什麼',
     kw: '你是誰 這是什麼 介紹 自我介紹 什麼東西 npm 套件 數位人 虛擬人 專案',
-    a: '我是 ai-avatar-bot-vanilla-js，一個輕量、零框架依賴的網頁端 2D 與 3D AI 虛擬人 SDK。我支援語音互動、多層 AI 大腦、長對話記憶與工具調用，全部可在瀏覽器中流暢運行。'
+    a: '我是 ai-avatar-bot-typescript，一個輕量、零框架依賴的網頁端 2D 與 3D AI 虛擬人 SDK。我支援語音互動、多層 AI 大腦、長對話記憶與工具調用，全部可在瀏覽器中流暢運行。'
   },
   {
     q: '怎麼安裝到我的專案',
     kw: '安裝 怎麼用 嵌入 加到 放到 我的專案 怎麼裝 install npm yarn pnpm cdn cdn引入 套件 怎麼安裝到專案 怎麼安裝',
-    a: '你可以透過 npm、pnpm 或 yarn 執行 npm install ai-avatar-bot-vanilla-js 安裝，也可以在 HTML 透過 CDN 直接以 ES Module 形式引入。'
+    a: '你可以透過 npm、pnpm 或 yarn 執行 npm install ai-avatar-bot-typescript 安裝，也可以在 HTML 透過 CDN 直接以 ES Module 形式引入。'
   },
   {
     q: '快速開始範例程式碼',

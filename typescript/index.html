@@ -1,17 +1,129 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Avatar Bot - TypeScript Test</title>
+    <title>AI Avatar Bot - TypeScript Demo</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+
+      #app {
+        width: 50%;
+        height: 60%;
+      }
+    </style>
   </head>
+
   <body>
     <div id="app"></div>
     <script type="module">
-      import { initAvatarBot } from './core/main.ts';
+      import {
+        initAvatarBot,
+        GENDER_MAP,
+        AVATAR_MODE_MAP,
+        ENGINE_MODE_MAP,
+        FIT_MODE_MAP
+      } from '@/core';
+      import { KNOWLEDGE, COMPANION_KNOWLEDGE } from '@/example/knowledge';
 
       const app = document.getElementById('app');
-      initAvatarBot(app);
+      window.aiAvatarWidget = await initAvatarBot({
+        container: app,
+        // llmModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 中文不錯、約 1.1GB、首次下載後會被快取
+        llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC', // 支援工具調用的模型
+        // llmMaxTokens: 1024, // WebLLM 端側模型回應最大 Token 數（預設 1024）
+        // aiProviderModel: 'qwen2.5:latest',
+        // aiProviderModel: 'gemma4:latest',
+        // aiProviderBaseUrl: 'http://localhost:5173/api/ollama',
+        knowledge: KNOWLEDGE,
+        startMode: ENGINE_MODE_MAP.twoDimensional,
+        fitMode: FIT_MODE_MAP.HALF, // FIT_MODE_MAP.HALF (半身特寫) | FIT_MODE_MAP.FULL (全身)
+        // 2D Live2D 縮放與位置客製化 (支援通用設定與 half/full 雙模式專屬設定)
+        // skin2d: {
+        //   offsetX: 0,
+        //   offsetY: 0,
+        //   half: { zoom: 1.9, anchor: { x: 0.5, y: 1.0 } },
+        //   full: { zoom: 1.0, anchor: { x: 0.5, y: 3.0 } }
+        // },
+        // 3D VRM 攝影機與模型變換客製化 (支援通用設定與 half/full 雙模式專屬設定)
+        // skin3d: {
+        //   pointerLook: true,
+        //   half: {
+        //     camera: { fov: 26, position: { x: 0, y: 1.4, z: 2.5 }, lookAt: { x: 0, y: 1.2, z: 0 } },
+        //     model: { scale: { x: 1, y: 1, z: 1 } }
+        //   },
+        //   full: {
+        //     camera: { fov: 30, position: { x: 0, y: 1.0, z: 3.5 }, lookAt: { x: 0, y: 0.9, z: 0 } },
+        //     model: { scale: { x: 1, y: 1, z: 1 } }
+        //   }
+        // },
+        companionKnowledge: COMPANION_KNOWLEDGE,
+        gender: GENDER_MAP.male,
+        // gender: GENDER_MAP.female,
+        enableMemory: true, // 預設全面啟用多輪對話記憶（可在這設為 false 關閉）
+        // 上下文壓縮與記憶預算控制 (Compression Options)
+        // compression: {
+        //   strategy: 'sliding-window', // 'sliding-window' | 'rolling-summary' | 'none'
+        //   maxTurns: 6,                // 全域預設保留輪數 (1 輪 = 1 問 + 1 答)
+        //   maxTotalChars: 4000,        // 全域字元預算上限
+        //   webLlm: {                   // 針對前端 WebLLM 端側模型個別覆寫 (節省顯存)
+        //     maxTurns: 3,
+        //     maxTotalChars: 1500
+        //   },
+        //   aiProvider: {               // 針對遠端 AI Provider 個別覆寫
+        //     maxTurns: 8,
+        //     maxTotalChars: 6000
+        //   },
+        //   // 自訂壓縮器 Hook (可自訂演算法或非同步摘要)
+        //   // customCompressor: async ({ messages, systemPrompt, history, latestQuestion, limits }) => {
+        //   //   return messages;
+        //   // }
+        // },
+        // avatarMode: AVATAR_MODE_MAP.companion,
+        // avatarMode: AVATAR_MODE_MAP.assistant,
+        // modes: {
+        //   mentor: {
+        //     systemPrompt: '你是程式導師，以簡潔、條理清晰的方式指導架構設計。{{RAG}}\n{{styleRule}}',
+        //     welcomeText: '嗨！我是程式導師，有任何架構或開發問題隨時問我！',
+        //     greeting: '你好！今天想討論什麼技術主題呢？'
+        //   }
+        // },
+
+        onReady(aiAvatar) {
+          console.log('[avatar] widget ready:', aiAvatar);
+        },
+        onSpeaking(text, aiAvatar) {
+          console.log('[avatar] speaking:', text);
+        },
+        onMinimalTrigger(newIsMinimal, aiAvatar) {
+          console.log('[avatar] minimal toggled:', newIsMinimal);
+        },
+        onError(error) {
+          console.warn('[avatar] widget error:', error);
+        }
+        // // 1. 註冊工具被觸發時的監聽器
+        // onToolCall(pendingCall, avatarWidget) {
+        //   // 檢查是否是我們定義的「笑一個」工具
+        //   if (pendingCall.name === 'make_smile') {
+        //     if (avatarWidget.applyEmotionFromText) {
+        //       avatarWidget.applyEmotionFromText('哈哈哈哈太開心了！');
+        //     }
+        //     avatarWidget.toolsEngine.handleToolResult({
+        //       callId: pendingCall.callId,
+        //       ok: true,
+        //       message: '好的，我笑一個囉！😊'
+        //     });
+        //   }
+        // }
+      });
     </script>
   </body>
 </html>
