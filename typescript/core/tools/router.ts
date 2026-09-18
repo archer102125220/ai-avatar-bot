@@ -6,7 +6,7 @@ import type {
   ToolScoreResult,
   ToolRouteCandidate,
   ToolRouteResult
-} from '@types';
+} from './types';
 
 /**
  * Evaluates and scores a tool definition against a user query string based on keywords, examples, labels, and descriptions.

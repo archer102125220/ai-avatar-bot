@@ -6,7 +6,15 @@ import {
   TOOL_SCHEMA_TYPE_MAP
 } from '@/core/constants';
 import { sanitizeText } from './utils';
-import type { ToolSchema, ToolSchemaProperty, ToolDefinition } from '@types';
+import type {
+  ToolSchema,
+  ToolSchemaProperty,
+  ToolDefinition,
+  OpenAITool,
+  OpenAIToolProperty
+} from './types';
+
+export type { OpenAITool, OpenAIToolProperty };
 
 /**
  * Normalizes a tool's input parameter schema, ensuring compliant structure, valid property types, and safety limits.
@@ -223,25 +231,6 @@ export function getAiAvailableTools(
       (tool) =>
         tool.name !== '' && tool.routingMode !== TOOL_ROUTING_MODE_MAP.CLIENT
     );
-}
-
-export interface OpenAIToolProperty {
-  type: string;
-  description: string;
-  enum?: string[];
-}
-
-export interface OpenAITool {
-  type: 'function';
-  function: {
-    name: string;
-    description: string;
-    parameters: {
-      type: string;
-      properties: Record<string, OpenAIToolProperty>;
-      required: string[];
-    };
-  };
 }
 
 /**

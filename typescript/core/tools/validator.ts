@@ -6,7 +6,7 @@ import type {
   ToolValidationResult,
   ToolExtractResult,
   ToolDefinition
-} from '@types';
+} from './types';
 
 /**
  * Extracts a property value from a query string or execution context based on its schema definition.

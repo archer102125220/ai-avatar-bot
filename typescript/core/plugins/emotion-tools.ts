@@ -5,7 +5,30 @@ import {
   TOOL_RESULT_MODE_MAP,
   TOOL_SCHEMA_TYPE_MAP
 } from '@/core/constants';
-import type { EmotionToolsPluginOptions, ToolDefinition } from '@types';
+import type { ToolDefinition } from '@/core/tools';
+import type { SkinEngine } from '@types';
+
+/**
+ * Options for configuring the emotion and gesture tools plugin.
+ */
+export interface EmotionToolsPluginOptions {
+  /** Function providing the SkinEngine instance when used standalone. */
+  getSkinEngine?: () => SkinEngine | null;
+  /** List of supported emotion or gesture trigger names. */
+  emotions?: string[];
+  /** Name of the tool registered for emotion dispatching. */
+  toolName?: string;
+  /** Natural language description explaining to the LLM when to call this tool. */
+  description?: string;
+  /** Routing decision mode ('client' | 'ai' | 'hybrid'). */
+  routingMode?: string;
+  /** Result handling mode ('ai_summary' | 'direct'). */
+  resultMode?: string;
+  /** Optional callback fired when an emotion or gesture is triggered. */
+  onEmotionTrigger?:
+    | ((emotionName: string, context?: Record<string, unknown>) => void)
+    | null;
+}
 
 /**
  * Factory function to create the emotion and gesture control tools plugin.

@@ -9,34 +9,9 @@
 // Core / Store Types
 // ============================================================================
 
-/**
- * Generic reactive state management store interface (Zustand-like pattern).
- * @template T - The state shape object.
- */
-export interface BaseStore<T = Record<string, any>> {
-  /**
-   * Retrieves the current snapshot of the store's state.
-   * @returns The current state object.
-   */
-  getState(): T;
-
-  /**
-   * Updates the store state and notifies relevant subscribers if changes occurred.
-   * @param updates - Partial state object or updater function receiving previous state.
-   */
-  setState(updates: Partial<T> | ((state: T) => Partial<T>)): void;
-
-  /**
-   * Subscribes to store state mutations.
-   * @param selector - Listener callback for all changes, or a state key name, or a selector function.
-   * @param callback - Callback triggered when the selected property changes (for key/selector mode).
-   * @returns Unsubscribe function.
-   */
-  subscribe(
-    selector: ((state: T, previousState: T) => void) | keyof T | ((state: T) => any),
-    callback?: (currentValue: any, previousValue: any) => void
-  ): () => void;
-}
+import type { BaseStore as CoreBaseStore } from '@/core/store';
+export type { StoreListener, PropertyListener, Selector } from '@/core/store';
+export type BaseStore<T extends object = any> = CoreBaseStore<T>;
 
 // ============================================================================
 // Memory & Personas
@@ -137,7 +112,10 @@ export interface MemoryInstance {
   /** Gets memory metadata dictionary. */
   getMetadata(): Record<string, any>;
   /** Sets or updates memory metadata dictionary. */
-  setMetadata(patchOrUpdater: Record<string, any> | ((prev: Record<string, any>) => Record<string, any>)): void;
+  setMetadata(
+    patchOrUpdater:
+      Record<string, any> | ((prev: Record<string, any>) => Record<string, any>)
+  ): void;
 }
 
 // ============================================================================
@@ -199,7 +177,8 @@ export interface Skin3DModelConfig {
   /** World position offset coordinates. */
   position?: { x: number; y: number; z: number } | [number, number, number];
   /** Model scale multiplier or { x, y, z } axes vector. */
-  scale?: { x: number; y: number; z: number } | [number, number, number] | number;
+  scale?:
+    { x: number; y: number; z: number } | [number, number, number] | number;
   /** Model rotation Euler angles in radians. */
   rotation?: { x: number; y: number; z: number } | [number, number, number];
 }
@@ -346,7 +325,11 @@ export interface SkinEngineOptions {
   /** Callback fired when a gesture starts playing. */
   onGesture?: (gestureName: string, skinEngine: SkinEngine) => void;
   /** Callback fired when a gesture encounters an error. */
-  onGestureError?: (error: Error, gestureName: string, skinEngine: SkinEngine) => void;
+  onGestureError?: (
+    error: Error,
+    gestureName: string,
+    skinEngine: SkinEngine
+  ) => void;
   /** Callback fired when a gesture completes. */
   onGestureEnd?: (gestureName: string, skinEngine: SkinEngine) => void;
   /** Callback fired when model mode switch begins. */
@@ -354,7 +337,10 @@ export interface SkinEngineOptions {
   /** Alias for onModelChangeStart. */
   onModelChange?: (mode: string) => void;
   /** Callback fired when model mode switch finishes. */
-  onModelChangeEnd?: (renderer: Renderer2D | Renderer3D | null, mode: string) => void;
+  onModelChangeEnd?: (
+    renderer: Renderer2D | Renderer3D | null,
+    mode: string
+  ) => void;
   /** Callback fired when model mode switch fails. */
   onModelChangeError?: (error: Error) => void;
 }
@@ -382,7 +368,11 @@ export interface SkinEngine {
   /** Retrieves current store state. */
   getState(): Record<string, any>;
   /** Updates store state. */
-  setState(updates: Record<string, any> | ((state: Record<string, any>) => Record<string, any>)): void;
+  setState(
+    updates:
+      | Record<string, any>
+      | ((state: Record<string, any>) => Record<string, any>)
+  ): void;
   /** Subscribes to store state updates. */
   subscribe(listener: (state: any, prevState: any) => void): () => void;
   /** Sets active facial emotion and auto-resets after timeout. */
@@ -434,7 +424,11 @@ export interface SkinEngine {
   /** Callback fired on gesture start. */
   onGesture?: (gestureName: string, skinEngine: SkinEngine) => void;
   /** Callback fired on gesture error. */
-  onGestureError?: (error: Error, gestureName: string, skinEngine: SkinEngine) => void;
+  onGestureError?: (
+    error: Error,
+    gestureName: string,
+    skinEngine: SkinEngine
+  ) => void;
   /** Callback fired on gesture end. */
   onGestureEnd?: (gestureName: string, skinEngine: SkinEngine) => void;
   /** Callback fired when mode change starts. */
@@ -442,7 +436,10 @@ export interface SkinEngine {
   /** Alias for onModelChangeStart. */
   onModelChange?: (mode: string) => void;
   /** Callback fired when mode change ends. */
-  onModelChangeEnd?: (renderer: Renderer2D | Renderer3D | null, mode: string) => void;
+  onModelChangeEnd?: (
+    renderer: Renderer2D | Renderer3D | null,
+    mode: string
+  ) => void;
   /** Callback fired on mode change error. */
   onModelChangeError?: (error: Error) => void;
   /** Whether engine is currently switching between 2D and 3D. */
@@ -502,13 +499,22 @@ export interface STTEngineOptions {
   /** Callback fired when speech recognition produces text results. */
   onResult?: (text: string, isFinal: boolean, isInterim?: boolean) => void;
   /** Callback fired with real-time microphone volume level and speech activity state. */
-  onMicLevel?: (rms: number, showVoiceUI: boolean, stateString: string, levelAmp: number) => void;
+  onMicLevel?: (
+    rms: number,
+    showVoiceUI: boolean,
+    stateString: string,
+    levelAmp: number
+  ) => void;
   /** Callback fired when user voice barge-in is detected. */
   onBargeIn?: () => void;
   /** Callback fired when speech recognition encounters an error. */
   onError?: (errorMessage: string, isNotAllowed: boolean) => void;
   /** Callback fired when speech recognition listening state changes. */
-  onStatusChange?: (isListening: boolean, statusMessage?: string, isAborted?: boolean) => void;
+  onStatusChange?: (
+    isListening: boolean,
+    statusMessage?: string,
+    isAborted?: boolean
+  ) => void;
   /** Callback fired when recognition stops due to consecutive no-speech timeouts. */
   onNoSpeechAbort?: () => void;
   /** Function to check whether avatar assistant is currently active / speaking. */
@@ -530,7 +536,11 @@ export interface STTEngine {
   /** Gets current STT state snapshot. */
   getState(): STTEngineState;
   /** Updates partial STT state. */
-  setState(updates: Partial<STTEngineState> | ((state: STTEngineState) => Partial<STTEngineState>)): void;
+  setState(
+    updates:
+      | Partial<STTEngineState>
+      | ((state: STTEngineState) => Partial<STTEngineState>)
+  ): void;
   /** Current language locale. */
   locale: string;
   /** Sets active language locale. */
@@ -572,7 +582,12 @@ export interface TTSEngineState {
   /** Whether audio output is muted. */
   isMuted: boolean;
   /** Speech sentence queue. */
-  speechQueue: Array<{ text: string; prefetchPromise: Promise<AudioBuffer | null> | null; error: Error | null; instant: boolean }>;
+  speechQueue: Array<{
+    text: string;
+    prefetchPromise: Promise<AudioBuffer | null> | null;
+    error: Error | null;
+    instant: boolean;
+  }>;
   /** Browser SpeechSynthesisVoice instance. */
   browserVoice: any;
   /** Current speech sequence ID. */
@@ -620,7 +635,11 @@ export interface TTSEngine {
   /** Gets current TTS state snapshot. */
   getState(): TTSEngineState;
   /** Updates partial TTS state. */
-  setState(updates: Partial<TTSEngineState> | ((state: TTSEngineState) => Partial<TTSEngineState>)): void;
+  setState(
+    updates:
+      | Partial<TTSEngineState>
+      | ((state: TTSEngineState) => Partial<TTSEngineState>)
+  ): void;
   /** Whether audio is currently speaking. */
   readonly isSpeaking: boolean;
   /** Whether audio is muted. */
@@ -644,7 +663,11 @@ export interface TTSEngine {
   /** Begins a new speech sequence stream. */
   beginSpeech?(): number;
   /** Pushes a text chunk to speech queue. */
-  pushSpeech?(speechSequenceId: number, text: string, options?: TTSSpeakOptions): void;
+  pushSpeech?(
+    speechSequenceId: number,
+    text: string,
+    options?: TTSSpeakOptions
+  ): void;
   /** Ends speech sequence stream. */
   endSpeech?(speechSequenceId: number): void;
 }
@@ -669,8 +692,12 @@ export interface SpokenAudioState {
 export interface SpeechEngineOptions {
   /** Custom STT and TTS engine instances or factory functions. */
   customEngines?: {
-    stt?: STTEngine | ((options: STTEngineOptions) => Promise<STTEngine> | STTEngine);
-    tts?: TTSEngine | ((options: TTSEngineOptions) => Promise<TTSEngine> | TTSEngine);
+    stt?:
+      | STTEngine
+      | ((options: STTEngineOptions) => Promise<STTEngine> | STTEngine);
+    tts?:
+      | TTSEngine
+      | ((options: TTSEngineOptions) => Promise<TTSEngine> | TTSEngine);
   };
   /** TTS API endpoint URL. */
   ttsEndpoint?: string;
@@ -683,11 +710,20 @@ export interface SpeechEngineOptions {
   /** Function to get avatar root container element. */
   getContainer?: () => HTMLElement | null;
   /** Callback fired when voice recognition / conversation status changes. */
-  onVoiceStatusChanged?: (convoOn: boolean, text?: string, state?: string, level?: number) => void;
+  onVoiceStatusChanged?: (
+    convoOn: boolean,
+    text?: string,
+    state?: string,
+    level?: number
+  ) => void;
   /** Callback fired when microphone listening state changes. */
   onMicStateChanged?: (isListening: boolean, convoOn: boolean) => void;
   /** Callback fired when active speech language changes. */
-  onLanguageChanged?: (locale: string, label: string, shortLabel?: string) => void;
+  onLanguageChanged?: (
+    locale: string,
+    label: string,
+    shortLabel?: string
+  ) => void;
   /** Callback fired when spoken subtitle text changes. */
   onSpokenDisplayTextChange?: (displayText: string) => void;
   /** Callback fired when subtitle bubble times out. */
@@ -715,7 +751,11 @@ export interface SpeechEngine {
   /** Gets current store state snapshot. */
   getState(): Record<string, any>;
   /** Updates store state. */
-  setState(updates: Record<string, any> | ((state: Record<string, any>) => Record<string, any>)): void;
+  setState(
+    updates:
+      | Record<string, any>
+      | ((state: Record<string, any>) => Record<string, any>)
+  ): void;
   /** Current speech gender. */
   gender: string;
   /** Sets speech voice gender. */
@@ -771,321 +811,67 @@ export interface SpeechEngine {
   /** Sets speech language locale. */
   setLocale(locale: string): void;
   /** Splits streaming sentence buffer into speakable sentences. */
-  drainSentences(state: { buf?: string; sentenceBuffer?: string }, force?: boolean): string[];
+  drainSentences(
+    state: { buf?: string; sentenceBuffer?: string },
+    force?: boolean
+  ): string[];
   /** Begins a new speech utterance stream and returns sequence ID. */
   beginSpeech(): number;
   /** Pushes a text chunk into the speech queue. */
-  pushSpeech(speechSequenceId: number, text: string, options?: Record<string, any>): void;
+  pushSpeech(
+    speechSequenceId: number,
+    text: string,
+    options?: Record<string, any>
+  ): void;
   /** Ends speech sequence stream. */
   endSpeech(speechSequenceId: number): void;
   /** Callback fired when an utterance ends. */
   onUtteranceEnd(): void;
   /** Callback for voice status change. */
-  onVoiceStatusChanged?: (convoOn: boolean, text?: string, state?: string, level?: number) => void;
+  onVoiceStatusChanged?: (
+    convoOn: boolean,
+    text?: string,
+    state?: string,
+    level?: number
+  ) => void;
   /** Callback for mic state change. */
   onMicStateChanged?: (isListening: boolean, convoOn: boolean) => void;
   /** Callback for language change. */
-  onLanguageChanged?: (locale: string, label: string, shortLabel?: string) => void;
+  onLanguageChanged?: (
+    locale: string,
+    label: string,
+    shortLabel?: string
+  ) => void;
 }
 
 // ============================================================================
 // Tools & Function Calling Subsystem Types
 // ============================================================================
 
-/**
- * Property definition inside a tool's JSON input schema.
- */
-export interface ToolSchemaProperty {
-  /** Property type ('string' | 'number' | 'integer' | 'boolean'). */
-  type?: 'string' | 'number' | 'integer' | 'boolean' | string;
-  /** Property display title. */
-  title?: string;
-  /** Property description for LLM or human prompt. */
-  description?: string;
-  /** Key to look up property value from session context. */
-  contextKey?: string;
-  /** Format constraints ('email' | 'url' | 'phone' | 'contact'). */
-  format?: 'email' | 'url' | 'phone' | 'contact' | string;
-  /** Keyword prefixes indicating this parameter in natural language. */
-  prefixes?: string[];
-  /** Allowed enumeration values. */
-  enum?: string[];
-  /** Minimum numeric value. */
-  minimum?: number;
-  /** Maximum numeric value. */
-  maximum?: number;
-  /** Maximum string character length. */
-  maxLength?: number;
-  [key: string]: any;
-}
-
-/**
- * JSON input schema for tool parameters.
- */
-export interface ToolSchema {
-  /** Root schema type (usually 'object'). */
-  type?: 'object' | string;
-  /** Dictionary of parameter properties. */
-  properties?: Record<string, ToolSchemaProperty>;
-  /** Array of required parameter names. */
-  required?: string[];
-  [key: string]: any;
-}
-
-/**
- * Declarative definition of a tool callable by the AI or client rules.
- */
-export interface ToolDefinition {
-  /** Unique tool identifier name. */
-  name: string;
-  /** Human-readable display label. */
-  label?: string;
-  /** Detailed description of what the tool does (used by LLM for function calling). */
-  description?: string;
-  /** Keywords for fuzzy client-side routing. */
-  keywords?: string[];
-  /** Example phrases for intent similarity routing. */
-  examples?: string[];
-  /** Keywords that disqualify/exclude this tool. */
-  excludeKeywords?: string[];
-  /** Tool priority weighting (-10 to 10). */
-  priority?: number;
-  /** Routing confidence threshold score (0.15 to 0.95). */
-  routeThreshold?: number;
-  /** Whether execution requires explicit user confirmation. */
-  requiresConfirmation?: boolean;
-  /** Routing decision mode ('client' | 'ai' | 'hybrid'). */
-  routingMode?: 'ai' | 'client' | 'hybrid' | string;
-  /** Result handling mode ('ai_summary' | 'direct'). */
-  resultMode?: 'ai_summary' | 'direct' | string;
-  /** User confirmation timeout in milliseconds (default 60000). */
-  confirmationTimeoutMs?: number | null;
-  /** Legacy timeout in milliseconds. */
-  timeoutMs?: number;
-  /** Regex patterns or string keywords for client-side intent routing. */
-  patterns?: Array<RegExp | string>;
-  /** Execution callback function. */
-  execute?: (
-    payload: { args: Record<string, any>; context?: any; query?: string } | any,
-    context?: any
-  ) => Promise<any> | any;
-  /** JSON Schema describing the tool's input parameters. */
-  inputSchema?: ToolSchema;
-}
-
-/**
- * Scoring evaluation result for a tool against a user query.
- */
-export interface ToolScoreResult {
-  /** Calculated match score (0 to 1). */
-  score: number;
-  /** Reason for match score calculation. */
-  reason: string;
-}
-
-/**
- * Candidate tool match returned from routing evaluation.
- */
-export interface ToolRouteCandidate {
-  /** Candidate tool definition. */
-  tool: ToolDefinition;
-  /** Match score (0 to 1). */
-  score: number;
-  /** Reason for match score. */
-  reason?: string;
-}
-
-/**
- * Result of tool intent routing.
- */
-export interface ToolRouteResult {
-  /** Best unambiguous matching tool candidate, or null if ambiguous or none matched. */
-  match: ToolRouteCandidate | null;
-  /** Ambiguous candidate tools presented to the user when scores are close. */
-  ambiguous: ToolRouteCandidate[];
-  /** All candidates exceeding routing threshold sorted by score descending. */
-  candidates: ToolRouteCandidate[];
-}
-
-/**
- * Validation result for tool input parameters against its schema.
- */
-export interface ToolValidationResult {
-  /** Whether all validation checks passed. */
-  ok: boolean;
-  /** Validated and sanitized argument dictionary. */
-  args: Record<string, unknown>;
-  /** Array of validation error messages. */
-  errors: string[];
-}
-
-/**
- * Parameter extraction result from natural language query.
- */
-export interface ToolExtractResult {
-  /** Successfully extracted arguments. */
-  args: Record<string, unknown>;
-  /** Required parameter names that are missing. */
-  missing: string[];
-  /** Parameter validation errors encountered during extraction. */
-  errors: string[];
-}
-
-/**
- * Result data payload when a tool finishes execution.
- */
-export interface ToolResultData {
-  /** Whether execution succeeded. */
-  ok?: boolean;
-  /** Error message if execution failed. */
-  error?: string;
-  /** Success message or result text. */
-  message?: string;
-  /** Unique tool call identifier. */
-  callId: string;
-  /** Tool name. */
-  name?: string;
-}
-
-/**
- * State of a tool execution pending missing parameter input from user.
- */
-export interface PendingToolInput {
-  /** Tool being prepared. */
-  tool: ToolDefinition;
-  /** Original user query text. */
-  query: string;
-  /** Intent routing metadata. */
-  routeMeta: Record<string, any>;
-  /** Currently collected parameter arguments. */
-  args: Record<string, any>;
-  /** Missing required parameter names. */
-  missing: string[];
-}
-
-/**
- * State of multiple ambiguous tool candidates presented to the user.
- */
-export interface PendingToolChoice {
-  /** Chat message ID containing the choice prompt. */
-  messageId: string;
-  /** Candidate choices offered to the user. */
-  choices: ToolRouteCandidate[];
-}
-
-/**
- * Settings for initializing the ToolsEngine.
- */
-export interface ToolsEngineSetting {
-  /** User confirmation timeout in milliseconds. */
-  confirmationTimeoutMs?: number;
-  /** Callback to append a chat message. */
-  onAddChatMessage?: (role: string, text: string, options?: Record<string, any>) => string | void;
-  /** Callback to update an existing chat message. */
-  onUpdateChatMessage?: (id: string, text: string, streaming?: boolean) => void;
-  /** Callback to set chat history drawer open state. */
-  onSetHistoryOpen?: (isOpen: boolean) => void;
-  /** Callback to re-render chat history. */
-  onRenderHistory?: () => void;
-  /** Callback to immediately speak dialogue audio. */
-  onSpokenAudioPlayNow?: (text: string) => void;
-  /** Callback fired when a tool is triggered for execution. */
-  onToolCall?: (pendingToolData: any) => void;
-  /** Callback fired when a tool confirmation is offered. */
-  onToolOffer?: (offer: { name: string; confirmation: boolean; toolCallId?: string | null }) => void;
-  /** Callback fired when a tool execution is confirmed by the user. */
-  onToolConfirm?: (confirm: { name: string; toolCallId?: string | null }) => void;
-  /** Callback fired when a tool is cancelled. */
-  onToolCancel?: (cancel: { name: string; reason: string; toolCallId?: string | null }) => void;
-  /** Function returning current chat log array. */
-  getChatLog?: () => any[];
-  /** Function returning current chat message sequence number. */
-  getChatSeq?: () => number;
-  /** Function returning whether continuous conversation mode is active. */
-  isConvoOn?: () => boolean;
-  /** Callback fired when a tool execution completes or yields a result. */
-  onToolResult?: (resultData: ToolResultData) => void;
-}
-
-/**
- * Tools Engine instance for parameter extraction, intent routing, and function execution.
- */
-export interface ToolsEngine {
-  /** Registered host tool definitions. */
-  HOST_TOOLS: ToolDefinition[];
-  /** Active tool pending missing parameter input. */
-  pendingToolInput: PendingToolInput | null;
-  /** Active ambiguous tool choices pending user selection. */
-  pendingToolChoice: PendingToolChoice | null;
-  /** Active tool message ID pending user confirmation. */
-  pendingToolConfirmation: string | null;
-  /** Current confirmation timeout in milliseconds. */
-  confirmationTimeoutMs: number;
-  /** Registered callback to add a chat message. */
-  readonly onAddChatMessage?: (role: string, text: string, options?: Record<string, any>) => string | void;
-  /** Registered callback to update a chat message. */
-  readonly onUpdateChatMessage?: (id: string, text: string, streaming?: boolean) => void;
-  /** Registered callback to set history drawer state. */
-  readonly onSetHistoryOpen?: (isOpen: boolean) => void;
-  /** Registered callback to render history drawer. */
-  readonly onRenderHistory?: () => void;
-  /** Registered callback to speak dialogue audio. */
-  readonly onSpokenAudioPlayNow?: (text: string) => void;
-  /** Routes query to the best host tool candidate. */
-  routeHostTool(queryText: string): ToolRouteResult;
-  /** Gets tools available for AI model calling. */
-  getAiAvailableTools(): ToolDefinition[];
-  /** Converts tools to OpenAI-compatible function calling schemas. */
-  toOpenAiTools(): any[];
-  /** Generates parameter collection prompt for missing field. */
-  parameterPrompt(tool: ToolDefinition, propertyName: string, errorText?: string): string;
-  /** Prepares a tool for execution by extracting parameters. */
-  prepareTool(tool: ToolDefinition, query: string, routeMeta?: any, existingArgs?: Record<string, any>): void;
-  /** Continues collecting missing parameters from user input. */
-  continueToolInput(inputText: string): boolean;
-  /** Offers ambiguous tool choices to the user. */
-  offerToolChoices(query: string, candidates: ToolRouteCandidate[]): void;
-  /** Processes user response to ambiguous tool choice. */
-  continueToolChoice(inputText: string): boolean;
-  /** Selects a specific tool choice. */
-  chooseTool(messageId: string, choiceIndex: number): void;
-  /** Offers host tool execution confirmation or executes directly. */
-  offerHostTool(tool: ToolDefinition, query: string, routeMeta?: any, args?: Record<string, any>, options?: any): void;
-  /** Executes a confirmed pending tool. */
-  executePendingTool(messageId: string): void;
-  /** Cancels a pending tool. */
-  cancelPendingTool(messageId: string, options?: { reason?: string }): void;
-  /** Handles user confirmation answer ('yes', 'no', 'cancel'). */
-  continueToolConfirmation(inputText: string): boolean;
-  /** Handles tool execution result response. */
-  handleToolResult(resultData: ToolResultData): void;
-  /** Executes a tool directly with arguments and context. */
-  executeToolDirectly(tool: ToolDefinition, args: Record<string, any>, pendingToolData?: any): Promise<any>;
-}
+export type {
+  ToolSchemaProperty,
+  ToolSchema,
+  ToolExecutePayload,
+  ToolDefinition,
+  ToolScoreResult,
+  ToolRouteCandidate,
+  ToolRouteResult,
+  ToolValidationResult,
+  ToolExtractResult,
+  ToolResultData,
+  PendingToolInput,
+  PendingToolChoice,
+  ToolsEngineSetting,
+  ToolsEngine,
+  OpenAIToolProperty,
+  OpenAITool
+} from '@/core/tools';
 
 // ============================================================================
 // Plugin Types
 // ============================================================================
 
-/**
- * Options for configuring the emotion and gesture tools plugin.
- */
-export interface EmotionToolsPluginOptions {
-  /** Function providing the SkinEngine instance when used standalone. */
-  getSkinEngine?: () => SkinEngine | null;
-  /** List of supported emotion or gesture trigger names. */
-  emotions?: string[];
-  /** Name of the tool registered for emotion dispatching. */
-  toolName?: string;
-  /** Natural language description explaining to the LLM when to call this tool. */
-  description?: string;
-  /** Tool routing decision mode ('ai' | 'client' | 'hybrid'). */
-  routingMode?: 'ai' | 'client' | 'hybrid' | string;
-  /** Tool execution result handling mode ('ai_summary' | 'direct'). */
-  resultMode?: 'ai_summary' | 'direct' | string;
-  /** Callback triggered when an emotion action is executed. */
-  onEmotionTrigger?: (emotion: string, context?: Record<string, any>) => void;
-}
+export type { EmotionToolsPluginOptions } from '@/core/plugins/emotion-tools';
 
 /**
  * Common configuration options for build tool plugins (Vite, Webpack, Next.js, Nuxt, Nitro, Analog).
@@ -1111,67 +897,15 @@ export interface AvatarBotPluginOptions {
 // I18n Subsystem Types
 // ============================================================================
 
-/**
- * Display label metadata for a locale.
- */
-export interface LocaleLabelInfo {
-  /** Full display name (e.g. '繁體中文', 'English (US)'). */
-  label: string;
-  /** Short abbreviation (e.g. '繁中', 'EN'). */
-  shortLabel: string;
-}
-
-/**
- * Options for initializing the I18nEngine.
- */
-export interface I18nEngineOptions {
-  /** Initial locale code (default: 'zh-TW'). */
-  locale?: string;
-  /** Custom dictionary translations merged with default locales. */
-  messages?: Record<string, Record<string, any>>;
-  /** Custom translation function. */
-  t?: (key: string, params?: Record<string, any>) => any;
-  /** Alias for t. */
-  translate?: (key: string, params?: Record<string, any>) => any;
-}
-
-/**
- * Internal state shape of the I18nEngine.
- */
-export interface I18nEngineState {
-  locale: string;
-  messages: Record<string, Record<string, any>>;
-}
-
-/**
- * Internationalization (i18n) Engine controller.
- */
-export interface I18nEngine {
-  /** Translates a dictionary key with optional parameter substitution. */
-  t(key: string, params?: Record<string, any>): any;
-  /** Alias for t. */
-  translate(key: string, params?: Record<string, any>): any;
-  /** Dynamically sets current locale. */
-  setLocale(newLocale: string): void;
-  /** Dynamically registers or overrides translation messages for a locale. */
-  addMessages(locale: string, newMessages: Record<string, any>): void;
-  /** Formats a template string by replacing {{key}} tokens with values. */
-  formatParams(text: string, params?: Record<string, any>): string;
-  /** Resolves a multi-lingual value, object, or function based on current locale. */
-  resolveLocalized<T>(value: T | Record<string, T> | ((args: any) => T), fallbackValue?: T | ((args: any) => T), templateContext?: any): T;
-  /** Current active locale code. */
-  locale: string;
-  /** All loaded dictionary translation data. */
-  readonly messages: Record<string, Record<string, any>>;
-  /** Display label metadata for the active locale. */
-  readonly labels: LocaleLabelInfo;
-  /** Subscribes to locale and dictionary changes or state selector. */
-  subscribe(keyOrSelector: string | ((state: I18nEngineState) => any), listener: Function): () => void;
-  /** Retrieves internal state. */
-  getState(): I18nEngineState;
-  /** Updates internal state. */
-  setState(updates: Partial<I18nEngineState> | ((state: I18nEngineState) => Partial<I18nEngineState>)): void;
-}
+export type {
+  LocaleLabelInfo,
+  TranslationDictionary,
+  TranslateFunction,
+  LocaleChangeListener,
+  I18nEngineOptions,
+  I18nEngineState,
+  I18nEngine
+} from '@/core/i18n';
 
 // ============================================================================
 // Brain Subsystem Types (LLM, AI Provider, RAG, Memory)
@@ -1232,7 +966,8 @@ export interface BrainEngineOptions {
   knowledgeUrl?: string;
   companionKnowledge?: KnowledgeEntry[] | Record<string, any> | string | null;
   companionKnowledgeUrl?: string;
-  companionFallback?: Array<string | Record<string, any>> | ((context: any) => string);
+  companionFallback?:
+    Array<string | Record<string, any>> | ((context: any) => string);
   companionFallbackContext?: string | ((context: any) => string);
   assistantFallbackContext?: string | ((context: any) => string);
   enableAiProvider?: boolean;
@@ -1254,7 +989,11 @@ export interface BrainEngineOptions {
   onAiProviderError?: (error: Error) => void;
   onAiProviderChatting?: () => void;
   onAiProviderStreamChatting?: () => void;
-  onAddChatMessage?: (role: string, text: string, options?: Record<string, any>) => string | void;
+  onAddChatMessage?: (
+    role: string,
+    text: string,
+    options?: Record<string, any>
+  ) => string | void;
   onUpdateChatMessage?: (id: string, text: string, streaming?: boolean) => void;
   onChatHistoryChanged?: (history: any[]) => void;
   onSpokenAudioPlayNow?: (text: string) => void;
@@ -1265,12 +1004,32 @@ export interface BrainEngineOptions {
   onStreamStart?: () => void;
   onStreamChunk?: (chunk: string) => void;
   onStreamEnd?: (fullText: string) => void;
-  onAutoContinueStart?: (info: { continuationIndex: number; maxContinuations: number; accumulatedText: string }) => void;
-  onAutoContinueWait?: (info: { continuationIndex: number; maxContinuations: number; accumulatedText: string }) => void;
-  onAutoContinueResume?: (info: { continuationIndex: number; maxContinuations: number; accumulatedText: string; chunk: string }) => void;
-  onAutoContinueEnd?: (info: { totalContinuations: number; maxContinuations: number; accumulatedText: string; reason: string }) => void;
-  aiProviderCreateFetchSetting?: ((...args: any[]) => RequestInit) | RequestInit;
-  aiProviderCreateFetchPayload?: ((...args: any[]) => Record<string, any>) | Record<string, any>;
+  onAutoContinueStart?: (info: {
+    continuationIndex: number;
+    maxContinuations: number;
+    accumulatedText: string;
+  }) => void;
+  onAutoContinueWait?: (info: {
+    continuationIndex: number;
+    maxContinuations: number;
+    accumulatedText: string;
+  }) => void;
+  onAutoContinueResume?: (info: {
+    continuationIndex: number;
+    maxContinuations: number;
+    accumulatedText: string;
+    chunk: string;
+  }) => void;
+  onAutoContinueEnd?: (info: {
+    totalContinuations: number;
+    maxContinuations: number;
+    accumulatedText: string;
+    reason: string;
+  }) => void;
+  aiProviderCreateFetchSetting?:
+    ((...args: any[]) => RequestInit) | RequestInit;
+  aiProviderCreateFetchPayload?:
+    ((...args: any[]) => Record<string, any>) | Record<string, any>;
   aiProviderResponseFormat?: string | Record<string, any>;
   aiProviderPingUrl?: string;
   aiProviderChatUrl?: string;
@@ -1296,8 +1055,20 @@ export interface BrainEngineOptions {
   autoContinueMode?: 'stream' | 'buffered';
   autoContinuePrompt?: string | ((...args: any[]) => string) | null;
   onBrainFallback?: (fromEngine: string, toEngine: string, error: any) => void;
-  onToolNotFound?: (info: { toolName: string; args: any; toolCall: any }, widget: AiAvatarWidget) => any;
-  onToolError?: (info: { tool: any; toolName: string; args: any; toolCall: any; error: Error }, widget: AiAvatarWidget) => any;
+  onToolNotFound?: (
+    info: { toolName: string; args: any; toolCall: any },
+    widget: AiAvatarWidget
+  ) => any;
+  onToolError?: (
+    info: {
+      tool: any;
+      toolName: string;
+      args: any;
+      toolCall: any;
+      error: Error;
+    },
+    widget: AiAvatarWidget
+  ) => any;
 }
 
 /**
@@ -1372,7 +1143,10 @@ export interface BrainEngine {
   companionWelcomeText: string | Function | null;
   assistantWelcomeText: string | Function | null;
   buildLLMMessages: (question: string, engineType: string) => any[];
-  readonly buildDefaultLLMMessages: (question: string, engineType: string) => any[];
+  readonly buildDefaultLLMMessages: (
+    question: string,
+    engineType: string
+  ) => any[];
   getWelcomeText(): string;
   classifyEmotion(text: string): string;
   applyEmotionFromText(text: string): void;
@@ -1383,7 +1157,11 @@ export interface BrainEngine {
   chatWithAiProvider(question: string): Promise<string | void>;
   chatWithWebLLM(question: string): Promise<string | void>;
   triggerRollingSummaryIfNeeded(): Promise<void>;
-  addChatMessage(role: string, text: string, options?: Record<string, any>): string;
+  addChatMessage(
+    role: string,
+    text: string,
+    options?: Record<string, any>
+  ): string;
   updateChatMessage(id: string, text: string, streaming?: boolean): void;
   locale: string;
   setLocale(locale: string): void;
@@ -1425,9 +1203,20 @@ export interface UiDom {
   /** Audio volume level meter indicator element. */
   readonly voiceLevelEl: HTMLElement;
   /** Updates voice conversation status bar and volume meter. */
-  updateVoiceStatus(convoOn: boolean, text?: string, state?: string, level?: number, i18n?: I18nEngine): void;
+  updateVoiceStatus(
+    convoOn: boolean,
+    text?: string,
+    state?: string,
+    level?: number,
+    i18n?: I18nEngine
+  ): void;
   /** Updates microphone button UI state and label. */
-  updateMicState(isListening?: boolean, convoOn?: boolean, isCompanion?: boolean, i18n?: I18nEngine): void;
+  updateMicState(
+    isListening?: boolean,
+    convoOn?: boolean,
+    isCompanion?: boolean,
+    i18n?: I18nEngine
+  ): void;
   /** Main control bar container. */
   readonly controlBarEl: HTMLElement;
   /** Text input dock row. */
@@ -1481,17 +1270,22 @@ export interface UiContext {
   /** Current active locale code. */
   locale?: string;
   /** Suggested questions list or resolver. */
-  suggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
+  suggestedQuestions?:
+    string[] | Record<string, string[]> | ((context: any) => string[]);
   /** Suggested title text or resolver. */
   suggestedTitle?: string | Record<string, string> | ((context: any) => string);
   /** Companion mode suggested questions list or resolver. */
-  companionSuggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
+  companionSuggestedQuestions?:
+    string[] | Record<string, string[]> | ((context: any) => string[]);
   /** Companion mode suggested title text or resolver. */
-  companionSuggestedTitle?: string | Record<string, string> | ((context: any) => string);
+  companionSuggestedTitle?:
+    string | Record<string, string> | ((context: any) => string);
   /** Assistant mode suggested questions list or resolver. */
-  assistantSuggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
+  assistantSuggestedQuestions?:
+    string[] | Record<string, string[]> | ((context: any) => string[]);
   /** Assistant mode suggested title text or resolver. */
-  assistantSuggestedTitle?: string | Record<string, string> | ((context: any) => string);
+  assistantSuggestedTitle?:
+    string | Record<string, string> | ((context: any) => string);
   /** Current avatar personality mode ('companion' | 'assistant'). */
   avatarMode?: string;
   /** Avatar mode constant mapping. */
@@ -1539,9 +1333,11 @@ export interface AvatarBotOptions {
   /** Model identifier for the AI Provider (e.g. 'qwen2.5:latest'). */
   aiProviderModel?: string;
   /** Custom fetch configuration object or factory for AI Provider. */
-  aiProviderCreateFetchSetting?: ((...args: any[]) => RequestInit) | RequestInit;
+  aiProviderCreateFetchSetting?:
+    ((...args: any[]) => RequestInit) | RequestInit;
   /** Custom fetch payload object or factory for AI Provider. */
-  aiProviderCreateFetchPayload?: ((...args: any[]) => Record<string, any>) | Record<string, any>;
+  aiProviderCreateFetchPayload?:
+    ((...args: any[]) => Record<string, any>) | Record<string, any>;
   /** Custom response format ('sse', 'json', or parsing object). */
   aiProviderResponseFormat?: string | Record<string, any>;
   /** Maximum token limit for AI Provider responses. */
@@ -1687,17 +1483,22 @@ export interface AvatarBotOptions {
   /** Spoken audio greeting text for assistant mode. */
   assistantGreeting?: string;
   /** Suggested questions prompt list. */
-  suggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
+  suggestedQuestions?:
+    string[] | Record<string, string[]> | ((context: any) => string[]);
   /** Suggested questions for companion mode. */
-  companionSuggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
+  companionSuggestedQuestions?:
+    string[] | Record<string, string[]> | ((context: any) => string[]);
   /** Suggested questions for assistant mode. */
-  assistantSuggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
+  assistantSuggestedQuestions?:
+    string[] | Record<string, string[]> | ((context: any) => string[]);
   /** Suggested questions section title. */
   suggestedTitle?: string | Record<string, string> | ((context: any) => string);
   /** Suggested title for companion mode. */
-  companionSuggestedTitle?: string | Record<string, string> | ((context: any) => string);
+  companionSuggestedTitle?:
+    string | Record<string, string> | ((context: any) => string);
   /** Suggested title for assistant mode. */
-  assistantSuggestedTitle?: string | Record<string, string> | ((context: any) => string);
+  assistantSuggestedTitle?:
+    string | Record<string, string> | ((context: any) => string);
   /** Lifecycle callback fired when widget is fully initialized and mounted. */
   onReady?: (widget: AiAvatarWidget) => void;
   /** Callback fired when minimal UI mode is toggled. */
@@ -1830,14 +1631,20 @@ export interface AiAvatarWidget {
   skinGender: string | null;
   locale: string;
   avatarMode: AvatarMode;
-  suggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
-  companionSuggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
-  assistantSuggestedQuestions?: string[] | Record<string, string[]> | ((context: any) => string[]);
+  suggestedQuestions?:
+    string[] | Record<string, string[]> | ((context: any) => string[]);
+  companionSuggestedQuestions?:
+    string[] | Record<string, string[]> | ((context: any) => string[]);
+  assistantSuggestedQuestions?:
+    string[] | Record<string, string[]> | ((context: any) => string[]);
   suggestedTitle?: string | Record<string, string> | ((context: any) => string);
-  companionSuggestedTitle?: string | Record<string, string> | ((context: any) => string);
-  assistantSuggestedTitle?: string | Record<string, string> | ((context: any) => string);
+  companionSuggestedTitle?:
+    string | Record<string, string> | ((context: any) => string);
+  assistantSuggestedTitle?:
+    string | Record<string, string> | ((context: any) => string);
   setSuggestedQuestions: (
-    questions?: string[] | Record<string, string[]> | ((context: any) => string[]),
+    questions?:
+      string[] | Record<string, string[]> | ((context: any) => string[]),
     title?: string | Record<string, string> | ((context: any) => string)
   ) => void;
   renderSuggestions: () => void;
@@ -1884,7 +1691,9 @@ export interface AiAvatarWidget {
  * });
  * ```
  */
-export function initAvatarBot(rawOptions?: AvatarBotOptions): Promise<AiAvatarWidget | void>;
+export function initAvatarBot(
+  rawOptions?: AvatarBotOptions
+): Promise<AiAvatarWidget | void>;
 
 /**
  * Alias for `initAvatarBot`. Creates and initializes a new AI Avatar Bot widget instance.
@@ -1892,7 +1701,9 @@ export function initAvatarBot(rawOptions?: AvatarBotOptions): Promise<AiAvatarWi
  * @param rawOptions - Configuration options for initializing the avatar bot.
  * @returns Promise resolving to the initialized AiAvatarWidget controller, or void on failure.
  */
-export function createAvatarBot(rawOptions?: AvatarBotOptions): Promise<AiAvatarWidget | void>;
+export function createAvatarBot(
+  rawOptions?: AvatarBotOptions
+): Promise<AiAvatarWidget | void>;
 
 export default initAvatarBot;
 
@@ -1945,15 +1756,51 @@ export const DEFAULT_3D_FULL_CAMERA_FOV: number;
 export const DEFAULT_3D_CAMERA_FOV: number;
 export const DEFAULT_3D_CAMERA_NEAR: number;
 export const DEFAULT_3D_CAMERA_FAR: number;
-export const DEFAULT_3D_HALF_CAMERA_POSITION: Readonly<{ x: number; y: number; z: number }>;
-export const DEFAULT_3D_FULL_CAMERA_POSITION: Readonly<{ x: number; y: number; z: number }>;
-export const DEFAULT_3D_CAMERA_POSITION: Readonly<{ x: number; y: number; z: number }>;
-export const DEFAULT_3D_HALF_CAMERA_LOOK_AT: Readonly<{ x: number; y: number; z: number }>;
-export const DEFAULT_3D_FULL_CAMERA_LOOK_AT: Readonly<{ x: number; y: number; z: number }>;
-export const DEFAULT_3D_CAMERA_LOOK_AT: Readonly<{ x: number; y: number; z: number }>;
-export const DEFAULT_3D_MODEL_POSITION: Readonly<{ x: number; y: number; z: number }>;
-export const DEFAULT_3D_MODEL_SCALE: Readonly<{ x: number; y: number; z: number }>;
-export const DEFAULT_3D_MODEL_ROTATION: Readonly<{ x: number; y: number; z: number }>;
+export const DEFAULT_3D_HALF_CAMERA_POSITION: Readonly<{
+  x: number;
+  y: number;
+  z: number;
+}>;
+export const DEFAULT_3D_FULL_CAMERA_POSITION: Readonly<{
+  x: number;
+  y: number;
+  z: number;
+}>;
+export const DEFAULT_3D_CAMERA_POSITION: Readonly<{
+  x: number;
+  y: number;
+  z: number;
+}>;
+export const DEFAULT_3D_HALF_CAMERA_LOOK_AT: Readonly<{
+  x: number;
+  y: number;
+  z: number;
+}>;
+export const DEFAULT_3D_FULL_CAMERA_LOOK_AT: Readonly<{
+  x: number;
+  y: number;
+  z: number;
+}>;
+export const DEFAULT_3D_CAMERA_LOOK_AT: Readonly<{
+  x: number;
+  y: number;
+  z: number;
+}>;
+export const DEFAULT_3D_MODEL_POSITION: Readonly<{
+  x: number;
+  y: number;
+  z: number;
+}>;
+export const DEFAULT_3D_MODEL_SCALE: Readonly<{
+  x: number;
+  y: number;
+  z: number;
+}>;
+export const DEFAULT_3D_MODEL_ROTATION: Readonly<{
+  x: number;
+  y: number;
+  z: number;
+}>;
 export const DEFAULT_3D_POINTER_LOOK: boolean;
 export const GENDER_MAP: Record<string, string>;
 export const DEFAULT_GENDER: string;
@@ -1975,7 +1822,10 @@ export const DEFAULT_NEURAL_VOICE: string;
 export function getDefaultNeuralVoice(gender?: string): string;
 export function getDefault2DModelUrl(gender?: string): string;
 export function getDefault3DModelUrl(gender?: string): string;
-export function getDefaultModelUrl(gender?: string, engineMode?: string): string;
+export function getDefaultModelUrl(
+  gender?: string,
+  engineMode?: string
+): string;
 export function getDefault2DConfig(fitMode?: string): {
   zoom: number;
   offsetX: number;
@@ -2017,64 +1867,136 @@ export const LOCALE_LABELS: Record<string, LocaleLabelInfo>;
 // ============================================================================
 
 // Store
-export function createBaseStore<T = Record<string, any>>(initialState?: T): BaseStore<T>;
+export function createBaseStore<T = Record<string, any>>(
+  initialState?: T
+): BaseStore<T>;
 
 // Skin
 export function initSkinEngine(setting?: SkinEngineOptions): SkinEngine;
 export function createCanvas(container: HTMLElement): HTMLCanvasElement;
-export function bootAvatar(skinEngine: SkinEngine, modelUrl?: string): Promise<any>;
+export function bootAvatar(
+  skinEngine: SkinEngine,
+  modelUrl?: string
+): Promise<any>;
 export function bootVRM(skinEngine: SkinEngine, setting?: any): Promise<any>;
 export function loadVRMFile(skinEngine: SkinEngine, file: File): Promise<void>;
 
 // Brain
-export function initBrainEngine(setting?: BrainEngineOptions): Promise<BrainEngine>;
+export function initBrainEngine(
+  setting?: BrainEngineOptions
+): Promise<BrainEngine>;
 export function initWebLLM(setting?: any, brain?: any): any;
 export function initAiProvider(setting?: any, brain?: any): Promise<any>;
 export function initMemory(options?: any): MemoryInstance;
 export function compressContext(params?: any): any;
 export function fetchKnowledge(url?: string): Promise<KnowledgeEntry[]>;
-export function findBestMatch(knowledge: KnowledgeEntry[], query: string): KnowledgeEntry | null;
+export function findBestMatch(
+  knowledge: KnowledgeEntry[],
+  query: string
+): KnowledgeEntry | null;
 export function classifyEmotion(text: string): string;
-export function applyEmotionFromText(brainEngine: BrainEngine, text: string): void;
+export function applyEmotionFromText(
+  brainEngine: BrainEngine,
+  text: string
+): void;
 export function getBrainMessage(locale: string, key: string): string;
 export function getWelcomeText(brainEngine: BrainEngine): string;
-export function buildDefaultLLMMessages(brainEngine: BrainEngine, question: string, engineType?: string): any[];
-export function chatWithWebLLM(brainEngine: BrainEngine, question: string): Promise<string | void>;
-export function chatWithAiProvider(brainEngine: BrainEngine, question: string): Promise<string | void>;
+export function buildDefaultLLMMessages(
+  brainEngine: BrainEngine,
+  question: string,
+  engineType?: string
+): any[];
+export function chatWithWebLLM(
+  brainEngine: BrainEngine,
+  question: string
+): Promise<string | void>;
+export function chatWithAiProvider(
+  brainEngine: BrainEngine,
+  question: string
+): Promise<string | void>;
 
 // Speech
-export function initSpeechEngine(setting?: SpeechEngineOptions): Promise<SpeechEngine>;
+export function initSpeechEngine(
+  setting?: SpeechEngineOptions
+): Promise<SpeechEngine>;
 export function initDefaultSTTEngine(setting?: any): any;
 export function initDefaultTTSEngine(setting?: any): any;
-export function validateSTTEngine(engine: any): { isValid: boolean; missing: string[] };
-export function validateTTSEngine(engine: any): { isValid: boolean; missing: string[] };
+export function validateSTTEngine(engine: any): {
+  isValid: boolean;
+  missing: string[];
+};
+export function validateTTSEngine(engine: any): {
+  isValid: boolean;
+  missing: string[];
+};
 export function splitSentences(text: string): string[];
-export function drainSentences(state: { buf?: string; sentenceBuffer?: string }, force?: boolean): string[];
+export function drainSentences(
+  state: { buf?: string; sentenceBuffer?: string },
+  force?: boolean
+): string[];
 export function getSttMessage(locale: string, key: string): string;
 
 // Tools
 export function initToolsEngine(setting?: ToolsEngineSetting): ToolsEngine;
-export function validateToolsEngine(engine: any): { isValid: boolean; missing: string[] };
+export function validateToolsEngine(engine: any): {
+  isValid: boolean;
+  missing: string[];
+};
 export function toOpenAiTools(tools: ToolDefinition[]): any[];
 export function getAiAvailableTools(tools: ToolDefinition[]): ToolDefinition[];
-export function argumentSummary(tool: ToolDefinition, args: Record<string, any>): string;
+export function argumentSummary(
+  tool: ToolDefinition,
+  args: Record<string, any>
+): string;
 export function route(tools: ToolDefinition[], queryText: string): any;
-export function extract(tool: ToolDefinition, query: string, schema?: any, existingArgs?: any, targetFields?: string[], isContinuation?: boolean): any;
+export function extract(
+  tool: ToolDefinition,
+  query: string,
+  schema?: any,
+  existingArgs?: any,
+  targetFields?: string[],
+  isContinuation?: boolean
+): any;
 
 // I18n
 export function initI18nEngine(options?: I18nEngineOptions): I18nEngine;
-export function resolveLocalized<T>(value: T | Record<string, T> | ((args: any) => T), locale?: string, fallbackValue?: T | ((args: any) => T), templateContext?: any): T;
-export function formatParams(text: string, params?: Record<string, any>): string;
+export function resolveLocalized<T>(
+  value: T | Record<string, T> | ((args: any) => T),
+  locale?: string,
+  fallbackValue?: T | ((args: any) => T),
+  templateContext?: any
+): T;
+export function formatParams(
+  text: string,
+  params?: Record<string, any>
+): string;
 export const defaultLocales: Record<string, any>;
 
 // Plugins & Tools Extensions
-export function createEmotionToolsPlugin(options?: EmotionToolsPluginOptions): ToolDefinition[];
+export function createEmotionToolsPlugin(
+  options?: EmotionToolsPluginOptions
+): ToolDefinition[];
 
 // UI Layer Utilities
-export function initUi(container: HTMLElement, stateMap?: Record<string, string>): UiDom;
-export function updateUIStrings(uiDom: UiDom, i18nEngine: I18nEngine, stateMap?: Record<string, string>): void;
-export function copyText(text: string, bubbleEl?: HTMLElement, directWarnEl?: HTMLElement, i18nEngine?: I18nEngine): Promise<boolean>;
-export function initSkinModeChangeButton(engineButtonEl: HTMLButtonElement, options?: any): void;
+export function initUi(
+  container: HTMLElement,
+  stateMap?: Record<string, string>
+): UiDom;
+export function updateUIStrings(
+  uiDom: UiDom,
+  i18nEngine: I18nEngine,
+  stateMap?: Record<string, string>
+): void;
+export function copyText(
+  text: string,
+  bubbleEl?: HTMLElement,
+  directWarnEl?: HTMLElement,
+  i18nEngine?: I18nEngine
+): Promise<boolean>;
+export function initSkinModeChangeButton(
+  engineButtonEl: HTMLButtonElement,
+  options?: any
+): void;
 export function renderSuggestions(context: UiContext): void;
 export function setHistoryOpen(isOpen: boolean, context: UiContext): void;
 export function renderHistory(context: UiContext): void;
@@ -2083,16 +2005,24 @@ export function bindUiEvent(context: UiContext): void;
 
 // Build Framework Plugins & Node Helpers
 export function getAvatarSkinPath(): string;
-export function copyDirRecursive(src: string, dest: string, overwrite?: boolean): void;
-export function copyAvatarSkin(destDir?: string, options?: { overwrite?: boolean; silent?: boolean }): void;
+export function copyDirRecursive(
+  src: string,
+  dest: string,
+  overwrite?: boolean
+): void;
+export function copyAvatarSkin(
+  destDir?: string,
+  options?: { overwrite?: boolean; silent?: boolean }
+): void;
 export function avatarBotVitePlugin(options?: AvatarBotPluginOptions): any;
 export class AvatarBotWebpackPlugin {
   constructor(options?: AvatarBotPluginOptions);
   apply(compiler: any): void;
 }
-export function withAiAvatarBot(nextConfig?: any, pluginOptions?: AvatarBotPluginOptions): any;
+export function withAiAvatarBot(
+  nextConfig?: any,
+  pluginOptions?: AvatarBotPluginOptions
+): any;
 export const avatarBotNuxtModule: any;
 export function createNitroAvatarConfig(options?: AvatarBotPluginOptions): any;
 export function avatarBotAnalogPlugin(options?: AvatarBotPluginOptions): any;
-
-

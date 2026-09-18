@@ -39,7 +39,7 @@ export const defaultLocales: Record<string, TranslationDictionary> = {
  * @param templateContext - Context arguments object passed to resolver functions.
  * @returns Resolved final localized value.
  */
-export function resolveLocalized<T = unknown>(
+export function resolveLocalized<T = string>(
   value?: T | Record<string, T> | ((args: Record<string, unknown>) => T),
   locale: string = DEFAULT_LOCALE,
   fallbackValue?: T | ((args: Record<string, unknown>) => T),
@@ -138,10 +138,10 @@ function getFromDictionary(
   return currentDictionary;
 }
 
-export type TranslateFunction = (
+export type TranslateFunction = <T = string>(
   key: string,
   params?: Record<string, unknown>
-) => unknown;
+) => T;
 
 export interface I18nEngineOptions {
   locale?: string;
@@ -162,12 +162,12 @@ export type LocaleChangeListener = (
 ) => void;
 
 export interface I18nEngine {
-  t: (key: string, params?: Record<string, unknown>) => unknown;
-  translate: (key: string, params?: Record<string, unknown>) => unknown;
+  t: <T = string>(key: string, params?: Record<string, unknown>) => T;
+  translate: <T = string>(key: string, params?: Record<string, unknown>) => T;
   setLocale: (newLocale: string) => void;
   addMessages: (locale: string, newMessages: TranslationDictionary) => void;
   formatParams: <T = string>(text: T, params?: Record<string, unknown>) => T;
-  resolveLocalized: <T = unknown>(
+  resolveLocalized: <T = string>(
     value?: T | Record<string, T> | ((args: Record<string, unknown>) => T),
     fallbackValue?: T | ((args: Record<string, unknown>) => T),
     templateContext?: Record<string, unknown>
@@ -241,12 +241,12 @@ export function initI18nEngine(options: I18nEngineOptions = {}): I18nEngine {
     messages: mergedMessages
   });
 
-  function translate(
+  function translate<T = string>(
     key: string,
     params: Record<string, unknown> = {}
-  ): unknown {
+  ): T {
     if (customTranslateFunction !== null) {
-      return customTranslateFunction(key, params);
+      return customTranslateFunction(key, params) as unknown as T;
     }
 
     const state = store.getState();
@@ -261,7 +261,7 @@ export function initI18nEngine(options: I18nEngineOptions = {}): I18nEngine {
     }
 
     if (typeof messageValue === 'string') {
-      return formatParams(messageValue, params);
+      return formatParams(messageValue, params) as unknown as T;
     }
 
     if (Array.isArray(messageValue) === true) {
@@ -269,10 +269,10 @@ export function initI18nEngine(options: I18nEngineOptions = {}): I18nEngine {
         typeof messageItem === 'string'
           ? formatParams(messageItem, params)
           : messageItem
-      );
+      ) as unknown as T;
     }
 
-    return messageValue;
+    return messageValue as unknown as T;
   }
 
   function setLocale(newLocale: string): void {

@@ -10,16 +10,13 @@ import type {
   ToolDefinition,
   ToolRouteCandidate,
   ToolRouteResult,
-  ToolResultData,
-  PendingToolInput,
-  PendingToolChoice
-} from '@types';
+  ToolResultData
+} from './types';
 import { getAiAvailableTools, toOpenAiTools, argumentSummary } from './schema';
 import { route } from './router';
 import { extract } from './validator';
 
-export type { PendingToolInput, PendingToolChoice };
-
+export * from './types';
 export * from './utils';
 export * from './schema';
 export * from './router';
@@ -448,8 +445,7 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
           typeof result === 'string'
             ? result
             : typeof (result as Record<string, unknown>)?.message ===
-                  'string' &&
-                (result as Record<string, unknown>).message !== ''
+                  'string' && (result as Record<string, unknown>).message !== ''
               ? ((result as Record<string, unknown>).message as string)
               : '已完成。';
         handleToolResult({
@@ -462,9 +458,7 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
       return result;
     } catch (error: unknown) {
       const errorMessage =
-        error instanceof Error
-          ? error.message
-          : String(error || '執行錯誤');
+        error instanceof Error ? error.message : String(error || '執行錯誤');
       if (typeof pendingToolData?.onConfirmResume === 'function') {
         (pendingToolData.onConfirmResume as (res: unknown) => void)({
           ok: false,
@@ -486,9 +480,7 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
     clearConfirmationTimer();
     const chatLog =
       typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
-    const chatMessage = chatLog.find(
-      (msg: Record<string, unknown>) => msg.id === messageId
-    );
+    const chatMessage = chatLog.find((msg) => msg?.id === messageId);
     if (
       typeof chatMessage !== 'object' ||
       chatMessage === null ||
@@ -517,7 +509,7 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
 
     if (typeof setting.onToolConfirm === 'function') {
       setting.onToolConfirm({
-        name: pendingToolData.name,
+        name: pendingToolData.name as string,
         toolCallId: pendingToolData.toolCallId
       });
     }
@@ -530,9 +522,7 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
     clearConfirmationTimer();
     const chatLog =
       typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
-    const chatMessage = chatLog.find(
-      (msg: Record<string, unknown>) => msg.id === messageId
-    );
+    const chatMessage = chatLog.find((msg) => msg?.id === messageId);
     if (
       typeof chatMessage !== 'object' ||
       chatMessage === null ||
@@ -577,7 +567,7 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
 
     if (typeof setting.onToolCancel === 'function') {
       setting.onToolCancel({
-        name: pendingToolData.name,
+        name: pendingToolData.name as string,
         reason: cancelReason,
         toolCallId: pendingToolData.toolCallId
       });
@@ -585,27 +575,24 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
   }
 
   function continueToolConfirmation(inputText: string): boolean {
-    if (
-      typeof toolsEngine.pendingToolConfirmation !== 'string' ||
-      toolsEngine.pendingToolConfirmation === ''
-    ) {
+    const confirmationId = toolsEngine.pendingToolConfirmation;
+    if (typeof confirmationId !== 'string' || confirmationId === '') {
       return false;
     }
     const trimmedAnswer = String(inputText || '').trim();
     if (
       /^(確認|確定|執行|可以|好|好的|yes|ok)$/i.test(trimmedAnswer) === true
     ) {
-      executePendingTool(toolsEngine.pendingToolConfirmation);
+      executePendingTool(confirmationId);
       return true;
     }
     if (/^(取消|不要|算了|否|no|cancel)$/i.test(trimmedAnswer) === true) {
-      cancelPendingTool(toolsEngine.pendingToolConfirmation, {
+      cancelPendingTool(confirmationId, {
         reason: TOOL_CANCEL_REASON_MAP.USER_CANCEL
       });
       return true;
     }
-
-    cancelPendingTool(toolsEngine.pendingToolConfirmation, {
+    cancelPendingTool(confirmationId, {
       reason: TOOL_CANCEL_REASON_MAP.NEW_INPUT
     });
     return false;
@@ -619,7 +606,7 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
     const chatLog =
       typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
     const existingMessage = chatLog.find(
-      (msg: Record<string, unknown>) => msg.id === resultData.callId
+      (msg) => msg?.id === resultData.callId
     );
 
     if (typeof existingMessage === 'object' && existingMessage !== null) {
