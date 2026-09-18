@@ -35,7 +35,7 @@ export default tseslint.config(
       'no-unsafe-optional-chaining': 'off',
       'no-unused-vars': 'off', // Turn off base rule as it conflicts with TS one
       '@typescript-eslint/consistent-type-imports': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unsafe-declaration-merging': 'off',
       '@typescript-eslint/no-unused-vars': [
         1,
