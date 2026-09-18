@@ -17,7 +17,11 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build"
+    "build": "tsc && vite build",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:unit:ui": "vitest --ui",
+    "test:unit:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.84",
@@ -29,15 +33,19 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@vitest/coverage-v8": "^5.0.0",
+    "@vitest/ui": "^5.0.0",
     "eslint": "^10.6.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-unicorn": "^71.1.0",
     "globals": "^17.7.0",
+    "jsdom": "^30.0.1",
     "prettier": "^3.9.4",
     "sass": "^1.101.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.63.0",
     "vite": "^8.1.1",
-    "vite-plugin-dts": "^4.5.0"
+    "vite-plugin-dts": "^4.5.0",
+    "vitest": "^5.0.0"
   }
 }

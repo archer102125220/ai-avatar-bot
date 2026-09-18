@@ -1,4 +1,4 @@
-import './style/style.scss';
+import '@/style/style.scss';
 
 export function initAvatarBot(element: HTMLElement | null): void {
   if (!element) return;

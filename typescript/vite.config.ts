@@ -1,14 +1,28 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import dts from 'vite-plugin-dts';
-import apiPlugin from '../shared/vite-api-plugin';
+import apiPlugin from '../shared/vite-api-plugin.ts';
 
 export default defineConfig({
-  plugins: [dts(), apiPlugin()],
+  resolve: {
+    alias: {
+      '@': resolve(import.meta.dirname, '.'),
+      '@core': resolve(import.meta.dirname, 'core'),
+      '@test': resolve(import.meta.dirname, 'test'),
+      '@style': resolve(import.meta.dirname, 'style'),
+      '@types': resolve(import.meta.dirname, 'types')
+    }
+  },
+  plugins: [
+    dts({
+      include: ['core', 'types', 'env.d.ts']
+    }),
+    apiPlugin()
+  ],
   publicDir: 'public',
   build: {
     lib: {
-      entry: resolve(__dirname, 'core/main.ts'),
+      entry: resolve(import.meta.dirname, 'core/main.ts'),
       name: 'AiAvatarBot',
       fileName: 'ai-avatar-bot'
     }

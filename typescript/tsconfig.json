@@ -21,9 +21,20 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "declaration": true
+    "declaration": true,
+    "paths": {
+      "@/*": ["./*"],
+      "@core/*": ["./core/*"],
+      "@test/*": ["./test/*"],
+      "@style/*": ["./style/*"],
+      "@types/*": ["./types/*"]
+    }
   },
   "include": [
-    "core"
+    "core/**/*",
+    "test/**/*",
+    "types/**/*",
+    "*.config.ts",
+    "*.d.ts"
   ]
 }
