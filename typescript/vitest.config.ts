@@ -30,7 +30,8 @@ export default defineConfig({
       // - test/unit/tools/**
       // [PHASE-3-STEP-3-UNLOCKED]
       // - test/unit/brain/**
-      'test/unit/speech/**',
+      // [PHASE-3-STEP-4-UNLOCKED]
+      // - test/unit/speech/**
       'test/unit/plugins/**',
       'test/unit/skin/**',
       'test/unit/orchestrator/**',
