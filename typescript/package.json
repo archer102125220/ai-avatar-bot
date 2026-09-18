@@ -22,7 +22,9 @@
     "test:unit:watch": "vitest",
     "test:unit:ui": "vitest --ui",
     "test:unit:coverage": "vitest run --coverage",
-    "test:benchmark": "vitest run test/unit"
+    "test:benchmark": "vitest run test/unit",
+    "lint": "eslint core/",
+    "lint:fix": "eslint core/ --fix"
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.84",

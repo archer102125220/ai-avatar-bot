@@ -23,6 +23,7 @@
     "test:ts:watch": "yarn workspace ai-avatar-bot-typescript test:unit:watch",
     "test:ts:ui": "yarn workspace ai-avatar-bot-typescript test:unit:ui",
     "test:ts:coverage": "yarn workspace ai-avatar-bot-typescript test:unit:coverage",
+    "lint:ts": "yarn workspace ai-avatar-bot-typescript lint",
     "test": "npm run test:unit --workspaces --if-present"
   },
   "workspaces": [
