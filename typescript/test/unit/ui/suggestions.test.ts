@@ -1,0 +1,119 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { renderSuggestions } from '@/core/ui/suggestions';
+import { initUi } from '@/core/ui/dom';
+import { initI18nEngine } from '@/core/i18n';
+import { AVATAR_MODE_MAP } from '@/core/constants';
+import type { I18nEngine } from '@types';
+
+describe('UI Suggestions (renderSuggestions)', () => {
+  let container: HTMLElement;
+  let stageEl: HTMLElement;
+  let i18nEngine: I18nEngine;
+  let uiDom: any;
+  let mockContext: any;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    stageEl = document.createElement('div');
+    i18nEngine = initI18nEngine({ locale: 'zh-TW' });
+    uiDom = initUi(container, stageEl, i18nEngine);
+
+    mockContext = {
+      uiDom,
+      i18nEngine,
+      locale: 'zh-TW',
+      avatarMode: AVATAR_MODE_MAP.assistant,
+      AVATAR_MODE_MAP,
+      handleUser: vi.fn()
+    };
+  });
+
+  it('should render default assistant suggestions and dispatch handleUser on click', () => {
+    renderSuggestions(mockContext);
+
+    const titleEl = uiDom.suggestionsEl.querySelector('.sg-label');
+    expect(titleEl).toBeDefined();
+    expect(titleEl.textContent).toContain('你可以問我');
+
+    const suggestionButtons = uiDom.suggestionsEl.querySelectorAll('button.sugg');
+    expect(suggestionButtons.length).toBeGreaterThan(0);
+
+    const firstBtn = suggestionButtons[0];
+    firstBtn.click();
+    expect(mockContext.handleUser).toHaveBeenCalled();
+  });
+
+  it('should render default companion suggestions when in companion mode', () => {
+    mockContext.avatarMode = AVATAR_MODE_MAP.companion;
+
+    renderSuggestions(mockContext);
+
+    const titleEl = uiDom.suggestionsEl.querySelector('.sg-label');
+    expect(titleEl.textContent).toContain('可以跟我聊');
+
+    const suggestionButtons = uiDom.suggestionsEl.querySelectorAll('button.sugg');
+    const buttonTexts = Array.from(suggestionButtons).map((b: any) => b.textContent);
+    expect(buttonTexts).toContain('今天過得好嗎？');
+  });
+
+  it('should support custom suggestedQuestions array and custom suggestedTitle', () => {
+    mockContext.suggestedTitle = '🌟 自訂推薦問答：';
+    mockContext.suggestedQuestions = ['自訂問題一？', '自訂問題二？'];
+
+    renderSuggestions(mockContext);
+
+    const titleEl = uiDom.suggestionsEl.querySelector('.sg-label');
+    expect(titleEl.textContent).toBe('🌟 自訂推薦問答：');
+
+    const buttons = uiDom.suggestionsEl.querySelectorAll('button.sugg');
+    expect(buttons.length).toBe(2);
+    expect(buttons[0].textContent).toBe('自訂問題一？');
+
+    buttons[0].click();
+    expect(mockContext.handleUser).toHaveBeenCalledWith('自訂問題一');
+  });
+
+  it('should resolve localized questions from object dictionary', () => {
+    mockContext.locale = 'en-US';
+    mockContext.suggestedQuestions = {
+      'zh-TW': ['中文問題'],
+      'en-US': ['English Question?']
+    };
+
+    renderSuggestions(mockContext);
+
+    const buttons = uiDom.suggestionsEl.querySelectorAll('button.sugg');
+    expect(buttons.length).toBe(1);
+    expect(buttons[0].textContent).toBe('English Question?');
+
+    buttons[0].click();
+    expect(mockContext.handleUser).toHaveBeenCalledWith('English Question?');
+  });
+
+  it('should handle function suggestedQuestions, invalid element guard, and filter non-string items', () => {
+    // 1. Invalid suggestions element guard
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // @ts-ignore: Defensive runtime type checking test
+    renderSuggestions(null);
+    renderSuggestions({ uiDom: { suggestionsEl: null } } as any);
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+
+    // 2. suggestedQuestions as function
+    mockContext.suggestedQuestions = (ctx: any) => [`動態問題 (${ctx.locale})`];
+    renderSuggestions(mockContext);
+
+    let buttons = uiDom.suggestionsEl.querySelectorAll('button.sugg');
+    expect(buttons.length).toBe(1);
+    expect(buttons[0].textContent).toBe('動態問題 (zh-TW)');
+
+    // 3. Array with non-string and empty string items
+    // @ts-ignore: Defensive runtime type checking test
+    mockContext.suggestedQuestions = [null, '', '有效問題？', 123];
+    renderSuggestions(mockContext);
+
+    buttons = uiDom.suggestionsEl.querySelectorAll('button.sugg');
+    expect(buttons.length).toBe(1);
+    expect(buttons[0].textContent).toBe('有效問題？');
+  });
+});

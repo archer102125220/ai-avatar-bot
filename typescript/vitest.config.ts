@@ -16,7 +16,25 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: [resolve(import.meta.dirname, 'test/setup.ts')],
     include: ['test/**/*.{test,spec}.{js,ts}'],
-    exclude: ['test/e2e/**', '**/node_modules/**', '**/dist/**'],
+    exclude: [
+      'test/e2e/**',
+      '**/node_modules/**',
+      '**/dist/**',
+
+      // [PHASE-2-BENCHMARK-REGISTRY]
+      // 階段二標竿測試已全數就位 (38 份單元測試)。
+      // 階段三 TDD 翻寫時，每實作一個模組，將該模組自下列清單解除（或於指令直接指定），即啟動紅綠燈驗證：
+      'test/unit/constants.test.ts',
+      'test/unit/store.test.ts',
+      'test/unit/i18n.test.ts',
+      'test/unit/tools/**',
+      'test/unit/brain/**',
+      'test/unit/speech/**',
+      'test/unit/plugins/**',
+      'test/unit/skin/**',
+      'test/unit/orchestrator/**',
+      'test/unit/ui/**'
+    ],
     outputFile: resolve(import.meta.dirname, 'html/index.html'),
     coverage: {
       provider: 'v8',

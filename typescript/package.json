@@ -21,7 +21,8 @@
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "test:unit:ui": "vitest --ui",
-    "test:unit:coverage": "vitest run --coverage"
+    "test:unit:coverage": "vitest run --coverage",
+    "test:benchmark": "vitest run test/unit"
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.84",

@@ -32,9 +32,13 @@
   },
   "include": [
     "core/**/*",
-    "test/**/*",
     "types/**/*",
     "*.config.ts",
     "*.d.ts"
+  ],
+  "exclude": [
+    "test/**/*",
+    "node_modules",
+    "dist"
   ]
 }

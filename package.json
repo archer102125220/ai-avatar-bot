@@ -19,6 +19,7 @@
     "test:js:report": "yarn workspace ai-avatar-bot-vanilla-js test:unit:report",
     "test:js:coverage": "yarn workspace ai-avatar-bot-vanilla-js test:unit:coverage",
     "test:ts": "yarn workspace ai-avatar-bot-typescript test:unit",
+    "test:ts:benchmark": "yarn workspace ai-avatar-bot-typescript test:benchmark",
     "test:ts:watch": "yarn workspace ai-avatar-bot-typescript test:unit:watch",
     "test:ts:ui": "yarn workspace ai-avatar-bot-typescript test:unit:ui",
     "test:ts:coverage": "yarn workspace ai-avatar-bot-typescript test:unit:coverage",
