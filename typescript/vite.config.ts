@@ -10,7 +10,7 @@ export default defineConfig({
       '@core': resolve(import.meta.dirname, 'core'),
       '@test': resolve(import.meta.dirname, 'test'),
       '@style': resolve(import.meta.dirname, 'style'),
-      '@types': resolve(import.meta.dirname, 'types')
+      '@types': resolve(import.meta.dirname, 'types/index.d.ts')
     }
   },
   plugins: [

@@ -27,6 +27,7 @@
       "@core/*": ["./core/*"],
       "@test/*": ["./test/*"],
       "@style/*": ["./style/*"],
+      "@types": ["./types/index.d.ts"],
       "@types/*": ["./types/*"]
     }
   },
