@@ -47,8 +47,10 @@ export function applyEmotionFromText(
     typeof (brainEngine as Record<string, unknown>).onEmotionChange ===
       'function'
   ) {
-    ((brainEngine as Record<string, unknown>).onEmotionChange as (emotion: string) => void)(
-      classifyEmotion(text)
-    );
+    (
+      (brainEngine as Record<string, unknown>).onEmotionChange as (
+        emotion: string
+      ) => void
+    )(classifyEmotion(text));
   }
 }

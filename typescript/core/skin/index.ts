@@ -55,7 +55,9 @@ export interface InternalSkinStoreState {
  * @param setting - Skin engine initialization options.
  * @returns Initialized skin engine instance, or void on error.
  */
-export function initSkinEngine(setting: SkinEngineOptions | any = {}): SkinEngine | void {
+export function initSkinEngine(
+  setting: SkinEngineOptions | any = {}
+): SkinEngine | void {
   const {
     stageEl,
     modelUrl = '',
@@ -426,7 +428,9 @@ export function initSkinEngine(setting: SkinEngineOptions | any = {}): SkinEngin
         return this._name;
       },
       set name(newName: string) {
-        const newTarget = (EMOTION_TARGET_MAP as Record<string, number>)[newName];
+        const newTarget = (EMOTION_TARGET_MAP as Record<string, number>)[
+          newName
+        ];
 
         if (
           (typeof newTarget !== 'number' && newName !== 'neutral') ||

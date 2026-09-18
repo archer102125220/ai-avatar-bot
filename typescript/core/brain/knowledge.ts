@@ -118,7 +118,8 @@ export function getTopKnowledge(
   limit: number
 ): KnowledgeEntry[] {
   const knowledge =
-    brainEngine && Array.isArray((brainEngine as { knowledge?: KnowledgeEntry[] }).knowledge)
+    brainEngine &&
+    Array.isArray((brainEngine as { knowledge?: KnowledgeEntry[] }).knowledge)
       ? (brainEngine as { knowledge: KnowledgeEntry[] }).knowledge
       : [];
 

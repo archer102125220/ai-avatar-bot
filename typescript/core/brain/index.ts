@@ -318,8 +318,7 @@ export async function initBrainEngine(
 
     applyEmotionFromText: (text: string) =>
       applyEmotionFromText(brainEngine, text),
-    answerQuestion: (question: string) =>
-      answerQuestion(brainEngine, question),
+    answerQuestion: (question: string) => answerQuestion(brainEngine, question),
     emitAnswer: (text: string) => emitAnswer(brainEngine, text),
     getRetrievalAnswer: (rawQuestion: string) =>
       getRetrievalAnswer(brainEngine, rawQuestion),
@@ -327,8 +326,7 @@ export async function initBrainEngine(
       getCompanionFallbackResponse(brainEngine, question),
     chatWithAiProvider: (question: string) =>
       chatWithAiProvider(brainEngine, question),
-    chatWithWebLLM: (question: string) =>
-      chatWithWebLLM(brainEngine, question),
+    chatWithWebLLM: (question: string) => chatWithWebLLM(brainEngine, question),
     triggerRollingSummaryIfNeeded: () =>
       triggerRollingSummaryIfNeeded(brainEngine),
 
@@ -807,9 +805,7 @@ export async function answerQuestion(
   const safeQuestion = (question || '').trim();
   if (safeQuestion === '') {
     if (typeof engine.onSpokenAudioTextChange === 'function') {
-      engine.onSpokenAudioTextChange(
-        getBrainMessage(engine, 'brain.notClear')
-      );
+      engine.onSpokenAudioTextChange(getBrainMessage(engine, 'brain.notClear'));
     }
     return;
   }
@@ -839,10 +835,7 @@ export async function answerQuestion(
     }
   }
 
-  if (
-    engine.aiProvider?.enabled === true &&
-    engine.aiProvider.ready === true
-  ) {
+  if (engine.aiProvider?.enabled === true && engine.aiProvider.ready === true) {
     try {
       if (typeof engine.chatWithAiProvider === 'function') {
         return await engine.chatWithAiProvider(question);
@@ -927,9 +920,10 @@ export function emitAnswer(
  * @param engine - Custom engine instance candidate.
  * @returns Validation result and list of missing members.
  */
-export function validateBrainEngine(
-  engine: unknown
-): { isValid: boolean; missing: string[] } {
+export function validateBrainEngine(engine: unknown): {
+  isValid: boolean;
+  missing: string[];
+} {
   if (typeof engine !== 'object' || engine === null) {
     return { isValid: false, missing: ['engine object'] };
   }

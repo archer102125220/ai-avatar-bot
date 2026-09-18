@@ -10,10 +10,7 @@ import {
 } from '@/core/constants';
 import { toOpenAiTools } from '@/core/tools';
 import type { BrainEngine, ToolDefinition } from '@types';
-import {
-  extractToolCallsFromText,
-  executeToolCallsLoop
-} from './tool-calling';
+import { extractToolCallsFromText, executeToolCallsLoop } from './tool-calling';
 import {
   getBrainMessage,
   resolveAutoContinuePrompt,
@@ -59,7 +56,14 @@ export interface LLMEngine {
   load(): Promise<any>;
   chat(
     messages: Array<Record<string, any>>,
-    onDelta?: ((chunkDelta: string, accumulatedText: string, llm?: any, brain?: any) => void) | null,
+    onDelta?:
+      | ((
+          chunkDelta: string,
+          accumulatedText: string,
+          llm?: any,
+          brain?: any
+        ) => void)
+      | null,
     tools?: ToolDefinition[]
   ): Promise<any>;
 }
@@ -207,7 +211,14 @@ export function initWebLLM(
     },
     async chat(
       messages: Array<Record<string, any>>,
-      onDelta?: ((chunkDelta: string, accumulatedText: string, llm?: any, brain?: any) => void) | null,
+      onDelta?:
+        | ((
+            chunkDelta: string,
+            accumulatedText: string,
+            llm?: any,
+            brain?: any
+          ) => void)
+        | null,
       tools?: ToolDefinition[]
     ): Promise<any> {
       if (typeof engine !== 'object' || engine === null) {
@@ -282,7 +293,9 @@ export function initWebLLM(
         }
       }
 
-      const executeChatCompletion = async (options: Record<string, any>): Promise<any> => {
+      const executeChatCompletion = async (
+        options: Record<string, any>
+      ): Promise<any> => {
         const hasTools =
           Array.isArray(options.tools) === true && options.tools.length > 0;
 
@@ -293,13 +306,15 @@ export function initWebLLM(
         ) {
           const normalizedOptions = {
             ...options,
-            messages: (options.messages || []).map((messageItem: Record<string, any>) => ({
-              ...messageItem,
-              content:
-                typeof messageItem?.content === 'string'
-                  ? messageItem.content
-                  : ''
-            }))
+            messages: (options.messages || []).map(
+              (messageItem: Record<string, any>) => ({
+                ...messageItem,
+                content:
+                  typeof messageItem?.content === 'string'
+                    ? messageItem.content
+                    : ''
+              })
+            )
           };
           const result =
             await engine.chat.completions.create(normalizedOptions);
@@ -363,13 +378,15 @@ export function initWebLLM(
         const streamOptions = {
           ...options,
           stream: true,
-          messages: (options.messages || []).map((messageItem: Record<string, any>) => ({
-            ...messageItem,
-            content:
-              typeof messageItem?.content === 'string'
-                ? messageItem.content
-                : ''
-          }))
+          messages: (options.messages || []).map(
+            (messageItem: Record<string, any>) => ({
+              ...messageItem,
+              content:
+                typeof messageItem?.content === 'string'
+                  ? messageItem.content
+                  : ''
+            })
+          )
         };
         const stream = await engine.chat.completions.create(streamOptions);
         let fullResponse = '';
@@ -665,11 +682,7 @@ export async function chatWithWebLLM(
               engine.onSpokenDisplayTextChange(combinedText);
             }
             if (typeof engine.updateChatMessage === 'function') {
-              engine.updateChatMessage(
-                streamMessageId,
-                combinedText,
-                true
-              );
+              engine.updateChatMessage(streamMessageId, combinedText, true);
             }
             if (typeof engine.applyEmotionFromText === 'function') {
               engine.applyEmotionFromText(currentStreamText);

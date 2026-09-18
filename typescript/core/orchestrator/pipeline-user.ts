@@ -27,7 +27,9 @@ export function createUserPipeline({
   autoContinueState
 }: UserPipelineParams): (text?: string) => void {
   const resolveWidget =
-    typeof getWidget === 'function' ? getWidget : () => widget as AiAvatarWidget;
+    typeof getWidget === 'function'
+      ? getWidget
+      : () => widget as AiAvatarWidget;
 
   return function handleUser(text: string = ''): void {
     const { brainEngine, speechEngine, skinEngine, toolsEngine } = getEngines();

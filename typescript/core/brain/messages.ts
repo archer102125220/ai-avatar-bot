@@ -326,10 +326,7 @@ export function buildDefaultLLMMessages(
     .join(' ');
 
   let customContextText = '';
-  if (
-    engine.customContext &&
-    typeof engine.customContext === 'object'
-  ) {
+  if (engine.customContext && typeof engine.customContext === 'object') {
     const contextKeys = Object.keys(engine.customContext);
     if (contextKeys.length > 0) {
       customContextText = contextKeys
@@ -416,8 +413,7 @@ export function buildDefaultLLMMessages(
       } else if (/ko/i.test(locale)) {
         nameStr = `, 방문자의 이름은 "${engine.memory.data.name}"입니다`;
       } else {
-        nameStr =
-          '，訪客叫「' + engine.memory.data.name + '」，可自然稱呼';
+        nameStr = '，訪客叫「' + engine.memory.data.name + '」，可自然稱呼';
       }
     }
 

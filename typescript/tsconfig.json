@@ -23,9 +23,9 @@
     "noFallthroughCasesInSwitch": true,
     "declaration": true,
     "paths": {
-      "@/*": ["./*"],
-      "@core/*": ["./core/*"],
-      "@test/*": ["./test/*"],
+      "@/*": ["./*", "./*/index"],
+      "@core/*": ["./core/*", "./core/*/index"],
+      "@test/*": ["./test/*", "./test/*/index"],
       "@style/*": ["./style/*"],
       "@types": ["./types/index.d.ts"],
       "@types/*": ["./types/*"]
@@ -38,8 +38,8 @@
     "*.d.ts"
   ],
   "exclude": [
-    "test/**/*",
     "node_modules",
-    "dist"
+    "dist",
+    "test"
   ]
 }

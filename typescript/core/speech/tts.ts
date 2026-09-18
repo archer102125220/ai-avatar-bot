@@ -35,7 +35,10 @@ export interface InternalTTSEngineState extends TTSEngineState {
  * @param engine - TTS engine instance to validate.
  * @returns Object containing validation result and missing properties/methods array.
  */
-export function validateTTSEngine(engine: any): { isValid: boolean; missing: string[] } {
+export function validateTTSEngine(engine: any): {
+  isValid: boolean;
+  missing: string[];
+} {
   const missing: string[] = [];
   if (typeof engine !== 'object' || engine === null) {
     missing.push('engine instance');
@@ -64,7 +67,10 @@ export function validateTTSEngine(engine: any): { isValid: boolean; missing: str
  * @param locale - Language locale code (e.g., 'zh-TW', 'en-US', 'ja-JP', 'ko-KR').
  * @returns Matched voice object, or null if unavailable.
  */
-export function loadVoice(gender: string, locale: string = 'zh-TW'): SpeechSynthesisVoice | null {
+export function loadVoice(
+  gender: string,
+  locale: string = 'zh-TW'
+): SpeechSynthesisVoice | null {
   if (
     typeof window === 'undefined' ||
     typeof window.speechSynthesis !== 'object' ||
@@ -74,7 +80,9 @@ export function loadVoice(gender: string, locale: string = 'zh-TW'): SpeechSynth
     return null;
   }
   const voices = window.speechSynthesis.getVoices();
-  const findMatchingVoice = (voicePattern: RegExp): SpeechSynthesisVoice | undefined =>
+  const findMatchingVoice = (
+    voicePattern: RegExp
+  ): SpeechSynthesisVoice | undefined =>
     voices.find(
       (voice) =>
         voicePattern.test(`${voice.name} ${voice.lang}`) === true &&
@@ -246,7 +254,9 @@ export function localeVoice(locale?: string): string {
  * @param options - Initialization options and event callbacks.
  * @returns Initialized TTS engine controller instance.
  */
-export function initDefaultTTSEngine(options: TTSEngineOptions = {}): TTSEngine {
+export function initDefaultTTSEngine(
+  options: TTSEngineOptions = {}
+): TTSEngine {
   const {
     ttsEndpoint = '',
     neuralVoice = '',
@@ -297,7 +307,11 @@ export function initDefaultTTSEngine(options: TTSEngineOptions = {}): TTSEngine 
   const engine: TTSEngine = {
     subscribe: store.subscribe,
     getState: store.getState as () => TTSEngineState,
-    setState: store.setState as (updates: Partial<TTSEngineState> | ((state: TTSEngineState) => Partial<TTSEngineState>)) => void,
+    setState: store.setState as (
+      updates:
+        | Partial<TTSEngineState>
+        | ((state: TTSEngineState) => Partial<TTSEngineState>)
+    ) => void,
 
     get isSpeaking(): boolean {
       return store.getState().isSpeaking;
@@ -335,7 +349,11 @@ export function initDefaultTTSEngine(options: TTSEngineOptions = {}): TTSEngine 
       return state.speakSeq;
     },
 
-    pushSpeech(speechSequenceId: number, text: string, pushOptions: TTSSpeakOptions = {}): void {
+    pushSpeech(
+      speechSequenceId: number,
+      text: string,
+      pushOptions: TTSSpeakOptions = {}
+    ): void {
       if (speechSequenceId !== state.speakSeq || this.isMuted === true) {
         return;
       }
@@ -523,11 +541,14 @@ export function initDefaultTTSEngine(options: TTSEngineOptions = {}): TTSEngine 
     const currentState = store.getState();
     const AudioContextClass =
       typeof window === 'object' && window !== null
-        ? window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+        ? window.AudioContext ||
+          (window as unknown as { webkitAudioContext?: typeof AudioContext })
+            .webkitAudioContext
         : null;
     if (
       typeof AudioContextClass === 'function' &&
-      (currentState.audioCtx instanceof AudioContextClass === false || currentState.audioCtx === null)
+      (currentState.audioCtx instanceof AudioContextClass === false ||
+        currentState.audioCtx === null)
     ) {
       store.setState({ audioCtx: new AudioContextClass() });
     }
@@ -544,7 +565,10 @@ export function initDefaultTTSEngine(options: TTSEngineOptions = {}): TTSEngine 
     return currentAudioContext;
   };
 
-  const fetchTTSBuffer = async (text: string, isPersistent: boolean = false): Promise<AudioBuffer> => {
+  const fetchTTSBuffer = async (
+    text: string,
+    isPersistent: boolean = false
+  ): Promise<AudioBuffer> => {
     const audioContext = await getAudioContext();
     if (audioContext === null) {
       throw new Error('AudioContext not available');
@@ -597,7 +621,10 @@ export function initDefaultTTSEngine(options: TTSEngineOptions = {}): TTSEngine 
     }
   };
 
-  const playBuffer = (audioBuffer: AudioBuffer, onPlayCompleted?: () => void): void => {
+  const playBuffer = (
+    audioBuffer: AudioBuffer,
+    onPlayCompleted?: () => void
+  ): void => {
     const currentState = store.getState();
     if (currentState.audioCtx === null) {
       return;
@@ -697,7 +724,11 @@ export function initDefaultTTSEngine(options: TTSEngineOptions = {}): TTSEngine 
     );
   };
 
-  const speakBrowserChunk = (text: string, speechSequenceId: number, onChunkCompleted?: () => void): void => {
+  const speakBrowserChunk = (
+    text: string,
+    speechSequenceId: number,
+    onChunkCompleted?: () => void
+  ): void => {
     if (
       engine.isMuted === true ||
       typeof window !== 'object' ||
@@ -770,7 +801,10 @@ export function initDefaultTTSEngine(options: TTSEngineOptions = {}): TTSEngine 
         estimatedDurationMs
       );
     };
-    if (window.speechSynthesis.speaking === true || window.speechSynthesis.pending === true) {
+    if (
+      window.speechSynthesis.speaking === true ||
+      window.speechSynthesis.pending === true
+    ) {
       window.speechSynthesis.cancel();
       setTimeout(playUtterance, 120);
     } else {
@@ -778,7 +812,9 @@ export function initDefaultTTSEngine(options: TTSEngineOptions = {}): TTSEngine 
     }
   };
 
-  const processSpeechQueue = async (speechSequenceId: number): Promise<void> => {
+  const processSpeechQueue = async (
+    speechSequenceId: number
+  ): Promise<void> => {
     if (state.isSpeechPlaying === true || speechSequenceId !== state.speakSeq) {
       return;
     }

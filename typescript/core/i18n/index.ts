@@ -84,7 +84,10 @@ export function resolveLocalized<T = any>(
  * @param params - Key-value replacement parameters.
  * @returns Formatted output string.
  */
-export function formatParams(text: string, params: Record<string, any> = {}): string {
+export function formatParams(
+  text: string,
+  params: Record<string, any> = {}
+): string {
   if (typeof text !== 'string') {
     return text;
   }
@@ -150,11 +153,16 @@ export interface I18nEngine {
   messages: Record<string, Record<string, any>>;
   labels: LocaleLabelInfo;
   subscribe: (
-    key: string | ((state: I18nEngineState, prevState: I18nEngineState) => void),
+    key:
+      string | ((state: I18nEngineState, prevState: I18nEngineState) => void),
     listener?: any
   ) => () => void;
   getState: () => I18nEngineState;
-  setState: (updates: Partial<I18nEngineState> | ((state: I18nEngineState) => Partial<I18nEngineState>)) => void;
+  setState: (
+    updates:
+      | Partial<I18nEngineState>
+      | ((state: I18nEngineState) => Partial<I18nEngineState>)
+  ) => void;
 }
 
 /**
@@ -292,13 +300,16 @@ export function initI18nEngine(options: I18nEngineOptions = {}): I18nEngine {
 
     subscribe(key: any, listener: any): () => void {
       if (key === 'locale' && typeof listener === 'function') {
-        return store.subscribe('locale', (newLocale: string, prevLocale: string) => {
-          const localeLabels = LOCALE_LABELS[newLocale] || {
-            label: newLocale,
-            shortLabel: newLocale
-          };
-          listener(newLocale, localeLabels, prevLocale);
-        });
+        return store.subscribe(
+          'locale',
+          (newLocale: string, prevLocale: string) => {
+            const localeLabels = LOCALE_LABELS[newLocale] || {
+              label: newLocale,
+              shortLabel: newLocale
+            };
+            listener(newLocale, localeLabels, prevLocale);
+          }
+        );
       }
       return store.subscribe(key, listener);
     },

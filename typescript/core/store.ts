@@ -16,7 +16,9 @@ export type Selector<T, V> = (state: T) => V;
 /**
  * Base reactive store interface compatible across Vanilla, Vue, and React.
  */
-export interface BaseStore<T extends Record<string, any> = Record<string, any>> {
+export interface BaseStore<
+  T extends Record<string, any> = Record<string, any>
+> {
   /**
    * Retrieves the current snapshot of the store's state.
    */
@@ -35,12 +37,18 @@ export interface BaseStore<T extends Record<string, any> = Record<string, any>> 
   /**
    * Subscribes to a specific key mutation.
    */
-  subscribe<K extends keyof T>(key: K, callback: PropertyListener<T[K]>): () => void;
+  subscribe<K extends keyof T>(
+    key: K,
+    callback: PropertyListener<T[K]>
+  ): () => void;
 
   /**
    * Subscribes via selector function.
    */
-  subscribe<V>(selector: Selector<T, V>, callback: PropertyListener<V>): () => void;
+  subscribe<V>(
+    selector: Selector<T, V>,
+    callback: PropertyListener<V>
+  ): () => void;
 }
 
 /**
@@ -50,9 +58,9 @@ export interface BaseStore<T extends Record<string, any> = Record<string, any>> 
  * @param initialState - Initial state object.
  * @returns Store instance containing getState, setState, and subscribe methods.
  */
-export function createBaseStore<T extends Record<string, any> = Record<string, any>>(
-  initialState: T = {} as T
-): BaseStore<T> {
+export function createBaseStore<
+  T extends Record<string, any> = Record<string, any>
+>(initialState: T = {} as T): BaseStore<T> {
   const state: T = { ...initialState };
   const subscribers = new Set<StoreListener<T>>();
 
@@ -61,8 +69,7 @@ export function createBaseStore<T extends Record<string, any> = Record<string, a
   };
 
   function setState(updates: Partial<T> | ((state: T) => Partial<T>)): void {
-    const newValues =
-      typeof updates === 'function' ? updates(state) : updates;
+    const newValues = typeof updates === 'function' ? updates(state) : updates;
 
     let hasChanges = false;
     const previousState: T = { ...state };

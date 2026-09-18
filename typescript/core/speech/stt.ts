@@ -1,9 +1,5 @@
 import { createBaseStore } from '@/core/store';
-import type {
-  STTEngine,
-  STTEngineOptions,
-  STTEngineState
-} from '@types';
+import type { STTEngine, STTEngineOptions, STTEngineState } from '@types';
 
 /**
  * Validates whether the provided Speech-to-Text (STT) engine complies with the STTEngine interface specification.
@@ -11,7 +7,10 @@ import type {
  * @param engine - STT engine instance to validate.
  * @returns Object containing validation result and missing properties/methods array.
  */
-export function validateSTTEngine(engine: any): { isValid: boolean; missing: string[] } {
+export function validateSTTEngine(engine: any): {
+  isValid: boolean;
+  missing: string[];
+} {
   const missing: string[] = [];
   if (typeof engine !== 'object' || engine === null) {
     missing.push('engine instance');
@@ -99,14 +98,20 @@ export const DEFAULT_STT_MESSAGES: Record<string, Record<string, string>> = {
  * @param params - Parameters for template interpolation (e.g. `{ error: '...' }`).
  * @returns Formatted localized message string.
  */
-export function getSttMessage(locale?: string, key?: string, params: Record<string, any> = {}): string {
+export function getSttMessage(
+  locale?: string,
+  key?: string,
+  params: Record<string, any> = {}
+): string {
   const currentLocale =
     typeof locale === 'string' && locale !== '' ? locale : 'zh-TW';
   const targetKey = typeof key === 'string' ? key : '';
   const messageDictionary =
     DEFAULT_STT_MESSAGES[currentLocale] || DEFAULT_STT_MESSAGES['zh-TW'] || {};
   let formattedMessage =
-    messageDictionary[targetKey] || DEFAULT_STT_MESSAGES['zh-TW']?.[targetKey] || targetKey;
+    messageDictionary[targetKey] ||
+    DEFAULT_STT_MESSAGES['zh-TW']?.[targetKey] ||
+    targetKey;
   if (typeof params === 'object' && params !== null) {
     for (const paramKey in params) {
       if (Object.prototype.hasOwnProperty.call(params, paramKey)) {
@@ -150,7 +155,9 @@ export interface InternalSTTEngineState extends STTEngineState {
  * @param options - Initialization options and event callbacks.
  * @returns Initialized STT engine controller instance.
  */
-export function initDefaultSTTEngine(options: STTEngineOptions = {}): STTEngine {
+export function initDefaultSTTEngine(
+  options: STTEngineOptions = {}
+): STTEngine {
   const {
     onResult,
     onMicLevel,
@@ -288,21 +295,25 @@ export function initDefaultSTTEngine(options: STTEngineOptions = {}): STTEngine 
       video: false
     });
     const AudioContextClass =
-      window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    state.micAudioCtx = new AudioContextClass();
-    if (state.micAudioCtx.state === 'suspended') {
-      try {
-        await state.micAudioCtx.resume();
-      } catch (_resumeError) {}
-    }
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (AudioContextClass) {
+      const audioCtx = new AudioContextClass();
+      state.micAudioCtx = audioCtx;
+      if (audioCtx.state === 'suspended') {
+        try {
+          await audioCtx.resume();
+        } catch (_resumeError) {}
+      }
 
-    state.micAnalyser = state.micAudioCtx.createAnalyser();
-    state.micAnalyser.fftSize = 256;
-    state.micAnalyser.smoothingTimeConstant = 0.35;
-    state.micAudioCtx
-      .createMediaStreamSource(state.micStream)
-      .connect(state.micAnalyser);
-    state.micData = new Uint8Array(new ArrayBuffer(state.micAnalyser.fftSize));
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.35;
+      state.micAnalyser = analyser;
+      audioCtx.createMediaStreamSource(state.micStream).connect(analyser);
+      state.micData = new Uint8Array(new ArrayBuffer(analyser.fftSize));
+    }
 
     state.micNoiseFloor = 0;
     state.voiceFrames = 0;
@@ -341,7 +352,11 @@ export function initDefaultSTTEngine(options: STTEngineOptions = {}): STTEngine 
   const engine: STTEngine = {
     subscribe: store.subscribe,
     getState: store.getState as () => STTEngineState,
-    setState: store.setState as (updates: Partial<STTEngineState> | ((state: STTEngineState) => Partial<STTEngineState>)) => void,
+    setState: store.setState as (
+      updates:
+        | Partial<STTEngineState>
+        | ((state: STTEngineState) => Partial<STTEngineState>)
+    ) => void,
 
     get locale(): string {
       const currentLocale = state.locale || store.getState().locale;
@@ -378,7 +393,8 @@ export function initDefaultSTTEngine(options: STTEngineOptions = {}): STTEngine 
     async startListening(): Promise<void> {
       const SpeechRecognition =
         typeof window === 'object' && window !== null
-          ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+          ? (window as any).SpeechRecognition ||
+            (window as any).webkitSpeechRecognition
           : null;
 
       if (typeof SpeechRecognition !== 'function') {

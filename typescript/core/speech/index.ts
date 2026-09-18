@@ -149,7 +149,9 @@ export interface InternalSpeechEngine extends SpeechEngine {
  * @param setting - Speech engine initialization options.
  * @returns SpeechEngine controller instance.
  */
-export async function initSpeechEngine(setting: SpeechEngineOptions = {}): Promise<SpeechEngine> {
+export async function initSpeechEngine(
+  setting: SpeechEngineOptions = {}
+): Promise<SpeechEngine> {
   const { customEngines = {}, ttsEndpoint, neuralVoice } = setting;
   let sttEngine: STTEngine | null = null;
   let ttsEngine: TTSEngine | null = null;
@@ -260,12 +262,18 @@ export async function initSpeechEngine(setting: SpeechEngineOptions = {}): Promi
       store.setState({ spokenDisplayText: audioText || '' });
     },
     onSpeakStart: (audioText?: string) => {
-      if (typeof setting.onSpeaking === 'function' && typeof audioText === 'string') {
+      if (
+        typeof setting.onSpeaking === 'function' &&
+        typeof audioText === 'string'
+      ) {
         setting.onSpeaking(audioText);
       }
     },
     onSpeakEnd: () => {
-      if (typeof (speechEngine as InternalSpeechEngine)._onTTSSpeakEnd === 'function') {
+      if (
+        typeof (speechEngine as InternalSpeechEngine)._onTTSSpeakEnd ===
+        'function'
+      ) {
         (speechEngine as InternalSpeechEngine)._onTTSSpeakEnd();
       }
     },
@@ -307,7 +315,11 @@ export async function initSpeechEngine(setting: SpeechEngineOptions = {}): Promi
   const speechEngine: InternalSpeechEngine = {
     subscribe: store.subscribe,
     getState: store.getState as () => Record<string, any>,
-    setState: store.setState as (updates: Record<string, any> | ((state: Record<string, any>) => Record<string, any>)) => void,
+    setState: store.setState as (
+      updates:
+        | Record<string, any>
+        | ((state: Record<string, any>) => Record<string, any>)
+    ) => void,
 
     get gender(): string {
       return store.getState().gender;
@@ -564,7 +576,10 @@ export async function initSpeechEngine(setting: SpeechEngineOptions = {}): Promi
     },
     _speechQueue: [],
 
-    drainSentences(state: { buf?: string; sentenceBuffer?: string }, force?: boolean): string[] {
+    drainSentences(
+      state: { buf?: string; sentenceBuffer?: string },
+      force?: boolean
+    ): string[] {
       return drainSentences(state, force);
     },
 
@@ -580,7 +595,11 @@ export async function initSpeechEngine(setting: SpeechEngineOptions = {}): Promi
       return speechEngine.speakSeq;
     },
 
-    pushSpeech(speechSequenceId: number, text: string, options: Record<string, any> = {}): void {
+    pushSpeech(
+      speechSequenceId: number,
+      text: string,
+      options: Record<string, any> = {}
+    ): void {
       if (speechSequenceId !== speechEngine.speakSeq) {
         return;
       }
@@ -676,7 +695,12 @@ export async function initSpeechEngine(setting: SpeechEngineOptions = {}): Promi
         }
       }
     },
-    onMicLevel: (_rmsLevel: number, showVoiceUI: boolean, stateString: string, levelAmp: number) => {
+    onMicLevel: (
+      _rmsLevel: number,
+      showVoiceUI: boolean,
+      stateString: string,
+      levelAmp: number
+    ) => {
       if (typeof speechEngine.onVoiceStatusChanged === 'function') {
         speechEngine.onVoiceStatusChanged(
           showVoiceUI,

@@ -10,10 +10,7 @@ import {
 } from '@/core/constants';
 import { toOpenAiTools } from '@/core/tools';
 import type { BrainEngine, ToolDefinition } from '@types';
-import {
-  extractToolCallsFromText,
-  executeToolCallsLoop
-} from './tool-calling';
+import { extractToolCallsFromText, executeToolCallsLoop } from './tool-calling';
 import {
   getBrainMessage,
   resolveAutoContinuePrompt,
@@ -37,10 +34,13 @@ export interface AiProviderOptions {
   model?: string;
   providerCreateFetchSetting?: ((...args: any[]) => any) | RequestInit | null;
   createFetchSetting?: ((...args: any[]) => any) | RequestInit | null;
-  providerCreateFetchPayload?: ((...args: any[]) => any) | Record<string, any> | null;
+  providerCreateFetchPayload?:
+    ((...args: any[]) => any) | Record<string, any> | null;
   createFetchPayload?: ((...args: any[]) => any) | Record<string, any> | null;
-  providerResponseFormat?: ((...args: any[]) => any) | string | Record<string, any> | null;
-  responseFormat?: ((...args: any[]) => any) | string | Record<string, any> | null;
+  providerResponseFormat?:
+    ((...args: any[]) => any) | string | Record<string, any> | null;
+  responseFormat?:
+    ((...args: any[]) => any) | string | Record<string, any> | null;
   providerExtractToolCalls?: ((...args: any[]) => any) | null;
   extractToolCalls?: ((...args: any[]) => any) | null;
   providerMaxTokens?: number;
@@ -476,11 +476,7 @@ export async function chatWithAiProvider(
     const tools =
       typeof engine.getTools === 'function' ? engine.getTools() : [];
 
-    const chatResponse = await engine.aiProvider.chat(
-      messages,
-      null,
-      tools
-    );
+    const chatResponse = await engine.aiProvider.chat(messages, null, tools);
 
     if (
       typeof chatResponse === 'object' &&
@@ -534,10 +530,7 @@ export async function chatWithAiProvider(
     ) {
       if (autoContinueMode === AUTO_CONTINUE_MODE_MAP.STREAM) {
         if (typeof engine.addChatMessage === 'function') {
-          chatMessageId = engine.addChatMessage(
-            'assistant',
-            accumulatedText
-          );
+          chatMessageId = engine.addChatMessage('assistant', accumulatedText);
         }
         if (typeof engine.applyEmotionFromText === 'function') {
           engine.applyEmotionFromText(accumulatedText);
@@ -613,11 +606,7 @@ export async function chatWithAiProvider(
 
         if (autoContinueMode === AUTO_CONTINUE_MODE_MAP.STREAM) {
           if (typeof engine.updateChatMessage === 'function') {
-            engine.updateChatMessage(
-              chatMessageId,
-              accumulatedText,
-              false
-            );
+            engine.updateChatMessage(chatMessageId, accumulatedText, false);
           }
           if (typeof engine.applyEmotionFromText === 'function') {
             engine.applyEmotionFromText(nextChunk.trim());

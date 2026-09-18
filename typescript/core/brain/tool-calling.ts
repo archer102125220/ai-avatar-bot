@@ -12,9 +12,7 @@ import { getBrainMessage } from './messages';
  * @param content - Model generation content.
  * @returns Array of parsed tool call descriptors.
  */
-export function extractToolCallsFromText(
-  content?: string | null
-): Array<{
+export function extractToolCallsFromText(content?: string | null): Array<{
   id: string;
   type: string;
   function: { name: string; arguments: string };
@@ -285,11 +283,7 @@ export async function executeToolCallsLoop(
             engine.onSpokenDisplayTextChange(accumulatedText);
           }
           if (typeof engine.updateChatMessage === 'function') {
-            engine.updateChatMessage(
-              streamMessageId,
-              accumulatedText,
-              true
-            );
+            engine.updateChatMessage(streamMessageId, accumulatedText, true);
           }
           if (typeof engine.applyEmotionFromText === 'function') {
             engine.applyEmotionFromText(accumulatedText);

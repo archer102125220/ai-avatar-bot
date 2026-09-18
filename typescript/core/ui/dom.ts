@@ -276,7 +276,13 @@ export function initUi(
     get voiceLevelEl() {
       return voiceLevelEl;
     },
-    updateVoiceStatus(convoOn: boolean, text?: string, state?: string, level?: number, i18n?: I18nEngine) {
+    updateVoiceStatus(
+      convoOn: boolean,
+      text?: string,
+      state?: string,
+      level?: number,
+      i18n?: I18nEngine
+    ) {
       if (typeof i18n === 'object' && i18n !== null) {
         currentI18nEngine = i18n;
       }
@@ -303,7 +309,12 @@ export function initUi(
         voiceLevelEl.style.width = Math.max(0, Math.min(100, level)) + '%';
       }
     },
-    updateMicState(isListening?: boolean, convoOn?: boolean, isCompanion?: boolean, i18n?: I18nEngine) {
+    updateMicState(
+      isListening?: boolean,
+      convoOn?: boolean,
+      isCompanion?: boolean,
+      i18n?: I18nEngine
+    ) {
       if (typeof isListening === 'boolean') {
         currentListening = isListening;
       }

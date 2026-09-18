@@ -54,7 +54,9 @@ export function createStreamPipeline({
 }: StreamPipelineParams): StreamPipeline {
   let streamSpeechId = 0;
   const resolveWidget =
-    typeof getWidget === 'function' ? getWidget : () => widget as AiAvatarWidget;
+    typeof getWidget === 'function'
+      ? getWidget
+      : () => widget as AiAvatarWidget;
 
   return {
     getStreamSpeechId: () => streamSpeechId,

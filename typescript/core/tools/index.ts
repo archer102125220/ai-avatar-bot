@@ -174,8 +174,11 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
     }
 
     if (typeof messageId === 'string' && messageId !== '') {
-      const chatLog = typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
-      const chatMessage = chatLog.find((entry: Record<string, unknown>) => entry.id === messageId);
+      const chatLog =
+        typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
+      const chatMessage = chatLog.find(
+        (entry: Record<string, unknown>) => entry.id === messageId
+      );
       if (typeof chatMessage === 'object' && chatMessage !== null) {
         chatMessage.choiceQuery = query;
       }
@@ -204,9 +207,11 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
     if (
       /^(取消|不要|算了|cancel)$/i.test(String(inputText || '').trim()) === true
     ) {
-      const chatLog = typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
+      const chatLog =
+        typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
       const chatMessage = chatLog.find(
-        (entry: Record<string, unknown>) => entry.id === toolsEngine.pendingToolChoice?.messageId
+        (entry: Record<string, unknown>) =>
+          entry.id === toolsEngine.pendingToolChoice?.messageId
       );
       if (typeof chatMessage === 'object' && chatMessage !== null) {
         chatMessage.pendingChoices = null;
@@ -269,8 +274,11 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
   }
 
   function chooseTool(messageId: string, choiceIndex: number): void {
-    const chatLog = typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
-    const chatMessage = chatLog.find((entry: Record<string, unknown>) => entry.id === messageId);
+    const chatLog =
+      typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
+    const chatMessage = chatLog.find(
+      (entry: Record<string, unknown>) => entry.id === messageId
+    );
     if (
       typeof chatMessage !== 'object' ||
       chatMessage === null ||
@@ -306,12 +314,14 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
       onConfirmResume?: ((result: unknown) => void) | null;
     }
   ): void {
-    const seq = typeof setting.getChatSeq === 'function' ? setting.getChatSeq() : 0;
+    const seq =
+      typeof setting.getChatSeq === 'function' ? setting.getChatSeq() : 0;
     const callId =
       typeof options?.callId === 'string' && options.callId !== ''
         ? options.callId
         : `tool-${Date.now()}-${seq}`;
-    const rawChatLog = typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
+    const rawChatLog =
+      typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
     const history = rawChatLog
       .slice(-12)
       .map((chatItem: Record<string, unknown>) => ({
@@ -462,8 +472,11 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
 
   function executePendingTool(messageId: string): void {
     clearConfirmationTimer();
-    const chatLog = typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
-    const chatMessage = chatLog.find((msg: Record<string, unknown>) => msg.id === messageId);
+    const chatLog =
+      typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
+    const chatMessage = chatLog.find(
+      (msg: Record<string, unknown>) => msg.id === messageId
+    );
     if (
       typeof chatMessage !== 'object' ||
       chatMessage === null ||
@@ -503,8 +516,11 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
     options?: { reason?: string }
   ): void {
     clearConfirmationTimer();
-    const chatLog = typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
-    const chatMessage = chatLog.find((msg: Record<string, unknown>) => msg.id === messageId);
+    const chatLog =
+      typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
+    const chatMessage = chatLog.find(
+      (msg: Record<string, unknown>) => msg.id === messageId
+    );
     if (
       typeof chatMessage !== 'object' ||
       chatMessage === null ||
@@ -588,7 +604,8 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
       resultData.ok === false
         ? `執行失敗：${String(resultData.error || '未知錯誤')}`
         : String(resultData.message || '已完成。');
-    const chatLog = typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
+    const chatLog =
+      typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
     const existingMessage = chatLog.find(
       (msg: Record<string, unknown>) => msg.id === resultData.callId
     );
@@ -711,9 +728,10 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
  * @param engine - Engine instance to validate.
  * @returns Validation result and missing method names list.
  */
-export function validateToolsEngine(
-  engine: unknown
-): { isValid: boolean; missing: string[] } {
+export function validateToolsEngine(engine: unknown): {
+  isValid: boolean;
+  missing: string[];
+} {
   if (typeof engine !== 'object' || engine === null) {
     return { isValid: false, missing: ['engine object'] };
   }

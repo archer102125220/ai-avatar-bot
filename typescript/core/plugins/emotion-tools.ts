@@ -13,7 +13,9 @@ import type { EmotionToolsPluginOptions, ToolDefinition } from '@types';
  * @param options - Plugin configuration options.
  * @returns Array of registered tool definitions.
  */
-export function createEmotionToolsPlugin(options: EmotionToolsPluginOptions = {}): ToolDefinition[] {
+export function createEmotionToolsPlugin(
+  options: EmotionToolsPluginOptions = {}
+): ToolDefinition[] {
   const {
     getSkinEngine = null,
     emotions = DEFAULT_SUPPORTED_EMOTIONS,
@@ -51,7 +53,10 @@ export function createEmotionToolsPlugin(options: EmotionToolsPluginOptions = {}
         },
         required: ['emotion']
       },
-      execute: async (executionPayloadOrArgs: any, fallbackContext?: Record<string, any>) => {
+      execute: async (
+        executionPayloadOrArgs: any,
+        fallbackContext?: Record<string, any>
+      ) => {
         const isExecutionPayloadObject =
           typeof executionPayloadOrArgs === 'object' &&
           executionPayloadOrArgs !== null;

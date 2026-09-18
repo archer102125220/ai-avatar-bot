@@ -573,9 +573,7 @@ export function getDefault3DCameraConfig(
   const isHalf = fitMode === FIT_MODE_MAP.HALF;
   return {
     fov:
-      isHalf === true
-        ? DEFAULT_3D_HALF_CAMERA_FOV
-        : DEFAULT_3D_FULL_CAMERA_FOV,
+      isHalf === true ? DEFAULT_3D_HALF_CAMERA_FOV : DEFAULT_3D_FULL_CAMERA_FOV,
     near: DEFAULT_3D_CAMERA_NEAR,
     far: DEFAULT_3D_CAMERA_FAR,
     position:

@@ -57,7 +57,12 @@ function applyVector3(
  */
 function applyScale(
   target: { set: (x: number, y: number, z: number) => void },
-  source: number | number[] | { x?: number; y?: number; z?: number } | null | undefined,
+  source:
+    | number
+    | number[]
+    | { x?: number; y?: number; z?: number }
+    | null
+    | undefined,
   defaultValues: { x: number; y: number; z: number }
 ): void {
   if (typeof source === 'number' && Number.isFinite(source)) {
@@ -85,7 +90,10 @@ function applyScale(
  * @param skinEngine - Skin engine instance.
  * @param emotionName - Name of the gesture animation to play (e.g., 'wave', 'bow', 'thinking', 'surprised').
  */
-export async function defaultGesture3D(skinEngine: SkinEngine | any = null, emotionName?: string): Promise<void> {
+export async function defaultGesture3D(
+  skinEngine: SkinEngine | any = null,
+  emotionName?: string
+): Promise<void> {
   if (typeof skinEngine !== 'object' || skinEngine === null) {
     return;
   }
@@ -110,7 +118,10 @@ export async function defaultGesture3D(skinEngine: SkinEngine | any = null, emot
  * @param setting - VRM gesture and behavior configuration object.
  * @returns Initialized 3D renderer instance, or void on error.
  */
-export async function bootVRM(skinEngine: SkinEngine | any, setting: VRMSettings | any = {}): Promise<Renderer3D | void> {
+export async function bootVRM(
+  skinEngine: SkinEngine | any,
+  setting: VRMSettings | any = {}
+): Promise<Renderer3D | void> {
   const stageEl = skinEngine?.stageEl;
   const {
     bow = '',
@@ -126,8 +137,10 @@ export async function bootVRM(skinEngine: SkinEngine | any, setting: VRMSettings
       throw new Error('[aiAvatar bootVRM] stageEl is not an HTMLElement');
     }
     const THREE = (await import('three')) as any;
-    const { GLTFLoader } = (await import('three/addons/loaders/GLTFLoader.js')) as any;
-    const { VRMLoaderPlugin, VRMUtils } = (await import('@pixiv/three-vrm')) as any;
+    const { GLTFLoader } =
+      (await import('three/addons/loaders/GLTFLoader.js')) as any;
+    const { VRMLoaderPlugin, VRMUtils } =
+      (await import('@pixiv/three-vrm')) as any;
     const { VRMAnimationLoaderPlugin, createVRMAnimationClip } =
       (await import('@pixiv/three-vrm-animation')) as any;
 
@@ -346,7 +359,10 @@ export async function bootVRM(skinEngine: SkinEngine | any, setting: VRMSettings
       }
     }
 
-    function applySkin3dConfig(skin3d: Skin3DConfig = {}, currentFitMode: string = DEFAULT_FIT_MODE): void {
+    function applySkin3dConfig(
+      skin3d: Skin3DConfig = {},
+      currentFitMode: string = DEFAULT_FIT_MODE
+    ): void {
       const isHalf = currentFitMode === FIT_MODE_MAP.HALF;
       const modeConfig = isHalf ? skin3d.half : skin3d.full;
       const defaultCameraFov = isHalf
@@ -471,7 +487,10 @@ export async function bootVRM(skinEngine: SkinEngine | any, setting: VRMSettings
             clipAction.clampWhenFinished = true;
             gestureActions[gestureName] = clipAction;
           } catch (error: any) {
-            console.warn('VRMA ' + gestureName + ' load failed:', error?.message);
+            console.warn(
+              'VRMA ' + gestureName + ' load failed:',
+              error?.message
+            );
           }
         }
         mixer.addEventListener('finished', (event: any) => {
@@ -559,7 +578,10 @@ export async function bootVRM(skinEngine: SkinEngine | any, setting: VRMSettings
           }
         }
 
-        if (typeof expressionManager === 'object' && expressionManager !== null) {
+        if (
+          typeof expressionManager === 'object' &&
+          expressionManager !== null
+        ) {
           expressionManager.setValue('aa', lastMouthValue);
           if (blinkTime < 0) {
             nextBlink -= delta;
@@ -635,7 +657,11 @@ export async function bootVRM(skinEngine: SkinEngine | any, setting: VRMSettings
           lookTarget.position.set(cursorX * 0.9, 1.42 - cursorY * 0.55, 1.6);
         }
 
-        if (waving === false && typeof vrm.humanoid === 'object' && vrm.humanoid !== null) {
+        if (
+          waving === false &&
+          typeof vrm.humanoid === 'object' &&
+          vrm.humanoid !== null
+        ) {
           const humanoid = vrm.humanoid;
           const leftUpperArmNode =
             humanoid.getNormalizedBoneNode('leftUpperArm');
@@ -774,7 +800,10 @@ export async function bootVRM(skinEngine: SkinEngine | any, setting: VRMSettings
  * @param skinEngine - Skin engine instance.
  * @param vrmFile - Custom VRM file object to load.
  */
-export function loadVRMFile(skinEngine: SkinEngine | any = null, vrmFile?: File): void {
+export function loadVRMFile(
+  skinEngine: SkinEngine | any = null,
+  vrmFile?: File
+): void {
   const stageEl = skinEngine?.stageEl;
   if (stageEl instanceof HTMLElement === false) {
     console.error(

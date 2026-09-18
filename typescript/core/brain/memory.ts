@@ -45,7 +45,8 @@ export function createDefaultMemoryData(): MemoryData {
  */
 const MIGRATIONS: Record<number, (oldData: any) => MemoryData> = {
   1: (oldData: any): MemoryData => {
-    const rawHistory = Array.isArray(oldData?.history) === true ? oldData.history : [];
+    const rawHistory =
+      Array.isArray(oldData?.history) === true ? oldData.history : [];
     const sanitizedHistory = rawHistory
       .filter((item: unknown) => typeof item === 'object' && item !== null)
       .map((item: any) => {
@@ -56,10 +57,7 @@ const MIGRATIONS: Record<number, (oldData: any) => MemoryData> = {
           safeContent = item.content.text;
         } else if (typeof item.text === 'string') {
           safeContent = item.text;
-        } else if (
-          typeof item.content === 'object' &&
-          item.content !== null
-        ) {
+        } else if (typeof item.content === 'object' && item.content !== null) {
           safeContent = JSON.stringify(item.content);
         } else if (
           typeof item.content !== 'undefined' &&
@@ -77,11 +75,13 @@ const MIGRATIONS: Record<number, (oldData: any) => MemoryData> = {
       version: 1,
       name: typeof oldData?.name === 'string' ? oldData.name : '',
       visits:
-        typeof oldData?.visits === 'number' && Number.isFinite(oldData.visits) === true
+        typeof oldData?.visits === 'number' &&
+        Number.isFinite(oldData.visits) === true
           ? oldData.visits
           : 0,
       last:
-        typeof oldData?.last === 'number' && Number.isFinite(oldData.last) === true
+        typeof oldData?.last === 'number' &&
+        Number.isFinite(oldData.last) === true
           ? oldData.last
           : 0,
       history: sanitizedHistory,
@@ -112,7 +112,8 @@ export function migrateMemoryData(rawData: unknown): MemoryData {
 
   const rawObj = rawData as Record<string, any>;
   let currentVersion =
-    typeof rawObj.version === 'number' && Number.isFinite(rawObj.version) === true
+    typeof rawObj.version === 'number' &&
+    Number.isFinite(rawObj.version) === true
       ? rawObj.version
       : 0;
 
@@ -311,14 +312,17 @@ export function initMemory({
     },
 
     getMetadata(): Record<string, any> {
-      return (
-        typeof this.data?.metadata === 'object' && this.data.metadata !== null
-          ? this.data.metadata
-          : {}
-      );
+      return typeof this.data?.metadata === 'object' &&
+        this.data.metadata !== null
+        ? this.data.metadata
+        : {};
     },
 
-    setMetadata(patchOrUpdater: Record<string, any> | ((prev: Record<string, any>) => Record<string, any>)): void {
+    setMetadata(
+      patchOrUpdater:
+        | Record<string, any>
+        | ((prev: Record<string, any>) => Record<string, any>)
+    ): void {
       if (this.enabled === false) {
         return;
       }
@@ -375,8 +379,7 @@ export async function triggerRollingSummaryIfNeeded(
 
   const compressionOptions = engine.compression || {};
   const currentEngineType =
-    engine.aiProvider?.enabled === true &&
-    engine.aiProvider.ready === true
+    engine.aiProvider?.enabled === true && engine.aiProvider.ready === true
       ? BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER
       : BRAIN_ENGINE_TYPE_MAP.WEB_LLM;
 
@@ -413,13 +416,19 @@ export async function triggerRollingSummaryIfNeeded(
       const oldSummary = engine.memory.data.summary || '';
       const newTurns = history.slice(lastIndex);
 
-      let llmChat: ((promptMsgs: Array<{ role: string; content: string }>) => Promise<string>) | null = null;
+      let llmChat:
+        | ((
+            promptMsgs: Array<{ role: string; content: string }>
+          ) => Promise<string>)
+        | null = null;
       if (
         engine.aiProvider?.enabled === true &&
         engine.aiProvider.ready === true &&
         typeof engine.aiProvider.chat === 'function'
       ) {
-        llmChat = async (promptMsgs: Array<{ role: string; content: string }>): Promise<string> => {
+        llmChat = async (
+          promptMsgs: Array<{ role: string; content: string }>
+        ): Promise<string> => {
           const summaryResponse = await engine.aiProvider.chat(promptMsgs);
           return typeof summaryResponse === 'string'
             ? summaryResponse
@@ -431,7 +440,9 @@ export async function triggerRollingSummaryIfNeeded(
         engine.llm?.state === STATE_MAP.READY &&
         typeof engine.llm?.engine?.chat?.completions?.create === 'function'
       ) {
-        llmChat = async (promptMsgs: Array<{ role: string; content: string }>): Promise<string> => {
+        llmChat = async (
+          promptMsgs: Array<{ role: string; content: string }>
+        ): Promise<string> => {
           const completionResult =
             await engine.llm.engine.chat.completions.create({
               messages: promptMsgs,

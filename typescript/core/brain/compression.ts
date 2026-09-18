@@ -364,8 +364,18 @@ export async function generateRollingSummary({
   oldSummary?: string;
   newTurns?: Array<{ role: string; content: string }>;
   locale?: string;
-  llmChat?: ((promptMsgs: Array<{ role: string; content: string }>) => Promise<string>) | null;
-  customGenerator?: ((params: { oldSummary: string; newTurns: Array<{ role: string; content: string }>; locale: string }) => Promise<string> | string) | null;
+  llmChat?:
+    | ((
+        promptMsgs: Array<{ role: string; content: string }>
+      ) => Promise<string>)
+    | null;
+  customGenerator?:
+    | ((params: {
+        oldSummary: string;
+        newTurns: Array<{ role: string; content: string }>;
+        locale: string;
+      }) => Promise<string> | string)
+    | null;
 }): Promise<string> {
   if (Array.isArray(newTurns) === false || newTurns.length === 0) {
     return oldSummary;
@@ -573,12 +583,13 @@ export async function compressContext({
     const summary =
       typeof memoryData?.summary === 'string'
         ? memoryData.summary
-        : typeof (compressionOptions as Record<string, any>)?.summary === 'string'
+        : typeof (compressionOptions as Record<string, any>)?.summary ===
+            'string'
           ? (compressionOptions as Record<string, any>).summary
           : '';
     const recentTurnsCount =
-      typeof (compressionOptions as Record<string, any>)?.recentTurns === 'number' &&
-      (compressionOptions as Record<string, any>).recentTurns > 0
+      typeof (compressionOptions as Record<string, any>)?.recentTurns ===
+        'number' && (compressionOptions as Record<string, any>).recentTurns > 0
         ? (compressionOptions as Record<string, any>).recentTurns
         : DEFAULT_SUMMARY_RECENT_TURNS;
 

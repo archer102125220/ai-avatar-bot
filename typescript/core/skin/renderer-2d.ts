@@ -75,7 +75,10 @@ export function loadUMD(): Promise<void> {
  * @param skinEngine - Skin engine instance.
  * @param emotionName - Emotion name to express (e.g., 'neutral', 'happy', 'sad', 'surprised').
  */
-export async function defaultGesture2D(skinEngine: SkinEngine | any = null, emotionName?: string): Promise<void> {
+export async function defaultGesture2D(
+  skinEngine: SkinEngine | any = null,
+  emotionName?: string
+): Promise<void> {
   if (typeof skinEngine !== 'object' || skinEngine === null) {
     return;
   }
@@ -122,7 +125,10 @@ export async function defaultGesture2D(skinEngine: SkinEngine | any = null, emot
  * @param modelUrl - URL to the Live2D model configuration file (.model3.json).
  * @returns Initialized 2D renderer instance, or void on error.
  */
-export async function bootAvatar(skinEngine: SkinEngine | any, modelUrl?: string): Promise<Renderer2D | void> {
+export async function bootAvatar(
+  skinEngine: SkinEngine | any,
+  modelUrl?: string
+): Promise<Renderer2D | void> {
   const stageEl = skinEngine?.stageEl;
   if (stageEl instanceof HTMLElement === false) {
     console.error('[aiAvatar bootAvatar] stageEl is not an HTMLElement');
@@ -145,7 +151,8 @@ export async function bootAvatar(skinEngine: SkinEngine | any, modelUrl?: string
       resizeTo: stageEl
     });
 
-    const targetUrl = typeof modelUrl === 'string' ? modelUrl : skinEngine.modelUrl;
+    const targetUrl =
+      typeof modelUrl === 'string' ? modelUrl : skinEngine.modelUrl;
     skinEngine.avatarModel = await Live2DModel.from(targetUrl);
     pixiApp.stage.addChild(skinEngine.avatarModel);
 

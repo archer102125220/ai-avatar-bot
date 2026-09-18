@@ -44,10 +44,13 @@ export function extractPropertyValue(
     return context[propertyName];
   }
 
-  const prefixList = (Array.isArray(propertySchema.prefixes) ? propertySchema.prefixes : [])
+  const prefixList = (
+    Array.isArray(propertySchema.prefixes) ? propertySchema.prefixes : []
+  )
     .concat([propertySchema.title || ''])
     .filter(
-      (prefixItem: string) => typeof prefixItem === 'string' && prefixItem !== ''
+      (prefixItem: string) =>
+        typeof prefixItem === 'string' && prefixItem !== ''
     );
 
   const prefixedValue = findPrefixedValue(query, prefixList);

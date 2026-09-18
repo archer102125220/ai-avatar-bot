@@ -32,7 +32,9 @@ export * from './engine-factory';
 /**
  * Initializes, mounts, and wires together all subsystems of the AI Avatar Bot.
  */
-export async function initAvatarBot(rawOptions: AvatarBotOptions = {}): Promise<AiAvatarWidget | void> {
+export async function initAvatarBot(
+  rawOptions: AvatarBotOptions = {}
+): Promise<AiAvatarWidget | void> {
   if (typeof window !== 'object') {
     return;
   }

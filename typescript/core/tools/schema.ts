@@ -33,7 +33,8 @@ export function normaliseSchema(
       if (/^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/.test(propertyName) === false) {
         return;
       }
-      const rawProperty = (schema.properties && schema.properties[propertyName]) || {};
+      const rawProperty =
+        (schema.properties && schema.properties[propertyName]) || {};
       const propertyType =
         /^(string|number|integer|boolean)$/.test(rawProperty.type) === true
           ? rawProperty.type
@@ -63,7 +64,8 @@ export function normaliseSchema(
           .slice(0, 20)
           .map((enumItem: any) => sanitizeText(enumItem, 80))
           .filter(
-            (enumItem: string) => typeof enumItem === 'string' && enumItem !== ''
+            (enumItem: string) =>
+              typeof enumItem === 'string' && enumItem !== ''
           );
       }
       if (
@@ -157,7 +159,9 @@ export function normaliseTool(
       Array.isArray(targetTool.keywords) === true
         ? targetTool.keywords
             .slice(0, 30)
-            .map((keywordItem: any) => sanitizeText(keywordItem, 60).toLowerCase())
+            .map((keywordItem: any) =>
+              sanitizeText(keywordItem, 60).toLowerCase()
+            )
             .filter(
               (keywordItem: string) =>
                 typeof keywordItem === 'string' && keywordItem !== ''
@@ -177,7 +181,9 @@ export function normaliseTool(
       Array.isArray(targetTool.excludeKeywords) === true
         ? targetTool.excludeKeywords
             .slice(0, 20)
-            .map((excludeItem: any) => sanitizeText(excludeItem, 60).toLowerCase())
+            .map((excludeItem: any) =>
+              sanitizeText(excludeItem, 60).toLowerCase()
+            )
             .filter(
               (excludeItem: string) =>
                 typeof excludeItem === 'string' && excludeItem !== ''

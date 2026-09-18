@@ -3,7 +3,10 @@ import type { I18nEngine, UiContext } from '@types';
 /**
  * Traverses and updates all elements in the container matching `data-i18n`, `data-i18n-html`, `data-i18n-placeholder`, and `data-i18n-aria`.
  */
-export function updateUIStrings(container: HTMLElement, i18nEngine: I18nEngine): void {
+export function updateUIStrings(
+  container: HTMLElement,
+  i18nEngine: I18nEngine
+): void {
   if (
     container instanceof HTMLElement === false ||
     typeof i18nEngine?.t !== 'function'
@@ -85,9 +88,7 @@ export function initSkinModeChangeButton(
   }
 
   const shouldShow =
-    isEngineToggleEnabled === true &&
-    has2D === true &&
-    has3D === true;
+    isEngineToggleEnabled === true && has2D === true && has3D === true;
 
   if (shouldShow === true) {
     engineButtonEl.style.display = '';

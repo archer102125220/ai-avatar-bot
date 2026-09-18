@@ -7,7 +7,10 @@ import type { SkinEngine } from '@types';
  * @param engine - Engine instance to validate.
  * @returns Object containing validation result and missing properties array.
  */
-export function validateSkinEngine(engine: any): { isValid: boolean; missing: string[] } {
+export function validateSkinEngine(engine: any): {
+  isValid: boolean;
+  missing: string[];
+} {
   const missing: string[] = [];
 
   if (typeof engine !== 'object' || engine === null) {
@@ -43,7 +46,9 @@ export function validateSkinEngine(engine: any): { isValid: boolean; missing: st
  * @returns Newly created canvas element.
  * @throws Error If stageEl is not an HTMLElement instance.
  */
-export function createCanvas(skinEngine: SkinEngine | any = null): HTMLCanvasElement {
+export function createCanvas(
+  skinEngine: SkinEngine | any = null
+): HTMLCanvasElement {
   const stageEl = skinEngine?.stageEl;
   if (stageEl instanceof HTMLElement === false) {
     throw new Error('[aiAvatar createCanvas] stageEl is not an HTMLElement');

@@ -50,7 +50,9 @@ export interface NormalizedOptionsResult {
 /**
  * Validates and normalizes raw AvatarBotOptions, initializing the root reactive store and i18n engine.
  */
-export function normalizeOptions(rawOptions: AvatarBotOptions = {}): NormalizedOptionsResult {
+export function normalizeOptions(
+  rawOptions: AvatarBotOptions = {}
+): NormalizedOptionsResult {
   const {
     container = null,
     enableAiProvider,
@@ -189,7 +191,9 @@ export function normalizeOptions(rawOptions: AvatarBotOptions = {}): NormalizedO
         : DEFAULT_MAX_AUTO_CONTINUATIONS,
     autoContinueMode:
       typeof autoContinueMode === 'string' &&
-      (Object.values(AUTO_CONTINUE_MODE_MAP) as string[]).includes(autoContinueMode) === true
+      (Object.values(AUTO_CONTINUE_MODE_MAP) as string[]).includes(
+        autoContinueMode
+      ) === true
         ? autoContinueMode
         : DEFAULT_AUTO_CONTINUE_MODE,
     autoContinuePrompt:

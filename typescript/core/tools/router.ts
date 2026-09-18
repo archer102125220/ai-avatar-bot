@@ -15,9 +15,14 @@ import type {
  * @param query - User natural language query string.
  * @returns Object containing confidence score (0 to 1) and match reason.
  */
-export function scoreTool(tool: ToolDefinition, query: string): ToolScoreResult {
+export function scoreTool(
+  tool: ToolDefinition,
+  query: string
+): ToolScoreResult {
   const normalizedQuery = normalizeText(query);
-  const excludeKeywords = Array.isArray(tool.excludeKeywords) ? tool.excludeKeywords : [];
+  const excludeKeywords = Array.isArray(tool.excludeKeywords)
+    ? tool.excludeKeywords
+    : [];
   if (
     typeof normalizedQuery !== 'string' ||
     normalizedQuery === '' ||
@@ -92,7 +97,9 @@ export function route(
   tools: Array<ToolDefinition | Record<string, any>>,
   query: string
 ): ToolRouteResult {
-  const candidateList: ToolRouteCandidate[] = (Array.isArray(tools) === true ? tools : [])
+  const candidateList: ToolRouteCandidate[] = (
+    Array.isArray(tools) === true ? tools : []
+  )
     .map(normaliseTool)
     .filter(
       (tool) =>

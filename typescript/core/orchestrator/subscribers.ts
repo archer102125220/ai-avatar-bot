@@ -1,7 +1,12 @@
 import { AVATAR_MODE_MAP } from '@/core/constants';
 import { renderSuggestions, updateUIStrings } from '@/core/ui';
 import { callOptionEvent } from './options';
-import type { AiAvatarWidget, AvatarBotOptions, BaseStore, I18nEngine } from '@types';
+import type {
+  AiAvatarWidget,
+  AvatarBotOptions,
+  BaseStore,
+  I18nEngine
+} from '@types';
 
 export interface SetupStoreSubscribersParams {
   widget: AiAvatarWidget;
@@ -69,26 +74,35 @@ export function setupStoreSubscribers({
     }
   });
 
-  rootStore.subscribe('autoFallbackWebLLM', (newAutoFallbackWebLLM: boolean) => {
-    const { brainEngine } = getEngines();
-    if (typeof brainEngine === 'object' && brainEngine !== null) {
-      brainEngine.autoFallbackWebLLM = newAutoFallbackWebLLM;
+  rootStore.subscribe(
+    'autoFallbackWebLLM',
+    (newAutoFallbackWebLLM: boolean) => {
+      const { brainEngine } = getEngines();
+      if (typeof brainEngine === 'object' && brainEngine !== null) {
+        brainEngine.autoFallbackWebLLM = newAutoFallbackWebLLM;
+      }
     }
-  });
+  );
 
-  rootStore.subscribe('enableAutoContinue', (newEnableAutoContinue: boolean) => {
-    const { brainEngine } = getEngines();
-    if (typeof brainEngine === 'object' && brainEngine !== null) {
-      brainEngine.enableAutoContinue = newEnableAutoContinue;
+  rootStore.subscribe(
+    'enableAutoContinue',
+    (newEnableAutoContinue: boolean) => {
+      const { brainEngine } = getEngines();
+      if (typeof brainEngine === 'object' && brainEngine !== null) {
+        brainEngine.enableAutoContinue = newEnableAutoContinue;
+      }
     }
-  });
+  );
 
-  rootStore.subscribe('maxAutoContinuations', (newMaxAutoContinuations: number) => {
-    const { brainEngine } = getEngines();
-    if (typeof brainEngine === 'object' && brainEngine !== null) {
-      brainEngine.maxAutoContinuations = newMaxAutoContinuations;
+  rootStore.subscribe(
+    'maxAutoContinuations',
+    (newMaxAutoContinuations: number) => {
+      const { brainEngine } = getEngines();
+      if (typeof brainEngine === 'object' && brainEngine !== null) {
+        brainEngine.maxAutoContinuations = newMaxAutoContinuations;
+      }
     }
-  });
+  );
 
   rootStore.subscribe('autoContinueMode', (newAutoContinueMode: string) => {
     const { brainEngine } = getEngines();

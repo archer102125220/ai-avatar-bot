@@ -1,7 +1,12 @@
 import { AVATAR_MODE_MAP } from '@/core/constants';
 import { resolveLocalized } from '@/core/i18n';
 import { callOptionEvent } from './options';
-import type { AiAvatarWidget, AvatarBotOptions, BaseStore, I18nEngine } from '@types';
+import type {
+  AiAvatarWidget,
+  AvatarBotOptions,
+  BaseStore,
+  I18nEngine
+} from '@types';
 
 export interface TapAvatarParams {
   widget?: AiAvatarWidget;
@@ -29,7 +34,9 @@ export function createTapAvatarHandler({
   getEngines
 }: TapAvatarParams): () => void {
   const resolveWidget =
-    typeof getWidget === 'function' ? getWidget : () => widget as AiAvatarWidget;
+    typeof getWidget === 'function'
+      ? getWidget
+      : () => widget as AiAvatarWidget;
 
   return function onTapAvatar(): void {
     const { brainEngine, speechEngine, skinEngine } = getEngines();
@@ -163,7 +170,10 @@ export interface ModelDropParams {
 /**
  * Creates drag-and-drop event handlers for dynamically loading 3D VRM models onto the avatar canvas.
  */
-export function createModelDropHandler({ container, getSkinEngine }: ModelDropParams): (enabled: boolean) => void {
+export function createModelDropHandler({
+  container,
+  getSkinEngine
+}: ModelDropParams): (enabled: boolean) => void {
   function handleDragPrevent(event: DragEvent): void {
     event.preventDefault();
   }
@@ -186,12 +196,24 @@ export function createModelDropHandler({ container, getSkinEngine }: ModelDropPa
       return;
     }
     if (enabled === true) {
-      container.addEventListener('dragenter', handleDragPrevent as EventListener);
-      container.addEventListener('dragover', handleDragPrevent as EventListener);
+      container.addEventListener(
+        'dragenter',
+        handleDragPrevent as EventListener
+      );
+      container.addEventListener(
+        'dragover',
+        handleDragPrevent as EventListener
+      );
       container.addEventListener('drop', handleModelDrop as EventListener);
     } else {
-      container.removeEventListener('dragenter', handleDragPrevent as EventListener);
-      container.removeEventListener('dragover', handleDragPrevent as EventListener);
+      container.removeEventListener(
+        'dragenter',
+        handleDragPrevent as EventListener
+      );
+      container.removeEventListener(
+        'dragover',
+        handleDragPrevent as EventListener
+      );
       container.removeEventListener('drop', handleModelDrop as EventListener);
     }
   };

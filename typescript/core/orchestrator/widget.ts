@@ -406,7 +406,9 @@ export function createAvatarWidget({
     set autoContinueMode(newMode: 'stream' | 'buffered') {
       if (
         typeof newMode === 'string' &&
-        (Object.values(AUTO_CONTINUE_MODE_MAP) as string[]).includes(newMode) === true
+        (Object.values(AUTO_CONTINUE_MODE_MAP) as string[]).includes(
+          newMode
+        ) === true
       ) {
         rootStore.setState({ autoContinueMode: newMode });
         const brain = getEngines().brainEngine;
@@ -424,7 +426,9 @@ export function createAvatarWidget({
         null
       );
     },
-    set autoContinuePrompt(newPrompt: string | ((...args: any[]) => string) | null) {
+    set autoContinuePrompt(
+      newPrompt: string | ((...args: any[]) => string) | null
+    ) {
       if (
         typeof newPrompt === 'string' ||
         typeof newPrompt === 'function' ||

@@ -162,7 +162,11 @@ export async function setupBrainEngine({
       }
       return null;
     },
-    offerToolConfirmation: (tool: any, toolArguments: any, toolOptions: any) => {
+    offerToolConfirmation: (
+      tool: any,
+      toolArguments: any,
+      toolOptions: any
+    ) => {
       const { toolsEngine } = getEngines();
       if (
         typeof toolsEngine === 'object' &&
@@ -553,7 +557,12 @@ export async function setupSpeechEngine({
         convoOn
       );
     },
-    onVoiceStatusChanged(convoOn: boolean, text?: string, state?: string, level?: number) {
+    onVoiceStatusChanged(
+      convoOn: boolean,
+      text?: string,
+      state?: string,
+      level?: number
+    ) {
       const uiDom = getUiDom();
       if (typeof uiDom?.updateVoiceStatus === 'function') {
         uiDom.updateVoiceStatus(convoOn, text, state, level, i18nEngine);
@@ -581,7 +590,11 @@ export async function setupSpeechEngine({
     onSpeechWait: (speechSequenceId?: any) => {
       streamPipeline.onSpeechWait(speechSequenceId);
     },
-    onLanguageChanged(locale: string, localeLabel: string, shortLabel?: string) {
+    onLanguageChanged(
+      locale: string,
+      localeLabel: string,
+      shortLabel?: string
+    ) {
       const uiDom = getUiDom();
       if (uiDom?.langButtonEl instanceof HTMLButtonElement) {
         uiDom.langButtonEl.textContent =
@@ -685,7 +698,10 @@ export function setupToolsEngine({
         }
       }
       if (uiDom?.historyButtonEl instanceof HTMLElement) {
-        uiDom.historyButtonEl.setAttribute('aria-expanded', String(isOpen === true));
+        uiDom.historyButtonEl.setAttribute(
+          'aria-expanded',
+          String(isOpen === true)
+        );
       }
       callOptionEvent(options, widget, 'onSetHistoryOpen', isOpen);
     },
@@ -747,7 +763,8 @@ export function setupToolsEngine({
   const customTools =
     Array.isArray(options.tools) && options.tools.length > 0
       ? options.tools
-      : Array.isArray((options as any).hostTools) && (options as any).hostTools.length > 0
+      : Array.isArray((options as any).hostTools) &&
+          (options as any).hostTools.length > 0
         ? (options as any).hostTools
         : [];
 
