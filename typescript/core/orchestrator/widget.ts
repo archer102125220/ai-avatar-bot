@@ -40,10 +40,10 @@ export interface CreateAvatarWidgetParams {
   initialMinimal: boolean;
   getUiDom: () => UiDom;
   getEngines: () => {
-    brainEngine: BrainEngine;
-    speechEngine: SpeechEngine;
-    skinEngine: SkinEngine;
-    toolsEngine: ToolsEngine;
+    brainEngine: BrainEngine | null;
+    speechEngine: SpeechEngine | null;
+    skinEngine: SkinEngine | null;
+    toolsEngine: ToolsEngine | null;
   };
   handleUser: (text?: string) => Promise<void> | void;
   updateModelDropListeners?: (enabled: boolean) => void;
@@ -113,7 +113,7 @@ export function createAvatarWidget({
       return i18nEngine;
     },
 
-    get toolsEngine(): ToolsEngine {
+    get toolsEngine(): ToolsEngine | null {
       return getEngines().toolsEngine;
     },
 
@@ -122,15 +122,17 @@ export function createAvatarWidget({
       return brain?.buildLLMMessages || (brain as any)?.buildDefaultLLMMessages;
     },
 
-    get classifyEmotion(): (text: string) => string {
+    get classifyEmotion(): ((text: string) => string) | undefined {
       return getEngines().brainEngine?.classifyEmotion;
     },
 
-    get applyEmotionFromText(): (text: string) => void {
+    get applyEmotionFromText(): ((text: string) => void) | undefined {
       return getEngines().brainEngine?.applyEmotionFromText;
     },
 
-    get answerQuestion(): (question: string) => Promise<string | void> {
+    get answerQuestion():
+      | ((question: string) => Promise<string | void>)
+      | undefined {
       return getEngines().brainEngine?.answerQuestion;
     },
 
@@ -473,13 +475,13 @@ export function createAvatarWidget({
     },
 
     get brainEngine(): BrainEngine {
-      return getEngines().brainEngine;
+      return getEngines().brainEngine as BrainEngine;
     },
     get speechEngine(): SpeechEngine {
-      return getEngines().speechEngine;
+      return getEngines().speechEngine as SpeechEngine;
     },
     get skinEngine(): SkinEngine {
-      return getEngines().skinEngine;
+      return getEngines().skinEngine as SkinEngine;
     },
 
     get suggestedQuestions() {

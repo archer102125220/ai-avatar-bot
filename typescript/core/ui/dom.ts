@@ -1,4 +1,5 @@
-import type { I18nEngine, UiDom } from '@types';
+import type { I18nEngine } from '@/core/i18n';
+import type { UiDom } from './types';
 
 /**
  * Initializes and mounts UI elements (dialogue bubble, suggestions container, history panel, control dock) into the target container.
@@ -7,7 +8,7 @@ export function initUi(
   container: HTMLElement,
   stageEl: HTMLElement,
   i18nEngine: I18nEngine | null = null
-): UiDom | any {
+): UiDom | undefined {
   if (container instanceof HTMLElement === false) {
     console.error('[aiAvatar initUi] container is not an HTMLElement');
     return;
@@ -254,7 +255,7 @@ export function initUi(
   container.appendChild(stageEl);
   container.appendChild(directWarnEl);
 
-  const uiDom: any = {
+  const uiDom: UiDom = {
     get stageEl() {
       return stageEl;
     },

@@ -18,7 +18,14 @@ import {
   setupToolsEngine,
   setupSkinEngine
 } from './engine-factory';
-import type { AiAvatarWidget, AvatarBotOptions } from '@types';
+import type { SpeechEngine } from '@/core/speech';
+import type { ToolsEngine } from '@/core/tools';
+import type {
+  AiAvatarWidget,
+  AvatarBotOptions,
+  BrainEngine,
+  SkinEngine
+} from '@types';
 
 export * from './types';
 export * from './options';
@@ -53,11 +60,14 @@ export async function initAvatarBot(
   const stageEl = document.createElement('div');
   stageEl.setAttribute('id', 'stage');
   const uiDom = initUi(container, stageEl, i18nEngine);
+  if (!uiDom) {
+    throw new Error('[aiAvatarBot] Failed to initialize UI DOM');
+  }
 
-  let brainEngine: any = null;
-  let speechEngine: any = null;
-  let skinEngine: any = null;
-  let toolsEngine: any = null;
+  let brainEngine: BrainEngine | null = null;
+  let speechEngine: SpeechEngine | null = null;
+  let skinEngine: SkinEngine | null = null;
+  let toolsEngine: ToolsEngine | null = null;
 
   const getEngines = () => ({
     brainEngine,
@@ -214,8 +224,8 @@ export async function initAvatarBot(
 
   initSkinModeChangeButton(
     aiAvatarWidget,
-    skinEngine.has2D,
-    skinEngine.has3D,
+    skinEngine?.has2D === true,
+    skinEngine?.has3D === true,
     isEngineToggleEnabled
   );
   renderSuggestions(aiAvatarWidget);

@@ -5,22 +5,22 @@ import type {
   TTSEngineOptions,
   TTSEngineState,
   TTSSpeakOptions
-} from '@types';
+} from './types';
 
 /**
  * Extended internal state for the Text-to-Speech (TTS) engine.
  */
 export interface InternalTTSEngineState extends TTSEngineState {
-  speechController: any;
+  speechController: AbortController | null;
   audioCtx: AudioContext | null;
   audioSource: AudioBufferSourceNode | null;
   audioAnalyser: AnalyserNode | null;
   audioDataArray: Uint8Array | null;
-  mouthTimer: any;
+  mouthTimer: ReturnType<typeof setInterval> | number | null;
   isSpeechPlaying: boolean;
   speechEnded: boolean;
   tapDone: boolean;
-  speakBrowserTimer: any;
+  speakBrowserTimer: ReturnType<typeof setTimeout> | number | null;
   currentFps: number;
   currentSource: AudioBufferSourceNode | null;
   neuralDisabled: boolean;
@@ -35,7 +35,7 @@ export interface InternalTTSEngineState extends TTSEngineState {
  * @param engine - TTS engine instance to validate.
  * @returns Object containing validation result and missing properties/methods array.
  */
-export function validateTTSEngine(engine: any): {
+export function validateTTSEngine(engine: unknown): {
   isValid: boolean;
   missing: string[];
 } {
@@ -43,15 +43,16 @@ export function validateTTSEngine(engine: any): {
   if (typeof engine !== 'object' || engine === null) {
     missing.push('engine instance');
   } else {
+    const rec = engine as Record<string, unknown>;
     ['speak', 'stop', 'computeMouth', 'setGender', 'setLocale'].forEach(
       (methodName) => {
-        if (typeof engine[methodName] !== 'function') {
+        if (typeof rec[methodName] !== 'function') {
           missing.push(`${methodName}()`);
         }
       }
     );
     ['isSpeaking', 'isMuted'].forEach((propertyName) => {
-      if (!(propertyName in engine)) {
+      if (!(propertyName in rec)) {
         missing.push(propertyName);
       }
     });
@@ -432,7 +433,9 @@ export function initDefaultTTSEngine(
         }
       } catch (_error) {}
       try {
-        clearTimeout(state.speakBrowserTimer);
+        if (state.speakBrowserTimer !== null) {
+          clearTimeout(state.speakBrowserTimer);
+        }
       } catch (_error) {}
       if (state.currentFps > 0) {
         cancelAnimationFrame(state.currentFps);

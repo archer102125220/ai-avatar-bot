@@ -1,5 +1,17 @@
 import { createBaseStore } from '@/core/store';
-import type { STTEngine, STTEngineOptions, STTEngineState } from '@types';
+import type {
+  ISpeechRecognition,
+  SpeechRecognitionErrorEvent,
+  SpeechRecognitionEvent,
+  STTEngine,
+  STTEngineOptions,
+  STTEngineState
+} from './types';
+
+interface WindowWithSpeech extends Window {
+  SpeechRecognition?: { new (): ISpeechRecognition };
+  webkitSpeechRecognition?: { new (): ISpeechRecognition };
+}
 
 /**
  * Validates whether the provided Speech-to-Text (STT) engine complies with the STTEngine interface specification.
@@ -7,7 +19,7 @@ import type { STTEngine, STTEngineOptions, STTEngineState } from '@types';
  * @param engine - STT engine instance to validate.
  * @returns Object containing validation result and missing properties/methods array.
  */
-export function validateSTTEngine(engine: any): {
+export function validateSTTEngine(engine: unknown): {
   isValid: boolean;
   missing: string[];
 } {
@@ -15,13 +27,14 @@ export function validateSTTEngine(engine: any): {
   if (typeof engine !== 'object' || engine === null) {
     missing.push('engine instance');
   } else {
+    const rec = engine as Record<string, unknown>;
     ['startListening', 'stopListening'].forEach((methodName) => {
-      if (typeof engine[methodName] !== 'function') {
+      if (typeof rec[methodName] !== 'function') {
         missing.push(`${methodName}()`);
       }
     });
     ['isListening'].forEach((propertyName) => {
-      if (!(propertyName in engine)) {
+      if (!(propertyName in rec)) {
         missing.push(propertyName);
       }
     });
@@ -101,7 +114,7 @@ export const DEFAULT_STT_MESSAGES: Record<string, Record<string, string>> = {
 export function getSttMessage(
   locale?: string,
   key?: string,
-  params: Record<string, any> = {}
+  params: Record<string, unknown> = {}
 ): string {
   const currentLocale =
     typeof locale === 'string' && locale !== '' ? locale : 'zh-TW';
@@ -137,7 +150,7 @@ export interface InternalSTTEngineState extends STTEngineState {
   voiceFrames: number;
   lastBargeIn: number;
   micRaf: number;
-  recognition: any;
+  recognition: ISpeechRecognition | null;
   isListening: boolean;
   locale: string;
   noSpeechRuns: number;
@@ -391,11 +404,13 @@ export function initDefaultSTTEngine(
     },
 
     async startListening(): Promise<void> {
-      const SpeechRecognition =
+      const speechWindow =
         typeof window === 'object' && window !== null
-          ? (window as any).SpeechRecognition ||
-            (window as any).webkitSpeechRecognition
+          ? (window as unknown as WindowWithSpeech)
           : null;
+      const SpeechRecognition = speechWindow
+        ? speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition
+        : null;
 
       if (typeof SpeechRecognition !== 'function') {
         const unsupportedMessage = getSttMessage(engine.locale, 'unsupported');
@@ -458,7 +473,9 @@ export function initDefaultSTTEngine(
         }
       };
 
-      recognitionInstance.onerror = (event: any): void => {
+      recognitionInstance.onerror = (
+        event: SpeechRecognitionErrorEvent
+      ): void => {
         const recognitionError = event.error;
         if (recognitionError === 'aborted') {
           return;
@@ -497,7 +514,7 @@ export function initDefaultSTTEngine(
         }
       };
 
-      recognitionInstance.onresult = (event: any): void => {
+      recognitionInstance.onresult = (event: SpeechRecognitionEvent): void => {
         let recognizedText = '';
         let isFinal = false;
 

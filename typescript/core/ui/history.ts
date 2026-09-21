@@ -1,10 +1,11 @@
 import { copyText } from './utils';
-import type { UiContext } from '@types';
+import type { UiContext } from './types';
+import type { ToolChatMessage, ToolRouteCandidate } from '@/core/tools';
 
 /**
  * Toggles the open/closed state of the conversation history panel and synchronizes aria attributes and related elements.
  */
-export function setHistoryOpen(context: UiContext | any, open: boolean): void {
+export function setHistoryOpen(context: UiContext, open: boolean): void {
   const historyPanelEl = context.uiDom.historyPanelEl;
   const historyButtonEl = context.uiDom.historyButtonEl;
   const suggestionsEl = context.uiDom.suggestionsEl;
@@ -27,8 +28,8 @@ export function setHistoryOpen(context: UiContext | any, open: boolean): void {
     suggestionsEl.style.display =
       open === true
         ? 'none'
-        : context.speechEngine.isListening === true ||
-            context.speechEngine.convoOn === true
+        : context.speechEngine?.isListening === true ||
+            context.speechEngine?.convoOn === true
           ? 'none'
           : 'flex';
   }
@@ -48,7 +49,7 @@ export function setHistoryOpen(context: UiContext | any, open: boolean): void {
 /**
  * Renders or refreshes the multi-turn chat history message timeline, pending tool confirmations, and copy/replay actions.
  */
-export function renderHistory(context: UiContext | any): void {
+export function renderHistory(context: UiContext): void {
   const historyListEl =
     context.uiDom.historyPanelEl?.querySelector('#history-list');
   if (historyListEl instanceof HTMLElement === false) {
@@ -64,8 +65,8 @@ export function renderHistory(context: UiContext | any): void {
   historyListEl.replaceChildren();
 
   if (
-    Array.isArray(context.brainEngine.chatLog) === false ||
-    context.brainEngine.chatLog.length === 0
+    Array.isArray(context.brainEngine?.chatLog) === false ||
+    (context.brainEngine?.chatLog?.length ?? 0) === 0
   ) {
     const emptyLogEl = document.createElement('div');
     emptyLogEl.className = 'history-empty';
@@ -77,7 +78,7 @@ export function renderHistory(context: UiContext | any): void {
     return;
   }
 
-  context.brainEngine.chatLog.forEach((chatItem: any) => {
+  context.brainEngine?.chatLog?.forEach((chatItem: ToolChatMessage) => {
     const historyItemRowEl = document.createElement('div');
     historyItemRowEl.className = 'history-item ' + chatItem.role;
 
@@ -131,10 +132,14 @@ export function renderHistory(context: UiContext | any): void {
         }
       } else {
         confirmButtonEl.onclick = () => {
-          context.toolsEngine.executePendingTool(chatItem.id);
+          if (typeof chatItem.id === 'string') {
+            context.toolsEngine?.executePendingTool(chatItem.id);
+          }
         };
         cancelButtonEl.onclick = () => {
-          context.toolsEngine.cancelPendingTool(chatItem.id);
+          if (typeof chatItem.id === 'string') {
+            context.toolsEngine?.cancelPendingTool(chatItem.id);
+          }
         };
       }
 
@@ -146,13 +151,16 @@ export function renderHistory(context: UiContext | any): void {
     ) {
       const choicesContainerEl = document.createElement('div');
       choicesContainerEl.className = 'history-confirm';
-      chatItem.pendingChoices.forEach((choice: any, index: number) => {
+      chatItem.pendingChoices.forEach(
+        (choice: ToolRouteCandidate, index: number) => {
         const choiceButtonEl = document.createElement('button');
         choiceButtonEl.type = 'button';
         choiceButtonEl.className = 'confirm';
-        choiceButtonEl.textContent = choice.tool.label;
+        choiceButtonEl.textContent = choice.tool?.label || '';
         choiceButtonEl.onclick = () => {
-          context.toolsEngine.chooseTool(chatItem.id, index);
+          if (typeof chatItem.id === 'string') {
+            context.toolsEngine?.chooseTool(chatItem.id, index);
+          }
         };
         choicesContainerEl.appendChild(choiceButtonEl);
       });
@@ -177,15 +185,21 @@ export function renderHistory(context: UiContext | any): void {
       replayButtonEl.textContent = translate('ui.history.replay', '重播');
 
       copyButtonEl.onclick = () => {
-        copyText(chatItem.text).then(() => {
-          context.speechEngine.spokenDisplayText = translate(
-            'ui.history.copied',
-            '已複製回答'
-          );
-        });
+        if (typeof chatItem.text === 'string') {
+          copyText(chatItem.text).then(() => {
+            if (context.speechEngine) {
+              context.speechEngine.spokenDisplayText = translate(
+                'ui.history.copied',
+                '已複製回答'
+              );
+            }
+          });
+        }
       };
       replayButtonEl.onclick = () => {
-        context.speechEngine.speak(chatItem.text);
+        if (typeof chatItem.text === 'string') {
+          context.speechEngine?.speak(chatItem.text);
+        }
       };
 
       toolsContainerEl.append(copyButtonEl, replayButtonEl);

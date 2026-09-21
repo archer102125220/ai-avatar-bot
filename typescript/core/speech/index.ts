@@ -5,11 +5,15 @@ import { splitSentences, initDefaultTTSEngine, validateTTSEngine } from './tts';
 import type {
   SpeechEngine,
   SpeechEngineOptions,
+  SpeechEngineState,
   STTEngine,
   TTSEngine,
+  TTSSpeakOptions,
+  TTSSpeechQueueItem,
   SpokenAudioState
-} from '@types';
+} from './types';
 
+export * from './types';
 export {
   validateTTSEngine,
   validateSTTEngine,
@@ -111,22 +115,7 @@ export function drainSentences(
 /**
  * Extended internal interface for SpeechEngine state.
  */
-export interface InternalSpeechStoreState {
-  isSpeaking: boolean;
-  isListening: boolean;
-  spokenDisplayText: string;
-  spokenAudioState: SpokenAudioState;
-  gender: string;
-  ttsEndpoint: string;
-  neuralVoice: string | undefined;
-  speakSeq: number;
-  ttsMuted: boolean;
-  ttsRate: number;
-  convoOn: boolean;
-  isProcessing: boolean;
-  assistantSpeechStartedAt: number;
-  locale: string;
-}
+export type InternalSpeechStoreState = SpeechEngineState;
 
 /**
  * Extended interface for SpeechEngine with internal helper properties.
@@ -134,7 +123,7 @@ export interface InternalSpeechStoreState {
 export interface InternalSpeechEngine extends SpeechEngine {
   _speechBuffer: string;
   _speechBuf: string;
-  _speechQueue: any[];
+  _speechQueue: TTSSpeechQueueItem[];
   _speechEndedFlag: boolean;
   _onTTSSpeakEnd: () => void;
   noSpeechRuns: number;
@@ -314,12 +303,8 @@ export async function initSpeechEngine(
 
   const speechEngine: InternalSpeechEngine = {
     subscribe: store.subscribe,
-    getState: store.getState as () => Record<string, any>,
-    setState: store.setState as (
-      updates:
-        | Record<string, any>
-        | ((state: Record<string, any>) => Record<string, any>)
-    ) => void,
+    getState: store.getState,
+    setState: store.setState,
 
     get gender(): string {
       return store.getState().gender;
@@ -425,7 +410,7 @@ export async function initSpeechEngine(
       store.setState({ spokenDisplayText: newDisplayText });
     },
 
-    speak(text: string, options?: Record<string, any>): void {
+    speak(text: string, options?: TTSSpeakOptions): void {
       speechEngine.assistantSpeechStartedAt = performance.now();
       if (typeof text === 'string' && text.trim() !== '') {
         speechEngine.spokenDisplayText = text.trim();
@@ -536,7 +521,7 @@ export async function initSpeechEngine(
       }
     },
 
-    preloadTapGreeting(text: string): Promise<any> | void {
+    preloadTapGreeting(text: string): Promise<AudioBuffer | null> | void {
       if (typeof ttsEngine?.preloadTapGreeting === 'function') {
         return ttsEngine.preloadTapGreeting(text);
       }
@@ -598,7 +583,7 @@ export async function initSpeechEngine(
     pushSpeech(
       speechSequenceId: number,
       text: string,
-      options: Record<string, any> = {}
+      options: TTSSpeakOptions = {}
     ): void {
       if (speechSequenceId !== speechEngine.speakSeq) {
         return;

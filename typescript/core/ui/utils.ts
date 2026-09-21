@@ -1,4 +1,5 @@
-import type { I18nEngine, UiContext } from '@types';
+import type { I18nEngine } from '@/core/i18n';
+import type { UiContext } from './types';
 
 /**
  * Traverses and updates all elements in the container matching `data-i18n`, `data-i18n-html`, `data-i18n-placeholder`, and `data-i18n-aria`.
@@ -74,7 +75,7 @@ export function copyText(text: string): Promise<void> {
  * Initializes and syncs the 2D / 3D model engine toggle button based on model availability and configuration.
  */
 export function initSkinModeChangeButton(
-  context: UiContext | any = null,
+  context: UiContext | null = null,
   has2D: boolean = false,
   has3D: boolean = false,
   isEngineToggleEnabled: boolean = true
@@ -103,18 +104,19 @@ export function initSkinModeChangeButton(
 
     if (typeof engineButtonEl.onclick !== 'function') {
       engineButtonEl.onclick = () => {
+        const skinEngine = context?.skinEngine;
+        const engineModeMap = context?.ENGINE_MODE_MAP;
         if (
-          context?.skinEngine?.engineMode ===
-          context?.ENGINE_MODE_MAP?.threeDimensional
+          typeof skinEngine === 'object' &&
+          skinEngine !== null &&
+          typeof engineModeMap === 'object' &&
+          engineModeMap !== null
         ) {
-          context.skinEngine.engineMode =
-            context.ENGINE_MODE_MAP.twoDimensional;
-        } else if (
-          context?.skinEngine !== null &&
-          typeof context?.skinEngine === 'object'
-        ) {
-          context.skinEngine.engineMode =
-            context.ENGINE_MODE_MAP.threeDimensional;
+          if (skinEngine.engineMode === engineModeMap.threeDimensional) {
+            skinEngine.engineMode = engineModeMap.twoDimensional;
+          } else {
+            skinEngine.engineMode = engineModeMap.threeDimensional;
+          }
         }
       };
     }

@@ -1,10 +1,10 @@
 import { resolveLocalized } from '@/core/i18n';
-import type { UiContext } from '@types';
+import type { UiContext } from './types';
 
 /**
  * Renders suggested dialogue prompts and titles based on the current persona mode ('companion' | 'assistant') and i18n configuration.
  */
-export function renderSuggestions(context: UiContext | any = null): void {
+export function renderSuggestions(context: UiContext | null = null): void {
   const suggestionsEl = context?.uiDom?.suggestionsEl;
   if (suggestionsEl instanceof HTMLElement === false) {
     console.warn(
@@ -44,12 +44,12 @@ export function renderSuggestions(context: UiContext | any = null): void {
 
   const defaultAssistantSuggestions =
     typeof i18n?.t === 'function'
-      ? i18n.t('suggestions.items.assistant')
+      ? i18n.t<string[]>('suggestions.items.assistant')
       : fallbackAssistantSuggestions;
 
   const defaultCompanionSuggestions =
     typeof i18n?.t === 'function'
-      ? i18n.t('suggestions.items.companion')
+      ? i18n.t<string[]>('suggestions.items.companion')
       : fallbackCompanionSuggestions;
 
   const defaultAssistantTitle =
@@ -62,7 +62,7 @@ export function renderSuggestions(context: UiContext | any = null): void {
       ? i18n.t('suggestions.title.companion')
       : '💬 可以跟我聊：';
 
-  let resolvedSuggestions: any;
+  let resolvedSuggestions: unknown[] | string[] = [];
   if (
     Array.isArray(context?.suggestedQuestions) === true &&
     context.suggestedQuestions.length > 0
@@ -72,28 +72,28 @@ export function renderSuggestions(context: UiContext | any = null): void {
     typeof context?.suggestedQuestions === 'object' &&
     context.suggestedQuestions !== null
   ) {
-    resolvedSuggestions = resolveLocalized(
+    resolvedSuggestions = resolveLocalized<string[]>(
       context.suggestedQuestions,
       locale,
       defaultAssistantSuggestions,
       templateContext
     );
   } else if (typeof context?.suggestedQuestions === 'function') {
-    resolvedSuggestions = resolveLocalized(
+    resolvedSuggestions = resolveLocalized<string[]>(
       context.suggestedQuestions,
       locale,
       defaultAssistantSuggestions,
       templateContext
     );
   } else if (context?.avatarMode === context?.AVATAR_MODE_MAP?.companion) {
-    resolvedSuggestions = resolveLocalized(
+    resolvedSuggestions = resolveLocalized<string[]>(
       context?.companionSuggestedQuestions,
       locale,
       defaultCompanionSuggestions,
       templateContext
     );
   } else {
-    resolvedSuggestions = resolveLocalized(
+    resolvedSuggestions = resolveLocalized<string[]>(
       context?.assistantSuggestedQuestions,
       locale,
       defaultAssistantSuggestions,
@@ -101,7 +101,7 @@ export function renderSuggestions(context: UiContext | any = null): void {
     );
   }
 
-  let titleText: any;
+  let titleText: string = '';
   if (
     typeof context?.suggestedTitle !== 'undefined' &&
     context?.suggestedTitle !== null
@@ -140,7 +140,7 @@ export function renderSuggestions(context: UiContext | any = null): void {
     Array.isArray(resolvedSuggestions) === true &&
     resolvedSuggestions.length > 0
   ) {
-    resolvedSuggestions.forEach((suggestion: any) => {
+    resolvedSuggestions.forEach((suggestion: unknown) => {
       if (typeof suggestion !== 'string' || suggestion === '') {
         return;
       }

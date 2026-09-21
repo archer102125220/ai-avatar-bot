@@ -1,12 +1,15 @@
 import { SUPPORTED_LOCALES } from '@/core/i18n';
 import { setHistoryOpen, renderHistory } from './history';
-import type { UiContext } from '@types';
+import type { UiContext } from './types';
 
 /**
  * Binds keyboard Enter key and send button click events for user question submission.
  */
-export function bindTyping(context: UiContext | any = null): void {
-  const questionInputEl = context?.uiDom?.questionInputEl;
+export function bindTyping(context: UiContext | null = null): void {
+  if (context === null) {
+    return;
+  }
+  const questionInputEl = context.uiDom?.questionInputEl;
   if (questionInputEl instanceof HTMLInputElement === false) {
     console.error(
       '[aiAvatar bindTyping] context?.uiDom?.questionInputEl is not an HTMLElement'
@@ -20,9 +23,13 @@ export function bindTyping(context: UiContext | any = null): void {
       return;
     }
     questionInputEl.value = '';
-    context.handleUser(text);
+    if (typeof context.handleUser === 'function') {
+      context.handleUser(text);
+    }
   };
-  context.uiDom.sendButtonEl.onclick = handleSendMessage;
+  if (context.uiDom?.sendButtonEl) {
+    context.uiDom.sendButtonEl.onclick = handleSendMessage;
+  }
   questionInputEl.addEventListener('keydown', (event: KeyboardEvent) => {
     if (
       event.key === 'Enter' &&
@@ -38,8 +45,11 @@ export function bindTyping(context: UiContext | any = null): void {
 /**
  * Binds click events and interactive handlers for toolbar control buttons (mic, mute, speed, lang, history, LLM, minimize).
  */
-export function bindUiEvent(context: UiContext | any = null): void {
-  const uiDom = context?.uiDom || {};
+export function bindUiEvent(context: UiContext | null = null): void {
+  if (context === null) {
+    return;
+  }
+  const uiDom = context.uiDom || {};
 
   if (uiDom.minimalEl instanceof HTMLElement) {
     uiDom.minimalEl.onclick = function () {
@@ -51,7 +61,9 @@ export function bindUiEvent(context: UiContext | any = null): void {
   if (uiDom.closeButtonEl instanceof HTMLElement) {
     uiDom.closeButtonEl.onclick = () => {
       if (context.isIframe === true) {
-        context.onMinimalTrigger(true, context);
+        if (typeof context.onMinimalTrigger === 'function') {
+          context.onMinimalTrigger(true, context);
+        }
       } else {
         context.isMinimal = true;
       }
@@ -60,6 +72,10 @@ export function bindUiEvent(context: UiContext | any = null): void {
 
   if (uiDom.micButtonEl instanceof HTMLElement) {
     uiDom.micButtonEl.onclick = () => {
+      const speechEngine = context.speechEngine;
+      if (!speechEngine) {
+        return;
+      }
       const sessionEndedMsg =
         typeof context.i18nEngine?.t === 'function'
           ? context.i18nEngine.t('speech.sessionEnded')
@@ -67,31 +83,31 @@ export function bindUiEvent(context: UiContext | any = null): void {
 
       if (context.avatarMode === 'companion') {
         const isIdle =
-          context.speechEngine.isListening !== true &&
-          context.speechEngine.isProcessing !== true;
+          speechEngine.isListening !== true &&
+          speechEngine.isProcessing !== true;
         if (isIdle === true) {
-          context.speechEngine.convoOn = true;
-          context.speechEngine.noSpeechRuns = 0;
-          context.speechEngine.startListening();
+          speechEngine.convoOn = true;
+          speechEngine.noSpeechRuns = 0;
+          speechEngine.startListening();
         } else {
-          context.speechEngine.convoOn = false;
-          context.speechEngine.stopVoiceSession(sessionEndedMsg);
+          speechEngine.convoOn = false;
+          speechEngine.stopVoiceSession(sessionEndedMsg);
         }
         return;
       }
 
       // Non-companion mode
-      if (context.speechEngine.isSpeaking === true) {
-        context.speechEngine.interruptForVoice();
-        context.speechEngine.startListening();
+      if (speechEngine.isSpeaking === true) {
+        speechEngine.interruptForVoice();
+        speechEngine.startListening();
       } else {
         const isActive =
-          context.speechEngine.isListening === true ||
-          context.speechEngine.isProcessing === true;
+          speechEngine.isListening === true ||
+          speechEngine.isProcessing === true;
         if (isActive === true) {
-          context.speechEngine.stopVoiceSession(sessionEndedMsg);
+          speechEngine.stopVoiceSession(sessionEndedMsg);
         } else {
-          context.speechEngine.startListening();
+          speechEngine.startListening();
         }
       }
     };
@@ -99,19 +115,23 @@ export function bindUiEvent(context: UiContext | any = null): void {
 
   if (uiDom.muteButtonEl instanceof HTMLElement) {
     uiDom.muteButtonEl.onclick = () => {
+      const speechEngine = context.speechEngine;
+      if (!speechEngine) {
+        return;
+      }
       const muteButtonEl = uiDom.muteButtonEl;
-      context.speechEngine.ttsMuted = !context.speechEngine.ttsMuted;
+      speechEngine.ttsMuted = !speechEngine.ttsMuted;
       muteButtonEl.textContent =
-        context.speechEngine.ttsMuted === true ? '🔇' : '🔊';
+        speechEngine.ttsMuted === true ? '🔇' : '🔊';
       muteButtonEl.setAttribute(
         'aria-pressed',
-        String(context.speechEngine.ttsMuted === true)
+        String(speechEngine.ttsMuted === true)
       );
-      if (context.speechEngine.ttsMuted === true) {
-        context.speechEngine.stopSpeaking();
+      if (speechEngine.ttsMuted === true) {
+        speechEngine.stopSpeaking();
       }
-      context.speechEngine.spokenDisplayText =
-        context.speechEngine.ttsMuted === true
+      speechEngine.spokenDisplayText =
+        speechEngine.ttsMuted === true
           ? typeof context.i18nEngine?.t === 'function'
             ? context.i18nEngine.t('ui.mute.muted')
             : '已靜音'
@@ -123,19 +143,23 @@ export function bindUiEvent(context: UiContext | any = null): void {
 
   if (uiDom.speedButtonEl instanceof HTMLElement) {
     uiDom.speedButtonEl.onclick = () => {
+      const speechEngine = context.speechEngine;
+      if (!speechEngine) {
+        return;
+      }
       const speedButtonEl = uiDom.speedButtonEl;
       const steps = [0.9, 1.0, 1.2, 1.4];
-      context.speechEngine.ttsRate =
+      speechEngine.ttsRate =
         steps[
-          (steps.indexOf(context.speechEngine.ttsRate) + 1) % steps.length
+          (steps.indexOf(speechEngine.ttsRate) + 1) % steps.length
         ] || 1.0;
-      speedButtonEl.textContent = context.speechEngine.ttsRate.toFixed(1) + '×';
-      context.speechEngine.spokenDisplayText =
+      speedButtonEl.textContent = speechEngine.ttsRate.toFixed(1) + '×';
+      speechEngine.spokenDisplayText =
         typeof context.i18nEngine?.t === 'function'
           ? context.i18nEngine.t('ui.speed.text', {
-              rate: context.speechEngine.ttsRate.toFixed(1)
+              rate: speechEngine.ttsRate.toFixed(1)
             })
-          : '語速：' + context.speechEngine.ttsRate.toFixed(1) + '×';
+          : '語速：' + speechEngine.ttsRate.toFixed(1) + '×';
     };
   }
 
@@ -199,10 +223,12 @@ export function bindUiEvent(context: UiContext | any = null): void {
           context.brainEngine.chatLog.length = 0;
         }
         renderHistory(context);
-        context.speechEngine.spokenDisplayText =
-          typeof context.i18nEngine?.t === 'function'
-            ? context.i18nEngine.t('ui.history.cleared')
-            : '已清除這次的聊天紀錄';
+        if (context.speechEngine) {
+          context.speechEngine.spokenDisplayText =
+            typeof context.i18nEngine?.t === 'function'
+              ? context.i18nEngine.t('ui.history.cleared')
+              : '已清除這次的聊天紀錄';
+        }
       };
     }
   }
@@ -210,11 +236,16 @@ export function bindUiEvent(context: UiContext | any = null): void {
   if (uiDom.btnLlmEl instanceof HTMLElement) {
     uiDom.btnLlmEl.onclick = async () => {
       const btnLlmEl = uiDom.btnLlmEl;
+      const brainEngine = context.brainEngine;
+      const speechEngine = context.speechEngine;
+      if (!brainEngine) {
+        return;
+      }
 
-      if (context.brainEngine.aiProvider?.enabled === true) {
+      if (brainEngine.aiProvider?.enabled === true) {
         const isServerReady =
-          context.brainEngine.aiProvider.ready === true ||
-          (await context.brainEngine.aiProvider.ping());
+          brainEngine.aiProvider.ready === true ||
+          (await brainEngine.aiProvider.ping());
         btnLlmEl.textContent = isServerReady === true ? '🧠✓' : '🧠✗';
         if (isServerReady === true) {
           btnLlmEl.setAttribute('css-llm-on', 'true');
@@ -222,32 +253,47 @@ export function bindUiEvent(context: UiContext | any = null): void {
           btnLlmEl.removeAttribute('css-llm-on');
         }
         btnLlmEl.setAttribute('aria-pressed', String(isServerReady === true));
-        context.speechEngine.spokenDisplayText =
-          isServerReady === true
-            ? 'AI 伺服器大腦運作中（' +
-              context.brainEngine.aiProvider.model +
-              '）🧠'
-            : 'AI 伺服器連不上：確認 AI 伺服器在跑、且 AI_PROVIDER_ORIGINS 已允許這個網站。';
+        if (speechEngine) {
+          speechEngine.spokenDisplayText =
+            isServerReady === true
+              ? 'AI 伺服器大腦運作中（' +
+                brainEngine.aiProvider.model +
+                '）🧠'
+              : 'AI 伺服器連不上：確認 AI 伺服器在跑、且 AI_PROVIDER_ORIGINS 已允許這個網站。';
+        }
 
         return;
       }
-      if (context.brainEngine.llm?.supported !== true) {
-        context.speechEngine.spokenDisplayText =
-          '這個裝置不支援 WebGPU，先用知識庫模式就好（功能一樣可用）。';
+      if (brainEngine.llm?.supported !== true) {
+        if (speechEngine) {
+          speechEngine.spokenDisplayText =
+            '這個裝置不支援 WebGPU，先用知識庫模式就好（功能一樣可用）。';
+        }
         return;
       }
-      if (context.brainEngine.llm?.state === context.STATE_MAP.READY) {
-        context.speechEngine.spokenDisplayText = 'AI 大腦已啟用，問我問題吧 🧠';
+      const readyState = context.STATE_MAP?.READY;
+      const loadingState = context.STATE_MAP?.LOADING;
+      if (typeof readyState === 'string' && brainEngine.llm?.state === readyState) {
+        if (speechEngine) {
+          speechEngine.spokenDisplayText = 'AI 大腦已啟用，問我問題吧 🧠';
+        }
         return;
-      } else if (context.brainEngine.llm?.state === context.STATE_MAP.LOADING) {
-        context.speechEngine.spokenDisplayText =
-          'AI 大腦載入中… ' +
-          Math.round(context.brainEngine.llm.progress * 100) +
-          '%';
+      } else if (
+        typeof loadingState === 'string' &&
+        brainEngine.llm?.state === loadingState
+      ) {
+        if (speechEngine) {
+          speechEngine.spokenDisplayText =
+            'AI 大腦載入中… ' +
+            Math.round((brainEngine.llm.progress ?? 0) * 100) +
+            '%';
+        }
         return;
       }
 
-      await context.brainEngine.llm.load();
+      if (typeof brainEngine.llm?.load === 'function') {
+        await brainEngine.llm.load();
+      }
     };
   }
 }
