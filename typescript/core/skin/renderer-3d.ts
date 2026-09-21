@@ -17,7 +17,18 @@ import {
   DEFAULT_3D_POINTER_LOOK
 } from '@/core/constants';
 import { createCanvas } from './canvas';
-import type { Renderer3D, SkinEngine, VRMSettings, Skin3DConfig } from '@types';
+import {
+  isRenderer3D,
+  type Renderer3D,
+  type SkinEngine,
+  type VRMSettings,
+  Skin3DConfig,
+  Skin3DModelConfig,
+  SkinEngineState
+} from './types';
+import type * as THREE from 'three';
+import type { VRM } from '@pixiv/three-vrm';
+import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 /**
  * Applies source coordinates onto a Vector3 target object.
@@ -91,7 +102,7 @@ function applyScale(
  * @param emotionName - Name of the gesture animation to play (e.g., 'wave', 'bow', 'thinking', 'surprised').
  */
 export async function defaultGesture3D(
-  skinEngine: SkinEngine | any = null,
+  skinEngine: SkinEngine | null = null,
   emotionName?: string
 ): Promise<void> {
   if (typeof skinEngine !== 'object' || skinEngine === null) {
@@ -102,9 +113,10 @@ export async function defaultGesture3D(
   }
 
   // Play 3D body gesture (VRMA animation)
-  if (typeof skinEngine.renderer?.playGesture === 'function') {
+  const renderer = skinEngine.renderer;
+  if (isRenderer3D(renderer) && typeof renderer.playGesture === 'function') {
     try {
-      skinEngine.renderer.playGesture(emotionName);
+      renderer.playGesture(emotionName);
     } catch (error) {
       console.error(error);
     }
@@ -119,8 +131,8 @@ export async function defaultGesture3D(
  * @returns Initialized 3D renderer instance, or void on error.
  */
 export async function bootVRM(
-  skinEngine: SkinEngine | any,
-  setting: VRMSettings | any = {}
+  skinEngine: SkinEngine,
+  setting: VRMSettings = {}
 ): Promise<Renderer3D | void> {
   const stageEl = skinEngine?.stageEl;
   const {
@@ -136,13 +148,14 @@ export async function bootVRM(
     if (stageEl instanceof HTMLElement === false) {
       throw new Error('[aiAvatar bootVRM] stageEl is not an HTMLElement');
     }
-    const THREE = (await import('three')) as any;
-    const { GLTFLoader } =
-      (await import('three/addons/loaders/GLTFLoader.js')) as any;
-    const { VRMLoaderPlugin, VRMUtils } =
-      (await import('@pixiv/three-vrm')) as any;
-    const { VRMAnimationLoaderPlugin, createVRMAnimationClip } =
-      (await import('@pixiv/three-vrm-animation')) as any;
+    const THREE = await import('three');
+    const { GLTFLoader } = await import(
+      'three/examples/jsm/loaders/GLTFLoader.js'
+    );
+    const { VRMLoaderPlugin, VRMUtils } = await import('@pixiv/three-vrm');
+    const { VRMAnimationLoaderPlugin, createVRMAnimationClip } = await import(
+      '@pixiv/three-vrm-animation'
+    );
 
     const safeVrmaRootPath =
       typeof vrmaRootPath === 'string' && vrmaRootPath !== ''
@@ -263,49 +276,53 @@ export async function bootVRM(
 
     let nextBlink = 2 + Math.random() * 3;
     let blinkTime = -1;
-    let mixer: any = null;
+    let mixer: THREE.AnimationMixer | null = null;
     let waving = false;
     const BLINK = 0.12;
-    const gestureActions: Record<string, any> = {};
-    let currentGesture: any = null;
-    let idleBreak: any = 0;
+    const gestureActions: Record<string, THREE.AnimationAction | null> = {};
+    let currentGesture: THREE.AnimationAction | null = null;
+    let idleBreak: ReturnType<typeof setInterval> | number = 0;
     const clock = new THREE.Clock();
     const loader = new GLTFLoader();
-    loader.register((parser: any) => new VRMLoaderPlugin(parser));
-    loader.register((parser: any) => new VRMAnimationLoaderPlugin(parser));
-    const gltf: any = await new Promise((resolve, reject) =>
+    loader.register((parser) => new VRMLoaderPlugin(parser));
+    loader.register((parser) => new VRMAnimationLoaderPlugin(parser));
+    const gltf: GLTF = await new Promise<GLTF>((resolve, reject) =>
       loader.load(
         skinEngine.vrmUrl,
-        (loadedGltf: any) => {
+        (loadedGltf) => {
           resolve(loadedGltf);
         },
         undefined,
-        (error: any) => {
+        (error) => {
           reject(error);
         }
       )
-    ).catch((error: any) => {
+    ).catch((error: unknown) => {
       console.error(error);
+      const err = error instanceof Error ? error : new Error(String(error));
       if (typeof skinEngine.VRMFileChangeFail === 'function') {
-        skinEngine.VRMFileChangeFail(error);
+        skinEngine.VRMFileChangeFail(err);
       }
+      throw err;
     });
 
     VRMUtils.removeUnnecessaryVertices(gltf.scene);
     VRMUtils.combineSkeletons(gltf.scene);
 
-    let vrm = gltf.userData.vrm;
+    let vrm: VRM | null = gltf.userData.vrm as VRM;
 
     VRMUtils.combineMorphs(vrm);
     VRMUtils.rotateVRM0(vrm);
 
     const armSign = String(vrm.meta && vrm.meta.metaVersion) === '1' ? -1 : 1;
-    vrm.scene.traverse((sceneObject: any) => {
+    vrm.scene.traverse((sceneObject: THREE.Object3D) => {
       sceneObject.frustumCulled = false;
     });
     scene.add(vrm.scene);
 
-    function applyModelTransform(modelConfig: any = {}): void {
+    function applyModelTransform(
+      modelConfig: Partial<Skin3DModelConfig> = {}
+    ): void {
       if (
         vrm === null ||
         typeof vrm !== 'object' ||
@@ -337,7 +354,8 @@ export async function bootVRM(
         );
       } else if (
         typeof modelConfig.rotation === 'object' &&
-        modelConfig.rotation !== null
+        modelConfig.rotation !== null &&
+        'x' in modelConfig.rotation
       ) {
         vrm.scene.rotation.set(
           typeof modelConfig.rotation.x === 'number'
@@ -440,16 +458,16 @@ export async function bootVRM(
     let unsubscribeFitMode: (() => void) | null = null;
     if (typeof skinEngine.subscribe === 'function') {
       unsubscribeSkin3d = skinEngine.subscribe(
-        (state: any) => state.skin3d,
-        (currentSkin3d: any) => {
+        (state: SkinEngineState) => state.skin3d,
+        (currentSkin3d: Skin3DConfig) => {
           const currentFitMode =
             skinEngine.getState().fitMode || DEFAULT_FIT_MODE;
           applySkin3dConfig(currentSkin3d, currentFitMode);
         }
       );
       unsubscribeFitMode = skinEngine.subscribe(
-        (state: any) => state.fitMode,
-        (fitMode: any) => {
+        (state: SkinEngineState) => state.fitMode,
+        (fitMode: string) => {
           const currentSkin3d = skinEngine.getState().skin3d || {};
           applySkin3dConfig(currentSkin3d, fitMode);
         }
@@ -463,8 +481,8 @@ export async function bootVRM(
     } catch (_error) {}
 
     await (async () => {
-      const bodyOnly = (clip: any) => {
-        clip.tracks = clip.tracks.filter((track: any) =>
+      const bodyOnly = (clip: THREE.AnimationClip) => {
+        clip.tracks = clip.tracks.filter((track: THREE.KeyframeTrack) =>
           /\.quaternion$/.test(track.name)
         );
         return clip;
@@ -486,17 +504,19 @@ export async function bootVRM(
             clipAction.setLoop(THREE.LoopOnce, 1);
             clipAction.clampWhenFinished = true;
             gestureActions[gestureName] = clipAction;
-          } catch (error: any) {
+          } catch (error: unknown) {
+            const err =
+              error instanceof Error ? error : new Error(String(error));
             console.warn(
               'VRMA ' + gestureName + ' load failed:',
-              error?.message
+              err.message
             );
           }
         }
-        mixer.addEventListener('finished', (event: any) => {
+        mixer.addEventListener('finished', (event: { action?: unknown }) => {
           if (event.action === currentGesture) {
             try {
-              event.action.stop();
+              (event.action as THREE.AnimationAction).stop();
             } catch (_error) {}
             currentGesture = null;
             waving = false;
@@ -514,8 +534,9 @@ export async function bootVRM(
             playGesture(Math.random() < 0.5 ? 'look' : 'relax');
           }
         }, 15000);
-      } catch (error: any) {
-        console.warn('VRMA gesture library load failed:', error?.message);
+      } catch (error: unknown) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.warn('VRMA gesture library load failed:', err.message);
       }
     })();
 
@@ -564,7 +585,7 @@ export async function bootVRM(
           if (result instanceof Promise) {
             isComputingMouth = true;
             result
-              .then((mouthValue: any) => {
+              .then((mouthValue: number | undefined) => {
                 if (typeof mouthValue === 'number') {
                   lastMouthValue = mouthValue;
                 }
@@ -716,10 +737,10 @@ export async function bootVRM(
     renderRaf = requestAnimationFrame(animationLoop);
 
     return {
-      get gltf(): any {
+      get gltf(): unknown {
         return gltf;
       },
-      get vrm(): any {
+      get vrm(): unknown {
         return vrm;
       },
       get TAP_GESTURES(): string[] {
@@ -728,10 +749,10 @@ export async function bootVRM(
       get canvas(): HTMLCanvasElement {
         return canvas;
       },
-      get camera(): any {
+      get camera(): unknown {
         return camera;
       },
-      get scene(): any {
+      get scene(): unknown {
         return scene;
       },
       get playGesture(): (gestureName: string) => void {
@@ -786,10 +807,11 @@ export async function bootVRM(
         vrm = null;
       }
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(error);
+    const err = error instanceof Error ? error : new Error(String(error));
     if (typeof skinEngine?.onThreeDimensionalError === 'function') {
-      skinEngine.onThreeDimensionalError(error, skinEngine);
+      skinEngine.onThreeDimensionalError(err, skinEngine);
     }
   }
 }
@@ -801,11 +823,10 @@ export async function bootVRM(
  * @param vrmFile - Custom VRM file object to load.
  */
 export function loadVRMFile(
-  skinEngine: SkinEngine | any = null,
+  skinEngine: SkinEngine | null = null,
   vrmFile?: File
 ): void {
-  const stageEl = skinEngine?.stageEl;
-  if (stageEl instanceof HTMLElement === false) {
+  if (!skinEngine || skinEngine.stageEl instanceof HTMLElement === false) {
     console.error(
       '[aiAvatar loadVRMFile] skinEngine.stageEl is not an HTMLElement'
     );

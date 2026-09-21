@@ -10,7 +10,49 @@ import {
   DEFAULT_2D_FULL_ANCHOR
 } from '@/core/constants';
 import { createCanvas } from './canvas';
-import type { Renderer2D, SkinEngine, Skin2DConfig } from '@types';
+import type {
+  Renderer2D,
+  SkinEngine,
+  Skin2DConfig,
+  SkinEngineState,
+  Live2DModelInstance
+} from './types';
+
+interface PixiAppInstance {
+  view: HTMLCanvasElement;
+  renderer: {
+    width: number;
+    height: number;
+  };
+  stage: {
+    addChild: (child: unknown) => void;
+  };
+  destroy: (
+    removeView?: boolean,
+    stageOptions?: {
+      children?: boolean;
+      texture?: boolean;
+      baseTexture?: boolean;
+    }
+  ) => void;
+}
+
+interface WindowWithPixi extends Window {
+  PIXI?: {
+    Application: new (options?: Record<string, unknown>) => PixiAppInstance;
+    Ticker?: unknown;
+    live2d?: {
+      Live2DModel: {
+        from: (url: string) => Promise<Live2DModelInstance>;
+        registerTicker: (ticker: unknown) => void;
+      };
+      SoundManager?: {
+        volume: number;
+      };
+    };
+  };
+  __cdnDependenciePromise__?: Promise<void>;
+}
 
 // 2D engine dependencies (pixi + live2d) are lazy-loaded on demand to avoid downloading Live2D in 3D mode
 /**
@@ -34,14 +76,16 @@ export function loadUMD(): Promise<void> {
     }
   ];
 
-  const win = typeof window !== 'undefined' ? (window as any) : {};
+  const win =
+    typeof window !== 'undefined'
+      ? (window as unknown as WindowWithPixi)
+      : undefined;
 
-  if (
-    win.__cdnDependenciePromise__ instanceof Promise === true ||
-    (typeof win.__cdnDependenciePromise__ === 'object' &&
-      win.__cdnDependenciePromise__ !== null &&
-      typeof win.__cdnDependenciePromise__.then === 'function')
-  ) {
+  if (!win) {
+    return Promise.resolve();
+  }
+
+  if (win.__cdnDependenciePromise__ instanceof Promise) {
     return win.__cdnDependenciePromise__;
   }
 
@@ -76,7 +120,7 @@ export function loadUMD(): Promise<void> {
  * @param emotionName - Emotion name to express (e.g., 'neutral', 'happy', 'sad', 'surprised').
  */
 export async function defaultGesture2D(
-  skinEngine: SkinEngine | any = null,
+  skinEngine: SkinEngine | null = null,
   emotionName?: string
 ): Promise<void> {
   if (typeof skinEngine !== 'object' || skinEngine === null) {
@@ -126,7 +170,7 @@ export async function defaultGesture2D(
  * @returns Initialized 2D renderer instance, or void on error.
  */
 export async function bootAvatar(
-  skinEngine: SkinEngine | any,
+  skinEngine: SkinEngine,
   modelUrl?: string
 ): Promise<Renderer2D | void> {
   const stageEl = skinEngine?.stageEl;
@@ -136,14 +180,20 @@ export async function bootAvatar(
   }
   try {
     await loadUMD(); // Lazy-load pixi + live2d on demand
-    const win = window as any;
-    const Live2DModel = win.PIXI.live2d.Live2DModel;
-    try {
-      Live2DModel.registerTicker(win.PIXI.Ticker);
-    } catch (_error) {}
+    const win = window as unknown as WindowWithPixi;
+    const PIXI = win.PIXI;
+    if (!PIXI?.live2d?.Live2DModel) {
+      throw new Error('[aiAvatar bootAvatar] PIXI.live2d is not available');
+    }
+    const Live2DModel = PIXI.live2d.Live2DModel;
+    if (PIXI.Ticker) {
+      try {
+        Live2DModel.registerTicker(PIXI.Ticker);
+      } catch (_error) {}
+    }
 
     const canvas = createCanvas(skinEngine);
-    let pixiApp = new win.PIXI.Application({
+    let pixiApp: PixiAppInstance | null = new PIXI.Application({
       view: canvas,
       autoStart: true,
       backgroundAlpha: 0,
@@ -159,24 +209,26 @@ export async function bootAvatar(
     // Disable built-in Live2D motion sound to keep only our TTS audio output
     try {
       if (
-        typeof win.PIXI.live2d.SoundManager === 'object' &&
+        typeof win.PIXI?.live2d?.SoundManager === 'object' &&
         win.PIXI.live2d.SoundManager !== null
       ) {
         win.PIXI.live2d.SoundManager.volume = 0;
       }
     } catch (_error) {}
     try {
+      const avatarModel = skinEngine.avatarModel as Live2DModelInstance | null;
       const motions =
-        typeof skinEngine.avatarModel.internalModel.settings?.motions ===
-          'object' &&
-        skinEngine.avatarModel.internalModel.settings.motions !== null
-          ? skinEngine.avatarModel.internalModel.settings.motions
+        typeof avatarModel?.internalModel?.settings?.motions === 'object' &&
+        avatarModel.internalModel.settings.motions !== null
+          ? avatarModel.internalModel.settings.motions
           : {};
       for (const groupName of Object.keys(motions)) {
-        (motions[groupName] || []).forEach((motionData: any) => {
-          delete motionData.Sound;
-          delete motionData.sound;
-        });
+        (motions[groupName] || []).forEach(
+          (motionData: Record<string, unknown>) => {
+            delete motionData.Sound;
+            delete motionData.sound;
+          }
+        );
       }
     } catch (_error) {}
 
@@ -198,11 +250,11 @@ export async function bootAvatar(
         skinEngine.avatarModel?.internalModel?.height || 1000;
 
       const state =
-        typeof skinEngine.getState === 'function' ? skinEngine.getState() : {};
+        typeof skinEngine.getState === 'function' ? skinEngine.getState() : null;
       const currentFitMode =
-        state.fitMode || skinEngine.fitMode || DEFAULT_FIT_MODE;
+        state?.fitMode || skinEngine.fitMode || DEFAULT_FIT_MODE;
       const skin2d: Skin2DConfig =
-        typeof state.skin2d === 'object' && state.skin2d !== null
+        typeof state?.skin2d === 'object' && state.skin2d !== null
           ? state.skin2d
           : {};
 
@@ -268,13 +320,13 @@ export async function bootAvatar(
     let unsubscribeFitMode: (() => void) | null = null;
     if (typeof skinEngine.subscribe === 'function') {
       unsubscribeSkin2d = skinEngine.subscribe(
-        (state: any) => state.skin2d,
+        (state: SkinEngineState) => state.skin2d,
         () => {
           fit();
         }
       );
       unsubscribeFitMode = skinEngine.subscribe(
-        (state: any) => state.fitMode,
+        (state: SkinEngineState) => state.fitMode,
         () => {
           fit();
         }
@@ -282,9 +334,11 @@ export async function bootAvatar(
     }
 
     try {
-      const groups = skinEngine.avatarModel.internalModel.settings.groups || [];
+      const avatarModel = skinEngine.avatarModel as Live2DModelInstance | null;
+      const groups = avatarModel?.internalModel?.settings?.groups || [];
       const lipsyncGroup = groups.find(
-        (group: any) => (group.Name || '').toLowerCase() === 'lipsync'
+        (group: { Name?: string; Ids?: string[] }) =>
+          (group.Name || '').toLowerCase() === 'lipsync'
       );
       if (Array.isArray(lipsyncGroup?.Ids) && lipsyncGroup.Ids.length > 0) {
         skinEngine.lipIds = lipsyncGroup.Ids;
@@ -293,37 +347,44 @@ export async function bootAvatar(
 
     // Lip sync: Intercept coreModel.update at vertex calculation to prevent motion/loadParameters override
     try {
-      const core = skinEngine.avatarModel.internalModel.coreModel;
-      const originalUpdate = core.update.bind(core);
-      let lastMouthValue = 0;
-      let isComputingMouth = false;
-      core.update = function () {
-        if (
-          typeof skinEngine.computeMouth === 'function' &&
-          isComputingMouth === false
-        ) {
-          isComputingMouth = true;
-          (async function () {
-            try {
-              const mouthValue = await skinEngine.computeMouth(skinEngine);
-              if (typeof mouthValue === 'number') {
-                lastMouthValue = mouthValue;
+      const avatarModel = skinEngine.avatarModel;
+      const core = avatarModel?.internalModel?.coreModel;
+      if (core && typeof core.update === 'function') {
+        const originalUpdate = core.update.bind(core);
+        let lastMouthValue = 0;
+        let isComputingMouth = false;
+        core.update = function () {
+          const computeFn = skinEngine.computeMouth;
+          if (
+            typeof computeFn === 'function' &&
+            isComputingMouth === false
+          ) {
+            isComputingMouth = true;
+            (async function () {
+              try {
+                const mouthValue = await computeFn(skinEngine);
+                if (typeof mouthValue === 'number') {
+                  lastMouthValue = mouthValue;
+                }
+              } catch (_error) {
+              } finally {
+                isComputingMouth = false;
               }
-            } catch (_error) {
-            } finally {
-              isComputingMouth = false;
-            }
-          })();
-        }
+            })();
+          }
 
-        for (const lipId of skinEngine.lipIds) {
-          try {
-            core.setParameterValueById(lipId, lastMouthValue);
-          } catch (_error) {}
-        }
+          const lipIds = Array.isArray(skinEngine.lipIds)
+            ? skinEngine.lipIds
+            : ['ParamMouthOpenY'];
+          for (const lipId of lipIds) {
+            try {
+              core.setParameterValueById(lipId, lastMouthValue);
+            } catch (_error) {}
+          }
 
-        return originalUpdate();
-      };
+          return originalUpdate();
+        };
+      }
     } catch (_error) {}
 
     if (typeof skinEngine.onMounted === 'function') {
@@ -334,10 +395,10 @@ export async function bootAvatar(
       get canvas(): HTMLCanvasElement {
         return canvas;
       },
-      get avatarModel(): any {
+      get avatarModel(): unknown {
         return skinEngine.avatarModel;
       },
-      get pixiApp(): any {
+      get pixiApp(): unknown {
         return pixiApp;
       },
       fit(): void {
@@ -374,11 +435,12 @@ export async function bootAvatar(
         canvas.remove();
       }
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(error);
 
+    const err = error instanceof Error ? error : new Error(String(error));
     if (typeof skinEngine?.onTwoDimensionalError === 'function') {
-      skinEngine.onTwoDimensionalError(error, skinEngine);
+      skinEngine.onTwoDimensionalError(err, skinEngine);
     }
   }
 }

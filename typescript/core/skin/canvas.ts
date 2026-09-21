@@ -1,5 +1,5 @@
 import { ENGINE_MODE_MAP } from '@/core/constants';
-import type { SkinEngine } from '@types';
+import type { SkinEngine } from './types';
 
 /**
  * Validates whether the provided engine object complies with the SkinEngine interface specification.
@@ -7,7 +7,7 @@ import type { SkinEngine } from '@types';
  * @param engine - Engine instance to validate.
  * @returns Object containing validation result and missing properties array.
  */
-export function validateSkinEngine(engine: any): {
+export function validateSkinEngine(engine: unknown): {
   isValid: boolean;
   missing: string[];
 } {
@@ -16,19 +16,20 @@ export function validateSkinEngine(engine: any): {
   if (typeof engine !== 'object' || engine === null) {
     missing.push('engine instance');
   } else {
-    if (typeof engine.setGender !== 'function') {
+    const candidate = engine as Partial<SkinEngine>;
+    if (typeof candidate.setGender !== 'function') {
       missing.push('setGender()');
     }
-    if (typeof engine.loadVRMFile !== 'function') {
+    if (typeof candidate.loadVRMFile !== 'function') {
       missing.push('loadVRMFile()');
     }
-    if (typeof engine.has2D !== 'boolean') {
+    if (typeof candidate.has2D !== 'boolean') {
       missing.push('has2D');
     }
-    if (typeof engine.has3D !== 'boolean') {
+    if (typeof candidate.has3D !== 'boolean') {
       missing.push('has3D');
     }
-    if (engine.stageEl instanceof HTMLElement === false) {
+    if (candidate.stageEl instanceof HTMLElement === false) {
       missing.push('stageEl');
     }
   }
@@ -47,7 +48,7 @@ export function validateSkinEngine(engine: any): {
  * @throws Error If stageEl is not an HTMLElement instance.
  */
 export function createCanvas(
-  skinEngine: SkinEngine | any = null
+  skinEngine: SkinEngine | null = null
 ): HTMLCanvasElement {
   const stageEl = skinEngine?.stageEl;
   if (stageEl instanceof HTMLElement === false) {
@@ -68,7 +69,7 @@ export function createCanvas(
  *
  * @param skinEngine - Skin engine instance.
  */
-export function initSkinMode(skinEngine: SkinEngine | any = null): void {
+export function initSkinMode(skinEngine: SkinEngine | null = null): void {
   if (typeof skinEngine !== 'object' || skinEngine === null) {
     return;
   }
@@ -84,3 +85,4 @@ export function initSkinMode(skinEngine: SkinEngine | any = null): void {
   skinEngine.startMode = startMode;
   skinEngine.engineMode = startMode;
 }
+

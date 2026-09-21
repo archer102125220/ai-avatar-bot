@@ -30,9 +30,22 @@ import type {
   Skin2DConfig,
   Skin3DConfig,
   Renderer2D,
-  Renderer3D
-} from '@types';
+  Renderer3D,
+  SkinGestureHandler,
+  SkinGestureTrigger,
+  SkinComputeMouthFn,
+  SkinMountedCallback,
+  SkinErrorCallback,
+  SkinVRMFileFailCallback,
+  SkinVRMFileSuccessCallback,
+  SkinGestureCallback,
+  SkinGestureErrorCallback,
+  SkinModelChangeStartCallback,
+  SkinModelChangeEndCallback,
+  SkinModelChangeErrorCallback
+} from './types';
 
+export * from './types';
 export * from './canvas';
 export * from './renderer-2d';
 export * from './renderer-3d';
@@ -49,6 +62,19 @@ export interface InternalSkinStoreState {
   skin3d: Skin3DConfig;
 }
 
+interface InternalSkinEngine extends SkinEngine {
+  _modelUrl: string;
+  _renderer: Renderer2D | Renderer3D | null;
+  _engineMode: string | null;
+  _gesture3D: SkinGestureHandler | null;
+  _gesture2D: SkinGestureHandler | null;
+  _gestureName: string;
+  _vrmUrl: string;
+  _switching: boolean | null;
+  _lipIds: string[];
+  _startMode: string;
+}
+
 /**
  * Factory function to initialize and create a new SkinEngine controller instance.
  *
@@ -56,7 +82,7 @@ export interface InternalSkinStoreState {
  * @returns Initialized skin engine instance, or void on error.
  */
 export function initSkinEngine(
-  setting: SkinEngineOptions | any = {}
+  setting: Partial<SkinEngineOptions> = {}
 ): SkinEngine | void {
   const {
     stageEl,
@@ -233,7 +259,7 @@ export function initSkinEngine(
     }
   };
 
-  const skinEngine: any = {
+  const skinEngine: InternalSkinEngine = {
     // --- Store Pattern Methods ---
     getState: store.getState,
     setState: store.setState,
@@ -270,7 +296,7 @@ export function initSkinEngine(
     setFitMode: (newFitMode: string) => {
       if (
         typeof newFitMode === 'string' &&
-        Object.values(FIT_MODE_MAP).includes(newFitMode as any) === true
+        (Object.values(FIT_MODE_MAP) as string[]).includes(newFitMode) === true
       ) {
         store.setState({ fitMode: newFitMode });
       }
@@ -356,7 +382,7 @@ export function initSkinEngine(
     },
 
     get gender(): string {
-      return setting.gender;
+      return setting.gender || DEFAULT_GENDER;
     },
 
     _modelUrl: safeModelUrl,
@@ -370,52 +396,53 @@ export function initSkinEngine(
     },
 
     get loadVRMFile() {
-      return function _loadVRMFile(...args: any[]) {
-        return (loadVRMFile as any)(skinEngine, ...args);
+      return function _loadVRMFile(file: File) {
+        return loadVRMFile(skinEngine, file);
       };
     },
 
-    get computeMouth() {
-      return function _computeMouth(...args: any[]) {
+    get computeMouth(): SkinComputeMouthFn {
+      return (...args: Parameters<SkinComputeMouthFn>) => {
         if (typeof computeMouth === 'function') {
           return computeMouth(...args);
         }
       };
     },
 
-    get onMounted() {
-      return function _onMounted(...args: any[]) {
+    get onMounted(): SkinMountedCallback {
+      return (...args: unknown[]) => {
         if (typeof onMounted === 'function') {
           return onMounted(...args);
         }
       };
     },
 
-    get onThreeDimensionalError() {
-      return function _onThreeDimensionalError(...args: any[]) {
+    get onThreeDimensionalError(): SkinErrorCallback {
+      return (...args: Parameters<SkinErrorCallback>) => {
         if (typeof onThreeDimensionalError === 'function') {
           return onThreeDimensionalError(...args);
         }
       };
     },
-    get onTwoDimensionalError() {
-      return function _onTwoDimensionalError(...args: any[]) {
+
+    get onTwoDimensionalError(): SkinErrorCallback {
+      return (...args: Parameters<SkinErrorCallback>) => {
         if (typeof onTwoDimensionalError === 'function') {
           return onTwoDimensionalError(...args);
         }
       };
     },
 
-    get VRMFileChangeFail() {
-      return function _VRMFileChangeFail(...args: any[]) {
+    get VRMFileChangeFail(): SkinVRMFileFailCallback {
+      return (...args: Parameters<SkinVRMFileFailCallback>) => {
         if (typeof VRMFileChangeFail === 'function') {
           return VRMFileChangeFail(...args);
         }
       };
     },
 
-    get VRMFileChangeSuccess() {
-      return function _VRMFileChangeSuccess(...args: any[]) {
+    get VRMFileChangeSuccess(): SkinVRMFileSuccessCallback {
+      return (...args: Parameters<SkinVRMFileSuccessCallback>) => {
         if (typeof VRMFileChangeSuccess === 'function') {
           return VRMFileChangeSuccess(...args);
         }
@@ -425,7 +452,7 @@ export function initSkinEngine(
     emo: {
       _name: 'neutral',
       get name(): string {
-        return this._name;
+        return this._name || 'neutral';
       },
       set name(newName: string) {
         const newTarget = (EMOTION_TARGET_MAP as Record<string, number>)[
@@ -463,51 +490,51 @@ export function initSkinEngine(
       this._renderer = newRenderer;
     },
 
-    get onGesture() {
-      return function (...args: any[]) {
+    get onGesture(): SkinGestureCallback {
+      return (...args: Parameters<SkinGestureCallback>) => {
         if (typeof setting.onGesture === 'function') {
           return setting.onGesture(...args);
         }
       };
     },
-    get onGestureError() {
-      return function (...args: any[]) {
+    get onGestureError(): SkinGestureErrorCallback {
+      return (...args: Parameters<SkinGestureErrorCallback>) => {
         if (typeof setting.onGestureError === 'function') {
           return setting.onGestureError(...args);
         }
       };
     },
-    get onGestureEnd() {
-      return function (...args: any[]) {
+    get onGestureEnd(): SkinGestureCallback {
+      return (...args: Parameters<SkinGestureCallback>) => {
         if (typeof setting.onGestureEnd === 'function') {
           return setting.onGestureEnd(...args);
         }
       };
     },
 
-    get onModelChangeStart() {
-      return function (...args: any[]) {
+    get onModelChangeStart(): SkinModelChangeStartCallback {
+      return (...args: Parameters<SkinModelChangeStartCallback>) => {
         if (typeof setting.onModelChangeStart === 'function') {
           return setting.onModelChangeStart(...args);
         }
       };
     },
-    get onModelChange() {
-      return function (...args: any[]) {
+    get onModelChange(): SkinModelChangeStartCallback {
+      return (...args: Parameters<SkinModelChangeStartCallback>) => {
         if (typeof setting.onModelChange === 'function') {
           return setting.onModelChange(...args);
         }
       };
     },
-    get onModelChangeEnd() {
-      return function (...args: any[]) {
+    get onModelChangeEnd(): SkinModelChangeEndCallback {
+      return (...args: Parameters<SkinModelChangeEndCallback>) => {
         if (typeof setting.onModelChangeEnd === 'function') {
           return setting.onModelChangeEnd(...args);
         }
       };
     },
-    get onModelChangeError() {
-      return function (...args: any[]) {
+    get onModelChangeError(): SkinModelChangeErrorCallback {
+      return (...args: Parameters<SkinModelChangeErrorCallback>) => {
         if (typeof setting.onModelChangeError === 'function') {
           return setting.onModelChangeError(...args);
         }
@@ -515,10 +542,10 @@ export function initSkinEngine(
     },
 
     _engineMode: null,
-    get engineMode(): string {
+    get engineMode(): string | null {
       return this._engineMode;
     },
-    set engineMode(newEngineMode: string) {
+    set engineMode(newEngineMode: string | null) {
       if (this.switching === true || newEngineMode === this.engineMode) {
         return;
       }
@@ -530,10 +557,10 @@ export function initSkinEngine(
         this._engineMode = newEngineMode;
 
         if (typeof this.onModelChangeStart === 'function') {
-          this.onModelChangeStart(newEngineMode);
+          this.onModelChangeStart(newEngineMode ?? '');
         }
         if (typeof this.onModelChange === 'function') {
-          this.onModelChange(newEngineMode);
+          this.onModelChange(newEngineMode ?? '');
         }
 
         (async () => {
@@ -546,20 +573,22 @@ export function initSkinEngine(
             this.renderer = null;
           }
           try {
-            this.renderer =
+            const booted =
               newEngineMode === ENGINE_MODE_MAP.threeDimensional
                 ? await bootVRM(this, setting)
                 : await bootAvatar(this, this.modelUrl);
+            this.renderer = booted || null;
           } catch (error) {
             console.error(error);
 
             if (typeof this.onModelChangeError === 'function') {
-              this.onModelChangeError(error as Error);
+              const err = error instanceof Error ? error : new Error(String(error));
+              this.onModelChangeError(err);
             }
           }
 
           if (typeof this.onModelChangeEnd === 'function') {
-            this.onModelChangeEnd(this.renderer, newEngineMode);
+            this.onModelChangeEnd(this.renderer, newEngineMode ?? '');
           }
           this.switching = false;
         })();
@@ -567,8 +596,8 @@ export function initSkinEngine(
     },
 
     _gesture3D: safeGesture3D,
-    get gesture3D() {
-      const _gesture3D = (emotionName: string) => {
+    get gesture3D(): SkinGestureTrigger {
+      const _gesture3D: SkinGestureTrigger = (emotionName: string) => {
         if (typeof this._gesture3D !== 'function') {
           console.warn('3D hand movement function is not registered');
           return () => {
@@ -579,15 +608,17 @@ export function initSkinEngine(
       };
       return _gesture3D;
     },
-    set gesture3D(newGesture3D: any) {
+    set gesture3D(
+      newGesture3D: SkinGestureHandler | SkinGestureTrigger | null
+    ) {
       if (typeof newGesture3D === 'function' || newGesture3D === null) {
-        this._gesture3D = newGesture3D;
+        this._gesture3D = newGesture3D as SkinGestureHandler | null;
       }
     },
 
     _gesture2D: safeGesture2D,
-    get gesture2D() {
-      const _gesture2D = (emotionName: string) => {
+    get gesture2D(): SkinGestureTrigger {
+      const _gesture2D: SkinGestureTrigger = (emotionName: string) => {
         if (typeof this._gesture2D !== 'function') {
           console.warn('2D hand movement function is not registered');
           return () => {
@@ -598,13 +629,15 @@ export function initSkinEngine(
       };
       return _gesture2D;
     },
-    set gesture2D(newGesture2D: any) {
+    set gesture2D(
+      newGesture2D: SkinGestureHandler | SkinGestureTrigger | null
+    ) {
       if (typeof newGesture2D === 'function' || newGesture2D === null) {
-        this._gesture2D = newGesture2D;
+        this._gesture2D = newGesture2D as SkinGestureHandler | null;
       }
     },
 
-    get gesture() {
+    get gesture(): SkinGestureTrigger | null {
       if (this.engineMode === ENGINE_MODE_MAP.threeDimensional) {
         return this.gesture3D;
       } else if (this.engineMode === ENGINE_MODE_MAP.twoDimensional) {
@@ -634,7 +667,8 @@ export function initSkinEngine(
           } catch (error) {
             console.error(error);
             if (typeof this.onGestureError === 'function') {
-              this.onGestureError(error as Error, newGestureName, this);
+              const err = error instanceof Error ? error : new Error(String(error));
+              this.onGestureError(err, newGestureName, this);
             }
           } finally {
             if (typeof this.onGestureEnd === 'function') {
@@ -690,7 +724,7 @@ export function initSkinEngine(
     },
     set fitMode(newFitMode: string) {
       if (typeof newFitMode === 'string' && newFitMode !== '') {
-        if (Object.values(FIT_MODE_MAP).includes(newFitMode as any)) {
+        if ((Object.values(FIT_MODE_MAP) as string[]).includes(newFitMode)) {
           store.setState({ fitMode: newFitMode });
         } else {
           store.setState({ fitMode: DEFAULT_FIT_MODE });
@@ -701,5 +735,5 @@ export function initSkinEngine(
 
   initSkinMode(skinEngine);
 
-  return skinEngine as SkinEngine;
+  return skinEngine;
 }
