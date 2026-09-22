@@ -17,106 +17,13 @@ export type BaseStore<T extends object = any> = CoreBaseStore<T>;
 // Memory & Personas
 // ============================================================================
 
-/**
- * Avatar persona mode: built-in presets or any custom registered mode string.
- */
-export type AvatarMode = 'assistant' | 'companion' | (string & {});
-
-/**
- * Conversation turn item stored in history.
- */
-export interface ChatHistoryItem {
-  /** Role of the speaker. */
-  role: 'user' | 'assistant' | 'system' | 'tool' | (string & {});
-  /** Text content of the message. */
-  content: string;
-  /** Optional metadata or timestamp. */
-  [key: string]: any;
-}
-
-/**
- * Data structure representing persistent user conversation memory.
- */
-export interface MemoryData {
-  /** Schema structure version number. */
-  version: number;
-  /** Visitor / user display name. */
-  name: string;
-  /** Number of visits / conversation sessions. */
-  visits: number;
-  /** Timestamp (ms) of the last visit. */
-  last: number;
-  /** Multi-turn conversation history list. */
-  history: ChatHistoryItem[];
-  /** Rolling conversation summary generated in the background. */
-  summary?: string;
-  /** Turn index where the last summarization occurred. */
-  lastSummarizedTurnIndex?: number;
-  /** Custom developer-defined metadata slots. */
-  metadata?: Record<string, any>;
-}
-
-/**
- * Custom storage adapter interface for loading, saving, and clearing persistent memory.
- */
-export interface MemoryAdapter {
-  /**
-   * Loads memory data for a given key.
-   * @param key - Storage identifier key.
-   * @returns The loaded MemoryData object or null if not found.
-   */
-  load(key: string): MemoryData | null | Promise<MemoryData | null> | any;
-
-  /**
-   * Saves memory data for a given key.
-   * @param key - Storage identifier key.
-   * @param data - The MemoryData object to persist.
-   */
-  save(key: string, data: MemoryData | any): void | Promise<void>;
-
-  /**
-   * Clears memory data for a given key.
-   * @param key - Storage identifier key.
-   */
-  clear(key: string): void | Promise<void>;
-}
-
-/**
- * Memory subsystem instance controller.
- */
-export interface MemoryInstance {
-  /** Whether memory is currently enabled. */
-  enabled: boolean;
-  /** Current memory data payload. */
-  data: MemoryData;
-  /** Storage key used in storage adapter. */
-  key: string;
-  /** Maximum number of history turns retained. */
-  maxHistoryTurns: number;
-  /** Underlying storage adapter. */
-  adapter: MemoryAdapter;
-  /** Loads memory data from adapter. */
-  load(): Promise<MemoryData> | void;
-  /** Saves current memory data to adapter. */
-  save(): Promise<void> | void;
-  /** Clears memory data from adapter. */
-  clear(): Promise<void> | void;
-  /** Adds a turn to conversation history. */
-  addTurn(role: string, content: string): Promise<void> | void;
-  /** Captures visitor name from user input. */
-  captureName(text: string): void;
-  /** Updates user visitor name in memory. */
-  setName?(name: string): Promise<void> | void;
-  /** Gets current memory schema version. */
-  getVersion(): number;
-  /** Gets memory metadata dictionary. */
-  getMetadata(): Record<string, any>;
-  /** Sets or updates memory metadata dictionary. */
-  setMetadata(
-    patchOrUpdater:
-      Record<string, any> | ((prev: Record<string, any>) => Record<string, any>)
-  ): void;
-}
+export type {
+  AvatarMode,
+  ChatHistoryItem,
+  MemoryData,
+  MemoryAdapter,
+  MemoryInstance
+} from '@/core/brain';
 
 // ============================================================================
 // Skin Subsystem Types (2D Live2D & 3D VRM)
@@ -225,277 +132,24 @@ export type {
 } from '@/core/i18n';
 
 // ============================================================================
+// ============================================================================
 // Brain Subsystem Types (LLM, AI Provider, RAG, Memory)
 // ============================================================================
 
-/**
- * Knowledge base entry structure for RAG / retrieval questions.
- */
-export interface KnowledgeEntry {
-  /** Question or prompt text. */
-  q?: string;
-  /** Keywords associated with the entry. */
-  kw?: string;
-  /** Answer or response text. */
-  a?: string;
-  /** Optional source attribution data. */
-  source?: {
-    title?: string;
-    url?: string;
-    [key: string]: any;
-  };
-  /** Optional metadata tags or category. */
-  [key: string]: any;
-}
-
-/**
- * Context compression configuration options.
- */
-export interface BrainCompressionOptions {
-  /** Compression strategy ('sliding-window' | 'rolling-summary' | 'none'). */
-  strategy?: 'sliding-window' | 'rolling-summary' | 'none' | string;
-  /** Global maximum history turns. */
-  maxTurns?: number;
-  /** Global maximum character budget. */
-  maxTotalChars?: number;
-  /** WebLLM engine specific limits. */
-  webLlm?: { maxTurns?: number; maxTotalChars?: number };
-  /** AI Provider engine specific limits. */
-  aiProvider?: { maxTurns?: number; maxTotalChars?: number };
-  /** Custom compression function. */
-  customCompressor?: (params: any) => Promise<any[]> | any[];
-}
-
-/**
- * Options for initializing the BrainEngine.
- */
-export interface BrainEngineOptions {
-  enableMemory?: boolean;
-  maxHistoryTurns?: number;
-  memoryKey?: string;
-  memoryAdapter?: MemoryAdapter;
-  compression?: BrainCompressionOptions;
-  modes?: Record<string, any>;
-  llmModel?: string;
-  preloadWebLLM?: boolean;
-  autoFallbackWebLLM?: boolean;
-  knowledge?: KnowledgeEntry[] | Record<string, any> | string | null;
-  knowledgeUrl?: string;
-  companionKnowledge?: KnowledgeEntry[] | Record<string, any> | string | null;
-  companionKnowledgeUrl?: string;
-  companionFallback?:
-    Array<string | Record<string, any>> | ((context: any) => string);
-  companionFallbackContext?: string | ((context: any) => string);
-  assistantFallbackContext?: string | ((context: any) => string);
-  enableAiProvider?: boolean;
-  aiProviderModel?: string;
-  aiProviderBaseUrl?: string;
-  welcomeText?: string | ((context: any) => string);
-  companionWelcomeText?: string | ((context: any) => string);
-  assistantWelcomeText?: string | ((context: any) => string);
-  llmMaxTokens?: number;
-  llmIsStream?: boolean;
-  onLlmLoading?: () => void;
-  onLlmLoadProgress?: (progress: number) => void;
-  onLlmLoaded?: () => void;
-  onLlmLoadError?: (error: Error) => void;
-  onLlmChatting?: () => void;
-  onLlmStreamChatting?: () => void;
-  onAiProviderConnecting?: () => void;
-  onAiProviderConnected?: () => void;
-  onAiProviderError?: (error: Error) => void;
-  onAiProviderChatting?: () => void;
-  onAiProviderStreamChatting?: () => void;
-  onAddChatMessage?: (
-    role: string,
-    text: string,
-    options?: Record<string, any>
-  ) => string | void;
-  onUpdateChatMessage?: (id: string, text: string, streaming?: boolean) => void;
-  onChatHistoryChanged?: (history: any[]) => void;
-  onSpokenAudioPlayNow?: (text: string) => void;
-  onSpokenDisplayTextChange?: (text: string) => void;
-  onSpokenAudioTextChange?: (text: string) => void;
-  onEmotionChange?: (emotion: string) => void;
-  onSummaryUpdated?: (summary: string) => void;
-  onStreamStart?: () => void;
-  onStreamChunk?: (chunk: string) => void;
-  onStreamEnd?: (fullText: string) => void;
-  onAutoContinueStart?: (info: {
-    continuationIndex: number;
-    maxContinuations: number;
-    accumulatedText: string;
-  }) => void;
-  onAutoContinueWait?: (info: {
-    continuationIndex: number;
-    maxContinuations: number;
-    accumulatedText: string;
-  }) => void;
-  onAutoContinueResume?: (info: {
-    continuationIndex: number;
-    maxContinuations: number;
-    accumulatedText: string;
-    chunk: string;
-  }) => void;
-  onAutoContinueEnd?: (info: {
-    totalContinuations: number;
-    maxContinuations: number;
-    accumulatedText: string;
-    reason: string;
-  }) => void;
-  aiProviderCreateFetchSetting?:
-    ((...args: any[]) => RequestInit) | RequestInit;
-  aiProviderCreateFetchPayload?:
-    ((...args: any[]) => Record<string, any>) | Record<string, any>;
-  aiProviderResponseFormat?: string | Record<string, any>;
-  aiProviderPingUrl?: string;
-  aiProviderChatUrl?: string;
-  aiProviderMaxTokens?: number;
-  aiProviderIsStream?: boolean;
-  aiProviderExtractToolCalls?: (chunk: string) => any;
-  getTools?: () => ToolDefinition[];
-  getToolByName?: (name: string) => ToolDefinition | null;
-  offerToolConfirmation?: Function;
-  executeTool?: Function;
-  buildLLMMessages?: (question: string, engineType: string) => any[];
-  i18nEngine?: I18nEngine;
-  locale?: string;
-  systemContextTemplate?: string | ((...args: any[]) => string);
-  companionSystemContextTemplate?: string | ((...args: any[]) => string);
-  ragTemplate?: string | ((...args: any[]) => string);
-  customContext?: Record<string, any>;
-  languageRule?: string | ((...args: any[]) => string);
-  gender?: string;
-  genderRule?: string | ((...args: any[]) => string);
-  enableAutoContinue?: boolean;
-  maxAutoContinuations?: number;
-  autoContinueMode?: 'stream' | 'buffered';
-  autoContinuePrompt?: string | ((...args: any[]) => string) | null;
-  onBrainFallback?: (fromEngine: string, toEngine: string, error: any) => void;
-  onToolNotFound?: (
-    info: { toolName: string; args: any; toolCall: any },
-    widget: AiAvatarWidget
-  ) => any;
-  onToolError?: (
-    info: {
-      tool: any;
-      toolName: string;
-      args: any;
-      toolCall: any;
-      error: Error;
-    },
-    widget: AiAvatarWidget
-  ) => any;
-}
-
-/**
- * AI Brain Engine instance managing WebLLM, AI Provider, Memory, and RAG.
- */
-export interface BrainEngine {
-  readonly STATE_MAP: Record<string, string>;
-  readonly AVATAR_MODE_MAP: Record<string, string>;
-  readonly DEFAULT_AVATAR_MODE: string;
-  readonly DEFAULT_LLM_MODEL: string;
-  readonly DEFAULT_AI_PROVIDER_MODEL: string;
-  readonly BRAIN_ENGINE_TYPE_MAP: Record<string, string>;
-  readonly BRAIN_FALLBACK_TYPE_MAP: Record<string, string>;
-  readonly LLM_FINISH_REASON_MAP: Record<string, string>;
-  readonly FINISH_REASON_MAP: Record<string, string>;
-  avatarMode?: AvatarMode;
-  modes: Record<string, any>;
-  readonly availableModes: string[];
-  enableMemory: boolean;
-  enableAiProvider: boolean;
-  preloadWebLLM: boolean;
-  autoFallbackWebLLM: boolean;
-  enableAutoContinue: boolean;
-  maxAutoContinuations: number;
-  autoContinueMode: 'stream' | 'buffered';
-  autoContinuePrompt: string | Function | null;
-  _isSummarizing?: boolean;
-  knowledgeUrl?: string;
-  knowledge: KnowledgeEntry[];
-  companionKnowledgeUrl?: string;
-  companionKnowledge: KnowledgeEntry[];
-  companionFallback?: any;
-  companionFallbackIdx: number;
-  companionFallbackContext?: string | Function;
-  assistantFallbackContext?: string | Function;
-  getTools: () => ToolDefinition[];
-  getToolByName: ((name: string) => ToolDefinition | null) | null;
-  offerToolConfirmation: Function | null;
-  executeTool: Function | null;
-  onLlmLoading: Function | null;
-  onLlmLoadProgress: Function | null;
-  onLlmLoaded: Function | null;
-  onLlmLoadError: Function | null;
-  onLlmChatting: Function | null;
-  onLlmStreamChatting: Function | null;
-  onAiProviderConnecting: Function | null;
-  onAiProviderConnected: Function | null;
-  onAiProviderError: Function | null;
-  onAiProviderChatting: Function | null;
-  onAiProviderStreamChatting: Function | null;
-  onAddChatMessage: Function | null;
-  onUpdateChatMessage: Function | null;
-  onChatHistoryChanged: Function | null;
-  onSpokenAudioPlayNow: Function | null;
-  onSpokenDisplayTextChange: Function | null;
-  onSpokenAudioTextChange: Function | null;
-  onEmotionChange: Function | null;
-  onSummaryUpdated: Function | null;
-  onStreamStart: Function | null;
-  onStreamChunk: Function | null;
-  onStreamEnd: Function | null;
-  onAutoContinueStart: Function | null;
-  onAutoContinueWait: Function | null;
-  onAutoContinueResume: Function | null;
-  onAutoContinueEnd: Function | null;
-  onBrainFallback: Function | null;
-  onToolNotFound: Function | null;
-  onToolError: Function | null;
-  chatLog: any[];
-  chatSeq: number;
-  welcomeText: string | Function | null;
-  companionWelcomeText: string | Function | null;
-  assistantWelcomeText: string | Function | null;
-  buildLLMMessages: (question: string, engineType: string) => any[];
-  readonly buildDefaultLLMMessages: (
-    question: string,
-    engineType: string
-  ) => any[];
-  getWelcomeText(): string;
-  classifyEmotion(text: string): string;
-  applyEmotionFromText(text: string): void;
-  answerQuestion(question: string): Promise<string | void>;
-  emitAnswer(text: string): void;
-  getRetrievalAnswer(rawQuestion: string): string;
-  getCompanionFallbackResponse(question: string): string;
-  chatWithAiProvider(question: string): Promise<string | void>;
-  chatWithWebLLM(question: string): Promise<string | void>;
-  triggerRollingSummaryIfNeeded(): Promise<void>;
-  addChatMessage(
-    role: string,
-    text: string,
-    options?: Record<string, any>
-  ): string;
-  updateChatMessage(id: string, text: string, streaming?: boolean): void;
-  locale: string;
-  setLocale(locale: string): void;
-  gender?: string;
-  setGender(gender: string): void;
-  systemContextTemplate?: string | Function;
-  companionSystemContextTemplate?: string | Function;
-  ragTemplate?: string | Function;
-  customContext?: Record<string, any> | null;
-  languageRule?: string | Function;
-  genderRule?: string | Function;
-  compression: BrainCompressionOptions;
-  i18nEngine: I18nEngine | null;
-  readonly llm: any;
-  readonly memory: MemoryInstance | null;
-  readonly aiProvider: any;
-}
+export type {
+  KnowledgeEntry,
+  LLMMessage,
+  BrainCompressionOptions,
+  ChatLogItem,
+  AddChatMessageOptions,
+  ParsedToolCall,
+  LLMEngineOptions,
+  LLMEngine,
+  AiProviderOptions,
+  AiProviderEngine,
+  BrainEngineOptions,
+  BrainEngine
+} from '@/core/brain';
 
 // ============================================================================
 // UI Subsystem Types
@@ -1085,15 +739,35 @@ export function loadVRMFile(skinEngine: SkinEngine, file: File): Promise<void>;
 export function initBrainEngine(
   setting?: BrainEngineOptions
 ): Promise<BrainEngine>;
-export function initWebLLM(setting?: any, brain?: any): any;
-export function initAiProvider(setting?: any, brain?: any): Promise<any>;
-export function initMemory(options?: any): MemoryInstance;
-export function compressContext(params?: any): any;
+export function initWebLLM(
+  setting?: LLMEngineOptions,
+  brain?: BrainEngine
+): LLMEngine;
+export function initAiProvider(
+  setting?: AiProviderOptions,
+  brain?: BrainEngine
+): Promise<AiProviderEngine>;
+export function initMemory(options?: {
+  adapter?: MemoryAdapter;
+  storageKey?: string;
+  avatarMode?: AvatarMode;
+  contextWindow?: number;
+}): MemoryInstance;
+export function compressContext(params?: BrainCompressionOptions): {
+  messages: LLMMessage[];
+  stats: {
+    originalCount: number;
+    compressedCount: number;
+    strategy: string;
+    preservedTurns?: number;
+    maxSummaryChars?: number;
+  };
+};
 export function fetchKnowledge(url?: string): Promise<KnowledgeEntry[]>;
 export function findBestMatch(
   knowledge: KnowledgeEntry[],
   query: string
-): KnowledgeEntry | null;
+): { entry: KnowledgeEntry | null; score: number };
 export function classifyEmotion(text: string): string;
 export function applyEmotionFromText(
   brainEngine: BrainEngine,
@@ -1105,7 +779,7 @@ export function buildDefaultLLMMessages(
   brainEngine: BrainEngine,
   question: string,
   engineType?: string
-): any[];
+): LLMMessage[];
 export function chatWithWebLLM(
   brainEngine: BrainEngine,
   question: string

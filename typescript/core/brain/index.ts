@@ -23,8 +23,13 @@ import type {
   BrainEngine,
   BrainEngineOptions,
   AvatarMode,
-  KnowledgeEntry
-} from '@types';
+  KnowledgeEntry,
+  MemoryInstance,
+  LLMEngine,
+  AiProviderEngine,
+  ChatLogItem,
+  AddChatMessageOptions
+} from './types';
 import { fetchKnowledge, findBestMatch } from './knowledge';
 import { classifyEmotion, applyEmotionFromText } from './emotion';
 import { initMemory, triggerRollingSummaryIfNeeded } from './memory';
@@ -36,6 +41,7 @@ import {
 import { initWebLLM, chatWithWebLLM } from './web-llm';
 import { initAiProvider, chatWithAiProvider } from './ai-provider';
 
+export * from './types';
 export * from './compression';
 export * from './knowledge';
 export * from './emotion';
@@ -140,9 +146,9 @@ export async function initBrainEngine(
     onToolError = null
   } = setting;
 
-  let llm: any = null;
-  let memory: any = null;
-  let aiProvider: any = null;
+  let llm: LLMEngine | null = null;
+  let memory: MemoryInstance | null = null;
+  let aiProvider: AiProviderEngine | null = null;
 
   const safeKnowledge: KnowledgeEntry[] =
     Array.isArray(knowledge) && knowledge.length > 0
@@ -155,6 +161,12 @@ export async function initBrainEngine(
 
   const _store = createBaseStore({});
   void _store;
+
+  let _welcomeText: string | ((context: unknown) => string) | null = null;
+  let _companionWelcomeText: string | ((context: unknown) => string) | null =
+    null;
+  let _assistantWelcomeText: string | ((context: unknown) => string) | null =
+    null;
 
   const brainEngine: BrainEngine = {
     get STATE_MAP() {
@@ -278,28 +290,31 @@ export async function initBrainEngine(
       brainEngine.locale = newLocale;
     },
 
-    _welcomeText: null,
     get welcomeText() {
-      return this._welcomeText;
+      return _welcomeText;
     },
-    set welcomeText(newWelcomeText: any) {
-      this._welcomeText = newWelcomeText;
+    set welcomeText(
+      newWelcomeText: string | ((context: unknown) => string) | null
+    ) {
+      _welcomeText = newWelcomeText;
     },
 
-    _companionWelcomeText: null,
     get companionWelcomeText() {
-      return this._companionWelcomeText;
+      return _companionWelcomeText;
     },
-    set companionWelcomeText(newCompanionWelcomeText: any) {
-      this._companionWelcomeText = newCompanionWelcomeText;
+    set companionWelcomeText(
+      newCompanionWelcomeText: string | ((context: unknown) => string) | null
+    ) {
+      _companionWelcomeText = newCompanionWelcomeText;
     },
 
-    _assistantWelcomeText: null,
     get assistantWelcomeText() {
-      return this._assistantWelcomeText;
+      return _assistantWelcomeText;
     },
-    set assistantWelcomeText(newAssistantWelcomeText: any) {
-      this._assistantWelcomeText = newAssistantWelcomeText;
+    set assistantWelcomeText(
+      newAssistantWelcomeText: string | ((context: unknown) => string) | null
+    ) {
+      _assistantWelcomeText = newAssistantWelcomeText;
     },
 
     buildLLMMessages:
@@ -330,8 +345,11 @@ export async function initBrainEngine(
     triggerRollingSummaryIfNeeded: () =>
       triggerRollingSummaryIfNeeded(brainEngine),
 
-    addChatMessage: (role: string, text: string, options?: any) =>
-      addChatMessage(brainEngine, role, text, options),
+    addChatMessage: (
+      role: string,
+      text: string,
+      options?: AddChatMessageOptions
+    ) => addChatMessage(brainEngine, role, text, options),
     updateChatMessage: (id: string, text: string, streaming?: boolean) =>
       updateChatMessage(brainEngine, id, text, streaming),
 
@@ -373,14 +391,14 @@ export async function initBrainEngine(
     modes: typeof modes === 'object' && modes !== null ? modes : {},
     get availableModes() {
       const customModeKeys =
-        typeof this.modes === 'object' && this.modes !== null
-          ? Object.keys(this.modes)
+        typeof brainEngine.modes === 'object' && brainEngine.modes !== null
+          ? Object.keys(brainEngine.modes)
           : [];
       return Array.from(
         new Set([...Object.values(AVATAR_MODE_MAP), ...customModeKeys])
       );
     }
-  } as any;
+  } as unknown as BrainEngine;
 
   if (typeof welcomeText === 'function' || typeof welcomeText === 'string') {
     brainEngine.welcomeText = welcomeText;
@@ -447,23 +465,34 @@ export async function initBrainEngine(
       llmModel,
       llmMaxTokens: resolvedLLMMaxTokens,
       llmIsStream,
-      onLoading(...args: any[]) {
+      onLoading: (...args: unknown[]) => {
         return brainEngine.onLlmLoading?.(...args);
       },
-      onLoadProgress(...args: any[]) {
-        return brainEngine.onLlmLoadProgress?.(...args);
+      onLoadProgress: (progressInfo?: unknown, ...args: unknown[]) => {
+        const safeProgress =
+          typeof progressInfo === 'number'
+            ? progressInfo
+            : typeof (progressInfo as { progress?: unknown })?.progress ===
+                'number'
+              ? Number((progressInfo as { progress: number }).progress)
+              : 0;
+        return brainEngine.onLlmLoadProgress?.(safeProgress, ...args);
       },
-      onLoaded(...args: any[]) {
-        return brainEngine.onLlmLoaded?.(...args);
+      onLoaded: (engineInstance?: unknown, ...args: unknown[]) => {
+        return brainEngine.onLlmLoaded?.(engineInstance, ...args);
       },
-      onLoadError(...args: any[]) {
-        return brainEngine.onLlmLoadError?.(...args);
+      onLoadError: (error?: unknown, ...args: unknown[]) => {
+        const safeError =
+          error instanceof Error
+            ? error
+            : new Error(String(error ?? 'Unknown error'));
+        return brainEngine.onLlmLoadError?.(safeError, ...args);
       },
-      onChatting(...args: any[]) {
-        return brainEngine.onLlmChatting?.(...args);
+      onChatting: (response?: unknown, ...args: unknown[]) => {
+        return brainEngine.onLlmChatting?.(response, ...args);
       },
-      onStreamChatting(...args: any[]) {
-        return brainEngine.onLlmStreamChatting?.(...args);
+      onStreamChatting: (chunk?: unknown, ...args: unknown[]) => {
+        return brainEngine.onLlmStreamChatting?.(chunk, ...args);
       }
     },
     brainEngine
@@ -491,20 +520,24 @@ export async function initBrainEngine(
     providerIsStream: aiProviderIsStream,
     providerExtractToolCalls: aiProviderExtractToolCalls,
 
-    onConnecting(...args: any[]) {
-      return brainEngine.onAiProviderConnecting?.(...args);
+    onConnecting: (fetchSetting?: unknown, ...args: unknown[]) => {
+      return brainEngine.onAiProviderConnecting?.(fetchSetting, ...args);
     },
-    onConnected(...args: any[]) {
-      return brainEngine.onAiProviderConnected?.(...args);
+    onConnected: (response?: unknown, ...args: unknown[]) => {
+      return brainEngine.onAiProviderConnected?.(response, ...args);
     },
-    onError(...args: any[]) {
-      return brainEngine.onAiProviderError?.(...args);
+    onError: (error?: unknown, ...args: unknown[]) => {
+      const safeError =
+        error instanceof Error
+            ? error
+            : new Error(String(error ?? 'Unknown error'));
+      return brainEngine.onAiProviderError?.(safeError, ...args);
     },
-    onChatting(...args: any[]) {
-      return brainEngine.onAiProviderChatting?.(...args);
+    onChatting: (response?: unknown, ...args: unknown[]) => {
+      return brainEngine.onAiProviderChatting?.(response, ...args);
     },
-    onStreamChatting(...args: any[]) {
-      return brainEngine.onAiProviderStreamChatting?.(...args);
+    onStreamChatting: (chunk?: unknown, ...args: unknown[]) => {
+      return brainEngine.onAiProviderStreamChatting?.(chunk, ...args);
     }
   });
 
@@ -512,7 +545,7 @@ export async function initBrainEngine(
     brainEngine.preloadWebLLM === true &&
     brainEngine.llm?.supported === true
   ) {
-    brainEngine.llm.load().catch((error: any) => {
+    brainEngine.llm.load().catch((error: unknown) => {
       console.warn('[initBrainEngine] Preload WebLLM failed:', error);
     });
   }
@@ -528,12 +561,13 @@ export async function initBrainEngine(
  * @returns Fallback response string.
  */
 export function getCompanionFallbackResponse(
-  brainEngine: BrainEngine | Record<string, any>,
+  brainEngine: BrainEngine | Record<string, unknown>,
   question: string
 ): string {
-  const engine = brainEngine as Record<string, any>;
+  const engine = brainEngine as Partial<BrainEngine> & Record<string, unknown>;
   const locale = engine?.locale || 'zh-TW';
-  const name = engine?.memory?.data?.name || '';
+  const name =
+    (engine?.memory?.data as { name?: string } | undefined)?.name || '';
   const templateContext = { question, name, locale };
 
   if (
@@ -592,11 +626,16 @@ export function getCompanionFallbackResponse(
     templateContext
   );
   const companionFallbackList =
-    Array.isArray(rawList) && rawList.length > 0 ? rawList : defaultList;
+    Array.isArray(rawList) && rawList.length > 0
+      ? (rawList as string[])
+      : defaultList;
 
-  return companionFallbackList[
-    engine.companionFallbackIdx++ % companionFallbackList.length
-  ];
+  const currentIdx =
+    typeof engine.companionFallbackIdx === 'number'
+      ? engine.companionFallbackIdx
+      : 0;
+  engine.companionFallbackIdx = currentIdx + 1;
+  return companionFallbackList[currentIdx % companionFallbackList.length];
 }
 
 /**
@@ -607,10 +646,10 @@ export function getCompanionFallbackResponse(
  * @returns Matched answer or fallback response text.
  */
 export function getRetrievalAnswer(
-  brainEngine: BrainEngine | Record<string, any>,
+  brainEngine: BrainEngine | Record<string, unknown>,
   rawQuestion: string
 ): string {
-  const engine = brainEngine as Record<string, any>;
+  const engine = brainEngine as Partial<BrainEngine> & Record<string, unknown>;
   const locale = engine?.locale || 'zh-TW';
   const question = (rawQuestion || '').trim();
   if (question === '') {
@@ -625,18 +664,21 @@ export function getRetrievalAnswer(
     }
     return '我好像沒聽清楚，可以再說一次嗎？';
   }
-  const currentAvatarMode = engine?.avatarMode;
-  const currentCustomMode = engine?.modes?.[currentAvatarMode];
+  const currentAvatarMode = (engine?.avatarMode || '') as string;
+  const currentCustomMode = (engine?.modes?.[currentAvatarMode] || {}) as {
+    knowledge?: KnowledgeEntry[];
+    fallback?: unknown;
+  };
 
   const targetKnowledge =
     Array.isArray(currentCustomMode?.knowledge) &&
     currentCustomMode.knowledge.length > 0
       ? currentCustomMode.knowledge
-      : engine.knowledge;
+      : engine.knowledge || [];
 
   const site = findBestMatch(targetKnowledge, question);
   if (currentAvatarMode === AVATAR_MODE_MAP.companion) {
-    const chat = findBestMatch(engine.companionKnowledge, question);
+    const chat = findBestMatch(engine.companionKnowledge || [], question);
     if (
       chat.entry !== null &&
       chat.score >= 0.16 &&
@@ -661,10 +703,9 @@ export function getRetrievalAnswer(
       Array.isArray(currentCustomMode.fallback) &&
       currentCustomMode.fallback.length > 0
     ) {
+      const fallbackList = currentCustomMode.fallback as string[];
       return (
-        currentCustomMode.fallback[
-          Math.floor(Math.random() * currentCustomMode.fallback.length)
-        ] || ''
+        fallbackList[Math.floor(Math.random() * fallbackList.length)] || ''
       );
     }
     const resolvedCustomFallback = resolveLocalized(
@@ -732,13 +773,16 @@ export function getRetrievalAnswer(
  * @returns Generated or assigned message ID.
  */
 export function addChatMessage(
-  brainEngine: BrainEngine | Record<string, any>,
+  brainEngine: BrainEngine | Record<string, unknown>,
   role: string,
   text: string,
-  options: Record<string, any> = {}
+  options: AddChatMessageOptions = {}
 ): string {
-  const engine = brainEngine as Record<string, any>;
-  const item = {
+  const engine = brainEngine as Partial<BrainEngine> & {
+    chatSeq: number;
+    chatLog: ChatLogItem[];
+  };
+  const item: ChatLogItem = {
     id: options.id || 'm' + ++engine.chatSeq,
     role: role === 'user' ? 'user' : 'assistant',
     text: String(text || '').slice(0, 4000),
@@ -752,7 +796,12 @@ export function addChatMessage(
   }
 
   if (typeof engine.onAddChatMessage === 'function') {
-    engine.onAddChatMessage(item);
+    const callback = engine.onAddChatMessage as (...args: unknown[]) => unknown;
+    if (callback.length <= 1) {
+      callback(item);
+    } else {
+      callback(item.role, item.text, options);
+    }
   }
   if (typeof engine.onChatHistoryChanged === 'function') {
     engine.onChatHistoryChanged(engine.chatLog);
@@ -770,20 +819,30 @@ export function addChatMessage(
  * @returns Updated message ID.
  */
 export function updateChatMessage(
-  brainEngine: BrainEngine | Record<string, any>,
+  brainEngine: BrainEngine | Record<string, unknown>,
   id: string,
   text: string,
   streaming?: boolean
 ): string {
-  const engine = brainEngine as Record<string, any>;
-  const item = engine.chatLog.find((msg: Record<string, any>) => msg.id === id);
+  const engine = brainEngine as Partial<BrainEngine> & {
+    chatSeq: number;
+    chatLog: ChatLogItem[];
+  };
+  const item = engine.chatLog.find((msg: ChatLogItem) => msg.id === id);
   if (item === undefined) {
     return addChatMessage(engine, 'assistant', text, { id, streaming });
   }
   item.text = String(text || '').slice(0, 4000);
   item.streaming = Boolean(streaming);
   if (typeof engine.onUpdateChatMessage === 'function') {
-    engine.onUpdateChatMessage(item);
+    const callback = engine.onUpdateChatMessage as (
+      ...args: unknown[]
+    ) => unknown;
+    if (callback.length <= 1) {
+      callback(item);
+    } else {
+      callback(item.id, item.text, item.streaming);
+    }
   }
   if (typeof engine.onChatHistoryChanged === 'function') {
     engine.onChatHistoryChanged(engine.chatLog);
@@ -798,10 +857,10 @@ export function updateChatMessage(
  * @param question - User question text.
  */
 export async function answerQuestion(
-  brainEngine: BrainEngine | Record<string, any>,
+  brainEngine: BrainEngine | Record<string, unknown>,
   question: string
-): Promise<void> {
-  const engine = brainEngine as Record<string, any>;
+): Promise<string | void> {
+  const engine = brainEngine as Partial<BrainEngine> & Record<string, unknown>;
   const safeQuestion = (question || '').trim();
   if (safeQuestion === '') {
     if (typeof engine.onSpokenAudioTextChange === 'function') {
@@ -810,7 +869,11 @@ export async function answerQuestion(
     return;
   }
 
-  function notifyFallback(fromEngine: string, toEngine: string, error: any) {
+  function notifyFallback(
+    fromEngine: string,
+    toEngine: string,
+    error: unknown
+  ) {
     if (typeof engine.onBrainFallback === 'function') {
       try {
         engine.onBrainFallback(fromEngine, toEngine, error);
@@ -824,9 +887,9 @@ export async function answerQuestion(
     if (
       engine.autoFallbackWebLLM === true &&
       engine.llm?.supported === true &&
-      engine.llm?.state === engine.STATE_MAP.IDLE
+      engine.llm?.state === STATE_MAP.IDLE
     ) {
-      engine.llm.load().catch((loadError: any) => {
+      engine.llm.load().catch((loadError: unknown) => {
         console.warn(
           '[answerQuestion] Background WebLLM fallback loading failed:',
           loadError
@@ -848,7 +911,7 @@ export async function answerQuestion(
       );
       triggerBackgroundWebLLMLoad();
       const targetFallback =
-        engine.llm?.state === engine.STATE_MAP.READY
+        engine.llm?.state === STATE_MAP.READY
           ? BRAIN_ENGINE_TYPE_MAP.WEB_LLM
           : BRAIN_ENGINE_TYPE_MAP.RETRIEVAL;
       notifyFallback(BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER, targetFallback, error);
@@ -860,7 +923,7 @@ export async function answerQuestion(
     triggerBackgroundWebLLMLoad();
   }
 
-  if (engine.llm?.state === engine.STATE_MAP.READY) {
+  if (engine.llm?.state === STATE_MAP.READY) {
     try {
       if (typeof engine.chatWithWebLLM === 'function') {
         return await engine.chatWithWebLLM(question);
@@ -881,10 +944,9 @@ export async function answerQuestion(
 
   const retrievalAnswer = getRetrievalAnswer(engine, safeQuestion);
   if (typeof engine.emitAnswer === 'function') {
-    engine.emitAnswer(retrievalAnswer);
-  } else {
-    emitAnswer(engine, retrievalAnswer);
+    return engine.emitAnswer(retrievalAnswer);
   }
+  return emitAnswer(engine, retrievalAnswer);
 }
 
 /**
@@ -894,15 +956,17 @@ export async function answerQuestion(
  * @param text - Answer content text.
  */
 export function emitAnswer(
-  brainEngine: BrainEngine | Record<string, any>,
+  brainEngine: BrainEngine | Record<string, unknown>,
   text: string
-): void {
-  const engine = brainEngine as Record<string, any>;
+): string | void {
+  const engine = brainEngine as Partial<BrainEngine> & Record<string, unknown>;
   if (typeof text !== 'string' || text === '') {
     return;
   }
-  engine.memory.addTurn('assistant', text);
-  addChatMessage(engine, 'assistant', text);
+  if (engine.memory?.addTurn) {
+    engine.memory.addTurn('assistant', text);
+  }
+  const messageId = addChatMessage(engine, 'assistant', text);
   if (typeof engine.applyEmotionFromText === 'function') {
     engine.applyEmotionFromText(text);
   }
@@ -912,6 +976,7 @@ export function emitAnswer(
   if (typeof engine.triggerRollingSummaryIfNeeded === 'function') {
     engine.triggerRollingSummaryIfNeeded();
   }
+  return messageId;
 }
 
 /**
@@ -927,7 +992,7 @@ export function validateBrainEngine(engine: unknown): {
   if (typeof engine !== 'object' || engine === null) {
     return { isValid: false, missing: ['engine object'] };
   }
-  const engineObj = engine as Record<string, any>;
+  const engineObj = engine as Record<string, unknown>;
   const requiredMethods = [
     'addChatMessage',
     'updateChatMessage',

@@ -1,6 +1,6 @@
 import { AVATAR_MODE_MAP, BRAIN_ENGINE_TYPE_MAP } from '@/core/constants';
 import { resolveLocalized, defaultLocales, formatParams } from '@/core/i18n';
-import type { BrainEngine, KnowledgeEntry } from '@types';
+import type { BrainEngine, KnowledgeEntry, LLMMessage } from './types';
 import { getTopKnowledge } from './knowledge';
 import { compressContext } from './compression';
 
@@ -13,14 +13,15 @@ import { compressContext } from './compression';
  * @returns Formatted localized string.
  */
 export function getBrainMessage(
-  brainEngine: BrainEngine | Record<string, any> | null | undefined,
+  brainEngine: BrainEngine | Record<string, unknown> | null | undefined,
   key: string,
-  params: Record<string, any> = {}
+  params: Record<string, unknown> = {}
 ): string {
-  if (typeof (brainEngine as any)?.i18nEngine?.t === 'function') {
-    return (brainEngine as any).i18nEngine.t(key, params);
+  const engine = brainEngine as Partial<BrainEngine> | undefined;
+  if (typeof engine?.i18nEngine?.t === 'function') {
+    return engine.i18nEngine.t(key, params);
   }
-  const locale = (brainEngine as any)?.locale || 'zh-TW';
+  const locale = engine?.locale || 'zh-TW';
   const localeDictionary =
     defaultLocales[locale] || defaultLocales['zh-TW'] || {};
   const messageValue =
@@ -31,6 +32,15 @@ export function getBrainMessage(
   return String(messageValue ?? key);
 }
 
+function isPromise(value: unknown): value is Promise<unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'then' in value &&
+    typeof (value as { then: unknown }).then === 'function'
+  );
+}
+
 /**
  * Generates the dynamic welcome text according to persona mode, memory visits, and locale.
  *
@@ -38,37 +48,41 @@ export function getBrainMessage(
  * @returns Welcome message text.
  */
 export async function getWelcomeText(
-  brainEngine: BrainEngine | Record<string, any> | null | undefined
+  brainEngine: BrainEngine | Record<string, unknown> | null | undefined
 ): Promise<string> {
-  const locale = (brainEngine as any)?.locale || 'zh-TW';
+  const engine = brainEngine as Partial<BrainEngine> | undefined;
+  const locale = engine?.locale || 'zh-TW';
   const templateContext = {
-    isMemoryEnabled: (brainEngine as any)?.memory?.enabled,
-    isCompanion: (brainEngine as any)?.avatarMode === AVATAR_MODE_MAP.companion,
-    visits: (brainEngine as any)?.memory?.data?.visits,
-    name: (brainEngine as any)?.memory?.data?.name,
+    name: engine?.memory?.data?.name,
     locale
   };
 
   if (
-    typeof (brainEngine as any)?.welcomeText !== 'undefined' &&
-    (brainEngine as any)?.welcomeText !== null
+    typeof engine?.welcomeText !== 'undefined' &&
+    engine?.welcomeText !== null
   ) {
     const resolvedWelcomeText = resolveLocalized(
-      (brainEngine as any).welcomeText,
+      engine.welcomeText,
       locale,
       undefined,
       templateContext
     );
-    if (resolvedWelcomeText instanceof Promise) {
-      return await resolvedWelcomeText;
+    if (isPromise(resolvedWelcomeText)) {
+      const awaitedText = await resolvedWelcomeText;
+      return typeof awaitedText === 'string' ? awaitedText : '';
     }
     if (typeof resolvedWelcomeText !== 'undefined') {
-      return resolvedWelcomeText;
+      return typeof resolvedWelcomeText === 'string'
+        ? resolvedWelcomeText
+        : '';
     }
   }
 
-  const currentAvatarMode = (brainEngine as any)?.avatarMode;
-  const currentCustomMode = (brainEngine as any)?.modes?.[currentAvatarMode];
+  const currentAvatarMode = engine?.avatarMode;
+  const currentCustomMode =
+    currentAvatarMode && engine?.modes
+      ? (engine.modes[currentAvatarMode] as Record<string, unknown> | undefined)
+      : undefined;
   if (
     typeof currentCustomMode?.welcomeText !== 'undefined' &&
     currentCustomMode?.welcomeText !== null
@@ -79,43 +93,49 @@ export async function getWelcomeText(
       undefined,
       templateContext
     );
-    if (resolvedCustomWelcomeText instanceof Promise) {
-      return await resolvedCustomWelcomeText;
+    if (isPromise(resolvedCustomWelcomeText)) {
+      const awaitedText = await resolvedCustomWelcomeText;
+      return typeof awaitedText === 'string' ? awaitedText : '';
     }
     if (typeof resolvedCustomWelcomeText !== 'undefined') {
-      return resolvedCustomWelcomeText;
+      return typeof resolvedCustomWelcomeText === 'string'
+        ? resolvedCustomWelcomeText
+        : '';
     }
   }
 
-  if ((brainEngine as any)?.avatarMode === AVATAR_MODE_MAP.companion) {
+  if (engine?.avatarMode === AVATAR_MODE_MAP.companion) {
     if (
-      typeof (brainEngine as any)?.companionWelcomeText !== 'undefined' &&
-      (brainEngine as any)?.companionWelcomeText !== null
+      typeof engine?.companionWelcomeText !== 'undefined' &&
+      engine?.companionWelcomeText !== null
     ) {
       const resolvedCompanionWelcomeText = resolveLocalized(
-        (brainEngine as any).companionWelcomeText,
+        engine.companionWelcomeText,
         locale,
         undefined,
         templateContext
       );
-      if (resolvedCompanionWelcomeText instanceof Promise) {
-        return await resolvedCompanionWelcomeText;
+      if (isPromise(resolvedCompanionWelcomeText)) {
+        const awaitedText = await resolvedCompanionWelcomeText;
+        return typeof awaitedText === 'string' ? awaitedText : '';
       }
       if (typeof resolvedCompanionWelcomeText !== 'undefined') {
-        return resolvedCompanionWelcomeText;
+        return typeof resolvedCompanionWelcomeText === 'string'
+          ? resolvedCompanionWelcomeText
+          : '';
       }
     }
     if (
-      typeof (brainEngine as any)?.memory?.data?.visits === 'number' &&
-      (brainEngine as any).memory.data.visits > 1
+      typeof engine?.memory?.data?.visits === 'number' &&
+      engine.memory.data.visits > 1
     ) {
-      const name = (brainEngine as any).memory.data.name;
+      const name = engine.memory.data.name;
       const hasName = typeof name === 'string' && name !== '';
       if (/en/i.test(locale)) {
         return (
           (hasName ? name + ', ' : '') +
           'welcome back! This is our ' +
-          (brainEngine as any).memory.data.visits +
+          engine.memory.data.visits +
           'th visit! Click 💬 to continue chatting.'
         );
       }
@@ -123,7 +143,7 @@ export async function getWelcomeText(
         return (
           (hasName ? name + 'さん、' : '') +
           'おかえりなさい！' +
-          (brainEngine as any).memory.data.visits +
+          engine.memory.data.visits +
           '回目の訪問ですね！💬 を押して続きをお話ししましょう。'
         );
       }
@@ -131,14 +151,14 @@ export async function getWelcomeText(
         return (
           (hasName ? name + '님, ' : '') +
           '다시 오신 것을 환영해요! 벌써 ' +
-          (brainEngine as any).memory.data.visits +
+          engine.memory.data.visits +
           '번째 만남이네요! 💬를 눌러 대화를 이어가요.'
         );
       }
       return (
         (hasName ? name + '，' : '') +
         '歡迎回來～這是我們第 ' +
-        (brainEngine as any).memory.data.visits +
+        engine.memory.data.visits +
         ' 次見面！點 💬 繼續聊，我記得我們聊過什麼喔'
       );
     }
@@ -155,20 +175,23 @@ export async function getWelcomeText(
   }
 
   if (
-    typeof (brainEngine as any)?.assistantWelcomeText !== 'undefined' &&
-    (brainEngine as any)?.assistantWelcomeText !== null
+    typeof engine?.assistantWelcomeText !== 'undefined' &&
+    engine?.assistantWelcomeText !== null
   ) {
     const resolvedAssistantWelcomeText = resolveLocalized(
-      (brainEngine as any).assistantWelcomeText,
+      engine.assistantWelcomeText,
       locale,
       undefined,
       templateContext
     );
-    if (resolvedAssistantWelcomeText instanceof Promise) {
-      return await resolvedAssistantWelcomeText;
+    if (isPromise(resolvedAssistantWelcomeText)) {
+      const awaitedText = await resolvedAssistantWelcomeText;
+      return typeof awaitedText === 'string' ? awaitedText : '';
     }
     if (typeof resolvedAssistantWelcomeText !== 'undefined') {
-      return resolvedAssistantWelcomeText;
+      return typeof resolvedAssistantWelcomeText === 'string'
+        ? resolvedAssistantWelcomeText
+        : '';
     }
   }
 
@@ -179,14 +202,14 @@ export async function getWelcomeText(
     return '🎤 を押して話すか、直接文字を入力してください。🧠 を押すとAIブレインを有効化できます 👋';
   }
   if (/ko/i.test(locale)) {
-    return '🎤를 눌러 말하거나 직접 타이핑하세요. 🧠를 누르면 AI 브레인을 켤 수 있어요 👋';
+    return '🎤를 눌러 말하거나 직접 텍스트를 입력하세요. 🧠를 누르면 AI 브레인이 활성화됩니다 👋';
   }
 
-  return '點 🎤 說話、或直接打字問我；想更聰明可按 🧠 啟用 AI 大腦 👋';
+  return '點 🎤 說話或直接打字；點 🧠 可啟動 AI 大腦 👋';
 }
 
 /**
- * Resolves or generates the continuation prompt for multi-step responses.
+ * Resolves the auto-continuation prompt according to locale or custom generator.
  *
  * @param brainEngine - Brain engine instance.
  * @param continuationIndex - Current continuation sequence index (1-indexed).
@@ -194,11 +217,12 @@ export async function getWelcomeText(
  * @returns Continuation prompt string.
  */
 export function resolveAutoContinuePrompt(
-  brainEngine: BrainEngine | Record<string, any> | null | undefined,
+  brainEngine: BrainEngine | Record<string, unknown> | null | undefined,
   continuationIndex = 1,
   accumulatedText = ''
 ): string {
-  const locale = (brainEngine as any)?.locale || 'zh-TW';
+  const engine = brainEngine as Partial<BrainEngine> | undefined;
+  const locale = engine?.locale || 'zh-TW';
   let defaultPrompt =
     '請接著你剛才尚未說完的內容，緊接著繼續往下說，不要重複前面的句子。';
   if (/en/i.test(locale)) {
@@ -212,10 +236,10 @@ export function resolveAutoContinuePrompt(
       '이전 문장을 반복하지 말고, 바로 이어서 계속 말씀해 주세요.';
   }
 
-  const customPrompt = (brainEngine as any)?.autoContinuePrompt;
+  const customPrompt = engine?.autoContinuePrompt;
   if (typeof customPrompt === 'function') {
     const result = customPrompt(
-      brainEngine,
+      brainEngine as BrainEngine,
       continuationIndex,
       accumulatedText
     );
@@ -227,7 +251,7 @@ export function resolveAutoContinuePrompt(
   }
 
   const resolvedPrompt = resolveLocalized(
-    (brainEngine as any)?.autoContinuePrompt,
+    (brainEngine as Partial<BrainEngine>)?.autoContinuePrompt,
     locale,
     defaultPrompt,
     { continuationIndex, accumulatedText, locale }
@@ -246,23 +270,23 @@ export function resolveAutoContinuePrompt(
  * @returns Compressed LLM messages array ready for inference.
  */
 export function buildDefaultLLMMessages(
-  brainEngine: BrainEngine | Record<string, any>,
+  brainEngine: BrainEngine | Record<string, unknown>,
   question: string,
   engineType: string = BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER
-): Promise<Array<Record<string, any>>> | Array<Record<string, any>> {
-  const engine = brainEngine as Record<string, any>;
+): Promise<LLMMessage[]> | LLMMessage[] {
+  const engine = brainEngine as Partial<BrainEngine>;
   const locale = engine?.locale || 'zh-TW';
   const context = getTopKnowledge(engine, question, 3)
     .map(
       (entry: KnowledgeEntry) =>
         'Q：' +
-        entry.q +
+        (entry.q || '') +
         '\nA：' +
-        entry.a +
-        (entry.source && (entry.source as any).title
+        (entry.a || '') +
+        (entry.source?.title
           ? '\n來源：' +
-            (entry.source as any).title +
-            ((entry.source as any).url ? ' ' + (entry.source as any).url : '')
+            entry.source.title +
+            (entry.source.url ? ' ' + entry.source.url : '')
           : '')
     )
     .join('\n---\n');
@@ -326,12 +350,13 @@ export function buildDefaultLLMMessages(
     .join(' ');
 
   let customContextText = '';
-  if (engine.customContext && typeof engine.customContext === 'object') {
-    const contextKeys = Object.keys(engine.customContext);
+  const customContext = engine.customContext;
+  if (typeof customContext === 'object' && customContext !== null) {
+    const contextKeys = Object.keys(customContext);
     if (contextKeys.length > 0) {
       customContextText = contextKeys
         .map((contextKey) => {
-          const contextValue = engine.customContext[contextKey];
+          const contextValue = customContext[contextKey];
           const formattedValue = Array.isArray(contextValue)
             ? contextValue.join('、')
             : String(contextValue);
@@ -359,7 +384,7 @@ export function buildDefaultLLMMessages(
       (customContextText ? '\n\n【추가 정보】\n{{custom}}' : '');
   }
 
-  const rawRag = resolveLocalized(
+  const rawRag = resolveLocalized<string | ((...args: unknown[]) => string)>(
     engine.ragTemplate,
     locale,
     defaultRag,
@@ -378,7 +403,10 @@ export function buildDefaultLLMMessages(
 
   let systemContext: string;
   const currentAvatarMode = engine?.avatarMode;
-  const currentCustomMode = engine?.modes?.[currentAvatarMode];
+  const currentCustomMode =
+    currentAvatarMode && engine?.modes
+      ? (engine.modes[currentAvatarMode] as Record<string, unknown> | undefined)
+      : undefined;
 
   if (
     typeof currentCustomMode === 'object' &&
@@ -387,8 +415,11 @@ export function buildDefaultLLMMessages(
       typeof currentCustomMode.systemContextTemplate !== 'undefined')
   ) {
     const rawCustomPrompt =
-      currentCustomMode.systemPrompt || currentCustomMode.systemContextTemplate;
-    const resolvedCustomPrompt = resolveLocalized(
+      (currentCustomMode.systemPrompt as string | undefined) ||
+      (currentCustomMode.systemContextTemplate as string | undefined);
+    const resolvedCustomPrompt = resolveLocalized<
+      string | ((...args: unknown[]) => string)
+    >(
       rawCustomPrompt,
       locale,
       undefined,
@@ -430,7 +461,9 @@ export function buildDefaultLLMMessages(
         '당신은 이 웹사이트의 친근하고 다정한 대화형 음성 아바타입니다. 부드럽고 구어체적인 한국어로 2~3문장 이내로 따뜻하게 응답해 주세요. 방문자와의 이전 대화를 기억합니다{{name_placeholder}}.{{RAG}}\n{{styleRule}}';
     }
 
-    const rawCompanionTemplate = resolveLocalized(
+    const rawCompanionTemplate = resolveLocalized<
+      string | ((...args: unknown[]) => string)
+    >(
       engine.companionSystemContextTemplate,
       locale,
       defaultCompanionTemplate,
@@ -460,7 +493,9 @@ export function buildDefaultLLMMessages(
         '당신은 "웹사이트에 임베드 가능한 음성 AI 아바타 위젯"의 데모 어시스턴트입니다. 주제는 "위젯 설치 방법, 아바타 캐릭터 변경 방법, 사용법"을 알려주는 것입니다. 자연스럽고 간결한 한국어로 2~3문장 이내로 답변해 주세요.{{RAG}}\n{{styleRule}}';
     }
 
-    const rawAssistantTemplate = resolveLocalized(
+    const rawAssistantTemplate = resolveLocalized<
+      string | ((...args: unknown[]) => string)
+    >(
       engine.systemContextTemplate,
       locale,
       defaultAssistantTemplate,
@@ -491,22 +526,28 @@ export function buildDefaultLLMMessages(
   for (const historyItem of history) {
     if (typeof historyItem === 'object' && historyItem !== null) {
       let safeContent = '';
-      if (typeof historyItem.content === 'string') {
-        safeContent = historyItem.content;
-      } else if (typeof historyItem.content?.text === 'string') {
-        safeContent = historyItem.content.text;
-      } else if (typeof historyItem.text === 'string') {
-        safeContent = historyItem.text;
+      const rawItem = historyItem as Record<string, unknown>;
+      if (typeof rawItem.content === 'string') {
+        safeContent = rawItem.content;
       } else if (
-        typeof historyItem.content === 'object' &&
-        historyItem.content !== null
+        typeof rawItem.content === 'object' &&
+        rawItem.content !== null &&
+        'text' in rawItem.content &&
+        typeof (rawItem.content as { text: unknown }).text === 'string'
       ) {
-        safeContent = JSON.stringify(historyItem.content);
+        safeContent = (rawItem.content as { text: string }).text;
+      } else if (typeof rawItem.text === 'string') {
+        safeContent = rawItem.text;
       } else if (
-        typeof historyItem.content !== 'undefined' &&
-        historyItem.content !== null
+        typeof rawItem.content === 'object' &&
+        rawItem.content !== null
       ) {
-        safeContent = String(historyItem.content);
+        safeContent = JSON.stringify(rawItem.content);
+      } else if (
+        typeof rawItem.content !== 'undefined' &&
+        rawItem.content !== null
+      ) {
+        safeContent = String(rawItem.content);
       }
       rawMessages.push({
         role: historyItem.role === 'user' ? 'user' : 'assistant',

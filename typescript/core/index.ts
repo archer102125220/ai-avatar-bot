@@ -12,4 +12,5 @@ export * from './plugins';
 export * from './orchestrator';
 
 export { initAvatarBot, initAvatarBot as createAvatarBot };
+export type { AvatarMode } from './constants';
 export default initAvatarBot;

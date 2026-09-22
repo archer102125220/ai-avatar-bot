@@ -1,4 +1,4 @@
-import type { KnowledgeEntry, BrainEngine } from '@types';
+import type { KnowledgeEntry, BrainEngine } from './types';
 
 /**
  * Fetches knowledge base JSON entries from a URL.

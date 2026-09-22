@@ -12,7 +12,7 @@ import {
   CHAT_ROLE_MAP,
   BRAIN_ENGINE_TYPE_MAP
 } from '@/core/constants';
-import type { BrainCompressionOptions } from '@types';
+import type { BrainCompressionOptions, LLMMessage } from './types';
 
 /**
  * Resolved context compression limits and strategy configuration.
@@ -123,7 +123,7 @@ export function estimateChars(input: unknown): number {
     return totalChars;
   }
   if (typeof input === 'object' && input !== null) {
-    const inputObj = input as Record<string, any>;
+    const inputObj = input as Record<string, unknown>;
     let charCount = 0;
     if (typeof inputObj.content === 'string') {
       charCount += inputObj.content.length;
@@ -133,11 +133,14 @@ export function estimateChars(input: unknown): number {
       inputObj.tool_calls.length > 0
     ) {
       for (const toolCall of inputObj.tool_calls) {
-        if (typeof toolCall?.function?.arguments === 'string') {
-          charCount += toolCall.function.arguments.length;
-        }
-        if (typeof toolCall?.function?.name === 'string') {
-          charCount += toolCall.function.name.length;
+        if (typeof toolCall === 'object' && toolCall !== null) {
+          const fn = (toolCall as { function?: { name?: string; arguments?: string } }).function;
+          if (typeof fn?.arguments === 'string') {
+            charCount += fn.arguments.length;
+          }
+          if (typeof fn?.name === 'string') {
+            charCount += fn.name.length;
+          }
         }
       }
     }
@@ -153,8 +156,8 @@ export function estimateChars(input: unknown): number {
  * @returns Sanitized message array.
  */
 export function sanitizeToolCalls(
-  messages: Array<Record<string, any>>
-): Array<Record<string, any>> {
+  messages: LLMMessage[]
+): LLMMessage[] {
   if (Array.isArray(messages) === false || messages.length === 0) {
     return [];
   }
@@ -167,7 +170,7 @@ export function sanitizeToolCalls(
       Array.isArray(message.tool_calls) === true &&
       message.tool_calls.length > 0
     ) {
-      for (const toolCall of message.tool_calls) {
+      for (const toolCall of message.tool_calls as Array<{ id?: string }>) {
         if (typeof toolCall?.id === 'string' && toolCall.id !== '') {
           validToolCallIds.add(toolCall.id);
         }
@@ -175,7 +178,7 @@ export function sanitizeToolCalls(
     }
   }
 
-  const sanitizedMessages: Array<Record<string, any>> = [];
+  const sanitizedMessages: LLMMessage[] = [];
   for (let index = 0; index < messages.length; index++) {
     const message = messages[index];
     if (typeof message !== 'object' || message === null) {
@@ -208,8 +211,8 @@ export function sanitizeToolCalls(
  * @returns Grouped turns array.
  */
 export function groupMessagesIntoTurns(
-  historyMessages: Array<Record<string, any>>
-): Array<Array<Record<string, any>>> {
+  historyMessages: LLMMessage[]
+): LLMMessage[][] {
   if (
     Array.isArray(historyMessages) === false ||
     historyMessages.length === 0
@@ -217,8 +220,8 @@ export function groupMessagesIntoTurns(
     return [];
   }
 
-  const turns: Array<Array<Record<string, any>>> = [];
-  let currentTurn: Array<Record<string, any>> = [];
+  const turns: LLMMessage[][] = [];
+  let currentTurn: LLMMessage[] = [];
 
   for (let index = 0; index < historyMessages.length; index++) {
     const message = historyMessages[index];
@@ -244,10 +247,10 @@ export function groupMessagesIntoTurns(
 }
 
 /**
- * Standard sliding-window conversation compressor preserving complete recent turns up to character budget.
+ * Compresses context by preserving the system prompt, most recent complete conversation turns, and the latest user turn.
  *
- * @param params - Compression parameters.
- * @returns Compressed and filtered messages array.
+ * @param options - Sliding window compression options.
+ * @returns Compressed messages array.
  */
 export function slidingWindowCompressor({
   messages,
@@ -255,18 +258,18 @@ export function slidingWindowCompressor({
   maxTurns = DEFAULT_MAX_HISTORY_TURNS,
   maxTotalChars = DEFAULT_MAX_TOTAL_CHARS
 }: {
-  messages: Array<Record<string, any>>;
+  messages: LLMMessage[];
   systemPrompt?: string;
   maxTurns?: number;
   maxTotalChars?: number;
-}): Array<Record<string, any>> {
+}): LLMMessage[] {
   if (Array.isArray(messages) === false || messages.length === 0) {
     return [];
   }
 
-  let systemMessage: Record<string, any> | null = null;
-  let latestUserMessage: Record<string, any> | null = null;
-  const rawHistory: Array<Record<string, any>> = [];
+  let systemMessage: LLMMessage | null = null;
+  let latestUserMessage: LLMMessage | null = null;
+  const rawHistory: LLMMessage[] = [];
 
   for (let index = 0; index < messages.length; index++) {
     const message = messages[index];
@@ -305,7 +308,7 @@ export function slidingWindowCompressor({
   const availableBudget = Math.max(0, maxTotalChars - reservedChars);
 
   const turns = groupMessagesIntoTurns(rawHistory);
-  const selectedTurns: Array<Array<Record<string, any>>> = [];
+  const selectedTurns: LLMMessage[][] = [];
   let accumulatedChars = 0;
 
   for (let turnIndex = turns.length - 1; turnIndex >= 0; turnIndex--) {
@@ -327,14 +330,14 @@ export function slidingWindowCompressor({
     accumulatedChars += turnChars;
   }
 
-  const selectedHistory: Array<Record<string, any>> = [];
+  const selectedHistory: LLMMessage[] = [];
   for (const turn of selectedTurns) {
     for (const message of turn) {
       selectedHistory.push(message);
     }
   }
 
-  const finalMessages: Array<Record<string, any>> = [];
+  const finalMessages: LLMMessage[] = [];
   if (systemMessage !== null) {
     finalMessages.push(systemMessage);
   }
@@ -472,12 +475,12 @@ export function rollingSummaryCompressor({
   recentTurnsCount = DEFAULT_SUMMARY_RECENT_TURNS,
   maxTotalChars = DEFAULT_MAX_TOTAL_CHARS
 }: {
-  messages: Array<Record<string, any>>;
+  messages: LLMMessage[];
   systemPrompt?: string;
   summary?: string;
   recentTurnsCount?: number;
   maxTotalChars?: number;
-}): Array<Record<string, any>> {
+}): LLMMessage[] {
   if (Array.isArray(messages) === false || messages.length === 0) {
     return [];
   }
@@ -527,16 +530,16 @@ export async function compressContext({
   model = '',
   compressionOptions = {}
 }: {
-  messages: Array<Record<string, any>>;
+  messages: LLMMessage[];
   systemPrompt?: string;
   history?: Array<{ role: string; content: string }>;
   latestQuestion?: string;
-  memoryData?: Record<string, any>;
+  memoryData?: Record<string, unknown>;
   provider?: string;
   engineType?: string;
   model?: string;
   compressionOptions?: BrainCompressionOptions;
-}): Promise<Array<Record<string, any>>> {
+}): Promise<LLMMessage[]> {
   if (Array.isArray(messages) === false || messages.length === 0) {
     return [];
   }
@@ -583,14 +586,14 @@ export async function compressContext({
     const summary =
       typeof memoryData?.summary === 'string'
         ? memoryData.summary
-        : typeof (compressionOptions as Record<string, any>)?.summary ===
+        : typeof (compressionOptions as Record<string, unknown>)?.summary ===
             'string'
-          ? (compressionOptions as Record<string, any>).summary
+          ? ((compressionOptions as Record<string, unknown>).summary as string)
           : '';
     const recentTurnsCount =
-      typeof (compressionOptions as Record<string, any>)?.recentTurns ===
-        'number' && (compressionOptions as Record<string, any>).recentTurns > 0
-        ? (compressionOptions as Record<string, any>).recentTurns
+      typeof (compressionOptions as Record<string, unknown>)?.recentTurns ===
+        'number' && ((compressionOptions as Record<string, unknown>).recentTurns as number) > 0
+        ? ((compressionOptions as Record<string, unknown>).recentTurns as number)
         : DEFAULT_SUMMARY_RECENT_TURNS;
 
     return rollingSummaryCompressor({

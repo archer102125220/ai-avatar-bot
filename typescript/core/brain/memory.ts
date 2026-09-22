@@ -15,8 +15,9 @@ import type {
   MemoryAdapter,
   MemoryInstance,
   AvatarMode,
-  BrainEngine
-} from '@types';
+  BrainEngine,
+  ChatHistoryItem
+} from './types';
 import {
   resolveCompressionLimits,
   generateRollingSummary
@@ -43,18 +44,25 @@ export function createDefaultMemoryData(): MemoryData {
 /**
  * Version migration mapping for conversation memory schemas.
  */
-const MIGRATIONS: Record<number, (oldData: any) => MemoryData> = {
-  1: (oldData: any): MemoryData => {
-    const rawHistory =
-      Array.isArray(oldData?.history) === true ? oldData.history : [];
+const MIGRATIONS: Record<
+  number,
+  (oldData: Record<string, unknown>) => MemoryData
+> = {
+  1: (oldData: Record<string, unknown>): MemoryData => {
+    const rawHistory = Array.isArray(oldData?.history) ? oldData.history : [];
     const sanitizedHistory = rawHistory
       .filter((item: unknown) => typeof item === 'object' && item !== null)
-      .map((item: any) => {
+      .map((itemObj: unknown) => {
+        const item = itemObj as Record<string, unknown>;
         let safeContent = '';
         if (typeof item.content === 'string') {
           safeContent = item.content;
-        } else if (typeof item.content?.text === 'string') {
-          safeContent = item.content.text;
+        } else if (
+          typeof item.content === 'object' &&
+          item.content !== null &&
+          typeof (item.content as { text?: unknown }).text === 'string'
+        ) {
+          safeContent = (item.content as { text: string }).text;
         } else if (typeof item.text === 'string') {
           safeContent = item.text;
         } else if (typeof item.content === 'object' && item.content !== null) {
@@ -93,7 +101,7 @@ const MIGRATIONS: Record<number, (oldData: any) => MemoryData> = {
           : 0,
       metadata:
         typeof oldData?.metadata === 'object' && oldData.metadata !== null
-          ? oldData.metadata
+          ? (oldData.metadata as Record<string, unknown>)
           : {}
     };
   }
@@ -110,14 +118,14 @@ export function migrateMemoryData(rawData: unknown): MemoryData {
     return createDefaultMemoryData();
   }
 
-  const rawObj = rawData as Record<string, any>;
+  const rawObj = rawData as Record<string, unknown>;
   let currentVersion =
     typeof rawObj.version === 'number' &&
     Number.isFinite(rawObj.version) === true
       ? rawObj.version
       : 0;
 
-  let migratedData: any = { ...rawObj };
+  let migratedData: Record<string, unknown> = { ...rawObj };
 
   while (currentVersion < CURRENT_MEMORY_VERSION) {
     const nextVersion = currentVersion + 1;
@@ -125,7 +133,8 @@ export function migrateMemoryData(rawData: unknown): MemoryData {
 
     if (typeof migrationFn === 'function') {
       try {
-        migratedData = migrationFn(migratedData);
+        const result = migrationFn(migratedData);
+        migratedData = result as unknown as Record<string, unknown>;
         currentVersion = nextVersion;
       } catch (err) {
         console.warn(
@@ -140,43 +149,37 @@ export function migrateMemoryData(rawData: unknown): MemoryData {
     }
   }
 
-  migratedData.version = CURRENT_MEMORY_VERSION;
+  const validatedMemoryData: MemoryData = {
+    version: CURRENT_MEMORY_VERSION,
+    name: typeof migratedData.name === 'string' ? migratedData.name : '',
+    visits:
+      typeof migratedData.visits === 'number' &&
+      Number.isFinite(migratedData.visits) === true
+        ? migratedData.visits
+        : 0,
+    last:
+      typeof migratedData.last === 'number' &&
+      Number.isFinite(migratedData.last) === true
+        ? migratedData.last
+        : 0,
+    history: Array.isArray(migratedData.history)
+      ? (migratedData.history as ChatHistoryItem[])
+      : [],
+    summary:
+      typeof migratedData.summary === 'string' ? migratedData.summary : '',
+    lastSummarizedTurnIndex:
+      typeof migratedData.lastSummarizedTurnIndex === 'number' &&
+      Number.isFinite(migratedData.lastSummarizedTurnIndex) === true
+        ? migratedData.lastSummarizedTurnIndex
+        : 0,
+    metadata:
+      typeof migratedData.metadata === 'object' &&
+      migratedData.metadata !== null
+        ? (migratedData.metadata as Record<string, unknown>)
+        : {}
+  };
 
-  if (typeof migratedData.name !== 'string') {
-    migratedData.name = '';
-  }
-  if (
-    typeof migratedData.visits !== 'number' ||
-    Number.isFinite(migratedData.visits) === false
-  ) {
-    migratedData.visits = 0;
-  }
-  if (
-    typeof migratedData.last !== 'number' ||
-    Number.isFinite(migratedData.last) === false
-  ) {
-    migratedData.last = 0;
-  }
-  if (Array.isArray(migratedData.history) === false) {
-    migratedData.history = [];
-  }
-  if (typeof migratedData.summary !== 'string') {
-    migratedData.summary = '';
-  }
-  if (
-    typeof migratedData.lastSummarizedTurnIndex !== 'number' ||
-    Number.isFinite(migratedData.lastSummarizedTurnIndex) === false
-  ) {
-    migratedData.lastSummarizedTurnIndex = 0;
-  }
-  if (
-    typeof migratedData.metadata !== 'object' ||
-    migratedData.metadata === null
-  ) {
-    migratedData.metadata = {};
-  }
-
-  return migratedData as MemoryData;
+  return validatedMemoryData;
 }
 
 /**
@@ -267,13 +270,13 @@ export function initMemory({
       this.save();
     },
 
-    save(): void {
+    save(): Promise<void> | void {
       if (this.enabled === false) {
         return;
       }
       try {
         this.data.last = Date.now();
-        this.adapter.save(this.key, this.data);
+        return this.adapter.save(this.key, this.data);
       } catch (_error) {
         // Ignore save error
       }
@@ -311,7 +314,7 @@ export function initMemory({
       return this.data?.version || CURRENT_MEMORY_VERSION;
     },
 
-    getMetadata(): Record<string, any> {
+    getMetadata(): Record<string, unknown> {
       return typeof this.data?.metadata === 'object' &&
         this.data.metadata !== null
         ? this.data.metadata
@@ -320,8 +323,8 @@ export function initMemory({
 
     setMetadata(
       patchOrUpdater:
-        | Record<string, any>
-        | ((prev: Record<string, any>) => Record<string, any>)
+        | Record<string, unknown>
+        | ((prev: Record<string, unknown>) => Record<string, unknown>)
     ): void {
       if (this.enabled === false) {
         return;
@@ -341,12 +344,12 @@ export function initMemory({
       this.save();
     },
 
-    clear(): void {
+    clear(): Promise<void> | void {
       this.data = createDefaultMemoryData();
       this.data.visits = 1;
       try {
         if (typeof this.adapter.clear === 'function') {
-          this.adapter.clear(this.key);
+          return this.adapter.clear(this.key);
         }
       } catch (_error) {
         // Ignore clear error
@@ -365,18 +368,21 @@ export function initMemory({
  * @param brainEngine - Brain engine instance.
  */
 export async function triggerRollingSummaryIfNeeded(
-  brainEngine: BrainEngine | Record<string, any> | null | undefined
+  brainEngine: BrainEngine | Record<string, unknown> | null | undefined
 ): Promise<void> {
-  const engine = brainEngine as Record<string, any>;
+  const engine = brainEngine as Partial<BrainEngine> | null | undefined;
   if (
     typeof engine !== 'object' ||
     engine === null ||
-    engine.memory?.enabled !== true ||
+    typeof engine.memory !== 'object' ||
+    engine.memory === null ||
+    engine.memory.enabled !== true ||
     engine._isSummarizing === true
   ) {
     return;
   }
 
+  const memory = engine.memory;
   const compressionOptions = engine.compression || {};
   const currentEngineType =
     engine.aiProvider?.enabled === true && engine.aiProvider.ready === true
@@ -391,7 +397,7 @@ export async function triggerRollingSummaryIfNeeded(
     return;
   }
 
-  const history = engine.memory.data.history || [];
+  const history = memory.data.history || [];
   const threshold =
     typeof compressionOptions.summaryThresholdTurns === 'number' &&
     compressionOptions.summaryThresholdTurns > 0
@@ -399,8 +405,8 @@ export async function triggerRollingSummaryIfNeeded(
       : DEFAULT_SUMMARY_THRESHOLD_TURNS;
 
   const lastIndex =
-    typeof engine.memory.data.lastSummarizedTurnIndex === 'number'
-      ? engine.memory.data.lastSummarizedTurnIndex
+    typeof memory.data.lastSummarizedTurnIndex === 'number'
+      ? memory.data.lastSummarizedTurnIndex
       : 0;
   const unsummarizedCount = history.length - lastIndex;
 
@@ -413,7 +419,11 @@ export async function triggerRollingSummaryIfNeeded(
 
   setTimeout(async () => {
     try {
-      const oldSummary = engine.memory.data.summary || '';
+      const activeMemory = engine.memory;
+      if (typeof activeMemory !== 'object' || activeMemory === null) {
+        return;
+      }
+      const oldSummary = activeMemory.data.summary || '';
       const newTurns = history.slice(lastIndex);
 
       let llmChat:
@@ -421,33 +431,52 @@ export async function triggerRollingSummaryIfNeeded(
             promptMsgs: Array<{ role: string; content: string }>
           ) => Promise<string>)
         | null = null;
+      const aiProvider = engine.aiProvider;
+      const llm = engine.llm;
       if (
-        engine.aiProvider?.enabled === true &&
-        engine.aiProvider.ready === true &&
-        typeof engine.aiProvider.chat === 'function'
+        typeof aiProvider === 'object' &&
+        aiProvider !== null &&
+        aiProvider.enabled === true &&
+        aiProvider.ready === true &&
+        typeof aiProvider.chat === 'function'
       ) {
         llmChat = async (
           promptMsgs: Array<{ role: string; content: string }>
         ): Promise<string> => {
-          const summaryResponse = await engine.aiProvider.chat(promptMsgs);
-          return typeof summaryResponse === 'string'
-            ? summaryResponse
-            : typeof summaryResponse?.content === 'string'
-              ? summaryResponse.content
-              : '';
+          const summaryResponse = await aiProvider.chat(promptMsgs);
+          if (typeof summaryResponse === 'string') {
+            return summaryResponse;
+          }
+          if (
+            typeof summaryResponse === 'object' &&
+            summaryResponse !== null &&
+            'content' in summaryResponse &&
+            typeof (summaryResponse as { content: unknown }).content === 'string'
+          ) {
+            return (summaryResponse as { content: string }).content;
+          }
+          return '';
         };
       } else if (
-        engine.llm?.state === STATE_MAP.READY &&
-        typeof engine.llm?.engine?.chat?.completions?.create === 'function'
+        typeof llm === 'object' &&
+        llm !== null &&
+        llm.state === STATE_MAP.READY &&
+        typeof llm.engine?.chat?.completions?.create === 'function'
       ) {
         llmChat = async (
           promptMsgs: Array<{ role: string; content: string }>
         ): Promise<string> => {
           const completionResult =
-            await engine.llm.engine.chat.completions.create({
+            (await llm.engine!.chat!.completions!.create({
               messages: promptMsgs,
               temperature: 0.3
-            });
+            })) as {
+              choices?: Array<{
+                message?: {
+                  content?: string | null;
+                };
+              }>;
+            };
           return completionResult?.choices?.[0]?.message?.content || '';
         };
       }
@@ -461,9 +490,9 @@ export async function triggerRollingSummaryIfNeeded(
       });
 
       if (typeof newSummary === 'string' && newSummary.trim() !== '') {
-        engine.memory.data.summary = newSummary.trim();
-        engine.memory.data.lastSummarizedTurnIndex = history.length;
-        engine.memory.save();
+        activeMemory.data.summary = newSummary.trim();
+        activeMemory.data.lastSummarizedTurnIndex = history.length;
+        activeMemory.save();
 
         if (typeof engine.onSummaryUpdated === 'function') {
           engine.onSummaryUpdated(newSummary.trim());

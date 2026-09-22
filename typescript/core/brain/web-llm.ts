@@ -9,7 +9,14 @@ import {
   isWebLLMFunctionCallingSupported
 } from '@/core/constants';
 import { toOpenAiTools } from '@/core/tools';
-import type { BrainEngine, ToolDefinition } from '@types';
+import type { ToolDefinition } from '@types';
+import type {
+  BrainEngine,
+  LLMEngineOptions,
+  LLMEngine,
+  LLMMessage,
+  ParsedToolCall
+} from './types';
 import { extractToolCallsFromText, executeToolCallsLoop } from './tool-calling';
 import {
   getBrainMessage,
@@ -17,55 +24,39 @@ import {
   buildDefaultLLMMessages
 } from './messages';
 
-/**
- * Configuration options for the in-browser WebLLM engine.
- */
-export interface LLMEngineOptions {
-  llmModel?: string;
-  model?: string;
-  llmMaxTokens?: number;
-  maxTokens?: number;
-  llmIsStream?: boolean;
-  isStream?: boolean;
-  LLMIsStream?: boolean;
-  onLoading?: ((...args: any[]) => any) | null;
-  onLoadProgress?: ((...args: any[]) => any) | null;
-  onLoaded?: ((...args: any[]) => any) | null;
-  onLoadError?: ((...args: any[]) => any) | null;
-  onChatting?: ((...args: any[]) => any) | null;
-  onStreamChatting?: ((...args: any[]) => any) | null;
+export type { LLMEngineOptions, LLMEngine };
+
+interface MLCChatCompletionChoice {
+  finish_reason?: string;
+  delta?: {
+    content?: string;
+    tool_calls?: Array<{
+      index?: number;
+      id?: string;
+      function?: {
+        name?: string;
+        arguments?: string;
+      };
+    }>;
+  };
+  message?: {
+    content?: string;
+    tool_calls?: unknown[];
+  };
 }
 
-/**
- * In-browser WebLLM engine instance interface.
- */
-export interface LLMEngine {
-  readonly supported: boolean;
-  state: string | number;
-  progress: number;
-  model: string;
-  error?: string;
-  readonly maxTokens: number;
-  readonly isStream: boolean;
-  readonly onLoading: (...args: any[]) => any;
-  readonly onLoadProgress: (...args: any[]) => any;
-  readonly onLoaded: (...args: any[]) => any;
-  readonly onLoadError: (...args: any[]) => any;
-  readonly onChatting: (...args: any[]) => any;
-  readonly onStreamChatting: (...args: any[]) => any;
-  load(): Promise<any>;
-  chat(
-    messages: Array<Record<string, any>>,
-    onDelta?:
-      | ((
-          chunkDelta: string,
-          accumulatedText: string,
-          llm?: any,
-          brain?: any
-        ) => void)
-      | null,
-    tools?: ToolDefinition[]
-  ): Promise<any>;
+interface MLCChatCompletionResult {
+  choices?: MLCChatCompletionChoice[];
+}
+
+interface MLCEngineInstance {
+  chat: {
+    completions: {
+      create(
+        options: Record<string, unknown>
+      ): Promise<MLCChatCompletionResult | AsyncIterable<MLCChatCompletionResult>>;
+    };
+  };
 }
 
 /**
@@ -77,7 +68,7 @@ export interface LLMEngine {
  */
 export function initWebLLM(
   setting: LLMEngineOptions = {},
-  brain?: BrainEngine | Record<string, any>
+  brain?: BrainEngine | Record<string, unknown>
 ): LLMEngine {
   const {
     llmModel,
@@ -116,8 +107,8 @@ export function initWebLLM(
           ? LLMIsStream
           : true;
 
-  let engine: any = null;
-  let loadingPromise: Promise<any> | null = null;
+  let engine: MLCEngineInstance | null = null;
+  let loadingPromise: Promise<MLCEngineInstance> | null = null;
 
   const llm: LLMEngine = {
     get supported(): boolean {
@@ -133,50 +124,53 @@ export function initWebLLM(
     get isStream(): boolean {
       return resolvedIsStream;
     },
+    get engine() {
+      return engine;
+    },
 
     get onLoading() {
-      return function _onLoading(...args: any[]) {
+      return function _onLoading(...args: unknown[]) {
         if (typeof onLoading === 'function') {
-          onLoading(...args);
+          return onLoading(...args);
         }
       };
     },
     get onLoadProgress() {
-      return function _onLoadProgress(...args: any[]) {
+      return function _onLoadProgress(...args: unknown[]) {
         if (typeof onLoadProgress === 'function') {
-          onLoadProgress(...args);
+          return onLoadProgress(...args);
         }
       };
     },
     get onLoaded() {
-      return function _onLoaded(...args: any[]) {
+      return function _onLoaded(...args: unknown[]) {
         if (typeof onLoaded === 'function') {
-          onLoaded(...args);
+          return onLoaded(...args);
         }
       };
     },
     get onLoadError() {
-      return function _onLoadError(...args: any[]) {
+      return function _onLoadError(...args: unknown[]) {
         if (typeof onLoadError === 'function') {
-          onLoadError(...args);
+          return onLoadError(...args);
         }
       };
     },
     get onChatting() {
-      return function _onChatting(...args: any[]) {
+      return function _onChatting(...args: unknown[]) {
         if (typeof onChatting === 'function') {
-          onChatting(...args);
+          return onChatting(...args);
         }
       };
     },
     get onStreamChatting() {
-      return function _onStreamChatting(...args: any[]) {
+      return function _onStreamChatting(...args: unknown[]) {
         if (typeof onStreamChatting === 'function') {
-          onStreamChatting(...args);
+          return onStreamChatting(...args);
         }
       };
     },
-    async load(): Promise<any> {
+    async load(): Promise<unknown> {
       if (typeof engine === 'object' && engine !== null) {
         return engine;
       }
@@ -189,17 +183,21 @@ export function initWebLLM(
       loadingPromise = (async () => {
         try {
           const webllm = await import('@mlc-ai/web-llm');
-          engine = await webllm.CreateMLCEngine(llmModel || resolvedModel, {
-            initProgressCallback: (progressInfo: any) => {
-              this.progress = progressInfo.progress || 0;
-              this.onLoadProgress(progressInfo);
+          const createdEngine = await webllm.CreateMLCEngine(
+            llmModel || resolvedModel,
+            {
+              initProgressCallback: (progressInfo: { progress?: number }) => {
+                this.progress = progressInfo.progress || 0;
+                this.onLoadProgress(progressInfo);
+              }
             }
-          });
+          );
+          engine = createdEngine as unknown as MLCEngineInstance;
 
           this.state = STATE_MAP.READY;
           this.onLoaded(engine);
           return engine;
-        } catch (error: any) {
+        } catch (error: unknown) {
           this.state = STATE_MAP.ERROR;
           this.error = String(error);
           this.onLoadError(error, this);
@@ -210,22 +208,22 @@ export function initWebLLM(
       return loadingPromise;
     },
     async chat(
-      messages: Array<Record<string, any>>,
+      messages: LLMMessage[] | Array<Record<string, unknown>>,
       onDelta?:
         | ((
             chunkDelta: string,
             accumulatedText: string,
-            llm?: any,
-            brain?: any
+            llm?: unknown,
+            brain?: unknown
           ) => void)
         | null,
       tools?: ToolDefinition[]
-    ): Promise<any> {
+    ): Promise<unknown> {
       if (typeof engine !== 'object' || engine === null) {
         return null;
       }
 
-      const createOptions: Record<string, any> = {
+      const createOptions: Record<string, unknown> = {
         messages,
         temperature: 0.4,
         max_tokens: this.maxTokens
@@ -245,21 +243,24 @@ export function initWebLLM(
           createOptions.tools = openAiTools;
 
           if (Array.isArray(messages) === true) {
-            const systemMsg = messages.find(
+            const typedMessages = messages as LLMMessage[];
+            const systemMsg = typedMessages.find(
               (messageItem) =>
                 messageItem.role === CHAT_ROLE_MAP.SYSTEM ||
                 messageItem.role === 'system'
             );
-            const nonSystemMsgs = messages.filter(
+            const nonSystemMsgs = typedMessages.filter(
               (messageItem) =>
                 messageItem.role !== CHAT_ROLE_MAP.SYSTEM &&
                 messageItem.role !== 'system'
             );
 
-            if (
-              typeof systemMsg?.content === 'string' &&
-              systemMsg.content.trim() !== ''
-            ) {
+            const systemInstruction =
+              typeof systemMsg?.content === 'string'
+                ? systemMsg.content.trim()
+                : '';
+
+            if (systemInstruction !== '') {
               const firstUserIndex = nonSystemMsgs.findIndex(
                 (messageItem) =>
                   messageItem.role === CHAT_ROLE_MAP.USER ||
@@ -271,7 +272,7 @@ export function initWebLLM(
                     if (messageIndex === firstUserIndex) {
                       return {
                         ...messageItem,
-                        content: `[Instruction: ${systemMsg.content.trim()}]\n\n${messageItem.content}`
+                        content: `[Instruction: ${systemInstruction}]\n\n${String(messageItem.content ?? '')}`
                       };
                     }
                     return messageItem;
@@ -281,7 +282,7 @@ export function initWebLLM(
                 createOptions.messages = [
                   {
                     role: CHAT_ROLE_MAP.USER,
-                    content: `[Instruction: ${systemMsg.content.trim()}]`
+                    content: `[Instruction: ${systemInstruction}]`
                   },
                   ...nonSystemMsgs
                 ];
@@ -294,8 +295,8 @@ export function initWebLLM(
       }
 
       const executeChatCompletion = async (
-        options: Record<string, any>
-      ): Promise<any> => {
+        options: Record<string, unknown>
+      ): Promise<unknown> => {
         const hasTools =
           Array.isArray(options.tools) === true && options.tools.length > 0;
 
@@ -304,10 +305,11 @@ export function initWebLLM(
           this.isStream === false ||
           hasTools === true
         ) {
+          const rawMessages = (options.messages as Array<Record<string, unknown>>) || [];
           const normalizedOptions = {
             ...options,
-            messages: (options.messages || []).map(
-              (messageItem: Record<string, any>) => ({
+            messages: rawMessages.map(
+              (messageItem: Record<string, unknown>) => ({
                 ...messageItem,
                 content:
                   typeof messageItem?.content === 'string'
@@ -316,8 +318,9 @@ export function initWebLLM(
               })
             )
           };
-          const result =
-            await engine.chat.completions.create(normalizedOptions);
+          const rawResult =
+            await engine!.chat.completions.create(normalizedOptions);
+          const result = rawResult as MLCChatCompletionResult;
           const choice = result?.choices?.[0];
           const message = choice?.message;
           const finishReason =
@@ -375,11 +378,12 @@ export function initWebLLM(
           };
         }
 
+        const rawMessages = (options.messages as Array<Record<string, unknown>>) || [];
         const streamOptions = {
           ...options,
           stream: true,
-          messages: (options.messages || []).map(
-            (messageItem: Record<string, any>) => ({
+          messages: rawMessages.map(
+            (messageItem: Record<string, unknown>) => ({
               ...messageItem,
               content:
                 typeof messageItem?.content === 'string'
@@ -388,10 +392,19 @@ export function initWebLLM(
             })
           )
         };
-        const stream = await engine.chat.completions.create(streamOptions);
+        const stream = (await engine!.chat.completions.create(
+          streamOptions
+        )) as AsyncIterable<MLCChatCompletionResult>;
         let fullResponse = '';
-        let streamFinishReason = LLM_FINISH_REASON_MAP.STOP;
-        const toolCallsMap: Record<number, any> = {};
+        let streamFinishReason: string = LLM_FINISH_REASON_MAP.STOP;
+        const toolCallsMap: Record<
+          number,
+          {
+            id: string;
+            type: string;
+            function: { name: string; arguments: string };
+          }
+        > = {};
         let hasToolCalls = false;
 
         for await (const chunk of stream) {
@@ -408,12 +421,12 @@ export function initWebLLM(
             delta.tool_calls.length > 0
           ) {
             hasToolCalls = true;
-            delta.tool_calls.forEach((toolCallDelta: any) => {
+            delta.tool_calls.forEach((toolCallDelta) => {
               const callIndex =
                 typeof toolCallDelta.index === 'number'
                   ? toolCallDelta.index
                   : 0;
-              if (typeof toolCallsMap[callIndex] === 'undefined') {
+              if (toolCallsMap[callIndex] === undefined) {
                 toolCallsMap[callIndex] = {
                   id: toolCallDelta.id || `call_${callIndex}`,
                   type: 'function',
@@ -479,23 +492,37 @@ export function initWebLLM(
 
         this.onChatting(fullResponse, messages, brain);
         return {
-          type: 'text',
+            type: 'text',
           content: fullResponse,
           finishReason: streamFinishReason
         };
       };
 
       try {
-        const response = await executeChatCompletion(createOptions);
+        const response = (await executeChatCompletion(createOptions)) as
+          | {
+              type?: string;
+              content?: string;
+              toolCalls?: unknown[];
+              message?: unknown;
+              finishReason?: string;
+            }
+          | string
+          | null
+          | undefined;
         const textContent =
           typeof response === 'string'
             ? response
             : typeof response?.content === 'string'
               ? response.content
               : '';
+        const responseType =
+          typeof response === 'object' && response !== null
+            ? response.type
+            : undefined;
         if (
           createOptions.tools !== undefined &&
-          response?.type !== 'tool_calls' &&
+          responseType !== 'tool_calls' &&
           (response === null ||
             response === undefined ||
             textContent.trim() === '')
@@ -505,11 +532,13 @@ export function initWebLLM(
           return await executeChatCompletion(createOptions);
         }
         return response;
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         if (
           createOptions.tools !== undefined &&
           /not supported for ChatCompletionRequest\.tools|UnsupportedModelIdError|CustomSystemPromptError/i.test(
-            error?.message || String(error)
+            errorMessage
           )
         ) {
           console.warn(
@@ -535,10 +564,10 @@ export function initWebLLM(
  * @param question - User question text.
  */
 export async function chatWithWebLLM(
-  brainEngine: BrainEngine | Record<string, any>,
+  brainEngine: BrainEngine | Record<string, unknown>,
   question: string
-): Promise<void> {
-  const engine = brainEngine as Record<string, any>;
+): Promise<string | void> {
+  const engine = brainEngine as Partial<BrainEngine>;
   try {
     if (typeof engine.onSpokenDisplayTextChange === 'function') {
       engine.onSpokenDisplayTextChange(
@@ -549,7 +578,7 @@ export async function chatWithWebLLM(
       engine.onEmotionChange('thinking');
     }
 
-    let messages: Array<Record<string, any>>;
+    let messages: LLMMessage[];
     if (typeof engine.buildLLMMessages === 'function') {
       messages = await engine.buildLLMMessages(
         question,
@@ -570,7 +599,7 @@ export async function chatWithWebLLM(
     }
 
     const streamMessageId = 'stream-' + Date.now();
-    const chatResponse = await engine.llm.chat(
+    const chatResponse = (await engine.llm?.chat(
       messages,
       (chunkDelta: string, accumulatedText: string) => {
         if (typeof engine.onSpokenDisplayTextChange === 'function') {
@@ -588,7 +617,16 @@ export async function chatWithWebLLM(
         }
       },
       tools
-    );
+    )) as
+      | {
+          type?: string;
+          toolCalls?: ParsedToolCall[];
+          content?: string;
+          finishReason?: string;
+        }
+      | string
+      | null
+      | undefined;
 
     if (
       typeof chatResponse === 'object' &&
@@ -599,7 +637,7 @@ export async function chatWithWebLLM(
         engine.updateChatMessage(streamMessageId, '', false);
       }
       return await executeToolCallsLoop(
-        engine,
+        engine as BrainEngine,
         chatResponse,
         messages,
         BRAIN_ENGINE_TYPE_MAP.WEB_LLM
@@ -612,9 +650,13 @@ export async function chatWithWebLLM(
         : typeof chatResponse?.content === 'string'
           ? chatResponse.content
           : '';
+    const chatResponseObj =
+      typeof chatResponse === 'object' && chatResponse !== null
+        ? chatResponse
+        : null;
     let finishReason =
-      typeof chatResponse?.finishReason === 'string'
-        ? chatResponse.finishReason
+      typeof chatResponseObj?.finishReason === 'string'
+        ? chatResponseObj.finishReason
         : LLM_FINISH_REASON_MAP.STOP;
 
     if (initialText.trim() === '') {
@@ -673,7 +715,7 @@ export async function chatWithWebLLM(
         ];
 
         let chunkDeltaBuffer = '';
-        const continueResponse = await engine.llm.chat(
+        const continueResponse = (await engine.llm?.chat(
           currentMessages,
           (chunkDelta: string, currentStreamText: string) => {
             chunkDeltaBuffer = currentStreamText;
@@ -693,7 +735,11 @@ export async function chatWithWebLLM(
             }
           },
           []
-        );
+        )) as
+          | { content?: string; finishReason?: string }
+          | string
+          | null
+          | undefined;
 
         const nextChunk =
           typeof continueResponse === 'string'
@@ -701,9 +747,13 @@ export async function chatWithWebLLM(
             : typeof continueResponse?.content === 'string'
               ? continueResponse.content
               : chunkDeltaBuffer;
+        const continueResponseObj =
+          typeof continueResponse === 'object' && continueResponse !== null
+            ? continueResponse
+            : null;
         finishReason =
-          typeof continueResponse?.finishReason === 'string'
-            ? continueResponse.finishReason
+          typeof continueResponseObj?.finishReason === 'string'
+            ? continueResponseObj.finishReason
             : LLM_FINISH_REASON_MAP.STOP;
 
         if (nextChunk.trim() === '') {
@@ -746,6 +796,7 @@ export async function chatWithWebLLM(
     if (typeof engine.triggerRollingSummaryIfNeeded === 'function') {
       engine.triggerRollingSummaryIfNeeded();
     }
+    return accumulatedText;
   } catch (error) {
     console.warn('llm error', error);
     throw error;

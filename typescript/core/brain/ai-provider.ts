@@ -9,7 +9,14 @@ import {
   DEFAULT_MAX_AUTO_CONTINUATIONS
 } from '@/core/constants';
 import { toOpenAiTools } from '@/core/tools';
-import type { BrainEngine, ToolDefinition } from '@types';
+import type { ToolDefinition } from '@types';
+import type {
+  AiProviderOptions,
+  AiProviderEngine,
+  BrainEngine,
+  LLMMessage,
+  ParsedToolCall
+} from './types';
 import { extractToolCallsFromText, executeToolCallsLoop } from './tool-calling';
 import {
   getBrainMessage,
@@ -17,71 +24,7 @@ import {
   buildDefaultLLMMessages
 } from './messages';
 
-/**
- * Configuration options for the server-side AI Provider engine.
- */
-export interface AiProviderOptions {
-  enableAiProvider?: boolean;
-  providerEnabled?: boolean;
-  enabled?: boolean;
-  providerBaseUrl?: string;
-  baseUrl?: string;
-  providerPingUrl?: string;
-  pingUrl?: string;
-  providerChatUrl?: string;
-  chatUrl?: string;
-  providerModel?: string;
-  model?: string;
-  providerCreateFetchSetting?: ((...args: any[]) => any) | RequestInit | null;
-  createFetchSetting?: ((...args: any[]) => any) | RequestInit | null;
-  providerCreateFetchPayload?:
-    ((...args: any[]) => any) | Record<string, any> | null;
-  createFetchPayload?: ((...args: any[]) => any) | Record<string, any> | null;
-  providerResponseFormat?:
-    ((...args: any[]) => any) | string | Record<string, any> | null;
-  responseFormat?:
-    ((...args: any[]) => any) | string | Record<string, any> | null;
-  providerExtractToolCalls?: ((...args: any[]) => any) | null;
-  extractToolCalls?: ((...args: any[]) => any) | null;
-  providerMaxTokens?: number;
-  maxTokens?: number;
-  providerIsStream?: boolean;
-  isStream?: boolean;
-  onConnecting?: ((...args: any[]) => any) | null;
-  onConnected?: ((...args: any[]) => any) | null;
-  onError?: ((...args: any[]) => any) | null;
-  onChatting?: ((...args: any[]) => any) | null;
-  onStreamChatting?: ((...args: any[]) => any) | null;
-}
-
-/**
- * AI Provider engine instance interface.
- */
-export interface AiProviderEngine {
-  baseUrl: string;
-  pingUrl: string;
-  chatUrl: string;
-  readonly createFetchSetting: any;
-  readonly createFetchPayload: any;
-  readonly responseFormat: any;
-  readonly extractToolCalls: any;
-  readonly maxTokens: number;
-  readonly isStream: boolean;
-  readonly onConnecting: (...args: any[]) => any;
-  readonly onConnected: (...args: any[]) => any;
-  readonly onError: (...args: any[]) => any;
-  readonly onChatting: (...args: any[]) => any;
-  readonly onStreamChatting: (...args: any[]) => any;
-  model: string;
-  enabled: boolean;
-  ready: boolean;
-  ping(fetchSetting?: any): Promise<boolean>;
-  chat(
-    messages: Array<Record<string, any>>,
-    fetchSetting?: any,
-    tools?: ToolDefinition[]
-  ): Promise<any>;
-}
+export type { AiProviderOptions, AiProviderEngine };
 
 /**
  * Initializes the AI Provider backend connection and client interface.
@@ -191,35 +134,35 @@ export async function initAiProvider(
     },
 
     get onConnecting() {
-      return function _onConnecting(...args: any[]) {
+      return function _onConnecting(...args: unknown[]) {
         if (typeof onConnecting === 'function') {
           return onConnecting(...args);
         }
       };
     },
     get onConnected() {
-      return function _onConnected(...args: any[]) {
+      return function _onConnected(...args: unknown[]) {
         if (typeof onConnected === 'function') {
           return onConnected(...args);
         }
       };
     },
     get onError() {
-      return function _onError(...args: any[]) {
+      return function _onError(...args: unknown[]) {
         if (typeof onError === 'function') {
           return onError(...args);
         }
       };
     },
     get onChatting() {
-      return function _onChatting(...args: any[]) {
+      return function _onChatting(...args: unknown[]) {
         if (typeof onChatting === 'function') {
           return onChatting(...args);
         }
       };
     },
     get onStreamChatting() {
-      return function _onStreamChatting(...args: any[]) {
+      return function _onStreamChatting(...args: unknown[]) {
         if (typeof onStreamChatting === 'function') {
           return onStreamChatting(...args);
         }
@@ -236,7 +179,7 @@ export async function initAiProvider(
       }
     },
     ready: false,
-    async ping(fetchSetting = null): Promise<boolean> {
+    async ping(fetchSetting: RequestInit | null = null): Promise<boolean> {
       if (this.enabled === false) {
         return false;
       }
@@ -257,10 +200,10 @@ export async function initAiProvider(
       }
     },
     async chat(
-      messages: Array<Record<string, any>>,
-      fetchSetting: any,
+      messages: LLMMessage[] | Array<Record<string, unknown>>,
+      fetchSetting?: RequestInit | null,
       tools?: ToolDefinition[]
-    ): Promise<any> {
+    ): Promise<unknown> {
       try {
         const defaultFetchSetting: RequestInit = {
           method: 'POST',
@@ -272,34 +215,36 @@ export async function initAiProvider(
                 if (typeof messageItem !== 'object' || messageItem === null) {
                   return messageItem;
                 }
+                const typedItem = messageItem as Record<string, unknown>;
                 let safeContent = '';
-                if (typeof messageItem.content === 'string') {
-                  safeContent = messageItem.content;
+                if (typeof typedItem.content === 'string') {
+                  safeContent = typedItem.content;
                 } else if (
-                  typeof messageItem.content === 'object' &&
-                  messageItem.content !== null
+                  typeof typedItem.content === 'object' &&
+                  typedItem.content !== null
                 ) {
-                  if (typeof messageItem.content.text === 'string') {
-                    safeContent = messageItem.content.text;
-                  } else if (typeof messageItem.content.content === 'string') {
-                    safeContent = messageItem.content.content;
+                  const contentObj = typedItem.content as Record<string, unknown>;
+                  if (typeof contentObj.text === 'string') {
+                    safeContent = contentObj.text;
+                  } else if (typeof contentObj.content === 'string') {
+                    safeContent = contentObj.content;
                   } else {
-                    safeContent = JSON.stringify(messageItem.content);
+                    safeContent = JSON.stringify(typedItem.content);
                   }
                 } else if (
-                  typeof messageItem.content !== 'undefined' &&
-                  messageItem.content !== null
+                  typeof typedItem.content !== 'undefined' &&
+                  typedItem.content !== null
                 ) {
-                  safeContent = String(messageItem.content);
+                  safeContent = String(typedItem.content);
                 }
                 return {
-                  ...messageItem,
+                  ...typedItem,
                   content: safeContent
                 };
               })
             : [];
 
-        const defaultPayload: Record<string, any> = {
+        const defaultPayload: Record<string, unknown> = {
           model: this.model,
           messages: sanitizedMessages,
           temperature: 0.4,
@@ -314,7 +259,15 @@ export async function initAiProvider(
           }
         }
 
-        const createSettingFn = this.createFetchSetting;
+        let resolvedSetting = fetchSetting;
+        const createSettingFn = this.createFetchSetting as
+          | ((
+              messages: LLMMessage[] | Array<Record<string, unknown>>,
+              model: string,
+              defaultFetchSetting: RequestInit,
+              engine: AiProviderEngine
+            ) => Promise<RequestInit> | RequestInit)
+          | null;
         if (typeof createSettingFn === 'function') {
           const currentFetchSetting = await createSettingFn(
             messages,
@@ -326,36 +279,45 @@ export async function initAiProvider(
             typeof currentFetchSetting === 'object' &&
             currentFetchSetting !== null
           ) {
-            fetchSetting = currentFetchSetting;
+            resolvedSetting = currentFetchSetting;
           }
         }
 
-        if (typeof fetchSetting !== 'object' || fetchSetting === null) {
-          fetchSetting = defaultFetchSetting;
+        if (typeof resolvedSetting !== 'object' || resolvedSetting === null) {
+          resolvedSetting = defaultFetchSetting;
         }
 
-        const createPayloadFn = this.createFetchPayload;
+        const createPayloadFn = this.createFetchPayload as
+          | ((
+              messages: LLMMessage[] | Array<Record<string, unknown>>,
+              tools: ToolDefinition[] | undefined,
+              model: string,
+              defaultPayload: Record<string, unknown>,
+              fetchSetting: RequestInit,
+              engine: AiProviderEngine
+            ) => Promise<BodyInit | null | undefined> | BodyInit | null | undefined)
+          | null;
         if (typeof createPayloadFn === 'function') {
           const currentPayload = await createPayloadFn(
             messages,
             tools,
             this.model,
             defaultPayload,
-            fetchSetting,
+            resolvedSetting,
             this
           );
-          if (typeof currentPayload !== 'undefined') {
-            fetchSetting.body = currentPayload;
+          if (typeof currentPayload !== 'undefined' && currentPayload !== null) {
+            resolvedSetting.body = currentPayload;
           }
         }
 
-        if (typeof fetchSetting.body === 'undefined') {
-          fetchSetting.body = JSON.stringify(defaultPayload);
+        if (typeof resolvedSetting.body === 'undefined') {
+          resolvedSetting.body = JSON.stringify(defaultPayload);
         }
 
         const response = await fetch(
           this.baseUrl + (this.chatUrl || '/chat/completions'),
-          fetchSetting
+          resolvedSetting
         );
 
         if (response.ok !== true) {
@@ -371,15 +333,34 @@ export async function initAiProvider(
           throw new Error(errorMsg);
         }
 
-        const formatResponseFn = this.responseFormat;
+        const formatResponseFn = this.responseFormat as
+          | ((
+              response: Response,
+              fetchSetting: RequestInit,
+              messages: LLMMessage[] | Array<Record<string, unknown>>,
+              engine: AiProviderEngine
+            ) => Promise<unknown> | unknown)
+          | null;
         if (typeof formatResponseFn === 'function') {
-          return await formatResponseFn(response, fetchSetting, messages, this);
+          return await formatResponseFn(response, resolvedSetting, messages, this);
         }
 
-        const result = await response.json();
-        let toolCalls: any = null;
-        if (typeof this.extractToolCalls === 'function') {
-          toolCalls = await this.extractToolCalls(result, this);
+        const result = (await response.json()) as {
+          choices?: Array<{
+            message?: {
+              content?: string;
+              tool_calls?: unknown[];
+            };
+            finish_reason?: string;
+          }>;
+          done_reason?: string;
+        };
+        let toolCalls: unknown = null;
+        const extractToolCallsFn = this.extractToolCalls as
+          | ((result: unknown, engine: AiProviderEngine) => Promise<unknown> | unknown)
+          | null;
+        if (typeof extractToolCallsFn === 'function') {
+          toolCalls = await extractToolCallsFn(result, this);
         } else {
           toolCalls = result?.choices?.[0]?.message?.tool_calls || null;
         }
@@ -446,10 +427,10 @@ export async function initAiProvider(
  * @param question - User question text.
  */
 export async function chatWithAiProvider(
-  brainEngine: BrainEngine | Record<string, any>,
+  brainEngine: BrainEngine | Record<string, unknown>,
   question: string
-): Promise<void> {
-  const engine = brainEngine as Record<string, any>;
+): Promise<string | void> {
+  const engine = brainEngine as Partial<BrainEngine>;
   try {
     if (typeof engine.onSpokenDisplayTextChange === 'function') {
       engine.onSpokenDisplayTextChange(
@@ -460,7 +441,7 @@ export async function chatWithAiProvider(
       engine.onEmotionChange('thinking');
     }
 
-    let messages: Array<Record<string, any>>;
+    let messages: LLMMessage[];
     if (typeof engine.buildLLMMessages === 'function') {
       messages = await engine.buildLLMMessages(
         question,
@@ -476,7 +457,16 @@ export async function chatWithAiProvider(
     const tools =
       typeof engine.getTools === 'function' ? engine.getTools() : [];
 
-    const chatResponse = await engine.aiProvider.chat(messages, null, tools);
+    const chatResponse = (await engine.aiProvider?.chat(messages, null, tools)) as
+      | {
+          type?: string;
+          toolCalls?: ParsedToolCall[];
+          content?: string;
+          finishReason?: string;
+        }
+      | string
+      | null
+      | undefined;
 
     if (
       typeof chatResponse === 'object' &&
@@ -484,7 +474,7 @@ export async function chatWithAiProvider(
       chatResponse.type === 'tool_calls'
     ) {
       return await executeToolCallsLoop(
-        engine,
+        engine as BrainEngine,
         chatResponse,
         messages,
         BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER
@@ -497,9 +487,13 @@ export async function chatWithAiProvider(
         : typeof chatResponse?.content === 'string'
           ? chatResponse.content
           : '';
+    const chatResponseObj =
+      typeof chatResponse === 'object' && chatResponse !== null
+        ? chatResponse
+        : null;
     let finishReason =
-      typeof chatResponse?.finishReason === 'string'
-        ? chatResponse.finishReason
+      typeof chatResponseObj?.finishReason === 'string'
+        ? chatResponseObj.finishReason
         : LLM_FINISH_REASON_MAP.STOP;
 
     if (initialText.trim() === '') {
@@ -522,7 +516,7 @@ export async function chatWithAiProvider(
     let continuationIndex = 0;
     let currentMessages = [...messages];
     let currentAssistantContent = initialText.trim();
-    let chatMessageId: any = null;
+    let chatMessageId: string | void = undefined;
 
     if (
       enableAutoContinue === true &&
@@ -571,11 +565,15 @@ export async function chatWithAiProvider(
           }
         ];
 
-        const continueResponse = await engine.aiProvider.chat(
+        const continueResponse = (await engine.aiProvider?.chat(
           currentMessages,
           null,
           []
-        );
+        )) as
+          | { content?: string; finishReason?: string }
+          | string
+          | null
+          | undefined;
 
         const nextChunk =
           typeof continueResponse === 'string'
@@ -583,9 +581,13 @@ export async function chatWithAiProvider(
             : typeof continueResponse?.content === 'string'
               ? continueResponse.content
               : '';
+        const continueResponseObj =
+          typeof continueResponse === 'object' && continueResponse !== null
+            ? continueResponse
+            : null;
         finishReason =
-          typeof continueResponse?.finishReason === 'string'
-            ? continueResponse.finishReason
+          typeof continueResponseObj?.finishReason === 'string'
+            ? continueResponseObj.finishReason
             : LLM_FINISH_REASON_MAP.STOP;
 
         if (nextChunk.trim() === '') {
@@ -606,7 +608,11 @@ export async function chatWithAiProvider(
 
         if (autoContinueMode === AUTO_CONTINUE_MODE_MAP.STREAM) {
           if (typeof engine.updateChatMessage === 'function') {
-            engine.updateChatMessage(chatMessageId, accumulatedText, false);
+            engine.updateChatMessage(
+              typeof chatMessageId === 'string' ? chatMessageId : '',
+              accumulatedText,
+              false
+            );
           }
           if (typeof engine.applyEmotionFromText === 'function') {
             engine.applyEmotionFromText(nextChunk.trim());

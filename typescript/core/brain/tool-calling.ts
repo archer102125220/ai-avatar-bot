@@ -3,7 +3,8 @@ import {
   CHAT_SOURCE_MAP,
   BRAIN_ENGINE_TYPE_MAP
 } from '@/core/constants';
-import type { BrainEngine, ToolDefinition } from '@types';
+import type { ToolDefinition } from '@/core/tools';
+import type { BrainEngine, ParsedToolCall, LLMMessage } from './types';
 import { getBrainMessage } from './messages';
 
 /**
@@ -12,20 +13,14 @@ import { getBrainMessage } from './messages';
  * @param content - Model generation content.
  * @returns Array of parsed tool call descriptors.
  */
-export function extractToolCallsFromText(content?: string | null): Array<{
-  id: string;
-  type: string;
-  function: { name: string; arguments: string };
-}> {
+export function extractToolCallsFromText(
+  content?: string | null
+): ParsedToolCall[] {
   if (typeof content !== 'string' || content === '') {
     return [];
   }
   const regex = /<tool_call>([\s\S]*?)<\/tool_call>/g;
-  const toolCalls: Array<{
-    id: string;
-    type: string;
-    function: { name: string; arguments: string };
-  }> = [];
+  const toolCalls: ParsedToolCall[] = [];
   let match = regex.exec(content);
   while (match !== null) {
     try {
@@ -64,39 +59,39 @@ export function extractToolCallsFromText(content?: string | null): Array<{
  * @param providerType - AI provider backend type.
  */
 export async function executeToolCallsLoop(
-  brainEngine: BrainEngine | Record<string, any>,
+  brainEngine: BrainEngine | Record<string, unknown>,
   toolCallResponse: {
-    type: string;
-    toolCalls: Array<{
+    type?: string;
+    toolCalls?: Array<{
       id: string;
       function?: { name: string; arguments: string };
     }>;
-    message?: Record<string, any>;
+    message?: Record<string, unknown>;
   },
-  initialMessages: Array<Record<string, any>>,
+  initialMessages: LLMMessage[],
   providerType: string
-): Promise<void> {
-  const engine = brainEngine as Record<string, any>;
+): Promise<string | void> {
+  const engine = brainEngine as Partial<BrainEngine>;
   const { toolCalls, message } = toolCallResponse;
   if (Array.isArray(toolCalls) === false || toolCalls.length === 0) {
     return;
   }
 
   const toolResults: Array<{
-    toolCall: any;
+    toolCall: { id: string; function?: { name: string; arguments: string } };
     tool: ToolDefinition | null;
-    args: Record<string, any>;
-    result: any;
+    args: Record<string, unknown>;
+    result: unknown;
   }> = [];
   let pendingConfirmation: {
     tool: ToolDefinition;
-    toolCall: any;
-    args: Record<string, any>;
+    toolCall: { id: string; function?: { name: string; arguments: string } };
+    args: Record<string, unknown>;
   } | null = null;
 
   for (const toolCall of toolCalls) {
     const toolName = toolCall.function?.name || '';
-    let args: Record<string, any>;
+    let args: Record<string, unknown>;
     try {
       args =
         typeof toolCall.function?.arguments === 'string'
@@ -113,7 +108,7 @@ export async function executeToolCallsLoop(
 
     if (typeof tool !== 'object' || tool === null) {
       console.warn(`[AvatarBot] AI 請求呼叫未註冊的工具: ${toolName}`);
-      let customResult: any;
+      let customResult: unknown;
       if (typeof engine.onToolNotFound === 'function') {
         try {
           customResult = await engine.onToolNotFound({
@@ -145,27 +140,31 @@ export async function executeToolCallsLoop(
       break;
     }
 
-    let toolResult: any = null;
+    let toolResult: unknown = null;
     if (typeof engine.executeTool === 'function') {
       try {
         toolResult = await engine.executeTool(tool, args, {
           toolCallId: toolCall.id,
           source: CHAT_SOURCE_MAP.AI
         });
-      } catch (execError: any) {
+      } catch (execError: unknown) {
         console.error(
           `[AvatarBot] 工具「${toolName}」執行時發生錯誤:`,
           execError
         );
-        let customErrorResult: any;
+        let customErrorResult: unknown;
         if (typeof engine.onToolError === 'function') {
           try {
+            const errorObj =
+              execError instanceof Error
+                ? execError
+                : new Error(String(execError));
             customErrorResult = await engine.onToolError({
               tool,
               toolName,
               args,
               toolCall,
-              error: execError
+              error: errorObj
             });
           } catch (hookError) {
             console.error('[AvatarBot] onToolError 回呼執行錯誤:', hookError);
@@ -176,7 +175,10 @@ export async function executeToolCallsLoop(
             ? customErrorResult
             : {
                 ok: false,
-                error: execError?.message || 'Tool execution failed'
+                error:
+                  execError instanceof Error
+                    ? execError.message
+                    : 'Tool execution failed'
               };
       }
     }
@@ -185,12 +187,12 @@ export async function executeToolCallsLoop(
 
   const resumeAiSummary = async (
     executedResults: Array<{
-      toolCall: any;
+      toolCall: { id: string; function?: { name: string; arguments: string } };
       tool: ToolDefinition | null;
-      args: Record<string, any>;
-      result: any;
+      args: Record<string, unknown>;
+      result: unknown;
     }>
-  ): Promise<void> => {
+  ): Promise<string | void> => {
     if (
       Array.isArray(executedResults) === false ||
       executedResults.length === 0
@@ -227,14 +229,22 @@ export async function executeToolCallsLoop(
     ];
 
     if (providerType === BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER) {
-      const toolSummaryResponse = await engine.aiProvider.chat(
+      if (!engine.aiProvider) {
+        return;
+      }
+      const rawToolSummaryResponse = await engine.aiProvider.chat(
         updatedMessages,
         null,
         []
       );
+      const toolSummaryResponse =
+        typeof rawToolSummaryResponse === 'object' &&
+        rawToolSummaryResponse !== null
+          ? (rawToolSummaryResponse as { content?: string })
+          : null;
       const toolSummaryResponseText =
-        typeof toolSummaryResponse === 'string'
-          ? toolSummaryResponse.trim()
+        typeof rawToolSummaryResponse === 'string'
+          ? rawToolSummaryResponse.trim()
           : typeof toolSummaryResponse?.content === 'string'
             ? toolSummaryResponse.content.trim()
             : '';
@@ -245,19 +255,27 @@ export async function executeToolCallsLoop(
 
       if (finalText === '') {
         const lastResult = executedResults[executedResults.length - 1]?.result;
+        const lastResultObj =
+          typeof lastResult === 'object' && lastResult !== null
+            ? (lastResult as {
+                ok?: boolean;
+                error?: string;
+                message?: string;
+              })
+            : null;
         if (
-          lastResult?.ok === false &&
-          typeof lastResult?.error === 'string' &&
-          lastResult.error !== ''
+          lastResultObj?.ok === false &&
+          typeof lastResultObj?.error === 'string' &&
+          lastResultObj.error !== ''
         ) {
-          finalText = lastResult.error;
+          finalText = lastResultObj.error;
         } else if (typeof lastResult === 'string' && lastResult.trim() !== '') {
           finalText = lastResult.trim();
         } else if (
-          typeof lastResult?.message === 'string' &&
-          lastResult.message.trim() !== ''
+          typeof lastResultObj?.message === 'string' &&
+          lastResultObj.message.trim() !== ''
         ) {
-          finalText = lastResult.message.trim();
+          finalText = lastResultObj.message.trim();
         } else {
           finalText = getBrainMessage(engine, 'brain.toolExecutionError');
         }
@@ -265,18 +283,21 @@ export async function executeToolCallsLoop(
 
       if (finalText !== '') {
         if (typeof engine.emitAnswer === 'function') {
-          engine.emitAnswer(finalText);
+          return engine.emitAnswer(finalText);
         }
       }
     } else if (
       providerType === BRAIN_ENGINE_TYPE_MAP.WEB_LLM ||
       providerType === 'webLLM'
     ) {
+      if (!engine.llm) {
+        return;
+      }
       if (typeof engine.onStreamStart === 'function') {
         engine.onStreamStart();
       }
       const streamMessageId = 'stream-' + Date.now();
-      const toolSummaryResponse = await engine.llm.chat(
+      const rawToolSummaryResponse = await engine.llm.chat(
         updatedMessages,
         (chunkDelta: string, accumulatedText: string) => {
           if (typeof engine.onSpokenDisplayTextChange === 'function') {
@@ -294,9 +315,14 @@ export async function executeToolCallsLoop(
         },
         []
       );
+      const toolSummaryResponse =
+        typeof rawToolSummaryResponse === 'object' &&
+        rawToolSummaryResponse !== null
+          ? (rawToolSummaryResponse as { content?: string })
+          : null;
       const toolSummaryResponseText =
-        typeof toolSummaryResponse === 'string'
-          ? toolSummaryResponse.trim()
+        typeof rawToolSummaryResponse === 'string'
+          ? rawToolSummaryResponse.trim()
           : typeof toolSummaryResponse?.content === 'string'
             ? toolSummaryResponse.content.trim()
             : '';
@@ -307,19 +333,27 @@ export async function executeToolCallsLoop(
 
       if (finalText === '') {
         const lastResult = executedResults[executedResults.length - 1]?.result;
+        const lastResultObj =
+          typeof lastResult === 'object' && lastResult !== null
+            ? (lastResult as {
+                ok?: boolean;
+                error?: string;
+                message?: string;
+              })
+            : null;
         if (
-          lastResult?.ok === false &&
-          typeof lastResult?.error === 'string' &&
-          lastResult.error !== ''
+          lastResultObj?.ok === false &&
+          typeof lastResultObj?.error === 'string' &&
+          lastResultObj.error !== ''
         ) {
-          finalText = lastResult.error;
+          finalText = lastResultObj.error;
         } else if (typeof lastResult === 'string' && lastResult.trim() !== '') {
           finalText = lastResult.trim();
         } else if (
-          typeof lastResult?.message === 'string' &&
-          lastResult.message.trim() !== ''
+          typeof lastResultObj?.message === 'string' &&
+          lastResultObj.message.trim() !== ''
         ) {
-          finalText = lastResult.message.trim();
+          finalText = lastResultObj.message.trim();
         } else {
           finalText = getBrainMessage(engine, 'brain.toolExecutionError');
         }
@@ -338,6 +372,7 @@ export async function executeToolCallsLoop(
         if (typeof engine.triggerRollingSummaryIfNeeded === 'function') {
           engine.triggerRollingSummaryIfNeeded();
         }
+        return finalText;
       }
     }
   };
@@ -349,18 +384,23 @@ export async function executeToolCallsLoop(
         toolCallId: toolCall.id,
         source: CHAT_SOURCE_MAP.AI,
         pendingMessages: initialMessages,
-        onConfirmResume: async (confirmedResult: any) => {
-          if (confirmedResult?.cancelled === true) {
+        onConfirmResume: async (confirmedResult: unknown) => {
+          if (
+            typeof confirmedResult === 'object' &&
+            confirmedResult !== null &&
+            (confirmedResult as Record<string, unknown>).cancelled === true
+          ) {
             return;
           }
-          await resumeAiSummary([
+          return await resumeAiSummary([
             ...toolResults,
             { toolCall, tool, args, result: confirmedResult }
           ]);
         }
       });
+      return;
     }
   } else {
-    await resumeAiSummary(toolResults);
+    return await resumeAiSummary(toolResults);
   }
 }

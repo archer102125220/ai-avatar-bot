@@ -1,4 +1,4 @@
-import type { BrainEngine } from '@types';
+import type { BrainEngine } from './types';
 
 /**
  * Classifies emotional sentiment from text.
@@ -41,16 +41,10 @@ export function applyEmotionFromText(
   brainEngine: BrainEngine | Record<string, unknown> | null | undefined,
   text: string
 ): void {
-  if (
-    typeof brainEngine === 'object' &&
-    brainEngine !== null &&
-    typeof (brainEngine as Record<string, unknown>).onEmotionChange ===
-      'function'
-  ) {
-    (
-      (brainEngine as Record<string, unknown>).onEmotionChange as (
-        emotion: string
-      ) => void
-    )(classifyEmotion(text));
+  if (typeof brainEngine === 'object' && brainEngine !== null) {
+    const onEmotionChange = (brainEngine as Partial<BrainEngine>).onEmotionChange;
+    if (typeof onEmotionChange === 'function') {
+      onEmotionChange(classifyEmotion(text));
+    }
   }
 }
