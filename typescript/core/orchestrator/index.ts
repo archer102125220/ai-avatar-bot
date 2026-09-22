@@ -204,7 +204,7 @@ export async function initAvatarBot(
 
   // Initialize UI voice status
   uiDom.updateVoiceStatus(
-    aiAvatarWidget.speechEngine.convoOn,
+    aiAvatarWidget.speechEngine?.convoOn ?? false,
     typeof i18nEngine?.t === 'function'
       ? i18nEngine.t('ui.voice.standby')
       : '即時語音待命',
@@ -248,7 +248,7 @@ export async function initAvatarBot(
           : '中文';
   }
 
-  aiAvatarWidget.speechEngine.setMic(false);
+  aiAvatarWidget.speechEngine?.setMic(false);
 
   if (isModelDropEnabled === true) {
     updateModelDropListeners(true);

@@ -29,7 +29,8 @@ import type {
   ToolsEngine,
   UiDom,
   Skin2DConfig,
-  Skin3DConfig
+  Skin3DConfig,
+  LLMMessage
 } from '@types';
 
 export interface CreateAvatarWidgetParams {
@@ -117,9 +118,30 @@ export function createAvatarWidget({
       return getEngines().toolsEngine;
     },
 
-    get buildLLMMessages(): (...args: any[]) => any[] {
+    get buildLLMMessages():
+      | ((
+          question?: string,
+          engineType?: string,
+          ...args: unknown[]
+        ) => Promise<LLMMessage[]> | LLMMessage[])
+      | undefined {
       const brain = getEngines().brainEngine;
-      return brain?.buildLLMMessages || (brain as any)?.buildDefaultLLMMessages;
+      if (typeof brain?.buildLLMMessages === 'function') {
+        return (question?: string, engineType?: string, ...args: unknown[]) =>
+          brain.buildLLMMessages(question ?? '', engineType ?? '', ...args);
+      }
+      const brainRecord = brain as Record<string, unknown> | null;
+      if (typeof brainRecord?.buildDefaultLLMMessages === 'function') {
+        return (question?: string, engineType?: string, ...args: unknown[]) =>
+          (
+            brainRecord.buildDefaultLLMMessages as (
+              q?: string,
+              e?: string,
+              ...rest: unknown[]
+            ) => Promise<LLMMessage[]> | LLMMessage[]
+          )(question, engineType, ...args);
+      }
+      return undefined;
     },
 
     get classifyEmotion(): ((text: string) => string) | undefined {
@@ -420,7 +442,7 @@ export function createAvatarWidget({
       }
     },
 
-    get autoContinuePrompt(): string | ((...args: any[]) => string) | null {
+    get autoContinuePrompt(): string | ((...args: unknown[]) => string) | null {
       const brain = getEngines().brainEngine;
       return (
         brain?.autoContinuePrompt ??
@@ -429,7 +451,7 @@ export function createAvatarWidget({
       );
     },
     set autoContinuePrompt(
-      newPrompt: string | ((...args: any[]) => string) | null
+      newPrompt: string | ((...args: unknown[]) => string) | null
     ) {
       if (
         typeof newPrompt === 'string' ||
@@ -528,7 +550,7 @@ export function createAvatarWidget({
     },
 
     setSuggestedQuestions(questions, title) {
-      const updates: Record<string, any> = {};
+      const updates: Record<string, unknown> = {};
       if (typeof questions !== 'undefined') {
         options.suggestedQuestions = questions;
         updates.suggestedQuestions = questions;

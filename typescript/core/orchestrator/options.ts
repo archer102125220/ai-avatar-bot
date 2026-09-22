@@ -14,24 +14,27 @@ import {
   DEFAULT_AUTO_CONTINUE_MODE,
   DEFAULT_ENABLE_MEMORY
 } from '@/core/constants';
-import type { AvatarBotOptions, BaseStore, I18nEngine } from '@types';
+import type { AvatarBotOptions, BaseStore, I18nEngine } from './types';
 
 /**
  * Safely invokes a user-defined event callback function with optional context and arguments.
  */
-export function callOptionEvent(
-  options: Record<string, any> | undefined | null,
-  context: any,
+export function callOptionEvent<T = unknown>(
+  options: Record<string, unknown> | AvatarBotOptions | undefined | null,
+  context: unknown,
   eventName: string,
-  ...eventArguments: any[]
-): any {
+  ...eventArguments: unknown[]
+): T | undefined {
   if (
     typeof options === 'object' &&
-    options !== null &&
-    typeof options[eventName] === 'function'
+    options !== null
   ) {
-    return options[eventName].call(context, ...eventArguments);
+    const fn = (options as Record<string, unknown>)[eventName];
+    if (typeof fn === 'function') {
+      return fn.call(context, ...eventArguments) as T;
+    }
   }
+  return undefined;
 }
 
 export interface NormalizedOptionsResult {
@@ -122,14 +125,20 @@ export function normalizeOptions(
     typeof customEngines?.i18n === 'function' ||
     (typeof customEngines?.i18n === 'object' && customEngines?.i18n !== null)
   ) {
+    const i18nFactory = customEngines.i18n as
+      | ((params: {
+          locale: string;
+          messages?: Record<string, Record<string, string>>;
+        }) => I18nEngine)
+      | I18nEngine;
     i18nEngine =
-      typeof customEngines.i18n === 'function'
-        ? (customEngines.i18n as any)({
+      typeof i18nFactory === 'function'
+        ? i18nFactory({
             locale:
               typeof locale === 'string' && locale !== '' ? locale : 'zh-TW',
             messages: rawOptions.i18nMessages
           })
-        : (customEngines.i18n as any);
+        : i18nFactory;
   } else {
     i18nEngine = initI18nEngine({
       locale: typeof locale === 'string' && locale !== '' ? locale : 'zh-TW',

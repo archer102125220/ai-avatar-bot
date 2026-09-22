@@ -1,5 +1,9 @@
 import { callOptionEvent } from './options';
-import type { AiAvatarWidget, AvatarBotOptions } from '@types';
+import type {
+  AiAvatarWidget,
+  AvatarBotOptions,
+  GetEnginesFn
+} from './types';
 
 export interface AutoContinueState {
   isActive: boolean;
@@ -17,12 +21,7 @@ export interface StreamPipelineParams {
   widget?: AiAvatarWidget;
   getWidget?: () => AiAvatarWidget;
   options: AvatarBotOptions;
-  getEngines: () => {
-    brainEngine: any;
-    speechEngine: any;
-    skinEngine: any;
-    toolsEngine?: any;
-  };
+  getEngines: GetEnginesFn;
   autoContinueState: AutoContinueState;
   streamSpeechState: StreamSpeechState;
 }
@@ -33,12 +32,12 @@ export interface StreamPipeline {
   onStreamStart: () => void;
   onStreamChunk: (chunkDelta: string) => void;
   onStreamEnd: (fullText: string) => void;
-  onAutoContinueStart: (info: any) => void;
-  onAutoContinueWait: (info: any) => void;
-  onAutoContinueResume: (info: any) => void;
-  onAutoContinueEnd: (info: any) => void;
+  onAutoContinueStart: (info: unknown) => void;
+  onAutoContinueWait: (info: unknown) => void;
+  onAutoContinueResume: (info: unknown) => void;
+  onAutoContinueEnd: (info: unknown) => void;
   onInterrupt: () => void;
-  onSpeechWait: (speechSequenceId: any) => void;
+  onSpeechWait: (speechSequenceId: unknown) => void;
 }
 
 /**
@@ -127,20 +126,28 @@ export function createStreamPipeline({
       callOptionEvent(options, resolveWidget(), 'onStreamEnd', fullText);
     },
 
-    onAutoContinueStart(info: any) {
+    onAutoContinueStart(info: unknown) {
+      const infoObj =
+        typeof info === 'object' && info !== null
+          ? (info as Record<string, unknown>)
+          : null;
       autoContinueState.isActive = true;
       autoContinueState.continuationIndex =
-        typeof info?.continuationIndex === 'number'
-          ? info.continuationIndex
+        typeof infoObj?.continuationIndex === 'number'
+          ? infoObj.continuationIndex
           : 0;
       autoContinueState.maxContinuations =
-        typeof info?.maxContinuations === 'number' ? info.maxContinuations : 0;
+        typeof infoObj?.maxContinuations === 'number'
+          ? infoObj.maxContinuations
+          : 0;
       autoContinueState.accumulatedText =
-        typeof info?.accumulatedText === 'string' ? info.accumulatedText : '';
+        typeof infoObj?.accumulatedText === 'string'
+          ? infoObj.accumulatedText
+          : '';
       callOptionEvent(options, resolveWidget(), 'onAutoContinueStart', info);
     },
 
-    onAutoContinueWait(info: any) {
+    onAutoContinueWait(info: unknown) {
       const { skinEngine } = getEngines();
       if (typeof skinEngine === 'object' && skinEngine !== null) {
         if (typeof skinEngine.setEmotion === 'function') {
@@ -152,19 +159,27 @@ export function createStreamPipeline({
       callOptionEvent(options, resolveWidget(), 'onAutoContinueWait', info);
     },
 
-    onAutoContinueResume(info: any) {
+    onAutoContinueResume(info: unknown) {
+      const infoObj =
+        typeof info === 'object' && info !== null
+          ? (info as Record<string, unknown>)
+          : null;
       autoContinueState.continuationIndex =
-        typeof info?.continuationIndex === 'number'
-          ? info.continuationIndex
+        typeof infoObj?.continuationIndex === 'number'
+          ? infoObj.continuationIndex
           : 0;
       autoContinueState.maxContinuations =
-        typeof info?.maxContinuations === 'number' ? info.maxContinuations : 0;
+        typeof infoObj?.maxContinuations === 'number'
+          ? infoObj.maxContinuations
+          : 0;
       autoContinueState.accumulatedText =
-        typeof info?.accumulatedText === 'string' ? info.accumulatedText : '';
+        typeof infoObj?.accumulatedText === 'string'
+          ? infoObj.accumulatedText
+          : '';
       callOptionEvent(options, resolveWidget(), 'onAutoContinueResume', info);
     },
 
-    onAutoContinueEnd(info: any) {
+    onAutoContinueEnd(info: unknown) {
       autoContinueState.isActive = false;
       callOptionEvent(options, resolveWidget(), 'onAutoContinueEnd', info);
     },
@@ -175,14 +190,18 @@ export function createStreamPipeline({
       autoContinueState.continuationIndex = 0;
       autoContinueState.maxContinuations = 0;
       autoContinueState.accumulatedText = '';
-      if (typeof brainEngine?.llm?.controller?.abort === 'function') {
+      const llmObj = brainEngine?.llm as Record<string, unknown> | undefined;
+      const controller = llmObj?.controller as
+        | { abort?: () => void }
+        | undefined;
+      if (typeof controller?.abort === 'function') {
         try {
-          brainEngine.llm.controller.abort();
+          controller.abort();
         } catch (_error) {}
       }
     },
 
-    onSpeechWait(speechSequenceId: number) {
+    onSpeechWait(speechSequenceId?: unknown) {
       const { skinEngine } = getEngines();
       if (autoContinueState.isActive === true) {
         if (typeof skinEngine === 'object' && skinEngine !== null) {

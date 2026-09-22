@@ -77,15 +77,15 @@ export interface UiContext {
   /** UI DOM elements and controller methods. */
   uiDom: UiDom;
   /** Speech STT / TTS engine coordinator. */
-  speechEngine?: SpeechEngine;
+  speechEngine?: SpeechEngine | null;
   /** AI Brain LLM and conversation memory engine coordinator. */
-  brainEngine?: BrainEngine;
+  brainEngine?: BrainEngine | null;
   /** Function Calling and tools engine coordinator. */
-  toolsEngine?: ToolsEngine;
+  toolsEngine?: ToolsEngine | null;
   /** Live2D / VRM rendering engine coordinator. */
-  skinEngine?: SkinEngine;
+  skinEngine?: SkinEngine | null;
   /** Internationalization (i18n) engine instance. */
-  i18nEngine?: I18nEngine;
+  i18nEngine?: I18nEngine | null;
   /** Current active locale code. */
   locale?: string;
   /** Suggested questions list or resolver. */

@@ -1,4 +1,9 @@
-import type { AiAvatarWidget, BaseStore, I18nEngine } from '@types';
+import type {
+  AiAvatarWidget,
+  BaseStore,
+  I18nEngine,
+  GetEnginesFn
+} from './types';
 import type { AutoContinueState } from './pipeline-stream';
 
 export interface UserPipelineParams {
@@ -6,12 +11,7 @@ export interface UserPipelineParams {
   getWidget?: () => AiAvatarWidget;
   rootStore: BaseStore;
   i18nEngine: I18nEngine;
-  getEngines: () => {
-    brainEngine: any;
-    speechEngine: any;
-    skinEngine: any;
-    toolsEngine?: any;
-  };
+  getEngines: GetEnginesFn;
   autoContinueState: AutoContinueState;
 }
 

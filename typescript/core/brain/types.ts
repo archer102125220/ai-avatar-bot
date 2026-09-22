@@ -465,7 +465,7 @@ export interface BrainEngineOptions {
   genderRule?: string | ((...args: unknown[]) => string);
   enableAutoContinue?: boolean;
   maxAutoContinuations?: number;
-  autoContinueMode?: 'stream' | 'buffered';
+  autoContinueMode?: 'stream' | 'buffered' | string;
   autoContinuePrompt?: string | ((...args: unknown[]) => string) | null;
   onBrainFallback?: (
     fromEngine: string,
@@ -511,7 +511,7 @@ export interface BrainEngine {
   autoFallbackWebLLM: boolean;
   enableAutoContinue: boolean;
   maxAutoContinuations: number;
-  autoContinueMode: 'stream' | 'buffered';
+  autoContinueMode: 'stream' | 'buffered' | string;
   autoContinuePrompt: string | ((...args: unknown[]) => string) | null;
   _isSummarizing?: boolean;
   knowledgeUrl?: string;
@@ -669,11 +669,13 @@ export interface BrainEngine {
   assistantWelcomeText: string | ((context: unknown) => string) | null;
   buildLLMMessages: (
     question: string,
-    engineType: string
+    engineType: string,
+    ...args: unknown[]
   ) => Promise<LLMMessage[]> | LLMMessage[];
   readonly buildDefaultLLMMessages: (
     question: string,
-    engineType: string
+    engineType: string,
+    ...args: unknown[]
   ) => Promise<LLMMessage[]> | LLMMessage[];
   getWelcomeText(): Promise<string> | string;
   classifyEmotion(text: string): string;

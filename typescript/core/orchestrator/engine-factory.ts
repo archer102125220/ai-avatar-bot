@@ -23,7 +23,10 @@ import type {
   SpeechEngine,
   SkinEngine,
   ToolsEngine,
-  UiDom
+  UiDom,
+  HostTool,
+  BrainCompressionOptions,
+  Renderer3D
 } from '@types';
 import type { StreamPipeline } from './pipeline-stream';
 
@@ -33,13 +36,13 @@ export interface SetupBrainParams {
   rootStore: BaseStore;
   i18nEngine: I18nEngine;
   getEngines: () => {
-    brainEngine: BrainEngine | any;
-    speechEngine: SpeechEngine | any;
-    skinEngine: SkinEngine | any;
-    toolsEngine: ToolsEngine | any;
+    brainEngine: BrainEngine | null;
+    speechEngine: SpeechEngine | null;
+    skinEngine: SkinEngine | null;
+    toolsEngine: ToolsEngine | null;
   };
-  getUiDom: () => UiDom | any;
-  streamPipeline: StreamPipeline | any;
+  getUiDom: () => UiDom | null;
+  streamPipeline: StreamPipeline;
 }
 
 /**
@@ -53,7 +56,7 @@ export async function setupBrainEngine({
   getEngines,
   getUiDom,
   streamPipeline
-}: SetupBrainParams): Promise<BrainEngine | any> {
+}: SetupBrainParams): Promise<BrainEngine | null> {
   const {
     llmModel = DEFAULT_LLM_MODEL,
     llmMaxTokens,
@@ -89,7 +92,7 @@ export async function setupBrainEngine({
       ? llmMaxTokens
       : DEFAULT_LLM_MAX_TOKENS;
 
-  const brainOptions: any = {
+  const brainOptions: Record<string, unknown> = {
     llmModel,
     llmMaxTokens: resolvedLlmMaxTokens,
     preloadWebLLM: rootStore.getState().preloadWebLLM,
@@ -103,14 +106,20 @@ export async function setupBrainEngine({
     enableAiProvider: rootStore.getState().enableAiProvider,
     onBrainFallback:
       options.onBrainFallback ||
-      ((fromEngine: string, toEngine: string, error: any) => {
+      ((
+        fromEngine: string,
+        toEngine: string,
+        error?: unknown,
+        ...args: unknown[]
+      ) => {
         return callOptionEvent(
           options,
           widget,
           'onBrainFallback',
           fromEngine,
           toEngine,
-          error
+          error,
+          ...args
         );
       }),
     maxHistoryTurns,
@@ -156,16 +165,16 @@ export async function setupBrainEngine({
       ) {
         return (
           toolsEngine.HOST_TOOLS.find(
-            (toolItem: any) => toolItem.name === toolName
+            (toolItem: HostTool) => toolItem.name === toolName
           ) || null
         );
       }
       return null;
     },
     offerToolConfirmation: (
-      tool: any,
-      toolArguments: any,
-      toolOptions: any
+      tool: HostTool | unknown,
+      toolArguments?: unknown,
+      toolOptions?: unknown
     ) => {
       const { toolsEngine } = getEngines();
       if (
@@ -174,15 +183,19 @@ export async function setupBrainEngine({
         typeof toolsEngine.offerHostTool === 'function'
       ) {
         toolsEngine.offerHostTool(
-          tool,
+          tool as HostTool,
           '',
           { confidence: 1, reason: 'ai_tool_call' },
-          toolArguments,
-          toolOptions
+          toolArguments as Record<string, unknown> | undefined,
+          toolOptions as Record<string, unknown> | undefined
         );
       }
     },
-    executeTool: async (tool: any, toolArguments: any, toolOptions: any) => {
+    executeTool: async (
+      tool: HostTool | unknown,
+      toolArguments?: unknown,
+      toolOptions?: Record<string, unknown> | null
+    ) => {
       const { toolsEngine, skinEngine, brainEngine, speechEngine } =
         getEngines();
       if (
@@ -198,22 +211,28 @@ export async function setupBrainEngine({
           store: rootStore,
           i18nEngine
         };
+
+        const toolOptionsInput =
+          typeof toolOptions?.input === 'object' && toolOptions.input !== null
+            ? (toolOptions.input as Record<string, unknown>)
+            : {};
+
         const resolvedOptions =
           typeof toolOptions === 'object' && toolOptions !== null
             ? {
                 ...toolOptions,
                 input: {
-                  ...toolOptions.input,
+                  ...toolOptionsInput,
                   context: {
                     ...defaultContext,
-                    ...(typeof toolOptions.input?.context === 'object' &&
-                    toolOptions.input.context !== null
-                      ? toolOptions.input.context
+                    ...(typeof toolOptionsInput.context === 'object' &&
+                    toolOptionsInput.context !== null
+                      ? (toolOptionsInput.context as Record<string, unknown>)
                       : {})
                   },
                   query:
-                    typeof toolOptions.input?.query === 'string'
-                      ? toolOptions.input.query
+                    typeof toolOptionsInput.query === 'string'
+                      ? toolOptionsInput.query
                       : ''
                 }
               }
@@ -221,7 +240,7 @@ export async function setupBrainEngine({
 
         return await toolsEngine.executeToolDirectly(
           tool,
-          toolArguments,
+          (toolArguments as Record<string, unknown>) || {},
           resolvedOptions
         );
       }
@@ -242,13 +261,19 @@ export async function setupBrainEngine({
     languageRule,
     genderRule,
     compression:
-      options.compression || (options as any).brain?.compression || compression,
+      options.compression ||
+      (
+        options as {
+          brain?: { compression?: BrainCompressionOptions };
+        }
+      ).brain?.compression ||
+      compression,
 
     welcomeText: options.welcomeText,
     companionWelcomeText: options.companionWelcomeText,
     assistantWelcomeText: options.assistantWelcomeText,
 
-    onLlmLoading() {
+    onLlmLoading(...args: unknown[]) {
       const { speechEngine } = getEngines();
       if (speechEngine !== null && typeof speechEngine === 'object') {
         speechEngine.spokenDisplayText =
@@ -256,17 +281,33 @@ export async function setupBrainEngine({
             ? i18nEngine.t('brain.llm.loading')
             : '開始下載 AI 大腦（約 1GB，只需第一次）…';
       }
-      callOptionEvent(options, widget, 'onLlmLoading');
+      return callOptionEvent(options, widget, 'onLlmLoading', ...args);
     },
-    onLlmLoadProgress(loadProgress: any) {
+    onLlmLoadProgress(loadProgress: unknown, ...args: unknown[]) {
+      const progressRatio =
+        typeof loadProgress === 'number'
+          ? loadProgress
+          : typeof loadProgress === 'object' &&
+              loadProgress !== null &&
+              'progress' in loadProgress &&
+              typeof (loadProgress as { progress?: unknown }).progress ===
+                'number'
+            ? (loadProgress as { progress: number }).progress
+            : 0;
       const uiDom = getUiDom();
       if (uiDom?.btnLlmEl instanceof HTMLElement) {
         uiDom.btnLlmEl.textContent =
-          '🧠 ' + Math.round((loadProgress?.progress || 0) * 100) + '%';
+          '🧠 ' + Math.round(progressRatio * 100) + '%';
       }
-      callOptionEvent(options, widget, 'onLlmLoadProgress', loadProgress);
+      return callOptionEvent(
+        options,
+        widget,
+        'onLlmLoadProgress',
+        loadProgress,
+        ...args
+      );
     },
-    onLlmLoaded() {
+    onLlmLoaded(...args: unknown[]) {
       const { speechEngine } = getEngines();
       const uiDom = getUiDom();
       if (uiDom?.btnLlmEl instanceof HTMLElement) {
@@ -281,25 +322,33 @@ export async function setupBrainEngine({
         speechEngine.spokenAudioText = loadedMsg;
         speechEngine.spokenDisplayText = loadedMsg;
       }
-      callOptionEvent(options, widget, 'onLlmLoaded');
+      return callOptionEvent(options, widget, 'onLlmLoaded', ...args);
     },
-    onLlmLoadError(error: any) {
+    onLlmLoadError(error?: unknown, ...args: unknown[]) {
       const { speechEngine } = getEngines();
       const uiDom = getUiDom();
       if (uiDom?.btnLlmEl instanceof HTMLElement) {
         uiDom.btnLlmEl.textContent = '🧠✗';
       }
+      const errorMsg =
+        typeof error === 'object' &&
+        error !== null &&
+        'message' in error &&
+        typeof (error as { message?: unknown }).message === 'string'
+          ? (error as { message: string }).message
+          : String(error || '');
+
       if (speechEngine !== null && typeof speechEngine === 'object') {
         speechEngine.spokenDisplayText =
           typeof i18nEngine?.t === 'function'
             ? i18nEngine.t('brain.llm.error', {
-                error: error?.message || error
+                error: errorMsg
               })
-            : 'AI 大腦載入失敗：' + (error?.message || error);
+            : 'AI 大腦載入失敗：' + errorMsg;
       }
-      callOptionEvent(options, widget, 'onLlmLoadError', error);
+      return callOptionEvent(options, widget, 'onLlmLoadError', error, ...args);
     },
-    onAiProviderConnecting() {
+    onAiProviderConnecting(...args: unknown[]) {
       const uiDom = getUiDom();
       const btnLlmEl = uiDom?.btnLlmEl;
       if (btnLlmEl instanceof HTMLElement) {
@@ -309,13 +358,34 @@ export async function setupBrainEngine({
             ? i18nEngine.t('brain.aiProvider.connecting')
             : 'AI 伺服器大腦（連線中）';
       }
-      callOptionEvent(options, widget, 'onAiProviderConnecting');
+      return callOptionEvent(
+        options,
+        widget,
+        'onAiProviderConnecting',
+        ...args
+      );
     },
-    onAiProviderConnected(response: any, _fetchSetting: any, aiProvider: any) {
+    onAiProviderConnected(
+      response?: unknown,
+      _fetchSetting?: unknown,
+      aiProvider?: unknown,
+      ...args: unknown[]
+    ) {
       const { brainEngine, speechEngine } = getEngines();
       const uiDom = getUiDom();
-      const isConnectionSuccessful = response?.ok === true;
+      const isConnectionSuccessful =
+        typeof response === 'object' &&
+        response !== null &&
+        'ok' in response &&
+        (response as { ok?: unknown }).ok === true;
       const btnLlmEl = uiDom?.btnLlmEl;
+
+      const aiProviderObj =
+        typeof aiProvider === 'object' && aiProvider !== null
+          ? (aiProvider as { model?: unknown })
+          : null;
+      const aiProviderModelName =
+        typeof aiProviderObj?.model === 'string' ? aiProviderObj.model : '';
 
       if (btnLlmEl instanceof HTMLElement) {
         btnLlmEl.textContent = isConnectionSuccessful === true ? '🧠✓' : '🧠✗';
@@ -332,9 +402,9 @@ export async function setupBrainEngine({
           btnLlmEl.title =
             typeof i18nEngine?.t === 'function'
               ? i18nEngine.t('brain.aiProvider.connected', {
-                  model: aiProvider?.model
+                  model: aiProviderModelName
                 })
-              : 'AI 伺服器：已連線 ' + aiProvider?.model;
+              : 'AI 伺服器：已連線 ' + aiProviderModelName;
         } else {
           btnLlmEl.title =
             typeof i18nEngine?.t === 'function'
@@ -356,41 +426,72 @@ export async function setupBrainEngine({
           }
         }, 1300);
       }
-      callOptionEvent(
+      return callOptionEvent(
         options,
         widget,
         'onAiProviderConnected',
         response,
         _fetchSetting,
-        aiProvider
+        aiProvider,
+        ...args
       );
     },
-    onSummaryUpdated(summary: any) {
-      callOptionEvent(options, widget, 'onSummaryUpdated', summary);
+    onSummaryUpdated(summary?: unknown, ...args: unknown[]) {
+      return callOptionEvent(
+        options,
+        widget,
+        'onSummaryUpdated',
+        summary,
+        ...args
+      );
     },
-    onAddChatMessage(chatMessageItem: any) {
+    onAddChatMessage(chatMessageItem?: unknown, ...args: unknown[]) {
       const uiDom = getUiDom();
       if (uiDom?.historyPanelEl?.getAttribute('css-is-open') === 'true') {
         renderHistory(widget);
       }
-      callOptionEvent(options, widget, 'onAddChatMessage', chatMessageItem);
+      return callOptionEvent(
+        options,
+        widget,
+        'onAddChatMessage',
+        chatMessageItem,
+        ...args
+      );
     },
-    onUpdateChatMessage(chatMessageItem: any) {
+    onUpdateChatMessage(chatMessageItem?: unknown, ...args: unknown[]) {
       const uiDom = getUiDom();
       if (uiDom?.historyPanelEl?.getAttribute('css-is-open') === 'true') {
         renderHistory(widget);
       }
-      callOptionEvent(options, widget, 'onUpdateChatMessage', chatMessageItem);
+      return callOptionEvent(
+        options,
+        widget,
+        'onUpdateChatMessage',
+        chatMessageItem,
+        ...args
+      );
     },
-    onChatHistoryChanged(chatLog: any) {
-      callOptionEvent(options, widget, 'onChatHistoryChanged', chatLog);
+    onChatHistoryChanged(chatLog?: unknown, ...args: unknown[]) {
+      return callOptionEvent(
+        options,
+        widget,
+        'onChatHistoryChanged',
+        chatLog,
+        ...args
+      );
     },
-    onSpokenAudioPlayNow(text: string) {
+    onSpokenAudioPlayNow(text: string, ...args: unknown[]) {
       const { speechEngine } = getEngines();
       if (typeof speechEngine?.speak === 'function') {
         speechEngine.speak(text);
       }
-      callOptionEvent(options, widget, 'onSpokenAudioPlayNow', text);
+      return callOptionEvent(
+        options,
+        widget,
+        'onSpokenAudioPlayNow',
+        text,
+        ...args
+      );
     },
     onSpokenDisplayTextChange(text: string) {
       const { speechEngine } = getEngines();
@@ -421,15 +522,22 @@ export async function setupBrainEngine({
     onAutoContinueWait: streamPipeline.onAutoContinueWait,
     onAutoContinueResume: streamPipeline.onAutoContinueResume,
     onAutoContinueEnd: streamPipeline.onAutoContinueEnd,
-    onToolNotFound(info: any) {
-      return callOptionEvent(options, widget, 'onToolNotFound', info, widget);
+    onToolNotFound(info?: unknown, ...args: unknown[]) {
+      return callOptionEvent(
+        options,
+        widget,
+        'onToolNotFound',
+        info,
+        widget,
+        ...args
+      );
     },
-    onToolError(info: any) {
-      return callOptionEvent(options, widget, 'onToolError', info, widget);
+    onToolError(info?: unknown, ...args: unknown[]) {
+      return callOptionEvent(options, widget, 'onToolError', info, widget, ...args);
     }
   };
 
-  let brainEngine: any = null;
+  let brainEngine: BrainEngine | null = null;
   let useCustomBrainEngine = false;
 
   if (
@@ -439,8 +547,12 @@ export async function setupBrainEngine({
     try {
       const customInstance =
         typeof customEngines.brain === 'function'
-          ? await (customEngines.brain as any)(brainOptions)
-          : customEngines.brain;
+          ? await (
+              customEngines.brain as (
+                opts: unknown
+              ) => Promise<BrainEngine> | BrainEngine
+            )(brainOptions)
+          : (customEngines.brain as BrainEngine);
 
       const validation = validateBrainEngine(customInstance);
       if (validation.isValid === true) {
@@ -473,15 +585,15 @@ export interface SetupSpeechParams {
   rootStore: BaseStore;
   i18nEngine: I18nEngine;
   getEngines: () => {
-    brainEngine: BrainEngine | any;
-    speechEngine: SpeechEngine | any;
-    skinEngine: SkinEngine | any;
-    toolsEngine?: ToolsEngine | any;
+    brainEngine: BrainEngine | null;
+    speechEngine: SpeechEngine | null;
+    skinEngine: SkinEngine | null;
+    toolsEngine?: ToolsEngine | null;
   };
-  getUiDom: () => UiDom | any;
+  getUiDom: () => UiDom | null;
   handleUser: (text?: string) => void;
   onTapAvatar: () => void;
-  streamPipeline: StreamPipeline | any;
+  streamPipeline: StreamPipeline;
   container: HTMLElement;
   safeNeuralVoice: string;
 }
@@ -501,7 +613,7 @@ export async function setupSpeechEngine({
   streamPipeline,
   container,
   safeNeuralVoice
-}: SetupSpeechParams): Promise<SpeechEngine | any> {
+}: SetupSpeechParams): Promise<SpeechEngine> {
   const {
     customEngines = {},
     ttsEndpoint = DEFAULT_TTS_ENDPOINT,
@@ -510,8 +622,8 @@ export async function setupSpeechEngine({
 
   return await initSpeechEngine({
     customEngines: {
-      tts: customEngines.tts,
-      stt: customEngines.stt
+      tts: customEngines.tts || undefined,
+      stt: customEngines.stt || undefined
     },
     ttsEndpoint:
       typeof ttsEndpoint === 'string' && ttsEndpoint !== ''
@@ -587,7 +699,7 @@ export async function setupSpeechEngine({
     onInterrupt: () => {
       streamPipeline.onInterrupt();
     },
-    onSpeechWait: (speechSequenceId?: any) => {
+    onSpeechWait: (speechSequenceId?: string | number) => {
       streamPipeline.onSpeechWait(speechSequenceId);
     },
     onLanguageChanged(
@@ -632,12 +744,12 @@ export interface SetupToolsParams {
   options: AvatarBotOptions;
   widget: AiAvatarWidget;
   getEngines: () => {
-    brainEngine: BrainEngine | any;
-    speechEngine: SpeechEngine | any;
-    skinEngine: SkinEngine | any;
-    toolsEngine?: ToolsEngine | any;
+    brainEngine: BrainEngine | null;
+    speechEngine: SpeechEngine | null;
+    skinEngine: SkinEngine | null;
+    toolsEngine?: ToolsEngine | null;
   };
-  getUiDom: () => UiDom | any;
+  getUiDom: () => UiDom | null;
 }
 
 /**
@@ -648,18 +760,33 @@ export function setupToolsEngine({
   widget,
   getEngines,
   getUiDom
-}: SetupToolsParams): ToolsEngine | any {
+}: SetupToolsParams): ToolsEngine | null {
   const { customEngines = {} } = options;
+  const rawOptions = options as Record<string, unknown>;
 
   const toolsOptions = {
     confirmationTimeoutMs:
       typeof options.confirmationTimeoutMs === 'number'
         ? options.confirmationTimeoutMs
-        : (options as any).toolConfirmationTimeoutMs,
-    onToolCall: (pendingToolCall: any) => {
-      callOptionEvent(options, widget, 'onToolCall', pendingToolCall, widget);
+        : typeof rawOptions.toolConfirmationTimeoutMs === 'number'
+          ? (rawOptions.toolConfirmationTimeoutMs as number)
+          : undefined,
+    onToolCall: (pendingToolCall: unknown, ...args: unknown[]) => {
+      return callOptionEvent(
+        options,
+        widget,
+        'onToolCall',
+        pendingToolCall,
+        widget,
+        ...args
+      );
     },
-    onAddChatMessage(role: any, text: any, messageOptions: any) {
+    onAddChatMessage(
+      role: string,
+      text: string,
+      messageOptions?: unknown,
+      ...args: unknown[]
+    ) {
       const { brainEngine } = getEngines();
       callOptionEvent(
         options,
@@ -667,11 +794,21 @@ export function setupToolsEngine({
         'onAddChatMessage',
         role,
         text,
-        messageOptions
+        messageOptions,
+        ...args
       );
-      return brainEngine?.addChatMessage(role, text, messageOptions);
+      return brainEngine?.addChatMessage(
+        role,
+        text,
+        messageOptions as Parameters<NonNullable<typeof brainEngine>['addChatMessage']>[2]
+      );
     },
-    onUpdateChatMessage(messageId: any, text: any, append: any) {
+    onUpdateChatMessage(
+      messageId: string,
+      text: string,
+      append?: boolean,
+      ...args: unknown[]
+    ) {
       const { brainEngine } = getEngines();
       callOptionEvent(
         options,
@@ -679,11 +816,12 @@ export function setupToolsEngine({
         'onUpdateChatMessage',
         messageId,
         text,
-        append
+        append,
+        ...args
       );
       return brainEngine?.updateChatMessage(messageId, text, append);
     },
-    onSetHistoryOpen(isOpen: boolean) {
+    onSetHistoryOpen(isOpen: boolean, ...args: unknown[]) {
       const uiDom = getUiDom();
       if (uiDom?.historyPanelEl instanceof HTMLElement) {
         if (isOpen === true) {
@@ -703,13 +841,13 @@ export function setupToolsEngine({
           String(isOpen === true)
         );
       }
-      callOptionEvent(options, widget, 'onSetHistoryOpen', isOpen);
+      return callOptionEvent(options, widget, 'onSetHistoryOpen', isOpen, ...args);
     },
-    onRenderHistory() {
+    onRenderHistory(...args: unknown[]) {
       renderHistory(widget);
-      callOptionEvent(options, widget, 'onRenderHistory');
+      return callOptionEvent(options, widget, 'onRenderHistory', ...args);
     },
-    onSpokenAudioPlayNow(text: string) {
+    onSpokenAudioPlayNow(text: string, ...args: unknown[]) {
       const { speechEngine } = getEngines();
       if (
         typeof speechEngine === 'object' &&
@@ -718,14 +856,14 @@ export function setupToolsEngine({
       ) {
         speechEngine.speak(text);
       }
-      callOptionEvent(options, widget, 'onSpokenAudioPlayNow', text);
+      return callOptionEvent(options, widget, 'onSpokenAudioPlayNow', text, ...args);
     },
     getChatLog: () => getEngines().brainEngine?.chatLog || [],
     getChatSeq: () => getEngines().brainEngine?.chatSeq || 0,
     isConvoOn: () => getEngines().speechEngine?.convoOn || false
   };
 
-  let toolsEngine: any = null;
+  let toolsEngine: ToolsEngine | null = null;
   let useCustomToolsEngine = false;
 
   if (
@@ -735,8 +873,8 @@ export function setupToolsEngine({
     try {
       const customInstance =
         typeof customEngines.tools === 'function'
-          ? (customEngines.tools as any)(toolsOptions)
-          : customEngines.tools;
+          ? (customEngines.tools as (opts: unknown) => ToolsEngine)(toolsOptions)
+          : (customEngines.tools as ToolsEngine);
 
       const validation = validateToolsEngine(customInstance);
       if (validation.isValid === true) {
@@ -763,9 +901,9 @@ export function setupToolsEngine({
   const customTools =
     Array.isArray(options.tools) && options.tools.length > 0
       ? options.tools
-      : Array.isArray((options as any).hostTools) &&
-          (options as any).hostTools.length > 0
-        ? (options as any).hostTools
+      : Array.isArray(rawOptions.hostTools) &&
+          (rawOptions.hostTools as unknown[]).length > 0
+        ? (rawOptions.hostTools as HostTool[])
         : [];
 
   const emotionTools =
@@ -785,12 +923,12 @@ export interface SetupSkinParams {
   widget: AiAvatarWidget;
   rootStore: BaseStore;
   getEngines: () => {
-    brainEngine: BrainEngine | any;
-    speechEngine: SpeechEngine | any;
-    skinEngine: SkinEngine | any;
-    toolsEngine?: ToolsEngine | any;
+    brainEngine: BrainEngine | null;
+    speechEngine: SpeechEngine | null;
+    skinEngine: SkinEngine | null;
+    toolsEngine?: ToolsEngine | null;
   };
-  getUiDom: () => UiDom | any;
+  getUiDom: () => UiDom | null;
   stageEl: HTMLElement;
 }
 
@@ -804,7 +942,7 @@ export async function setupSkinEngine({
   getEngines,
   getUiDom,
   stageEl
-}: SetupSkinParams): Promise<SkinEngine | any> {
+}: SetupSkinParams): Promise<SkinEngine | null> {
   const {
     modelUrl,
     startMode,
@@ -824,7 +962,7 @@ export async function setupSkinEngine({
     customEngines = {}
   } = options;
 
-  let skinEngine: any = null;
+  let skinEngine: SkinEngine | null = null;
   let useCustomSkinEngine = false;
 
   if (
@@ -834,12 +972,16 @@ export async function setupSkinEngine({
     try {
       const customInstance =
         typeof customEngines.skin === 'function'
-          ? await (customEngines.skin as any)({
+          ? await (
+              customEngines.skin as (
+                params: unknown
+              ) => Promise<SkinEngine> | SkinEngine
+            )({
               stageEl,
               aiAvatarWidget: widget,
               speechEngine: getEngines().speechEngine
             })
-          : customEngines.skin;
+          : (customEngines.skin as SkinEngine);
 
       const validation = validateSkinEngine(customInstance);
       if (validation.isValid === true) {
@@ -860,160 +1002,200 @@ export async function setupSkinEngine({
   }
 
   if (useCustomSkinEngine === false) {
-    skinEngine = initSkinEngine({
-      stageEl,
-      modelUrl,
-      startMode,
-      fitMode,
-      skin2d,
-      zoom,
-      offsetX,
-      offsetY,
-      anchor,
-      vrmUrl,
-      skin3d,
-      camera,
-      modelTransform,
-      pointerLook,
-      gesture3D,
-      gesture2D,
-      get gender() {
-        return rootStore.getState().skinGender || rootStore.getState().gender;
-      },
+    skinEngine =
+      initSkinEngine({
+        stageEl,
+        modelUrl,
+        startMode,
+        fitMode,
+        skin2d,
+        zoom,
+        offsetX,
+        offsetY,
+        anchor,
+        vrmUrl,
+        skin3d,
+        camera,
+        modelTransform,
+        pointerLook,
+        gesture3D,
+        gesture2D,
+        get gender() {
+          return rootStore.getState().skinGender || rootStore.getState().gender;
+        },
 
-      computeMouth() {
-        const { speechEngine } = getEngines();
-        return speechEngine?.computeMouth
-          ? speechEngine.computeMouth()
-          : undefined;
-      },
-      async onMounted() {
-        const { brainEngine, speechEngine } = getEngines();
-        if (speechEngine !== null && typeof speechEngine === 'object') {
-          speechEngine.spokenDisplayText = await brainEngine?.getWelcomeText();
-        }
-        if (typeof widget.onReady === 'function') {
-          widget.onReady(widget);
-        }
-      },
-      onThreeDimensionalError(error: any) {
-        if (typeof widget.onError === 'function') {
-          widget.onError(error, widget);
-        }
-        callOptionEvent(options, widget, 'onThreeDimensionalError', error);
-      },
-      onTwoDimensionalError(error: any) {
-        const uiDom = getUiDom();
-        const directWarnEl = uiDom?.directWarnEl;
-        if (
-          directWarnEl instanceof HTMLParagraphElement ||
-          directWarnEl instanceof HTMLDivElement
-        ) {
-          directWarnEl.textContent =
-            '2D 啟動失敗：' + (error?.message || error);
-          directWarnEl.style.display = 'flex';
-        }
-        if (typeof widget.onError === 'function') {
-          widget.onError(error, widget);
-        }
-        callOptionEvent(options, widget, 'onTwoDimensionalError', error);
-      },
-      VRMFileChangeFail(error: any) {
-        console.error(error);
-        const { speechEngine } = getEngines();
-        if (speechEngine !== null && typeof speechEngine === 'object') {
-          speechEngine.spokenDisplayText = error?.message || error;
-        }
-        if (typeof widget.onError === 'function') {
-          widget.onError(error, widget);
-        }
-        callOptionEvent(options, widget, 'VRMFileChangeFail', error);
-      },
-      VRMFileChangeSuccess() {
-        const { skinEngine: currentSkin, speechEngine } = getEngines();
-        const rootState = rootStore?.getState?.() || {};
-        const isEngineToggleEnabled =
-          typeof rootState.enableEngineToggle === 'boolean'
-            ? rootState.enableEngineToggle
-            : true;
-
-        initSkinModeChangeButton(
-          widget,
-          currentSkin?.has2D === true,
-          currentSkin?.has3D === true,
-          isEngineToggleEnabled
-        );
-
-        if (speechEngine !== null && typeof speechEngine === 'object') {
-          speechEngine.spokenDisplayText = '換上你的角色了！🎭';
-        }
-        callOptionEvent(options, widget, 'VRMFileChangeSuccess');
-      },
-      onModelChangeStart(newEngineMode: string) {
-        const uiDom = getUiDom();
-        if (uiDom?.engineButtonEl instanceof HTMLElement) {
-          if (newEngineMode === ENGINE_MODE_MAP.threeDimensional) {
-            uiDom.engineButtonEl.textContent = '3D';
-          } else {
-            uiDom.engineButtonEl.textContent = '2D';
+        computeMouth() {
+          const { speechEngine } = getEngines();
+          return speechEngine?.computeMouth
+            ? speechEngine.computeMouth()
+            : undefined;
+        },
+        async onMounted() {
+          const { brainEngine, speechEngine } = getEngines();
+          if (speechEngine !== null && typeof speechEngine === 'object') {
+            const welcomeMsg = await brainEngine?.getWelcomeText();
+            speechEngine.spokenDisplayText =
+              typeof welcomeMsg === 'string' ? welcomeMsg : '';
           }
-        }
-        callOptionEvent(options, widget, 'onModelChangeStart', newEngineMode);
-      },
-      onModelChangeEnd() {
-        const uiDom = getUiDom();
-        const { skinEngine: currentSkin, speechEngine } = getEngines();
-        if (uiDom?.engineButtonEl instanceof HTMLElement) {
+          if (typeof widget.onReady === 'function') {
+            widget.onReady(widget);
+          }
+        },
+        onThreeDimensionalError(error?: unknown, ...args: unknown[]) {
+          if (typeof widget.onError === 'function') {
+            const errObj =
+              error instanceof Error ? error : new Error(String(error || ''));
+            widget.onError(errObj, widget);
+          }
+          return callOptionEvent(
+            options,
+            widget,
+            'onThreeDimensionalError',
+            error,
+            ...args
+          );
+        },
+        onTwoDimensionalError(error?: unknown, ...args: unknown[]) {
+          const errorMsg =
+            typeof error === 'object' &&
+            error !== null &&
+            'message' in error &&
+            typeof (error as { message?: unknown }).message === 'string'
+              ? (error as { message: string }).message
+              : String(error || '');
+          const uiDom = getUiDom();
+          const directWarnEl = uiDom?.directWarnEl;
+          if (
+            directWarnEl instanceof HTMLParagraphElement ||
+            directWarnEl instanceof HTMLDivElement
+          ) {
+            directWarnEl.textContent = '2D 啟動失敗：' + errorMsg;
+            directWarnEl.style.display = 'flex';
+          }
+          if (typeof widget.onError === 'function') {
+            const errObj =
+              error instanceof Error ? error : new Error(errorMsg);
+            widget.onError(errObj, widget);
+          }
+          return callOptionEvent(
+            options,
+            widget,
+            'onTwoDimensionalError',
+            error,
+            ...args
+          );
+        },
+        VRMFileChangeFail(error?: unknown, ...args: unknown[]) {
+          console.error(error);
+          const errorMsg =
+            typeof error === 'object' &&
+            error !== null &&
+            'message' in error &&
+            typeof (error as { message?: unknown }).message === 'string'
+              ? (error as { message: string }).message
+              : String(error || '');
+          const { speechEngine } = getEngines();
+          if (speechEngine !== null && typeof speechEngine === 'object') {
+            speechEngine.spokenDisplayText = errorMsg;
+          }
+          if (typeof widget.onError === 'function') {
+            const errObj =
+              error instanceof Error ? error : new Error(errorMsg);
+            widget.onError(errObj, widget);
+          }
+          return callOptionEvent(options, widget, 'VRMFileChangeFail', error, ...args);
+        },
+        VRMFileChangeSuccess() {
+          const { skinEngine: currentSkin, speechEngine } = getEngines();
+          const rootState = rootStore?.getState?.() || {};
+          const isEngineToggleEnabled =
+            typeof rootState.enableEngineToggle === 'boolean'
+              ? rootState.enableEngineToggle
+              : true;
+
+          initSkinModeChangeButton(
+            widget,
+            currentSkin?.has2D === true,
+            currentSkin?.has3D === true,
+            isEngineToggleEnabled
+          );
+
+          if (speechEngine !== null && typeof speechEngine === 'object') {
+            speechEngine.spokenDisplayText = '換上你的角色了！🎭';
+          }
+          callOptionEvent(options, widget, 'VRMFileChangeSuccess');
+        },
+        onModelChangeStart(newEngineMode: string) {
+          const uiDom = getUiDom();
+          if (uiDom?.engineButtonEl instanceof HTMLElement) {
+            if (newEngineMode === ENGINE_MODE_MAP.threeDimensional) {
+              uiDom.engineButtonEl.textContent = '3D';
+            } else {
+              uiDom.engineButtonEl.textContent = '2D';
+            }
+          }
+          callOptionEvent(options, widget, 'onModelChangeStart', newEngineMode);
+        },
+        onModelChangeEnd() {
+          const uiDom = getUiDom();
+          const { skinEngine: currentSkin, speechEngine } = getEngines();
+          if (uiDom?.engineButtonEl instanceof HTMLElement) {
+            if (currentSkin?.engineMode === ENGINE_MODE_MAP.threeDimensional) {
+              uiDom.engineButtonEl.textContent = '3D';
+            } else {
+              uiDom.engineButtonEl.textContent = '2D';
+            }
+          }
+
+          if (
+            typeof currentSkin?.avatarModel === 'object' &&
+            currentSkin.avatarModel !== null &&
+            typeof currentSkin.avatarModel.on === 'function'
+          ) {
+            currentSkin.avatarModel.on('hit', () => {
+              speechEngine?.triggerTap();
+            });
+          }
           if (currentSkin?.engineMode === ENGINE_MODE_MAP.threeDimensional) {
-            uiDom.engineButtonEl.textContent = '3D';
+            const renderer3D = currentSkin.renderer as
+              | (Renderer3D & {
+                  TAP_GESTURES?: string[];
+                  playGesture?: (g: string) => void;
+                })
+              | undefined;
+            if (
+              typeof renderer3D?.canvas?.addEventListener === 'function'
+            ) {
+              renderer3D.canvas.addEventListener('pointerdown', () => {
+                if (
+                  Array.isArray(renderer3D.TAP_GESTURES) === true &&
+                  renderer3D.TAP_GESTURES.length > 0 &&
+                  typeof renderer3D.playGesture === 'function'
+                ) {
+                  renderer3D.playGesture(
+                    renderer3D.TAP_GESTURES[
+                      Math.floor(
+                        Math.random() * renderer3D.TAP_GESTURES.length
+                      )
+                    ]
+                  );
+                }
+                speechEngine?.triggerTap();
+              });
+            }
           } else {
-            uiDom.engineButtonEl.textContent = '2D';
+            if (
+              typeof currentSkin?.renderer?.canvas?.addEventListener ===
+              'function'
+            ) {
+              currentSkin.renderer.canvas.addEventListener('pointerdown', () => {
+                speechEngine?.triggerTap();
+              });
+            }
           }
+          callOptionEvent(options, widget, 'onModelChangeEnd');
         }
-
-        if (
-          typeof currentSkin?.avatarModel === 'object' &&
-          currentSkin.avatarModel !== null &&
-          typeof currentSkin.avatarModel.on === 'function'
-        ) {
-          currentSkin.avatarModel.on('hit', () => {
-            speechEngine?.triggerTap();
-          });
-        }
-        if (currentSkin?.engineMode === ENGINE_MODE_MAP.threeDimensional) {
-          if (
-            typeof currentSkin.renderer?.canvas?.addEventListener === 'function'
-          ) {
-            currentSkin.renderer.canvas.addEventListener('pointerdown', () => {
-              if (
-                Array.isArray(currentSkin.renderer?.TAP_GESTURES) === true &&
-                currentSkin.renderer.TAP_GESTURES.length > 0 &&
-                typeof currentSkin.renderer.playGesture === 'function'
-              ) {
-                currentSkin.renderer.playGesture(
-                  currentSkin.renderer.TAP_GESTURES[
-                    Math.floor(
-                      Math.random() * currentSkin.renderer.TAP_GESTURES.length
-                    )
-                  ]
-                );
-              }
-              speechEngine?.triggerTap();
-            });
-          }
-        } else {
-          if (
-            typeof currentSkin?.renderer?.canvas?.addEventListener ===
-            'function'
-          ) {
-            currentSkin.renderer.canvas.addEventListener('pointerdown', () => {
-              speechEngine?.triggerTap();
-            });
-          }
-        }
-        callOptionEvent(options, widget, 'onModelChangeEnd');
-      }
-    });
+      }) || null;
   }
 
   return skinEngine;

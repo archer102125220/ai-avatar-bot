@@ -5,8 +5,10 @@ import type {
   AiAvatarWidget,
   AvatarBotOptions,
   BaseStore,
-  I18nEngine
-} from '@types';
+  I18nEngine,
+  GetEnginesFn,
+  SkinEngine
+} from './types';
 
 export interface TapAvatarParams {
   widget?: AiAvatarWidget;
@@ -14,12 +16,7 @@ export interface TapAvatarParams {
   options: AvatarBotOptions;
   rootStore: BaseStore;
   i18nEngine: I18nEngine;
-  getEngines: () => {
-    brainEngine: any;
-    speechEngine: any;
-    skinEngine: any;
-    toolsEngine?: any;
-  };
+  getEngines: GetEnginesFn;
 }
 
 /**
@@ -52,24 +49,24 @@ export function createTapAvatarHandler({
       }, 400);
     }
 
-    if (
-      typeof skinEngine?.avatarModel === 'object' &&
-      skinEngine.avatarModel !== null
-    ) {
+    const avatarModel = skinEngine?.avatarModel as
+      | { motion?: (name: string) => void }
+      | undefined;
+    if (typeof avatarModel?.motion === 'function') {
       try {
-        skinEngine.avatarModel.motion('Tap');
+        avatarModel.motion('Tap');
       } catch (_error) {}
     }
 
     let greeting = '你好～';
-    const currentLocale =
+    const stateLocale = rootStore.getState().locale;
+    const currentLocale: string =
       typeof i18nEngine?.locale === 'string' && i18nEngine.locale !== ''
         ? i18nEngine.locale
-        : typeof rootStore.getState().locale === 'string' &&
-            rootStore.getState().locale !== ''
-          ? rootStore.getState().locale
+        : typeof stateLocale === 'string' && stateLocale !== ''
+          ? (stateLocale as string)
           : 'zh-TW';
-    const currentAvatarMode = rootStore.getState().avatarMode;
+    const currentAvatarMode = String(rootStore.getState().avatarMode || '');
     const templateContext = {
       isMemoryEnabled: brainEngine?.memory?.enabled,
       isCompanion: currentAvatarMode === AVATAR_MODE_MAP.companion,
@@ -78,29 +75,39 @@ export function createTapAvatarHandler({
       locale: currentLocale
     };
 
-    const currentModeConfig = options.modes?.[currentAvatarMode];
+    const modesRecord =
+      typeof options.modes === 'object' && options.modes !== null
+        ? (options.modes as Record<string, unknown>)
+        : null;
+    const currentModeConfig =
+      modesRecord !== null
+        ? (modesRecord[currentAvatarMode] as { greeting?: unknown } | undefined)
+        : undefined;
+
     if (
       typeof currentModeConfig?.greeting !== 'undefined' &&
       currentModeConfig?.greeting !== null
     ) {
+      const resolved = resolveLocalized(
+        currentModeConfig.greeting,
+        currentLocale,
+        '你好～',
+        templateContext
+      );
       greeting =
-        resolveLocalized(
-          currentModeConfig.greeting,
-          currentLocale,
-          '你好～',
-          templateContext
-        ) || '你好～';
+        typeof resolved === 'string' && resolved !== '' ? resolved : '你好～';
     } else if (
       typeof options.greeting !== 'undefined' &&
       options.greeting !== null
     ) {
+      const resolved = resolveLocalized(
+        options.greeting,
+        currentLocale,
+        '你好～',
+        templateContext
+      );
       greeting =
-        resolveLocalized(
-          options.greeting,
-          currentLocale,
-          '你好～',
-          templateContext
-        ) || '你好～';
+        typeof resolved === 'string' && resolved !== '' ? resolved : '你好～';
     } else if (currentAvatarMode === AVATAR_MODE_MAP.companion) {
       let defaultCompanionGreeting: string;
       const userName =
@@ -126,13 +133,16 @@ export function createTapAvatarHandler({
           '想聊什麼都可以，點 💬 我們就開始！';
       }
 
+      const resolved = resolveLocalized(
+        options.companionGreeting,
+        currentLocale,
+        defaultCompanionGreeting,
+        templateContext
+      );
       greeting =
-        resolveLocalized(
-          options.companionGreeting,
-          currentLocale,
-          defaultCompanionGreeting,
-          templateContext
-        ) || defaultCompanionGreeting;
+        typeof resolved === 'string' && resolved !== ''
+          ? resolved
+          : defaultCompanionGreeting;
     } else if (currentAvatarMode === AVATAR_MODE_MAP.assistant) {
       let defaultAssistantGreeting =
         '你好～我是 ai-avatar-bot-vanilla-js 虛擬人，問我怎麼安裝、切換 3D 或工具調用都行！';
@@ -147,13 +157,16 @@ export function createTapAvatarHandler({
           '안녕하세요~ ai-avatar-bot-vanilla-js 아바타입니다. 설치 방법, 3D 전환, 도구機能 등을 편하게 물어보세요!';
       }
 
+      const resolved = resolveLocalized(
+        options.assistantGreeting,
+        currentLocale,
+        defaultAssistantGreeting,
+        templateContext
+      );
       greeting =
-        resolveLocalized(
-          options.assistantGreeting,
-          currentLocale,
-          defaultAssistantGreeting,
-          templateContext
-        ) || defaultAssistantGreeting;
+        typeof resolved === 'string' && resolved !== ''
+          ? resolved
+          : defaultAssistantGreeting;
     }
 
     if (speechEngine !== null && typeof speechEngine === 'object') {
@@ -164,7 +177,7 @@ export function createTapAvatarHandler({
 
 export interface ModelDropParams {
   container: HTMLElement;
-  getSkinEngine: () => any;
+  getSkinEngine: () => SkinEngine | null;
 }
 
 /**

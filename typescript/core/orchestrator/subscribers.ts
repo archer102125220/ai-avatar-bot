@@ -5,20 +5,20 @@ import type {
   AiAvatarWidget,
   AvatarBotOptions,
   BaseStore,
-  I18nEngine
-} from '@types';
+  I18nEngine,
+  GetEnginesFn,
+  UiDom,
+  BrainEngine,
+  SpeechEngine,
+  SkinEngine
+} from './types';
 
 export interface SetupStoreSubscribersParams {
   widget: AiAvatarWidget;
   rootStore: BaseStore;
   i18nEngine: I18nEngine;
-  getUiDom: () => any;
-  getEngines: () => {
-    brainEngine: any;
-    speechEngine: any;
-    skinEngine: any;
-    toolsEngine?: any;
-  };
+  getUiDom: () => UiDom | null;
+  getEngines: GetEnginesFn;
 }
 
 /**
@@ -31,54 +31,71 @@ export function setupStoreSubscribers({
   getUiDom,
   getEngines
 }: SetupStoreSubscribersParams): void {
-  rootStore.subscribe('avatarMode', (newAvatarMode: string) => {
+  rootStore.subscribe('avatarMode', (newAvatarMode: unknown) => {
     const { brainEngine, speechEngine } = getEngines();
     const uiDom = getUiDom();
 
-    if (typeof brainEngine === 'object' && brainEngine !== null) {
-      brainEngine.avatarMode = newAvatarMode;
+    if (
+      typeof brainEngine === 'object' &&
+      brainEngine !== null &&
+      typeof newAvatarMode === 'string'
+    ) {
+      brainEngine.avatarMode = newAvatarMode as import('@/core/brain').AvatarMode;
     }
     renderSuggestions(widget);
     if (typeof uiDom?.updateMicState === 'function') {
       const isCompanion = newAvatarMode === AVATAR_MODE_MAP.companion;
       uiDom.updateMicState(
-        speechEngine?.isListening,
-        speechEngine?.convoOn,
+        speechEngine?.isListening ?? false,
+        speechEngine?.convoOn ?? false,
         isCompanion,
         i18nEngine
       );
     }
   });
 
-  rootStore.subscribe('enableMemory', (newEnableMemory: boolean) => {
+  rootStore.subscribe('enableMemory', (newEnableMemory: unknown) => {
     const { brainEngine } = getEngines();
     if (
       typeof brainEngine?.memory === 'object' &&
-      brainEngine?.memory !== null
+      brainEngine?.memory !== null &&
+      typeof newEnableMemory === 'boolean'
     ) {
       brainEngine.memory.enabled = newEnableMemory;
     }
   });
 
-  rootStore.subscribe('enableAiProvider', (newEnableAiProvider: boolean) => {
+  rootStore.subscribe('enableAiProvider', (newEnableAiProvider: unknown) => {
     const { brainEngine } = getEngines();
-    if (typeof brainEngine === 'object' && brainEngine !== null) {
+    if (
+      typeof brainEngine === 'object' &&
+      brainEngine !== null &&
+      typeof newEnableAiProvider === 'boolean'
+    ) {
       brainEngine.enableAiProvider = newEnableAiProvider;
     }
   });
 
-  rootStore.subscribe('preloadWebLLM', (newPreloadWebLLM: boolean) => {
+  rootStore.subscribe('preloadWebLLM', (newPreloadWebLLM: unknown) => {
     const { brainEngine } = getEngines();
-    if (typeof brainEngine === 'object' && brainEngine !== null) {
+    if (
+      typeof brainEngine === 'object' &&
+      brainEngine !== null &&
+      typeof newPreloadWebLLM === 'boolean'
+    ) {
       brainEngine.preloadWebLLM = newPreloadWebLLM;
     }
   });
 
   rootStore.subscribe(
     'autoFallbackWebLLM',
-    (newAutoFallbackWebLLM: boolean) => {
+    (newAutoFallbackWebLLM: unknown) => {
       const { brainEngine } = getEngines();
-      if (typeof brainEngine === 'object' && brainEngine !== null) {
+      if (
+        typeof brainEngine === 'object' &&
+        brainEngine !== null &&
+        typeof newAutoFallbackWebLLM === 'boolean'
+      ) {
         brainEngine.autoFallbackWebLLM = newAutoFallbackWebLLM;
       }
     }
@@ -86,9 +103,13 @@ export function setupStoreSubscribers({
 
   rootStore.subscribe(
     'enableAutoContinue',
-    (newEnableAutoContinue: boolean) => {
+    (newEnableAutoContinue: unknown) => {
       const { brainEngine } = getEngines();
-      if (typeof brainEngine === 'object' && brainEngine !== null) {
+      if (
+        typeof brainEngine === 'object' &&
+        brainEngine !== null &&
+        typeof newEnableAutoContinue === 'boolean'
+      ) {
         brainEngine.enableAutoContinue = newEnableAutoContinue;
       }
     }
@@ -96,29 +117,52 @@ export function setupStoreSubscribers({
 
   rootStore.subscribe(
     'maxAutoContinuations',
-    (newMaxAutoContinuations: number) => {
+    (newMaxAutoContinuations: unknown) => {
       const { brainEngine } = getEngines();
-      if (typeof brainEngine === 'object' && brainEngine !== null) {
+      if (
+        typeof brainEngine === 'object' &&
+        brainEngine !== null &&
+        typeof newMaxAutoContinuations === 'number'
+      ) {
         brainEngine.maxAutoContinuations = newMaxAutoContinuations;
       }
     }
   );
 
-  rootStore.subscribe('autoContinueMode', (newAutoContinueMode: string) => {
+  rootStore.subscribe('autoContinueMode', (newAutoContinueMode: unknown) => {
     const { brainEngine } = getEngines();
-    if (typeof brainEngine === 'object' && brainEngine !== null) {
+    if (
+      typeof brainEngine === 'object' &&
+      brainEngine !== null &&
+      typeof newAutoContinueMode === 'string'
+    ) {
       brainEngine.autoContinueMode = newAutoContinueMode;
     }
   });
 
-  rootStore.subscribe('autoContinuePrompt', (newAutoContinuePrompt: any) => {
-    const { brainEngine } = getEngines();
-    if (typeof brainEngine === 'object' && brainEngine !== null) {
-      brainEngine.autoContinuePrompt = newAutoContinuePrompt;
+  rootStore.subscribe(
+    'autoContinuePrompt',
+    (newAutoContinuePrompt: unknown) => {
+      const { brainEngine } = getEngines();
+      if (
+        typeof brainEngine === 'object' &&
+        brainEngine !== null &&
+        (typeof newAutoContinuePrompt === 'string' ||
+          typeof newAutoContinuePrompt === 'function' ||
+          newAutoContinuePrompt === null)
+      ) {
+        brainEngine.autoContinuePrompt = newAutoContinuePrompt as
+          | string
+          | ((...args: unknown[]) => string)
+          | null;
+      }
     }
-  });
+  );
 
-  rootStore.subscribe('gender', (newGender: string) => {
+  rootStore.subscribe('gender', (newGender: unknown) => {
+    if (typeof newGender !== 'string') {
+      return;
+    }
     const { brainEngine, speechEngine, skinEngine } = getEngines();
     const state = rootStore.getState();
     if (
@@ -141,43 +185,52 @@ export function setupStoreSubscribers({
     }
   });
 
-  rootStore.subscribe('brainGender', (newBrainGender: string | null) => {
+  rootStore.subscribe('brainGender', (newBrainGender: unknown) => {
     const { brainEngine } = getEngines();
     const state = rootStore.getState();
     const resolvedGender =
       typeof newBrainGender === 'string' && newBrainGender !== ''
         ? newBrainGender
-        : state.gender;
+        : typeof state.gender === 'string'
+          ? state.gender
+          : '';
     if (typeof brainEngine?.setGender === 'function') {
       brainEngine.setGender(resolvedGender);
     }
   });
 
-  rootStore.subscribe('speechGender', (newSpeechGender: string | null) => {
+  rootStore.subscribe('speechGender', (newSpeechGender: unknown) => {
     const { speechEngine } = getEngines();
     const state = rootStore.getState();
     const resolvedGender =
       typeof newSpeechGender === 'string' && newSpeechGender !== ''
         ? newSpeechGender
-        : state.gender;
+        : typeof state.gender === 'string'
+          ? state.gender
+          : '';
     if (typeof speechEngine?.setGender === 'function') {
       speechEngine.setGender(resolvedGender);
     }
   });
 
-  rootStore.subscribe('skinGender', (newSkinGender: string | null) => {
+  rootStore.subscribe('skinGender', (newSkinGender: unknown) => {
     const { skinEngine } = getEngines();
     const state = rootStore.getState();
     const resolvedGender =
       typeof newSkinGender === 'string' && newSkinGender !== ''
         ? newSkinGender
-        : state.gender;
+        : typeof state.gender === 'string'
+          ? state.gender
+          : '';
     if (typeof skinEngine?.setGender === 'function') {
       skinEngine.setGender(resolvedGender);
     }
   });
 
-  rootStore.subscribe('locale', (newLocale: string) => {
+  rootStore.subscribe('locale', (newLocale: unknown) => {
+    if (typeof newLocale !== 'string') {
+      return;
+    }
     const { brainEngine, speechEngine } = getEngines();
     if (typeof brainEngine?.setLocale === 'function') {
       brainEngine.setLocale(newLocale);
@@ -208,17 +261,16 @@ export interface SetupI18nSubscribersParams {
   rootStore: BaseStore;
   i18nEngine: I18nEngine;
   container: HTMLElement;
-  getUiDom: () => any;
+  getUiDom: () => UiDom | null;
   getEngines: () => {
-    brainEngine: any;
-    speechEngine: any;
-    skinEngine?: any;
-    toolsEngine?: any;
+    brainEngine: BrainEngine | null;
+    speechEngine: SpeechEngine | null;
+    skinEngine: SkinEngine | null;
   };
 }
 
 /**
- * Subscribes to i18n engine changes, synchronizing UI translations, mic states, voice indicators, and triggering `onLanguageChanged`.
+ * Sets up subscribers to internationalization changes.
  */
 export function setupI18nSubscribers({
   widget,
@@ -239,7 +291,7 @@ export function setupI18nSubscribers({
       renderSuggestions(widget);
     });
 
-    i18nEngine.subscribe('locale', (newLocale: string, localeLabels: any) => {
+    i18nEngine.subscribe('locale', (newLocale: string, localeLabels?: unknown) => {
       const { brainEngine, speechEngine } = getEngines();
       const uiDom = getUiDom();
 
@@ -255,15 +307,15 @@ export function setupI18nSubscribers({
         const isCompanion =
           rootStore.getState().avatarMode === AVATAR_MODE_MAP.companion;
         uiDom.updateMicState(
-          speechEngine?.isListening,
-          speechEngine?.convoOn,
+          speechEngine?.isListening ?? false,
+          speechEngine?.convoOn ?? false,
           isCompanion,
           i18nEngine
         );
       }
       if (typeof uiDom?.updateVoiceStatus === 'function') {
         uiDom.updateVoiceStatus(
-          speechEngine?.convoOn,
+          speechEngine?.convoOn ?? false,
           undefined,
           undefined,
           undefined,
@@ -271,23 +323,26 @@ export function setupI18nSubscribers({
         );
       }
       renderSuggestions(widget);
+
+      const labelsObj =
+        typeof localeLabels === 'object' && localeLabels !== null
+          ? (localeLabels as { label?: unknown; shortLabel?: unknown })
+          : null;
+      const label = typeof labelsObj?.label === 'string' ? labelsObj.label : '';
+      const shortLabel =
+        typeof labelsObj?.shortLabel === 'string' ? labelsObj.shortLabel : '';
+
       if (uiDom?.langButtonEl instanceof HTMLButtonElement) {
         uiDom.langButtonEl.textContent =
-          typeof localeLabels?.shortLabel === 'string' &&
-          localeLabels.shortLabel !== ''
-            ? localeLabels.shortLabel
-            : typeof localeLabels?.label === 'string' &&
-                localeLabels.label !== ''
-              ? localeLabels.label
-              : newLocale;
+          shortLabel !== '' ? shortLabel : label !== '' ? label : newLocale;
       }
       callOptionEvent(
         options,
         widget,
         'onLanguageChanged',
         newLocale,
-        localeLabels?.label,
-        localeLabels?.shortLabel
+        label,
+        shortLabel
       );
     });
   }

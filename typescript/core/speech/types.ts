@@ -437,6 +437,8 @@ export interface SpeechEngine {
   readonly isListening: boolean;
   /** Whether TTS speech is muted. */
   ttsMuted: boolean;
+  /** Internal debounce flag for avatar tap interaction. */
+  onTapTimer?: boolean;
   /** TTS playback rate multiplier (default 1.0). */
   ttsRate: number;
   /** Number of consecutive voice recognition turns without speech detected. */
