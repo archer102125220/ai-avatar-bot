@@ -407,6 +407,7 @@ export async function initAiProvider(
           finishReason
         };
       } catch (error) {
+        console.error('[AiProvider] 請求或回應解析失敗:', error);
         this.ready = false;
         throw error;
       }
@@ -652,7 +653,7 @@ export async function chatWithAiProvider(
       return engine.emitAnswer(accumulatedText);
     }
   } catch (error) {
-    console.warn('AI Provider error', error);
+    console.error('[AiProvider] chatWithAiProvider 執行失敗:', error);
     throw error;
   }
 }

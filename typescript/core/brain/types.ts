@@ -362,7 +362,10 @@ export interface BrainEngineOptions {
   llmMaxTokens?: number;
   llmIsStream?: boolean;
   onLlmLoading?: (...args: unknown[]) => unknown;
-  onLlmLoadProgress?: (progress: number, ...args: unknown[]) => unknown;
+  onLlmLoadProgress?: (
+    progress: number | { progress?: number; [key: string]: unknown },
+    ...args: unknown[]
+  ) => unknown;
   onLlmLoaded?: (engineInstance?: unknown, ...args: unknown[]) => unknown;
   onLlmLoadError?: (error: Error, ...args: unknown[]) => unknown;
   onLlmChatting?: (response?: unknown, ...args: unknown[]) => unknown;
@@ -537,7 +540,10 @@ export interface BrainEngine {
     | null;
   onLlmLoading: ((...args: unknown[]) => unknown) | null;
   onLlmLoadProgress:
-    | ((progress: number, ...args: unknown[]) => unknown)
+    | ((
+        progress: number | { progress?: number; [key: string]: unknown },
+        ...args: unknown[]
+      ) => unknown)
     | null;
   onLlmLoaded:
     | ((engineInstance?: unknown, ...args: unknown[]) => unknown)

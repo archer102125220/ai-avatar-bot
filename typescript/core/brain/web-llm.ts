@@ -198,6 +198,7 @@ export function initWebLLM(
           this.onLoaded(engine);
           return engine;
         } catch (error: unknown) {
+          console.error('[WebLLM] 模型載入失敗:', error);
           this.state = STATE_MAP.ERROR;
           this.error = String(error);
           this.onLoadError(error, this);
@@ -549,6 +550,7 @@ export function initWebLLM(
           createOptions.messages = messages;
           return await executeChatCompletion(createOptions);
         }
+        console.error('[WebLLM] executeChatCompletion 呼叫失敗:', error);
         throw error;
       }
     }
@@ -660,6 +662,7 @@ export async function chatWithWebLLM(
         : LLM_FINISH_REASON_MAP.STOP;
 
     if (initialText.trim() === '') {
+      console.warn('[WebLLM] 端側模型回應為空字串 (empty response)');
       if (typeof engine.onStreamEnd === 'function') {
         engine.onStreamEnd('');
       }
@@ -798,7 +801,7 @@ export async function chatWithWebLLM(
     }
     return accumulatedText;
   } catch (error) {
-    console.warn('llm error', error);
+    console.error('[WebLLM] chatWithWebLLM 執行錯誤:', error);
     throw error;
   }
 }

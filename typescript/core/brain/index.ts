@@ -476,7 +476,11 @@ export async function initBrainEngine(
                 'number'
               ? Number((progressInfo as { progress: number }).progress)
               : 0;
-        return brainEngine.onLlmLoadProgress?.(safeProgress, ...args);
+        const progressPayload =
+          typeof progressInfo === 'object' && progressInfo !== null
+            ? { ...progressInfo, progress: safeProgress }
+            : { progress: safeProgress };
+        return brainEngine.onLlmLoadProgress?.(progressPayload, ...args);
       },
       onLoaded: (engineInstance?: unknown, ...args: unknown[]) => {
         return brainEngine.onLlmLoaded?.(engineInstance, ...args);
@@ -940,9 +944,16 @@ export async function answerQuestion(
         error
       );
     }
+  } else if (engine.llm?.supported === true) {
+    console.info(
+      `[answerQuestion] WebLLM 當前狀態為 "${engine.llm?.state}"（非 READY），使用知識庫檢索模式處理。`
+    );
   }
 
   const retrievalAnswer = getRetrievalAnswer(engine, safeQuestion);
+  console.info(
+    `[answerQuestion] 已生成知識庫檢索回答 (問題: "${safeQuestion}")`
+  );
   if (typeof engine.emitAnswer === 'function') {
     return engine.emitAnswer(retrievalAnswer);
   }
