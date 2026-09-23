@@ -5,7 +5,10 @@ declare global {
     gpu?: {
       requestAdapter: (options?: unknown) => Promise<{
         requestDevice: (options?: unknown) => Promise<{
-          queue: { submit: (commandBuffers: unknown[]) => void; writeBuffer: (...args: unknown[]) => void };
+          queue: {
+            submit: (commandBuffers: unknown[]) => void;
+            writeBuffer: (...args: unknown[]) => void;
+          };
           createShaderModule: (descriptor: unknown) => unknown;
           createBindGroupLayout: (descriptor: unknown) => unknown;
           createPipelineLayout: (descriptor: unknown) => unknown;
@@ -14,15 +17,6 @@ declare global {
         } | null>;
       } | null>;
     };
-  }
-
-  interface Window {
-    SpeechRecognition?: unknown;
-    webkitSpeechRecognition?: unknown;
-    AudioContext?: unknown;
-    webkitAudioContext?: unknown;
-    PIXI?: unknown;
-    __cdnDependenciePromise__?: Promise<void>;
   }
 
   var global: typeof globalThis;
@@ -62,7 +56,11 @@ if (typeof HTMLCanvasElement !== 'undefined') {
         canvas: { width: 800, height: 600 }
       } as unknown as CanvasRenderingContext2D;
     }
-    if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+    if (
+      type === 'webgl' ||
+      type === 'webgl2' ||
+      type === 'experimental-webgl'
+    ) {
       return {
         getExtension: vi.fn(),
         getParameter: vi.fn(() => 0),
@@ -252,9 +250,24 @@ const mockSpeechSynthesis = {
     mockSpeechSynthesis.paused = false;
   }),
   getVoices: vi.fn(() => [
-    { name: 'Google 國語（臺灣）', lang: 'zh-TW', default: true, localService: true } as SpeechSynthesisVoice,
-    { name: 'Google US English', lang: 'en-US', default: false, localService: true } as SpeechSynthesisVoice,
-    { name: 'Google 日本語', lang: 'ja-JP', default: false, localService: true } as SpeechSynthesisVoice
+    {
+      name: 'Google 國語（臺灣）',
+      lang: 'zh-TW',
+      default: true,
+      localService: true
+    } as SpeechSynthesisVoice,
+    {
+      name: 'Google US English',
+      lang: 'en-US',
+      default: false,
+      localService: true
+    } as SpeechSynthesisVoice,
+    {
+      name: 'Google 日本語',
+      lang: 'ja-JP',
+      default: false,
+      localService: true
+    } as SpeechSynthesisVoice
   ])
 };
 
@@ -317,6 +330,7 @@ globalScope.IntersectionObserver = MockObserver;
 
 // 7. Mock requestAnimationFrame & cancelAnimationFrame
 if (typeof globalThis.requestAnimationFrame === 'undefined') {
-  globalScope.requestAnimationFrame = (callback: FrameRequestCallback) => setTimeout(callback, 16);
+  globalScope.requestAnimationFrame = (callback: FrameRequestCallback) =>
+    setTimeout(callback, 16);
   globalScope.cancelAnimationFrame = (id: number) => clearTimeout(id);
 }

@@ -139,10 +139,9 @@ function getFromDictionary(
   return currentDictionary;
 }
 
-export type TranslateFunction = <T = string>(
-  key: string,
-  params?: Record<string, unknown>
-) => T;
+export type TranslateFunction =
+  | (<T = string>(key: string, params?: Record<string, unknown>) => T)
+  | ((key: string, params?: Record<string, unknown>) => unknown);
 
 export interface I18nEngineOptions {
   locale?: string;

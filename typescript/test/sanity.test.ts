@@ -33,7 +33,7 @@ describe('Phase 1: Test Infrastructure & Global Mocks Sanity Check (TypeScript)'
   });
 
   it('should mock Web Audio API (AudioContext & AnalyserNode)', () => {
-    const audioCtx = new window.AudioContext();
+    const audioCtx = new window.AudioContext!();
     const analyser = audioCtx.createAnalyser();
 
     expect(audioCtx.state).toBe('running');
@@ -45,7 +45,13 @@ describe('Phase 1: Test Infrastructure & Global Mocks Sanity Check (TypeScript)'
   });
 
   it('should mock SpeechRecognition & SpeechSynthesis', () => {
-    const recognition = new window.SpeechRecognition();
+    const SpeechRec = (
+      window as unknown as Record<
+        string,
+        new () => { start: () => void; onstart: unknown }
+      >
+    ).SpeechRecognition;
+    const recognition = new SpeechRec();
     const onStartSpy = vi.fn();
     recognition.onstart = onStartSpy;
     recognition.start();
@@ -75,8 +81,11 @@ describe('Phase 1: Test Infrastructure & Global Mocks Sanity Check (TypeScript)'
     expect(typeof mock3d.playGesture).toBe('function');
 
     setupWindowPixiMock();
-    expect(window.PIXI).toBeDefined();
-    expect(window.PIXI.live2d.Live2DModel).toBeDefined();
+    const win = window as unknown as {
+      PIXI?: { live2d: { Live2DModel: unknown } };
+    };
+    expect(win.PIXI).toBeDefined();
+    expect(win.PIXI!.live2d.Live2DModel).toBeDefined();
   });
 
   it('should verify AI Provider & WebLLM mocks work', async () => {

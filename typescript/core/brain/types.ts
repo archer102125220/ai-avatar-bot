@@ -281,11 +281,27 @@ export interface AiProviderOptions {
   createFetchSetting?:
     ((...args: unknown[]) => RequestInit) | RequestInit | null;
   providerCreateFetchPayload?:
-    | ((...args: unknown[]) => Record<string, unknown>)
+    | ((
+        ...args: unknown[]
+      ) =>
+        | Promise<BodyInit | Record<string, unknown> | null | undefined>
+        | BodyInit
+        | Record<string, unknown>
+        | null
+        | undefined)
+    | BodyInit
     | Record<string, unknown>
     | null;
   createFetchPayload?:
-    | ((...args: unknown[]) => Record<string, unknown>)
+    | ((
+        ...args: unknown[]
+      ) =>
+        | Promise<BodyInit | Record<string, unknown> | null | undefined>
+        | BodyInit
+        | Record<string, unknown>
+        | null
+        | undefined)
+    | BodyInit
     | Record<string, unknown>
     | null;
   providerResponseFormat?:
@@ -373,7 +389,10 @@ export interface BrainEngineOptions {
   onLlmLoadError?: (error: Error, ...args: unknown[]) => unknown;
   onLlmChatting?: (response?: unknown, ...args: unknown[]) => unknown;
   onLlmStreamChatting?: (chunk?: unknown, ...args: unknown[]) => unknown;
-  onAiProviderConnecting?: (fetchSetting?: unknown, ...args: unknown[]) => unknown;
+  onAiProviderConnecting?: (
+    fetchSetting?: unknown,
+    ...args: unknown[]
+  ) => unknown;
   onAiProviderConnected?: (response?: unknown, ...args: unknown[]) => unknown;
   onAiProviderError?: (error: Error, ...args: unknown[]) => unknown;
   onAiProviderChatting?: (response?: unknown, ...args: unknown[]) => unknown;
@@ -388,8 +407,16 @@ export interface BrainEngineOptions {
       ) => unknown);
   onUpdateChatMessage?:
     | ((item: ChatLogItem, ...args: unknown[]) => unknown)
-    | ((id: string, text: string, streaming?: boolean, ...args: unknown[]) => unknown);
-  onChatHistoryChanged?: (history: ChatLogItem[], ...args: unknown[]) => unknown;
+    | ((
+        id: string,
+        text: string,
+        streaming?: boolean,
+        ...args: unknown[]
+      ) => unknown);
+  onChatHistoryChanged?: (
+    history: ChatLogItem[],
+    ...args: unknown[]
+  ) => unknown;
   onSpokenAudioPlayNow?: (text: string, ...args: unknown[]) => unknown;
   onSpokenDisplayTextChange?: (text: string, ...args: unknown[]) => unknown;
   onSpokenAudioTextChange?: (text: string, ...args: unknown[]) => unknown;
@@ -458,14 +485,8 @@ export interface BrainEngineOptions {
     error: unknown,
     ...args: unknown[]
   ) => unknown;
-  onToolNotFound?: (
-    info: ToolNotFoundErrorInfo,
-    ...args: unknown[]
-  ) => unknown;
-  onToolError?: (
-    info: ToolErrorInfo,
-    ...args: unknown[]
-  ) => unknown;
+  onToolNotFound?: (info: ToolNotFoundErrorInfo, ...args: unknown[]) => unknown;
+  onToolError?: (info: ToolErrorInfo, ...args: unknown[]) => unknown;
 }
 
 /**
@@ -519,32 +540,22 @@ export interface BrainEngine {
     | null;
   onLlmLoading: ((...args: unknown[]) => unknown) | null;
   onLlmLoadProgress:
-    | ((
-        progress: LlmLoadProgressInfo,
-        ...args: unknown[]
-      ) => unknown)
-    | null;
+    ((progress: LlmLoadProgressInfo, ...args: unknown[]) => unknown) | null;
   onLlmLoaded:
-    | ((engineInstance?: unknown, ...args: unknown[]) => unknown)
-    | null;
+    ((engineInstance?: unknown, ...args: unknown[]) => unknown) | null;
   onLlmLoadError: ((error: Error, ...args: unknown[]) => unknown) | null;
   onLlmChatting: ((response?: unknown, ...args: unknown[]) => unknown) | null;
   onLlmStreamChatting:
-    | ((chunk?: unknown, ...args: unknown[]) => unknown)
-    | null;
+    ((chunk?: unknown, ...args: unknown[]) => unknown) | null;
   onAiProviderConnecting:
-    | ((fetchSetting?: unknown, ...args: unknown[]) => unknown)
-    | null;
+    ((fetchSetting?: unknown, ...args: unknown[]) => unknown) | null;
   onAiProviderConnected:
-    | ((response?: unknown, ...args: unknown[]) => unknown)
-    | null;
+    ((response?: unknown, ...args: unknown[]) => unknown) | null;
   onAiProviderError: ((error: Error, ...args: unknown[]) => unknown) | null;
   onAiProviderChatting:
-    | ((response?: unknown, ...args: unknown[]) => unknown)
-    | null;
+    ((response?: unknown, ...args: unknown[]) => unknown) | null;
   onAiProviderStreamChatting:
-    | ((chunk?: unknown, ...args: unknown[]) => unknown)
-    | null;
+    ((chunk?: unknown, ...args: unknown[]) => unknown) | null;
   onAddChatMessage:
     | ((item: ChatLogItem, ...args: unknown[]) => unknown)
     | ((
@@ -556,47 +567,33 @@ export interface BrainEngine {
     | null;
   onUpdateChatMessage:
     | ((item: ChatLogItem, ...args: unknown[]) => unknown)
-    | ((id: string, text: string, streaming?: boolean, ...args: unknown[]) => unknown)
+    | ((
+        id: string,
+        text: string,
+        streaming?: boolean,
+        ...args: unknown[]
+      ) => unknown)
     | null;
   onChatHistoryChanged:
-    | ((history: ChatLogItem[], ...args: unknown[]) => unknown)
-    | null;
+    ((history: ChatLogItem[], ...args: unknown[]) => unknown) | null;
   onSpokenAudioPlayNow: ((text: string, ...args: unknown[]) => unknown) | null;
   onSpokenDisplayTextChange:
-    | ((text: string, ...args: unknown[]) => unknown)
-    | null;
+    ((text: string, ...args: unknown[]) => unknown) | null;
   onSpokenAudioTextChange:
-    | ((text: string, ...args: unknown[]) => unknown)
-    | null;
+    ((text: string, ...args: unknown[]) => unknown) | null;
   onEmotionChange: ((emotion: string, ...args: unknown[]) => unknown) | null;
   onSummaryUpdated: ((summary: string, ...args: unknown[]) => unknown) | null;
   onStreamStart: ((...args: unknown[]) => unknown) | null;
   onStreamChunk: ((chunk: string, ...args: unknown[]) => unknown) | null;
   onStreamEnd: ((fullText: string, ...args: unknown[]) => unknown) | null;
   onAutoContinueStart:
-    | ((
-        info: AutoContinueStartInfo,
-        ...args: unknown[]
-      ) => unknown)
-    | null;
+    ((info: AutoContinueStartInfo, ...args: unknown[]) => unknown) | null;
   onAutoContinueWait:
-    | ((
-        info: AutoContinueStartInfo,
-        ...args: unknown[]
-      ) => unknown)
-    | null;
+    ((info: AutoContinueStartInfo, ...args: unknown[]) => unknown) | null;
   onAutoContinueResume:
-    | ((
-        info: AutoContinueResumeInfo,
-        ...args: unknown[]
-      ) => unknown)
-    | null;
+    ((info: AutoContinueResumeInfo, ...args: unknown[]) => unknown) | null;
   onAutoContinueEnd:
-    | ((
-        info: AutoContinueEndInfo,
-        ...args: unknown[]
-      ) => unknown)
-    | null;
+    ((info: AutoContinueEndInfo, ...args: unknown[]) => unknown) | null;
   onBrainFallback:
     | ((
         fromEngine: string,
@@ -606,17 +603,8 @@ export interface BrainEngine {
       ) => unknown)
     | null;
   onToolNotFound:
-    | ((
-        info: ToolNotFoundErrorInfo,
-        ...args: unknown[]
-      ) => unknown)
-    | null;
-  onToolError:
-    | ((
-        info: ToolErrorInfo,
-        ...args: unknown[]
-      ) => unknown)
-    | null;
+    ((info: ToolNotFoundErrorInfo, ...args: unknown[]) => unknown) | null;
+  onToolError: ((info: ToolErrorInfo, ...args: unknown[]) => unknown) | null;
   chatLog: ChatLogItem[];
   chatSeq: number;
   welcomeText: string | ((context: unknown) => string) | null;
