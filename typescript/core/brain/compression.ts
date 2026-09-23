@@ -365,7 +365,7 @@ export async function generateRollingSummary({
   customGenerator = null
 }: {
   oldSummary?: string;
-  newTurns?: Array<{ role: string; content: string }>;
+  newTurns?: LLMMessage[] | Array<{ role: string; content: string }>;
   locale?: string;
   llmChat?:
     | ((
@@ -375,7 +375,7 @@ export async function generateRollingSummary({
   customGenerator?:
     | ((params: {
         oldSummary: string;
-        newTurns: Array<{ role: string; content: string }>;
+        newTurns: LLMMessage[] | Array<{ role: string; content: string }>;
         locale: string;
       }) => Promise<string> | string)
     | null;
@@ -408,7 +408,9 @@ export async function generateRollingSummary({
         message.role === CHAT_ROLE_MAP.USER || message.role === 'user'
           ? '使用者'
           : 'AI';
-      return `${roleLabel}: ${message.content}`;
+      const contentStr =
+        typeof message.content === 'string' ? message.content : '';
+      return `${roleLabel}: ${contentStr}`;
     })
     .join('\n');
 
@@ -446,7 +448,9 @@ export async function generateRollingSummary({
       const isUser =
         message.role === CHAT_ROLE_MAP.USER || message.role === 'user';
       const prefix = isUser === true ? '問' : '答';
-      const cleanContent = message.content.replace(/\s+/g, ' ').slice(0, 60);
+      const contentStr =
+        typeof message.content === 'string' ? message.content : '';
+      const cleanContent = contentStr.replace(/\s+/g, ' ').slice(0, 60);
       return `${prefix}: ${cleanContent}`;
     })
     .slice(-4);

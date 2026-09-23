@@ -12,6 +12,7 @@ import { toOpenAiTools, type ToolDefinition } from '@/core/tools';
 import type {
   AiProviderOptions,
   AiProviderEngine,
+  AiProviderChatResult,
   BrainEngine,
   LLMMessage,
   ParsedToolCall
@@ -202,7 +203,7 @@ export async function initAiProvider(
       messages: LLMMessage[] | Array<Record<string, unknown>>,
       fetchSetting?: RequestInit | null,
       tools?: ToolDefinition[]
-    ): Promise<unknown> {
+    ): Promise<AiProviderChatResult> {
       try {
         const defaultFetchSetting: RequestInit = {
           method: 'POST',
@@ -341,7 +342,12 @@ export async function initAiProvider(
             ) => Promise<unknown> | unknown)
           | null;
         if (typeof formatResponseFn === 'function') {
-          return await formatResponseFn(response, resolvedSetting, messages, this);
+          return (await formatResponseFn(
+            response,
+            resolvedSetting,
+            messages,
+            this
+          )) as AiProviderChatResult;
         }
 
         const result = (await response.json()) as {

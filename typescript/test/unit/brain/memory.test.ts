@@ -12,9 +12,14 @@ import {
   COMPRESSION_STRATEGY_MAP,
   STATE_MAP
 } from '@/core/constants';
-import type { MemoryInstance, MemoryData } from '@core';
+import type {
+  MemoryInstance,
+  MemoryData,
+  BrainEngine,
+  MemoryAdapter
+} from '@core';
 
-type MemoryEngine = any;
+type MemoryEngine = MemoryInstance;
 
 describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
   beforeEach(() => {
@@ -32,8 +37,10 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
     });
 
     it('should safely migrate null, undefined, or old v0 data structures', () => {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore: Defensive runtime type checking test
       expect(migrateMemoryData(null)).toEqual(createDefaultMemoryData());
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore: Defensive runtime type checking test
       expect(migrateMemoryData(undefined)).toEqual(createDefaultMemoryData());
 
@@ -56,7 +63,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
         ]
       };
 
-      const migrated = migrateMemoryData(v0Data as any);
+      const migrated = migrateMemoryData(v0Data);
       expect(migrated.version).toBe(1);
       expect(migrated.name).toBe('Bob');
       expect(migrated.visits).toBe(3);
@@ -85,7 +92,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
         metadata: 'not an object' // invalid type
       };
 
-      const sanitized = migrateMemoryData(corruptedData as any);
+      const sanitized = migrateMemoryData(corruptedData);
       expect(sanitized.name).toBe('');
       expect(sanitized.visits).toBe(0);
       expect(sanitized.last).toBe(0);
@@ -128,9 +135,9 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
     });
 
     it('should load and save through custom adapter and support versioning/metadata', () => {
-      const customStorage: Record<string, any> = {};
-      const customAdapter = {
-        load: vi.fn((k: string) => customStorage[k] || null),
+      const customStorage: Record<string, MemoryData> = {};
+      const customAdapter: MemoryAdapter = {
+        load: vi.fn((k: string) => customStorage[k] ?? null),
         save: vi.fn((k: string, d: MemoryData) => {
           customStorage[k] = d;
         }),
@@ -139,7 +146,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
         })
       };
 
-      const memory: any = initMemory({
+      const memory: MemoryEngine = initMemory({
         memoryKey: 'custom_key',
         enableMemory: true,
         memoryAdapter: customAdapter
@@ -153,12 +160,16 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
       expect(memory.getMetadata()).toEqual({ tag: 'vip' });
 
       // setMetadata with updater function returning valid object
-      memory.setMetadata((prev: any) => ({ ...prev, score: 100 }));
+      memory.setMetadata((prev: Record<string, unknown>) => ({
+        ...prev,
+        score: 100
+      }));
       expect(memory.getMetadata()).toEqual({ tag: 'vip', score: 100 });
 
       // setMetadata with updater function returning invalid
-      // @ts-ignore: Defensive runtime type checking test for updater returning null
-      memory.setMetadata(() => null);
+      memory.setMetadata(
+        (() => null) as unknown as Parameters<typeof memory.setMetadata>[0]
+      );
       expect(memory.getMetadata()).toEqual({ tag: 'vip', score: 100 });
 
       // captureName variations
@@ -183,6 +194,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
 
       // addTurn ignores non-string or empty content
       memory.addTurn('user', '');
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore: Defensive runtime type checking test for null content
       memory.addTurn('user', null);
       expect(memory.data.history.length).toBe(0);
@@ -226,7 +238,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
       expect(corruptedMem.data.visits).toBe(1);
 
       // Clear with adapter without clear method
-      corruptedMem.adapter = {} as any;
+      corruptedMem.adapter = {} as unknown as MemoryAdapter;
       corruptedMem.clear(); // Should not throw
       expect(corruptedMem.data.visits).toBe(1);
     });
@@ -256,7 +268,8 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
         compression: {
           strategy: COMPRESSION_STRATEGY_MAP.ROLLING_SUMMARY,
           summaryThresholdTurns: 1,
-          summaryGenerator: undefined as any
+          summaryGenerator: undefined as
+            ((params: unknown) => Promise<string>) | undefined
         },
         aiProvider: {
           enabled: true,
@@ -267,23 +280,33 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
         _isSummarizing: false
       };
 
-      await triggerRollingSummaryIfNeeded(mockBrainEngine as any);
+      await triggerRollingSummaryIfNeeded(
+        mockBrainEngine as unknown as BrainEngine
+      );
       expect(mockBrainEngine._isSummarizing).toBe(true);
 
       // Fast-forward background timer
       await vi.advanceTimersByTimeAsync(100);
 
-      expect(mockBrainEngine.memory.data.summary).toBe('最新精煉摘要：喜歡蘋果與香蕉');
+      expect(mockBrainEngine.memory.data.summary).toBe(
+        '最新精煉摘要：喜歡蘋果與香蕉'
+      );
       expect(mockBrainEngine.memory.data.lastSummarizedTurnIndex).toBe(4);
-      expect(onSummaryUpdated).toHaveBeenCalledWith('最新精煉摘要：喜歡蘋果與香蕉');
+      expect(onSummaryUpdated).toHaveBeenCalledWith(
+        '最新精煉摘要：喜歡蘋果與香蕉'
+      );
       expect(mockBrainEngine._isSummarizing).toBe(false);
 
       // Trigger again with empty summary generated (should not update summary)
       mockBrainEngine.compression.summaryGenerator = vi.fn(async () => '');
       mockBrainEngine.memory.data.lastSummarizedTurnIndex = 0;
-      await triggerRollingSummaryIfNeeded(mockBrainEngine as any);
+      await triggerRollingSummaryIfNeeded(
+        mockBrainEngine as unknown as BrainEngine
+      );
       await vi.advanceTimersByTimeAsync(100);
-      expect(mockBrainEngine.memory.data.summary).toBe('最新精煉摘要：喜歡蘋果與香蕉'); // preserved
+      expect(mockBrainEngine.memory.data.summary).toBe(
+        '最新精煉摘要：喜歡蘋果與香蕉'
+      ); // preserved
 
       vi.useRealTimers();
     });
@@ -325,29 +348,48 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
         _isSummarizing: false
       };
 
-      await triggerRollingSummaryIfNeeded(mockBrainEngine as any);
+      await triggerRollingSummaryIfNeeded(
+        mockBrainEngine as unknown as BrainEngine
+      );
       await vi.advanceTimersByTimeAsync(100);
 
       expect(mockBrainEngine.memory.data.summary).toBe('WebLLM 產出的摘要');
 
       // Test error handling
-      mockBrainEngine.llm.engine.chat.completions.create.mockRejectedValueOnce(new Error('LLM summary failed'));
+      mockBrainEngine.llm.engine.chat.completions.create.mockRejectedValueOnce(
+        new Error('LLM summary failed')
+      );
       mockBrainEngine.memory.data.lastSummarizedTurnIndex = 0;
-      await triggerRollingSummaryIfNeeded(mockBrainEngine as any);
+      await triggerRollingSummaryIfNeeded(
+        mockBrainEngine as unknown as BrainEngine
+      );
       await vi.advanceTimersByTimeAsync(100);
       expect(mockBrainEngine._isSummarizing).toBe(false);
 
       // Test guard conditions
-      // @ts-ignore: Defensive runtime type checking test
-      expect(await triggerRollingSummaryIfNeeded(null)).toBeUndefined();
-      // @ts-ignore: Defensive runtime type checking test
-      expect(await triggerRollingSummaryIfNeeded({ memory: { enabled: false } })).toBeUndefined();
-      // @ts-ignore: Defensive runtime type checking test
-      expect(await triggerRollingSummaryIfNeeded({ memory: { enabled: true }, _isSummarizing: true })).toBeUndefined();
-      expect(await triggerRollingSummaryIfNeeded({
-        memory: { enabled: true, data: { history: [] } },
-        compression: { strategy: 'other' }
-      } as any)).toBeUndefined();
+      expect(
+        await triggerRollingSummaryIfNeeded(null as unknown as BrainEngine)
+      ).toBeUndefined();
+      expect(
+        await triggerRollingSummaryIfNeeded({
+          memory: { enabled: false }
+        } as unknown as BrainEngine)
+      ).toBeUndefined();
+      expect(
+        await triggerRollingSummaryIfNeeded({
+          memory: { enabled: true },
+          _isSummarizing: true
+        } as unknown as BrainEngine)
+      ).toBeUndefined();
+      expect(
+        await triggerRollingSummaryIfNeeded({
+          memory: { enabled: true, data: { history: [] } },
+          compression: {
+            strategy:
+              'other' as unknown as typeof COMPRESSION_STRATEGY_MAP.ROLLING_SUMMARY
+          }
+        } as unknown as BrainEngine)
+      ).toBeUndefined();
 
       vi.useRealTimers();
     });

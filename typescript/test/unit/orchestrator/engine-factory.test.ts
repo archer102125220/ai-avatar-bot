@@ -8,21 +8,161 @@ import {
 import { createBaseStore } from '@/core/store';
 import { initI18nEngine } from '@/core/i18n';
 import { ENGINE_MODE_MAP, DEFAULT_EMOTION_TOOL_NAME } from '@/core/constants';
-import type { I18nEngine } from '@core';
+import type {
+  I18nEngine,
+  BrainEngine,
+  SpeechEngine,
+  ToolsEngine,
+  SkinEngine
+} from '@/core';
+import type { UiDom } from '@/core/ui';
+import type {
+  AiAvatarWidget,
+  AvatarBotStore,
+  AvatarBotStoreState
+} from '@/core/orchestrator/types';
+import type { StreamPipeline } from '@/core/orchestrator/pipeline-stream';
 
 import * as SpeechModule from '@/core/speech';
 import * as SkinModule from '@/core/skin';
 
+interface MockCapturedBrainOptions {
+  onLlmLoading: () => void;
+  onLlmLoadProgress: (info: { progress: number }) => void;
+  onLlmLoaded: () => void;
+  onLlmLoadError: (err: Error) => void;
+  onEmotionChange: (emotion: string) => void;
+  onAiProviderConnecting: () => void;
+  onAiProviderConnected: (...args: unknown[]) => void;
+  onAiProviderError?: (err: Error) => void;
+  onAddChatMessage: (...args: unknown[]) => void;
+  onUpdateChatMessage: (...args: unknown[]) => void;
+  onSummaryUpdated: (summary: string) => void;
+  onChatHistoryChanged: (history: unknown[]) => void;
+  onSpokenAudioPlayNow: (text: string) => void;
+  onSpokenDisplayTextChange: (text: string) => void;
+  onSpokenAudioTextChange: (text: string) => void;
+  onBrainFallback: (...args: unknown[]) => void;
+  getTools: () => unknown[];
+  getToolByName: (name: string) => unknown;
+  offerToolConfirmation: (name: string, args: unknown, opts: unknown) => void;
+  executeTool: (name: string, args: unknown, opts: unknown) => Promise<unknown>;
+  onToolNotFound: (info: unknown) => void;
+  onToolError: (info: unknown) => void;
+  [key: string]: unknown;
+}
+
+interface MockCapturedSpeechOptions {
+  onSpeaking: (text: string) => void;
+  onSpeakingEnd: () => void;
+  onMicStateChanged: (...args: unknown[]) => void;
+  onVoiceStatusChanged: (...args: unknown[]) => void;
+  onSpokenDisplayTextChange: (text: string) => void;
+  onSpokenDisplayTextTimeout: () => void;
+  onLanguageChanged: (...args: unknown[]) => void;
+  onUserInput: (text: string) => void;
+  onTapAvatar: () => void;
+  onInterrupt: () => void;
+  onSpeechWait: (id: string) => void;
+  getGender: () => string;
+  getContainer: () => HTMLElement;
+  [key: string]: unknown;
+}
+
+interface MockCapturedToolsOptions {
+  confirmationTimeoutMs?: number;
+  onToolCall: (tool: unknown) => void;
+  onSetHistoryOpen: (open: boolean) => void;
+  onRenderHistory: () => void;
+  onSpokenAudioPlayNow: (text: string) => void;
+  handleUser?: (text: string) => void;
+  onAddChatMessage: (...args: unknown[]) => void;
+  onUpdateChatMessage: (...args: unknown[]) => void;
+  getChatLog: () => unknown[];
+  getChatSeq: () => number;
+  isConvoOn: () => boolean;
+  [key: string]: unknown;
+}
+
+interface MockCapturedSkinOptions {
+  onThreeDimensionalError: (err: Error) => void;
+  onTwoDimensionalError: (err: Error) => void;
+  VRMFileChangeFail: (err: Error) => void;
+  VRMFileChangeSuccess: () => void;
+  onModelChangeStart: (...args: unknown[]) => void;
+  onModelChangeEnd: (...args: unknown[]) => void;
+  computeMouth: () => number;
+  onMounted: () => Promise<void> | void;
+  [key: string]: unknown;
+}
+
+interface MockBrainEngine {
+  addChatMessage?: ReturnType<typeof vi.fn>;
+  updateChatMessage?: ReturnType<typeof vi.fn>;
+  getWelcomeText?: ReturnType<typeof vi.fn>;
+  chatLog?: unknown[];
+  chatSeq?: number;
+  [key: string]: unknown;
+}
+
+interface MockSpeechEngine {
+  spokenDisplayText: string;
+  spokenAudioText: string;
+  speak: ReturnType<typeof vi.fn>;
+  computeMouth: ReturnType<typeof vi.fn>;
+  triggerTap: ReturnType<typeof vi.fn>;
+  [key: string]: unknown;
+}
+
+interface MockSkinRenderer {
+  canvas: HTMLCanvasElement;
+  TAP_GESTURES?: string[];
+  playGesture?: ReturnType<typeof vi.fn>;
+  [key: string]: unknown;
+}
+
+interface MockSkinEngine {
+  setEmotion: ReturnType<typeof vi.fn>;
+  setIsSpeaking: ReturnType<typeof vi.fn>;
+  has2D: boolean;
+  has3D: boolean;
+  engineMode: unknown;
+  avatarModel?: {
+    on?: ReturnType<typeof vi.fn>;
+    [key: string]: unknown;
+  };
+  renderer: MockSkinRenderer;
+  gestureName?: string;
+  [key: string]: unknown;
+}
+
+interface MockToolsEngine {
+  getAiAvailableTools: ReturnType<typeof vi.fn>;
+  HOST_TOOLS: Array<{
+    name: string;
+    execute: ReturnType<typeof vi.fn>;
+    [key: string]: unknown;
+  }>;
+  executeToolDirectly: ReturnType<typeof vi.fn>;
+  offerHostTool: ReturnType<typeof vi.fn>;
+  [key: string]: unknown;
+}
+
 describe('Orchestrator Engine Factory', () => {
-  let rootStore: any;
+  let rootStore: AvatarBotStore;
   let i18nEngine: I18nEngine;
-  let mockWidget: any;
-  let mockUiDom: any;
-  let mockEngines: any;
-  let mockStreamPipeline: any;
+  let mockWidget: AiAvatarWidget;
+  let mockUiDom: UiDom;
+  let mockEngines: {
+    brainEngine: MockBrainEngine | null;
+    speechEngine: MockSpeechEngine;
+    skinEngine: MockSkinEngine;
+    toolsEngine: MockToolsEngine;
+  };
+  let mockStreamPipeline: StreamPipeline;
 
   beforeEach(() => {
-    rootStore = createBaseStore({
+    rootStore = createBaseStore<AvatarBotStoreState>({
       gender: 'female',
       brainGender: null,
       speechGender: null,
@@ -37,7 +177,9 @@ describe('Orchestrator Engine Factory', () => {
       autoContinueMode: 'single_turn',
       autoContinuePrompt: null,
       locale: 'zh-TW',
-      enableEngineToggle: true
+      enableEngineToggle: true,
+      modes: {},
+      enableModelDrop: true
     });
 
     i18nEngine = initI18nEngine({ locale: 'zh-TW' });
@@ -57,7 +199,7 @@ describe('Orchestrator Engine Factory', () => {
       langButtonEl: document.createElement('button'),
       updateMicState: vi.fn(),
       updateVoiceStatus: vi.fn()
-    };
+    } as unknown as UiDom;
 
     mockWidget = {
       name: 'MockWidget',
@@ -67,7 +209,7 @@ describe('Orchestrator Engine Factory', () => {
       store: rootStore,
       onReady: vi.fn(),
       onError: vi.fn()
-    };
+    } as unknown as AiAvatarWidget;
 
     mockStreamPipeline = {
       onStreamStart: vi.fn(),
@@ -79,7 +221,7 @@ describe('Orchestrator Engine Factory', () => {
       onAutoContinueEnd: vi.fn(),
       onInterrupt: vi.fn(),
       onSpeechWait: vi.fn()
-    };
+    } as unknown as StreamPipeline;
 
     mockEngines = {
       brainEngine: null,
@@ -89,7 +231,7 @@ describe('Orchestrator Engine Factory', () => {
         speak: vi.fn(),
         computeMouth: vi.fn(() => 0.4),
         triggerTap: vi.fn()
-      },
+      } as unknown as MockSpeechEngine,
       skinEngine: {
         setEmotion: vi.fn(),
         setIsSpeaking: vi.fn(),
@@ -97,18 +239,31 @@ describe('Orchestrator Engine Factory', () => {
         has3D: true,
         engineMode: ENGINE_MODE_MAP.twoDimensional,
         avatarModel: { on: vi.fn() },
-        renderer: { canvas: document.createElement('canvas'), playGesture: vi.fn() }
-      },
+        renderer: {
+          canvas: document.createElement('canvas'),
+          playGesture: vi.fn()
+        }
+      } as unknown as MockSkinEngine,
       toolsEngine: {
         getAiAvailableTools: vi.fn(() => []),
         HOST_TOOLS: [{ name: 'test_tool', execute: vi.fn() }],
-        executeToolDirectly: vi.fn(async (tool: any, args: any) => ({ result: 'ok', tool, args })),
+        executeToolDirectly: vi.fn(async (tool: unknown, args: unknown) => ({
+          result: 'ok',
+          tool,
+          args
+        })),
         offerHostTool: vi.fn()
-      }
+      } as unknown as MockToolsEngine
     };
   });
 
-  const getEngines = () => mockEngines;
+  const getEngines = () =>
+    mockEngines as unknown as {
+      brainEngine: BrainEngine | null;
+      speechEngine: SpeechEngine | null;
+      skinEngine: SkinEngine | null;
+      toolsEngine: ToolsEngine | null;
+    };
   const getUiDom = () => mockUiDom;
 
   describe('setupBrainEngine', () => {
@@ -124,8 +279,8 @@ describe('Orchestrator Engine Factory', () => {
       });
 
       expect(brainEngine).toBeDefined();
-      expect(brainEngine.llm?.maxTokens).toBe(256);
-      expect(typeof brainEngine.answerQuestion).toBe('function');
+      expect(brainEngine?.llm?.maxTokens).toBe(256);
+      expect(typeof brainEngine?.answerQuestion).toBe('function');
     });
 
     it('should accept valid custom brain engine', async () => {
@@ -147,7 +302,7 @@ describe('Orchestrator Engine Factory', () => {
 
       const brainEngine = await setupBrainEngine({
         options: {
-          customEngines: { brain: customBrain as any }
+          customEngines: { brain: customBrain as unknown as BrainEngine }
         },
         widget: mockWidget,
         rootStore,
@@ -167,8 +322,7 @@ describe('Orchestrator Engine Factory', () => {
 
       const brainEngine = await setupBrainEngine({
         options: {
-          // @ts-ignore: Defensive runtime type checking test
-          customEngines: { brain: invalidBrain }
+          customEngines: { brain: invalidBrain as unknown as BrainEngine }
         },
         widget: mockWidget,
         rootStore,
@@ -179,13 +333,19 @@ describe('Orchestrator Engine Factory', () => {
       });
 
       expect(brainEngine).not.toBe(invalidBrain);
-      expect(typeof brainEngine.answerQuestion).toBe('function');
+      expect(typeof brainEngine?.answerQuestion).toBe('function');
     });
 
     it('should route tools execution through getTools and executeTool in brainOptions', async () => {
-      let capturedBrainOptions: any;
-      const customBrainFactory = vi.fn(async (opts: any) => {
-        capturedBrainOptions = opts;
+      let capturedBrainOptions!: Record<string, unknown> & {
+        getTools: () => unknown[];
+        getToolByName: (name: string) => unknown;
+        onBrainFallback: (...args: unknown[]) => unknown;
+        offerToolConfirmation: (...args: unknown[]) => unknown;
+        executeTool: (...args: unknown[]) => Promise<unknown>;
+      };
+      const customBrainFactory = vi.fn(async (opts: unknown) => {
+        capturedBrainOptions = opts as typeof capturedBrainOptions;
         return {
           addChatMessage: vi.fn(),
           updateChatMessage: vi.fn(),
@@ -199,12 +359,16 @@ describe('Orchestrator Engine Factory', () => {
           aiProvider: {},
           chatLog: [],
           chatSeq: 0
-        };
+        } as unknown as BrainEngine;
       });
 
       await setupBrainEngine({
         options: {
-          customEngines: { brain: customBrainFactory as any }
+          customEngines: {
+            brain: customBrainFactory as unknown as (
+              opts: unknown
+            ) => Promise<BrainEngine>
+          }
         },
         widget: mockWidget,
         rootStore,
@@ -215,30 +379,42 @@ describe('Orchestrator Engine Factory', () => {
       });
 
       expect(capturedBrainOptions.getTools()).toEqual([]);
-      expect(capturedBrainOptions.getToolByName('test_tool')).toBe(mockEngines.toolsEngine.HOST_TOOLS[0]);
+      expect(capturedBrainOptions.getToolByName('test_tool')).toBe(
+        mockEngines.toolsEngine?.HOST_TOOLS[0]
+      );
 
       // Test default onBrainFallback
-      expect(capturedBrainOptions.onBrainFallback('webllm', 'ai_provider', new Error('WebLLM failed'))).toBeUndefined();
+      expect(
+        capturedBrainOptions.onBrainFallback(
+          'webllm',
+          'ai_provider',
+          new Error('WebLLM failed')
+        )
+      ).toBeUndefined();
 
       // Test offerToolConfirmation
       capturedBrainOptions.offerToolConfirmation('test_tool', { a: 1 }, {});
-      expect(mockEngines.toolsEngine.offerHostTool).toHaveBeenCalled();
+      expect(mockEngines.toolsEngine?.offerHostTool).toHaveBeenCalled();
 
-      const execResult = await capturedBrainOptions.executeTool('test_tool', { foo: 'bar' }, {
-        input: { query: '使用者問題', context: { customContext: true } }
-      });
+      const execResult = await capturedBrainOptions.executeTool(
+        'test_tool',
+        { foo: 'bar' },
+        {
+          input: { query: '使用者問題', context: { customContext: true } }
+        }
+      );
       expect(execResult).toEqual({
         result: 'ok',
         tool: 'test_tool',
         args: { foo: 'bar' }
       });
-      expect(mockEngines.toolsEngine.executeToolDirectly).toHaveBeenCalled();
+      expect(mockEngines.toolsEngine?.executeToolDirectly).toHaveBeenCalled();
     });
 
     it('should trigger UI and speech updates on LLM lifecycle callbacks', async () => {
-      let capturedBrainOptions: any;
-      const customBrainFactory = vi.fn(async (opts: any) => {
-        capturedBrainOptions = opts;
+      let capturedBrainOptions!: MockCapturedBrainOptions;
+      const customBrainFactory = vi.fn(async (opts: unknown) => {
+        capturedBrainOptions = opts as MockCapturedBrainOptions;
         return {
           addChatMessage: vi.fn(),
           updateChatMessage: vi.fn(),
@@ -252,12 +428,12 @@ describe('Orchestrator Engine Factory', () => {
           aiProvider: {},
           chatLog: [],
           chatSeq: 0
-        };
+        } as unknown as BrainEngine;
       });
 
       await setupBrainEngine({
         options: {
-          customEngines: { brain: customBrainFactory as any }
+          customEngines: { brain: customBrainFactory }
         },
         widget: mockWidget,
         rootStore,
@@ -283,7 +459,9 @@ describe('Orchestrator Engine Factory', () => {
       // test onLlmLoadError
       capturedBrainOptions.onLlmLoadError(new Error('LLM load failed'));
       expect(mockUiDom.btnLlmEl.textContent).toBe('🧠✗');
-      expect(mockEngines.speechEngine.spokenDisplayText).toContain('LLM load failed');
+      expect(mockEngines.speechEngine.spokenDisplayText).toContain(
+        'LLM load failed'
+      );
 
       // test onEmotionChange with setEmotion
       capturedBrainOptions.onEmotionChange('happy');
@@ -291,16 +469,17 @@ describe('Orchestrator Engine Factory', () => {
 
       // test onEmotionChange fallback to gestureName
       const skinWithoutSetEmotion = { gestureName: 'neutral' };
-      mockEngines.skinEngine = skinWithoutSetEmotion;
+      mockEngines.skinEngine =
+        skinWithoutSetEmotion as unknown as MockSkinEngine;
       capturedBrainOptions.onEmotionChange('sad');
       expect(skinWithoutSetEmotion.gestureName).toBe('sad');
     });
 
     it('should test all AI provider callbacks and state transitions in setupBrainEngine', async () => {
       vi.useFakeTimers();
-      let capturedBrainOptions: any;
-      const customBrainFactory = vi.fn(async (opts: any) => {
-        capturedBrainOptions = opts;
+      let capturedBrainOptions!: MockCapturedBrainOptions;
+      const customBrainFactory = vi.fn(async (opts: unknown) => {
+        capturedBrainOptions = opts as MockCapturedBrainOptions;
         return {
           addChatMessage: vi.fn(),
           updateChatMessage: vi.fn(),
@@ -314,7 +493,7 @@ describe('Orchestrator Engine Factory', () => {
           aiProvider: { model: 'gpt-4o' },
           chatLog: [],
           chatSeq: 0
-        };
+        } as unknown as BrainEngine;
       });
 
       const onBrainFallback = vi.fn();
@@ -323,7 +502,7 @@ describe('Orchestrator Engine Factory', () => {
 
       await setupBrainEngine({
         options: {
-          customEngines: { brain: customBrainFactory as any },
+          customEngines: { brain: customBrainFactory },
           onBrainFallback,
           onToolNotFound,
           onToolError
@@ -342,17 +521,27 @@ describe('Orchestrator Engine Factory', () => {
       expect(mockUiDom.btnLlmEl.title).toBe('AI 伺服器大腦（連線中）');
 
       // onAiProviderConnected (success)
-      capturedBrainOptions.onAiProviderConnected({ ok: true }, {}, { model: 'gpt-4o' });
+      capturedBrainOptions.onAiProviderConnected(
+        { ok: true },
+        {},
+        { model: 'gpt-4o' }
+      );
       expect(mockUiDom.btnLlmEl.textContent).toBe('🧠✓');
       expect(mockUiDom.btnLlmEl.getAttribute('css-llm-on')).toBe('true');
       expect(mockUiDom.btnLlmEl.getAttribute('aria-pressed')).toBe('true');
       expect(mockUiDom.btnLlmEl.title).toContain('gpt-4o');
 
       vi.advanceTimersByTime(1400);
-      expect(mockEngines.speechEngine.spokenDisplayText).toContain('已接上 AI 伺服器大腦');
+      expect(mockEngines.speechEngine.spokenDisplayText).toContain(
+        '已接上 AI 伺服器大腦'
+      );
 
       // onAiProviderConnected (failure)
-      capturedBrainOptions.onAiProviderConnected({ ok: false }, {}, { model: 'gpt-4o' });
+      capturedBrainOptions.onAiProviderConnected(
+        { ok: false },
+        {},
+        { model: 'gpt-4o' }
+      );
       expect(mockUiDom.btnLlmEl.textContent).toBe('🧠✗');
       expect(mockUiDom.btnLlmEl.hasAttribute('css-llm-on')).toBe(false);
       expect(mockUiDom.btnLlmEl.getAttribute('aria-pressed')).toBe('false');
@@ -360,9 +549,13 @@ describe('Orchestrator Engine Factory', () => {
 
       // onSummaryUpdated, onChatHistoryChanged, onSpokenAudioPlayNow, onSpokenDisplayTextChange, onSpokenAudioTextChange
       capturedBrainOptions.onSummaryUpdated('New Summary');
-      capturedBrainOptions.onChatHistoryChanged([{ role: 'user', content: 'hi' }]);
+      capturedBrainOptions.onChatHistoryChanged([
+        { role: 'user', content: 'hi' }
+      ]);
       capturedBrainOptions.onSpokenAudioPlayNow('Hello audio');
-      expect(mockEngines.speechEngine.speak).toHaveBeenCalledWith('Hello audio');
+      expect(mockEngines.speechEngine.speak).toHaveBeenCalledWith(
+        'Hello audio'
+      );
 
       capturedBrainOptions.onSpokenDisplayTextChange('Display text');
       expect(mockEngines.speechEngine.spokenDisplayText).toBe('Display text');
@@ -373,10 +566,17 @@ describe('Orchestrator Engine Factory', () => {
       // onAddChatMessage & onUpdateChatMessage with history panel open
       mockUiDom.historyPanelEl.setAttribute('css-is-open', 'true');
       capturedBrainOptions.onAddChatMessage({ id: 1, text: 'Hello' });
-      capturedBrainOptions.onUpdateChatMessage({ id: 1, text: 'Hello updated' });
+      capturedBrainOptions.onUpdateChatMessage({
+        id: 1,
+        text: 'Hello updated'
+      });
 
       // onBrainFallback
-      capturedBrainOptions.onBrainFallback('aiProvider', 'webLLM', new Error('Err'));
+      capturedBrainOptions.onBrainFallback(
+        'aiProvider',
+        'webLLM',
+        new Error('Err')
+      );
       expect(onBrainFallback).toHaveBeenCalled();
 
       // onToolNotFound & onToolError
@@ -389,9 +589,9 @@ describe('Orchestrator Engine Factory', () => {
     });
 
     it('should test tool delegation edge branches in setupBrainEngine', async () => {
-      let capturedBrainOptions: any;
-      const customBrainFactory = vi.fn(async (opts: any) => {
-        capturedBrainOptions = opts;
+      let capturedBrainOptions!: MockCapturedBrainOptions;
+      const customBrainFactory = vi.fn(async (opts: unknown) => {
+        capturedBrainOptions = opts as MockCapturedBrainOptions;
         return {
           addChatMessage: vi.fn(),
           updateChatMessage: vi.fn(),
@@ -405,20 +605,23 @@ describe('Orchestrator Engine Factory', () => {
           aiProvider: {},
           chatLog: [],
           chatSeq: 0
-        };
+        } as unknown as BrainEngine;
       });
 
       await setupBrainEngine({
         options: {
-          customEngines: { brain: customBrainFactory as any }
+          customEngines: { brain: customBrainFactory }
         },
         widget: mockWidget,
         rootStore,
         i18nEngine,
-        getEngines: () => ({
-          ...mockEngines,
-          toolsEngine: null
-        }),
+        getEngines: () =>
+          ({
+            ...mockEngines,
+            toolsEngine: null
+          }) as unknown as ReturnType<
+            Parameters<typeof setupBrainEngine>[0]['getEngines']
+          >,
         getUiDom,
         streamPipeline: mockStreamPipeline
       });
@@ -448,7 +651,7 @@ describe('Orchestrator Engine Factory', () => {
       });
 
       expect(brainEngine).toBeDefined();
-      expect(typeof brainEngine.answerQuestion).toBe('function');
+      expect(typeof brainEngine?.answerQuestion).toBe('function');
     });
   });
 
@@ -478,21 +681,23 @@ describe('Orchestrator Engine Factory', () => {
     });
 
     it('should trigger all callbacks and UI updates in setupSpeechEngine', async () => {
-      let capturedSpeechOptions: any;
-      const initSpeechSpy = vi.spyOn(SpeechModule, 'initSpeechEngine').mockImplementation(async (opts: any) => {
-        capturedSpeechOptions = opts;
-        return {
-          speak: vi.fn(),
-          startListening: vi.fn(),
-          stopListening: vi.fn(),
-          toggleVoice: vi.fn(),
-          setGender: vi.fn(),
-          spokenDisplayText: '',
-          spokenAudioText: '',
-          convoOn: false,
-          isListening: false
-        } as any;
-      });
+      let capturedSpeechOptions!: MockCapturedSpeechOptions;
+      const initSpeechSpy = vi
+        .spyOn(SpeechModule, 'initSpeechEngine')
+        .mockImplementation(async (opts: unknown) => {
+          capturedSpeechOptions = opts as MockCapturedSpeechOptions;
+          return {
+            speak: vi.fn(),
+            startListening: vi.fn(),
+            stopListening: vi.fn(),
+            toggleVoice: vi.fn(),
+            setGender: vi.fn(),
+            spokenDisplayText: '',
+            spokenAudioText: '',
+            convoOn: false,
+            isListening: false
+          } as unknown as SpeechEngine;
+        });
 
       const onSpeaking = vi.fn();
       const onSpeakingEnd = vi.fn();
@@ -567,7 +772,11 @@ describe('Orchestrator Engine Factory', () => {
       // onLanguageChanged
       capturedSpeechOptions.onLanguageChanged('zh-TW', '繁體中文', '繁中');
       expect(mockUiDom.langButtonEl.textContent).toBe('繁中');
-      expect(onLanguageChanged).toHaveBeenCalledWith('zh-TW', '繁體中文', '繁中');
+      expect(onLanguageChanged).toHaveBeenCalledWith(
+        'zh-TW',
+        '繁體中文',
+        '繁中'
+      );
 
       // onSpeaking & onSpeakingEnd
       capturedSpeechOptions.onSpeaking('Speaking text');
@@ -594,8 +803,10 @@ describe('Orchestrator Engine Factory', () => {
       });
 
       expect(toolsEngine).toBeDefined();
-      expect(Array.isArray(toolsEngine.HOST_TOOLS)).toBe(true);
-      const toolNames = toolsEngine.HOST_TOOLS.map((t: any) => t.name);
+      expect(Array.isArray(toolsEngine?.HOST_TOOLS)).toBe(true);
+      const toolNames = (toolsEngine?.HOST_TOOLS || []).map(
+        (t) => (t as { name?: string }).name
+      );
       expect(toolNames).toContain('custom_search');
       expect(toolNames).toContain(DEFAULT_EMOTION_TOOL_NAME);
     });
@@ -619,7 +830,7 @@ describe('Orchestrator Engine Factory', () => {
 
       const toolsEngine = setupToolsEngine({
         options: {
-          customEngines: { tools: customTools as any }
+          customEngines: { tools: customTools as unknown as ToolsEngine }
         },
         widget: mockWidget,
         getEngines,
@@ -630,9 +841,9 @@ describe('Orchestrator Engine Factory', () => {
     });
 
     it('should test tools callbacks and history toggling in setupToolsEngine', () => {
-      let capturedToolsOptions: any;
-      const customToolsFactory = vi.fn((opts: any) => {
-        capturedToolsOptions = opts;
+      let capturedToolsOptions!: MockCapturedToolsOptions;
+      const customToolsFactory = vi.fn((opts: unknown) => {
+        capturedToolsOptions = opts as MockCapturedToolsOptions;
         return {
           HOST_TOOLS: [],
           routeHostTool: vi.fn(),
@@ -646,7 +857,7 @@ describe('Orchestrator Engine Factory', () => {
           cancelPendingTool: vi.fn(),
           continueToolConfirmation: vi.fn(),
           handleToolResult: vi.fn()
-        };
+        } as unknown as ToolsEngine;
       });
 
       const onToolCall = vi.fn();
@@ -663,7 +874,7 @@ describe('Orchestrator Engine Factory', () => {
 
       setupToolsEngine({
         options: {
-          customEngines: { tools: customToolsFactory as any },
+          customEngines: { tools: customToolsFactory },
           toolConfirmationTimeoutMs: 5000,
           onToolCall,
           onSetHistoryOpen,
@@ -684,22 +895,34 @@ describe('Orchestrator Engine Factory', () => {
 
       // onAddChatMessage & onUpdateChatMessage
       capturedToolsOptions.onAddChatMessage('assistant', 'Text', {});
-      expect(mockEngines.brainEngine.addChatMessage).toHaveBeenCalledWith('assistant', 'Text', {});
+      expect(mockEngines.brainEngine.addChatMessage).toHaveBeenCalledWith(
+        'assistant',
+        'Text',
+        {}
+      );
 
       capturedToolsOptions.onUpdateChatMessage('msg_1', 'New Text', false);
-      expect(mockEngines.brainEngine.updateChatMessage).toHaveBeenCalledWith('msg_1', 'New Text', false);
+      expect(mockEngines.brainEngine.updateChatMessage).toHaveBeenCalledWith(
+        'msg_1',
+        'New Text',
+        false
+      );
 
       // onSetHistoryOpen true / false
       capturedToolsOptions.onSetHistoryOpen(true);
       expect(mockUiDom.historyPanelEl.getAttribute('css-is-open')).toBe('true');
       expect(mockUiDom.historyPanelEl.inert).toBe(false);
-      expect(mockUiDom.historyButtonEl.getAttribute('aria-expanded')).toBe('true');
+      expect(mockUiDom.historyButtonEl.getAttribute('aria-expanded')).toBe(
+        'true'
+      );
       expect(onSetHistoryOpen).toHaveBeenCalledWith(true);
 
       capturedToolsOptions.onSetHistoryOpen(false);
       expect(mockUiDom.historyPanelEl.hasAttribute('css-is-open')).toBe(false);
       expect(mockUiDom.historyPanelEl.inert).toBe(true);
-      expect(mockUiDom.historyButtonEl.getAttribute('aria-expanded')).toBe('false');
+      expect(mockUiDom.historyButtonEl.getAttribute('aria-expanded')).toBe(
+        'false'
+      );
       expect(onSetHistoryOpen).toHaveBeenCalledWith(false);
 
       // onRenderHistory
@@ -712,7 +935,9 @@ describe('Orchestrator Engine Factory', () => {
       expect(onSpokenAudioPlayNow).toHaveBeenCalledWith('Voice now');
 
       // getChatLog, getChatSeq, isConvoOn
-      expect(capturedToolsOptions.getChatLog()).toEqual([{ role: 'user', content: 'test' }]);
+      expect(capturedToolsOptions.getChatLog()).toEqual([
+        { role: 'user', content: 'test' }
+      ]);
       expect(capturedToolsOptions.getChatSeq()).toBe(4);
       expect(capturedToolsOptions.isConvoOn()).toBe(false);
     });
@@ -720,8 +945,7 @@ describe('Orchestrator Engine Factory', () => {
     it('should fallback to default tools engine when custom engine is invalid or throws', () => {
       const toolsEngineInvalid = setupToolsEngine({
         options: {
-          // @ts-ignore: Defensive runtime type checking test
-          customEngines: { tools: { invalid: true } }
+          customEngines: { tools: { invalid: true } as unknown as ToolsEngine }
         },
         widget: mockWidget,
         getEngines,
@@ -760,7 +984,7 @@ describe('Orchestrator Engine Factory', () => {
       });
 
       expect(skinEngine).toBeDefined();
-      expect(typeof skinEngine.setEmotion).toBe('function');
+      expect(typeof skinEngine?.setEmotion).toBe('function');
     });
 
     it('should accept custom skin engine if valid', async () => {
@@ -776,7 +1000,7 @@ describe('Orchestrator Engine Factory', () => {
 
       const skinEngine = await setupSkinEngine({
         options: {
-          customEngines: { skin: customSkin as any }
+          customEngines: { skin: customSkin as unknown as SkinEngine }
         },
         widget: mockWidget,
         rootStore,
@@ -789,19 +1013,21 @@ describe('Orchestrator Engine Factory', () => {
     });
 
     it('should test all skin callbacks and canvas pointerdown bindings', async () => {
-      let capturedSkinOptions: any;
-      const initSkinSpy = vi.spyOn(SkinModule, 'initSkinEngine').mockImplementation((opts: any) => {
-        capturedSkinOptions = opts;
-        return {
-          name: 'CustomSkin',
-          has2D: true,
-          has3D: false,
-          stageEl: opts.stageEl,
-          setGender: vi.fn(),
-          loadVRMFile: vi.fn(),
-          setEmotion: vi.fn()
-        } as any;
-      });
+      let capturedSkinOptions!: MockCapturedSkinOptions;
+      const initSkinSpy = vi
+        .spyOn(SkinModule, 'initSkinEngine')
+        .mockImplementation((opts: unknown) => {
+          capturedSkinOptions = opts as MockCapturedSkinOptions;
+          return {
+            name: 'CustomSkin',
+            has2D: true,
+            has3D: false,
+            stageEl: (opts as { stageEl?: HTMLElement }).stageEl,
+            setGender: vi.fn(),
+            loadVRMFile: vi.fn(),
+            setEmotion: vi.fn()
+          } as unknown as SkinEngine;
+        });
 
       const onThreeDimensionalError = vi.fn();
       const onTwoDimensionalError = vi.fn();
@@ -857,13 +1083,17 @@ describe('Orchestrator Engine Factory', () => {
 
       // VRMFileChangeSuccess
       capturedSkinOptions.VRMFileChangeSuccess();
-      expect(mockEngines.speechEngine.spokenDisplayText).toContain('換上你的角色了');
+      expect(mockEngines.speechEngine.spokenDisplayText).toContain(
+        '換上你的角色了'
+      );
       expect(VRMFileChangeSuccess).toHaveBeenCalled();
 
       // onModelChangeStart (3D vs 2D)
       capturedSkinOptions.onModelChangeStart(ENGINE_MODE_MAP.threeDimensional);
       expect(mockUiDom.engineButtonEl.textContent).toBe('3D');
-      expect(onModelChangeStart).toHaveBeenCalledWith(ENGINE_MODE_MAP.threeDimensional);
+      expect(onModelChangeStart).toHaveBeenCalledWith(
+        ENGINE_MODE_MAP.threeDimensional
+      );
 
       capturedSkinOptions.onModelChangeStart(ENGINE_MODE_MAP.twoDimensional);
       expect(mockUiDom.engineButtonEl.textContent).toBe('2D');
@@ -880,15 +1110,17 @@ describe('Orchestrator Engine Factory', () => {
       expect(onModelChangeEnd).toHaveBeenCalled();
 
       // simulate pointerdown on 3D canvas
-      mockEngines.skinEngine.renderer.canvas.dispatchEvent(new Event('pointerdown'));
+      mockEngines.skinEngine.renderer.canvas.dispatchEvent(
+        new Event('pointerdown')
+      );
       expect(mockEngines.skinEngine.renderer.playGesture).toHaveBeenCalled();
       expect(mockEngines.speechEngine.triggerTap).toHaveBeenCalled();
 
       // onModelChangeEnd in 2D mode with avatarModel hit
       mockEngines.skinEngine.engineMode = ENGINE_MODE_MAP.twoDimensional;
-      const hitHandlers: Function[] = [];
+      const hitHandlers: Array<() => void> = [];
       mockEngines.skinEngine.avatarModel = {
-        on: vi.fn((event: string, cb: Function) => {
+        on: vi.fn((event: string, cb: () => void) => {
           if (event === 'hit') hitHandlers.push(cb);
         })
       };
@@ -904,7 +1136,9 @@ describe('Orchestrator Engine Factory', () => {
       expect(mockEngines.speechEngine.triggerTap).toHaveBeenCalled();
 
       // trigger 2D canvas pointerdown
-      mockEngines.skinEngine.renderer.canvas.dispatchEvent(new Event('pointerdown'));
+      mockEngines.skinEngine.renderer.canvas.dispatchEvent(
+        new Event('pointerdown')
+      );
       expect(mockEngines.speechEngine.triggerTap).toHaveBeenCalled();
 
       // onModelChangeStart (3D and 2D)
@@ -925,7 +1159,9 @@ describe('Orchestrator Engine Factory', () => {
       capturedSkinOptions.onModelChangeEnd();
       expect(mockUiDom.engineButtonEl.textContent).toBe('3D');
 
-      mockEngines.skinEngine.renderer.canvas.dispatchEvent(new Event('pointerdown'));
+      mockEngines.skinEngine.renderer.canvas.dispatchEvent(
+        new Event('pointerdown')
+      );
       expect(playGestureMock).toHaveBeenCalled();
       expect(mockEngines.speechEngine.triggerTap).toHaveBeenCalled();
 
@@ -936,8 +1172,7 @@ describe('Orchestrator Engine Factory', () => {
       const stageEl = document.createElement('div');
       const skinInvalid = await setupSkinEngine({
         options: {
-          // @ts-ignore: Defensive runtime type checking test
-          customEngines: { skin: { invalid: true } }
+          customEngines: { skin: { invalid: true } as unknown as SkinEngine }
         },
         widget: mockWidget,
         rootStore,
@@ -965,11 +1200,13 @@ describe('Orchestrator Engine Factory', () => {
     });
 
     it('should test onTwoDimensionalError, VRMFileChangeFail, and VRMFileChangeSuccess handlers in setupSkinEngine options', async () => {
-      let capturedSkinOptions: any = null;
-      const initSkinSpy = vi.spyOn(SkinModule, 'initSkinEngine').mockImplementation((opts: any) => {
-        capturedSkinOptions = opts;
-        return mockEngines.skinEngine;
-      });
+      let capturedSkinOptions: MockCapturedSkinOptions | null = null;
+      const initSkinSpy = vi
+        .spyOn(SkinModule, 'initSkinEngine')
+        .mockImplementation((opts: unknown) => {
+          capturedSkinOptions = opts as MockCapturedSkinOptions;
+          return mockEngines.skinEngine as unknown as SkinEngine;
+        });
 
       const onTwoDimensionalError = vi.fn();
       const VRMFileChangeFail = vi.fn();
@@ -992,20 +1229,24 @@ describe('Orchestrator Engine Factory', () => {
       expect(capturedSkinOptions).toBeDefined();
 
       // 1. onTwoDimensionalError
-      capturedSkinOptions.onTwoDimensionalError(new Error('2D failed'));
-      expect(mockUiDom.directWarnEl.textContent).toContain('2D 啟動失敗');
-      expect(mockUiDom.directWarnEl.style.display).toBe('flex');
+      capturedSkinOptions!.onTwoDimensionalError?.(new Error('2D failed'));
+      expect(mockUiDom.directWarnEl?.textContent).toContain('2D 啟動失敗');
+      expect(mockUiDom.directWarnEl?.style.display).toBe('flex');
       expect(mockWidget.onError).toHaveBeenCalled();
       expect(onTwoDimensionalError).toHaveBeenCalled();
 
       // 2. VRMFileChangeFail
-      capturedSkinOptions.VRMFileChangeFail(new Error('VRM drop failed'));
-      expect(mockEngines.speechEngine.spokenDisplayText).toBe('VRM drop failed');
+      capturedSkinOptions!.VRMFileChangeFail?.(new Error('VRM drop failed'));
+      expect(mockEngines.speechEngine?.spokenDisplayText).toBe(
+        'VRM drop failed'
+      );
       expect(VRMFileChangeFail).toHaveBeenCalled();
 
       // 3. VRMFileChangeSuccess
-      capturedSkinOptions.VRMFileChangeSuccess();
-      expect(mockEngines.speechEngine.spokenDisplayText).toBe('換上你的角色了！🎭');
+      capturedSkinOptions!.VRMFileChangeSuccess?.();
+      expect(mockEngines.speechEngine?.spokenDisplayText).toBe(
+        '換上你的角色了！🎭'
+      );
       expect(VRMFileChangeSuccess).toHaveBeenCalled();
 
       initSkinSpy.mockRestore();

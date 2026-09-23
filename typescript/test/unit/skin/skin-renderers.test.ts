@@ -11,7 +11,7 @@ import {
   loadUMD
 } from '@/core/skin/renderer-2d';
 import { defaultGesture3D } from '@/core/skin/renderer-3d';
-import type { Renderer2D, Renderer3D } from '@core';
+import type { Renderer2D, SkinEngine } from '@/core/skin';
 
 describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)', () => {
   let stageEl: HTMLElement;
@@ -31,10 +31,10 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
   describe('defaultGesture2D', () => {
     it('should trigger female expressions correctly', async () => {
       const expressionMock = vi.fn().mockResolvedValue(true);
-      const skinEngine: any = {
+      const skinEngine = {
         gender: 'female',
         avatarModel: { expression: expressionMock }
-      };
+      } as unknown as SkinEngine;
 
       await defaultGesture2D(skinEngine, 'neutral');
       expect(expressionMock).toHaveBeenCalledWith('f00');
@@ -51,10 +51,10 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
 
     it('should trigger male expressions correctly and handle errors', async () => {
       const expressionMock = vi.fn().mockResolvedValue(true);
-      const skinEngine: any = {
+      const skinEngine = {
         gender: 'male',
         avatarModel: { expression: expressionMock }
-      };
+      } as unknown as SkinEngine;
 
       await defaultGesture2D(skinEngine, 'neutral');
       expect(expressionMock).toHaveBeenCalledWith('Normal');
@@ -68,63 +68,73 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
       await defaultGesture2D(skinEngine, 'surprised');
       expect(expressionMock).toHaveBeenCalledWith('Surprised');
 
-      // Error handling
+      // Test error fallback
       expressionMock.mockRejectedValueOnce(new Error('Expression fail'));
       await expect(defaultGesture2D(skinEngine, 'happy')).resolves.not.toThrow();
 
       // Null skinEngine or invalid emotion
-      // @ts-ignore: Defensive runtime type checking test
-      await defaultGesture2D(null, 'happy');
+      await defaultGesture2D(null as unknown as SkinEngine, 'happy');
       await defaultGesture2D(skinEngine, 'unknown_emotion');
     });
   });
 
   describe('bootAvatar (2D Live2D)', () => {
     it('should fail gracefully when stageEl is not an HTMLElement', async () => {
-      const skinEngine: any = { stageEl: null };
+      const skinEngine = { stageEl: null } as unknown as SkinEngine;
       const res = await bootAvatar(skinEngine, 'model.json');
       expect(res).toBeUndefined();
     });
 
     it('should boot 2D avatar, fit, update mouth on update, and dispose', async () => {
-      const state = {
+      const state: {
+        fitMode: 'full' | 'half' | string;
+        skin2d: Record<string, unknown>;
+      } = {
         fitMode: FIT_MODE_MAP.FULL,
         skin2d: {
           full: { zoom: 1.2, offsetX: 10, offsetY: 20, anchor: { x: 0.5, y: 0.9 } },
           half: { zoom: 2.0, offsetX: 0, offsetY: 50, anchor: { x: 0.5, y: 1.0 } }
         }
       };
-      const subscribers: Function[] = [];
-      const skinEngine: any = {
+      const subscribers: Array<() => void> = [];
+      const skinEngineMock = {
         stageEl,
         fitMode: FIT_MODE_MAP.FULL,
         getState: () => state,
-        subscribe: vi.fn((selector: any, callback: Function) => {
+        subscribe: vi.fn((_selector: unknown, callback: () => void) => {
           subscribers.push(callback);
           return vi.fn();
         }),
         setSkin2d: vi.fn(),
         computeMouth: vi.fn().mockResolvedValue(0.8),
-        onMounted: vi.fn()
+        onMounted: vi.fn(),
+        avatarModel: null as unknown
+      };
+      const skinEngine = skinEngineMock as unknown as SkinEngine & {
+        avatarModel: { internalModel: { coreModel: Record<string, unknown> } };
+        subscribe: { mock: { calls: Array<[((s: unknown) => unknown), () => void]> } };
       };
 
-      const renderer = await bootAvatar(skinEngine, 'model.json') as Renderer2D;
+      const renderer = (await bootAvatar(skinEngine, 'model.json')) as Renderer2D;
       expect(renderer).toBeDefined();
       expect(renderer.canvas).toBeDefined();
       expect(renderer.avatarModel).toBeDefined();
       expect(renderer.pixiApp).toBeDefined();
-      expect(skinEngine.onMounted).toHaveBeenCalled();
+      expect(skinEngineMock.onMounted).toHaveBeenCalled();
 
       // Trigger mouth compute through coreModel.update (async promise)
-      const core = skinEngine.avatarModel.internalModel.coreModel;
+      const core = skinEngine.avatarModel.internalModel.coreModel as {
+        update: () => void;
+        setParameterValueById: unknown;
+      };
       core.update();
-      expect(skinEngine.computeMouth).toHaveBeenCalled();
+      expect(skinEngineMock.computeMouth).toHaveBeenCalled();
 
       // Wait for microtask promise
       await Promise.resolve();
 
       // Trigger mouth compute error handling
-      skinEngine.computeMouth = vi.fn().mockRejectedValueOnce(new Error('Mouth compute fail'));
+      skinEngineMock.computeMouth = vi.fn().mockRejectedValueOnce(new Error('Mouth compute fail'));
       core.update();
       await Promise.resolve();
 
@@ -150,7 +160,7 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
 
       // Update transform
       renderer.updateTransform({ full: { zoom: 1.5 } });
-      expect(skinEngine.setSkin2d).toHaveBeenCalledWith({ full: { zoom: 1.5 } });
+      expect(skinEngineMock.setSkin2d).toHaveBeenCalledWith({ full: { zoom: 1.5 } });
 
       // Dispose and ensure fit() gracefully early returns
       renderer.dispose();
@@ -160,24 +170,26 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
 
     it('should trigger onTwoDimensionalError when bootAvatar throws', async () => {
       const onTwoDimensionalError = vi.fn();
-      const skinEngine: any = {
+      const skinEngine = {
         stageEl,
         onTwoDimensionalError
-      };
+      } as unknown as SkinEngine;
+      const win = window as unknown as Record<string, unknown>;
       // Cause an error by breaking window.PIXI
-      const originalPIXI = (window as any).PIXI;
-      (window as any).PIXI = null;
+      const originalPIXI = win.PIXI;
+      win.PIXI = null;
 
       await bootAvatar(skinEngine, 'model.json');
       expect(onTwoDimensionalError).toHaveBeenCalled();
 
-      (window as any).PIXI = originalPIXI;
+      win.PIXI = originalPIXI;
     });
 
     it('should load UMD scripts or return cached promise if already loading', async () => {
-      delete (window as any).__cdnDependenciePromise__;
+      const win = window as unknown as Record<string, unknown>;
+      delete win.__cdnDependenciePromise__;
       const promise1 = loadUMD();
-      expect((window as any).__cdnDependenciePromise__).toBe(promise1);
+      expect(win.__cdnDependenciePromise__).toBe(promise1);
 
       // Subsequent call returns cached promise
       const promise2 = loadUMD();
@@ -188,15 +200,14 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
   describe('defaultGesture3D', () => {
     it('should invoke renderer.playGesture and handle null/empty gestures', async () => {
       const playGesture = vi.fn();
-      const skinEngine: any = {
+      const skinEngine = {
         renderer: { playGesture }
-      };
+      } as unknown as SkinEngine;
 
       await defaultGesture3D(skinEngine, 'wave');
       expect(playGesture).toHaveBeenCalledWith('wave');
 
-      // @ts-ignore: Defensive runtime type checking test
-      await defaultGesture3D(null, 'wave');
+      await defaultGesture3D(null as unknown as SkinEngine, 'wave');
       await defaultGesture3D(skinEngine, '');
 
       // Catch error
@@ -225,7 +236,7 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
       renderer2D.fit();
       expect(renderer2D.fit).toHaveBeenCalledOnce();
 
-      renderer2D.updateTransform({ zoom: 2.0, fitMode: FIT_MODE_MAP.HALF } as any);
+      renderer2D.updateTransform({ zoom: 2.0, fitMode: FIT_MODE_MAP.HALF } as unknown as Record<string, unknown>);
       expect(renderer2D.updateTransform).toHaveBeenCalledWith({
         zoom: 2.0,
         fitMode: FIT_MODE_MAP.HALF

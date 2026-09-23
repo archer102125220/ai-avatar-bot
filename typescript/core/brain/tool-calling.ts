@@ -232,7 +232,7 @@ export async function executeToolCallsLoop(
       if (!engine.aiProvider) {
         return;
       }
-      const rawToolSummaryResponse = await engine.aiProvider.chat(
+      const rawToolSummaryResponse: unknown = await engine.aiProvider.chat(
         updatedMessages,
         null,
         []

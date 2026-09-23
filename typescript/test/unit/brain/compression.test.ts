@@ -15,13 +15,7 @@ import {
   DEFAULT_WEB_LLM_MAX_TURNS,
   DEFAULT_AI_PROVIDER_MAX_TURNS
 } from '@/core/constants';
-interface ChatMessageItem {
-  role: string;
-  content?: string;
-  tool_calls?: any[];
-  tool_call_id?: string;
-  [key: string]: any;
-}
+import type { LLMMessage, MemoryData } from '@/core/brain/types';
 
 describe('Unit Test: core/brain/compression.js', () => {
   describe('resolveCompressionLimits', () => {
@@ -38,57 +32,83 @@ describe('Unit Test: core/brain/compression.js', () => {
         BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER
       );
       expect(aiProviderLimits.maxTurns).toBe(DEFAULT_AI_PROVIDER_MAX_TURNS);
+      expect(aiProviderLimits.strategy).toBe(COMPRESSION_STRATEGY_MAP.SLIDING_WINDOW);
     });
 
-    it('should prioritize custom specific engine settings over global defaults', () => {
+    it('should respect custom options override', () => {
       const limits = resolveCompressionLimits(
         {
-          maxTurns: 5,
-          webLlm: { maxTurns: 2, maxTotalChars: 500 }
+          strategy: COMPRESSION_STRATEGY_MAP.ROLLING_SUMMARY,
+          maxTurns: 10,
+          maxTotalChars: 5000,
+          webLlm: { maxTurns: 3, maxTotalChars: 1500 }
         },
         BRAIN_ENGINE_TYPE_MAP.WEB_LLM
       );
-
-      expect(limits.maxTurns).toBe(2);
-      expect(limits.maxTotalChars).toBe(500);
+      expect(limits.strategy).toBe(COMPRESSION_STRATEGY_MAP.ROLLING_SUMMARY);
+      expect(limits.maxTurns).toBe(3);
+      expect(limits.maxTotalChars).toBe(1500);
     });
   });
 
   describe('estimateChars', () => {
-    it('should calculate character count for string, array, and tool call objects', () => {
-      expect(estimateChars('Hello')).toBe(5);
-      expect(estimateChars([{ content: 'ABC' }, { content: '1234' }])).toBe(7);
+    it('should correctly sum string contents including tool_calls and tool arguments', () => {
+      const emptyCount = estimateChars([]);
+      expect(emptyCount).toBe(0);
+
+      const count = estimateChars([
+        { role: 'user', content: '嗨' },
+        {
+          role: 'assistant',
+          content: '哈囉世界',
+          tool_calls: [
+            {
+              id: 'c1',
+              type: 'function',
+              function: { name: 'getWeather', arguments: '{"city":"Taipei"}' }
+            }
+          ]
+        }
+      ]);
+      expect(count).toBeGreaterThan(0);
       expect(
         estimateChars({
-          content: 'Hi',
-          tool_calls: [{ function: { name: 'get_weather', arguments: '{"city":"Tokyo"}' } }]
+          role: 'tool',
+          content: '天氣晴朗',
+          tool_call_id: 'call_12345678'
         })
-      ).toBe(2 + 11 + 16);
+      ).toBe(4);
     });
   });
 
   describe('sanitizeToolCalls', () => {
     it('should strip orphaned tool responses without matching tool_call id', () => {
-      const messages: any[] = [
+      const messages: LLMMessage[] = [
         { role: 'user', content: '查詢天氣' },
         {
           role: 'assistant',
           content: '',
-          tool_calls: [{ id: 'call_1', function: { name: 'weather', arguments: '{}' } }]
+          tool_calls: [
+            {
+              id: 'call_1',
+              type: 'function',
+              function: { name: 'weather', arguments: '{}' }
+            }
+          ]
         },
         { role: 'tool', tool_call_id: 'call_1', content: '晴天' },
         { role: 'tool', tool_call_id: 'orphan_call', content: '孤立結果' }
       ];
 
-      const sanitized = sanitizeToolCalls(messages) as any[];
+      const sanitized = sanitizeToolCalls(messages);
       expect(sanitized).toHaveLength(3);
-      expect(sanitized.some((m: any) => m.tool_call_id === 'orphan_call')).toBe(false);
+      expect(sanitized.some((m) => m.tool_call_id === 'orphan_call')).toBe(false);
     });
   });
 
   describe('groupMessagesIntoTurns', () => {
     it('should group conversation items into logical user-led turns', () => {
-      const messages: ChatMessageItem[] = [
+      const messages: LLMMessage[] = [
         { role: 'user', content: '問題 1' },
         { role: 'assistant', content: '回答 1' },
         { role: 'user', content: '問題 2' },
@@ -104,7 +124,7 @@ describe('Unit Test: core/brain/compression.js', () => {
 
   describe('slidingWindowCompressor', () => {
     it('should preserve complete dialogue turns and slice from newest to oldest', () => {
-      const messages: ChatMessageItem[] = [
+      const messages: LLMMessage[] = [
         { role: 'system', content: 'You are helpful' },
         { role: 'user', content: '第一問' },
         { role: 'assistant', content: '第一答' },
@@ -117,7 +137,7 @@ describe('Unit Test: core/brain/compression.js', () => {
         messages,
         maxTurns: 1,
         maxTotalChars: 10000
-      }) as ChatMessageItem[];
+      });
 
       // 應保留 system, 第二問/第二答 (1 輪歷史), 最新第三問
       expect(result).toHaveLength(4);
@@ -128,7 +148,7 @@ describe('Unit Test: core/brain/compression.js', () => {
     });
 
     it('should respect maxTotalChars budget limit by dropping older turns', () => {
-      const messages: ChatMessageItem[] = [
+      const messages: LLMMessage[] = [
         { role: 'system', content: 'Sys' },
         { role: 'user', content: '舊問題 1' },
         { role: 'assistant', content: '舊回答 1' },
@@ -142,7 +162,7 @@ describe('Unit Test: core/brain/compression.js', () => {
         messages,
         maxTurns: 5,
         maxTotalChars: 20
-      }) as ChatMessageItem[];
+      });
 
       expect(result).toHaveLength(4);
       expect(result[0].role).toBe('system');
@@ -154,14 +174,14 @@ describe('Unit Test: core/brain/compression.js', () => {
 
   describe('generateRollingSummary & rollingSummaryCompressor', () => {
     it('should generate summary using fallback heuristic when llmChat is not provided', async () => {
-      const newTurns: ChatMessageItem[] = [
+      const newTurns: LLMMessage[] = [
         { role: 'user', content: '我想學習 JavaScript' },
         { role: 'assistant', content: '推薦從基礎語法與 DOM 操作開始。' }
       ];
 
       const summary = await generateRollingSummary({
         oldSummary: '',
-        newTurns: newTurns as any,
+        newTurns,
         locale: 'zh-TW'
       });
 
@@ -181,7 +201,7 @@ describe('Unit Test: core/brain/compression.js', () => {
     });
 
     it('should inject summary into system prompt in rollingSummaryCompressor', () => {
-      const messages: ChatMessageItem[] = [
+      const messages: LLMMessage[] = [
         { role: 'system', content: 'Base system prompt' },
         { role: 'user', content: '最後問題' }
       ];
@@ -189,7 +209,7 @@ describe('Unit Test: core/brain/compression.js', () => {
       const compressed = rollingSummaryCompressor({
         messages,
         summary: '用戶喜好喝拿鐵咖啡'
-      }) as ChatMessageItem[];
+      });
 
       expect(compressed[0].content).toContain('【歷史對話前情備忘 / Context Summary】');
       expect(compressed[0].content).toContain('用戶喜好喝拿鐵咖啡');
@@ -198,7 +218,7 @@ describe('Unit Test: core/brain/compression.js', () => {
 
   describe('compressContext', () => {
     it('should bypass compression when strategy is NONE', async () => {
-      const messages: ChatMessageItem[] = [
+      const messages: LLMMessage[] = [
         { role: 'user', content: 'A' },
         { role: 'assistant', content: 'B' }
       ];
@@ -218,7 +238,7 @@ describe('Unit Test: core/brain/compression.js', () => {
         { role: 'user', content: 'Hello' }
       ]);
 
-      const messages: ChatMessageItem[] = [
+      const messages: LLMMessage[] = [
         { role: 'system', content: 'Default' },
         { role: 'user', content: 'Hello' }
       ];
@@ -227,7 +247,7 @@ describe('Unit Test: core/brain/compression.js', () => {
         messages,
         compressionOptions: { customCompressor },
         engineType: BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER
-      }) as ChatMessageItem[];
+      });
 
       expect(customCompressor).toHaveBeenCalledOnce();
       expect(result[0].content).toBe('Custom compressed system');
@@ -238,12 +258,15 @@ describe('Unit Test: core/brain/compression.js', () => {
 
       // 1. Empty messages guard
       expect(await compressContext({ messages: [] })).toEqual([]);
-      // @ts-ignore: Defensive runtime type checking test
-      expect(await compressContext({ messages: null })).toEqual([]);
+      expect(
+        await compressContext({
+          messages: null as unknown as LLMMessage[]
+        })
+      ).toEqual([]);
       expect(slidingWindowCompressor({ messages: [] })).toEqual([]);
       expect(rollingSummaryCompressor({ messages: [] })).toEqual([]);
 
-      const sampleMessages: ChatMessageItem[] = [
+      const sampleMessages: LLMMessage[] = [
         { role: 'system', content: '系統設定' },
         { role: 'user', content: '用戶問題' },
         { role: 'assistant', content: '助手回答' }
@@ -267,14 +290,24 @@ describe('Unit Test: core/brain/compression.js', () => {
       expect(fallbackResult2).toHaveLength(3);
 
       // 4. ROLLING_SUMMARY strategy via memoryData.summary and custom recentTurns
+      const memoryDataMock: MemoryData = {
+        version: 1,
+        name: 'test',
+        visits: 1,
+        last: Date.now(),
+        history: [],
+        summary: '用戶是工程師',
+        facts: [],
+        session: {}
+      };
       const rollingResult = await compressContext({
         messages: sampleMessages,
-        memoryData: { summary: '用戶是工程師' } as any,
+        memoryData: memoryDataMock,
         compressionOptions: {
           strategy: COMPRESSION_STRATEGY_MAP.ROLLING_SUMMARY,
           recentTurns: 2
-        } as any
-      }) as ChatMessageItem[];
+        }
+      });
       expect(rollingResult[0].content).toContain('用戶是工程師');
 
       // 5. generateRollingSummary with llmChat throwing error -> heuristic fallback

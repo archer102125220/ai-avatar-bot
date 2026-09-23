@@ -165,6 +165,9 @@ export interface BrainCompressionOptions {
   customCompressor?: (
     params: Record<string, unknown>
   ) => Promise<LLMMessage[]> | LLMMessage[];
+  /** Recent turns count to preserve in rolling summary. */
+  recentTurns?: number;
+  [key: string]: unknown;
 }
 
 /**
@@ -321,6 +324,15 @@ export interface AiProviderOptions {
   onStreamChatting?: ((...args: unknown[]) => unknown) | null;
 }
 
+export interface AiProviderChatResult {
+  type?: 'text' | 'tool_calls' | string;
+  content?: string;
+  finishReason?: string;
+  toolCalls?: ParsedToolCall[] | null;
+  message?: unknown;
+  [key: string]: unknown;
+}
+
 /**
  * Server-side AI Provider engine instance interface.
  */
@@ -347,7 +359,7 @@ export interface AiProviderEngine {
     messages: LLMMessage[] | Array<Record<string, unknown>>,
     fetchSetting?: unknown,
     tools?: ToolDefinition[]
-  ): Promise<unknown>;
+  ): Promise<AiProviderChatResult>;
 }
 
 /**

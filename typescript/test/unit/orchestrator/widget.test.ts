@@ -16,24 +16,55 @@ import {
   FINISH_REASON_MAP,
   GENDER_MAP
 } from '@/core/constants';
-import type { I18nEngine } from '@core';
+import type {
+  I18nEngine,
+  BrainEngine,
+  SpeechEngine,
+  SkinEngine,
+  ToolsEngine
+} from '@core';
+import type { UiDom } from '@/core/ui';
+import type {
+  AvatarBotStore,
+  AvatarBotStoreState,
+  AiAvatarWidget
+} from '@/core/orchestrator/types';
 
 describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', () => {
   let container: HTMLElement;
   let stageEl: HTMLElement;
-  let rootStore: any;
+  let rootStore: AvatarBotStore;
   let i18nEngine: I18nEngine;
-  let mockUiDom: any;
-  let mockEngines: any;
-  let mockUpdateModelDropListeners: any;
-  let mockHandleUser: any;
+  let mockUiDom: {
+    minimalEl: HTMLElement;
+    [key: string]: unknown;
+  };
+  let mockEngines: {
+    brainEngine: {
+      buildLLMMessages: ReturnType<typeof vi.fn>;
+      classifyEmotion: ReturnType<typeof vi.fn>;
+      applyEmotionFromText: ReturnType<typeof vi.fn>;
+      answerQuestion: ReturnType<typeof vi.fn>;
+      memory: { enabled: boolean };
+      [key: string]: unknown;
+    };
+    skinEngine: Record<string, unknown>;
+    speechEngine: Record<string, unknown>;
+    toolsEngine: Record<string, unknown>;
+  };
+  let mockUpdateModelDropListeners: ReturnType<
+    typeof vi.fn<(enabled: boolean) => void>
+  >;
+  let mockHandleUser: ReturnType<
+    typeof vi.fn<(text?: string) => Promise<void> | void>
+  >;
 
   beforeEach(() => {
     container = document.createElement('div');
     stageEl = document.createElement('div');
     stageEl.id = 'stage';
 
-    rootStore = createBaseStore({
+    rootStore = createBaseStore<AvatarBotStoreState>({
       gender: 'female',
       brainGender: null,
       speechGender: null,
@@ -118,8 +149,14 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     mockUpdateModelDropListeners = vi.fn();
   });
 
-  const getEngines = () => mockEngines;
-  const getUiDom = () => mockUiDom;
+  const getEngines = () =>
+    mockEngines as unknown as {
+      brainEngine: BrainEngine | null;
+      speechEngine: SpeechEngine | null;
+      skinEngine: SkinEngine | null;
+      toolsEngine: ToolsEngine | null;
+    };
+  const getUiDom = () => mockUiDom as unknown as UiDom;
 
   it('should expose all constants correctly', () => {
     const widget = createAvatarWidget({
@@ -163,12 +200,16 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
       updateModelDropListeners: mockUpdateModelDropListeners
     });
 
-    expect(widget.buildLLMMessages()).toEqual([{ role: 'system', content: 'test' }]);
-    expect(widget.classifyEmotion('開心')).toBe('happy');
-    widget.applyEmotionFromText('開心');
-    expect(mockEngines.brainEngine.applyEmotionFromText).toHaveBeenCalledWith('開心');
+    expect(widget.buildLLMMessages?.()).toEqual([
+      { role: 'system', content: 'test' }
+    ]);
+    expect(widget.classifyEmotion?.('開心')).toBe('happy');
+    widget.applyEmotionFromText?.('開心');
+    expect(mockEngines.brainEngine.applyEmotionFromText).toHaveBeenCalledWith(
+      '開心'
+    );
 
-    widget.answerQuestion('問題');
+    widget.answerQuestion?.('問題');
     expect(mockEngines.brainEngine.answerQuestion).toHaveBeenCalledWith('問題');
 
     widget.handleUser('輸入');
@@ -193,7 +234,6 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     expect(widget.gender).toBe(GENDER_MAP.male);
 
     // Invalid gender ignored
-    // @ts-ignore: Defensive runtime type checking test
     widget.gender = 'invalid_gender';
     expect(widget.gender).toBe(GENDER_MAP.male);
 
@@ -202,7 +242,6 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     expect(widget.brainGender).toBe(GENDER_MAP.female);
     widget.brainGender = null;
     expect(widget.brainGender).toBeNull();
-    // @ts-ignore: Defensive runtime type checking test
     widget.brainGender = 'invalid';
     expect(widget.brainGender).toBeNull();
 
@@ -210,7 +249,6 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     expect(widget.speechGender).toBe(GENDER_MAP.male);
     widget.speechGender = null;
     expect(widget.speechGender).toBeNull();
-    // @ts-ignore: Defensive runtime type checking test
     widget.speechGender = 'invalid';
     expect(widget.speechGender).toBeNull();
 
@@ -218,7 +256,6 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     expect(widget.skinGender).toBe(GENDER_MAP.female);
     widget.skinGender = null;
     expect(widget.skinGender).toBeNull();
-    // @ts-ignore: Defensive runtime type checking test
     widget.skinGender = 'invalid';
     expect(widget.skinGender).toBeNull();
   });
@@ -248,7 +285,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
       options: {},
       container,
       rootStore,
-      i18nEngine: null as any,
+      i18nEngine: null as unknown as I18nEngine,
       initialMinimal: false,
       getUiDom,
       getEngines,
@@ -276,6 +313,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     widget.enableMemory = false;
     expect(widget.enableMemory).toBe(false);
     expect(mockEngines.brainEngine.memory.enabled).toBe(false);
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore: Defensive runtime type checking test
     widget.enableMemory = 'not_boolean'; // ignored
     expect(widget.enableMemory).toBe(false);
@@ -284,6 +322,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     widget.enableAiProvider = true;
     expect(widget.enableAiProvider).toBe(true);
     expect(mockEngines.brainEngine.enableAiProvider).toBe(true);
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore: Defensive runtime type checking test
     widget.enableAiProvider = 123; // ignored
     expect(widget.enableAiProvider).toBe(true);
@@ -313,8 +352,9 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     // autoContinueMode
     widget.autoContinueMode = AUTO_CONTINUE_MODE_MAP.BUFFERED as 'buffered';
     expect(widget.autoContinueMode).toBe(AUTO_CONTINUE_MODE_MAP.BUFFERED);
-    expect(mockEngines.brainEngine.autoContinueMode).toBe(AUTO_CONTINUE_MODE_MAP.BUFFERED);
-    // @ts-ignore: Defensive runtime type checking test
+    expect(mockEngines.brainEngine.autoContinueMode).toBe(
+      AUTO_CONTINUE_MODE_MAP.BUFFERED
+    );
     widget.autoContinueMode = 'invalid_mode'; // ignored
     expect(widget.autoContinueMode).toBe(AUTO_CONTINUE_MODE_MAP.BUFFERED);
 
@@ -327,6 +367,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     expect(widget.autoContinuePrompt).toBe('string prompt');
     widget.autoContinuePrompt = null;
     expect(widget.autoContinuePrompt).toBeNull();
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore: Defensive runtime type checking test
     widget.autoContinuePrompt = 12345; // ignored
     expect(widget.autoContinuePrompt).toBeNull();
@@ -386,13 +427,19 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
 
     // Widget skin delegation methods
     widget.setSkin2d({ zoom: 1.2 });
-    expect(mockEngines.skinEngine.setSkin2d).toHaveBeenCalledWith({ zoom: 1.2 });
+    expect(mockEngines.skinEngine.setSkin2d).toHaveBeenCalledWith({
+      zoom: 1.2
+    });
 
     widget.setSkin3d({ camera: { fov: 30 } });
-    expect(mockEngines.skinEngine.setSkin3d).toHaveBeenCalledWith({ camera: { fov: 30 } });
+    expect(mockEngines.skinEngine.setSkin3d).toHaveBeenCalledWith({
+      camera: { fov: 30 }
+    });
 
     widget.setFitMode(FIT_MODE_MAP.HALF);
-    expect(mockEngines.skinEngine.setFitMode).toHaveBeenCalledWith(FIT_MODE_MAP.HALF);
+    expect(mockEngines.skinEngine.setFitMode).toHaveBeenCalledWith(
+      FIT_MODE_MAP.HALF
+    );
 
     // Engine getters
     expect(widget.brainEngine).toBe(mockEngines.brainEngine);
@@ -411,25 +458,21 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     expect(rootStore.getState().enableEngineToggle).toBe(false);
 
     // Test gender setters with valid and invalid values
-    // @ts-ignore: Defensive runtime type checking test
     widget.gender = 'invalid_gender';
     expect(widget.gender).toBe('female');
     widget.gender = 'male';
     expect(widget.gender).toBe('male');
 
-    // @ts-ignore: Defensive runtime type checking test
     widget.brainGender = 'invalid_gender';
     expect(widget.brainGender).toBeNull();
     widget.brainGender = 'female';
     expect(widget.brainGender).toBe('female');
 
-    // @ts-ignore: Defensive runtime type checking test
     widget.speechGender = 'invalid_gender';
     expect(widget.speechGender).toBeNull();
     widget.speechGender = 'male';
     expect(widget.speechGender).toBe('male');
 
-    // @ts-ignore: Defensive runtime type checking test
     widget.skinGender = 'invalid_gender';
     expect(widget.skinGender).toBeNull();
     widget.skinGender = 'female';
@@ -443,7 +486,6 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
 
     widget.autoContinueMode = AUTO_CONTINUE_MODE_MAP.BUFFERED as 'buffered';
     expect(widget.autoContinueMode).toBe(AUTO_CONTINUE_MODE_MAP.BUFFERED);
-    // @ts-ignore: Defensive runtime type checking test
     widget.autoContinueMode = 'invalid_mode';
     expect(widget.autoContinueMode).toBe(AUTO_CONTINUE_MODE_MAP.BUFFERED);
 
@@ -471,7 +513,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     const botContainer = document.createElement('div');
     document.body.appendChild(botContainer);
 
-    const bot: any = await initAvatarBot({
+    const bot = await initAvatarBot({
       container: botContainer,
       isIframe: false,
       isMinimal: false,
@@ -480,10 +522,10 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     });
 
     expect(bot).toBeDefined();
-    expect(bot.isIframe).toBe(false);
-    expect(bot.isMinimal).toBe(false);
-    expect(typeof bot.onReady).toBe('function');
-    bot.onReady();
+    expect(bot?.isIframe).toBe(false);
+    expect(bot?.isMinimal).toBe(false);
+    expect(typeof bot?.onReady).toBe('function');
+    bot?.onReady?.(bot as unknown as AiAvatarWidget);
     expect(onReady).toHaveBeenCalled();
   });
 
@@ -492,7 +534,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     const botContainer = document.createElement('div');
     document.body.appendChild(botContainer);
 
-    const bot: any = await initAvatarBot({
+    const bot = await initAvatarBot({
       container: botContainer,
       isIframe: true,
       isMinimal: true,
@@ -500,19 +542,19 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     });
 
     expect(bot).toBeDefined();
-    expect(bot.isIframe).toBe(true);
+    expect(bot?.isIframe).toBe(true);
     expect(onMinimalTrigger).toHaveBeenCalledWith(true, bot);
 
     // Non-iframe minimal mode
-    const botMinimal: any = await initAvatarBot({
+    const botMinimal = await initAvatarBot({
       container: document.createElement('div'),
       isIframe: false,
       isMinimal: true
     });
-    expect(botMinimal.isMinimal).toBe(true);
+    expect(botMinimal?.isMinimal).toBe(true);
 
     // SpeechEngine isSpeaking event syncs to skinEngine.setIsSpeaking
-    if (typeof botMinimal.speechEngine?.subscribe === 'function') {
+    if (typeof botMinimal?.speechEngine?.subscribe === 'function') {
       botMinimal.speechEngine.speak('說話同步測試');
     }
   });
@@ -547,6 +589,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     expect(mockUiDom.minimalEl.style.display).toBe('none');
 
     // Setting non-boolean should be ignored
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore: Defensive runtime type checking test
     widget.isMinimal = 'not-a-bool';
     expect(widget.isMinimal).toBe(false);
@@ -566,8 +609,8 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     });
 
     expect(() => {
-      // @ts-ignore: Defensive runtime type checking test
-      widget.avatarMode = 'non_existent_mode';
+      widget.avatarMode =
+        'non_existent_mode' as unknown as typeof widget.avatarMode;
     }).toThrow(TypeError);
   });
 
@@ -583,10 +626,16 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
       options: { isIframe: true },
       container,
       rootStore,
-      i18nEngine: null as any,
+      i18nEngine: null as unknown as I18nEngine,
       initialMinimal: false,
-      getUiDom: () => null as any,
-      getEngines: () => emptyEngines as any,
+      getUiDom: () =>
+        null as unknown as ReturnType<
+          Parameters<typeof createAvatarWidget>[0]['getUiDom']
+        >,
+      getEngines: () =>
+        emptyEngines as unknown as ReturnType<
+          Parameters<typeof createAvatarWidget>[0]['getEngines']
+        >,
       handleUser: mockHandleUser
     });
 
@@ -633,7 +682,9 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
   });
 
   it('should fallback to buildDefaultLLMMessages when buildLLMMessages is not defined on brain', () => {
-    const buildDefaultLLMMessagesMock = vi.fn(() => [{ role: 'system', content: 'default' }]);
+    const buildDefaultLLMMessagesMock = vi.fn(() => [
+      { role: 'system', content: 'default' }
+    ]);
     const customEngines = {
       brainEngine: {
         buildDefaultLLMMessages: buildDefaultLLMMessagesMock
@@ -650,12 +701,17 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
       i18nEngine,
       initialMinimal: false,
       getUiDom,
-      getEngines: () => customEngines as any,
+      getEngines: () =>
+        customEngines as unknown as ReturnType<
+          Parameters<typeof createAvatarWidget>[0]['getEngines']
+        >,
       handleUser: mockHandleUser
     });
 
     expect(widget.toolsEngine).toEqual({ HOST_TOOLS: [] });
-    expect(widget.buildLLMMessages()).toEqual([{ role: 'system', content: 'default' }]);
+    expect(widget.buildLLMMessages?.()).toEqual([
+      { role: 'system', content: 'default' }
+    ]);
   });
 
   it('should initialize full bot via initAvatarBot and wire isSpeaking subscriber', async () => {
@@ -663,7 +719,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     document.body.appendChild(container);
     document.body.appendChild(stage);
 
-    const botWidget: any = await initAvatarBot({
+    const botWidget = await initAvatarBot({
       container,
       modelUrl: 'https://models.test/avatar.model3.json',
       welcomeText: 'Hello from Bot!',
@@ -671,10 +727,10 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     });
 
     expect(botWidget).toBeDefined();
-    expect(botWidget.container).toBe(container);
+    expect(botWidget?.container).toBe(container);
 
     // Test speechEngine isSpeaking subscription trigger
-    if (typeof botWidget.speechEngine?.subscribe === 'function') {
+    if (typeof botWidget?.speechEngine?.subscribe === 'function') {
       // Simulate isSpeaking change
       botWidget.speechEngine.speak('測試語音播報');
     }
@@ -682,7 +738,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
 
   it('should handle iframe mode with onMinimalTrigger and enableModelDrop in initAvatarBot', async () => {
     const onMinimalTrigger = vi.fn();
-    const botIframe: any = await initAvatarBot({
+    const botIframe = await initAvatarBot({
       container,
       isIframe: true,
       isMinimal: true,
@@ -691,15 +747,15 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     });
 
     expect(botIframe).toBeDefined();
-    expect(botIframe.isIframe).toBe(true);
+    expect(botIframe?.isIframe).toBe(true);
     expect(onMinimalTrigger).toHaveBeenCalledWith(true, botIframe);
 
     // Test window undefined guard
     const origWindow = global.window;
-    // @ts-ignore: Defensive runtime test
-    delete (global as any).window;
-    // @ts-ignore: Defensive runtime test
-    const noWindowRes = await initAvatarBot({});
+    delete (globalThis as unknown as Record<string, unknown>).window;
+    const noWindowRes = await initAvatarBot(
+      {} as Parameters<typeof initAvatarBot>[0]
+    );
     expect(noWindowRes).toBeUndefined();
     global.window = origWindow;
   });
@@ -708,7 +764,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     const onReady = vi.fn();
     const onMinimalTrigger = vi.fn();
 
-    const bot: any = await initAvatarBot({
+    const bot = await initAvatarBot({
       container,
       isIframe: false,
       isMinimal: false,
@@ -718,10 +774,10 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     });
 
     expect(bot).toBeDefined();
-    expect(bot.isMinimal).toBe(false);
-    expect(bot.onReady).toBeDefined();
-    expect(bot.onMinimalTrigger).toBeDefined();
-    bot.onReady();
+    expect(bot?.isMinimal).toBe(false);
+    expect(bot?.onReady).toBeDefined();
+    expect(bot?.onMinimalTrigger).toBeDefined();
+    bot?.onReady?.(bot);
     expect(onReady).toHaveBeenCalled();
   });
 });

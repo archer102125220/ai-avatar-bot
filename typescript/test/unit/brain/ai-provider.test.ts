@@ -1,12 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { initAiProvider, chatWithAiProvider } from '@/core/brain/ai-provider';
+import {
+  initAiProvider,
+  chatWithAiProvider,
+  type AiProviderEngine
+} from '@/core/brain/ai-provider';
 import {
   LLM_FINISH_REASON_MAP,
   AUTO_CONTINUE_MODE_MAP
 } from '@/core/constants';
-import type { BrainEngine } from '@core';
+import type { BrainEngine, LLMMessage } from '@/core/brain/types';
+import type { ToolDefinition } from '@/core/tools';
 
-type AiProviderController = any;
+type AiProviderController = AiProviderEngine;
 
 describe('Unit Test: core/brain/ai-provider.js', () => {
   let originalFetch: typeof global.fetch;
@@ -25,7 +30,7 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ models: ['llama-3'] })
-      } as any);
+      } as unknown as Response);
 
       const provider = await initAiProvider({
         providerBaseUrl: 'http://localhost:11434'
@@ -55,7 +60,7 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       const onConnecting = vi.fn();
       const onConnected = vi.fn();
 
-      global.fetch = vi.fn().mockResolvedValue({ ok: true } as any);
+      global.fetch = vi.fn().mockResolvedValue({ ok: true } as unknown as Response);
 
       const provider: AiProviderController = await initAiProvider({
         enableAiProvider: true,
@@ -89,11 +94,14 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
   });
 
   describe('chat', () => {
-    it('should send formatted messages and return text response', async () => {
+    it('should format messages correctly, invoke chat completion endpoint, and return parsed response', async () => {
       const mockResponse = {
         choices: [
           {
-            message: { role: 'assistant', content: '這是 AI 的回覆' },
+            message: {
+              role: 'assistant',
+              content: '這是 AI 的回覆'
+            },
             finish_reason: 'stop'
           }
         ]
@@ -102,7 +110,7 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockResponse
-      } as any);
+      } as unknown as Response);
 
       const provider: AiProviderController = await initAiProvider({
         enableAiProvider: true,
@@ -139,18 +147,18 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockToolCallResponse
-      } as any);
+      } as unknown as Response);
 
       const provider: AiProviderController = await initAiProvider({
         enableAiProvider: true,
         providerBaseUrl: 'https://api.openai.com/v1'
       });
 
-      const tools = [
+      const tools: ToolDefinition[] = [
         {
           name: 'get_weather',
           description: 'Get weather for a city',
-          parameters: {
+          inputSchema: {
             type: 'object',
             properties: { city: { type: 'string' } }
           }
@@ -160,12 +168,12 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       const response = await provider.chat(
         [{ role: 'user', content: '台北天氣如何？' }],
         null,
-        tools as any
+        tools
       );
 
       expect(response.type).toBe('tool_calls');
       expect(response.toolCalls).toHaveLength(1);
-      expect(response.toolCalls[0].function.name).toBe('get_weather');
+      expect(response.toolCalls?.[0]?.function?.name).toBe('get_weather');
     });
 
     it('should parse fallback <tool_call> XML tags from text content', async () => {
@@ -184,7 +192,7 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockXmlResponse
-      } as any);
+      } as unknown as Response);
 
       const provider: AiProviderController = await initAiProvider({
         enableAiProvider: true,
@@ -193,7 +201,7 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
 
       const response = await provider.chat([{ role: 'user', content: '現在幾點？' }]);
       expect(response.type).toBe('tool_calls');
-      expect(response.toolCalls[0].function.name).toBe('get_time');
+      expect(response.toolCalls?.[0]?.function?.name).toBe('get_time');
     });
 
     it('should throw error when server returns non-ok HTTP status', async () => {
@@ -202,7 +210,7 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         status: 500,
         statusText: 'Internal Server Error',
         text: async () => 'Service unavailable'
-      } as any);
+      } as unknown as Response);
 
       const provider: AiProviderController = await initAiProvider({
         enableAiProvider: true,
@@ -234,9 +242,9 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         compression: {},
         emitAnswer,
         onEmotionChange
-      };
+      } as unknown as BrainEngine;
 
-      await chatWithAiProvider(brainEngine as any, '今天天氣好嗎？');
+      await chatWithAiProvider(brainEngine, '今天天氣好嗎？');
 
       expect(onEmotionChange).toHaveBeenCalledWith('thinking');
       expect(mockChat).toHaveBeenCalled();
@@ -282,9 +290,9 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         onAutoContinueResume,
         onAutoContinueEnd,
         triggerRollingSummaryIfNeeded
-      };
+      } as unknown as BrainEngine;
 
-      await chatWithAiProvider(brainEngine as any, '請串流輸出');
+      await chatWithAiProvider(brainEngine, '請串流輸出');
 
       expect(mockChat).toHaveBeenCalledTimes(2);
       expect(onAutoContinueStart).toHaveBeenCalled();
@@ -298,16 +306,16 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
     });
 
     it('should sanitize nested and non-string message contents before sending', async () => {
-      let sentBody: any;
-      global.fetch = vi.fn().mockImplementation((_url: string, opt: any) => {
-        sentBody = JSON.parse(opt.body);
+      let sentBody: { messages: Array<{ role: string; content: string }> } | undefined;
+      global.fetch = vi.fn().mockImplementation((_url: string, opt?: RequestInit) => {
+        sentBody = JSON.parse(opt?.body as string);
         return Promise.resolve({
           ok: true,
           json: async () => ({
             choices: [{ message: { role: 'assistant', content: 'OK' } }],
             done_reason: 'length'
           })
-        });
+        } as unknown as Response);
       });
 
       const provider: AiProviderController = await initAiProvider({
@@ -316,14 +324,14 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       });
 
       const res = await provider.chat([
-        { role: 'user', content: { content: '從 content.content 取出的文字' } } as any,
-        { role: 'assistant', content: { other: 123 } } as any,
-        { role: 'user', content: 8888 } as any
+        { role: 'user', content: { content: '從 content.content 取出的文字' } } as unknown as LLMMessage,
+        { role: 'assistant', content: { other: 123 } } as unknown as LLMMessage,
+        { role: 'user', content: 8888 as unknown as string }
       ]);
 
-      expect(sentBody.messages[0].content).toBe('從 content.content 取出的文字');
-      expect(sentBody.messages[1].content).toBe('{"other":123}');
-      expect(sentBody.messages[2].content).toBe('8888');
+      expect(sentBody?.messages[0]?.content).toBe('從 content.content 取出的文字');
+      expect(sentBody?.messages[1]?.content).toBe('{"other":123}');
+      expect(sentBody?.messages[2]?.content).toBe('8888');
       expect(res.finishReason).toBe('length');
     });
 
@@ -331,7 +339,7 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ raw_custom_data: 123 })
-      } as any);
+      } as unknown as Response);
 
       const customFormat = vi.fn(async () => ({
         type: 'text',
@@ -355,11 +363,17 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         json: async () => ({
           custom_tool_payload: [{ id: '99', fn: 'my_custom_tool' }]
         })
-      } as any);
+      } as unknown as Response);
 
-      const customExtractToolCalls = vi.fn((res: any) => [
-        { id: res.custom_tool_payload[0].id, function: { name: res.custom_tool_payload[0].fn, arguments: '{}' } }
-      ]);
+      const customExtractToolCalls = vi.fn((res: unknown) => {
+        const payload = (res as { custom_tool_payload?: Array<{ id: string; fn: string }> })?.custom_tool_payload;
+        return [
+          {
+            id: payload?.[0]?.id || '',
+            function: { name: payload?.[0]?.fn || '', arguments: '{}' }
+          }
+        ];
+      });
 
       const provider: AiProviderController = await initAiProvider({
         enableAiProvider: true,
@@ -370,7 +384,7 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       const result = await provider.chat([{ role: 'user', content: 'call custom' }]);
       expect(customExtractToolCalls).toHaveBeenCalled();
       expect(result.type).toBe('tool_calls');
-      expect(result.toolCalls[0].function.name).toBe('my_custom_tool');
+      expect(result.toolCalls?.[0]?.function?.name).toBe('my_custom_tool');
     });
 
     it('should handle auto-continue in BUFFERED mode and emit final joined answer', async () => {
@@ -398,9 +412,9 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         memory: { enabled: false },
         compression: {},
         emitAnswer
-      };
+      } as unknown as BrainEngine;
 
-      await chatWithAiProvider(brainEngine as any, '緩衝測試');
+      await chatWithAiProvider(brainEngine, '緩衝測試');
 
       expect(emitAnswer).toHaveBeenCalledWith('緩衝第一段...\n緩衝第二段結束。');
     });
@@ -421,9 +435,9 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         getToolByName: vi.fn(() => ({ name: 'get_weather' })),
         getTools: vi.fn(() => []),
         emitAnswer: vi.fn()
-      };
+      } as unknown as BrainEngine;
 
-      await chatWithAiProvider(brainEngine as any, '天氣如何');
+      await chatWithAiProvider(brainEngine, '天氣如何');
       expect(mockChat).toHaveBeenCalled();
     });
 
@@ -435,8 +449,8 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         knowledge: [],
         memory: { enabled: true, addTurn: vi.fn() },
         emitAnswer: vi.fn()
-      };
-      await expect(chatWithAiProvider(brainEngine as any, '測試空回覆')).rejects.toThrow('AI Provider 回應為空或格式錯誤');
+      } as unknown as BrainEngine;
+      await expect(chatWithAiProvider(brainEngine, '測試空回覆')).rejects.toThrow('AI Provider 回應為空或格式錯誤');
     });
 
     it('should handle auto-continue loop in stream mode and single_turn mode', async () => {
@@ -485,9 +499,9 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         triggerRollingSummaryIfNeeded,
         onSpokenDisplayTextChange: vi.fn(),
         onEmotionChange: vi.fn()
-      };
+      } as unknown as BrainEngine;
 
-      await chatWithAiProvider(brainEngineStream as any, '講長故事');
+      await chatWithAiProvider(brainEngineStream, '講長故事');
 
       expect(callCount).toBe(2);
       expect(onAutoContinueStart).toHaveBeenCalled();
@@ -507,12 +521,12 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         json: async () => ({
           choices: [{ message: { content: '自訂負載成功' } }]
         })
-      } as any);
+      } as unknown as Response);
 
       const provider: AiProviderController = await initAiProvider({
         enableAiProvider: true,
         providerBaseUrl: 'https://api.custom.com',
-        providerCreateFetchPayload: async (msgs: any) => {
+        providerCreateFetchPayload: async (msgs: unknown) => {
           customPayloadPassed = true;
           return JSON.stringify({ custom_msgs: msgs });
         }
@@ -528,7 +542,7 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         status: 400,
         statusText: 'Bad Request',
         text: async () => 'Invalid model parameter'
-      } as any);
+      } as unknown as Response);
 
       await expect(provider.chat([{ role: 'user', content: 'test' }])).rejects.toThrow('HTTP 400 Bad Request - Invalid model parameter');
     });
@@ -557,9 +571,9 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         locale: 'zh-TW',
         memory: { enabled: false },
         onAutoContinueEnd
-      };
+      } as unknown as BrainEngine;
 
-      await chatWithAiProvider(brainEngine as any, '講故事');
+      await chatWithAiProvider(brainEngine, '講故事');
       expect(onAutoContinueEnd).toHaveBeenCalledWith(expect.objectContaining({
         totalContinuations: 1
       }));

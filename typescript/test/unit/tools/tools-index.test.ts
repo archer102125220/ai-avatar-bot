@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { initToolsEngine, validateToolsEngine } from '@/core/tools';
+import {
+  initToolsEngine,
+  validateToolsEngine,
+  type ToolExecutePayload,
+  type ToolsEngine,
+  type ToolRouteCandidate
+} from '@/core/tools';
 import {
   TOOL_CANCEL_REASON_MAP,
   CHAT_SOURCE_MAP
@@ -27,13 +33,10 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
     });
 
     it('should report missing methods for incomplete or non-object engine', () => {
-      // @ts-ignore: Defensive runtime type checking test for null engine
-      expect(validateToolsEngine(null).isValid).toBe(false);
-      // @ts-ignore: Defensive runtime type checking test for empty object
-      expect(validateToolsEngine({}).isValid).toBe(false);
+      expect(validateToolsEngine(null as unknown as ToolsEngine).isValid).toBe(false);
+      expect(validateToolsEngine({} as unknown as ToolsEngine).isValid).toBe(false);
       const partial = { routeHostTool: vi.fn() };
-      // @ts-ignore: Defensive runtime type checking test for partial engine
-      const res = validateToolsEngine(partial);
+      const res = validateToolsEngine(partial as unknown as ToolsEngine);
       expect(res.isValid).toBe(false);
       expect(res.missing).toContain('prepareTool');
     });
@@ -107,7 +110,12 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
         },
         required: ['city']
       },
-      execute: vi.fn(async ({ args }: { args: { city: string } }) => `天氣：${args.city} 晴天`)
+      execute: vi.fn(
+        async (payload: ToolExecutePayload | Record<string, unknown>) => {
+          const args = (payload as { args?: { city?: string } })?.args;
+          return `天氣：${args?.city || ''} 晴天`;
+        }
+      )
     };
 
     it('should prompt user for missing parameters during prepareTool', () => {
@@ -164,11 +172,11 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
 
     it('should collect missing param on continueToolInput and proceed to tool execution', () => {
       const onSpokenAudioPlayNow = vi.fn();
-      const chatLog: any[] = [];
+      const chatLog: Array<Record<string, unknown>> = [];
 
       const engine = initToolsEngine({
-        onAddChatMessage: vi.fn((role: string, text: string, opts?: any) => {
-          const id = opts?.id || `msg_${Date.now()}`;
+        onAddChatMessage: vi.fn((role: string, text: string, opts?: Record<string, unknown>) => {
+          const id = (opts?.id as string) || `msg_${Date.now()}`;
           chatLog.push({ id, role, text, ...opts });
           return id;
         }),
@@ -221,7 +229,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
     });
 
     it('should handle cancel during continueToolChoice', () => {
-      const chatLog: any[] = [{ id: 'choice_msg_1', role: 'assistant', text: '', pendingChoices: [{ tool: toolA, score: 1 }] }];
+      const chatLog: Array<Record<string, unknown>> = [{ id: 'choice_msg_1', role: 'assistant', text: '', pendingChoices: [{ tool: toolA, score: 1 }] }];
       const onRenderHistory = vi.fn();
       const onSpokenAudioPlayNow = vi.fn();
 
@@ -246,7 +254,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
     });
 
     it('should select choice by ordinal number ("第一個", "2", or routed keyword)', () => {
-      const chatLog: any[] = [{ id: 'choice_msg_1', role: 'assistant', text: '', choiceQuery: '我想聽', pendingChoices: [{ tool: toolA, score: 0.8 }, { tool: toolB, score: 0.7 }] }];
+      const chatLog: Array<Record<string, unknown>> = [{ id: 'choice_msg_1', role: 'assistant', text: '', choiceQuery: '我想聽', pendingChoices: [{ tool: toolA, score: 0.8 }, { tool: toolB, score: 0.7 }] }];
       const onRenderHistory = vi.fn();
       const onAddChatMessage = vi.fn();
 
@@ -402,14 +410,14 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
       engine.pendingToolConfirmation = 'call_del_3';
       const handledNew = engine.continueToolConfirmation('今天天氣如何？');
       expect(handledNew).toBe(false);
-      expect((chatLog[0] as any).cancelled).toBe(true);
+      expect((chatLog[0] as { cancelled?: boolean }).cancelled).toBe(true);
       expect(chatLog[0].text).toBe('已取消（已轉移話題）。');
     });
 
     it('should handle tool confirmation timeout automatically', () => {
       vi.useFakeTimers();
       const onToolCancel = vi.fn();
-      const chatLog: any[] = [{
+      const chatLog: Array<Record<string, unknown>> = [{
         id: 'call_timeout_1',
         role: 'assistant',
         text: '要執行嗎？',
@@ -436,7 +444,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
       // Fast forward past 3000ms
       vi.advanceTimersByTime(3500);
 
-      expect((chatLog[0] as any).timedOut).toBe(true);
+      expect((chatLog[0] as { timedOut?: boolean }).timedOut).toBe(true);
       expect(chatLog[0].text).toBe('操作已逾時失效。');
       expect(onToolCancel).toHaveBeenCalledWith(expect.objectContaining({ reason: TOOL_CANCEL_REASON_MAP.TIMEOUT }));
 
@@ -499,8 +507,12 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
         { onConfirmResume, callId: 'call_1' }
       );
 
-      expect(res.ok).toBe(false);
-      expect(res.error).toBe('Database locked');
+      const resObj =
+        typeof res === 'object' && res !== null
+          ? (res as { ok?: boolean; error?: string })
+          : {};
+      expect(resObj.ok).toBe(false);
+      expect(resObj.error).toBe('Database locked');
       expect(onConfirmResume).toHaveBeenCalledWith({ ok: false, error: 'Database locked' });
 
       // Test without onConfirmResume and with AI_SUMMARY / normal result mode
@@ -524,7 +536,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
       const onSpokenAudioPlayNow = vi.fn();
       const onRenderHistory = vi.fn();
 
-      const chatLog: any[] = [
+      const chatLog: Array<Record<string, unknown>> = [
         {
           id: 'msg_tool_1',
           pendingTool: {
@@ -591,7 +603,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
       const onSpokenAudioPlayNow = vi.fn();
       const onToolCancel = vi.fn();
 
-      const chatLog = [
+      const chatLog: Array<Record<string, unknown>> = [
         {
           id: 'choice_msg_1',
           pendingChoices: [
@@ -602,11 +614,18 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
         }
       ];
 
-      const onAddChatMessage = vi.fn((role: string, text: string, opts?: any) => {
-        const msg = { id: opts?.id || `msg-${Date.now()}`, role, text, ...opts };
-        chatLog.push(msg);
-        return msg.id;
-      });
+      const onAddChatMessage = vi.fn(
+        (role: string, text: string, opts?: Record<string, unknown>) => {
+          const msg = {
+            id: (opts?.id as string) || `msg-${Date.now()}`,
+            role,
+            text,
+            ...opts
+          };
+          chatLog.push(msg);
+          return msg.id;
+        }
+      );
 
       const engine = initToolsEngine({
         confirmationTimeoutMs: 5000,
@@ -624,7 +643,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
       // 2. Set pendingToolChoice and answer "取消"
       engine.pendingToolChoice = {
         messageId: 'choice_msg_1',
-        choices: chatLog[0].pendingChoices
+        choices: chatLog[0].pendingChoices as ToolRouteCandidate[]
       };
       expect(engine.continueToolChoice('取消')).toBe(true);
       expect(onSpokenAudioPlayNow).toHaveBeenCalledWith('好的，已取消這個操作。');
@@ -636,7 +655,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
       ];
       engine.pendingToolChoice = {
         messageId: 'choice_msg_1',
-        choices: chatLog[0].pendingChoices
+        choices: chatLog[0].pendingChoices as ToolRouteCandidate[]
       };
       expect(engine.continueToolChoice('第一個')).toBe(true);
 
@@ -646,7 +665,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
       ];
       engine.pendingToolChoice = {
         messageId: 'choice_msg_1',
-        choices: chatLog[0].pendingChoices
+        choices: chatLog[0].pendingChoices as ToolRouteCandidate[]
       };
       expect(engine.continueToolChoice('隨便啦')).toBe(true);
       expect(onAddChatMessage).toHaveBeenCalledWith('assistant', expect.stringContaining('請說「第一個'), { source: 'tool' });
@@ -736,7 +755,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
     });
 
     it('should test executePendingTool and cancelPendingTool edge cases and continueToolConfirmation routing', () => {
-      const chatLog: any[] = [];
+      const chatLog: Array<Record<string, unknown>> = [];
       const onRenderHistory = vi.fn();
       const onSpokenAudioPlayNow = vi.fn();
       const onToolCall = vi.fn();
@@ -832,7 +851,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
       // Test continueToolConfirmation with new topic message -> returns false & cancels with NEW_INPUT
       expect(engine.continueToolConfirmation('今天天氣如何')).toBe(false);
       expect(pendingMsg3.text).toBe('已取消（已轉移話題）。');
-      expect((pendingMsg3 as any).cancelled).toBe(true);
+      expect((pendingMsg3 as { cancelled?: boolean }).cancelled).toBe(true);
       expect(onToolCancel).toHaveBeenCalledWith({
         name: 'search',
         reason: TOOL_CANCEL_REASON_MAP.NEW_INPUT,
