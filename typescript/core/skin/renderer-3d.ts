@@ -772,8 +772,6 @@ export async function bootVRM(
       },
       dispose(): void {
         alive = false;
-        skinEngine.gesture3D = null;
-        skinEngine.gesture2D = null;
         if (typeof unsubscribeSkin3d === 'function') {
           unsubscribeSkin3d();
           unsubscribeSkin3d = null;
