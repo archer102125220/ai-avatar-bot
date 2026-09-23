@@ -14,7 +14,12 @@ import {
   DEFAULT_AUTO_CONTINUE_MODE,
   DEFAULT_ENABLE_MEMORY
 } from '@/core/constants';
-import type { AvatarBotOptions, BaseStore, I18nEngine } from './types';
+import type {
+  AvatarBotOptions,
+  BaseStore,
+  I18nEngine
+} from './types';
+import type { Gender } from '@/core/types';
 
 /**
  * Safely invokes a user-defined event callback function with optional context and arguments.
@@ -103,7 +108,7 @@ export function normalizeOptions(
     );
   }
 
-  let safeGender = DEFAULT_GENDER;
+  let safeGender: Gender = DEFAULT_GENDER;
   if (gender === GENDER_MAP.female || gender === GENDER_MAP.male) {
     safeGender = gender;
   }

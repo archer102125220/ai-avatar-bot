@@ -1,3 +1,5 @@
+import type { PendingToolState } from '@/core/types';
+
 /**
  * Property definition inside a tool's JSON input schema.
  */
@@ -192,14 +194,7 @@ export interface ToolChatMessage {
   id?: string;
   role?: string;
   text?: string;
-  pendingTool?: {
-    name?: string;
-    label?: string;
-    tool?: ToolDefinition;
-    toolCallId?: string | null;
-    input?: { args?: Record<string, unknown> };
-    [key: string]: unknown;
-  } | null;
+  pendingTool?: PendingToolState | null;
   choiceQuery?: string;
   pendingChoices?: ToolRouteCandidate[] | null;
   timedOut?: boolean;

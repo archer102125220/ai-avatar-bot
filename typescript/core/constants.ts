@@ -1,3 +1,5 @@
+import type { AvatarMode, Gender } from './types';
+
 /**
  * Avatar lifecycle state mapping enum.
  */
@@ -24,7 +26,7 @@ export const AVATAR_MODE_MAP = {
   assistant: 'assistant'
 } as const;
 
-export type AvatarMode = (typeof AVATAR_MODE_MAP)[keyof typeof AVATAR_MODE_MAP];
+export type { AvatarMode };
 
 /**
  * Default avatar personality role mode.
@@ -386,7 +388,7 @@ export const GENDER_MAP = {
   male: 'male'
 } as const;
 
-export type Gender = (typeof GENDER_MAP)[keyof typeof GENDER_MAP];
+export type { Gender };
 
 /**
  * Default character gender.

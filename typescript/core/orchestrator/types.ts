@@ -2,7 +2,6 @@ import type {
   BrainEngine,
   BrainEngineOptions,
   KnowledgeEntry,
-  AvatarMode,
   MemoryAdapter,
   MemoryData,
   BrainCompressionOptions,
@@ -32,6 +31,22 @@ import type {
 import type { UiDom, UiContext } from '@/core/ui';
 import type { BaseStore } from '@/core/store';
 import type { I18nEngine } from '@/core/i18n';
+import type {
+  AvatarMode,
+  Gender,
+  FitMode,
+  EngineMode,
+  AutoContinueMode,
+  LocalizableOrResolver,
+  DynamicTextOrResolver,
+  AutoContinueStartInfo,
+  AutoContinueResumeInfo,
+  AutoContinueEndInfo,
+  ToolNotFoundErrorInfo,
+  ToolErrorInfo,
+  LlmLoadProgressInfo,
+  Point2D
+} from '@/core/types';
 
 /**
  * Registry of central coordinator sub-engines.
@@ -134,9 +149,9 @@ export interface AvatarBotOptions {
   /** Maximum number of auto-continuation rounds. */
   maxAutoContinuations?: number;
   /** Auto-continuation delivery mode ('stream' | 'buffered'). */
-  autoContinueMode?: 'stream' | 'buffered';
+  autoContinueMode?: AutoContinueMode;
   /** Custom auto-continuation prompt string or generator function. */
-  autoContinuePrompt?: string | ((...args: unknown[]) => string) | null;
+  autoContinuePrompt?: DynamicTextOrResolver | null;
   /** Avatar persona mode ('assistant' | 'companion' | custom). */
   avatarMode?: AvatarMode;
   /** Whether to enable multi-turn persistent conversation memory. */
@@ -150,9 +165,9 @@ export interface AvatarBotOptions {
   /** Declarative custom persona modes registry. */
   modes?: Record<string, unknown>;
   /** Initial rendering start mode ('2d' | '3d'). */
-  startMode?: string;
+  startMode?: EngineMode;
   /** Container fit mode ('half' | 'full'). */
-  fitMode?: string;
+  fitMode?: FitMode;
   /** 2D visual transformation configuration. */
   skin2d?: Skin2DConfig;
   /** Alias for skin2d.zoom. */
@@ -162,7 +177,7 @@ export interface AvatarBotOptions {
   /** Alias for skin2d.offsetY. */
   offsetY?: number;
   /** Alias for skin2d.anchor. */
-  anchor?: { x?: number; y?: number };
+  anchor?: Point2D;
   /** 3D VRM model URL. */
   vrmUrl?: string;
   /** 3D visual and animation configuration. */
@@ -192,13 +207,13 @@ export interface AvatarBotOptions {
   /** Custom translation dictionary messages. */
   i18nMessages?: Record<string, Record<string, string>>;
   /** Default avatar gender ('female' | 'male'). */
-  gender?: string;
+  gender?: Gender;
   /** Brain gender persona override. */
-  brainGender?: string | null;
+  brainGender?: Gender | null;
   /** Speech voice gender override. */
-  speechGender?: string | null;
+  speechGender?: Gender | null;
   /** Skin appearance gender override. */
-  skinGender?: string | null;
+  skinGender?: Gender | null;
   /** Fallback responses list for companion mode. */
   companionFallback?: Array<string | Record<string, unknown>>;
   /** Custom sub-engines injection configuration. */
@@ -206,17 +221,17 @@ export interface AvatarBotOptions {
   /** Context compression settings. */
   compression?: BrainCompressionOptions;
   /** System context prompt template for assistant mode. */
-  systemContextTemplate?: string | ((...args: unknown[]) => string);
+  systemContextTemplate?: DynamicTextOrResolver;
   /** System context prompt template for companion mode. */
-  companionSystemContextTemplate?: string | ((...args: unknown[]) => string);
+  companionSystemContextTemplate?: DynamicTextOrResolver;
   /** RAG reference material prompt template. */
-  ragTemplate?: string | ((...args: unknown[]) => string);
+  ragTemplate?: DynamicTextOrResolver;
   /** Custom context object appended to LLM prompt. */
   customContext?: Record<string, unknown>;
   /** Multilingual response rule prompt. */
-  languageRule?: string | ((...args: unknown[]) => string);
+  languageRule?: DynamicTextOrResolver;
   /** Gender-specific prompt rule. */
-  genderRule?: string | ((...args: unknown[]) => string);
+  genderRule?: DynamicTextOrResolver;
   /** List of registered tools for function calling. */
   tools?: ToolDefinition[];
   /** Alias for tools. */
@@ -244,35 +259,17 @@ export interface AvatarBotOptions {
   /** Spoken audio greeting text for assistant mode. */
   assistantGreeting?: string;
   /** Suggested questions prompt list. */
-  suggestedQuestions?:
-    | string[]
-    | Record<string, string[]>
-    | ((context: unknown) => string[]);
+  suggestedQuestions?: LocalizableOrResolver<string[]>;
   /** Suggested questions for companion mode. */
-  companionSuggestedQuestions?:
-    | string[]
-    | Record<string, string[]>
-    | ((context: unknown) => string[]);
+  companionSuggestedQuestions?: LocalizableOrResolver<string[]>;
   /** Suggested questions for assistant mode. */
-  assistantSuggestedQuestions?:
-    | string[]
-    | Record<string, string[]>
-    | ((context: unknown) => string[]);
+  assistantSuggestedQuestions?: LocalizableOrResolver<string[]>;
   /** Suggested questions section title. */
-  suggestedTitle?:
-    | string
-    | Record<string, string>
-    | ((context: unknown) => string);
+  suggestedTitle?: LocalizableOrResolver<string>;
   /** Suggested title for companion mode. */
-  companionSuggestedTitle?:
-    | string
-    | Record<string, string>
-    | ((context: unknown) => string);
+  companionSuggestedTitle?: LocalizableOrResolver<string>;
   /** Suggested title for assistant mode. */
-  assistantSuggestedTitle?:
-    | string
-    | Record<string, string>
-    | ((context: unknown) => string);
+  assistantSuggestedTitle?: LocalizableOrResolver<string>;
 
   /** Lifecycle callback fired when widget is fully initialized and mounted. */
   onReady?: (widget: AiAvatarWidget, ...args: unknown[]) => void;
@@ -284,7 +281,7 @@ export interface AvatarBotOptions {
   onLlmLoading?: (...args: unknown[]) => void;
   /** Callback fired during WebLLM download/init progress. */
   onLlmLoadProgress?: (
-    progress: number | { progress?: number; [key: string]: unknown },
+    progress: LlmLoadProgressInfo,
     ...args: unknown[]
   ) => void;
   /** Callback fired when WebLLM completes loading. */
@@ -318,13 +315,13 @@ export interface AvatarBotOptions {
   /** Callback fired when LLM stream finishes. */
   onStreamEnd?: (fullText: string, ...args: unknown[]) => void;
   /** Callback fired when auto-continuation starts. */
-  onAutoContinueStart?: (info: unknown, ...args: unknown[]) => void;
+  onAutoContinueStart?: (info: AutoContinueStartInfo, ...args: unknown[]) => void;
   /** Callback fired when waiting for continuation stream. */
-  onAutoContinueWait?: (info: unknown, ...args: unknown[]) => void;
+  onAutoContinueWait?: (info: AutoContinueStartInfo, ...args: unknown[]) => void;
   /** Callback fired when continuation resumes speaking. */
-  onAutoContinueResume?: (info: unknown, ...args: unknown[]) => void;
+  onAutoContinueResume?: (info: AutoContinueResumeInfo, ...args: unknown[]) => void;
   /** Callback fired when auto-continuation completes. */
-  onAutoContinueEnd?: (info: unknown, ...args: unknown[]) => void;
+  onAutoContinueEnd?: (info: AutoContinueEndInfo, ...args: unknown[]) => void;
   /** Callback fired when rolling memory summary updates. */
   onSummaryUpdated?: (summary: string, ...args: unknown[]) => void;
   /** Callback fired when brain falls back between engines. */
@@ -337,9 +334,9 @@ export interface AvatarBotOptions {
   /** Callback fired when a tool call is executed. */
   onToolCall?: (toolCall: unknown, ...args: unknown[]) => void;
   /** Callback fired when AI requests an unregistered tool. */
-  onToolNotFound?: (info: unknown, widget: AiAvatarWidget, ...args: unknown[]) => unknown;
+  onToolNotFound?: (info: ToolNotFoundErrorInfo, widget: AiAvatarWidget, ...args: unknown[]) => unknown;
   /** Callback fired when a tool execution fails. */
-  onToolError?: (info: unknown, widget: AiAvatarWidget, ...args: unknown[]) => unknown;
+  onToolError?: (info: ToolErrorInfo, widget: AiAvatarWidget, ...args: unknown[]) => unknown;
   /** Callback fired when history panel opens/closes. */
   onSetHistoryOpen?: (isOpen: boolean, ...args: unknown[]) => void;
   /** Callback fired when history panel renders. */
@@ -412,42 +409,21 @@ export interface AiAvatarWidget {
   handleUser: (text?: string) => Promise<void> | void;
   isIframe: boolean;
   isMinimal: boolean;
-  gender: string;
-  brainGender: string | null;
-  speechGender: string | null;
-  skinGender: string | null;
+  gender: Gender;
+  brainGender: Gender | null;
+  speechGender: Gender | null;
+  skinGender: Gender | null;
   locale: string;
   avatarMode: AvatarMode;
-  suggestedQuestions?:
-    | string[]
-    | Record<string, string[]>
-    | ((context: unknown) => string[]);
-  companionSuggestedQuestions?:
-    | string[]
-    | Record<string, string[]>
-    | ((context: unknown) => string[]);
-  assistantSuggestedQuestions?:
-    | string[]
-    | Record<string, string[]>
-    | ((context: unknown) => string[]);
-  suggestedTitle?:
-    | string
-    | Record<string, string>
-    | ((context: unknown) => string);
-  companionSuggestedTitle?:
-    | string
-    | Record<string, string>
-    | ((context: unknown) => string);
-  assistantSuggestedTitle?:
-    | string
-    | Record<string, string>
-    | ((context: unknown) => string);
+  suggestedQuestions?: LocalizableOrResolver<string[]>;
+  companionSuggestedQuestions?: LocalizableOrResolver<string[]>;
+  assistantSuggestedQuestions?: LocalizableOrResolver<string[]>;
+  suggestedTitle?: LocalizableOrResolver<string>;
+  companionSuggestedTitle?: LocalizableOrResolver<string>;
+  assistantSuggestedTitle?: LocalizableOrResolver<string>;
   setSuggestedQuestions: (
-    questions?:
-      | string[]
-      | Record<string, string[]>
-      | ((context: unknown) => string[]),
-    title?: string | Record<string, string> | ((context: unknown) => string)
+    questions?: LocalizableOrResolver<string[]>,
+    title?: LocalizableOrResolver<string>
   ) => void;
   renderSuggestions: () => void;
   showMinimalEl: () => void;
@@ -463,7 +439,7 @@ export interface AiAvatarWidget {
   /** Updates 3D skin configuration. */
   setSkin3d: (config: Partial<Skin3DConfig>) => void;
   /** Updates container fitting mode ('half' | 'full'). */
-  setFitMode: (fitMode: string) => void;
+  setFitMode: (fitMode: FitMode) => void;
   onReady?: (widget: AiAvatarWidget, ...args: unknown[]) => void;
   onMinimalTrigger?: (isMinimal: boolean, widget: unknown, ...args: unknown[]) => void;
   onError?: (error: Error, widget: AiAvatarWidget, ...args: unknown[]) => void;

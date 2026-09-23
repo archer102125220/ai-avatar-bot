@@ -1,3 +1,13 @@
+import type {
+  SubscribableStore,
+  Point2D,
+  Vector3Input,
+  Vector3Scale,
+  Gender,
+  FitMode,
+  EngineMode
+} from '@/core/types';
+
 /**
  * 2D visual transformation settings for a specific display mode (half / full).
  */
@@ -9,7 +19,7 @@ export interface Skin2DModeConfig {
   /** Vertical offset in pixels. */
   offsetY?: number;
   /** Model anchor point { x, y } (e.g., { x: 0.5, y: 1.0 } for half, { x: 0.5, y: 3.0 } for full). */
-  anchor?: { x?: number; y?: number };
+  anchor?: Point2D;
 }
 
 /**
@@ -23,7 +33,7 @@ export interface Skin2DConfig {
   /** Default vertical offset in pixels. */
   offsetY?: number;
   /** Default model anchor point. */
-  anchor?: { x?: number; y?: number };
+  anchor?: Point2D;
   /** Half-body mode specific overrides. */
   half?: Skin2DModeConfig;
   /** Full-body mode specific overrides. */
@@ -41,9 +51,9 @@ export interface Skin3DCameraConfig {
   /** Far clipping plane distance. */
   far?: number;
   /** World position coordinates { x, y, z } or [x, y, z] array. */
-  position?: { x: number; y: number; z: number } | [number, number, number];
+  position?: Vector3Input;
   /** Look-at target coordinates { x, y, z } or [x, y, z] array. */
-  lookAt?: { x: number; y: number; z: number } | [number, number, number];
+  lookAt?: Vector3Input;
 }
 
 /**
@@ -51,14 +61,11 @@ export interface Skin3DCameraConfig {
  */
 export interface Skin3DModelConfig {
   /** World position offset coordinates. */
-  position?: { x: number; y: number; z: number } | [number, number, number];
+  position?: Vector3Input;
   /** Model scale multiplier or { x, y, z } axes vector. */
-  scale?:
-    | { x: number; y: number; z: number }
-    | [number, number, number]
-    | number;
+  scale?: Vector3Scale;
   /** Model rotation Euler angles in radians. */
-  rotation?: { x: number; y: number; z: number } | [number, number, number];
+  rotation?: Vector3Input;
 }
 
 /**
@@ -187,10 +194,10 @@ export interface Renderer3D {
  * Reactive state stored in SkinEngine.
  */
 export interface SkinEngineState {
-  gender: string;
+  gender: Gender;
   emotion: string;
   isSpeaking: boolean;
-  fitMode: string;
+  fitMode: FitMode;
   skin2d: Skin2DConfig;
   skin3d: Skin3DConfig;
 }
@@ -295,9 +302,9 @@ export interface SkinEngineOptions {
   /** URL to the 2D Live2D model (.model3.json). */
   modelUrl?: string;
   /** Initial engine rendering mode ('2d' | '3d'). */
-  startMode?: string;
+  startMode?: EngineMode;
   /** Initial container fitting mode ('half' | 'full'). */
-  fitMode?: string;
+  fitMode?: FitMode;
   /** 2D visual transformation configuration. */
   skin2d?: Skin2DConfig;
   /** Alias for skin2d.zoom. */
@@ -307,7 +314,7 @@ export interface SkinEngineOptions {
   /** Alias for skin2d.offsetY. */
   offsetY?: number;
   /** Alias for skin2d.anchor. */
-  anchor?: { x?: number; y?: number };
+  anchor?: Point2D;
   /** URL to the 3D VRM model (.vrm). */
   vrmUrl?: string;
   /** 3D visual and animation configuration. */
@@ -335,7 +342,7 @@ export interface SkinEngineOptions {
   /** Callback fired when avatar model is mounted and rendered. */
   onMounted?: SkinMountedCallback;
   /** Default avatar gender ('female' | 'male'). */
-  gender?: string;
+  gender?: Gender;
   /** Callback fired when a gesture starts playing. */
   onGesture?: SkinGestureCallback;
   /** Callback fired when a gesture encounters an error. */
@@ -380,7 +387,7 @@ export interface SkinEmotionBlendState {
 /**
  * Skin Engine controller for managing 2D Live2D and 3D VRM avatar rendering.
  */
-export interface SkinEngine {
+export interface SkinEngine extends SubscribableStore<SkinEngineState> {
   /** HTML container element. */
   readonly stageEl: HTMLElement;
   /** Whether 2D model URL is configured. */
@@ -388,7 +395,7 @@ export interface SkinEngine {
   /** Whether 3D model URL is configured. */
   readonly has3D: boolean;
   /** Current engine mode ('2d' | '3d' | null). Setter triggers asynchronous renderer switch. */
-  engineMode: string | null;
+  engineMode: EngineMode | null;
   /** Internal engine mode identifier used for forced reloads. */
   _engineMode?: string | null;
   /** Loaded avatar model instance. */
@@ -396,35 +403,15 @@ export interface SkinEngine {
   /** Active renderer instance (Renderer2D or Renderer3D). */
   renderer: Renderer2D | Renderer3D | null;
   /** Switches avatar gender and updates default model URLs. */
-  setGender(gender: string): void;
+  setGender(gender: Gender): void;
   /** Loads and replaces active VRM model with a local File object. */
   loadVRMFile(file: File): void;
-  /** Retrieves current store state snapshot. */
-  getState(): SkinEngineState;
-  /** Updates store state. */
-  setState(
-    updates:
-      | Partial<SkinEngineState>
-      | ((state: SkinEngineState) => Partial<SkinEngineState>)
-  ): void;
-  /** Subscribes to store state updates. */
-  subscribe: {
-    (listener: (state: SkinEngineState, prevState: SkinEngineState) => void): () => void;
-    <K extends keyof SkinEngineState>(
-      key: K,
-      callback: (current: SkinEngineState[K], prev: SkinEngineState[K]) => void
-    ): () => void;
-    <V>(
-      selector: (state: SkinEngineState) => V,
-      callback: (current: V, prev: V) => void
-    ): () => void;
-  };
   /** Sets active facial emotion and auto-resets after timeout. */
   setEmotion(emotion: string): void;
   /** Updates speaking status for lip sync and emotion reset. */
   setIsSpeaking(isSpeaking: boolean): void;
   /** Sets container fit mode ('half' | 'full'). */
-  setFitMode(fitMode: string): void;
+  setFitMode(fitMode: FitMode): void;
   /** Partially updates 2D visual configuration. */
   setSkin2d(updates: Partial<Skin2DConfig>): void;
   /** Partially updates 3D visual configuration. */
@@ -434,7 +421,7 @@ export interface SkinEngine {
   /** Current 3D visual configuration. */
   readonly skin3d: Skin3DConfig;
   /** Current gender setting. */
-  readonly gender: string;
+  readonly gender: Gender;
   /** 2D model URL. */
   modelUrl: string;
   /** 3D VRM model URL. */
@@ -448,9 +435,9 @@ export interface SkinEngine {
   /** Current active gesture / emotion name. Setting triggers onGesture lifecycle. */
   gestureName: string;
   /** Initial rendering start mode. */
-  startMode: string;
+  startMode: EngineMode;
   /** Active fitting mode ('half' | 'full'). */
-  fitMode: string;
+  fitMode: FitMode;
   /** Emotion blend weight state for animation loop easing. */
   emo: SkinEmotionBlendState;
   /** Function to compute mouth open amplitude. */

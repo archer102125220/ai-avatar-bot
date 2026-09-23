@@ -6,12 +6,38 @@
  */
 
 // ============================================================================
-// Core / Store Types
+// Core / Store & Common Types
 // ============================================================================
 
 import type { BaseStore as CoreBaseStore } from '@/core/store';
 export type { StoreListener, PropertyListener, Selector } from '@/core/store';
 export type BaseStore<T extends object = any> = CoreBaseStore<T>;
+
+export type {
+  SubscribableStore,
+  Point2D,
+  Vector2Coord,
+  Vector2Tuple,
+  Vector2Input,
+  Vector3Coord,
+  Vector3Tuple,
+  Vector3Input,
+  Vector3Scale,
+  Gender,
+  FitMode,
+  EngineMode,
+  AutoContinueMode,
+  ChatRole,
+  LocalizableOrResolver,
+  DynamicTextOrResolver,
+  PendingToolState,
+  AutoContinueStartInfo,
+  AutoContinueResumeInfo,
+  AutoContinueEndInfo,
+  ToolNotFoundErrorInfo,
+  ToolErrorInfo,
+  LlmLoadProgressInfo
+} from '@/core/types';
 
 // ============================================================================
 // Memory & Personas

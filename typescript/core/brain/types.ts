@@ -1,17 +1,34 @@
 import type { ToolDefinition, ToolRouteCandidate } from '@/core/tools';
 import type { I18nEngine } from '@/core/i18n';
+import type {
+  AvatarMode,
+  PendingToolState,
+  AutoContinueStartInfo,
+  AutoContinueResumeInfo,
+  AutoContinueEndInfo,
+  ToolNotFoundErrorInfo,
+  ToolErrorInfo,
+  LlmLoadProgressInfo,
+  ChatRole
+} from '@/core/types';
 
-/**
- * Avatar persona mode: built-in presets or any custom registered mode string.
- */
-export type AvatarMode = 'assistant' | 'companion' | (string & {});
+export type {
+  AvatarMode,
+  PendingToolState,
+  AutoContinueStartInfo,
+  AutoContinueResumeInfo,
+  AutoContinueEndInfo,
+  ToolNotFoundErrorInfo,
+  ToolErrorInfo,
+  LlmLoadProgressInfo
+};
 
 /**
  * Conversation turn item stored in memory history.
  */
 export interface ChatHistoryItem {
   /** Role of the speaker. */
-  role: 'user' | 'assistant' | 'system' | 'tool' | (string & {});
+  role: ChatRole;
   /** Text content of the message. */
   content: string;
   /** Optional metadata or timestamp. */
@@ -158,14 +175,7 @@ export interface ChatLogItem {
   role: 'user' | 'assistant';
   text: string;
   streaming?: boolean;
-  pendingTool?: {
-    name?: string;
-    label?: string;
-    tool?: ToolDefinition;
-    toolCallId?: string | null;
-    input?: { args?: Record<string, unknown> };
-    [key: string]: unknown;
-  } | null;
+  pendingTool?: PendingToolState | null;
   pendingChoices?: ToolRouteCandidate[] | null;
   [key: string]: unknown;
 }
@@ -176,14 +186,7 @@ export interface ChatLogItem {
 export interface AddChatMessageOptions {
   id?: string;
   streaming?: boolean;
-  pendingTool?: {
-    name?: string;
-    label?: string;
-    tool?: ToolDefinition;
-    toolCallId?: string | null;
-    input?: { args?: Record<string, unknown> };
-    [key: string]: unknown;
-  } | null;
+  pendingTool?: PendingToolState | null;
   pendingChoices?: ToolRouteCandidate[] | null;
   [key: string]: unknown;
 }
@@ -363,7 +366,7 @@ export interface BrainEngineOptions {
   llmIsStream?: boolean;
   onLlmLoading?: (...args: unknown[]) => unknown;
   onLlmLoadProgress?: (
-    progress: number | { progress?: number; [key: string]: unknown },
+    progress: LlmLoadProgressInfo,
     ...args: unknown[]
   ) => unknown;
   onLlmLoaded?: (engineInstance?: unknown, ...args: unknown[]) => unknown;
@@ -396,37 +399,19 @@ export interface BrainEngineOptions {
   onStreamChunk?: (chunk: string, ...args: unknown[]) => unknown;
   onStreamEnd?: (fullText: string, ...args: unknown[]) => unknown;
   onAutoContinueStart?: (
-    info: {
-      continuationIndex: number;
-      maxContinuations: number;
-      accumulatedText: string;
-    },
+    info: AutoContinueStartInfo,
     ...args: unknown[]
   ) => unknown;
   onAutoContinueWait?: (
-    info: {
-      continuationIndex: number;
-      maxContinuations: number;
-      accumulatedText: string;
-    },
+    info: AutoContinueStartInfo,
     ...args: unknown[]
   ) => unknown;
   onAutoContinueResume?: (
-    info: {
-      continuationIndex: number;
-      maxContinuations: number;
-      accumulatedText: string;
-      chunk: string;
-    },
+    info: AutoContinueResumeInfo,
     ...args: unknown[]
   ) => unknown;
   onAutoContinueEnd?: (
-    info: {
-      totalContinuations: number;
-      maxContinuations: number;
-      accumulatedText: string;
-      reason: string;
-    },
+    info: AutoContinueEndInfo,
     ...args: unknown[]
   ) => unknown;
   aiProviderCreateFetchSetting?:
@@ -474,17 +459,11 @@ export interface BrainEngineOptions {
     ...args: unknown[]
   ) => unknown;
   onToolNotFound?: (
-    info: { toolName: string; args: unknown; toolCall: unknown },
+    info: ToolNotFoundErrorInfo,
     ...args: unknown[]
   ) => unknown;
   onToolError?: (
-    info: {
-      tool: unknown;
-      toolName: string;
-      args: unknown;
-      toolCall: unknown;
-      error: Error;
-    },
+    info: ToolErrorInfo,
     ...args: unknown[]
   ) => unknown;
 }
@@ -541,7 +520,7 @@ export interface BrainEngine {
   onLlmLoading: ((...args: unknown[]) => unknown) | null;
   onLlmLoadProgress:
     | ((
-        progress: number | { progress?: number; [key: string]: unknown },
+        progress: LlmLoadProgressInfo,
         ...args: unknown[]
       ) => unknown)
     | null;
@@ -596,43 +575,25 @@ export interface BrainEngine {
   onStreamEnd: ((fullText: string, ...args: unknown[]) => unknown) | null;
   onAutoContinueStart:
     | ((
-        info: {
-          continuationIndex: number;
-          maxContinuations: number;
-          accumulatedText: string;
-        },
+        info: AutoContinueStartInfo,
         ...args: unknown[]
       ) => unknown)
     | null;
   onAutoContinueWait:
     | ((
-        info: {
-          continuationIndex: number;
-          maxContinuations: number;
-          accumulatedText: string;
-        },
+        info: AutoContinueStartInfo,
         ...args: unknown[]
       ) => unknown)
     | null;
   onAutoContinueResume:
     | ((
-        info: {
-          continuationIndex: number;
-          maxContinuations: number;
-          accumulatedText: string;
-          chunk: string;
-        },
+        info: AutoContinueResumeInfo,
         ...args: unknown[]
       ) => unknown)
     | null;
   onAutoContinueEnd:
     | ((
-        info: {
-          totalContinuations: number;
-          maxContinuations: number;
-          accumulatedText: string;
-          reason: string;
-        },
+        info: AutoContinueEndInfo,
         ...args: unknown[]
       ) => unknown)
     | null;
@@ -646,19 +607,13 @@ export interface BrainEngine {
     | null;
   onToolNotFound:
     | ((
-        info: { toolName: string; args: unknown; toolCall: unknown },
+        info: ToolNotFoundErrorInfo,
         ...args: unknown[]
       ) => unknown)
     | null;
   onToolError:
     | ((
-        info: {
-          tool: unknown;
-          toolName: string;
-          args: unknown;
-          toolCall: unknown;
-          error: Error;
-        },
+        info: ToolErrorInfo,
         ...args: unknown[]
       ) => unknown)
     | null;

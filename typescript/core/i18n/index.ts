@@ -4,6 +4,7 @@ import {
   PropertyListener,
   Selector
 } from '@/core/store';
+import type { SubscribableStore } from '@/core/types';
 import {
   DEFAULT_LOCALE,
   SUPPORTED_LOCALES,
@@ -161,7 +162,7 @@ export type LocaleChangeListener = (
   prevLocale: string
 ) => void;
 
-export interface I18nEngine {
+export interface I18nEngine extends SubscribableStore<I18nEngineState> {
   t: <T = string>(key: string, params?: Record<string, unknown>) => T;
   translate: <T = string>(key: string, params?: Record<string, unknown>) => T;
   setLocale: (newLocale: string) => void;
@@ -188,12 +189,6 @@ export interface I18nEngine {
     ): () => void;
     (selectorOrKey: unknown, callback?: unknown): () => void;
   };
-  getState: () => I18nEngineState;
-  setState: (
-    updates:
-      | Partial<I18nEngineState>
-      | ((state: I18nEngineState) => Partial<I18nEngineState>)
-  ) => void;
 }
 
 /**

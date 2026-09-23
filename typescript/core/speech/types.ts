@@ -1,3 +1,5 @@
+import type { SubscribableStore, Gender } from '@/core/types';
+
 /**
  * Web Speech API SpeechRecognition Alternative result.
  */
@@ -138,27 +140,7 @@ export interface STTEngineOptions {
 /**
  * Speech-to-Text (STT) engine controller.
  */
-export interface STTEngine {
-  /** Subscribes to STT state changes. */
-  subscribe: {
-    (listener: (state: STTEngineState, prevState: STTEngineState) => void): () => void;
-    <K extends keyof STTEngineState>(
-      key: K,
-      callback: (current: STTEngineState[K], prev: STTEngineState[K]) => void
-    ): () => void;
-    <V>(
-      selector: (state: STTEngineState) => V,
-      callback: (current: V, prev: V) => void
-    ): () => void;
-  };
-  /** Gets current STT state snapshot. */
-  getState(): STTEngineState;
-  /** Updates partial STT state. */
-  setState(
-    updates:
-      | Partial<STTEngineState>
-      | ((state: STTEngineState) => Partial<STTEngineState>)
-  ): void;
+export interface STTEngine extends SubscribableStore<STTEngineState> {
   /** Current language locale. */
   locale: string;
   /** Sets active language locale. */
@@ -202,7 +184,7 @@ export interface TTSEngineState {
   /** Neural voice model name. */
   neuralVoice: string;
   /** Voice gender ('female' | 'male'). */
-  gender: string;
+  gender: Gender;
   /** Language locale code (e.g. 'zh-TW', 'en-US'). */
   locale: string;
   /** Whether speech audio is currently playing. */
@@ -236,7 +218,7 @@ export interface TTSEngineOptions {
   /** Neural voice model identifier. */
   neuralVoice?: string;
   /** Voice gender ('female' | 'male'). */
-  gender?: string;
+  gender?: Gender;
   /** Language locale code. */
   locale?: string;
   /** Callback fired when speech synthesis playback begins. */
@@ -252,27 +234,7 @@ export interface TTSEngineOptions {
 /**
  * Text-to-Speech (TTS) engine controller.
  */
-export interface TTSEngine {
-  /** Subscribes to TTS state changes. */
-  subscribe: {
-    (listener: (state: TTSEngineState, prevState: TTSEngineState) => void): () => void;
-    <K extends keyof TTSEngineState>(
-      key: K,
-      callback: (current: TTSEngineState[K], prev: TTSEngineState[K]) => void
-    ): () => void;
-    <V>(
-      selector: (state: TTSEngineState) => V,
-      callback: (current: V, prev: V) => void
-    ): () => void;
-  };
-  /** Gets current TTS state snapshot. */
-  getState(): TTSEngineState;
-  /** Updates partial TTS state. */
-  setState(
-    updates:
-      | Partial<TTSEngineState>
-      | ((state: TTSEngineState) => Partial<TTSEngineState>)
-  ): void;
+export interface TTSEngine extends SubscribableStore<TTSEngineState> {
   /** Whether audio is currently speaking. */
   readonly isSpeaking: boolean;
   /** Whether audio is muted. */
@@ -288,7 +250,7 @@ export interface TTSEngine {
   /** Computes and returns the current mouth opening amplitude (0 to 1). */
   computeMouth(): number;
   /** Sets speech voice gender. */
-  setGender(gender: string): void;
+  setGender(gender: Gender): void;
   /** Sets speech language locale. */
   setLocale(locale: string): void;
   /** Preloads audio greeting for tap interaction. */
@@ -327,7 +289,7 @@ export interface SpeechEngineState {
   isListening: boolean;
   spokenDisplayText: string;
   spokenAudioState: SpokenAudioState;
-  gender: string;
+  gender: Gender;
   ttsEndpoint: string;
   neuralVoice?: string;
   speakSeq: number;
@@ -359,7 +321,7 @@ export interface SpeechEngineOptions {
   /** Language locale code (e.g., 'zh-TW', 'en-US'). */
   locale?: string;
   /** Function to get current avatar gender. */
-  getGender?: () => string;
+  getGender?: () => Gender;
   /** Function to get avatar root container element. */
   getContainer?: () => HTMLElement | null;
   /** Callback fired when voice recognition / conversation status changes. */
@@ -398,31 +360,11 @@ export interface SpeechEngineOptions {
 /**
  * Central speech orchestrator controlling Speech-to-Text (STT) and Text-to-Speech (TTS).
  */
-export interface SpeechEngine {
-  /** Subscribes to store state updates. */
-  subscribe: {
-    (listener: (state: SpeechEngineState, prevState: SpeechEngineState) => void): () => void;
-    <K extends keyof SpeechEngineState>(
-      key: K,
-      callback: (current: SpeechEngineState[K], prev: SpeechEngineState[K]) => void
-    ): () => void;
-    <V>(
-      selector: (state: SpeechEngineState) => V,
-      callback: (current: V, prev: V) => void
-    ): () => void;
-  };
-  /** Gets current store state snapshot. */
-  getState(): SpeechEngineState;
-  /** Updates store state. */
-  setState(
-    updates:
-      | Partial<SpeechEngineState>
-      | ((state: SpeechEngineState) => Partial<SpeechEngineState>)
-  ): void;
+export interface SpeechEngine extends SubscribableStore<SpeechEngineState> {
   /** Current speech gender. */
-  gender: string;
+  gender: Gender;
   /** Sets speech voice gender. */
-  setGender(gender: string): void;
+  setGender(gender: Gender): void;
   /** Root container DOM element. */
   readonly container: HTMLElement | null;
   /** TTS synthesis endpoint. */

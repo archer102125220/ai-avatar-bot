@@ -1,6 +1,7 @@
 import type { I18nEngine } from '@/core/i18n';
 import type { SpeechEngine } from '@/core/speech';
 import type { ToolsEngine } from '@/core/tools';
+import type { LocalizableOrResolver, AvatarMode } from '@/core/types';
 import type { BrainEngine, SkinEngine } from '@types';
 
 /**
@@ -89,34 +90,19 @@ export interface UiContext {
   /** Current active locale code. */
   locale?: string;
   /** Suggested questions list or resolver. */
-  suggestedQuestions?:
-    | string[]
-    | Record<string, string[]>
-    | ((context: unknown) => string[]);
+  suggestedQuestions?: LocalizableOrResolver<string[]>;
   /** Suggested title text or resolver. */
-  suggestedTitle?: string | Record<string, string> | ((context: unknown) => string);
+  suggestedTitle?: LocalizableOrResolver<string>;
   /** Companion mode suggested questions list or resolver. */
-  companionSuggestedQuestions?:
-    | string[]
-    | Record<string, string[]>
-    | ((context: unknown) => string[]);
+  companionSuggestedQuestions?: LocalizableOrResolver<string[]>;
   /** Companion mode suggested title text or resolver. */
-  companionSuggestedTitle?:
-    | string
-    | Record<string, string>
-    | ((context: unknown) => string);
+  companionSuggestedTitle?: LocalizableOrResolver<string>;
   /** Assistant mode suggested questions list or resolver. */
-  assistantSuggestedQuestions?:
-    | string[]
-    | Record<string, string[]>
-    | ((context: unknown) => string[]);
+  assistantSuggestedQuestions?: LocalizableOrResolver<string[]>;
   /** Assistant mode suggested title text or resolver. */
-  assistantSuggestedTitle?:
-    | string
-    | Record<string, string>
-    | ((context: unknown) => string);
+  assistantSuggestedTitle?: LocalizableOrResolver<string>;
   /** Current avatar personality mode ('companion' | 'assistant'). */
-  avatarMode?: string;
+  avatarMode?: AvatarMode;
   /** Avatar mode constant mapping. */
   AVATAR_MODE_MAP?: Record<string, string>;
   /** Engine mode constant mapping. */
