@@ -9,7 +9,7 @@ import {
   DEFAULT_MALE_2D_MODEL_URL,
   DEFAULT_MALE_3D_MODEL_URL
 } from '@/core/constants';
-import type { SkinEngine } from '@types';
+import type { SkinEngine } from '@core';
 
 describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Updates)', () => {
   let stageEl: HTMLElement;

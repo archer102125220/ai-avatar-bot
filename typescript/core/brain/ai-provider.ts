@@ -8,8 +8,7 @@ import {
   DEFAULT_AUTO_CONTINUE_MODE,
   DEFAULT_MAX_AUTO_CONTINUATIONS
 } from '@/core/constants';
-import { toOpenAiTools } from '@/core/tools';
-import type { ToolDefinition } from '@types';
+import { toOpenAiTools, type ToolDefinition } from '@/core/tools';
 import type {
   AiProviderOptions,
   AiProviderEngine,

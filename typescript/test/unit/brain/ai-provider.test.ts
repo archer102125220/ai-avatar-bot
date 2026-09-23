@@ -4,7 +4,7 @@ import {
   LLM_FINISH_REASON_MAP,
   AUTO_CONTINUE_MODE_MAP
 } from '@/core/constants';
-import type { BrainEngine } from '@types';
+import type { BrainEngine } from '@core';
 
 type AiProviderController = any;
 

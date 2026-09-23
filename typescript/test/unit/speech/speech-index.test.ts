@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { drainSentences, initSpeechEngine } from '@/core/speech';
 import { GENDER_MAP } from '@/core/constants';
-import type { SpeechEngine } from '@types';
+import type { SpeechEngine } from '@core';
 
 describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
   beforeEach(() => {

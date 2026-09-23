@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { initUi } from '@/core/ui/dom';
 import { initI18nEngine } from '@/core/i18n';
-import type { I18nEngine } from '@types';
+import type { I18nEngine } from '@core';
 
 describe('UI DOM & Scaffolding (initUi)', () => {
   let container: HTMLElement;

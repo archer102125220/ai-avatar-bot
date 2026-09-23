@@ -7,7 +7,7 @@ import {
 } from '@/core/orchestrator/interaction';
 import { createBaseStore } from '@/core/store';
 import { initI18nEngine } from '@/core/i18n';
-import type { I18nEngine } from '@types';
+import type { I18nEngine } from '@core';
 
 describe('Orchestrator Pipelines & Interactions', () => {
   let rootStore: any;

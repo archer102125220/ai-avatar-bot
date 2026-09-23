@@ -16,7 +16,7 @@ import {
   FINISH_REASON_MAP,
   GENDER_MAP
 } from '@/core/constants';
-import type { I18nEngine } from '@types';
+import type { I18nEngine } from '@core';
 
 describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', () => {
   let container: HTMLElement;

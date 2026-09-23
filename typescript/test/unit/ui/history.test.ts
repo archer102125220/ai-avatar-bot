@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { setHistoryOpen, renderHistory } from '@/core/ui/history';
 import { initUi } from '@/core/ui/dom';
 import { initI18nEngine } from '@/core/i18n';
-import type { I18nEngine } from '@types';
+import type { I18nEngine } from '@core';
 
 describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
   let container: HTMLElement;

@@ -6,7 +6,7 @@ import {
 } from '@/core/ui/utils';
 import { initI18nEngine } from '@/core/i18n';
 import { ENGINE_MODE_MAP } from '@/core/constants';
-import type { I18nEngine } from '@types';
+import type { I18nEngine } from '@core';
 
 describe('UI Utilities (updateUIStrings, copyText, initSkinModeChangeButton)', () => {
   let container: HTMLElement;

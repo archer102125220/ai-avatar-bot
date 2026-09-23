@@ -4,7 +4,7 @@ import {
   executeToolCallsLoop
 } from '@/core/brain/tool-calling';
 import { BRAIN_ENGINE_TYPE_MAP } from '@/core/constants';
-import type { BrainEngine } from '@types';
+import type { BrainEngine } from '@core';
 
 describe('Brain Tool Calling Subsystem (Deep Branch Coverage)', () => {
   describe('extractToolCallsFromText', () => {

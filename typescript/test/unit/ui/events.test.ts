@@ -3,7 +3,7 @@ import { bindTyping, bindUiEvent } from '@/core/ui/events';
 import { initUi } from '@/core/ui/dom';
 import { initI18nEngine } from '@/core/i18n';
 import { STATE_MAP } from '@/core/constants';
-import type { I18nEngine } from '@types';
+import type { I18nEngine } from '@core';
 
 describe('UI Events Binding', () => {
   let container: HTMLElement;

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { initSkinEngine, loadVRMFile } from '@/core/skin';
 import { ENGINE_MODE_MAP } from '@/core/constants';
-import type { SkinEngine } from '@types';
+import type { SkinEngine } from '@core';
 
 describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM Drop)', () => {
   let stageEl: HTMLElement;

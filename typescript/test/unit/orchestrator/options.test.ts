@@ -7,7 +7,7 @@ import {
   getDefaultNeuralVoice,
   DEFAULT_AUTO_CONTINUE_MODE
 } from '@/core/constants';
-import type { AvatarBotOptions } from '@types';
+import type { AvatarBotOptions } from '@core';
 
 describe('Orchestrator Options & Configuration', () => {
   describe('callOptionEvent', () => {

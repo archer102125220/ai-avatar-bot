@@ -7,7 +7,7 @@ import {
   getTopKnowledge,
   findBestMatch
 } from '@/core/brain/knowledge';
-import type { KnowledgeEntry } from '@types';
+import type { KnowledgeEntry } from '@core';
 
 describe('Unit Test: core/brain/knowledge.js', () => {
   let originalFetch: typeof global.fetch;

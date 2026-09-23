@@ -6,7 +6,7 @@ import {
   TOOL_SCHEMA_TYPE_MAP
 } from '@/core/constants';
 import type { ToolDefinition } from '@/core/tools';
-import type { SkinEngine } from '@types';
+import type { SkinEngine } from '@/core/skin';
 
 /**
  * Options for configuring the emotion and gesture tools plugin.

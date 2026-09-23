@@ -12,28 +12,20 @@ import {
   ENGINE_MODE_MAP,
   AVATAR_MODE_MAP
 } from '@/core/constants';
-import { renderHistory, initSkinModeChangeButton } from '@/core/ui';
+import { renderHistory, initSkinModeChangeButton, type UiDom } from '@/core/ui';
 import { callOptionEvent } from './options';
-import type {
-  AiAvatarWidget,
-  AvatarBotOptions,
-  BaseStore,
-  I18nEngine,
-  BrainEngine,
-  SpeechEngine,
-  SkinEngine,
-  ToolsEngine,
-  UiDom,
-  HostTool,
-  BrainCompressionOptions,
-  Renderer3D
-} from '@types';
+import type { I18nEngine } from '@/core/i18n';
+import type { BrainEngine, BrainCompressionOptions } from '@/core/brain';
+import type { SpeechEngine } from '@/core/speech';
+import type { SkinEngine, Renderer3D } from '@/core/skin';
+import type { ToolsEngine, HostTool, ToolDefinition } from '@/core/tools';
+import type { AiAvatarWidget, AvatarBotOptions, AvatarBotStore } from './types';
 import type { StreamPipeline } from './pipeline-stream';
 
 export interface SetupBrainParams {
   options: AvatarBotOptions;
   widget: AiAvatarWidget;
-  rootStore: BaseStore;
+  rootStore: AvatarBotStore;
   i18nEngine: I18nEngine;
   getEngines: () => {
     brainEngine: BrainEngine | null;
@@ -239,7 +231,7 @@ export async function setupBrainEngine({
             : { input: { context: defaultContext, query: '' } };
 
         return await toolsEngine.executeToolDirectly(
-          tool,
+          tool as ToolDefinition,
           (toolArguments as Record<string, unknown>) || {},
           resolvedOptions
         );
@@ -582,7 +574,7 @@ export async function setupBrainEngine({
 export interface SetupSpeechParams {
   options: AvatarBotOptions;
   widget: AiAvatarWidget;
-  rootStore: BaseStore;
+  rootStore: AvatarBotStore;
   i18nEngine: I18nEngine;
   getEngines: () => {
     brainEngine: BrainEngine | null;
@@ -921,7 +913,7 @@ export function setupToolsEngine({
 export interface SetupSkinParams {
   options: AvatarBotOptions;
   widget: AiAvatarWidget;
-  rootStore: BaseStore;
+  rootStore: AvatarBotStore;
   getEngines: () => {
     brainEngine: BrainEngine | null;
     speechEngine: SpeechEngine | null;

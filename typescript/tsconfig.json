@@ -24,16 +24,14 @@
     "declaration": true,
     "paths": {
       "@/*": ["./*", "./*/index"],
+      "@core": ["./core/index.ts"],
       "@core/*": ["./core/*", "./core/*/index"],
       "@test/*": ["./test/*", "./test/*/index"],
-      "@style/*": ["./style/*"],
-      "@types": ["./types/index.d.ts"],
-      "@types/*": ["./types/*"]
+      "@style/*": ["./style/*"]
     }
   },
   "include": [
     "core/**/*",
-    "types/**/*",
     "*.config.ts",
     "*.d.ts"
   ],

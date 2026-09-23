@@ -381,7 +381,7 @@ export interface AiAvatarWidget {
   autoFallbackWebLLM: boolean;
   enableAutoContinue: boolean;
   maxAutoContinuations: number;
-  autoContinueMode: 'stream' | 'buffered';
+  autoContinueMode: AutoContinueMode;
   autoContinuePrompt: string | ((...args: unknown[]) => string) | null;
   enableModelDrop: boolean;
   enableEngineToggle: boolean;
@@ -445,6 +445,41 @@ export interface AiAvatarWidget {
   onError?: (error: Error, widget: AiAvatarWidget, ...args: unknown[]) => void;
 }
 
+/**
+ * Reactive state snapshot stored in the avatar bot's root store.
+ */
+export interface AvatarBotStoreState {
+  gender: Gender;
+  brainGender: Gender | null;
+  speechGender: Gender | null;
+  skinGender: Gender | null;
+  avatarMode: AvatarMode;
+  enableMemory: boolean;
+  enableAiProvider: boolean;
+  preloadWebLLM: boolean;
+  autoFallbackWebLLM: boolean;
+  enableAutoContinue: boolean;
+  maxAutoContinuations: number;
+  autoContinueMode: AutoContinueMode;
+  autoContinuePrompt: string | ((...args: unknown[]) => string) | null;
+  modes: Record<string, unknown>;
+  locale: string;
+  enableModelDrop: boolean;
+  enableEngineToggle: boolean;
+  suggestedQuestions?: LocalizableOrResolver<string[]>;
+  companionSuggestedQuestions?: LocalizableOrResolver<string[]>;
+  assistantSuggestedQuestions?: LocalizableOrResolver<string[]>;
+  suggestedTitle?: LocalizableOrResolver<string>;
+  companionSuggestedTitle?: LocalizableOrResolver<string>;
+  assistantSuggestedTitle?: LocalizableOrResolver<string>;
+  [key: string]: unknown;
+}
+
+/**
+ * Root reactive store instance for the AI Avatar Bot.
+ */
+export type AvatarBotStore = BaseStore<AvatarBotStoreState>;
+
 export type {
   MemoryData,
   MemoryAdapter,
@@ -461,5 +496,6 @@ export type {
   UiDom,
   UiContext,
   BaseStore,
-  I18nEngine
+  I18nEngine,
+  AutoContinueMode
 };

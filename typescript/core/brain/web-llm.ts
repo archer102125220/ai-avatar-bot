@@ -8,8 +8,7 @@ import {
   DEFAULT_MAX_AUTO_CONTINUATIONS,
   isWebLLMFunctionCallingSupported
 } from '@/core/constants';
-import { toOpenAiTools } from '@/core/tools';
-import type { ToolDefinition } from '@types';
+import { toOpenAiTools, type ToolDefinition } from '@/core/tools';
 import type {
   BrainEngine,
   LLMEngineOptions,

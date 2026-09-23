@@ -17,26 +17,23 @@ import {
   DEFAULT_ENABLE_MODEL_DROP,
   DEFAULT_ENABLE_ENGINE_TOGGLE
 } from '@/core/constants';
-import { initSkinModeChangeButton, renderSuggestions } from '@/core/ui';
+import { initSkinModeChangeButton, renderSuggestions, type UiDom } from '@/core/ui';
+import type { I18nEngine } from '@/core/i18n';
+import type { BrainEngine, LLMMessage } from '@/core/brain';
+import type { SpeechEngine } from '@/core/speech';
+import type { SkinEngine, Skin2DConfig, Skin3DConfig } from '@/core/skin';
+import type { ToolsEngine } from '@/core/tools';
 import type {
   AiAvatarWidget,
   AvatarBotOptions,
-  BaseStore,
-  I18nEngine,
-  BrainEngine,
-  SpeechEngine,
-  SkinEngine,
-  ToolsEngine,
-  UiDom,
-  Skin2DConfig,
-  Skin3DConfig,
-  LLMMessage
-} from '@types';
+  AvatarBotStore,
+  AutoContinueMode
+} from './types';
 
 export interface CreateAvatarWidgetParams {
   options: AvatarBotOptions;
   container: HTMLElement;
-  rootStore: BaseStore;
+  rootStore: AvatarBotStore;
   i18nEngine: I18nEngine;
   initialMinimal: boolean;
   getUiDom: () => UiDom;
@@ -419,7 +416,7 @@ export function createAvatarWidget({
       }
     },
 
-    get autoContinueMode(): 'stream' | 'buffered' {
+    get autoContinueMode(): AutoContinueMode {
       const brain = getEngines().brainEngine;
       return (
         brain?.autoContinueMode ??
@@ -427,7 +424,7 @@ export function createAvatarWidget({
         DEFAULT_AUTO_CONTINUE_MODE
       );
     },
-    set autoContinueMode(newMode: 'stream' | 'buffered') {
+    set autoContinueMode(newMode: AutoContinueMode) {
       if (
         typeof newMode === 'string' &&
         (Object.values(AUTO_CONTINUE_MODE_MAP) as string[]).includes(

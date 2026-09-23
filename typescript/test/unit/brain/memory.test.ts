@@ -12,7 +12,7 @@ import {
   COMPRESSION_STRATEGY_MAP,
   STATE_MAP
 } from '@/core/constants';
-import type { MemoryInstance, MemoryData } from '@types';
+import type { MemoryInstance, MemoryData } from '@core';
 
 type MemoryEngine = any;
 

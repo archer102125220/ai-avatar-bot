@@ -2,7 +2,8 @@ import type { I18nEngine } from '@/core/i18n';
 import type { SpeechEngine } from '@/core/speech';
 import type { ToolsEngine } from '@/core/tools';
 import type { LocalizableOrResolver, AvatarMode } from '@/core/types';
-import type { BrainEngine, SkinEngine } from '@types';
+import type { BrainEngine } from '@/core/brain';
+import type { SkinEngine } from '@/core/skin';
 
 /**
  * Avatar frontend UI DOM elements and controller methods.

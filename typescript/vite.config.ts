@@ -9,13 +9,13 @@ export default defineConfig({
       '@': resolve(import.meta.dirname, '.'),
       '@core': resolve(import.meta.dirname, 'core'),
       '@test': resolve(import.meta.dirname, 'test'),
-      '@style': resolve(import.meta.dirname, 'style'),
-      '@types': resolve(import.meta.dirname, 'types/index.d.ts')
+      '@style': resolve(import.meta.dirname, 'style')
     }
   },
   plugins: [
     dts({
-      include: ['core', 'types', 'env.d.ts']
+      include: ['core', 'env.d.ts'],
+      entryRoot: 'core'
     }),
     apiPlugin()
   ],

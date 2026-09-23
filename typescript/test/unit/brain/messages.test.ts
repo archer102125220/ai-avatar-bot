@@ -6,7 +6,7 @@ import {
   buildDefaultLLMMessages
 } from '@/core/brain/messages';
 import { AVATAR_MODE_MAP, BRAIN_ENGINE_TYPE_MAP } from '@/core/constants';
-import type { BrainEngine } from '@types';
+import type { BrainEngine } from '@core';
 
 describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
   let mockBrainEngine: any;

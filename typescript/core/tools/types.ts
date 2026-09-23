@@ -91,6 +91,11 @@ export interface ToolDefinition {
 }
 
 /**
+ * Alias for ToolDefinition representing host tools registered on the avatar bot.
+ */
+export type HostTool = ToolDefinition;
+
+/**
  * Scoring evaluation result for a tool against a user query.
  */
 export interface ToolScoreResult {

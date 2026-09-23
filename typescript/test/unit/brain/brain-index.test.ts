@@ -14,7 +14,7 @@ import {
   STATE_MAP,
   BRAIN_ENGINE_TYPE_MAP
 } from '@/core/constants';
-import type { BrainEngine } from '@types';
+import type { BrainEngine } from '@core';
 
 describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', () => {
   beforeEach(() => {

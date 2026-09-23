@@ -7,7 +7,7 @@ import {
   initDefaultTTSEngine
 } from '@/core/speech/tts';
 import { GENDER_MAP } from '@/core/constants';
-import type { TTSEngine } from '@types';
+import type { TTSEngine } from '@core';
 
 describe('Unit Test: core/speech/tts.js', () => {
   beforeEach(() => {

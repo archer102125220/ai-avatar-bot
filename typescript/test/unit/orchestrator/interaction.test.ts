@@ -6,7 +6,7 @@ import {
 import { createBaseStore } from '@/core/store';
 import { initI18nEngine } from '@/core/i18n';
 import { AVATAR_MODE_MAP } from '@/core/constants';
-import type { I18nEngine } from '@types';
+import type { I18nEngine } from '@core';
 
 describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
   let rootStore: any;

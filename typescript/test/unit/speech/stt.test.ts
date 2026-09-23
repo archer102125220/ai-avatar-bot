@@ -4,7 +4,7 @@ import {
   initDefaultSTTEngine,
   getSttMessage
 } from '@/core/speech/stt';
-import type { STTEngine } from '@types';
+import type { STTEngine } from '@core';
 
 describe('Unit Test: core/speech/stt.js', () => {
   beforeEach(() => {

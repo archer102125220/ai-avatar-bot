@@ -5,7 +5,7 @@ import {
 } from '@/core/orchestrator/subscribers';
 import { createBaseStore } from '@/core/store';
 import { initI18nEngine } from '@/core/i18n';
-import type { I18nEngine } from '@types';
+import type { I18nEngine } from '@core';
 
 describe('Orchestrator Store & i18n Subscribers', () => {
   let rootStore: any;

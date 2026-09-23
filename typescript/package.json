@@ -7,12 +7,12 @@
   ],
   "main": "./dist/ai-avatar-bot.umd.cjs",
   "module": "./dist/ai-avatar-bot.js",
-  "types": "./dist/main.d.ts",
+  "types": "./dist/core/main.d.ts",
   "exports": {
     ".": {
       "import": "./dist/ai-avatar-bot.js",
       "require": "./dist/ai-avatar-bot.umd.cjs",
-      "types": "./dist/main.d.ts"
+      "types": "./dist/core/main.d.ts"
     }
   },
   "scripts": {

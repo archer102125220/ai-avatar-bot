@@ -16,7 +16,8 @@ import {
 } from '@/core/constants';
 import type {
   AvatarBotOptions,
-  BaseStore,
+  AvatarBotStore,
+  AvatarBotStoreState,
   I18nEngine
 } from './types';
 import type { Gender } from '@/core/types';
@@ -45,7 +46,7 @@ export function callOptionEvent<T = unknown>(
 export interface NormalizedOptionsResult {
   rawOptions: AvatarBotOptions;
   container: HTMLElement;
-  rootStore: BaseStore;
+  rootStore: AvatarBotStore;
   i18nEngine: I18nEngine;
   initialMinimal: boolean;
   isModelDropEnabled: boolean;
@@ -163,7 +164,7 @@ export function normalizeOptions(
       ? enableEngineToggle
       : DEFAULT_ENABLE_ENGINE_TOGGLE;
 
-  const rootStore = createBaseStore({
+  const rootStore: AvatarBotStore = createBaseStore<AvatarBotStoreState>({
     gender: safeGender,
     brainGender:
       typeof brainGender === 'string' &&

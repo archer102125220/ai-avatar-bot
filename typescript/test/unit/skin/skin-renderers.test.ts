@@ -11,7 +11,7 @@ import {
   loadUMD
 } from '@/core/skin/renderer-2d';
 import { defaultGesture3D } from '@/core/skin/renderer-3d';
-import type { Renderer2D, Renderer3D } from '@types';
+import type { Renderer2D, Renderer3D } from '@core';
 
 describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)', () => {
   let stageEl: HTMLElement;

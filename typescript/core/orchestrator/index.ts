@@ -20,12 +20,9 @@ import {
 } from './engine-factory';
 import type { SpeechEngine } from '@/core/speech';
 import type { ToolsEngine } from '@/core/tools';
-import type {
-  AiAvatarWidget,
-  AvatarBotOptions,
-  BrainEngine,
-  SkinEngine
-} from '@types';
+import type { AiAvatarWidget, AvatarBotOptions } from './types';
+import type { BrainEngine } from '@/core/brain';
+import type { SkinEngine } from '@/core/skin';
 
 export * from './types';
 export * from './options';
