@@ -3,28 +3,32 @@ import { vi } from 'vitest';
 declare global {
   interface Navigator {
     gpu?: {
-      requestAdapter: (options?: any) => Promise<{
-        requestDevice: (options?: any) => Promise<{
-          queue: { submit: (commandBuffers: any[]) => void; writeBuffer: (...args: any[]) => void };
-          createShaderModule: (descriptor: any) => any;
-          createBindGroupLayout: (descriptor: any) => any;
-          createPipelineLayout: (descriptor: any) => any;
-          createComputePipeline: (descriptor: any) => any;
-          createBuffer: (descriptor: any) => any;
+      requestAdapter: (options?: unknown) => Promise<{
+        requestDevice: (options?: unknown) => Promise<{
+          queue: { submit: (commandBuffers: unknown[]) => void; writeBuffer: (...args: unknown[]) => void };
+          createShaderModule: (descriptor: unknown) => unknown;
+          createBindGroupLayout: (descriptor: unknown) => unknown;
+          createPipelineLayout: (descriptor: unknown) => unknown;
+          createComputePipeline: (descriptor: unknown) => unknown;
+          createBuffer: (descriptor: unknown) => unknown;
         } | null>;
       } | null>;
     };
   }
 
   interface Window {
-    SpeechRecognition: any;
-    webkitSpeechRecognition: any;
-    AudioContext: any;
-    webkitAudioContext: any;
-    PIXI: any;
+    SpeechRecognition?: unknown;
+    webkitSpeechRecognition?: unknown;
+    AudioContext?: unknown;
+    webkitAudioContext?: unknown;
+    PIXI?: unknown;
     __cdnDependenciePromise__?: Promise<void>;
   }
+
+  var global: typeof globalThis;
 }
+
+const globalScope = globalThis as unknown as Record<string, unknown>;
 
 // 1. Mock Canvas 2D & WebGL Context
 if (typeof HTMLCanvasElement !== 'undefined') {
@@ -90,7 +94,7 @@ if (typeof HTMLCanvasElement !== 'undefined') {
       } as unknown as WebGLRenderingContext;
     }
     return null;
-  }) as any;
+  }) as unknown as typeof HTMLCanvasElement.prototype.getContext;
 }
 
 // 2. Mock Web Audio API
@@ -165,8 +169,8 @@ class MockAudioContext {
   }
 }
 
-(globalThis as any).AudioContext = MockAudioContext;
-(globalThis as any).webkitAudioContext = MockAudioContext;
+globalScope.AudioContext = MockAudioContext;
+globalScope.webkitAudioContext = MockAudioContext;
 
 // 3. Mock SpeechRecognition
 class MockSpeechRecognition {
@@ -174,8 +178,8 @@ class MockSpeechRecognition {
   interimResults: boolean = false;
   lang: string = 'zh-TW';
   onstart: ((event: Event) => void) | null = null;
-  onresult: ((event: any) => void) | null = null;
-  onerror: ((event: any) => void) | null = null;
+  onresult: ((event: Event) => void) | null = null;
+  onerror: ((event: Event) => void) | null = null;
   onend: ((event: Event) => void) | null = null;
 
   start() {
@@ -195,8 +199,8 @@ class MockSpeechRecognition {
   }
 }
 
-(globalThis as any).SpeechRecognition = MockSpeechRecognition;
-(globalThis as any).webkitSpeechRecognition = MockSpeechRecognition;
+globalScope.SpeechRecognition = MockSpeechRecognition;
+globalScope.webkitSpeechRecognition = MockSpeechRecognition;
 
 // 4. Mock SpeechSynthesis & SpeechSynthesisUtterance
 class MockSpeechSynthesisUtterance {
@@ -208,10 +212,10 @@ class MockSpeechSynthesisUtterance {
   voice: SpeechSynthesisVoice | null = null;
   onstart: ((event: Event) => void) | null = null;
   onend: ((event: Event) => void) | null = null;
-  onerror: ((event: any) => void) | null = null;
-  onpause: ((event: any) => void) | null = null;
-  onresume: ((event: any) => void) | null = null;
-  onboundary: ((event: any) => void) | null = null;
+  onerror: ((event: Event) => void) | null = null;
+  onpause: ((event: Event) => void) | null = null;
+  onresume: ((event: Event) => void) | null = null;
+  onboundary: ((event: Event) => void) | null = null;
 
   constructor(text: string = '') {
     this.text = text;
@@ -254,8 +258,8 @@ const mockSpeechSynthesis = {
   ])
 };
 
-(globalThis as any).SpeechSynthesisUtterance = MockSpeechSynthesisUtterance;
-(globalThis as any).speechSynthesis = mockSpeechSynthesis;
+globalScope.SpeechSynthesisUtterance = MockSpeechSynthesisUtterance;
+globalScope.speechSynthesis = mockSpeechSynthesis;
 
 // 5. Mock WebGPU (navigator.gpu) & MediaDevices
 if (typeof navigator !== 'undefined') {
@@ -276,7 +280,7 @@ if (typeof navigator !== 'undefined') {
       Promise.resolve({
         getTracks: () => [{ stop: vi.fn(), enabled: true }]
       })
-    ) as any;
+    ) as unknown as typeof navigator.mediaDevices.getUserMedia;
   }
 
   Object.defineProperty(navigator, 'gpu', {
@@ -308,11 +312,11 @@ class MockObserver {
   disconnect() {}
 }
 
-(globalThis as any).ResizeObserver = MockObserver;
-(globalThis as any).IntersectionObserver = MockObserver;
+globalScope.ResizeObserver = MockObserver;
+globalScope.IntersectionObserver = MockObserver;
 
 // 7. Mock requestAnimationFrame & cancelAnimationFrame
 if (typeof globalThis.requestAnimationFrame === 'undefined') {
-  (globalThis as any).requestAnimationFrame = (callback: FrameRequestCallback) => setTimeout(callback, 16);
-  (globalThis as any).cancelAnimationFrame = (id: number) => clearTimeout(id);
+  globalScope.requestAnimationFrame = (callback: FrameRequestCallback) => setTimeout(callback, 16);
+  globalScope.cancelAnimationFrame = (id: number) => clearTimeout(id);
 }
