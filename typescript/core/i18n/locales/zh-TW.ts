@@ -89,7 +89,7 @@ export default {
   'greeting.default': '你好～',
   'greeting.companion': '{name}想聊什麼都可以，點 💬 我們就開始！',
   'greeting.assistant':
-    '你好～我是 ai-avatar-bot-vanilla-js 虛擬人，問我怎麼安裝、切換 3D 或工具調用都行！',
+    '你好～我是 ai-avatar-bot-typescript 虛擬人，問我怎麼安裝、切換 3D 或工具調用都行！',
   'welcome.assistant': '你好！我是 AI 虛擬助理，有什麼我可以幫忙的嗎？',
   'welcome.companion': '哈囉！今天過得好嗎？點擊麥克風跟我聊聊吧！',
 

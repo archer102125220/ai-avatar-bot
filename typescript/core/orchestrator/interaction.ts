@@ -50,8 +50,7 @@ export function createTapAvatarHandler({
     }
 
     const avatarModel = skinEngine?.avatarModel as
-      | { motion?: (name: string) => void }
-      | undefined;
+      { motion?: (name: string) => void } | undefined;
     if (typeof avatarModel?.motion === 'function') {
       try {
         avatarModel.motion('Tap');
@@ -145,16 +144,16 @@ export function createTapAvatarHandler({
           : defaultCompanionGreeting;
     } else if (currentAvatarMode === AVATAR_MODE_MAP.assistant) {
       let defaultAssistantGreeting =
-        '你好～我是 ai-avatar-bot-vanilla-js 虛擬人，問我怎麼安裝、切換 3D 或工具調用都行！';
+        '你好～我是 ai-avatar-bot-typescript 虛擬人，問我怎麼安裝、切換 3D 或工具調用都行！';
       if (/en/i.test(currentLocale) === true) {
         defaultAssistantGreeting =
-          'Hello~ I am the ai-avatar-bot-vanilla-js avatar. Ask me how to install, switch 3D, or use tools!';
+          'Hello~ I am the ai-avatar-bot-typescript avatar. Ask me how to install, switch 3D, or use tools!';
       } else if (/ja/i.test(currentLocale) === true) {
         defaultAssistantGreeting =
           'こんにちは〜！ai-avatar-bot-vanilla-js アバターです。導入方法や3D切り替え、ツール機能について何でも聞いてください！';
       } else if (/ko/i.test(currentLocale) === true) {
         defaultAssistantGreeting =
-          '안녕하세요~ ai-avatar-bot-vanilla-js 아바타입니다. 설치 방법, 3D 전환, 도구機能 등을 편하게 물어보세요!';
+          '안녕하세요~ ai-avatar-bot-typescript 아바타입니다. 설치 방법, 3D 전환, 도구機能 등을 편하게 물어보세요!';
       }
 
       const resolved = resolveLocalized(

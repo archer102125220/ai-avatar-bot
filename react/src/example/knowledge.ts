@@ -14,7 +14,7 @@ export const KNOWLEDGE = [
   {
     q: '怎麼安裝到我的專案',
     kw: '安裝 怎麼用 嵌入 加到 放到 我的專案 怎麼裝 install npm yarn pnpm cdn cdn引入 套件 怎麼安裝到專案 怎麼安裝',
-    a: '你可以透過 npm、pnpm 或 yarn 執行 npm install ai-avatar-bot-vanilla-js 安裝，也可以在 HTML 透過 CDN 直接以 ES Module 形式引入。'
+    a: '你可以透過 npm、pnpm 或 yarn 執行 npm install ai-avatar-bot-react 安裝，也可以在 HTML 透過 CDN 直接以 ES Module 形式引入。'
   },
   {
     q: '快速開始範例程式碼',

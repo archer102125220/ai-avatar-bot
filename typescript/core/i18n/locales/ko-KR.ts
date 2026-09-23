@@ -97,7 +97,7 @@ export default {
   'greeting.default': '안녕하세요~',
   'greeting.companion': '{name}어떤 이야기든 나눠요, 💬를 누르면 시작됩니다!',
   'greeting.assistant':
-    '안녕하세요! ai-avatar-bot-vanilla-js 아바타입니다. 설치 방법, 3D 전환, 도구 기능 등을 편하게 물어보세요!',
+    '안녕하세요! ai-avatar-bot-typescript 아바타입니다. 설치 방법, 3D 전환, 도구 기능 등을 편하게 물어보세요!',
   'welcome.assistant': '안녕하세요! AI 어시스턴트입니다. 무엇을 도와드릴까요?',
   'welcome.companion':
     '안녕하세요! 오늘 하루는 어떠신가요? 마이크를 눌러 대화를 시작해 보세요!',

@@ -97,7 +97,7 @@ export default {
   'greeting.companion':
     '{name}feel free to chat about anything, click 💬 to start!',
   'greeting.assistant':
-    'Hello! I am the ai-avatar-bot-vanilla-js avatar. Feel free to ask how to install, switch 3D, or use tools!',
+    'Hello! I am the ai-avatar-bot-typescript avatar. Feel free to ask how to install, switch 3D, or use tools!',
   'welcome.assistant':
     'Hello! I am your AI assistant. How can I help you today?',
   'welcome.companion':
