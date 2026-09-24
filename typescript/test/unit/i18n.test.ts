@@ -5,7 +5,8 @@ import {
   formatParams,
   DEFAULT_LOCALE,
   SUPPORTED_LOCALES,
-  LOCALE_LABELS
+  LOCALE_LABELS,
+  type I18nEngineState
 } from '@/core/i18n';
 
 describe('Unit Test: core/i18n/index.js (TypeScript)', () => {
@@ -31,18 +32,17 @@ describe('Unit Test: core/i18n/index.js (TypeScript)', () => {
     });
 
     it('should return non-string inputs unchanged', () => {
-      // @ts-ignore: Defensive runtime type checking test for number
       expect(formatParams(123)).toBe(123);
-      // @ts-ignore: Defensive runtime type checking test for null
       expect(formatParams(null)).toBeNull();
-      // @ts-ignore: Defensive runtime type checking test for undefined
       expect(formatParams(undefined)).toBeUndefined();
     });
   });
 
   describe('resolveLocalized', () => {
     it('should execute function value with templateContext', () => {
-      const valueFn = vi.fn((ctx: any) => `你好，${ctx.username}`);
+      const valueFn = vi.fn(
+        (ctx: Record<string, unknown>) => `你好，${ctx.username}`
+      );
       const result = resolveLocalized(valueFn, 'zh-TW', undefined, {
         username: '王小美'
       });
@@ -80,13 +80,14 @@ describe('Unit Test: core/i18n/index.js (TypeScript)', () => {
     });
 
     it('should return fallbackValue if value is undefined', () => {
-      expect(resolveLocalized(undefined, 'zh-TW', '預設回退')).toBe(
-        '預設回退'
-      );
+      expect(resolveLocalized(undefined, 'zh-TW', '預設回退')).toBe('預設回退');
       expect(
-        resolveLocalized(undefined, 'zh-TW', (ctx: any) => `回退 ${ctx.id}`, {
-          id: 42
-        })
+        resolveLocalized(
+          undefined,
+          'zh-TW',
+          (ctx: Record<string, unknown>) => `回退 ${ctx.id}`,
+          { id: 42 }
+        )
       ).toBe('回退 42');
     });
   });
@@ -144,6 +145,19 @@ describe('Unit Test: core/i18n/index.js (TypeScript)', () => {
     it('should fallback to key itself if key is missing across all dictionaries', () => {
       const i18n = initI18nEngine();
       expect(i18n.t('non.existent.key')).toBe('non.existent.key');
+    });
+
+    it('should handle non-object intermediate segments gracefully during nested lookup', () => {
+      const i18n = initI18nEngine({
+        locale: 'en-US',
+        messages: {
+          'en-US': {
+            ui: 'string_not_object' as unknown as Record<string, unknown>
+          }
+        }
+      });
+      // Traversing ui.history.title encounters non-object at 'ui', safely falling back
+      expect(typeof i18n.t('ui.history.title')).toBe('string');
     });
 
     it('should support array messages translation', () => {
@@ -219,10 +233,34 @@ describe('Unit Test: core/i18n/index.js (TypeScript)', () => {
       expect(localizedVal).toBe('你好');
 
       const genericListener = vi.fn();
-      const unsub = i18n.subscribe((state: any) => state.locale, genericListener);
+      const unsub = i18n.subscribe(
+        (state: I18nEngineState) => state.locale,
+        genericListener
+      );
       i18n.setLocale('en-US');
       expect(genericListener).toHaveBeenCalledWith('en-US', 'zh-TW');
       unsub();
+    });
+
+    it('should support custom non-standard locales in messages and non-string array/object translation values', () => {
+      const i18n = initI18nEngine({
+        locale: 'fr-FR',
+        messages: {
+          'fr-FR': {
+            greeting: 'Bonjour',
+            mixedList: ['premier', 42 as unknown as string],
+            flag: true as unknown as string,
+            nested: { inner: 'valeur' } as unknown as string
+          }
+        }
+      });
+
+      expect(i18n.t('greeting')).toBe('Bonjour');
+      expect(i18n.t<unknown[]>('mixedList')).toEqual(['premier', 42]);
+      expect(i18n.t<boolean>('flag')).toBe(true);
+      expect(i18n.t<Record<string, unknown>>('nested')).toEqual({
+        inner: 'valeur'
+      });
     });
   });
 });

@@ -10,17 +10,24 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
 
   describe('drainSentences', () => {
     it('should handle null or invalid state', () => {
-      // @ts-ignore: Defensive runtime type checking test
-      expect(drainSentences(null)).toEqual([]);
-      // @ts-ignore: Defensive runtime type checking test
-      expect(drainSentences(undefined)).toEqual([]);
+      expect(drainSentences(null as unknown as { buf?: string })).toEqual([]);
+      expect(drainSentences(undefined as unknown as { buf?: string })).toEqual(
+        []
+      );
     });
 
     it('should drain completed sentences ending with Chinese and English punctuation', () => {
-      const state = { buf: '你好呀！今天想聊什麼呢？Hello there. How are you?剩餘未結束' };
+      const state = {
+        buf: '你好呀！今天想聊什麼呢？Hello there. How are you?剩餘未結束'
+      };
       const sentences = drainSentences(state, false);
 
-      expect(sentences).toEqual(['你好呀！', '今天想聊什麼呢？', 'Hello there.', 'How are you?']);
+      expect(sentences).toEqual([
+        '你好呀！',
+        '今天想聊什麼呢？',
+        'Hello there.',
+        'How are you?'
+      ]);
       expect(state.buf).toBe('剩餘未結束');
     });
 
@@ -84,8 +91,10 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
       engine.ttsEndpoint = 'https://tts.example.com';
       expect(engine.ttsEndpoint).toBe('https://tts.example.com');
 
-      (engine as any).noSpeechRuns = 2;
-      expect((engine as any).noSpeechRuns).toBe(2);
+      (engine as unknown as { noSpeechRuns: number }).noSpeechRuns = 2;
+      expect((engine as unknown as { noSpeechRuns: number }).noSpeechRuns).toBe(
+        2
+      );
 
       engine.convoOn = true;
       expect(engine.convoOn).toBe(true);
@@ -101,19 +110,35 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
       // setLocale across 4 languages
       engine.setLocale('en-US');
       expect(engine.locale).toBe('en-US');
-      expect(onLanguageChanged).toHaveBeenCalledWith('en-US', expect.stringContaining('English'), 'English');
+      expect(onLanguageChanged).toHaveBeenCalledWith(
+        'en-US',
+        expect.stringContaining('English'),
+        'English'
+      );
 
       engine.setLocale('ja-JP');
       expect(engine.locale).toBe('ja-JP');
-      expect(onLanguageChanged).toHaveBeenCalledWith('ja-JP', expect.stringContaining('日本語'), '日本語');
+      expect(onLanguageChanged).toHaveBeenCalledWith(
+        'ja-JP',
+        expect.stringContaining('日本語'),
+        '日本語'
+      );
 
       engine.setLocale('ko-KR');
       expect(engine.locale).toBe('ko-KR');
-      expect(onLanguageChanged).toHaveBeenCalledWith('ko-KR', expect.stringContaining('한국어'), '한국어');
+      expect(onLanguageChanged).toHaveBeenCalledWith(
+        'ko-KR',
+        expect.stringContaining('한국어'),
+        '한국어'
+      );
 
       engine.setLocale('zh-TW');
       expect(engine.locale).toBe('zh-TW');
-      expect(onLanguageChanged).toHaveBeenCalledWith('zh-TW', expect.stringContaining('繁體中文'), '中文');
+      expect(onLanguageChanged).toHaveBeenCalledWith(
+        'zh-TW',
+        expect.stringContaining('繁體中文'),
+        '中文'
+      );
     });
 
     it('should manage speech streaming flow: beginSpeech -> pushSpeech -> endSpeech -> onUtteranceEnd', async () => {
@@ -128,13 +153,17 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
       const seq = engine.beginSpeech();
       expect(typeof seq).toBe('number');
 
-      (engine as any)._speechBuf = '預留緩衝';
-      expect((engine as any)._speechBuf).toBe('預留緩衝');
+      (engine as unknown as { _speechBuf: string })._speechBuf = '預留緩衝';
+      expect((engine as unknown as { _speechBuf: string })._speechBuf).toBe(
+        '預留緩衝'
+      );
 
       engine.pushSpeech(seq, '測試串流語音播放。');
       engine.endSpeech(seq);
 
-      expect(engine.drainSentences({ buf: '測試。' }, true)).toEqual(['測試。']);
+      expect(engine.drainSentences({ buf: '測試。' }, true)).toEqual([
+        '測試。'
+      ]);
     });
 
     it('should test stopSpeaking, interruptForVoice, stopVoiceSession, and setMic', async () => {
@@ -156,7 +185,12 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
 
       engine.interruptForVoice();
       expect(onInterrupt).toHaveBeenCalled();
-      expect(onVoiceStatusChanged).toHaveBeenCalledWith(false, expect.stringContaining('已停止回答'), 'listening', 0);
+      expect(onVoiceStatusChanged).toHaveBeenCalledWith(
+        false,
+        expect.stringContaining('已停止回答'),
+        'listening',
+        0
+      );
 
       engine.stopVoiceSession('對話手動結束');
       expect(engine.convoOn).toBe(false);
@@ -182,8 +216,12 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
 
       const engine: SpeechEngine = await initSpeechEngine({
         customEngines: {
-          tts: customTTS as any,
-          stt: customSTT as any
+          tts: customTTS as unknown as NonNullable<
+            NonNullable<Parameters<typeof initSpeechEngine>[0]>['customEngines']
+          >['tts'],
+          stt: customSTT as unknown as NonNullable<
+            NonNullable<Parameters<typeof initSpeechEngine>[0]>['customEngines']
+          >['stt']
         }
       });
 
@@ -199,7 +237,11 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
       // 1. Invalid custom STT object (missing startListening)
       const invalidSTT = { stopListening: vi.fn() };
       const engine1 = await initSpeechEngine({
-        customEngines: { stt: invalidSTT as any }
+        customEngines: {
+          stt: invalidSTT as unknown as NonNullable<
+            NonNullable<Parameters<typeof initSpeechEngine>[0]>['customEngines']
+          >['stt']
+        }
       });
       expect(engine1).toBeDefined();
 
@@ -208,15 +250,35 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
         throw new Error('STT init error');
       });
       const engine2 = await initSpeechEngine({
-        customEngines: { stt: throwingSTTFactory as any }
+        customEngines: {
+          stt: throwingSTTFactory as unknown as NonNullable<
+            NonNullable<Parameters<typeof initSpeechEngine>[0]>['customEngines']
+          >['stt']
+        }
       });
       expect(engine2).toBeDefined();
     });
 
     it('should trigger STT internal callbacks: onResult, onMicLevel, onBargeIn, onError, onStatusChange, onNoSpeechAbort', async () => {
-      let capturedSttOptions: any = null;
-      const customSTT = vi.fn().mockImplementation((opt: any) => {
-        capturedSttOptions = opt;
+      interface CapturedSttOptions {
+        onResult: (text: string, isFinal: boolean) => void;
+        onMicLevel: (
+          volume: number,
+          speaking: boolean,
+          state: string,
+          db: number
+        ) => void;
+        onBargeIn: () => void;
+        onError: (message: string, isPermission: boolean) => void;
+        onStatusChange: (isListening: boolean, state: string) => void;
+        onNoSpeechAbort: () => void;
+        getAssistantActive: () => boolean;
+        getSpeechDuration: () => number;
+        getConvoOn: () => boolean;
+      }
+      let capturedSttOptions: CapturedSttOptions | undefined;
+      const customSTT = vi.fn().mockImplementation((opt: unknown) => {
+        capturedSttOptions = opt as CapturedSttOptions;
         return {
           startListening: vi.fn(),
           stopListening: vi.fn(),
@@ -229,63 +291,83 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
       const onMicStateChanged = vi.fn();
 
       const engine: SpeechEngine = await initSpeechEngine({
-        customEngines: { stt: customSTT as any },
+        customEngines: {
+          stt: customSTT as unknown as NonNullable<
+            NonNullable<Parameters<typeof initSpeechEngine>[0]>['customEngines']
+          >['stt']
+        },
         onUserInput,
         onVoiceStatusChanged,
         onMicStateChanged
       });
 
       expect(capturedSttOptions).toBeDefined();
+      const sttOpts = capturedSttOptions as CapturedSttOptions;
 
       // 1. onResult: non-final vs final
-      capturedSttOptions.onResult('正在講話', false);
+      sttOpts.onResult('正在講話', false);
       expect(engine.spokenDisplayText).toBe('你：正在講話…');
-      expect(onVoiceStatusChanged).toHaveBeenCalledWith(false, '正在辨識：正在講話', 'listening', 0);
+      expect(onVoiceStatusChanged).toHaveBeenCalledWith(
+        false,
+        '正在辨識：正在講話',
+        'listening',
+        0
+      );
 
-      capturedSttOptions.onResult('講完了。', true);
+      sttOpts.onResult('講完了。', true);
       expect(onUserInput).toHaveBeenCalledWith('講完了。');
 
       // 2. onMicLevel
-      capturedSttOptions.onMicLevel(0.8, true, 'listening', 80);
-      expect(onVoiceStatusChanged).toHaveBeenCalledWith(true, undefined, 'listening', 80);
+      sttOpts.onMicLevel(0.8, true, 'listening', 80);
+      expect(onVoiceStatusChanged).toHaveBeenCalledWith(
+        true,
+        undefined,
+        'listening',
+        80
+      );
 
       // 3. onBargeIn
       engine.speak('正在播放');
-      capturedSttOptions.onBargeIn();
-      expect(onVoiceStatusChanged).toHaveBeenCalledWith(false, expect.stringContaining('已停止回答'), 'listening', 0);
+      sttOpts.onBargeIn();
+      expect(onVoiceStatusChanged).toHaveBeenCalledWith(
+        false,
+        expect.stringContaining('已停止回答'),
+        'listening',
+        0
+      );
 
       // 4. onError: isNotAllowed = true vs false
-      capturedSttOptions.onError('麥克風錯誤', false);
+      sttOpts.onError('麥克風錯誤', false);
       expect(engine.spokenDisplayText).toBe('麥克風錯誤');
 
-      capturedSttOptions.onError('權限被拒絕', true);
+      sttOpts.onError('權限被拒絕', true);
       expect(engine.convoOn).toBe(false);
       expect(engine.spokenDisplayText).toBe('權限被拒絕');
 
       // 5. onStatusChange
-      capturedSttOptions.onStatusChange(true, '聆聽中');
+      sttOpts.onStatusChange(true, '聆聽中');
       expect(onMicStateChanged).toHaveBeenCalledWith(true, false);
-      capturedSttOptions.onStatusChange(false, '思考中');
+      sttOpts.onStatusChange(false, '思考中');
       expect(onMicStateChanged).toHaveBeenCalledWith(false, false);
 
       // 6. onNoSpeechAbort
-      capturedSttOptions.onNoSpeechAbort();
+      sttOpts.onNoSpeechAbort();
       expect(engine.convoOn).toBe(false);
 
       // 7. sttOptions getters
-      expect(capturedSttOptions.getAssistantActive()).toBe(false);
+      expect(sttOpts.getAssistantActive()).toBe(false);
       engine.isProcessing = true;
-      expect(capturedSttOptions.getAssistantActive()).toBe(true);
+      expect(sttOpts.getAssistantActive()).toBe(true);
       engine.isProcessing = false;
-      expect(capturedSttOptions.getAssistantActive()).toBe(false);
+      expect(sttOpts.getAssistantActive()).toBe(false);
 
       engine.assistantSpeechStartedAt = 1;
-      expect(capturedSttOptions.getSpeechDuration()).toBeGreaterThanOrEqual(0);
+      expect(sttOpts.getSpeechDuration()).toBeGreaterThanOrEqual(0);
       engine.assistantSpeechStartedAt = 0;
-      expect(Math.abs(capturedSttOptions.getSpeechDuration())).toBeLessThan(50);
+      expect(Math.abs(sttOpts.getSpeechDuration())).toBeLessThan(50);
 
       engine.convoOn = true;
-      expect(capturedSttOptions.getConvoOn()).toBe(true);
+      expect(sttOpts.getConvoOn()).toBe(true);
 
       // 8. onUtteranceEnd with convoOn = true triggers startListening
       engine.convoOn = true;
@@ -301,7 +383,9 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
         onSpokenDisplayTextTimeout,
         onSpeakingEnd
       });
-      (engineWithTimeout as any)._onTTSSpeakEnd();
+      (
+        engineWithTimeout as unknown as { _onTTSSpeakEnd: () => void }
+      )._onTTSSpeakEnd();
       expect(onSpeakingEnd).toHaveBeenCalled();
       vi.advanceTimersByTime(4000);
       expect(onSpokenDisplayTextTimeout).toHaveBeenCalled();
@@ -312,7 +396,11 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
       // 1. Invalid custom TTS object
       const invalidTTS = { speak: vi.fn() };
       const engine1 = await initSpeechEngine({
-        customEngines: { tts: invalidTTS as any }
+        customEngines: {
+          tts: invalidTTS as unknown as NonNullable<
+            NonNullable<Parameters<typeof initSpeechEngine>[0]>['customEngines']
+          >['tts']
+        }
       });
       expect(engine1).toBeDefined();
 
@@ -321,7 +409,11 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
         throw new Error('TTS init error');
       });
       const engine2 = await initSpeechEngine({
-        customEngines: { tts: throwingTTSFactory as any }
+        customEngines: {
+          tts: throwingTTSFactory as unknown as NonNullable<
+            NonNullable<Parameters<typeof initSpeechEngine>[0]>['customEngines']
+          >['tts']
+        }
       });
       expect(engine2).toBeDefined();
     });
@@ -330,7 +422,10 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
       const engine: SpeechEngine = await initSpeechEngine();
       engine.convoOn = true;
 
-      Object.defineProperty(document, 'hidden', { value: true, writable: true });
+      Object.defineProperty(document, 'hidden', {
+        value: true,
+        writable: true
+      });
       document.dispatchEvent(new Event('visibilitychange'));
 
       expect(engine.convoOn).toBe(false);
@@ -347,15 +442,21 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
 
       // pushSpeech with correct seq
       engine.pushSpeech(seq, '測試文字');
-      expect((engine as any)._speechBuffer).toContain('測試文字');
+      expect(
+        (engine as unknown as { _speechBuffer: string })._speechBuffer
+      ).toContain('測試文字');
 
       // pushSpeech with wrong seq -> should ignore
       engine.pushSpeech(seq + 999, '略過文字');
-      expect((engine as any)._speechBuffer).not.toContain('略過文字');
+      expect(
+        (engine as unknown as { _speechBuffer: string })._speechBuffer
+      ).not.toContain('略過文字');
 
       // endSpeech with wrong seq -> should ignore
       engine.endSpeech(seq + 999);
-      expect((engine as any)._speechEndedFlag).toBe(false);
+      expect(
+        (engine as unknown as { _speechEndedFlag: boolean })._speechEndedFlag
+      ).toBe(false);
 
       // Test drainSentences with state having only sentenceBuffer or buf
       const state1 = { buf: '文字。' };
@@ -392,7 +493,12 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
       engine.convoOn = true;
       engine.interruptForVoice();
       expect(onInterrupt).toHaveBeenCalled();
-      expect(onVoiceStatusChanged).toHaveBeenCalledWith(true, expect.any(String), 'listening', 0);
+      expect(onVoiceStatusChanged).toHaveBeenCalledWith(
+        true,
+        expect.any(String),
+        'listening',
+        0
+      );
       vi.advanceTimersByTime(120);
 
       // 3. onUtteranceEnd
@@ -411,7 +517,9 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
     });
 
     it('should handle custom TTS and STT engine validation failures and throwing factories', async () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
 
       // 1. Non-streaming custom TTS engine
       const mockCustomTTS = {
@@ -425,7 +533,11 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
       };
 
       const engine: SpeechEngine = await initSpeechEngine({
-        customEngines: { tts: mockCustomTTS as any }
+        customEngines: {
+          tts: mockCustomTTS as unknown as NonNullable<
+            NonNullable<Parameters<typeof initSpeechEngine>[0]>['customEngines']
+          >['tts']
+        }
       });
 
       const seq = engine.beginSpeech();
@@ -436,10 +548,16 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
 
       // 2. Invalid custom TTS (missing methods)
       const engineWithInvalidTTS = await initSpeechEngine({
-        customEngines: { tts: { speak: vi.fn() } as any }
+        customEngines: {
+          tts: { speak: vi.fn() } as unknown as NonNullable<
+            NonNullable<Parameters<typeof initSpeechEngine>[0]>['customEngines']
+          >['tts']
+        }
       });
       expect(engineWithInvalidTTS).toBeDefined();
-      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Custom ttsEngine validation failed'));
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Custom ttsEngine validation failed')
+      );
 
       // 3. Throwing custom TTS factory
       const engineWithThrowingTTS = await initSpeechEngine({
@@ -453,10 +571,16 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
 
       // 4. Invalid custom STT (missing methods)
       const engineWithInvalidSTT = await initSpeechEngine({
-        customEngines: { stt: { start: vi.fn() } as any }
+        customEngines: {
+          stt: { start: vi.fn() } as unknown as NonNullable<
+            NonNullable<Parameters<typeof initSpeechEngine>[0]>['customEngines']
+          >['stt']
+        }
       });
       expect(engineWithInvalidSTT).toBeDefined();
-      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Custom sttEngine validation failed'));
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Custom sttEngine validation failed')
+      );
 
       // 5. Throwing custom STT factory
       const engineWithThrowingSTT = await initSpeechEngine({
@@ -469,6 +593,91 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
       expect(engineWithThrowingSTT).toBeDefined();
 
       consoleErrorSpy.mockRestore();
+    });
+
+    it('should test speechEngine lifecycle branches, timers, and getters', async () => {
+      vi.useFakeTimers();
+      const onSpokenDisplayTextTimeout = vi.fn();
+      const onSpeaking = vi.fn();
+      const onSpeechWait = vi.fn();
+      const onSpeakingEnd = vi.fn();
+
+      const engine = await initSpeechEngine({
+        onSpokenDisplayTextTimeout,
+        onSpeaking,
+        onSpeechWait,
+        onSpeakingEnd
+      });
+
+      // 1. spokenAudioState getter (line 442)
+      expect(engine.spokenAudioState).toBeDefined();
+
+      // 2. spokenDisplayText timeout when not speaking (lines 188-193)
+      engine.spokenDisplayText = '顯示文字逾時測試';
+      expect(engine.spokenDisplayText).toBe('顯示文字逾時測試');
+      vi.advanceTimersByTime(6000);
+      expect(onSpokenDisplayTextTimeout).toHaveBeenCalled();
+      expect(engine.spokenDisplayText).toBe('');
+
+      // 3. startListening when isSpeaking or isProcessing is true (line 514)
+      const stopSpeakingSpy = vi.spyOn(engine, 'stopSpeaking');
+      engine.isProcessing = true;
+      engine.startListening();
+      expect(stopSpeakingSpy).toHaveBeenCalled();
+
+      // 4. _onTTSSpeakEnd and spokenDisplayTextTimer clear/restart (lines 620-630)
+      engine.spokenDisplayText = '朗讀即將結束';
+      (engine as unknown as { _onTTSSpeakEnd: () => void })._onTTSSpeakEnd();
+      expect(onSpeakingEnd).toHaveBeenCalled();
+      vi.advanceTimersByTime(4000);
+      expect(engine.spokenDisplayText).toBe('');
+
+      vi.useRealTimers();
+    });
+
+    it('should trigger ttsSetting callbacks onSpeaking, onSpeakEnd, and onSpeechWait (lines 258-271)', async () => {
+      interface CapturedTtsOptions {
+        onSpeakStart?: (t: string) => void;
+        onSpeakEnd?: () => void;
+        onSpeechWait?: (seq?: number) => void;
+      }
+      let capturedTtsOptions: CapturedTtsOptions | undefined;
+
+      const onSpeaking = vi.fn();
+      const onSpeechWait = vi.fn();
+
+      const customTts = (opts: unknown) => {
+        capturedTtsOptions = opts as CapturedTtsOptions;
+        return {
+          speak: vi.fn(),
+          stop: vi.fn(),
+          computeMouth: vi.fn(() => 0),
+          setGender: vi.fn(),
+          setLocale: vi.fn(),
+          isSpeaking: false,
+          isMuted: false
+        };
+      };
+
+      await initSpeechEngine({
+        onSpeaking,
+        onSpeechWait,
+        customEngines: {
+          tts: customTts as unknown as NonNullable<
+            NonNullable<Parameters<typeof initSpeechEngine>[0]>['customEngines']
+          >['tts']
+        }
+      });
+
+      // Invoke internal callbacks
+      const ttsOpts = capturedTtsOptions as CapturedTtsOptions;
+      ttsOpts?.onSpeakStart?.('自訂音訊');
+      expect(onSpeaking).toHaveBeenCalledWith('自訂音訊');
+
+      ttsOpts?.onSpeechWait?.(123);
+      expect(onSpeechWait).toHaveBeenCalledWith(123);
+
+      expect(() => ttsOpts?.onSpeakEnd?.()).not.toThrow();
     });
   });
 });

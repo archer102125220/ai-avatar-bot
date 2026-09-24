@@ -8,42 +8,30 @@ import {
 import { createBaseStore } from '@/core/store';
 import { initI18nEngine } from '@/core/i18n';
 import type { I18nEngine } from '@core';
+import type {
+  AiAvatarWidget,
+  OrchestratorEngines
+} from '@/core/orchestrator/types';
+import type { BaseStore } from '@/core/store';
 
 describe('Orchestrator Pipelines & Interactions', () => {
-  let rootStore: any;
+  let rootStore: BaseStore<Record<string, unknown>>;
   let i18nEngine: I18nEngine;
-  let mockWidget: any;
-  let mockEngines: any;
-  let autoContinueState: any;
-  let streamSpeechState: any;
+  let mockWidget: AiAvatarWidget;
+  let mockEngines: ReturnType<typeof createMockEngines>;
+  let autoContinueState: {
+    isActive: boolean;
+    continuationIndex: number;
+    maxContinuations: number;
+    accumulatedText: string;
+  };
+  let streamSpeechState: {
+    sentenceBuffer: string;
+    buf: string;
+  };
 
-  beforeEach(() => {
-    rootStore = createBaseStore({
-      gender: 'female',
-      avatarMode: 'assistant',
-      locale: 'zh-TW',
-      enableMemory: true
-    });
-
-    i18nEngine = initI18nEngine({ locale: 'zh-TW' });
-
-    mockWidget = {
-      name: 'MockWidget'
-    };
-
-    autoContinueState = {
-      isActive: false,
-      continuationIndex: 0,
-      maxContinuations: 0,
-      accumulatedText: ''
-    };
-
-    streamSpeechState = {
-      sentenceBuffer: '',
-      buf: ''
-    };
-
-    mockEngines = {
+  function createMockEngines() {
+    return {
       brainEngine: {
         addChatMessage: vi.fn(),
         answerQuestion: vi.fn(),
@@ -67,11 +55,13 @@ describe('Orchestrator Pipelines & Interactions', () => {
         isProcessing: false,
         spokenDisplayText: '',
         spokenAudioText: '',
+        ttsMuted: false,
+        onTapTimer: false,
         stopSpeaking: vi.fn(),
         beginSpeech: vi.fn(() => 1),
         pushSpeech: vi.fn(),
         endSpeech: vi.fn(),
-        drainSentences: vi.fn((state: any, isEnd: boolean) => {
+        drainSentences: vi.fn((state: { buf: string }, isEnd: boolean) => {
           if (isEnd === true && state.buf !== '') {
             const res = [state.buf];
             state.buf = '';
@@ -95,20 +85,52 @@ describe('Orchestrator Pipelines & Interactions', () => {
         }
       },
       toolsEngine: {
-        pendingToolConfirmation: null,
-        pendingToolChoice: null,
-        pendingToolInput: null,
+        pendingToolConfirmation: null as unknown,
+        pendingToolChoice: null as unknown,
+        pendingToolInput: null as unknown,
         continueToolConfirmation: vi.fn(() => false),
         continueToolChoice: vi.fn(() => false),
         continueToolInput: vi.fn(() => false),
-        routeHostTool: vi.fn(() => ({ match: null, ambiguous: [] })),
+        routeHostTool: vi.fn((_text?: string) => ({
+          match: null as unknown,
+          ambiguous: [] as unknown[]
+        })),
         offerToolChoices: vi.fn(),
         prepareTool: vi.fn()
       }
     };
+  }
+
+  beforeEach(() => {
+    rootStore = createBaseStore<Record<string, unknown>>({
+      gender: 'female',
+      avatarMode: 'assistant',
+      locale: 'zh-TW',
+      enableMemory: true
+    });
+
+    i18nEngine = initI18nEngine({ locale: 'zh-TW' });
+
+    mockWidget = {
+      name: 'MockWidget'
+    } as unknown as AiAvatarWidget;
+
+    autoContinueState = {
+      isActive: false,
+      continuationIndex: 0,
+      maxContinuations: 0,
+      accumulatedText: ''
+    };
+
+    streamSpeechState = {
+      sentenceBuffer: '',
+      buf: ''
+    };
+
+    mockEngines = createMockEngines();
   });
 
-  const getEngines = () => mockEngines;
+  const getEngines = () => mockEngines as unknown as OrchestratorEngines;
   const getWidget = () => mockWidget;
 
   describe('createUserPipeline (handleUser)', () => {
@@ -129,12 +151,24 @@ describe('Orchestrator Pipelines & Interactions', () => {
       expect(autoContinueState.isActive).toBe(false);
       expect(autoContinueState.continuationIndex).toBe(0);
       expect(mockEngines.speechEngine.stopSpeaking).toHaveBeenCalled();
-      expect(mockEngines.brainEngine.addChatMessage).toHaveBeenCalledWith('user', '你好，請問天氣如何？');
-      expect(mockEngines.speechEngine.spokenDisplayText).toContain('你好，請問天氣如何？');
-      expect(mockEngines.brainEngine.memory.captureName).toHaveBeenCalledWith('你好，請問天氣如何？');
-      expect(mockEngines.brainEngine.memory.addTurn).toHaveBeenCalledWith('user', '你好，請問天氣如何？');
+      expect(mockEngines.brainEngine.addChatMessage).toHaveBeenCalledWith(
+        'user',
+        '你好，請問天氣如何？'
+      );
+      expect(mockEngines.speechEngine.spokenDisplayText).toContain(
+        '你好，請問天氣如何？'
+      );
+      expect(mockEngines.brainEngine.memory.captureName).toHaveBeenCalledWith(
+        '你好，請問天氣如何？'
+      );
+      expect(mockEngines.brainEngine.memory.addTurn).toHaveBeenCalledWith(
+        'user',
+        '你好，請問天氣如何？'
+      );
       expect(mockEngines.skinEngine.gestureName).toBe('thinking');
-      expect(mockEngines.brainEngine.answerQuestion).toHaveBeenCalledWith('你好，請問天氣如何？');
+      expect(mockEngines.brainEngine.answerQuestion).toHaveBeenCalledWith(
+        '你好，請問天氣如何？'
+      );
     });
 
     it('should handle wipe memory request when user asks to forget', () => {
@@ -149,25 +183,29 @@ describe('Orchestrator Pipelines & Interactions', () => {
       handleUser('請忘記我');
 
       expect(mockEngines.brainEngine.memory.clear).toHaveBeenCalled();
-      expect(mockEngines.speechEngine.spokenAudioText).toContain('記憶都清掉了');
+      expect(mockEngines.speechEngine.spokenAudioText).toContain(
+        '記憶都清掉了'
+      );
       expect(mockEngines.brainEngine.answerQuestion).not.toHaveBeenCalled();
 
       // Wipe memory in English without i18nEngine
       const handleUserNoI18n = createUserPipeline({
         getWidget,
         rootStore,
-        // @ts-ignore: Defensive runtime type checking test
         i18nEngine: null,
         getEngines,
         autoContinueState
       });
       handleUserNoI18n('please forget me');
-      expect(mockEngines.speechEngine.spokenAudioText).toBe('好，我把記憶都清掉了，我們重新認識吧！');
+      expect(mockEngines.speechEngine.spokenAudioText).toBe(
+        '好，我把記憶都清掉了，我們重新認識吧！'
+      );
 
       // Empty or non-string input guard
       expect(() => handleUser('')).not.toThrow();
-      // @ts-ignore: Defensive runtime type checking test
       expect(() => handleUser(null)).not.toThrow();
+      expect(() => handleUser(undefined)).not.toThrow();
+      expect(() => handleUser()).not.toThrow();
     });
 
     it('should intercept pending tool actions if toolsEngine is awaiting input', () => {
@@ -184,7 +222,9 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
       handleUser('確認');
 
-      expect(mockEngines.toolsEngine.continueToolConfirmation).toHaveBeenCalledWith('確認');
+      expect(
+        mockEngines.toolsEngine.continueToolConfirmation
+      ).toHaveBeenCalledWith('確認');
       expect(mockEngines.brainEngine.answerQuestion).not.toHaveBeenCalled();
     });
 
@@ -207,25 +247,46 @@ describe('Orchestrator Pipelines & Interactions', () => {
       expect(mockEngines.toolsEngine.prepareTool).toHaveBeenCalled();
       expect(mockEngines.brainEngine.answerQuestion).not.toHaveBeenCalled();
 
+      // Test widget fallback when getWidget is not provided
+      const handleUserWithWidget = createUserPipeline({
+        widget: getWidget(),
+        rootStore,
+        i18nEngine,
+        getEngines,
+        autoContinueState
+      });
+      handleUserWithWidget('搜尋台北天氣');
+      expect(mockEngines.toolsEngine.prepareTool).toHaveBeenCalled();
+
       // 2. Ambiguous tool choice
       mockEngines.toolsEngine.routeHostTool = vi.fn(() => ({
         match: null,
         ambiguous: [{ tool: { name: 'a' } }, { tool: { name: 'b' } }]
       }));
       handleUser('曖昧指令');
-      expect(mockEngines.toolsEngine.offerToolChoices).toHaveBeenCalledWith('曖昧指令', expect.any(Array));
+      expect(mockEngines.toolsEngine.offerToolChoices).toHaveBeenCalled();
+      expect(mockEngines.toolsEngine.offerToolChoices.mock.calls[0][0]).toBe(
+        '曖昧指令'
+      );
+      expect(
+        Array.isArray(mockEngines.toolsEngine.offerToolChoices.mock.calls[0][1])
+      ).toBe(true);
 
       // 3. Pending tool choice and pending tool input
       mockEngines.toolsEngine.pendingToolChoice = { options: [] };
       mockEngines.toolsEngine.continueToolChoice = vi.fn(() => true);
       handleUser('選項 1');
-      expect(mockEngines.toolsEngine.continueToolChoice).toHaveBeenCalledWith('選項 1');
+      expect(mockEngines.toolsEngine.continueToolChoice).toHaveBeenCalledWith(
+        '選項 1'
+      );
 
       delete mockEngines.toolsEngine.pendingToolChoice;
       mockEngines.toolsEngine.pendingToolInput = { field: 'name' };
       mockEngines.toolsEngine.continueToolInput = vi.fn(() => true);
       handleUser('填入名字');
-      expect(mockEngines.toolsEngine.continueToolInput).toHaveBeenCalledWith('填入名字');
+      expect(mockEngines.toolsEngine.continueToolInput).toHaveBeenCalledWith(
+        '填入名字'
+      );
     });
   });
 
@@ -235,7 +296,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
         onStreamEnd: vi.fn()
       };
 
-      const streamPipeline: any = createStreamPipeline({
+      const streamPipeline = createStreamPipeline({
         getWidget,
         options,
         getEngines,
@@ -248,11 +309,16 @@ describe('Orchestrator Pipelines & Interactions', () => {
       expect(streamPipeline.getStreamSpeechId()).toBe(1);
 
       streamPipeline.onStreamChunk('今天天氣真好。');
-      expect(mockEngines.speechEngine.pushSpeech).toHaveBeenCalledWith(1, '今天天氣真好。');
+      expect(mockEngines.speechEngine.pushSpeech).toHaveBeenCalledWith(
+        1,
+        '今天天氣真好。'
+      );
 
       streamPipeline.onStreamEnd('今天天氣真好。下雨機率低。');
       expect(mockEngines.speechEngine.endSpeech).toHaveBeenCalledWith(1);
-      expect(options.onStreamEnd).toHaveBeenCalledWith('今天天氣真好。下雨機率低。');
+      expect(options.onStreamEnd).toHaveBeenCalledWith(
+        '今天天氣真好。下雨機率低。'
+      );
     });
 
     it('should push remaining sentences on onStreamEnd when speechEngine matches sequence id', () => {
@@ -262,16 +328,22 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
       mockEngines.speechEngine.speakSeq = 10;
       mockEngines.speechEngine.beginSpeech = vi.fn(() => 10);
-      mockEngines.speechEngine.drainSentences = vi.fn((_state: any, isEnd: boolean) => {
-        if (isEnd === true) {
-          return ['剩餘第一句。', '剩餘第二句。'];
+      mockEngines.speechEngine.drainSentences = vi.fn(
+        (_state: unknown, isEnd: boolean) => {
+          if (isEnd === true) {
+            return ['剩餘第一句。', '剩餘第二句。'];
+          }
+          return [];
         }
-        return [];
-      });
+      );
 
-      const pipeline: any = createStreamPipeline({
-        getEngines: getEnginesFn,
-        getWidget: getWidgetFn,
+      const pipeline = createStreamPipeline({
+        getEngines: getEnginesFn as unknown as Parameters<
+          typeof createStreamPipeline
+        >[0]['getEngines'],
+        getWidget: getWidgetFn as unknown as Parameters<
+          typeof createStreamPipeline
+        >[0]['getWidget'],
         options,
         streamSpeechState,
         autoContinueState
@@ -282,14 +354,25 @@ describe('Orchestrator Pipelines & Interactions', () => {
       // Stream end should drain and push remaining
       pipeline.onStreamEnd('全文內容');
 
-      expect(mockEngines.speechEngine.pushSpeech).toHaveBeenCalledWith(10, '剩餘第一句。');
-      expect(mockEngines.speechEngine.pushSpeech).toHaveBeenCalledWith(10, '剩餘第二句。');
+      expect(mockEngines.speechEngine.pushSpeech).toHaveBeenCalledWith(
+        10,
+        '剩餘第一句。'
+      );
+      expect(mockEngines.speechEngine.pushSpeech).toHaveBeenCalledWith(
+        10,
+        '剩餘第二句。'
+      );
       expect(mockEngines.speechEngine.endSpeech).toHaveBeenCalledWith(10);
       expect(options.onStreamEnd).toHaveBeenCalledWith('全文內容');
 
       // Test onSpeechWait and onAutoContinueWait with gestureName fallback (when setEmotion missing)
-      mockEngines.skinEngine = { gestureName: 'neutral' };
-      pipeline.onAutoContinueStart({ continuationIndex: 1, maxContinuations: 3 });
+      mockEngines.skinEngine = {
+        gestureName: 'neutral'
+      } as unknown as typeof mockEngines.skinEngine;
+      pipeline.onAutoContinueStart({
+        continuationIndex: 1,
+        maxContinuations: 3
+      });
       pipeline.onAutoContinueWait({ continuationIndex: 1 });
       expect(mockEngines.skinEngine.gestureName).toBe('thinking');
 
@@ -305,7 +388,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
         onAutoContinueEnd: vi.fn()
       };
 
-      const streamPipeline: any = createStreamPipeline({
+      const streamPipeline = createStreamPipeline({
         getWidget,
         options,
         getEngines,
@@ -313,16 +396,31 @@ describe('Orchestrator Pipelines & Interactions', () => {
         streamSpeechState
       });
 
-      streamPipeline.onAutoContinueStart({ continuationIndex: 1, maxContinuations: 3, accumulatedText: 'Part 1' });
+      streamPipeline.onAutoContinueStart({
+        continuationIndex: 1,
+        maxContinuations: 3,
+        accumulatedText: 'Part 1'
+      });
       expect(autoContinueState.isActive).toBe(true);
       expect(autoContinueState.continuationIndex).toBe(1);
       expect(options.onAutoContinueStart).toHaveBeenCalled();
 
       streamPipeline.onAutoContinueWait({ continuationIndex: 1 });
-      expect(mockEngines.skinEngine.setEmotion).toHaveBeenCalledWith('thinking');
+      expect(mockEngines.skinEngine.setEmotion).toHaveBeenCalledWith(
+        'thinking'
+      );
       expect(options.onAutoContinueWait).toHaveBeenCalled();
 
-      streamPipeline.onAutoContinueResume({ continuationIndex: 2, maxContinuations: 3, accumulatedText: 'Part 1 Part 2' });
+      streamPipeline.onSpeechWait(10);
+      expect(mockEngines.skinEngine.setEmotion).toHaveBeenCalledWith(
+        'thinking'
+      );
+
+      streamPipeline.onAutoContinueResume({
+        continuationIndex: 2,
+        maxContinuations: 3,
+        accumulatedText: 'Part 1 Part 2'
+      });
       expect(autoContinueState.continuationIndex).toBe(2);
       expect(options.onAutoContinueResume).toHaveBeenCalled();
 
@@ -337,7 +435,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
     it('should handle muted TTS on stream start, sequence mismatch on stream chunk, and abort exceptions in stream pipeline', () => {
       const options = { onStreamEnd: vi.fn() };
-      const pipeline: any = createStreamPipeline({
+      const pipeline = createStreamPipeline({
         getWidget,
         options,
         getEngines,
@@ -378,8 +476,21 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
     it('should handle ttsMuted, missing speechEngine, and setStreamSpeechId', () => {
       const localStreamSpeechState = { sentenceBuffer: '', buf: '' };
-      const localAutoContinueState = { isActive: false, continuationIndex: 0, maxContinuations: 0, accumulatedText: '' };
-      let speechEngine: any = {
+      const localAutoContinueState = {
+        isActive: false,
+        continuationIndex: 0,
+        maxContinuations: 0,
+        accumulatedText: ''
+      };
+      let speechEngine: {
+        ttsMuted?: boolean;
+        beginSpeech: ReturnType<typeof vi.fn>;
+        speakSeq: number;
+        drainSentences: ReturnType<typeof vi.fn>;
+        pushSpeech: ReturnType<typeof vi.fn>;
+        endSpeech: ReturnType<typeof vi.fn>;
+        onUtteranceEnd: ReturnType<typeof vi.fn>;
+      } | null = {
         ttsMuted: true,
         beginSpeech: vi.fn(() => 10),
         speakSeq: 10,
@@ -389,10 +500,15 @@ describe('Orchestrator Pipelines & Interactions', () => {
         onUtteranceEnd: vi.fn()
       };
 
-      const streamPipeline: any = createStreamPipeline({
-        widget: { id: 'test-w' } as any,
+      const streamPipeline = createStreamPipeline({
+        widget: { id: 'test-w' } as unknown as AiAvatarWidget,
         options: {},
-        getEngines: () => ({ speechEngine, skinEngine: null, brainEngine: null }) as any,
+        getEngines: () =>
+          ({
+            speechEngine,
+            skinEngine: null,
+            brainEngine: null
+          }) as unknown as OrchestratorEngines,
         autoContinueState: localAutoContinueState,
         streamSpeechState: localStreamSpeechState
       });
@@ -423,7 +539,12 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
     it('should handle speech sequence mismatch (barge-in chunk discard) and skinEngine gestureName', () => {
       const localStreamSpeechState = { sentenceBuffer: '', buf: '' };
-      const localAutoContinueState = { isActive: false, continuationIndex: 0, maxContinuations: 0, accumulatedText: '' };
+      const localAutoContinueState = {
+        isActive: false,
+        continuationIndex: 0,
+        maxContinuations: 0,
+        accumulatedText: ''
+      };
       const speechEngine = {
         ttsMuted: false,
         beginSpeech: vi.fn(() => 5),
@@ -440,9 +561,14 @@ describe('Orchestrator Pipelines & Interactions', () => {
         onAutoContinueWait: vi.fn()
       };
 
-      const streamPipeline: any = createStreamPipeline({
+      const streamPipeline = createStreamPipeline({
         options,
-        getEngines: () => ({ speechEngine, skinEngine, brainEngine: { llm: { controller: null } } }) as any,
+        getEngines: () =>
+          ({
+            speechEngine,
+            skinEngine,
+            brainEngine: { llm: { controller: null } }
+          }) as unknown as OrchestratorEngines,
         autoContinueState: localAutoContinueState,
         streamSpeechState: localStreamSpeechState
       });
@@ -480,9 +606,14 @@ describe('Orchestrator Pipelines & Interactions', () => {
           }
         }
       };
-      const pipelineWithThrowingBrain: any = createStreamPipeline({
+      const pipelineWithThrowingBrain = createStreamPipeline({
         options: {},
-        getEngines: () => ({ speechEngine, skinEngine, brainEngine: throwingBrain }) as any,
+        getEngines: () =>
+          ({
+            speechEngine,
+            skinEngine,
+            brainEngine: throwingBrain
+          }) as unknown as OrchestratorEngines,
         autoContinueState: localAutoContinueState,
         streamSpeechState: localStreamSpeechState
       });
@@ -498,7 +629,9 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
       const onTap = createTapAvatarHandler({
         getWidget,
-        options: options as any,
+        options: options as unknown as Parameters<
+          typeof createTapAvatarHandler
+        >[0]['options'],
         rootStore,
         i18nEngine,
         getEngines
@@ -507,13 +640,17 @@ describe('Orchestrator Pipelines & Interactions', () => {
       onTap();
 
       expect(options.onTapAvatar).toHaveBeenCalled();
-      expect(mockEngines.skinEngine.avatarModel.motion).toHaveBeenCalledWith('Tap');
+      expect(mockEngines.skinEngine.avatarModel.motion).toHaveBeenCalledWith(
+        'Tap'
+      );
       expect(mockEngines.speechEngine.spokenAudioText).toContain('虛擬人');
 
       // Test throttle guard
       mockEngines.speechEngine.onTapTimer = true;
       onTap();
-      expect(mockEngines.skinEngine.avatarModel.motion).toHaveBeenCalledTimes(1);
+      expect(mockEngines.skinEngine.avatarModel.motion).toHaveBeenCalledTimes(
+        1
+      );
     });
   });
 
@@ -525,30 +662,50 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
       const updateModelDropListeners = createModelDropHandler({
         container,
-        getSkinEngine: () => mockEngines.skinEngine
+        getSkinEngine: () =>
+          mockEngines.skinEngine as unknown as Parameters<
+            typeof createModelDropHandler
+          >[0]['getSkinEngine'] extends () => infer R
+            ? R
+            : never
       });
 
       updateModelDropListeners(true);
-      expect(addSpy).toHaveBeenCalledWith('dragenter', expect.any(Function));
-      expect(addSpy).toHaveBeenCalledWith('dragover', expect.any(Function));
-      expect(addSpy).toHaveBeenCalledWith('drop', expect.any(Function));
+      expect(addSpy).toHaveBeenCalledTimes(3);
+      expect(addSpy.mock.calls[0][0]).toBe('dragenter');
+      expect(typeof addSpy.mock.calls[0][1]).toBe('function');
+      expect(addSpy.mock.calls[1][0]).toBe('dragover');
+      expect(typeof addSpy.mock.calls[1][1]).toBe('function');
+      expect(addSpy.mock.calls[2][0]).toBe('drop');
+      expect(typeof addSpy.mock.calls[2][1]).toBe('function');
 
       updateModelDropListeners(false);
-      expect(removeSpy).toHaveBeenCalledWith('dragenter', expect.any(Function));
-      expect(removeSpy).toHaveBeenCalledWith('dragover', expect.any(Function));
-      expect(removeSpy).toHaveBeenCalledWith('drop', expect.any(Function));
+      expect(removeSpy).toHaveBeenCalledTimes(3);
+      expect(removeSpy.mock.calls[0][0]).toBe('dragenter');
+      expect(typeof removeSpy.mock.calls[0][1]).toBe('function');
+      expect(removeSpy.mock.calls[1][0]).toBe('dragover');
+      expect(typeof removeSpy.mock.calls[1][1]).toBe('function');
+      expect(removeSpy.mock.calls[2][0]).toBe('drop');
+      expect(typeof removeSpy.mock.calls[2][1]).toBe('function');
     });
 
     it('should load VRM file when file is dropped onto container', () => {
       const container = document.createElement('div');
       const updateModelDropListeners = createModelDropHandler({
         container,
-        getSkinEngine: () => mockEngines.skinEngine
+        getSkinEngine: () =>
+          mockEngines.skinEngine as unknown as Parameters<
+            typeof createModelDropHandler
+          >[0]['getSkinEngine'] extends () => infer R
+            ? R
+            : never
       });
 
       updateModelDropListeners(true);
 
-      const fakeFile = new File(['dummy content'], 'avatar.vrm', { type: 'application/octet-stream' });
+      const fakeFile = new File(['dummy content'], 'avatar.vrm', {
+        type: 'application/octet-stream'
+      });
       const dropEvent = new Event('drop');
       Object.defineProperty(dropEvent, 'dataTransfer', {
         value: { files: [fakeFile] }
@@ -561,7 +718,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
     it('should handle forget me command and host tool routing in user pipeline', () => {
       const getWidgetFn = () => mockWidget;
-      const getEnginesFn = () => mockEngines;
+      const getEnginesFn = () => mockEngines as unknown as OrchestratorEngines;
       const handleUserMessage = createUserPipeline({
         getWidget: getWidgetFn,
         getEngines: getEnginesFn,
@@ -573,7 +730,9 @@ describe('Orchestrator Pipelines & Interactions', () => {
       // 1. Forget me command
       handleUserMessage('請忘記我');
       expect(mockEngines.brainEngine.memory.clear).toHaveBeenCalled();
-      expect(mockEngines.speechEngine.spokenAudioText).toContain('好，我把記憶都清掉了');
+      expect(mockEngines.speechEngine.spokenAudioText).toContain(
+        '好，我把記憶都清掉了'
+      );
 
       // 2. Host tool ambiguous routing
       mockEngines.toolsEngine.routeHostTool = vi.fn().mockReturnValue({
@@ -587,7 +746,11 @@ describe('Orchestrator Pipelines & Interactions', () => {
       // 3. Host tool exact match routing
       mockEngines.toolsEngine.routeHostTool = vi.fn().mockReturnValue({
         ambiguous: [],
-        match: { tool: { name: 'weather_tool' }, score: 0.95, reason: 'keyword' }
+        match: {
+          tool: { name: 'weather_tool' },
+          score: 0.95,
+          reason: 'keyword'
+        }
       });
       mockEngines.toolsEngine.prepareTool = vi.fn();
       handleUserMessage('查天氣');
@@ -599,7 +762,9 @@ describe('Orchestrator Pipelines & Interactions', () => {
         match: null
       });
       handleUserMessage('一般問題');
-      expect(mockEngines.brainEngine.answerQuestion).toHaveBeenCalledWith('一般問題');
+      expect(mockEngines.brainEngine.answerQuestion).toHaveBeenCalledWith(
+        '一般問題'
+      );
       expect(mockEngines.skinEngine.gestureName).toBe('thinking');
     });
 
@@ -607,7 +772,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
       // 1. Direct widget object (instead of getWidget)
       const handleUserWithWidget = createUserPipeline({
         widget: mockWidget,
-        getEngines: () => mockEngines,
+        getEngines: () => mockEngines as unknown as OrchestratorEngines,
         rootStore,
         i18nEngine,
         autoContinueState
@@ -615,33 +780,44 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
       // 2. Empty string input
       handleUserWithWidget('');
-      // @ts-ignore: Defensive runtime type checking test
-      handleUserWithWidget();
+      handleUserWithWidget(undefined as unknown as string);
 
       // 3. pendingToolConfirmation returns true
       mockEngines.toolsEngine.pendingToolConfirmation = 'msg_1';
       mockEngines.toolsEngine.continueToolConfirmation = vi.fn(() => true);
       handleUserWithWidget('好的');
-      expect(mockEngines.toolsEngine.continueToolConfirmation).toHaveBeenCalledWith('好的');
+      expect(
+        mockEngines.toolsEngine.continueToolConfirmation
+      ).toHaveBeenCalledWith('好的');
 
       // 4. pendingToolChoice returns true
       mockEngines.toolsEngine.pendingToolConfirmation = null;
       mockEngines.toolsEngine.pendingToolChoice = { messageId: 'm1' };
       mockEngines.toolsEngine.continueToolChoice = vi.fn(() => true);
       handleUserWithWidget('第一個');
-      expect(mockEngines.toolsEngine.continueToolChoice).toHaveBeenCalledWith('第一個');
+      expect(mockEngines.toolsEngine.continueToolChoice).toHaveBeenCalledWith(
+        '第一個'
+      );
 
       // 5. pendingToolInput returns true
       mockEngines.toolsEngine.pendingToolChoice = null;
       mockEngines.toolsEngine.pendingToolInput = { name: 't1' };
       mockEngines.toolsEngine.continueToolInput = vi.fn(() => true);
       handleUserWithWidget('參數值');
-      expect(mockEngines.toolsEngine.continueToolInput).toHaveBeenCalledWith('參數值');
+      expect(mockEngines.toolsEngine.continueToolInput).toHaveBeenCalledWith(
+        '參數值'
+      );
 
       // 6. Handle with null speechEngine / brainEngine
       const handleUserNullEngines = createUserPipeline({
-        getWidget: () => null as any,
-        getEngines: () => ({ brainEngine: null, speechEngine: null, skinEngine: null, toolsEngine: null }) as any,
+        getWidget: () => null as unknown as AiAvatarWidget,
+        getEngines: () =>
+          ({
+            brainEngine: null,
+            speechEngine: null,
+            skinEngine: null,
+            toolsEngine: null
+          }) as unknown as OrchestratorEngines,
         rootStore,
         i18nEngine,
         autoContinueState

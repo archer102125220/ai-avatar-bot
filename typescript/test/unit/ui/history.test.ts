@@ -3,19 +3,49 @@ import { setHistoryOpen, renderHistory } from '@/core/ui/history';
 import { initUi } from '@/core/ui/dom';
 import { initI18nEngine } from '@/core/i18n';
 import type { I18nEngine } from '@core';
+import type { UiContext, UiDom } from '@/core/ui/types';
+
+interface MockUiContext {
+  uiDom: UiDom;
+  i18nEngine: I18nEngine;
+  speechEngine: {
+    isListening: boolean;
+    convoOn: boolean;
+    spokenDisplayText: string;
+    speak: ReturnType<typeof vi.fn>;
+  };
+  brainEngine: {
+    chatLog: Array<{
+      id: string;
+      role: 'user' | 'assistant';
+      text: string;
+      streaming?: boolean;
+      pendingTool?: { name: string };
+      timedOut?: boolean;
+      cancelled?: boolean;
+      pendingChoices?: Array<{ tool: { name: string; label: string } }>;
+    }>;
+  };
+  toolsEngine: {
+    executePendingTool: ReturnType<typeof vi.fn>;
+    cancelPendingTool: ReturnType<typeof vi.fn>;
+    chooseTool: ReturnType<typeof vi.fn>;
+  };
+}
 
 describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
   let container: HTMLElement;
   let stageEl: HTMLElement;
   let i18nEngine: I18nEngine;
-  let uiDom: any;
-  let mockContext: any;
+  let uiDom: UiDom;
+  let mockContext: MockUiContext;
+  const getContext = () => mockContext as unknown as UiContext;
 
   beforeEach(() => {
     container = document.createElement('div');
     stageEl = document.createElement('div');
     i18nEngine = initI18nEngine({ locale: 'zh-TW' });
-    uiDom = initUi(container, stageEl, i18nEngine);
+    uiDom = initUi(container, stageEl, i18nEngine)!;
 
     mockContext = {
       uiDom,
@@ -39,7 +69,7 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
 
   describe('setHistoryOpen', () => {
     it('should toggle history panel open/closed attributes and accessibility states', () => {
-      setHistoryOpen(mockContext, true);
+      setHistoryOpen(getContext(), true);
 
       expect(uiDom.historyPanelEl.getAttribute('css-is-open')).toBe('true');
       expect(uiDom.historyPanelEl.inert).toBe(false);
@@ -47,7 +77,7 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
       expect(uiDom.suggestionsEl.style.display).toBe('none');
       expect(uiDom.bubbleEl.style.opacity).toBe('0');
 
-      setHistoryOpen(mockContext, false);
+      setHistoryOpen(getContext(), false);
 
       expect(uiDom.historyPanelEl.getAttribute('css-is-open')).toBeNull();
       expect(uiDom.historyPanelEl.inert).toBe(true);
@@ -60,35 +90,43 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
   describe('renderHistory', () => {
     it('should render empty history notice when chatLog is empty', () => {
       mockContext.brainEngine.chatLog = [];
-      renderHistory(mockContext);
+      renderHistory(getContext());
 
-      const historyListEl = uiDom.historyPanelEl.querySelector('#history-list');
+      const historyListEl =
+        uiDom.historyPanelEl.querySelector('#history-list')!;
       expect(historyListEl.children.length).toBe(1);
       expect(historyListEl.querySelector('.history-empty')).toBeDefined();
     });
 
     it('should render user and assistant chat messages with streaming indicators', () => {
       mockContext.brainEngine.chatLog = [
-        { role: 'user', text: '你好！' },
-        { role: 'assistant', text: '你好，很高興為你服務。' },
-        { role: 'assistant', text: '', streaming: true }
+        { id: '1', role: 'user', text: '你好！' },
+        { id: '2', role: 'assistant', text: '你好，很高興為你服務。' },
+        { id: '3', role: 'assistant', text: '', streaming: true }
       ];
 
-      renderHistory(mockContext);
+      renderHistory(getContext());
 
-      const historyListEl = uiDom.historyPanelEl.querySelector('#history-list');
+      const historyListEl =
+        uiDom.historyPanelEl.querySelector('#history-list')!;
       expect(historyListEl.children.length).toBe(3);
 
-      const userRow = historyListEl.children[0];
+      const userRow = historyListEl.children[0]!;
       expect(userRow.className).toContain('history-item user');
-      expect(userRow.querySelector('.history-message').textContent).toBe('你好！');
+      expect(userRow.querySelector('.history-message')?.textContent).toBe(
+        '你好！'
+      );
 
-      const assistantRow = historyListEl.children[1];
+      const assistantRow = historyListEl.children[1]!;
       expect(assistantRow.className).toContain('history-item assistant');
-      expect(assistantRow.querySelector('.history-message').textContent).toBe('你好，很高興為你服務。');
+      expect(assistantRow.querySelector('.history-message')?.textContent).toBe(
+        '你好，很高興為你服務。'
+      );
 
-      const streamingRow = historyListEl.children[2];
-      expect(streamingRow.querySelector('.history-message').textContent).toBe('…');
+      const streamingRow = historyListEl.children[2]!;
+      expect(streamingRow.querySelector('.history-message')?.textContent).toBe(
+        '…'
+      );
     });
 
     it('should render tool confirmation buttons and dispatch confirm/cancel actions', () => {
@@ -101,20 +139,29 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
         }
       ];
 
-      renderHistory(mockContext);
+      renderHistory(getContext());
 
-      const historyListEl = uiDom.historyPanelEl.querySelector('#history-list');
-      const confirmContainer = historyListEl.querySelector('.history-confirm');
+      const historyListEl =
+        uiDom.historyPanelEl.querySelector('#history-list')!;
+      const confirmContainer = historyListEl.querySelector('.history-confirm')!;
       expect(confirmContainer).toBeDefined();
 
-      const confirmBtn = confirmContainer.querySelector('button.confirm');
-      const cancelBtn = confirmContainer.querySelector('button.cancel');
+      const confirmBtn = confirmContainer.querySelector(
+        'button.confirm'
+      ) as HTMLButtonElement;
+      const cancelBtn = confirmContainer.querySelector(
+        'button.cancel'
+      ) as HTMLButtonElement;
 
       confirmBtn.click();
-      expect(mockContext.toolsEngine.executePendingTool).toHaveBeenCalledWith('tool_call_1');
+      expect(mockContext.toolsEngine.executePendingTool).toHaveBeenCalledWith(
+        'tool_call_1'
+      );
 
       cancelBtn.click();
-      expect(mockContext.toolsEngine.cancelPendingTool).toHaveBeenCalledWith('tool_call_1');
+      expect(mockContext.toolsEngine.cancelPendingTool).toHaveBeenCalledWith(
+        'tool_call_1'
+      );
     });
 
     it('should render disabled state when tool call has timed out or cancelled', () => {
@@ -136,14 +183,19 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
         }
       ];
 
-      renderHistory(mockContext);
+      renderHistory(getContext());
 
-      const historyListEl = uiDom.historyPanelEl.querySelector('#history-list');
-      const confirmBtn = historyListEl.querySelectorAll('button.confirm')[0] as HTMLButtonElement;
+      const historyListEl =
+        uiDom.historyPanelEl.querySelector('#history-list')!;
+      const confirmBtn = historyListEl.querySelectorAll(
+        'button.confirm'
+      )[0] as HTMLButtonElement;
       expect(confirmBtn.disabled).toBe(true);
       expect(confirmBtn.textContent).toBe('已逾時');
 
-      const cancelBtn = historyListEl.querySelectorAll('button.cancel')[1] as HTMLButtonElement;
+      const cancelBtn = historyListEl.querySelectorAll(
+        'button.cancel'
+      )[1] as HTMLButtonElement;
       expect(cancelBtn.disabled).toBe(true);
       expect(cancelBtn.textContent).toBe('已取消');
     });
@@ -155,20 +207,26 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
           role: 'assistant',
           text: '請選擇工具',
           pendingChoices: [
-            { tool: { label: '選項 A' } },
-            { tool: { label: '選項 B' } }
+            { tool: { name: 'opt_a', label: '選項 A' } },
+            { tool: { name: 'opt_b', label: '選項 B' } }
           ]
         }
       ];
 
-      renderHistory(mockContext);
+      renderHistory(getContext());
 
-      const historyListEl = uiDom.historyPanelEl.querySelector('#history-list');
-      const choiceBtns = historyListEl.querySelectorAll('.history-confirm button');
+      const historyListEl =
+        uiDom.historyPanelEl.querySelector('#history-list')!;
+      const choiceBtns = historyListEl.querySelectorAll(
+        '.history-confirm button'
+      );
       expect(choiceBtns.length).toBe(2);
 
       (choiceBtns[1] as HTMLElement).click();
-      expect(mockContext.toolsEngine.chooseTool).toHaveBeenCalledWith('tool_choice_1', 1);
+      expect(mockContext.toolsEngine.chooseTool).toHaveBeenCalledWith(
+        'tool_choice_1',
+        1
+      );
     });
 
     it('should render copy and replay buttons for completed assistant messages', async () => {
@@ -180,14 +238,19 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
       });
 
       mockContext.brainEngine.chatLog = [
-        { role: 'assistant', text: '可重播與複製的文字' }
+        { id: '1', role: 'assistant', text: '可重播與複製的文字' }
       ];
 
-      renderHistory(mockContext);
+      renderHistory(getContext());
 
-      const historyListEl = uiDom.historyPanelEl.querySelector('#history-list');
-      const copyBtn = historyListEl.querySelector('.history-tools button:first-child') as HTMLElement;
-      const replayBtn = historyListEl.querySelector('.history-tools button:last-child') as HTMLElement;
+      const historyListEl =
+        uiDom.historyPanelEl.querySelector('#history-list')!;
+      const copyBtn = historyListEl.querySelector(
+        '.history-tools button:first-child'
+      ) as HTMLElement;
+      const replayBtn = historyListEl.querySelector(
+        '.history-tools button:last-child'
+      ) as HTMLElement;
 
       expect(copyBtn.textContent).toBe('複製');
       expect(replayBtn.textContent).toBe('重播');
@@ -197,7 +260,20 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
       expect(mockContext.speechEngine.spokenDisplayText).toBe('已複製回答');
 
       replayBtn.click();
-      expect(mockContext.speechEngine.speak).toHaveBeenCalledWith('可重播與複製的文字');
+      expect(mockContext.speechEngine.speak).toHaveBeenCalledWith(
+        '可重播與複製的文字'
+      );
+    });
+
+    it('should return early when historyListEl is missing or not HTMLElement', () => {
+      const invalidContext = {
+        ...mockContext,
+        uiDom: {
+          ...uiDom,
+          historyPanelEl: document.createElement('div')
+        }
+      } as unknown as UiContext;
+      expect(() => renderHistory(invalidContext)).not.toThrow();
     });
   });
 });

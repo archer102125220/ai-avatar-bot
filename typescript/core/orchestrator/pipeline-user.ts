@@ -10,7 +10,7 @@ export interface UserPipelineParams {
   widget?: AiAvatarWidget;
   getWidget?: () => AiAvatarWidget;
   rootStore: BaseStore;
-  i18nEngine: I18nEngine;
+  i18nEngine?: I18nEngine | null;
   getEngines: GetEnginesFn;
   autoContinueState: AutoContinueState;
 }
@@ -25,13 +25,14 @@ export function createUserPipeline({
   i18nEngine,
   getEngines,
   autoContinueState
-}: UserPipelineParams): (text?: string) => void {
+}: UserPipelineParams): (text?: string | null) => void {
   const resolveWidget =
     typeof getWidget === 'function'
       ? getWidget
       : () => widget as AiAvatarWidget;
 
-  return function handleUser(text: string = ''): void {
+  return function handleUser(rawText?: string | null): void {
+    const text = typeof rawText === 'string' ? rawText : '';
     const { brainEngine, speechEngine, skinEngine, toolsEngine } = getEngines();
 
     autoContinueState.isActive = false;

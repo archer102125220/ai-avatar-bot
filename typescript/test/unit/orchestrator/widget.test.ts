@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as uiModule from '@/core/ui';
 import { createAvatarWidget } from '@/core/orchestrator/widget';
 import { initAvatarBot } from '@/core/orchestrator/index';
 import { createBaseStore } from '@/core/store';
@@ -750,6 +751,10 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     expect(botIframe?.isIframe).toBe(true);
     expect(onMinimalTrigger).toHaveBeenCalledWith(true, botIframe);
 
+    // Exercise getSkinEngine via drop event (line 113)
+    const dropEvent = new Event('drop');
+    container.dispatchEvent(dropEvent);
+
     // Test window undefined guard
     const origWindow = global.window;
     delete (globalThis as unknown as Record<string, unknown>).window;
@@ -779,5 +784,56 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     expect(bot?.onMinimalTrigger).toBeDefined();
     bot?.onReady?.(bot);
     expect(onReady).toHaveBeenCalled();
+  });
+
+  it('should throw error when initUi fails to initialize UI DOM in initAvatarBot', async () => {
+    const initUiSpy = vi
+      .spyOn(uiModule, 'initUi')
+      .mockReturnValueOnce(null as unknown as UiDom);
+    await expect(initAvatarBot({ container })).rejects.toThrow(
+      '[aiAvatarBot] Failed to initialize UI DOM'
+    );
+    initUiSpy.mockRestore();
+  });
+
+  it('should forward speechEngine isSpeaking changes to skinEngine.setIsSpeaking', async () => {
+    const bot = await initAvatarBot({ container });
+    expect(bot).toBeDefined();
+    const speechEngine = bot?.speechEngine;
+    const skinEngine = bot?.skinEngine;
+    expect(speechEngine).toBeDefined();
+    expect(skinEngine).toBeDefined();
+
+    if (speechEngine && skinEngine) {
+      const setIsSpeakingSpy = vi.spyOn(skinEngine, 'setIsSpeaking');
+      speechEngine.setState({ isSpeaking: true });
+      expect(setIsSpeakingSpy).toHaveBeenCalledWith(true);
+      speechEngine.setState({ isSpeaking: false });
+      expect(setIsSpeakingSpy).toHaveBeenCalledWith(false);
+      setIsSpeakingSpy.mockRestore();
+    }
+  });
+
+  it('should handle i18n label fallbacks in initAvatarBot', async () => {
+    const customI18n = initI18nEngine({ locale: 'zh-TW' });
+    if (customI18n.labels) {
+      customI18n.labels.shortLabel = '';
+      customI18n.labels.label = '繁體中文';
+    }
+    const bot1 = await initAvatarBot({
+      container,
+      customEngines: { i18n: customI18n }
+    });
+    expect(bot1?.uiDom.langButtonEl.textContent).toBe('繁體中文');
+
+    if (customI18n.labels) {
+      customI18n.labels.shortLabel = '';
+      customI18n.labels.label = '';
+    }
+    const bot2 = await initAvatarBot({
+      container,
+      customEngines: { i18n: customI18n }
+    });
+    expect(bot2?.uiDom.langButtonEl.textContent).toBe('中文');
   });
 });

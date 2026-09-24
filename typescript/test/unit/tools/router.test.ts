@@ -38,6 +38,16 @@ describe('Unit Test: core/tools/router.js (TypeScript)', () => {
       expect(result.score).toBeGreaterThan(0.3);
       expect(result.reason).toBe('example');
     });
+
+    it('should ignore invalid or empty normalized keywords', () => {
+      const tool = normaliseTool({
+        name: 'test_tool',
+        keywords: ['', '   ', '目標']
+      });
+
+      const result = scoreTool(tool, '包含目標關鍵字');
+      expect(result.score).toBeGreaterThan(0.5);
+    });
   });
 
   describe('route', () => {
@@ -75,9 +85,9 @@ describe('Unit Test: core/tools/router.js (TypeScript)', () => {
 
       expect(result.match).not.toBeNull();
       expect(result.match?.tool.name).toBe('weather_tool');
-      expect(result.candidates.some((c: any) => c.tool.name === 'ai_only_tool')).toBe(
-        false
-      );
+      expect(
+        result.candidates.some((c) => c.tool.name === 'ai_only_tool')
+      ).toBe(false);
     });
 
     it('should mark as ambiguous when two candidates have very close scores', () => {
@@ -125,6 +135,16 @@ describe('Unit Test: core/tools/router.js (TypeScript)', () => {
 
       // 3. Empty query returns 0
       expect(scoreTool(toolDesc, '').score).toBe(0);
+    });
+
+    it('should ignore empty keywords in scoreTool (line 45)', () => {
+      const toolWithEmptyKeyword = normaliseTool({
+        name: 'test_empty_kw',
+        label: 'T',
+        keywords: ['   ', '']
+      });
+      const score = scoreTool(toolWithEmptyKeyword, '任意文字');
+      expect(score.score).toBe(0);
     });
   });
 });

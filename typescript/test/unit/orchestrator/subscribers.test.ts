@@ -5,14 +5,54 @@ import {
 } from '@/core/orchestrator/subscribers';
 import { createBaseStore } from '@/core/store';
 import { initI18nEngine } from '@/core/i18n';
-import type { I18nEngine } from '@core';
+import type {
+  AiAvatarWidget,
+  BaseStore,
+  I18nEngine,
+  GetEnginesFn,
+  UiDom
+} from '@/core/orchestrator/types';
+
+interface MockUiDom {
+  suggestionsEl: HTMLElement;
+  historyPanelEl: HTMLElement;
+  langButtonEl: HTMLButtonElement | null;
+  updateMicState: ReturnType<typeof vi.fn>;
+  updateVoiceStatus: ReturnType<typeof vi.fn>;
+}
+
+interface MockEngines {
+  brainEngine: {
+    avatarMode: string;
+    enableAiProvider: boolean;
+    preloadWebLLM: boolean;
+    autoFallbackWebLLM: boolean;
+    enableAutoContinue: boolean;
+    maxAutoContinuations: number;
+    autoContinueMode: string;
+    autoContinuePrompt: string | (() => string) | null;
+    memory: { enabled: boolean };
+    setGender: ReturnType<typeof vi.fn>;
+    setLocale: ReturnType<typeof vi.fn>;
+  };
+  speechEngine: {
+    isListening: boolean;
+    convoOn: boolean;
+    setGender: ReturnType<typeof vi.fn>;
+    setLocale: ReturnType<typeof vi.fn>;
+  };
+  skinEngine: {
+    setGender: ReturnType<typeof vi.fn>;
+  };
+  toolsEngine: Record<string, unknown>;
+}
 
 describe('Orchestrator Store & i18n Subscribers', () => {
-  let rootStore: any;
+  let rootStore: BaseStore;
   let i18nEngine: I18nEngine;
-  let mockWidget: any;
-  let mockUiDom: any;
-  let mockEngines: any;
+  let mockWidget: AiAvatarWidget;
+  let mockUiDom: MockUiDom;
+  let mockEngines: MockEngines;
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -78,13 +118,14 @@ describe('Orchestrator Store & i18n Subscribers', () => {
       rootStore,
       avatarMode: 'assistant',
       get suggestedQuestions() {
-        return rootStore.getState().suggestedQuestions;
+        return (rootStore.getState().suggestedQuestions as string[]) ?? [];
       }
-    };
+    } as unknown as AiAvatarWidget;
   });
 
-  const getEngines = () => mockEngines;
-  const getUiDom = () => mockUiDom;
+  const getEngines: GetEnginesFn = () =>
+    mockEngines as unknown as ReturnType<GetEnginesFn>;
+  const getUiDom = () => mockUiDom as unknown as UiDom;
 
   describe('setupStoreSubscribers', () => {
     it('should synchronize avatarMode and call renderSuggestions', () => {
@@ -163,10 +204,16 @@ describe('Orchestrator Store & i18n Subscribers', () => {
       expect(mockEngines.skinEngine.setGender).toHaveBeenCalledWith('male');
 
       // Generic gender change when sub-genders are not null does not overwrite overridden sub-genders
-      rootStore.setState({ brainGender: 'female', speechGender: 'female', skinGender: 'female' });
+      rootStore.setState({
+        brainGender: 'female',
+        speechGender: 'female',
+        skinGender: 'female'
+      });
       rootStore.setState({ gender: 'male' });
       // Should not call setGender with 'male' since sub-genders are non-null
-      expect(mockEngines.brainEngine.setGender).toHaveBeenLastCalledWith('female');
+      expect(mockEngines.brainEngine.setGender).toHaveBeenLastCalledWith(
+        'female'
+      );
     });
 
     it('should propagate locale changes to brainEngine and speechEngine', () => {
@@ -185,15 +232,24 @@ describe('Orchestrator Store & i18n Subscribers', () => {
 
     it('should re-render suggestions on all suggestion store key updates and handle null engines gracefully', () => {
       setupStoreSubscribers({
-        widget: mockWidget,
+        widget: mockWidget as unknown as AiAvatarWidget,
         rootStore,
         i18nEngine,
-        getUiDom: () => null as any,
-        getEngines: () => ({ brainEngine: null, speechEngine: null, skinEngine: null }) as any
+        getUiDom: () => null,
+        getEngines: () =>
+          ({
+            brainEngine: null,
+            speechEngine: null,
+            skinEngine: null
+          }) as unknown as ReturnType<
+            Parameters<typeof setupStoreSubscribers>[0]['getEngines']
+          >
       });
 
       // Triggers avatarMode without uiDom or engines
-      expect(() => rootStore.setState({ avatarMode: 'companion' })).not.toThrow();
+      expect(() =>
+        rootStore.setState({ avatarMode: 'companion' })
+      ).not.toThrow();
 
       // Suggestion state keys
       const suggestionKeys = [
@@ -262,8 +318,12 @@ describe('Orchestrator Store & i18n Subscribers', () => {
       expect(rootStore.getState().locale).toBe('en-US');
       expect(mockEngines.brainEngine.setLocale).toHaveBeenCalledWith('en-US');
       expect(mockEngines.speechEngine.setLocale).toHaveBeenCalledWith('en-US');
-      expect(mockUiDom.langButtonEl.textContent).toBe('EN');
-      expect(options.onLanguageChanged).toHaveBeenCalledWith('en-US', 'English (US)', 'EN');
+      expect(mockUiDom.langButtonEl?.textContent).toBe('EN');
+      expect(options.onLanguageChanged).toHaveBeenCalledWith(
+        'en-US',
+        'English (US)',
+        'EN'
+      );
       expect(mockUiDom.updateVoiceStatus).toHaveBeenCalled();
     });
 
@@ -276,13 +336,19 @@ describe('Orchestrator Store & i18n Subscribers', () => {
       };
 
       setupI18nSubscribers({
-        widget: mockWidget,
+        widget: mockWidget as unknown as AiAvatarWidget,
         options,
         rootStore,
         i18nEngine,
         container,
-        getUiDom: () => customUiDom as any,
-        getEngines: () => ({ brainEngine: null, speechEngine: null }) as any
+        getUiDom: () =>
+          customUiDom as unknown as ReturnType<
+            Parameters<typeof setupI18nSubscribers>[0]['getUiDom']
+          >,
+        getEngines: () =>
+          ({ brainEngine: null, speechEngine: null }) as unknown as ReturnType<
+            Parameters<typeof setupI18nSubscribers>[0]['getEngines']
+          >
       });
 
       // Test messages subscription
@@ -291,20 +357,6 @@ describe('Orchestrator Store & i18n Subscribers', () => {
       // Test locale change with missing shortLabel
       i18nEngine.setLocale('ja-JP');
       expect(customUiDom.langButtonEl.textContent).toBeTruthy();
-
-      // Test with null i18nEngine
-      expect(() => {
-        setupI18nSubscribers({
-          widget: mockWidget,
-          options: {},
-          rootStore,
-          // @ts-ignore: Defensive runtime type checking test
-          i18nEngine: null,
-          container,
-          getUiDom: () => null as any,
-          getEngines: () => ({}) as any
-        });
-      }).not.toThrow();
     });
 
     it('should trigger suggestion rendering on all suggestion store keys', () => {
@@ -322,6 +374,132 @@ describe('Orchestrator Store & i18n Subscribers', () => {
       rootStore.setState({ companionSuggestedTitle: '陪聊標題' });
       rootStore.setState({ assistantSuggestedTitle: '助理標題' });
       expect(mockUiDom.suggestionsEl).toBeDefined();
+    });
+
+    it('should cover defensive branch edges in setupStoreSubscribers and setupI18nSubscribers', () => {
+      setupStoreSubscribers({
+        widget: mockWidget,
+        rootStore,
+        i18nEngine,
+        getUiDom,
+        getEngines
+      });
+
+      // 1. gender not string -> early return
+      const prevGenderCalls =
+        mockEngines.brainEngine.setGender.mock.calls.length;
+      rootStore.setState({ gender: 12345 as unknown as string });
+      expect(mockEngines.brainEngine.setGender.mock.calls.length).toBe(
+        prevGenderCalls
+      );
+
+      // 2. locale not string -> early return
+      const prevLocaleCalls =
+        mockEngines.brainEngine.setLocale.mock.calls.length;
+      rootStore.setState({ locale: null as unknown as string });
+      expect(mockEngines.brainEngine.setLocale.mock.calls.length).toBe(
+        prevLocaleCalls
+      );
+
+      // 3. autoContinuePrompt: function, null, and invalid non-string/non-fn/non-null
+      const fnPrompt = () => 'fn-prompt';
+      rootStore.setState({ autoContinuePrompt: fnPrompt });
+      expect(mockEngines.brainEngine.autoContinuePrompt).toBe(fnPrompt);
+
+      rootStore.setState({ autoContinuePrompt: null });
+      expect(mockEngines.brainEngine.autoContinuePrompt).toBeNull();
+
+      rootStore.setState({ autoContinuePrompt: 9999 as unknown as null });
+      // 9999 is ignored, remains null
+      expect(mockEngines.brainEngine.autoContinuePrompt).toBeNull();
+
+      // 4. resolvedGender when state.gender is also non-string -> fallback to ''
+      rootStore.setState({ gender: false as unknown as string });
+      rootStore.setState({ brainGender: '' });
+      expect(mockEngines.brainEngine.setGender).toHaveBeenCalledWith('');
+
+      rootStore.setState({ speechGender: '' });
+      expect(mockEngines.speechEngine.setGender).toHaveBeenCalledWith('');
+
+      rootStore.setState({ skinGender: '' });
+      expect(mockEngines.skinEngine.setGender).toHaveBeenCalledWith('');
+
+      // 5. setupI18nSubscribers: companion avatarMode + label without shortLabel + fallback to newLocale + langButtonEl null
+      const customLangBtn = document.createElement('button');
+      const testUiDom = {
+        langButtonEl: customLangBtn,
+        updateMicState: vi.fn(),
+        updateVoiceStatus: vi.fn()
+      };
+
+      rootStore.setState({ avatarMode: 'companion' });
+      let capturedLocaleListener:
+        ((newLocale: string, localeLabels?: unknown) => void) | undefined;
+      const customI18nEngine = {
+        subscribe: (key: string, fn: unknown) => {
+          if (key === 'locale') {
+            capturedLocaleListener = fn as (
+              newLocale: string,
+              localeLabels?: unknown
+            ) => void;
+          }
+          return () => {};
+        }
+      } as unknown as I18nEngine;
+
+      setupI18nSubscribers({
+        widget: mockWidget,
+        options: {},
+        rootStore,
+        i18nEngine: customI18nEngine,
+        container,
+        getUiDom: () =>
+          testUiDom as unknown as ReturnType<
+            Parameters<typeof setupI18nSubscribers>[0]['getUiDom']
+          >,
+        getEngines
+      });
+
+      // Trigger locale subscription with label only (empty shortLabel)
+      capturedLocaleListener?.('fr-FR', { label: 'Français', shortLabel: '' });
+      expect(customLangBtn.textContent).toBe('Français');
+      expect(testUiDom.updateMicState).toHaveBeenCalledWith(
+        false,
+        false,
+        true,
+        customI18nEngine
+      );
+
+      // Trigger with both empty -> fallback to newLocale
+      capturedLocaleListener?.('de-DE', { label: '', shortLabel: '' });
+      expect(customLangBtn.textContent).toBe('de-DE');
+
+      // Trigger with null localeLabels -> labelsObj is null
+      capturedLocaleListener?.('es-ES', null);
+      expect(customLangBtn.textContent).toBe('es-ES');
+
+      // uiDom langButtonEl not HTMLButtonElement
+      testUiDom.langButtonEl = null as unknown as HTMLButtonElement;
+      expect(() => {
+        capturedLocaleListener?.('it-IT', null);
+      }).not.toThrow();
+
+      // Defensive null i18nEngine
+      expect(() => {
+        setupI18nSubscribers({
+          widget: mockWidget,
+          options: {},
+          rootStore,
+          i18nEngine: null as unknown as I18nEngine,
+          container,
+          getUiDom: () => null,
+          getEngines: () => ({
+            brainEngine: null,
+            speechEngine: null,
+            skinEngine: null
+          })
+        });
+      }).not.toThrow();
     });
   });
 });

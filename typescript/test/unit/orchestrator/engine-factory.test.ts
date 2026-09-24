@@ -1249,6 +1249,62 @@ describe('Orchestrator Engine Factory', () => {
       );
       expect(VRMFileChangeSuccess).toHaveBeenCalled();
 
+      // 4. onModelChangeEnd with 3D skin and pointerdown gesture
+      let pointerDown3DHandler: (() => void) | undefined;
+      let hitHandler: (() => void) | undefined;
+      const mockCanvas3D = {
+        addEventListener: vi.fn((event: string, handler: () => void) => {
+          if (event === 'pointerdown') {
+            pointerDown3DHandler = handler;
+          }
+        })
+      };
+      const playGestureMock = vi.fn();
+      const currentSkin3D = {
+        engineMode: ENGINE_MODE_MAP.threeDimensional,
+        avatarModel: {
+          on: vi.fn((event: string, cb: () => void) => {
+            if (event === 'hit') hitHandler = cb;
+          })
+        },
+        renderer: {
+          canvas: mockCanvas3D,
+          TAP_GESTURES: ['wave', 'bow'],
+          playGesture: playGestureMock
+        }
+      };
+
+      mockEngines.skinEngine = currentSkin3D as unknown as MockSkinEngine;
+      capturedSkinOptions!.onModelChangeEnd?.();
+      hitHandler?.();
+      expect(mockEngines.speechEngine?.triggerTap).toHaveBeenCalled();
+
+      // Trigger 3D pointerdown event
+      pointerDown3DHandler?.();
+      expect(playGestureMock).toHaveBeenCalled();
+      expect(mockEngines.speechEngine?.triggerTap).toHaveBeenCalled();
+
+      // 5. onModelChangeEnd with 2D skin and pointerdown
+      let pointerDown2DHandler: (() => void) | undefined;
+      const mockCanvas2D = {
+        addEventListener: vi.fn((event: string, handler: () => void) => {
+          if (event === 'pointerdown') {
+            pointerDown2DHandler = handler;
+          }
+        })
+      };
+      const currentSkin2D = {
+        engineMode: ENGINE_MODE_MAP.twoDimensional,
+        renderer: {
+          canvas: mockCanvas2D
+        }
+      };
+
+      mockEngines.skinEngine = currentSkin2D as unknown as MockSkinEngine;
+      capturedSkinOptions!.onModelChangeEnd?.();
+      pointerDown2DHandler?.();
+      expect(mockEngines.speechEngine?.triggerTap).toHaveBeenCalled();
+
       initSkinSpy.mockRestore();
     });
   });

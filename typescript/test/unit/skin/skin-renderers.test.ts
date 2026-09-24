@@ -5,12 +5,9 @@ import {
   setupWindowPixiMock
 } from '@/test/mocks/skin-renderer-mock';
 import { FIT_MODE_MAP } from '@/core/constants';
-import {
-  defaultGesture2D,
-  bootAvatar,
-  loadUMD
-} from '@/core/skin/renderer-2d';
+import { defaultGesture2D, bootAvatar, loadUMD } from '@/core/skin/renderer-2d';
 import { defaultGesture3D } from '@/core/skin/renderer-3d';
+import { isRenderer2D, isRenderer3D } from '@/core/skin/types';
 import type { Renderer2D, SkinEngine } from '@/core/skin';
 
 describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)', () => {
@@ -70,7 +67,9 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
 
       // Test error fallback
       expressionMock.mockRejectedValueOnce(new Error('Expression fail'));
-      await expect(defaultGesture2D(skinEngine, 'happy')).resolves.not.toThrow();
+      await expect(
+        defaultGesture2D(skinEngine, 'happy')
+      ).resolves.not.toThrow();
 
       // Null skinEngine or invalid emotion
       await defaultGesture2D(null as unknown as SkinEngine, 'happy');
@@ -92,8 +91,18 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
       } = {
         fitMode: FIT_MODE_MAP.FULL,
         skin2d: {
-          full: { zoom: 1.2, offsetX: 10, offsetY: 20, anchor: { x: 0.5, y: 0.9 } },
-          half: { zoom: 2.0, offsetX: 0, offsetY: 50, anchor: { x: 0.5, y: 1.0 } }
+          full: {
+            zoom: 1.2,
+            offsetX: 10,
+            offsetY: 20,
+            anchor: { x: 0.5, y: 0.9 }
+          },
+          half: {
+            zoom: 2.0,
+            offsetX: 0,
+            offsetY: 50,
+            anchor: { x: 0.5, y: 1.0 }
+          }
         }
       };
       const subscribers: Array<() => void> = [];
@@ -112,10 +121,15 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
       };
       const skinEngine = skinEngineMock as unknown as SkinEngine & {
         avatarModel: { internalModel: { coreModel: Record<string, unknown> } };
-        subscribe: { mock: { calls: Array<[((s: unknown) => unknown), () => void]> } };
+        subscribe: {
+          mock: { calls: Array<[(s: unknown) => unknown, () => void]> };
+        };
       };
 
-      const renderer = (await bootAvatar(skinEngine, 'model.json')) as Renderer2D;
+      const renderer = (await bootAvatar(
+        skinEngine,
+        'model.json'
+      )) as Renderer2D;
       expect(renderer).toBeDefined();
       expect(renderer.canvas).toBeDefined();
       expect(renderer.avatarModel).toBeDefined();
@@ -134,7 +148,9 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
       await Promise.resolve();
 
       // Trigger mouth compute error handling
-      skinEngineMock.computeMouth = vi.fn().mockRejectedValueOnce(new Error('Mouth compute fail'));
+      skinEngineMock.computeMouth = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('Mouth compute fail'));
       core.update();
       await Promise.resolve();
 
@@ -160,7 +176,9 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
 
       // Update transform
       renderer.updateTransform({ full: { zoom: 1.5 } });
-      expect(skinEngineMock.setSkin2d).toHaveBeenCalledWith({ full: { zoom: 1.5 } });
+      expect(skinEngineMock.setSkin2d).toHaveBeenCalledWith({
+        full: { zoom: 1.5 }
+      });
 
       // Dispose and ensure fit() gracefully early returns
       renderer.dispose();
@@ -236,7 +254,10 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
       renderer2D.fit();
       expect(renderer2D.fit).toHaveBeenCalledOnce();
 
-      renderer2D.updateTransform({ zoom: 2.0, fitMode: FIT_MODE_MAP.HALF } as unknown as Record<string, unknown>);
+      renderer2D.updateTransform({
+        zoom: 2.0,
+        fitMode: FIT_MODE_MAP.HALF
+      } as unknown as Record<string, unknown>);
       expect(renderer2D.updateTransform).toHaveBeenCalledWith({
         zoom: 2.0,
         fitMode: FIT_MODE_MAP.HALF
@@ -275,7 +296,9 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
       expect(renderer3D.setPaused).toHaveBeenCalledWith(true);
 
       renderer3D.updateTransform({ camera: { fov: 40 } });
-      expect(renderer3D.updateTransform).toHaveBeenCalledWith({ camera: { fov: 40 } });
+      expect(renderer3D.updateTransform).toHaveBeenCalledWith({
+        camera: { fov: 40 }
+      });
     });
 
     it('should cleanup scene, mixer, and canvas on dispose', () => {
@@ -285,6 +308,29 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
 
       renderer3D.dispose();
       expect(renderer3D.dispose).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('Type Guards: isRenderer2D & isRenderer3D', () => {
+    it('should correctly differentiate between 2D, 3D renderers, null, and primitives', () => {
+      const renderer2D = createMockRenderer2D();
+      const renderer3D = createMockRenderer3D();
+
+      expect(isRenderer2D(renderer2D)).toBe(true);
+      expect(isRenderer2D(renderer3D)).toBe(false);
+      expect(isRenderer2D(null)).toBe(false);
+      expect(isRenderer2D(undefined)).toBe(false);
+      expect(isRenderer2D('invalid')).toBe(false);
+      expect(isRenderer2D(123)).toBe(false);
+      expect(isRenderer2D({})).toBe(false);
+
+      expect(isRenderer3D(renderer3D)).toBe(true);
+      expect(isRenderer3D(renderer2D)).toBe(false);
+      expect(isRenderer3D(null)).toBe(false);
+      expect(isRenderer3D(undefined)).toBe(false);
+      expect(isRenderer3D('invalid')).toBe(false);
+      expect(isRenderer3D(123)).toBe(false);
+      expect(isRenderer3D({})).toBe(false);
     });
   });
 });

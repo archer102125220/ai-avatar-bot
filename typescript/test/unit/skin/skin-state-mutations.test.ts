@@ -26,7 +26,10 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
 
   describe('setGender', () => {
     it('should update gender state and synchronize 2D and 3D default model assets', () => {
-      const engine: SkinEngine = initSkinEngine({ stageEl, gender: GENDER_MAP.female }) as SkinEngine;
+      const engine: SkinEngine = initSkinEngine({
+        stageEl,
+        gender: GENDER_MAP.female
+      }) as SkinEngine;
       expect(engine.modelUrl).toBe(DEFAULT_FEMALE_2D_MODEL_URL);
       expect(engine.vrmUrl).toBe(DEFAULT_FEMALE_3D_MODEL_URL);
 
@@ -39,7 +42,10 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
 
   describe('setFitMode', () => {
     it('should update fitMode in state store when valid FIT_MODE is provided', () => {
-      const engine: SkinEngine = initSkinEngine({ stageEl, fitMode: FIT_MODE_MAP.HALF }) as SkinEngine;
+      const engine: SkinEngine = initSkinEngine({
+        stageEl,
+        fitMode: FIT_MODE_MAP.HALF
+      }) as SkinEngine;
       expect(engine.fitMode).toBe(FIT_MODE_MAP.HALF);
 
       engine.setFitMode(FIT_MODE_MAP.FULL);
@@ -141,32 +147,55 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
       expect(computeMouthMock).toHaveBeenCalledWith(engine);
     });
 
-    it('should handle switching, lipIds, startMode, fitMode setters and edge branches', () => {
-      const engine: any = initSkinEngine({ stageEl });
+    it('should handle switching, lipIds, startMode, fitMode, vrmUrl, engineMode setters and edge branches', () => {
+      const engine: SkinEngine = initSkinEngine({ stageEl }) as SkinEngine;
 
       expect(typeof engine.switching).toBe('boolean');
       engine.switching = true;
       expect(engine.switching).toBe(true);
       engine.switching = false;
       expect(engine.switching).toBe(false);
-      engine.switching = 'invalid';
+      // 非 boolean / 非 null 應被忽略
+      (engine as unknown as { switching: unknown }).switching = 'invalid';
       expect(engine.switching).toBe(false);
+      engine.switching = null;
+      expect(engine.switching).toBeNull();
 
       expect(engine.lipIds).toEqual(['ParamMouthOpenY']);
       engine.lipIds = ['ParamA', 'ParamI'];
       expect(engine.lipIds).toEqual(['ParamA', 'ParamI']);
-      engine.lipIds = null;
+      // 非陣列且非 null 應被忽略
+      (engine as unknown as { lipIds: unknown }).lipIds = 'invalid';
+      expect(engine.lipIds).toEqual(['ParamA', 'ParamI']);
+      engine.lipIds = null as unknown as string[];
       expect(engine.lipIds).toBeNull();
 
       expect(engine.startMode).toBe('2d');
       engine.startMode = '3d';
       expect(engine.startMode).toBe('3d');
+      // 空字串或非字串應被忽略
       engine.startMode = '';
       expect(engine.startMode).toBe('3d');
+      (engine as unknown as { startMode: unknown }).startMode = 123;
+      expect(engine.startMode).toBe('3d');
+
+      // vrmUrl setter
+      const prevVrm = engine.vrmUrl;
+      engine.vrmUrl = '';
+      expect(engine.vrmUrl).toBe(prevVrm);
+      (engine as unknown as { vrmUrl: unknown }).vrmUrl = 123;
+      expect(engine.vrmUrl).toBe(prevVrm);
+      engine.vrmUrl = 'https://example.com/custom.vrm';
+      expect(engine.vrmUrl).toBe('https://example.com/custom.vrm');
+
+      // engineMode setter guard (空字串應被忽略)
+      const currentMode = engine.engineMode;
+      engine.engineMode = '' as unknown as null;
+      expect(engine.engineMode).toBe(currentMode);
 
       engine.fitMode = FIT_MODE_MAP.HALF;
       expect(engine.fitMode).toBe(FIT_MODE_MAP.HALF);
-      engine.fitMode = 'unknown_fit';
+      engine.fitMode = 'unknown_fit' as unknown as typeof FIT_MODE_MAP.FULL;
       expect(engine.fitMode).toBe(FIT_MODE_MAP.FULL); // DEFAULT_FIT_MODE is full
     });
 
@@ -174,18 +203,20 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
       const VRMFileChangeFail = vi.fn();
       const VRMFileChangeSuccess = vi.fn();
 
-      const engine: any = initSkinEngine({
+      const engine: SkinEngine = initSkinEngine({
         stageEl,
         VRMFileChangeFail,
         VRMFileChangeSuccess
-      });
+      }) as SkinEngine;
 
       const mockError = new Error('VRM file invalid');
-      engine.VRMFileChangeFail(mockError);
+      engine.VRMFileChangeFail?.(mockError);
       expect(VRMFileChangeFail).toHaveBeenCalledWith(mockError);
 
-      engine.VRMFileChangeSuccess('blob:http://localhost/new_vrm');
-      expect(VRMFileChangeSuccess).toHaveBeenCalledWith('blob:http://localhost/new_vrm');
+      engine.VRMFileChangeSuccess?.('blob:http://localhost/new_vrm');
+      expect(VRMFileChangeSuccess).toHaveBeenCalledWith(
+        'blob:http://localhost/new_vrm'
+      );
 
       // Test emo.name branches
       expect(engine.emo.name).toBe('neutral');
@@ -206,6 +237,10 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
       engine.emo.name = 'neutral';
       expect(engine.emo.name).toBe('neutral');
       expect(engine.emo.target).toBe(0);
+
+      // 5. fallback to 'neutral' when _name is empty
+      (engine.emo as unknown as { _name: string })._name = '';
+      expect(engine.emo.name).toBe('neutral');
     });
   });
 });

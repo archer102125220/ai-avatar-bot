@@ -23,10 +23,12 @@ describe('Unit Test: core/brain/knowledge.js', () => {
 
   describe('fetchKnowledge', () => {
     it('should fetch and parse JSON knowledge base from URL', async () => {
-      const mockKnowledge: KnowledgeEntry[] = [{ q: '這是什麼', a: 'AI 語音虛擬人' }];
+      const mockKnowledge: KnowledgeEntry[] = [
+        { q: '這是什麼', a: 'AI 語音虛擬人' }
+      ];
       global.fetch = vi.fn().mockResolvedValue({
         json: async () => mockKnowledge
-      } as any);
+      } as unknown as Response);
 
       const result = await fetchKnowledge('https://example.com/kb.json');
       expect(result).toEqual(mockKnowledge);
@@ -41,14 +43,14 @@ describe('Unit Test: core/brain/knowledge.js', () => {
       expect(emptyResult).toEqual([]);
 
       // Test response without json function
-      global.fetch = vi.fn().mockResolvedValue([] as any);
+      global.fetch = vi.fn().mockResolvedValue([] as unknown as Response);
       const noJsonResult = await fetchKnowledge('https://nojson.url');
       expect(noJsonResult).toEqual([]);
 
       // Test response.json() returning non-array
       global.fetch = vi.fn().mockResolvedValue({
         json: async () => ({ not: 'array' })
-      } as any);
+      } as unknown as Response);
       const nonArrayResult = await fetchKnowledge('https://nonarray.url');
       expect(nonArrayResult).toEqual([]);
     });
@@ -62,13 +64,18 @@ describe('Unit Test: core/brain/knowledge.js', () => {
       // Single character normalized text
       expect(getBigrams('A')).toEqual(['a']);
       expect(getBigrams('')).toEqual([]);
-      // @ts-ignore: Defensive runtime type checking test
-      expect(getBigrams(null)).toEqual([]);
+      expect(getBigrams(null as unknown as string)).toEqual([]);
     });
 
     it('should calculate similarity between query and target string', () => {
-      const scoreHigh = calculateKnowledgeSimilarity('語音虛擬人', '語音虛擬人元件');
-      const scoreLow = calculateKnowledgeSimilarity('語音虛擬人', '今天吃什麼晚餐');
+      const scoreHigh = calculateKnowledgeSimilarity(
+        '語音虛擬人',
+        '語音虛擬人元件'
+      );
+      const scoreLow = calculateKnowledgeSimilarity(
+        '語音虛擬人',
+        '今天吃什麼晚餐'
+      );
 
       expect(scoreHigh).toBeGreaterThan(0.5);
       expect(scoreLow).toBe(0);
@@ -81,7 +88,11 @@ describe('Unit Test: core/brain/knowledge.js', () => {
 
   describe('scoreKnowledgeEntry & findBestMatch', () => {
     const knowledgeList: KnowledgeEntry[] = [
-      { q: '怎麼安裝到專案？', kw: '安裝 引入 install npm', a: '使用 yarn add @avatar/sdk' },
+      {
+        q: '怎麼安裝到專案？',
+        kw: '安裝 引入 install npm',
+        a: '使用 yarn add @avatar/sdk'
+      },
       { q: '支援 3D 嗎？', kw: '3D VRM 模型', a: '支援 Live2D 與 VRM 3D 模型' }
     ];
 
@@ -91,7 +102,10 @@ describe('Unit Test: core/brain/knowledge.js', () => {
     });
 
     it('should find best matching entry for user question', () => {
-      const { entry, score } = findBestMatch(knowledgeList, '你們有支援 3D VRM 嗎？');
+      const { entry, score } = findBestMatch(
+        knowledgeList,
+        '你們有支援 3D VRM 嗎？'
+      );
       expect(entry).toBe(knowledgeList[1]);
       expect(score).toBeGreaterThan(0.3);
     });
@@ -106,44 +120,81 @@ describe('Unit Test: core/brain/knowledge.js', () => {
       ];
 
       const brainEngine = { knowledge };
-      const top = getTopKnowledge(brainEngine as any, '我想吃蘋果', 2);
+      const top = getTopKnowledge(
+        brainEngine as unknown as Parameters<typeof getTopKnowledge>[0],
+        '我想吃蘋果',
+        2
+      );
 
       expect(top.length).toBe(2);
       expect(top.some((item) => item.a === '蘋果是水果')).toBe(true);
 
       // Null brainEngine guard
-      // @ts-ignore: Defensive runtime type checking test
-      expect(getTopKnowledge(null, '蘋果', 2)).toEqual([]);
+      expect(
+        getTopKnowledge(
+          null as unknown as Parameters<typeof getTopKnowledge>[0],
+          '蘋果',
+          2
+        )
+      ).toEqual([]);
     });
 
     it('should score knowledge entry with message array question and handle null findBestMatch', () => {
-      const entry: KnowledgeEntry = { q: '如何安裝', kw: '安裝 install', a: '' };
+      const entry: KnowledgeEntry = {
+        q: '如何安裝',
+        kw: '安裝 install',
+        a: ''
+      };
 
       // Array question format with items and empty array
-      // @ts-ignore: Testing message array input format
-      const scoreArr = scoreKnowledgeEntry([{ role: 'user', content: '請教如何安裝' }], entry);
+      const scoreArr = scoreKnowledgeEntry(
+        [{ content: '請教如何安裝' }],
+        entry
+      );
       expect(scoreArr).toBeGreaterThan(0.3);
 
-      // @ts-ignore: Testing empty message array input format
       const scoreEmptyArr = scoreKnowledgeEntry([], entry);
       expect(scoreEmptyArr).toBe(0);
 
+      // Question with empty content in array
+      const scoreEmptyContent = scoreKnowledgeEntry([{ content: '' }], entry);
+      expect(scoreEmptyContent).toBe(0);
+
+      // Non-string / null question fallback
+      const scoreNullQuestion = scoreKnowledgeEntry(
+        null as unknown as string,
+        entry
+      );
+      expect(scoreNullQuestion).toBe(0);
+
+      const scoreUndefinedQuestion = scoreKnowledgeEntry(
+        undefined as unknown as string,
+        entry
+      );
+      expect(scoreUndefinedQuestion).toBe(0);
+
       // Non-string entry properties
-      const nonStringEntry = { q: 12345, kw: null };
-      // @ts-ignore: Defensive runtime type checking test
-      const scoreNonString = scoreKnowledgeEntry(12345, nonStringEntry);
+      const nonStringEntry = {
+        q: 12345,
+        kw: null
+      } as unknown as KnowledgeEntry;
+      const scoreNonString = scoreKnowledgeEntry(
+        12345 as unknown as string,
+        nonStringEntry
+      );
       expect(scoreNonString).toBeGreaterThanOrEqual(0);
 
       // Entry with null q and kw
-      const emptyEntry = {};
-      // @ts-ignore: Defensive runtime type checking test
+      const emptyEntry = {} as unknown as KnowledgeEntry;
       expect(scoreKnowledgeEntry('測試', emptyEntry)).toBe(0);
 
       // findBestMatch with null or undefined
-      // @ts-ignore: Defensive runtime type checking test
-      expect(findBestMatch(null, '查詢')).toEqual({ entry: null, score: 0 });
-      // @ts-ignore: Defensive runtime type checking test
-      expect(findBestMatch(undefined, '查詢')).toEqual({ entry: null, score: 0 });
+      expect(
+        findBestMatch(null as unknown as KnowledgeEntry[], '查詢')
+      ).toEqual({ entry: null, score: 0 });
+      expect(
+        findBestMatch(undefined as unknown as KnowledgeEntry[], '查詢')
+      ).toEqual({ entry: null, score: 0 });
     });
   });
 });
