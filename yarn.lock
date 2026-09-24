@@ -4239,6 +4239,7 @@ __metadata:
     "@mlc-ai/web-llm": "npm:^0.2.84"
     "@pixiv/three-vrm": "npm:^3.5.4"
     "@pixiv/three-vrm-animation": "npm:^3.5.4"
+    "@playwright/test": "npm:^1.63.0"
     "@types/node": "npm:^20.0.0"
     "@types/three": "npm:^0.186.0"
     "@vitest/coverage-v8": "npm:^5.0.0"

@@ -82,3 +82,13 @@ npm run test:smoke
 # 6. Launch Playwright interactive UI debugger
 npm run test:e2e:ui
 ```
+
+### Isolated HTML Report Viewer
+
+| Test Track | Output Directory | Command |
+| :--- | :--- | :--- |
+| **Full Dual-Track Report** | `playwright-report/all` | `npm run test:e2e:report` |
+| **Track A Contract Report** | `playwright-report/contract` | `npm run test:e2e:report:contract` |
+| **Track B Engine Report** | `playwright-report/engine` | `npm run test:e2e:report:engine` |
+| **Bundle Smoke Report** | `playwright-report/smoke` | `npm run test:e2e:report:smoke` |
+

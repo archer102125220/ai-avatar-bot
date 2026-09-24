@@ -22,6 +22,7 @@
     "test:ts:benchmark": "yarn workspace ai-avatar-bot-typescript test:benchmark",
     "test:ts:watch": "yarn workspace ai-avatar-bot-typescript test:unit:watch",
     "test:ts:ui": "yarn workspace ai-avatar-bot-typescript test:unit:ui",
+    "test:ts:report": "yarn workspace ai-avatar-bot-typescript test:unit:report",
     "test:ts:coverage": "yarn workspace ai-avatar-bot-typescript test:unit:coverage",
     "test:ts:e2e": "yarn workspace ai-avatar-bot-typescript test:e2e",
     "test:ts:e2e:contract": "yarn workspace ai-avatar-bot-typescript test:e2e:contract",

@@ -79,3 +79,13 @@ npm run test:smoke
 # 6. 啟動 Playwright UI 視覺化互動除錯視窗
 npm run test:e2e:ui
 ```
+
+### 檢視 HTML 測試報告
+
+| 軌道 | 報告存放路徑 | 開啟指令 |
+| :--- | :--- | :--- |
+| **完整雙軌報告** | `playwright-report/all` | `npm run test:e2e:report` |
+| **軌道 A 合約報告** | `playwright-report/contract` | `npm run test:e2e:report:contract` |
+| **軌道 B 引擎報告** | `playwright-report/engine` | `npm run test:e2e:report:engine` |
+| **打包產物冒煙報告** | `playwright-report/smoke` | `npm run test:e2e:report:smoke` |
+

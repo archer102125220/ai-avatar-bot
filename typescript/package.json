@@ -21,6 +21,7 @@
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "test:unit:ui": "vitest --ui",
+    "test:unit:report": "vitest run --reporter=html",
     "test:unit:coverage": "vitest run --coverage",
     "test:benchmark": "vitest run test/unit",
     "test:typecheck": "tsc --noEmit --project tsconfig.test.json",
