@@ -24,6 +24,15 @@
     "test:unit:coverage": "vitest run --coverage",
     "test:benchmark": "vitest run test/unit",
     "test:typecheck": "tsc --noEmit --project tsconfig.test.json",
+    "test:e2e": "PLAYWRIGHT_HTML_REPORT_DIR=playwright-report/all playwright test",
+    "test:e2e:contract": "PLAYWRIGHT_HTML_REPORT_DIR=playwright-report/contract playwright test --project=contract",
+    "test:e2e:engine": "PLAYWRIGHT_HTML_REPORT_DIR=playwright-report/engine playwright test --project=engine",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report playwright-report/all",
+    "test:e2e:report:contract": "playwright show-report playwright-report/contract",
+    "test:e2e:report:engine": "playwright show-report playwright-report/engine",
+    "test:smoke": "yarn build && PLAYWRIGHT_HTML_REPORT_DIR=playwright-report/smoke playwright test test/e2e/specs/engine/dist-smoke.spec.ts",
+    "test:e2e:report:smoke": "playwright show-report playwright-report/smoke",
     "lint": "eslint core/",
     "lint:fix": "eslint core/ --fix"
   },
@@ -36,6 +45,7 @@
     "three": "^0.180.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^20.0.0",
     "@types/three": "^0.186.0",
     "@vitest/coverage-v8": "^5.0.0",

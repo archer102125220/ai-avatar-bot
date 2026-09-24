@@ -23,6 +23,10 @@
     "test:ts:watch": "yarn workspace ai-avatar-bot-typescript test:unit:watch",
     "test:ts:ui": "yarn workspace ai-avatar-bot-typescript test:unit:ui",
     "test:ts:coverage": "yarn workspace ai-avatar-bot-typescript test:unit:coverage",
+    "test:ts:e2e": "yarn workspace ai-avatar-bot-typescript test:e2e",
+    "test:ts:e2e:contract": "yarn workspace ai-avatar-bot-typescript test:e2e:contract",
+    "test:ts:e2e:engine": "yarn workspace ai-avatar-bot-typescript test:e2e:engine",
+    "test:ts:smoke": "yarn workspace ai-avatar-bot-typescript test:smoke",
     "typecheck:ts": "yarn workspace ai-avatar-bot-typescript test:typecheck",
     "lint:ts": "yarn workspace ai-avatar-bot-typescript lint",
     "test": "npm run test:unit --workspaces --if-present"
