@@ -10,10 +10,12 @@
   "types": "./dist/core/main.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/core/main.d.ts",
       "import": "./dist/ai-avatar-bot.js",
-      "require": "./dist/ai-avatar-bot.umd.cjs",
-      "types": "./dist/core/main.d.ts"
-    }
+      "require": "./dist/ai-avatar-bot.umd.cjs"
+    },
+    "./style.css": "./dist/ai-avatar-bot.css",
+    "./dist/*": "./dist/*"
   },
   "scripts": {
     "dev": "vite",

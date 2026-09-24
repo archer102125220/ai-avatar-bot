@@ -1,5 +1,6 @@
 import type { ToolDefinition, ToolRouteCandidate } from '@/core/tools';
 import type { I18nEngine } from '@/core/i18n';
+import type { CompressionStrategy } from '@/core/constants';
 import type {
   AvatarMode,
   PendingToolState,
@@ -9,7 +10,11 @@ import type {
   ToolNotFoundErrorInfo,
   ToolErrorInfo,
   LlmLoadProgressInfo,
-  ChatRole
+  ChatRole,
+  AutoContinueMode,
+  Gender,
+  DynamicTextOrResolver,
+  AutoContinuePromptResolver
 } from '@/core/types';
 
 export type {
@@ -20,7 +25,11 @@ export type {
   AutoContinueEndInfo,
   ToolNotFoundErrorInfo,
   ToolErrorInfo,
-  LlmLoadProgressInfo
+  LlmLoadProgressInfo,
+  AutoContinueMode,
+  Gender,
+  DynamicTextOrResolver,
+  AutoContinuePromptResolver
 };
 
 /**
@@ -133,11 +142,11 @@ export interface KnowledgeEntry {
  * LLM chat message structure used in inference calls.
  */
 export interface LLMMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool' | (string & {});
+  role: ChatRole;
   content: string | unknown;
   name?: string;
   tool_call_id?: string;
-  tool_calls?: unknown[];
+  tool_calls?: ParsedToolCall[] | unknown[];
   [key: string]: unknown;
 }
 
@@ -146,7 +155,7 @@ export interface LLMMessage {
  */
 export interface BrainCompressionOptions {
   /** Compression strategy ('sliding-window' | 'rolling-summary' | 'none'). */
-  strategy?: 'sliding-window' | 'rolling-summary' | 'none' | string;
+  strategy?: CompressionStrategy;
   /** Global maximum history turns. */
   maxTurns?: number;
   /** Global maximum character budget. */
@@ -325,7 +334,7 @@ export interface AiProviderOptions {
 }
 
 export interface AiProviderChatResult {
-  type?: 'text' | 'tool_calls' | string;
+  type?: 'text' | 'tool_calls' | (string & {});
   content?: string;
   finishReason?: string;
   toolCalls?: ParsedToolCall[] | null;
@@ -485,12 +494,12 @@ export interface BrainEngineOptions {
   ragTemplate?: string | ((...args: unknown[]) => string);
   customContext?: Record<string, unknown> | null;
   languageRule?: string | ((...args: unknown[]) => string);
-  gender?: string;
+  gender?: Gender;
   genderRule?: string | ((...args: unknown[]) => string);
   enableAutoContinue?: boolean;
   maxAutoContinuations?: number;
-  autoContinueMode?: 'stream' | 'buffered' | string;
-  autoContinuePrompt?: string | ((...args: unknown[]) => string) | null;
+  autoContinueMode?: AutoContinueMode;
+  autoContinuePrompt?: AutoContinuePromptResolver | null;
   onBrainFallback?: (
     fromEngine: string,
     toEngine: string,
@@ -523,8 +532,8 @@ export interface BrainEngine {
   autoFallbackWebLLM: boolean;
   enableAutoContinue: boolean;
   maxAutoContinuations: number;
-  autoContinueMode: 'stream' | 'buffered' | string;
-  autoContinuePrompt: string | ((...args: unknown[]) => string) | null;
+  autoContinueMode: AutoContinueMode;
+  autoContinuePrompt: AutoContinuePromptResolver | null;
   _isSummarizing?: boolean;
   knowledgeUrl?: string;
   knowledge: KnowledgeEntry[];
@@ -650,8 +659,8 @@ export interface BrainEngine {
   updateChatMessage(id: string, text: string, streaming?: boolean): string;
   locale: string;
   setLocale(locale: string): void;
-  gender?: string;
-  setGender(gender: string): void;
+  gender?: Gender;
+  setGender(gender: Gender): void;
   systemContextTemplate?: string | ((...args: unknown[]) => string);
   companionSystemContextTemplate?: string | ((...args: unknown[]) => string);
   ragTemplate?: string | ((...args: unknown[]) => string);

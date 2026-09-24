@@ -56,7 +56,8 @@ export const COMPRESSION_STRATEGY_MAP = {
 } as const;
 
 export type CompressionStrategy =
-  (typeof COMPRESSION_STRATEGY_MAP)[keyof typeof COMPRESSION_STRATEGY_MAP];
+  | (typeof COMPRESSION_STRATEGY_MAP)[keyof typeof COMPRESSION_STRATEGY_MAP]
+  | (string & {});
 
 /**
  * Default conversation context compression strategy.

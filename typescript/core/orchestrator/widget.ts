@@ -29,6 +29,7 @@ import type {
   AvatarBotStore,
   AutoContinueMode
 } from './types';
+import type { AutoContinuePromptResolver } from '@/core/types';
 
 export interface CreateAvatarWidgetParams {
   options: AvatarBotOptions;
@@ -439,7 +440,7 @@ export function createAvatarWidget({
       }
     },
 
-    get autoContinuePrompt(): string | ((...args: unknown[]) => string) | null {
+    get autoContinuePrompt(): AutoContinuePromptResolver | null {
       const brain = getEngines().brainEngine;
       return (
         brain?.autoContinuePrompt ??
@@ -448,7 +449,7 @@ export function createAvatarWidget({
       );
     },
     set autoContinuePrompt(
-      newPrompt: string | ((...args: unknown[]) => string) | null
+      newPrompt: AutoContinuePromptResolver | null
     ) {
       if (
         typeof newPrompt === 'string' ||

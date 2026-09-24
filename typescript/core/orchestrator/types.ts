@@ -5,7 +5,9 @@ import type {
   MemoryAdapter,
   MemoryData,
   BrainCompressionOptions,
-  LLMMessage
+  LLMMessage,
+  ChatLogItem,
+  ParsedToolCall
 } from '@/core/brain';
 import type {
   SpeechEngine,
@@ -21,7 +23,9 @@ import type {
   Skin2DConfig,
   Skin3DConfig,
   Skin3DCameraConfig,
-  Skin3DModelConfig
+  Skin3DModelConfig,
+  Renderer2D,
+  Renderer3D
 } from '@/core/skin';
 import type {
   ToolsEngine,
@@ -30,15 +34,17 @@ import type {
 } from '@/core/tools';
 import type { UiDom, UiContext } from '@/core/ui';
 import type { BaseStore } from '@/core/store';
-import type { I18nEngine } from '@/core/i18n';
+import type { I18nEngine, I18nEngineOptions } from '@/core/i18n';
 import type {
   AvatarMode,
   Gender,
   FitMode,
   EngineMode,
   AutoContinueMode,
+  ChatRole,
   LocalizableOrResolver,
   DynamicTextOrResolver,
+  AutoContinuePromptResolver,
   AutoContinueStartInfo,
   AutoContinueResumeInfo,
   AutoContinueEndInfo,
@@ -69,15 +75,15 @@ export type GetEnginesFn = () => OrchestratorEngines;
 export interface CustomEnginesConfig {
   skin?:
     | SkinEngine
-    | ((options: unknown) => Promise<SkinEngine> | SkinEngine)
+    | ((options: SkinEngineOptions) => Promise<SkinEngine> | SkinEngine)
     | null;
   tools?:
     | ToolsEngine
-    | ((options: unknown) => Promise<ToolsEngine> | ToolsEngine)
+    | ((options: ToolsEngineSetting) => Promise<ToolsEngine> | ToolsEngine)
     | null;
   brain?:
     | BrainEngine
-    | ((options: unknown) => Promise<BrainEngine> | BrainEngine)
+    | ((options: BrainEngineOptions) => Promise<BrainEngine> | BrainEngine)
     | null;
   stt?:
     | STTEngine
@@ -87,7 +93,10 @@ export interface CustomEnginesConfig {
     | TTSEngine
     | ((options: TTSEngineOptions) => Promise<TTSEngine> | TTSEngine)
     | null;
-  i18n?: I18nEngine | null | unknown;
+  i18n?:
+    | I18nEngine
+    | ((options: I18nEngineOptions) => Promise<I18nEngine> | I18nEngine)
+    | null;
 }
 
 /**
@@ -151,7 +160,7 @@ export interface AvatarBotOptions {
   /** Auto-continuation delivery mode ('stream' | 'buffered'). */
   autoContinueMode?: AutoContinueMode;
   /** Custom auto-continuation prompt string or generator function. */
-  autoContinuePrompt?: DynamicTextOrResolver | null;
+  autoContinuePrompt?: AutoContinuePromptResolver | null;
   /** Avatar persona mode ('assistant' | 'companion' | custom). */
   avatarMode?: AvatarMode;
   /** Whether to enable multi-turn persistent conversation memory. */
@@ -293,11 +302,11 @@ export interface AvatarBotOptions {
   /** Callback fired when AI Provider connects successfully. */
   onAiProviderConnected?: (...args: unknown[]) => void;
   /** Callback fired when a new chat message is added. */
-  onAddChatMessage?: (role: string, text: string, ...args: unknown[]) => void;
+  onAddChatMessage?: (role: ChatRole, text: string, ...args: unknown[]) => void;
   /** Callback fired when an existing chat message is updated. */
   onUpdateChatMessage?: (id: string, text: string, ...args: unknown[]) => void;
   /** Callback fired when conversation history changes. */
-  onChatHistoryChanged?: (history: unknown[], ...args: unknown[]) => void;
+  onChatHistoryChanged?: (history: ChatLogItem[], ...args: unknown[]) => void;
   /** Callback fired when spoken subtitle text changes. */
   onSpokenDisplayTextChange?: (text: string, ...args: unknown[]) => void;
   /** Callback fired when spoken subtitle times out. */
@@ -305,7 +314,13 @@ export interface AvatarBotOptions {
   /** Callback fired when microphone state changes. */
   onMicStateChanged?: (isListening: boolean, ...args: unknown[]) => void;
   /** Callback fired when voice status changes. */
-  onVoiceStatusChanged?: (status: unknown, ...args: unknown[]) => void;
+  onVoiceStatusChanged?: (
+    convoOn: boolean,
+    text?: string,
+    state?: string,
+    level?: number,
+    ...args: unknown[]
+  ) => void;
   /** Callback fired when language changes. */
   onLanguageChanged?: (locale: string, ...args: unknown[]) => void;
   /** Callback fired when speech synthesis starts speaking. */
@@ -332,7 +347,10 @@ export interface AvatarBotOptions {
     ...args: unknown[]
   ) => void;
   /** Callback fired when a tool call is executed. */
-  onToolCall?: (toolCall: unknown, ...args: unknown[]) => void;
+  onToolCall?: (
+    toolCall: ParsedToolCall | Record<string, unknown>,
+    ...args: unknown[]
+  ) => void;
   /** Callback fired when AI requests an unregistered tool. */
   onToolNotFound?: (info: ToolNotFoundErrorInfo, widget: AiAvatarWidget, ...args: unknown[]) => unknown;
   /** Callback fired when a tool execution fails. */
@@ -352,9 +370,13 @@ export interface AvatarBotOptions {
   /** Callback fired on VRM file change success. */
   VRMFileChangeSuccess?: (vrmUrl?: string, ...args: unknown[]) => void;
   /** Callback fired when 2D/3D model mode change starts. */
-  onModelChangeStart?: (newMode: string, ...args: unknown[]) => void;
+  onModelChangeStart?: (newMode: EngineMode, ...args: unknown[]) => void;
   /** Callback fired when 2D/3D model mode change ends. */
-  onModelChangeEnd?: (renderer: unknown, newMode: string, ...args: unknown[]) => void;
+  onModelChangeEnd?: (
+    renderer: Renderer2D | Renderer3D | null,
+    newMode: EngineMode,
+    ...args: unknown[]
+  ) => void;
 }
 
 /**
@@ -382,7 +404,7 @@ export interface AiAvatarWidget {
   enableAutoContinue: boolean;
   maxAutoContinuations: number;
   autoContinueMode: AutoContinueMode;
-  autoContinuePrompt: string | ((...args: unknown[]) => string) | null;
+  autoContinuePrompt: AutoContinuePromptResolver | null;
   enableModelDrop: boolean;
   enableEngineToggle: boolean;
   /** Mounted root HTML container. */
@@ -461,7 +483,7 @@ export interface AvatarBotStoreState {
   enableAutoContinue: boolean;
   maxAutoContinuations: number;
   autoContinueMode: AutoContinueMode;
-  autoContinuePrompt: string | ((...args: unknown[]) => string) | null;
+  autoContinuePrompt: AutoContinuePromptResolver | null;
   modes: Record<string, unknown>;
   locale: string;
   enableModelDrop: boolean;

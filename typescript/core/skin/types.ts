@@ -153,7 +153,7 @@ export interface Renderer2D {
   /** Canvas element used for rendering. */
   readonly canvas: HTMLCanvasElement;
   /** Live2D model instance. */
-  readonly avatarModel: unknown;
+  readonly avatarModel: Live2DModelInstance | null | unknown;
   /** PIXI Application instance. */
   readonly pixiApp: unknown;
   /** Re-calculates and applies fitting transform. */
@@ -181,7 +181,7 @@ export interface Renderer3D {
   /** THREE.Scene instance. */
   readonly scene: unknown;
   /** Plays a named 3D gesture animation (e.g. 'wave', 'bow'). */
-  readonly playGesture?: (gestureName: string) => void;
+  readonly playGesture?: (gestureName: string) => void | Promise<void>;
   /** Pauses or resumes animation rendering loop. */
   setPaused(isPaused: boolean): void;
   /** Updates 3D visual transformation configuration. */
@@ -236,14 +236,14 @@ export type SkinGestureErrorCallback = (
 /**
  * Callback fired when engine mode switch starts or updates.
  */
-export type SkinModelChangeStartCallback = (mode: string) => void;
+export type SkinModelChangeStartCallback = (mode: EngineMode) => void;
 
 /**
  * Callback fired when engine mode switch finishes.
  */
 export type SkinModelChangeEndCallback = (
   renderer?: Renderer2D | Renderer3D | null,
-  mode?: string
+  mode?: EngineMode
 ) => void;
 
 /**

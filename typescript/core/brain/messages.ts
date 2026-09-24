@@ -238,8 +238,13 @@ export function resolveAutoContinuePrompt(
 
   const customPrompt = engine?.autoContinuePrompt;
   if (typeof customPrompt === 'function') {
-    const result = customPrompt(
-      brainEngine as BrainEngine,
+    const fn = customPrompt as (
+      brain: unknown,
+      index?: number,
+      accum?: string
+    ) => unknown;
+    const result = fn(
+      brainEngine,
       continuationIndex,
       accumulatedText
     );
@@ -250,8 +255,10 @@ export function resolveAutoContinuePrompt(
     return customPrompt;
   }
 
-  const resolvedPrompt = resolveLocalized(
-    (brainEngine as Partial<BrainEngine>)?.autoContinuePrompt,
+  const resolvedPrompt = resolveLocalized<string>(
+    typeof customPrompt === 'object' && customPrompt !== null
+      ? (customPrompt as Record<string, string>)
+      : undefined,
     locale,
     defaultPrompt,
     { continuationIndex, accumulatedText, locale }

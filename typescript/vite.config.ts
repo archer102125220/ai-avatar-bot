@@ -25,6 +25,11 @@ export default defineConfig({
       entry: resolve(import.meta.dirname, 'core/main.ts'),
       name: 'AiAvatarBot',
       fileName: 'ai-avatar-bot'
+    },
+    rollupOptions: {
+      output: {
+        exports: 'named'
+      }
     }
   }
 });

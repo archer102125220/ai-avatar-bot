@@ -8,22 +8,7 @@ import type { ToolDefinition } from '@/core/tools/types';
 /**
  * Standard reactive store interface for all bot sub-engines.
  */
-export interface SubscribableStore<T extends object> {
-  /**
-   * Retrieves the current snapshot of the engine state.
-   */
-  getState(): T;
-
-  /**
-   * Updates partial state or accepts an updater callback.
-   */
-  setState(updates: Partial<T> | ((state: T) => Partial<T>)): void;
-
-  /**
-   * Subscribes to state updates.
-   */
-  subscribe: BaseStore<T>['subscribe'];
-}
+export type SubscribableStore<T extends object> = BaseStore<T>;
 
 // ============================================================================
 // 2. Spatial Geometry & Vectors (2D & 3D)
@@ -93,7 +78,7 @@ export type ChatRole = 'system' | 'user' | 'assistant' | 'tool' | (string & {});
  * Universal localized or dynamic resolver type.
  * Supports static value, multi-locale dictionary mapping, or resolver function.
  */
-export type LocalizableOrResolver<T, C = unknown> =
+export type LocalizableOrResolver<T, C = Record<string, unknown>> =
   | T
   | Record<string, T>
   | ((context: C) => T);
@@ -101,9 +86,19 @@ export type LocalizableOrResolver<T, C = unknown> =
 /**
  * Dynamic text template or resolver function.
  */
-export type DynamicTextOrResolver<C = unknown> =
+export type DynamicTextOrResolver<C = Record<string, unknown>> =
   | string
-  | ((context: C) => string);
+  | ((context: C, ...args: unknown[]) => string);
+
+/**
+ * Auto-continuation prompt template, multi-locale mapping, or resolver function.
+ */
+export type AutoContinuePromptResolver =
+  | string
+  | Record<string, string>
+  | ((accumulatedText: string, ...args: unknown[]) => string)
+  | ((context: Record<string, unknown>, ...args: unknown[]) => string)
+  | ((brain: unknown, continuationIndex?: number, accumulatedText?: string) => string);
 
 // ============================================================================
 // 5. Tool & Dialogue State

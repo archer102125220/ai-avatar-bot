@@ -5,7 +5,7 @@ import type { PendingToolState } from '@/core/types';
  */
 export interface ToolSchemaProperty {
   /** Property type ('string' | 'number' | 'integer' | 'boolean'). */
-  type?: 'string' | 'number' | 'integer' | 'boolean' | string;
+  type?: 'string' | 'number' | 'integer' | 'boolean' | (string & {});
   /** Property display title. */
   title?: string;
   /** Property description for LLM or human prompt. */
@@ -13,7 +13,7 @@ export interface ToolSchemaProperty {
   /** Key to look up property value from session context. */
   contextKey?: string;
   /** Format constraints ('email' | 'url' | 'phone' | 'contact'). */
-  format?: 'email' | 'url' | 'phone' | 'contact' | string;
+  format?: 'email' | 'url' | 'phone' | 'contact' | (string & {});
   /** Keyword prefixes indicating this parameter in natural language. */
   prefixes?: string[];
   /** Allowed enumeration values. */
@@ -32,7 +32,7 @@ export interface ToolSchemaProperty {
  */
 export interface ToolSchema {
   /** Root schema type (usually 'object'). */
-  type?: 'object' | string;
+  type?: 'object' | (string & {});
   /** Dictionary of parameter properties. */
   properties?: Record<string, ToolSchemaProperty>;
   /** Array of required parameter names. */
@@ -43,8 +43,10 @@ export interface ToolSchema {
 /**
  * Execution payload received by tool execution callback.
  */
-export interface ToolExecutePayload {
-  args: Record<string, unknown>;
+export interface ToolExecutePayload<
+  TArgs extends Record<string, unknown> = Record<string, unknown>
+> {
+  args: TArgs;
   context?: Record<string, unknown>;
   query?: string;
 }
@@ -52,7 +54,10 @@ export interface ToolExecutePayload {
 /**
  * Declarative definition of a tool callable by the AI or client rules.
  */
-export interface ToolDefinition {
+export interface ToolDefinition<
+  TArgs extends Record<string, unknown> = Record<string, unknown>,
+  TResult = unknown
+> {
   /** Unique tool identifier name. */
   name: string;
   /** Human-readable display label. */
@@ -72,9 +77,9 @@ export interface ToolDefinition {
   /** Whether execution requires explicit user confirmation. */
   requiresConfirmation?: boolean;
   /** Routing decision mode ('client' | 'ai' | 'hybrid'). */
-  routingMode?: 'ai' | 'client' | 'hybrid' | string;
+  routingMode?: 'ai' | 'client' | 'hybrid' | (string & {});
   /** Result handling mode ('ai_summary' | 'direct'). */
-  resultMode?: 'ai_summary' | 'direct' | string;
+  resultMode?: 'ai_summary' | 'direct' | (string & {});
   /** User confirmation timeout in milliseconds (default 60000). */
   confirmationTimeoutMs?: number | null;
   /** Legacy timeout in milliseconds. */
@@ -83,9 +88,9 @@ export interface ToolDefinition {
   patterns?: Array<RegExp | string>;
   /** Execution callback function. */
   execute?: (
-    payload: ToolExecutePayload | Record<string, unknown>,
+    payload: ToolExecutePayload<TArgs> | TArgs,
     context?: Record<string, unknown>
-  ) => Promise<unknown> | unknown;
+  ) => Promise<TResult> | TResult;
   /** JSON Schema describing the tool's input parameters. */
   inputSchema?: ToolSchema;
 }
@@ -93,7 +98,10 @@ export interface ToolDefinition {
 /**
  * Alias for ToolDefinition representing host tools registered on the avatar bot.
  */
-export type HostTool = ToolDefinition;
+export type HostTool<
+  TArgs extends Record<string, unknown> = Record<string, unknown>,
+  TResult = unknown
+> = ToolDefinition<TArgs, TResult>;
 
 /**
  * Scoring evaluation result for a tool against a user query.

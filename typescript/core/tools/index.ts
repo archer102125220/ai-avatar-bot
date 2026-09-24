@@ -417,12 +417,12 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
       pendingToolData.input !== null
         ? (pendingToolData.input as Record<string, unknown>)
         : null;
-    const resolvedContext =
+    const resolvedContext: Record<string, unknown> =
       typeof inputObj?.context === 'object' && inputObj.context !== null
-        ? inputObj.context
+        ? (inputObj.context as Record<string, unknown>)
         : typeof pendingToolData?.context === 'object' &&
             pendingToolData.context !== null
-          ? pendingToolData.context
+          ? (pendingToolData.context as Record<string, unknown>)
           : {};
     const resolvedQuery =
       typeof inputObj?.query === 'string'
