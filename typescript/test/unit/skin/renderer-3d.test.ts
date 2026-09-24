@@ -11,7 +11,7 @@ import {
   bootVRM,
   loadVRMFile
 } from '@/core/skin/renderer-3d';
-import type { SkinEngine } from '@core';
+import type { SkinEngine, Renderer3D } from '@core';
 
 // Mock Three.js and VRM packages
 vi.mock('three', () => {
@@ -53,7 +53,7 @@ vi.mock('three', () => {
     position: MockVector3;
     rotation: MockEuler;
     scale: MockVector3;
-    children: any[];
+    children: unknown[];
     frustumCulled: boolean;
     constructor() {
       this.position = new MockVector3();
@@ -62,10 +62,10 @@ vi.mock('three', () => {
       this.children = [];
       this.frustumCulled = true;
     }
-    add(...objs: any[]) {
+    add(...objs: unknown[]) {
       this.children.push(...objs);
     }
-    traverse(cb: Function) {
+    traverse(cb: (obj: unknown) => void) {
       cb(this);
     }
   }
@@ -75,7 +75,7 @@ vi.mock('three', () => {
     aspect: number;
     near: number;
     far: number;
-    lookAtTarget: any;
+    lookAtTarget: unknown;
     constructor(fov = 50, aspect = 1, near = 0.1, far = 1000) {
       super();
       this.fov = fov;
@@ -83,7 +83,7 @@ vi.mock('three', () => {
       this.near = near;
       this.far = far;
     }
-    lookAt(v: any) {
+    lookAt(v: unknown) {
       this.lookAtTarget = v;
     }
     updateProjectionMatrix() {}
@@ -113,11 +113,11 @@ vi.mock('three', () => {
   }
 
   class MockAnimationMixer {
-    listeners: Record<string, Function>;
+    listeners: Record<string, (e: unknown) => void>;
     constructor() {
       this.listeners = {};
     }
-    addEventListener(event: string, fn: Function) {
+    addEventListener(event: string, fn: (e: unknown) => void) {
       this.listeners[event] = fn;
     }
     clipAction() {
@@ -152,7 +152,12 @@ vi.mock('three', () => {
 vi.mock('three/addons/loaders/GLTFLoader.js', () => {
   class GLTFLoader {
     register() {}
-    load(url: string, onLoad: Function, _onProgress: Function, onError: Function) {
+    load(
+      url: string,
+      onLoad: (gltf: unknown) => void,
+      _onProgress: (p: unknown) => void,
+      onError: (err: unknown) => void
+    ) {
       if (url === 'error.vrm') {
         onError(new Error('Load VRM failed'));
         return;
@@ -162,7 +167,7 @@ vi.mock('three/addons/loaders/GLTFLoader.js', () => {
           position: { set: vi.fn() },
           rotation: { set: vi.fn() },
           scale: { set: vi.fn() },
-          traverse: (cb: Function) => cb({ frustumCulled: true })
+          traverse: (cb: (item: unknown) => void) => cb({ frustumCulled: true })
         };
         const expressionManager = {
           setValue: vi.fn(),
@@ -263,7 +268,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
 
     it('should invoke renderer.playGesture and catch errors', async () => {
       const playGesture = vi.fn();
-      const skinEngine: any = { renderer: { playGesture } };
+      const skinEngine = { renderer: { playGesture } } as unknown as SkinEngine;
 
       await defaultGesture3D(skinEngine, 'wave');
       expect(playGesture).toHaveBeenCalledWith('wave');
@@ -285,7 +290,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
 
     it('should trigger VRMFileChangeFail when file is not a .vrm file', () => {
       const VRMFileChangeFail = vi.fn();
-      const skinEngine: any = { stageEl, VRMFileChangeFail };
+      const skinEngine = { stageEl, VRMFileChangeFail } as unknown as SkinEngine;
 
       loadVRMFile(skinEngine, new File(['dummy'], 'model.png'));
       expect(VRMFileChangeFail).toHaveBeenCalledWith(expect.any(Error));
@@ -299,16 +304,16 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
       const createSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:http://localhost/new-model');
 
-      const skinEngine: any = {
+      const skinEngine = {
         stageEl,
         vrmUrl: 'blob:http://localhost/old-model',
         _engineMode: 'threeDimensional',
-        engineMode: null,
+        engineMode: null as unknown as string,
         VRMFileChangeSuccess
-      };
+      } as unknown as SkinEngine & { _engineMode: string; vrmUrl: string; engineMode: unknown };
 
       const validFile = new File(['content'], 'avatar.vrm', { type: 'model/vrm' });
-      loadVRMFile(skinEngine, validFile);
+      loadVRMFile(skinEngine as unknown as SkinEngine, validFile);
 
       expect(revokeSpy).toHaveBeenCalledWith('blob:http://localhost/old-model');
       expect(createSpy).toHaveBeenCalledWith(validFile);
@@ -324,10 +329,10 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
   describe('bootVRM', () => {
     it('should catch error and trigger onThreeDimensionalError when stageEl is missing', async () => {
       const onThreeDimensionalError = vi.fn();
-      const skinEngine: any = {
-        stageEl: null,
+      const skinEngine = {
+        stageEl: null as unknown as HTMLElement,
         onThreeDimensionalError
-      };
+      } as unknown as SkinEngine;
 
       await bootVRM(skinEngine);
       expect(onThreeDimensionalError).toHaveBeenCalledWith(expect.any(Error), skinEngine);
@@ -362,12 +367,12 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         }
       };
 
-      const callbacks: Record<string, Function> = {};
-      const skinEngine: any = {
+      const callbacks: Record<string, (val: unknown) => void> = {};
+      const skinEngine = {
         stageEl,
         vrmUrl: 'valid.vrm',
         getState: () => currentState,
-        subscribe: vi.fn((selector: any, cb: Function) => {
+        subscribe: vi.fn((selector: (s: typeof currentState) => unknown, cb: (val: unknown) => void) => {
           const key = selector(currentState) === currentState.skin3d ? 'skin3d' : 'fitMode';
           callbacks[key] = cb;
           return vi.fn();
@@ -381,12 +386,12 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
           name: 'surprised',
           applied: ''
         }
-      };
+      } as unknown as SkinEngine & { emo: { target: number; weight: number; name: string; applied: string }; computeMouth: unknown };
 
-      const renderer: any = await bootVRM(skinEngine, {
+      const renderer = (await bootVRM(skinEngine as unknown as SkinEngine, {
         vrmaRootPath: 'https://custom.vrma.com/',
         wave: 'https://custom.vrma.com/wave.vrma'
-      });
+      })) as Required<Renderer3D>;
 
       expect(renderer).toBeDefined();
       expect(renderer.gltf).toBeDefined();
@@ -439,15 +444,15 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
     });
 
     it('should cover pointerLook false, partial vectors/scales, and animation mixer finished event', async () => {
-      const currentState: any = {
+      const currentState = {
         fitMode: FIT_MODE_MAP.HALF,
         isSpeaking: true,
         skin3d: {
           pointerLook: false,
           camera: {
-            fov: null,
-            near: null,
-            far: null,
+            fov: null as unknown as number,
+            near: null as unknown as number,
+            far: null as unknown as number,
             position: [1, 2], // Array < 3 -> default fallback
             lookAt: null
           },
@@ -463,7 +468,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         }
       };
 
-      const skinEngine: any = {
+      const skinEngine = {
         stageEl,
         vrmUrl: 'valid.vrm',
         getState: () => currentState,
@@ -476,11 +481,11 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
           name: 'happy',
           applied: 'surprised' // Different applied emotion -> resets previous
         }
-      };
+      } as unknown as SkinEngine;
 
-      const renderer: any = await bootVRM(skinEngine, {
+      const renderer = (await bootVRM(skinEngine, {
         vrmaRootPath: 'https://vrma.test/'
-      });
+      })) as Required<Renderer3D>;
 
       expect(renderer).toBeDefined();
 
@@ -508,7 +513,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         }
       };
 
-      const skinEngine: any = {
+      const skinEngine = {
         stageEl,
         vrmUrl: 'valid.vrm',
         getState: () => currentState,
@@ -522,11 +527,11 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
           name: 'surprised',
           applied: 'happy'
         }
-      };
+      } as unknown as SkinEngine & { emo: { target: number; weight: number; name: string; applied: string }; computeMouth: unknown };
 
-      const rendererPromise = bootVRM(skinEngine);
+      const rendererPromise = bootVRM(skinEngine as unknown as SkinEngine);
       await vi.runOnlyPendingTimersAsync();
-      const renderer: any = await rendererPromise;
+      const renderer = (await rendererPromise) as Required<Renderer3D>;
 
       expect(renderer).toBeDefined();
 
@@ -574,7 +579,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         }
       };
 
-      const skinEngine: any = {
+      const skinEngine = {
         stageEl,
         vrmUrl: 'valid.vrm',
         getState: () => currentState,
@@ -588,7 +593,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
           name: 'happy',
           applied: ''
         }
-      };
+      } as unknown as SkinEngine & { emo: { target: number; weight: number; name: string; applied: string } };
 
       // Mock getBoundingClientRect on stageEl
       stageEl.getBoundingClientRect = () => ({
@@ -603,9 +608,9 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         toJSON: () => {}
       });
 
-      const rendererPromise = bootVRM(skinEngine);
+      const rendererPromise = bootVRM(skinEngine as unknown as SkinEngine);
       await vi.runOnlyPendingTimersAsync();
-      const renderer: any = await rendererPromise;
+      const renderer = (await rendererPromise) as Required<Renderer3D>;
 
       expect(renderer).toBeDefined();
 
@@ -620,7 +625,11 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       await vi.advanceTimersByTimeAsync(100);
 
       // 2. Test emotion with overrideMouth !== 'none'
-      const vrm = renderer.vrm;
+      const vrm = renderer.vrm as {
+        expressionManager?: {
+          getExpression: ReturnType<typeof vi.fn>;
+        };
+      };
       if (vrm?.expressionManager) {
         vrm.expressionManager.getExpression = vi.fn((name: string) => ({
           name,

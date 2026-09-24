@@ -90,7 +90,6 @@ describe('Unit Test: core/speech/stt.js', () => {
     });
 
     it('should test recognition lifecycle, error handlers, and interim results in startListening', async () => {
-      let createdRecognition: any;
       class MockRecognition {
         continuous = false;
         interimResults = true;
@@ -98,18 +97,19 @@ describe('Unit Test: core/speech/stt.js', () => {
         maxAlternatives = 1;
         onstart: (() => void) | null = null;
         onend: (() => void) | null = null;
-        onerror: ((err: any) => void) | null = null;
-        onresult: ((res: any) => void) | null = null;
+        onerror: ((err: { error: string }) => void) | null = null;
+        onresult: ((res: { resultIndex: number; results: Array<Record<number, { transcript: string }> & { isFinal: boolean; length: number }> }) => void) | null = null;
         onspeechstart: (() => void) | null = null;
+        static latest: MockRecognition | null = null;
         constructor() {
-          createdRecognition = this;
+          MockRecognition.latest = this;
         }
         start() {}
         stop() {}
         abort() {}
       }
 
-      (window as any).SpeechRecognition = MockRecognition;
+      (window as unknown as { SpeechRecognition: unknown }).SpeechRecognition = MockRecognition;
 
       const onResult = vi.fn();
       const onStatusChange = vi.fn();
@@ -125,46 +125,47 @@ describe('Unit Test: core/speech/stt.js', () => {
       });
 
       await stt.startListening();
-      expect(createdRecognition).toBeDefined();
+      const rec = MockRecognition.latest;
+      expect(rec).toBeDefined();
 
       // trigger onstart
-      createdRecognition.onstart();
+      rec?.onstart?.();
       expect(stt.isListening).toBe(true);
       expect(onStatusChange).toHaveBeenCalledWith(true, expect.stringContaining('請說話'));
 
       // trigger onspeechstart
       stt.noSpeechRuns = 2;
-      createdRecognition.onspeechstart();
+      rec?.onspeechstart?.();
       expect(stt.noSpeechRuns).toBe(0);
 
       // trigger onresult (interim)
-      createdRecognition.onresult({
+      rec?.onresult?.({
         resultIndex: 0,
         results: [{ 0: { transcript: '你好' }, isFinal: false, length: 1 }]
       });
       expect(onResult).toHaveBeenCalledWith('你好', false, true);
 
       // trigger onresult (final)
-      createdRecognition.onresult({
+      rec?.onresult?.({
         resultIndex: 0,
         results: [{ 0: { transcript: '你好呀' }, isFinal: true, length: 1 }]
       });
       expect(onResult).toHaveBeenCalledWith('你好呀', true, false);
 
       // trigger onerror: not-allowed
-      createdRecognition.onerror({ error: 'not-allowed' });
+      rec?.onerror?.({ error: 'not-allowed' });
       expect(onError).toHaveBeenCalledWith(expect.stringContaining('麥克風權限'), true);
 
       // trigger onerror: no-speech (accumulate to 4 in convo mode)
       stt.noSpeechRuns = 3;
-      createdRecognition.onerror({ error: 'no-speech' });
+      rec?.onerror?.({ error: 'no-speech' });
       expect(onNoSpeechAbort).toHaveBeenCalled();
 
       // trigger onerror: aborted (ignored)
-      createdRecognition.onerror({ error: 'aborted' });
+      rec?.onerror?.({ error: 'aborted' });
 
       // trigger onend
-      createdRecognition.onend();
+      rec?.onend?.();
       expect(stt.isListening).toBe(false);
       expect(onStatusChange).toHaveBeenCalledWith(false, '', false);
 
@@ -174,25 +175,26 @@ describe('Unit Test: core/speech/stt.js', () => {
     });
 
     it('should promote interim text to final when elapsed > 2000ms with >= 4 characters', async () => {
-      let createdRecognition: any;
       class MockRecognition {
         start = vi.fn();
         stop = vi.fn();
         abort = vi.fn();
-        onresult: ((res: any) => void) | null = null;
+        onresult: ((res: { resultIndex: number; results: Array<Record<number, { transcript: string }> & { isFinal: boolean; length: number }> }) => void) | null = null;
+        static latest: MockRecognition | null = null;
         constructor() {
-          createdRecognition = this;
+          MockRecognition.latest = this;
         }
       }
-      (window as any).SpeechRecognition = MockRecognition;
+      (window as unknown as { SpeechRecognition: unknown }).SpeechRecognition = MockRecognition;
 
       const onResult = vi.fn();
       const stt: STTEngine = initDefaultSTTEngine({ onResult });
 
       await stt.startListening();
+      const rec = MockRecognition.latest;
 
       // First interim result sets interimStartTime
-      createdRecognition.onresult({
+      rec?.onresult?.({
         resultIndex: 0,
         results: [{ 0: { transcript: '測試中' }, isFinal: false, length: 1 }]
       });
@@ -203,12 +205,12 @@ describe('Unit Test: core/speech/stt.js', () => {
       performance.now = vi.fn(() => mockTime);
 
       // Second interim with >= 4 characters triggers promotion to final
-      createdRecognition.onresult({
+      rec?.onresult?.({
         resultIndex: 0,
         results: [{ 0: { transcript: '測試中字數大於四' }, isFinal: false, length: 1 }]
       });
 
-      expect(createdRecognition.stop).toHaveBeenCalled();
+      expect(rec?.stop).toHaveBeenCalled();
       expect(onResult).toHaveBeenCalledWith('測試中字數大於四', true, false);
 
       performance.now = originalNow;
@@ -220,7 +222,7 @@ describe('Unit Test: core/speech/stt.js', () => {
           throw new Error('Mic already active');
         }
       }
-      (window as any).SpeechRecognition = ThrowingRecognition;
+      (window as unknown as { SpeechRecognition: unknown }).SpeechRecognition = ThrowingRecognition;
 
       const onError = vi.fn();
       const stt: STTEngine = initDefaultSTTEngine({ onError });
@@ -230,16 +232,16 @@ describe('Unit Test: core/speech/stt.js', () => {
     });
 
     it('should cover onend, aborted error, no-speech abort at 4 runs, and empty result in STT engine', async () => {
-      let createdRecognition: any;
       class MockRecognition {
         continuous = false;
         interimResults = true;
         onstart: (() => void) | null = null;
         onend: (() => void) | null = null;
-        onerror: ((err: any) => void) | null = null;
-        onresult: ((res: any) => void) | null = null;
+        onerror: ((err: { error: string }) => void) | null = null;
+        onresult: ((res: { resultIndex: number; results: Array<Record<number, { transcript: string }> & { isFinal: boolean; length: number }> }) => void) | null = null;
+        static latest: MockRecognition | null = null;
         constructor() {
-          createdRecognition = this;
+          MockRecognition.latest = this;
         }
         start() {
           if (typeof this.onstart === 'function') {
@@ -252,7 +254,7 @@ describe('Unit Test: core/speech/stt.js', () => {
           }
         }
       }
-      (window as any).SpeechRecognition = MockRecognition;
+      (window as unknown as { SpeechRecognition: unknown }).SpeechRecognition = MockRecognition;
 
       const onNoSpeechAbort = vi.fn();
       const onError = vi.fn();
@@ -268,27 +270,28 @@ describe('Unit Test: core/speech/stt.js', () => {
       });
 
       await stt.startListening();
+      const rec = MockRecognition.latest;
 
       // 1. onerror with 'aborted'
-      createdRecognition.onerror({ error: 'aborted' });
+      rec?.onerror?.({ error: 'aborted' });
       expect(onError).not.toHaveBeenCalled();
 
       // 2. onerror with 'no-speech' repeatedly until threshold (>= 4)
-      createdRecognition.onerror({ error: 'no-speech' });
-      createdRecognition.onerror({ error: 'no-speech' });
-      createdRecognition.onerror({ error: 'no-speech' });
-      createdRecognition.onerror({ error: 'no-speech' });
+      rec?.onerror?.({ error: 'no-speech' });
+      rec?.onerror?.({ error: 'no-speech' });
+      rec?.onerror?.({ error: 'no-speech' });
+      rec?.onerror?.({ error: 'no-speech' });
       expect(onNoSpeechAbort).toHaveBeenCalled();
 
       // 3. onresult with empty/whitespace string
-      createdRecognition.onresult({
+      rec?.onresult?.({
         resultIndex: 0,
         results: [{ 0: { transcript: '   ' }, isFinal: false, length: 1 }]
       });
       expect(onResult).not.toHaveBeenCalled();
 
       // 4. onend when listening
-      createdRecognition.onend();
+      rec?.onend?.();
       expect(onStatusChange).toHaveBeenCalledWith(false, '', false);
     });
 
@@ -299,10 +302,10 @@ describe('Unit Test: core/speech/stt.js', () => {
         abort = vi.fn();
         start = vi.fn();
       }
-      (window as any).SpeechRecognition = MockRecognition;
+      (window as unknown as { SpeechRecognition: unknown }).SpeechRecognition = MockRecognition;
 
       const origMediaDevices = navigator.mediaDevices;
-      (navigator as any).mediaDevices = {
+      (navigator as unknown as { mediaDevices?: unknown }).mediaDevices = {
         getUserMedia: vi.fn().mockRejectedValue(new Error('Permission denied'))
       };
 
@@ -313,25 +316,25 @@ describe('Unit Test: core/speech/stt.js', () => {
       expect(onError).toHaveBeenCalledWith(expect.stringContaining('無法啟動語音功能'), true);
 
       // Restore getUserMedia
-      (navigator as any).mediaDevices = origMediaDevices;
+      (navigator as unknown as { mediaDevices?: unknown }).mediaDevices = origMediaDevices;
     });
 
     it('should handle onerror with not-allowed', async () => {
-      let createdRecognition: any;
       class MockRecognition {
         continuous = false;
         interimResults = true;
         start = vi.fn();
         abort = vi.fn();
-        onerror: ((err: any) => void) | null = null;
+        onerror: ((err: { error: string }) => void) | null = null;
+        static latest: MockRecognition | null = null;
         constructor() {
-          createdRecognition = this;
+          MockRecognition.latest = this;
         }
       }
-      (window as any).SpeechRecognition = MockRecognition;
+      (window as unknown as { SpeechRecognition: unknown }).SpeechRecognition = MockRecognition;
 
       const origMediaDevices = navigator.mediaDevices;
-      (navigator as any).mediaDevices = {
+      (navigator as unknown as { mediaDevices?: unknown }).mediaDevices = {
         getUserMedia: vi.fn().mockResolvedValue({
           getAudioTracks: () => [{ stop: vi.fn() }]
         })
@@ -341,17 +344,17 @@ describe('Unit Test: core/speech/stt.js', () => {
       const stt: STTEngine = initDefaultSTTEngine({ onError, locale: 'zh-TW' });
       await stt.startListening();
 
-      if (typeof createdRecognition?.onerror === 'function') {
-        createdRecognition.onerror({ error: 'not-allowed' });
+      if (typeof MockRecognition.latest?.onerror === 'function') {
+        MockRecognition.latest.onerror({ error: 'not-allowed' });
       }
       expect(onError).toHaveBeenCalledWith(expect.stringContaining('我需要麥克風權限'), true);
 
-      (navigator as any).mediaDevices = origMediaDevices;
+      (navigator as unknown as { mediaDevices?: unknown }).mediaDevices = origMediaDevices;
     });
 
     it('should monitor mic level, calculate RMS and trigger barge-in when assistant is active', async () => {
-      let rafCallback: any;
-      vi.stubGlobal('requestAnimationFrame', vi.fn((cb: any) => {
+      let rafCallback: FrameRequestCallback | null = null;
+      vi.stubGlobal('requestAnimationFrame', vi.fn((cb: FrameRequestCallback) => {
         rafCallback = cb;
         return 101;
       }));
@@ -386,8 +389,8 @@ describe('Unit Test: core/speech/stt.js', () => {
           return mockAudioCtx;
         }
       }
-      (window as any).AudioContext = MockAudioContext;
-      (navigator as any).mediaDevices = {
+      (window as unknown as { AudioContext?: unknown }).AudioContext = MockAudioContext;
+      (navigator as unknown as { mediaDevices?: unknown }).mediaDevices = {
         getUserMedia: vi.fn().mockResolvedValue(mockStream)
       };
 
@@ -396,7 +399,7 @@ describe('Unit Test: core/speech/stt.js', () => {
         abort = vi.fn();
         onspeechstart = null;
       }
-      (window as any).SpeechRecognition = MockRecognition;
+      (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition = MockRecognition;
 
       const onMicLevel = vi.fn();
       const onBargeIn = vi.fn();
@@ -418,17 +421,13 @@ describe('Unit Test: core/speech/stt.js', () => {
 
       // Establish low noise floor
       for (let i = 0; i < 5; i++) {
-        if (typeof rafCallback === 'function') {
-          rafCallback();
-        }
+        (rafCallback as FrameRequestCallback | null)?.(0);
       }
 
       // Now switch to loud speech (sample = 255)
       mockFreqData = new Uint8Array(256).fill(255);
       for (let i = 0; i < 12; i++) {
-        if (typeof rafCallback === 'function') {
-          rafCallback();
-        }
+        (rafCallback as FrameRequestCallback | null)?.(0);
       }
       expect(onBargeIn).toHaveBeenCalled();
 
@@ -458,23 +457,24 @@ describe('Unit Test: core/speech/stt.js', () => {
     });
 
     it('should abort existing recognition on startListening, handle onend when convoOn is false, and ignore aborted errors', async () => {
-      const createdInstances: any[] = [];
       class MockSpeechRecognition {
         continuous = false;
         interimResults = true;
         lang = 'zh-TW';
         onstart: (() => void) | null = null;
         onend: (() => void) | null = null;
-        onerror: ((err: any) => void) | null = null;
+        onerror: ((err: { error: string }) => void) | null = null;
         abort = vi.fn();
         start = vi.fn();
+        static instances: MockSpeechRecognition[] = [];
         constructor() {
-          createdInstances.push(this);
+          MockSpeechRecognition.instances.push(this);
         }
       }
+      MockSpeechRecognition.instances = [];
 
-      (window as any).SpeechRecognition = MockSpeechRecognition;
-      (navigator as any).mediaDevices = {
+      (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition = MockSpeechRecognition;
+      (navigator as unknown as { mediaDevices?: unknown }).mediaDevices = {
         getUserMedia: vi.fn().mockResolvedValue({
           getTracks: () => [{ stop: vi.fn() }]
         })
@@ -492,22 +492,22 @@ describe('Unit Test: core/speech/stt.js', () => {
 
       // 1. First startListening call
       await stt.startListening();
-      const firstRec = createdInstances[0];
-      firstRec.onstart();
+      const firstRec = MockSpeechRecognition.instances[0];
+      firstRec.onstart?.();
       expect(stt.isListening).toBe(true);
 
       // 2. Second startListening call while first is still active -> aborts first
       await stt.startListening();
       expect(firstRec.abort).toHaveBeenCalled();
-      const secondRec = createdInstances[1];
-      secondRec.onstart();
+      const secondRec = MockSpeechRecognition.instances[1];
+      secondRec.onstart?.();
 
       // 3. onerror with error === 'aborted' -> ignored
-      secondRec.onerror({ error: 'aborted' });
+      secondRec.onerror?.({ error: 'aborted' });
       expect(onError).not.toHaveBeenCalled();
 
       // 4. onend when convoOn is false -> triggers stopMicMonitor
-      secondRec.onend();
+      secondRec.onend?.();
       expect(stt.isListening).toBe(false);
       expect(onStatusChange).toHaveBeenCalledWith(false, '', false);
     });

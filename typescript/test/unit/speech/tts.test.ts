@@ -122,7 +122,7 @@ describe('Unit Test: core/speech/tts.js', () => {
         { name: 'Microsoft Guy Online (Natural) - English (United States)', lang: 'en-US' },
         { name: 'Microsoft Jenny Online (Natural) - English (United States)', lang: 'en-US' }
       ];
-      vi.spyOn(speechSynthesis, 'getVoices').mockReturnValue(mockVoices as any);
+      vi.spyOn(speechSynthesis, 'getVoices').mockReturnValue(mockVoices as unknown as SpeechSynthesisVoice[]);
 
       const maleVoice = loadVoice(GENDER_MAP.male, 'en-US');
       expect(maleVoice?.name).toContain('Guy');
@@ -136,7 +136,7 @@ describe('Unit Test: core/speech/tts.js', () => {
         { name: 'Microsoft Keita Online (Natural) - Japanese (Japan)', lang: 'ja-JP' },
         { name: 'Microsoft Nanami Online (Natural) - Japanese (Japan)', lang: 'ja-JP' }
       ];
-      vi.spyOn(speechSynthesis, 'getVoices').mockReturnValue(mockVoices as any);
+      vi.spyOn(speechSynthesis, 'getVoices').mockReturnValue(mockVoices as unknown as SpeechSynthesisVoice[]);
 
       const maleVoice = loadVoice(GENDER_MAP.male, 'ja-JP');
       expect(maleVoice?.name).toContain('Keita');
@@ -150,7 +150,7 @@ describe('Unit Test: core/speech/tts.js', () => {
         { name: 'Microsoft InJoon Online (Natural) - Korean (Korea)', lang: 'ko-KR' },
         { name: 'Microsoft SunHi Online (Natural) - Korean (Korea)', lang: 'ko-KR' }
       ];
-      vi.spyOn(speechSynthesis, 'getVoices').mockReturnValue(mockVoices as any);
+      vi.spyOn(speechSynthesis, 'getVoices').mockReturnValue(mockVoices as unknown as SpeechSynthesisVoice[]);
 
       const maleVoice = loadVoice(GENDER_MAP.male, 'ko-KR');
       expect(maleVoice?.name).toContain('InJoon');
@@ -164,7 +164,7 @@ describe('Unit Test: core/speech/tts.js', () => {
         { name: 'Microsoft YunJhe Online (Natural) - Chinese (Taiwan)', lang: 'zh-TW' },
         { name: 'Microsoft HsiaoChen Online (Natural) - Chinese (Taiwan)', lang: 'zh-TW' }
       ];
-      vi.spyOn(speechSynthesis, 'getVoices').mockReturnValue(mockVoices as any);
+      vi.spyOn(speechSynthesis, 'getVoices').mockReturnValue(mockVoices as unknown as SpeechSynthesisVoice[]);
 
       const maleVoice = loadVoice(GENDER_MAP.male, 'zh-TW');
       expect(maleVoice?.name).toContain('YunJhe');
@@ -270,15 +270,15 @@ describe('Unit Test: core/speech/tts.js', () => {
       const tts: TTSEngine = initDefaultTTSEngine({ ttsEndpoint: 'https://tts.example.com/api' });
 
       // neuralDisabled: true
-      (tts as any).setState({ neuralDisabled: true });
+      (tts as unknown as { setState: (s: Record<string, unknown>) => void }).setState({ neuralDisabled: true });
       const resNull = await tts.preloadTapGreeting('哈囉');
       expect(resNull).toBeNull();
 
-      (tts as any).setState({ neuralDisabled: false });
+      (tts as unknown as { setState: (s: Record<string, unknown>) => void }).setState({ neuralDisabled: false });
 
       // mock global fetch
       const mockAudioBuffer = { duration: 1.5 };
-      (window as any).AudioContext = class MockAudioContext {
+      (window as unknown as { AudioContext: unknown }).AudioContext = class MockAudioContext {
         decodeAudioData() {
           return Promise.resolve(mockAudioBuffer);
         }
@@ -298,16 +298,16 @@ describe('Unit Test: core/speech/tts.js', () => {
     });
 
     it('should trigger onvoiceschanged and playBuffer with audio context during neural speech', async () => {
-      const mockBufferSource: any = {
-        buffer: null,
+      const mockBufferSource = {
+        buffer: null as AudioBuffer | null,
         playbackRate: { value: 1.0 },
         connect: vi.fn(),
         start: vi.fn(),
         stop: vi.fn(),
-        onended: null
+        onended: null as (() => void) | null
       };
 
-      const mockAnalyser: any = {
+      const mockAnalyser = {
         fftSize: 2048,
         smoothingTimeConstant: 0.8,
         frequencyBinCount: 1024,
@@ -317,7 +317,7 @@ describe('Unit Test: core/speech/tts.js', () => {
       };
 
       const mockAudioBuffer = { duration: 1.0 };
-      (window as any).AudioContext = class MockAudioContext {
+      (window as unknown as { AudioContext: unknown }).AudioContext = class MockAudioContext {
         destination = {};
         state = 'suspended';
         createBufferSource() {
@@ -348,7 +348,7 @@ describe('Unit Test: core/speech/tts.js', () => {
 
       // Trigger voiceschanged
       if (typeof window.speechSynthesis?.onvoiceschanged === 'function') {
-        (window.speechSynthesis as any).onvoiceschanged();
+        (window.speechSynthesis as unknown as { onvoiceschanged: () => void }).onvoiceschanged();
       }
 
       // Speak neural chunk
@@ -366,7 +366,7 @@ describe('Unit Test: core/speech/tts.js', () => {
     });
 
     it('should handle small audio buffer error (< 800 bytes) and HTTP errors in fetchTTSBuffer', async () => {
-      (window as any).AudioContext = class MockAudioContext {
+      (window as unknown as { AudioContext: unknown }).AudioContext = class MockAudioContext {
         decodeAudioData() {
           return Promise.resolve({});
         }
@@ -390,21 +390,22 @@ describe('Unit Test: core/speech/tts.js', () => {
     });
 
     it('should fallback to browser speech synthesis when ttsEndpoint is empty', async () => {
-      let createdUtterance: any;
-      (window as any).SpeechSynthesisUtterance = class MockUtterance {
+      class MockUtterance {
+        static latest: MockUtterance | null = null;
         text: string;
         onstart: (() => void) | null = null;
         onend: (() => void) | null = null;
-        onerror: ((err: any) => void) | null = null;
+        onerror: ((err: unknown) => void) | null = null;
         constructor(text: string) {
           this.text = text;
-          createdUtterance = this;
+          MockUtterance.latest = this;
         }
-      };
+      }
+      (window as unknown as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = MockUtterance;
 
-      window.speechSynthesis.speak = vi.fn((utt: any) => {
+      window.speechSynthesis.speak = vi.fn((utt: SpeechSynthesisUtterance) => {
         if (typeof utt.onstart === 'function') {
-          utt.onstart();
+          utt.onstart({} as SpeechSynthesisEvent);
         }
       });
 
@@ -422,17 +423,17 @@ describe('Unit Test: core/speech/tts.js', () => {
       expect(tts.isSpeaking).toBe(true);
 
       // Trigger onend
-      if (typeof createdUtterance.onend === 'function') {
-        createdUtterance.onend();
+      if (typeof MockUtterance.latest?.onend === 'function') {
+        MockUtterance.latest.onend();
       }
       expect(tts.isSpeaking).toBe(false);
       expect(onSpeakEnd).toHaveBeenCalled();
     });
 
     it('should handle onvoiceschanged event and reload browser voice when null', () => {
-      let voicesChangedCb: any;
+      let voicesChangedCb: ((ev?: Event) => void) | null = null;
       Object.defineProperty(window.speechSynthesis, 'onvoiceschanged', {
-        set(cb) {
+        set(cb: ((ev?: Event) => void) | null) {
           voicesChangedCb = cb;
         },
         get() {
@@ -443,30 +444,37 @@ describe('Unit Test: core/speech/tts.js', () => {
 
       const tts: TTSEngine = initDefaultTTSEngine();
       expect(typeof voicesChangedCb).toBe('function');
-      voicesChangedCb();
+      (voicesChangedCb as ((ev?: Event) => void) | null)?.();
       expect(tts.getState().browserVoice).toBeDefined();
     });
 
     it('should handle pending or active speech synthesis cancel and boundary events', async () => {
-      let createdUtterance: any;
-      (window as any).SpeechSynthesisUtterance = class MockUtterance {
+      class MockUtterance {
+        static latest: MockUtterance | null = null;
         text: string;
         onstart: (() => void) | null = null;
         onend: (() => void) | null = null;
         onboundary: (() => void) | null = null;
         constructor(text: string) {
           this.text = text;
-          createdUtterance = this;
+          MockUtterance.latest = this;
         }
-      };
+      }
+      (window as unknown as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = MockUtterance;
 
-      (window.speechSynthesis as any).speaking = true;
-      (window.speechSynthesis as any).pending = true;
+      const synth = window.speechSynthesis as unknown as {
+        speaking: boolean;
+        pending: boolean;
+        cancel: ReturnType<typeof vi.fn>;
+        resume: ReturnType<typeof vi.fn>;
+      };
+      synth.speaking = true;
+      synth.pending = true;
       window.speechSynthesis.cancel = vi.fn(() => {
-        (window.speechSynthesis as any).speaking = false;
-        (window.speechSynthesis as any).pending = false;
+        synth.speaking = false;
+        synth.pending = false;
       });
-      (window.speechSynthesis as any).resume = vi.fn(() => {
+      synth.resume = vi.fn(() => {
         throw new Error('Resume failed');
       });
 
@@ -483,14 +491,14 @@ describe('Unit Test: core/speech/tts.js', () => {
       expect(tts.isSpeaking).toBe(true);
 
       // Trigger boundary event
-      if (typeof createdUtterance.onboundary === 'function') {
-        createdUtterance.onboundary();
+      if (typeof MockUtterance.latest?.onboundary === 'function') {
+        MockUtterance.latest.onboundary();
         expect(tts.getState().mouthTarget).toBeGreaterThanOrEqual(0.5);
       }
 
       // Finish utterance
-      if (typeof createdUtterance.onend === 'function') {
-        createdUtterance.onend();
+      if (typeof MockUtterance.latest?.onend === 'function') {
+        MockUtterance.latest.onend();
       }
       expect(tts.isSpeaking).toBe(false);
     });
@@ -509,7 +517,7 @@ describe('Unit Test: core/speech/tts.js', () => {
       tts.pushSpeech?.(seq1, '頻率限制測試');
       tts.endSpeech?.(seq1);
       await new Promise((r) => setTimeout(r, 50));
-      expect((tts.getState() as any).neuralDisabled).toBe(false);
+      expect((tts.getState() as unknown as { neuralDisabled: boolean }).neuralDisabled).toBe(false);
 
       // 2. Fatal 404 / Network error disables neural TTS
       global.fetch = vi.fn().mockResolvedValueOnce({
@@ -520,24 +528,26 @@ describe('Unit Test: core/speech/tts.js', () => {
       tts.pushSpeech?.(seq2, '網路錯誤測試');
       tts.endSpeech?.(seq2);
       await new Promise((r) => setTimeout(r, 50));
-      expect((tts.getState() as any).neuralDisabled).toBe(true);
+      expect((tts.getState() as unknown as { neuralDisabled: boolean }).neuralDisabled).toBe(true);
     });
 
     it('should trigger preloadTapGreeting and instant browser speak when tapGreetingBuffer is null and neural is disabled', async () => {
-      let createdUtterance: any;
-      (window as any).SpeechSynthesisUtterance = class MockUtterance {
+      class MockUtterance {
+        static latest: MockUtterance | null = null;
         text: string;
+        onend: (() => void) | null = null;
         constructor(text: string) {
           this.text = text;
-          createdUtterance = this;
+          MockUtterance.latest = this;
         }
-      };
+      }
+      (window as unknown as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = MockUtterance;
 
       const tts: TTSEngine = initDefaultTTSEngine({
         ttsEndpoint: 'https://tts.example.com/api'
       });
 
-      (tts as any).setState({
+      (tts as unknown as { setState: (s: Record<string, unknown>) => void }).setState({
         neuralDisabled: true,
         tapGreetingBuffer: null
       });
@@ -548,8 +558,8 @@ describe('Unit Test: core/speech/tts.js', () => {
 
       await new Promise((r) => setTimeout(r, 50));
       expect(window.speechSynthesis.speak).toHaveBeenCalled();
-      if (createdUtterance?.onend) {
-        createdUtterance.onend();
+      if (MockUtterance.latest?.onend) {
+        MockUtterance.latest.onend();
       }
     });
 
@@ -571,7 +581,7 @@ describe('Unit Test: core/speech/tts.js', () => {
       // 2. onvoiceschanged event handler
       tts.setState({ browserVoice: null });
       if (typeof window.speechSynthesis.onvoiceschanged === 'function') {
-        (window.speechSynthesis as any).onvoiceschanged();
+        (window.speechSynthesis as unknown as { onvoiceschanged: () => void }).onvoiceschanged();
         expect(tts.getState().browserVoice).toBeDefined();
       }
     });

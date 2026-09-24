@@ -4,10 +4,21 @@ import {
   STATE_MAP,
   LLM_FINISH_REASON_MAP
 } from '@/core/constants';
+import type { ToolDefinition } from '@/core/tools';
+import type { LLMEngine } from '@core';
 
-type WebLLMController = any;
+type WebLLMController = LLMEngine;
+
+interface ChatTestResult {
+  type?: string;
+  content?: string;
+  toolCalls?: Array<{ id?: string; function: { name: string; arguments: string } }>;
+}
 
 import * as WebLLMModule from '@mlc-ai/web-llm';
+
+const asMLCEngine = (mockInstance: unknown): WebLLMModule.MLCEngine =>
+  mockInstance as WebLLMModule.MLCEngine;
 
 vi.mock('@mlc-ai/web-llm', () => ({
   CreateMLCEngine: vi.fn().mockImplementation((_model, options) => {
@@ -76,16 +87,16 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       llm.onLoading();
       expect(onLoading).toHaveBeenCalled();
 
-      llm.onLoadProgress({ progress: 0.5, text: 'Loading' } as any);
+      llm.onLoadProgress({ progress: 0.5, text: 'Loading' });
       expect(onLoadProgress).toHaveBeenCalled();
 
-      llm.onLoaded({} as any);
+      llm.onLoaded({});
       expect(onLoaded).toHaveBeenCalled();
 
       llm.onLoadError(new Error('err'));
       expect(onLoadError).toHaveBeenCalled();
 
-      llm.onChatting({} as any, []);
+      llm.onChatting({}, []);
       expect(onChatting).toHaveBeenCalled();
 
       llm.onStreamChatting('a', 'b');
@@ -93,7 +104,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
     });
 
     it('should handle load error and transition to ERROR state', async () => {
-      (WebLLMModule.CreateMLCEngine as any).mockRejectedValueOnce(new Error('GPU out of memory'));
+      vi.mocked(WebLLMModule.CreateMLCEngine).mockRejectedValueOnce(new Error('GPU out of memory'));
 
       const onLoadError = vi.fn();
       const llm: WebLLMController = initWebLLM({
@@ -141,23 +152,25 @@ describe('Unit Test: core/brain/web-llm.js', () => {
 
     it('should fallback and remove tools if tool execution returns empty string', async () => {
       let callCount = 0;
-      (WebLLMModule.CreateMLCEngine as any).mockResolvedValueOnce({
-        chat: {
-          completions: {
-            create: vi.fn().mockImplementation((opt) => {
-              callCount++;
-              if (opt.tools) {
+      vi.mocked(WebLLMModule.CreateMLCEngine).mockResolvedValueOnce(
+        asMLCEngine({
+          chat: {
+            completions: {
+              create: vi.fn().mockImplementation((opt) => {
+                callCount++;
+                if (opt.tools) {
+                  return Promise.resolve({
+                    choices: [{ message: { role: 'assistant', content: '  ' }, finish_reason: 'stop' }]
+                  });
+                }
                 return Promise.resolve({
-                  choices: [{ message: { role: 'assistant', content: '  ' }, finish_reason: 'stop' }]
+                  choices: [{ message: { role: 'assistant', content: '純文字重試成功' }, finish_reason: 'stop' }]
                 });
-              }
-              return Promise.resolve({
-                choices: [{ message: { role: 'assistant', content: '純文字重試成功' }, finish_reason: 'stop' }]
-              });
-            })
+              })
+            }
           }
-        }
-      });
+        })
+      );
 
       const llm: WebLLMController = initWebLLM({ llmModel: 'Hermes-2-Pro-Llama-3-8B-q4f32_1-MLC', llmIsStream: false });
       await llm.load();
@@ -165,30 +178,32 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       const res = await llm.chat(
         [{ role: 'user', content: 'hi' }],
         null,
-        [{ name: 'mockTool', inputSchema: { type: 'object', properties: {} } }] as any
+        [{ name: 'mockTool', inputSchema: { type: 'object', properties: {} } }] as ToolDefinition[]
       );
 
       expect(callCount).toBe(2);
-      expect(res.content).toBe('純文字重試成功');
+      expect((res as ChatTestResult).content).toBe('純文字重試成功');
     });
 
     it('should catch UnsupportedModelIdError and fallback to standard chat', async () => {
       let callCount = 0;
-      (WebLLMModule.CreateMLCEngine as any).mockResolvedValueOnce({
-        chat: {
-          completions: {
-            create: vi.fn().mockImplementation((opt) => {
-              callCount++;
-              if (opt.tools) {
-                throw new Error('UnsupportedModelIdError: not supported for ChatCompletionRequest.tools');
-              }
-              return Promise.resolve({
-                choices: [{ message: { role: 'assistant', content: '模型不支援工具，純文字回覆' }, finish_reason: 'stop' }]
-              });
-            })
+      vi.mocked(WebLLMModule.CreateMLCEngine).mockResolvedValueOnce(
+        asMLCEngine({
+          chat: {
+            completions: {
+              create: vi.fn().mockImplementation((opt) => {
+                callCount++;
+                if (opt.tools) {
+                  throw new Error('UnsupportedModelIdError: not supported for ChatCompletionRequest.tools');
+                }
+                return Promise.resolve({
+                  choices: [{ message: { role: 'assistant', content: '模型不支援工具，純文字回覆' }, finish_reason: 'stop' }]
+                });
+              })
+            }
           }
-        }
-      });
+        })
+      );
 
       const llm: WebLLMController = initWebLLM({ llmModel: 'Non-Hermes-Model', llmIsStream: false });
       await llm.load();
@@ -196,41 +211,46 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       const res = await llm.chat(
         [{ role: 'user', content: 'test' }],
         null,
-        [{ name: 't', inputSchema: { type: 'object', properties: {} } }] as any
+        [{ name: 't', inputSchema: { type: 'object', properties: {} } }] as ToolDefinition[]
       );
       expect(callCount).toBe(2);
-      expect(res.content).toBe('模型不支援工具，純文字回覆');
+      expect((res as ChatTestResult).content).toBe('模型不支援工具，純文字回覆');
     });
 
     it('should support Hermes Function Calling model and tool_calls response', async () => {
-      let passedOptions: any;
-      (WebLLMModule.CreateMLCEngine as any).mockResolvedValueOnce({
-        chat: {
-          completions: {
-            create: vi.fn().mockImplementation((opt) => {
-              passedOptions = opt;
-              return Promise.resolve({
-                choices: [
-                  {
-                    message: {
-                      role: 'assistant',
-                      content: 'Checking weather...',
-                      tool_calls: [
-                        {
-                          id: 'call_1',
-                          type: 'function',
-                          function: { name: 'get_weather', arguments: '{"city":"Tokyo"}' }
-                        }
-                      ]
-                    },
-                    finish_reason: 'tool_calls'
-                  }
-                ]
-              });
-            })
+      let passedOptions: {
+        tools?: unknown[];
+        messages?: Array<{ role: string; content: string }>;
+      } = {};
+      vi.mocked(WebLLMModule.CreateMLCEngine).mockResolvedValueOnce(
+        asMLCEngine({
+          chat: {
+            completions: {
+              create: vi.fn().mockImplementation((opt: typeof passedOptions) => {
+                passedOptions = opt;
+                return Promise.resolve({
+                  choices: [
+                    {
+                      message: {
+                        role: 'assistant',
+                        content: 'Checking weather...',
+                        tool_calls: [
+                          {
+                            id: 'call_1',
+                            type: 'function',
+                            function: { name: 'get_weather', arguments: '{"city":"Tokyo"}' }
+                          }
+                        ]
+                      },
+                      finish_reason: 'tool_calls'
+                    }
+                  ]
+                });
+              })
+            }
           }
-        }
-      });
+        })
+      );
 
       const llm: WebLLMController = initWebLLM({
         llmModel: 'Hermes-2-Pro-Llama-3-8B-q4f32_1-MLC'
@@ -250,102 +270,108 @@ describe('Unit Test: core/brain/web-llm.js', () => {
         { role: 'user', content: 'Weather in Tokyo' }
       ];
 
-      const res = await llm.chat(messages, null, tools as any);
+      const res = (await llm.chat(messages, null, tools as ToolDefinition[])) as ChatTestResult;
       expect(res.type).toBe('tool_calls');
       expect(res.toolCalls).toHaveLength(1);
       expect(passedOptions.tools).toBeDefined();
       // Verify system prompt was injected into first user message
-      expect(passedOptions.messages[0].content).toContain('[Instruction: You are helpful]');
+      expect(passedOptions.messages?.[0].content).toContain('[Instruction: You are helpful]');
     });
 
     it('should parse fallback XML <tool_call> tags in non-stream and stream modes', async () => {
       // Non-stream XML fallback
-      (WebLLMModule.CreateMLCEngine as any).mockResolvedValueOnce({
-        chat: {
-          completions: {
-            create: vi.fn().mockResolvedValue({
-              choices: [
-                {
-                  message: {
-                    role: 'assistant',
-                    content: '<tool_call>{"name":"get_time","arguments":{}}</tool_call>'
-                  },
-                  finish_reason: 'stop'
-                }
-              ]
-            })
+      vi.mocked(WebLLMModule.CreateMLCEngine).mockResolvedValueOnce(
+        asMLCEngine({
+          chat: {
+            completions: {
+              create: vi.fn().mockResolvedValue({
+                choices: [
+                  {
+                    message: {
+                      role: 'assistant',
+                      content: '<tool_call>{"name":"get_time","arguments":{}}</tool_call>'
+                    },
+                    finish_reason: 'stop'
+                  }
+                ]
+              })
+            }
           }
-        }
-      });
+        })
+      );
 
       const llm: WebLLMController = initWebLLM({ llmModel: 'Llama-3-8B-Instruct', llmIsStream: false });
       await llm.load();
 
-      const res = await llm.chat([{ role: 'user', content: 'what time is it' }]);
+      const res = (await llm.chat([{ role: 'user', content: 'what time is it' }])) as ChatTestResult;
       expect(res.type).toBe('tool_calls');
-      expect(res.toolCalls[0].function.name).toBe('get_time');
+      expect(res.toolCalls?.[0].function.name).toBe('get_time');
     });
 
     it('should handle streaming tool_calls deltas accumulator', async () => {
-      (WebLLMModule.CreateMLCEngine as any).mockResolvedValueOnce({
-        chat: {
-          completions: {
-            create: vi.fn().mockImplementation(() => (async function* () {
-              yield {
-                choices: [
-                  {
-                    delta: {
-                      tool_calls: [
-                        { index: 0, id: 'call_abc', function: { name: 'calc', arguments: '{"a":' } }
-                      ]
+      vi.mocked(WebLLMModule.CreateMLCEngine).mockResolvedValueOnce(
+        asMLCEngine({
+          chat: {
+            completions: {
+              create: vi.fn().mockImplementation(() => (async function* () {
+                yield {
+                  choices: [
+                    {
+                      delta: {
+                        tool_calls: [
+                          { index: 0, id: 'call_abc', function: { name: 'calc', arguments: '{"a":' } }
+                        ]
+                      }
                     }
-                  }
-                ]
-              };
-              yield {
-                choices: [
-                  {
-                    delta: {
-                      tool_calls: [
-                        { index: 0, function: { arguments: '1}' } }
-                      ]
-                    },
-                    finish_reason: 'tool_calls'
-                  }
-                ]
-              };
-            })())
+                  ]
+                };
+                yield {
+                  choices: [
+                    {
+                      delta: {
+                        tool_calls: [
+                          { index: 0, function: { arguments: '1}' } }
+                        ]
+                      },
+                      finish_reason: 'tool_calls'
+                    }
+                  ]
+                };
+              })())
+            }
           }
-        }
-      });
+        })
+      );
 
       const llm: WebLLMController = initWebLLM({ llmModel: 'Llama-3-8B-Instruct', llmIsStream: true });
       await llm.load();
 
       const onDelta = vi.fn();
-      const res = await llm.chat([{ role: 'user', content: 'calculate' }], onDelta, []);
+      const res = (await llm.chat([{ role: 'user', content: 'calculate' }], onDelta, [])) as ChatTestResult;
       expect(res.type).toBe('tool_calls');
-      expect(res.toolCalls[0].function.name).toBe('calc');
-      expect(res.toolCalls[0].function.arguments).toBe('{"a":1}');
+      expect(res.toolCalls?.[0].function.name).toBe('calc');
+      expect(res.toolCalls?.[0].function.arguments).toBe('{"a":1}');
     });
 
     it('should catch CustomSystemPromptError on Function Calling and fallback to standard chat', async () => {
       let callCount = 0;
-      (WebLLMModule.CreateMLCEngine as any).mockResolvedValueOnce({
-        chat: {
-          completions: {
-            create: vi.fn().mockImplementation((opt) => {
-              callCount++;
-              if (opt.tools) {
-                throw new Error('CustomSystemPromptError: tools not supported');
-              }
-              return Promise.resolve({
-                choices: [{ message: { role: 'assistant', content: '純文字回傳' }, finish_reason: 'stop' }]
-              });
-            })
+      vi.mocked(WebLLMModule.CreateMLCEngine).mockResolvedValueOnce(
+        asMLCEngine({
+          chat: {
+            completions: {
+              create: vi.fn().mockImplementation((opt) => {
+                callCount++;
+                if (opt.tools) {
+                  throw new Error('CustomSystemPromptError: tools not supported');
+                }
+                return Promise.resolve({
+                  choices: [{ message: { role: 'assistant', content: '純文字回傳' }, finish_reason: 'stop' }]
+                });
+              })
+            }
           }
-        }
-      });
+        })
+      );
 
       const llm: WebLLMController = initWebLLM({ llmModel: 'Hermes-2-Pro-Llama-3-8B-q4f32_1-MLC', llmIsStream: false });
       await llm.load();
@@ -353,10 +379,10 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       const res = await llm.chat(
         [{ role: 'user', content: 'test' }],
         null,
-        [{ name: 't', inputSchema: { type: 'object', properties: {} } }] as any
+        [{ name: 't', inputSchema: { type: 'object', properties: {} } }] as ToolDefinition[]
       );
       expect(callCount).toBe(2);
-      expect(res.content).toBe('純文字回傳');
+      expect((res as ChatTestResult).content).toBe('純文字回傳');
     });
   });
 
@@ -382,7 +408,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
         updateChatMessage: vi.fn()
       };
 
-      await chatWithWebLLM(brainEngine as any, '執行工具');
+      await chatWithWebLLM(brainEngine, '執行工具');
       expect(mockLlm.chat).toHaveBeenCalled();
     });
 
@@ -401,7 +427,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
         onStreamEnd: vi.fn()
       };
 
-      await expect(chatWithWebLLM(brainEngine as any, '請問在嗎？')).rejects.toThrow('WebLLM response is empty');
+      await expect(chatWithWebLLM(brainEngine, '請問在嗎？')).rejects.toThrow('WebLLM response is empty');
       expect(brainEngine.onStreamEnd).toHaveBeenCalledWith('');
     });
 
@@ -443,7 +469,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
         updateChatMessage: vi.fn()
       };
 
-      await chatWithWebLLM(brainEngine as any, '說長一點的故事');
+      await chatWithWebLLM(brainEngine, '說長一點的故事');
 
       expect(callCount).toBe(2);
       expect(onAutoContinueStart).toHaveBeenCalled();
@@ -492,7 +518,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
         updateChatMessage: vi.fn()
       };
 
-      await chatWithWebLLM(brainEngine as any, '串流測試');
+      await chatWithWebLLM(brainEngine, '串流測試');
       expect(onStreamStart).toHaveBeenCalled();
       expect(onStreamChunk).toHaveBeenCalled();
       expect(onStreamEnd).toHaveBeenCalledWith('第一句。第二句。');
@@ -521,14 +547,14 @@ describe('Unit Test: core/brain/web-llm.js', () => {
         onEmotionChange: vi.fn()
       };
 
-      await chatWithWebLLM(brainEngineTool as any, '算一下');
+      await chatWithWebLLM(brainEngineTool, '算一下');
       expect(brainEngineTool.buildLLMMessages).toHaveBeenCalled();
       expect(brainEngineTool.onEmotionChange).toHaveBeenCalledWith('thinking');
 
       // 2. Auto-continue with empty next chunk breaks loop early
       let continueCount = 0;
       const mockLlmEmptyChunk = {
-        chat: vi.fn().mockImplementation((_msgs: any, onChunk: any) => {
+        chat: vi.fn().mockImplementation((_msgs: unknown, onChunk: unknown) => {
           continueCount++;
           if (continueCount === 1) {
             if (typeof onChunk === 'function') onChunk('開頭...', '開頭...');
@@ -563,14 +589,15 @@ describe('Unit Test: core/brain/web-llm.js', () => {
         updateChatMessage: vi.fn()
       };
 
-      await chatWithWebLLM(brainEngineAuto as any, '講故事');
+      await chatWithWebLLM(brainEngineAuto, '講故事');
       expect(onAutoContinueEnd).toHaveBeenCalled();
       expect(brainEngineAuto.triggerRollingSummaryIfNeeded).toHaveBeenCalled();
     });
 
     it('should handle streaming tool call delta chunks and JSON text tool call extraction', async () => {
       // 1. Streaming delta tool calls
-      (WebLLMModule.CreateMLCEngine as any).mockResolvedValueOnce({
+      vi.mocked(WebLLMModule.CreateMLCEngine).mockResolvedValueOnce(
+        asMLCEngine({
         chat: {
           completions: {
             create: vi.fn().mockImplementation(() => (async function* () {
@@ -607,16 +634,17 @@ describe('Unit Test: core/brain/web-llm.js', () => {
             })())
           }
         }
-      });
+      }));
 
       const llm: WebLLMController = initWebLLM({ llmIsStream: true });
       await llm.load();
-      const res = await llm.chat([{ role: 'user', content: '搜尋' }], vi.fn(), [{ name: 'search_data' }] as any);
+      const res = (await llm.chat([{ role: 'user', content: '搜尋' }], vi.fn(), [{ name: 'search_data' }] as ToolDefinition[])) as ChatTestResult;
       expect(res.type).toBe('tool_calls');
-      expect(res.toolCalls[0].function.arguments).toBe('{"q":"avatar"}');
+      expect(res.toolCalls?.[0].function.arguments).toBe('{"q":"avatar"}');
 
       // 2. Stream fallback text tool calls
-      (WebLLMModule.CreateMLCEngine as any).mockResolvedValueOnce({
+      vi.mocked(WebLLMModule.CreateMLCEngine).mockResolvedValueOnce(
+        asMLCEngine({
         chat: {
           completions: {
             create: vi.fn().mockImplementation(() => (async function* () {
@@ -633,51 +661,53 @@ describe('Unit Test: core/brain/web-llm.js', () => {
             })())
           }
         }
-      });
+      }));
 
       const llm2: WebLLMController = initWebLLM({ llmIsStream: true });
       await llm2.load();
-      const res2 = await llm2.chat([{ role: 'user', content: '現在時間' }], vi.fn());
+      const res2 = (await llm2.chat([{ role: 'user', content: '現在時間' }], vi.fn())) as ChatTestResult;
       expect(res2.type).toBe('tool_calls');
-      expect(res2.toolCalls[0].function.name).toBe('get_time');
+      expect(res2.toolCalls?.[0].function.name).toBe('get_time');
     });
 
     it('should degrade to pure conversation mode when Function Calling is not supported by model', async () => {
       let attempt = 0;
-      (WebLLMModule.CreateMLCEngine as any).mockResolvedValueOnce({
-        chat: {
-          completions: {
-            create: vi.fn().mockImplementation((opt) => {
-              attempt++;
-              if (attempt === 1 && opt.tools) {
-                throw new Error('not supported for ChatCompletionRequest.tools on this model');
-              }
-              return Promise.resolve({
-                choices: [
-                  {
-                    message: { role: 'assistant', content: '降級純對話回答' },
-                    finish_reason: 'stop'
-                  }
-                ]
-              });
-            })
+      vi.mocked(WebLLMModule.CreateMLCEngine).mockResolvedValueOnce(
+        asMLCEngine({
+          chat: {
+            completions: {
+              create: vi.fn().mockImplementation((opt) => {
+                attempt++;
+                if (attempt === 1 && opt.tools) {
+                  throw new Error('not supported for ChatCompletionRequest.tools on this model');
+                }
+                return Promise.resolve({
+                  choices: [
+                    {
+                      message: { role: 'assistant', content: '降級純對話回答' },
+                      finish_reason: 'stop'
+                    }
+                  ]
+                });
+              })
+            }
           }
-        }
-      });
+        })
+      );
 
       const llm: WebLLMController = initWebLLM({ llmIsStream: false });
       await llm.load();
-      const res = await llm.chat([{ role: 'user', content: '測試降級' }], null, [{ name: 'tool_a' }] as any);
+      const res = (await llm.chat([{ role: 'user', content: '測試降級' }], null, [{ name: 'tool_a' }] as ToolDefinition[])) as ChatTestResult;
       expect(res.type).toBe('text');
       expect(res.content).toBe('降級純對話回答');
     });
 
     it('should test resolvedIsStream options and streaming continuation in chatWithWebLLM', async () => {
       // 1. isStream & LLMIsStream options resolution
-      const llm1: WebLLMController = initWebLLM({ isStream: false } as any);
+      const llm1: WebLLMController = initWebLLM({ isStream: false });
       expect(llm1.isStream).toBe(false);
 
-      const llm2: WebLLMController = initWebLLM({ LLMIsStream: false } as any);
+      const llm2: WebLLMController = initWebLLM({ LLMIsStream: false });
       expect(llm2.isStream).toBe(false);
 
       // 2. chatWithWebLLM with streaming auto-continue triggering stream callbacks
@@ -732,7 +762,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
         maxAutoContinuations: 2
       };
 
-      await chatWithWebLLM(brainEngine as any, [{ role: 'user', content: '長篇故事' }] as any);
+      await chatWithWebLLM(brainEngine, [{ role: 'user', content: '長篇故事' }] as unknown as string);
 
       expect(onStreamEnd).toHaveBeenCalledWith(expect.stringContaining('第一段文字'));
       expect(onStreamEnd).toHaveBeenCalledWith(expect.stringContaining('接續第二段'));
