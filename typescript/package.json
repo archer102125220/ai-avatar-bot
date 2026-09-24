@@ -23,6 +23,7 @@
     "test:unit:ui": "vitest --ui",
     "test:unit:coverage": "vitest run --coverage",
     "test:benchmark": "vitest run test/unit",
+    "test:typecheck": "tsc --noEmit --project tsconfig.test.json",
     "lint": "eslint core/",
     "lint:fix": "eslint core/ --fix"
   },
