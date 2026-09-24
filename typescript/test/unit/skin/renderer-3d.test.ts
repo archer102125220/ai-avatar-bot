@@ -11,6 +11,7 @@ import {
   bootVRM,
   loadVRMFile
 } from '@/core/skin/renderer-3d';
+import type { SkinEngine } from '@core';
 
 // Mock Three.js and VRM packages
 vi.mock('three', () => {
@@ -255,11 +256,9 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
 
   describe('defaultGesture3D', () => {
     it('should safely return on invalid arguments', async () => {
-      // @ts-ignore: Defensive runtime type checking test
-      await expect(defaultGesture3D(null, 'wave')).resolves.toBeUndefined();
-      await expect(defaultGesture3D({} as any, '')).resolves.toBeUndefined();
-      // @ts-ignore: Defensive runtime type checking test
-      await expect(defaultGesture3D({} as any, null)).resolves.toBeUndefined();
+      await expect(defaultGesture3D(null as unknown as SkinEngine, 'wave')).resolves.toBeUndefined();
+      await expect(defaultGesture3D({} as unknown as SkinEngine, '')).resolves.toBeUndefined();
+      await expect(defaultGesture3D({} as unknown as SkinEngine, null as unknown as string)).resolves.toBeUndefined();
     });
 
     it('should invoke renderer.playGesture and catch errors', async () => {
@@ -279,8 +278,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
   describe('loadVRMFile', () => {
     it('should log error when stageEl is not an HTMLElement', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      // @ts-ignore: Defensive runtime type checking test
-      loadVRMFile({ stageEl: null } as any, new File(['dummy'], 'model.vrm'));
+      loadVRMFile({ stageEl: null } as unknown as SkinEngine, new File(['dummy'], 'model.vrm'));
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
@@ -292,8 +290,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       loadVRMFile(skinEngine, new File(['dummy'], 'model.png'));
       expect(VRMFileChangeFail).toHaveBeenCalledWith(expect.any(Error));
 
-      // @ts-ignore: Defensive runtime type checking test
-      loadVRMFile(skinEngine, null);
+      loadVRMFile(skinEngine, null as unknown as File);
       expect(VRMFileChangeFail).toHaveBeenCalledTimes(2);
     });
 

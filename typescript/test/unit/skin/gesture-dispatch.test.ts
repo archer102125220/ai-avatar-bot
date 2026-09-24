@@ -66,9 +66,8 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
     });
 
     it('should handle null engine or empty emotion gracefully', async () => {
-      // @ts-ignore: Defensive runtime type checking test
-      await expect(defaultGesture3D(null, 'wave')).resolves.toBeUndefined();
-      await expect(defaultGesture3D({} as any, '')).resolves.toBeUndefined();
+      await expect(defaultGesture3D(null as unknown as SkinEngine, 'wave')).resolves.toBeUndefined();
+      await expect(defaultGesture3D({} as unknown as SkinEngine, '')).resolves.toBeUndefined();
     });
   });
 

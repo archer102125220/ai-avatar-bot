@@ -107,9 +107,7 @@ describe('Unit Test: core/store.js (TypeScript)', () => {
   it('should throw error when invalid arguments are passed to subscribe', () => {
     const store = createBaseStore();
 
-    // @ts-ignore: Defensive runtime type checking test for invalid number selector
-    expect(() => store.subscribe(123)).toThrow('Invalid subscribe arguments');
-    // @ts-ignore: Defensive runtime type checking test for null listener
-    expect(() => store.subscribe('key', null)).toThrow('Invalid subscribe arguments');
+    expect(() => store.subscribe(123 as unknown as () => void)).toThrow('Invalid subscribe arguments');
+    expect(() => store.subscribe('key', null as unknown as () => void)).toThrow('Invalid subscribe arguments');
   });
 });

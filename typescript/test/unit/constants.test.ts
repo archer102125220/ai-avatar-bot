@@ -230,8 +230,7 @@ describe('Unit Test: core/constants.js (TypeScript)', () => {
         isWebLLMFunctionCallingSupported('Qwen2.5-1.5B-Instruct-q4f16_1-MLC')
       ).toBe(false);
       expect(isWebLLMFunctionCallingSupported('')).toBe(false);
-      // @ts-ignore: Defensive runtime type checking test for null input
-      expect(isWebLLMFunctionCallingSupported(null)).toBe(false);
+      expect(isWebLLMFunctionCallingSupported(null as unknown as string)).toBe(false);
     });
   });
 });

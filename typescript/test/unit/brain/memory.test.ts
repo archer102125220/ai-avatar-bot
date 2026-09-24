@@ -37,11 +37,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
     });
 
     it('should safely migrate null, undefined, or old v0 data structures', () => {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore: Defensive runtime type checking test
       expect(migrateMemoryData(null)).toEqual(createDefaultMemoryData());
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore: Defensive runtime type checking test
       expect(migrateMemoryData(undefined)).toEqual(createDefaultMemoryData());
 
       const v0Data = {
@@ -194,9 +190,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
 
       // addTurn ignores non-string or empty content
       memory.addTurn('user', '');
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore: Defensive runtime type checking test for null content
-      memory.addTurn('user', null);
+      memory.addTurn('user', null as unknown as string);
       expect(memory.data.history.length).toBe(0);
 
       // addTurn and 100 items capacity limit

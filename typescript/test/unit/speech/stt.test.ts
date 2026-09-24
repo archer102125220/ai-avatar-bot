@@ -13,12 +13,9 @@ describe('Unit Test: core/speech/stt.js', () => {
 
   describe('validateSTTEngine', () => {
     it('should report missing methods when invalid or non-object engine is passed', () => {
-      // @ts-ignore: Defensive runtime type checking test
       expect(validateSTTEngine(null).isValid).toBe(false);
-      // @ts-ignore: Defensive runtime type checking test
       expect(validateSTTEngine(null).missing).toContain('engine instance');
 
-      // @ts-ignore: Defensive runtime type checking test
       const result = validateSTTEngine({});
       expect(result.isValid).toBe(false);
       expect(result.missing).toContain('startListening()');
@@ -32,7 +29,6 @@ describe('Unit Test: core/speech/stt.js', () => {
         stopListening: vi.fn(),
         isListening: false
       };
-      // @ts-ignore: Defensive runtime type checking test for partial mock engine
       const result = validateSTTEngine(engine);
       expect(result.isValid).toBe(true);
       expect(result.missing).toEqual([]);
@@ -63,11 +59,9 @@ describe('Unit Test: core/speech/stt.js', () => {
   describe('initDefaultSTTEngine', () => {
     it('should handle locale, noSpeechRuns getters/setters and unsupported speech recognition', async () => {
       const onError = vi.fn();
-      const origRecognition = (window as any).SpeechRecognition;
-      // @ts-ignore: Testing environment without SpeechRecognition
-      delete (window as any).SpeechRecognition;
-      // @ts-ignore: Testing environment without webkitSpeechRecognition
-      delete (window as any).webkitSpeechRecognition;
+      const origRecognition = (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition;
+      Reflect.deleteProperty(window, 'SpeechRecognition');
+      Reflect.deleteProperty(window, 'webkitSpeechRecognition');
 
       const stt: STTEngine = initDefaultSTTEngine({
         onError,
@@ -81,15 +75,18 @@ describe('Unit Test: core/speech/stt.js', () => {
       expect(stt.noSpeechRuns).toBe(0);
       stt.noSpeechRuns = 3;
       expect(stt.noSpeechRuns).toBe(3);
-      // @ts-ignore: Defensive runtime type checking test for invalid noSpeechRuns
-      stt.noSpeechRuns = 'invalid';
+      stt.noSpeechRuns = 'invalid' as unknown as number;
       expect(stt.noSpeechRuns).toBe(0);
 
       // startListening when unsupported
       await stt.startListening();
       expect(onError).toHaveBeenCalledWith(expect.stringContaining('does not support speech recognition'), false);
 
-      (window as any).SpeechRecognition = origRecognition;
+      Object.defineProperty(window, 'SpeechRecognition', {
+        value: origRecognition,
+        configurable: true,
+        writable: true
+      });
     });
 
     it('should test recognition lifecycle, error handlers, and interim results in startListening', async () => {
@@ -446,15 +443,18 @@ describe('Unit Test: core/speech/stt.js', () => {
 
     it('should throw media-not-supported error when getUserMedia is missing', async () => {
       const origMediaDevices = navigator.mediaDevices;
-      // @ts-ignore: Testing environment without mediaDevices
-      delete (navigator as any).mediaDevices;
+      Reflect.deleteProperty(navigator, 'mediaDevices');
 
       const onError = vi.fn();
       const stt: STTEngine = initDefaultSTTEngine({ onError });
       await stt.startListening();
 
       expect(onError).toHaveBeenCalledWith(expect.stringContaining('無法啟動語音功能'), true);
-      (navigator as any).mediaDevices = origMediaDevices;
+      Object.defineProperty(navigator, 'mediaDevices', {
+        value: origMediaDevices,
+        configurable: true,
+        writable: true
+      });
     });
 
     it('should abort existing recognition on startListening, handle onend when convoOn is false, and ignore aborted errors', async () => {

@@ -119,12 +119,15 @@ describe('Unit Test: core/brain/web-llm.js', () => {
     it('should handle supported flag when navigator.gpu is unavailable', () => {
       const origGpu = navigator.gpu;
       try {
-        // @ts-ignore: Testing environment without navigator.gpu
-        delete (navigator as any).gpu;
+        Reflect.deleteProperty(navigator, 'gpu');
         const llm: WebLLMController = initWebLLM();
         expect(llm.supported).toBe(false);
       } finally {
-        (navigator as any).gpu = origGpu;
+        Object.defineProperty(navigator, 'gpu', {
+          value: origGpu,
+          configurable: true,
+          writable: true
+        });
       }
     });
   });

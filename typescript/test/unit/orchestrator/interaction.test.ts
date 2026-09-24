@@ -6,16 +6,34 @@ import {
 import { createBaseStore } from '@/core/store';
 import { initI18nEngine } from '@/core/i18n';
 import { AVATAR_MODE_MAP } from '@/core/constants';
-import type { I18nEngine } from '@core';
+import type { I18nEngine, AiAvatarWidget, AvatarBotOptions, GetEnginesFn, BaseStore, OrchestratorEngines, SkinEngine } from '@core';
 
 describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
-  let rootStore: any;
+  let rootStore: BaseStore;
   let i18nEngine: I18nEngine;
-  let mockWidget: any;
-  let mockEngines: any;
+  let mockWidget: { name: string };
+  let mockEngines: {
+    brainEngine: {
+      memory: {
+        enabled: boolean;
+        data: { visits: number; name: string };
+      };
+    };
+    speechEngine: {
+      onTapTimer: boolean;
+      spokenAudioText: string;
+    };
+    skinEngine: {
+      avatarModel: {
+        motion: ReturnType<typeof vi.fn>;
+      };
+      loadVRMFile: ReturnType<typeof vi.fn>;
+    };
+    toolsEngine: null;
+  };
 
   beforeEach(() => {
-    rootStore = createBaseStore({
+    rootStore = createBaseStore<Record<string, unknown>>({
       gender: 'female',
       avatarMode: AVATAR_MODE_MAP.assistant,
       locale: 'zh-TW',
@@ -42,12 +60,13 @@ describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
           motion: vi.fn()
         },
         loadVRMFile: vi.fn()
-      }
+      },
+      toolsEngine: null
     };
   });
 
-  const getEngines = () => mockEngines;
-  const getWidget = () => mockWidget;
+  const getEngines: GetEnginesFn = () => mockEngines as unknown as OrchestratorEngines;
+  const getWidget = () => mockWidget as unknown as AiAvatarWidget;
 
   describe('createTapAvatarHandler greetings across modes and locales', () => {
     it('should resolve custom mode greeting if configured', () => {
@@ -184,9 +203,8 @@ describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
   describe('createModelDropHandler edge cases', () => {
     it('should safely return if container is invalid', () => {
       const updateListeners = createModelDropHandler({
-        // @ts-ignore: Defensive runtime type checking test
-        container: null,
-        getSkinEngine: () => mockEngines.skinEngine
+        container: null as unknown as HTMLElement,
+        getSkinEngine: () => mockEngines.skinEngine as unknown as SkinEngine
       });
 
       expect(() => updateListeners(true)).not.toThrow();
@@ -196,7 +214,7 @@ describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
       const container = document.createElement('div');
       const updateListeners = createModelDropHandler({
         container,
-        getSkinEngine: () => mockEngines.skinEngine
+        getSkinEngine: () => mockEngines.skinEngine as unknown as SkinEngine
       });
 
       updateListeners(true);
@@ -230,11 +248,11 @@ describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
       });
 
       const onTap = createTapAvatarHandler({
-        widget: mockWidget,
-        options: { onTapAvatar: vi.fn() } as any,
+        widget: mockWidget as unknown as AiAvatarWidget,
+        options: { onTapAvatar: vi.fn() } as unknown as AvatarBotOptions,
         rootStore,
         i18nEngine,
-        getEngines
+        getEngines: getEngines as unknown as GetEnginesFn
       });
 
       onTap();

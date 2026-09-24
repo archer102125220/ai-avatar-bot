@@ -1,11 +1,92 @@
-import { vi } from 'vitest';
+import { vi, type Mock } from 'vitest';
+
+export interface MockRenderer2D {
+  canvas: HTMLCanvasElement;
+  avatarModel: {
+    internalModel: {
+      settings: {
+        motions: {
+          tap_body: Array<{ File: string }>;
+        };
+      };
+      height: number;
+      width: number;
+    };
+    position: { x: number; y: number; set: Mock<(...args: unknown[]) => unknown> };
+    scale: { x: number; y: number; set: Mock<(...args: unknown[]) => unknown> };
+    anchor: { x: number; y: number; set: Mock<(...args: unknown[]) => unknown> };
+    expression: Mock<(...args: unknown[]) => Promise<boolean>>;
+    motion: Mock<(...args: unknown[]) => Promise<boolean>>;
+    on: Mock<(...args: unknown[]) => unknown>;
+    emit: Mock<(...args: unknown[]) => unknown>;
+    destroy: Mock<(...args: unknown[]) => unknown>;
+    [key: string]: unknown;
+  };
+  pixiApp: {
+    stage: {
+      addChild: Mock<(...args: unknown[]) => unknown>;
+      removeChild: Mock<(...args: unknown[]) => unknown>;
+    };
+    renderer: {
+      width: number;
+      height: number;
+      resize: Mock<(...args: unknown[]) => unknown>;
+    };
+    destroy: Mock<(...args: unknown[]) => unknown>;
+    [key: string]: unknown;
+  };
+  fit: Mock<() => void>;
+  updateTransform: Mock<(params?: unknown) => void>;
+  dispose: Mock<() => void>;
+  [key: string]: unknown;
+}
+
+export interface MockRenderer3D {
+  canvas: HTMLCanvasElement;
+  gltf: Record<string, unknown>;
+  vrm: {
+    scene: Record<string, unknown>;
+    humanoid: {
+      getNormalizedBoneNode: Mock<() => unknown>;
+    };
+    expressionManager: {
+      setValue: Mock<(...args: unknown[]) => unknown>;
+      update: Mock<() => unknown>;
+    };
+    lookAt: {
+      target: { position: { x: number; y: number; z: number } };
+      lookAt: Mock<() => unknown>;
+    };
+    [key: string]: unknown;
+  };
+  camera: {
+    position: { x: number; y: number; z: number; set: Mock<(...args: unknown[]) => unknown> };
+    lookAt: Mock<() => unknown>;
+    fov: number;
+    near: number;
+    far: number;
+    updateProjectionMatrix: Mock<() => unknown>;
+    [key: string]: unknown;
+  };
+  scene: {
+    add: Mock<(...args: unknown[]) => unknown>;
+    remove: Mock<(...args: unknown[]) => unknown>;
+    [key: string]: unknown;
+  };
+  TAP_GESTURES: string[];
+  playGesture: Mock<(gestureName?: string) => Promise<void>>;
+  setPaused: Mock<(paused?: boolean) => void>;
+  updateTransform: Mock<(params?: unknown) => void>;
+  dispose: Mock<() => void>;
+  [key: string]: unknown;
+}
 
 /**
  * 建立 Mock 2D Live2D 渲染器實例
  * @param overrides
  * @returns Mocked 2D Live2D Renderer
  */
-export function createMockRenderer2D(overrides: Record<string, any> = {}): Record<string, any> {
+export function createMockRenderer2D(overrides: Partial<MockRenderer2D> = {}): MockRenderer2D {
   const canvas = document.createElement('canvas');
   const avatarModel = {
     internalModel: {
@@ -56,7 +137,7 @@ export function createMockRenderer2D(overrides: Record<string, any> = {}): Recor
  * @param overrides
  * @returns Mocked 3D VRM Renderer
  */
-export function createMockRenderer3D(overrides: Record<string, any> = {}): Record<string, any> {
+export function createMockRenderer3D(overrides: Partial<MockRenderer3D> = {}): MockRenderer3D {
   const canvas = document.createElement('canvas');
   const vrm = {
     scene: {},
@@ -102,19 +183,24 @@ export function createMockRenderer3D(overrides: Record<string, any> = {}): Recor
   };
 }
 
+interface WindowWithMockPixi {
+  __cdnDependenciePromise__?: Promise<void>;
+  PIXI?: unknown;
+}
+
 /**
  * 全域安裝 PIXI 與 Live2D Mock
  */
 export function setupWindowPixiMock() {
-  (window as any).__cdnDependenciePromise__ = Promise.resolve();
+  ((window as unknown) as WindowWithMockPixi).__cdnDependenciePromise__ = Promise.resolve();
 
   class MockLive2DModel {
-    internalModel: any;
-    position: any;
-    scale: any;
-    anchor: any;
-    expression: any;
-    on: any;
+    internalModel: Record<string, unknown>;
+    position: { set: ReturnType<typeof vi.fn> };
+    scale: { set: ReturnType<typeof vi.fn> };
+    anchor: { set: ReturnType<typeof vi.fn> };
+    expression: ReturnType<typeof vi.fn>;
+    on: ReturnType<typeof vi.fn>;
     x: number;
     y: number;
 
@@ -149,9 +235,9 @@ export function setupWindowPixiMock() {
   }
 
   class MockPIXIApplication {
-    stage: { addChild: any; removeChild: any };
-    renderer: { width: number; height: number; resize: any };
-    destroy: any;
+    stage: { addChild: ReturnType<typeof vi.fn>; removeChild: ReturnType<typeof vi.fn> };
+    renderer: { width: number; height: number; resize: ReturnType<typeof vi.fn> };
+    destroy: ReturnType<typeof vi.fn>;
 
     constructor() {
       this.stage = { addChild: vi.fn(), removeChild: vi.fn() };
@@ -160,7 +246,7 @@ export function setupWindowPixiMock() {
     }
   }
 
-  (window as any).PIXI = {
+  ((window as unknown) as WindowWithMockPixi).PIXI = {
     Application: MockPIXIApplication,
     Ticker: {},
     live2d: {

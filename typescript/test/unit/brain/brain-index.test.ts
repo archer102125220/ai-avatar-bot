@@ -271,8 +271,7 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
 
       // Empty text returns safely
       emitAnswer(brainEngine as any, '');
-      // @ts-ignore: Defensive runtime type checking test
-      emitAnswer(brainEngine as any, null);
+      emitAnswer(brainEngine as any, null as unknown as string);
     });
   });
 
@@ -368,11 +367,8 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
 
   describe('validateBrainEngine', () => {
     it('should return isValid false when argument is not an object', () => {
-      // @ts-ignore: Defensive runtime type checking test
       expect(validateBrainEngine(null)).toEqual({ isValid: false, missing: ['engine object'] });
-      // @ts-ignore: Defensive runtime type checking test
       expect(validateBrainEngine(undefined)).toEqual({ isValid: false, missing: ['engine object'] });
-      // @ts-ignore: Defensive runtime type checking test
       expect(validateBrainEngine('string')).toEqual({ isValid: false, missing: ['engine object'] });
     });
 

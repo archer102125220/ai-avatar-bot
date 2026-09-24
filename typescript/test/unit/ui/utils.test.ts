@@ -7,6 +7,7 @@ import {
 import { initI18nEngine } from '@/core/i18n';
 import { ENGINE_MODE_MAP } from '@/core/constants';
 import type { I18nEngine } from '@core';
+import type { UiContext } from '@/core/ui/types';
 
 describe('UI Utilities (updateUIStrings, copyText, initSkinModeChangeButton)', () => {
   let container: HTMLElement;
@@ -44,10 +45,8 @@ describe('UI Utilities (updateUIStrings, copyText, initSkinModeChangeButton)', (
     });
 
     it('should do nothing if container or i18nEngine is invalid', () => {
-      // @ts-ignore: Defensive runtime type checking test
-      expect(() => updateUIStrings(null, i18nEngine)).not.toThrow();
-      // @ts-ignore: Defensive runtime type checking test
-      expect(() => updateUIStrings(container, null)).not.toThrow();
+      expect(() => updateUIStrings(null as unknown as HTMLElement, i18nEngine)).not.toThrow();
+      expect(() => updateUIStrings(container, null as unknown as Parameters<typeof updateUIStrings>[1])).not.toThrow();
     });
   });
 
@@ -80,8 +79,7 @@ describe('UI Utilities (updateUIStrings, copyText, initSkinModeChangeButton)', (
       await copyText('Fallback 複製');
       expect(document.execCommand).toHaveBeenCalledWith('copy');
 
-      // @ts-ignore: Defensive runtime test
-      delete (document as any).execCommand;
+      Reflect.deleteProperty(document, 'execCommand');
       Object.defineProperty(navigator, 'clipboard', {
         value: originalClipboard,
         configurable: true
@@ -90,10 +88,16 @@ describe('UI Utilities (updateUIStrings, copyText, initSkinModeChangeButton)', (
   });
 
   describe('initSkinModeChangeButton', () => {
-    let mockContext: any;
+    let mockContext: {
+      uiDom: { engineButtonEl: HTMLButtonElement };
+      ENGINE_MODE_MAP: typeof ENGINE_MODE_MAP;
+      skinEngine: {
+        engineMode: string;
+      };
+    };
     let engineButtonEl: HTMLButtonElement;
 
-  beforeEach(() => {
+    beforeEach(() => {
       engineButtonEl = document.createElement('button');
       mockContext = {
         uiDom: { engineButtonEl },
@@ -105,22 +109,22 @@ describe('UI Utilities (updateUIStrings, copyText, initSkinModeChangeButton)', (
     });
 
     it('should display engine toggle button only when has2D, has3D, and isEngineToggleEnabled are all true', () => {
-      initSkinModeChangeButton(mockContext, true, true, true);
+      initSkinModeChangeButton(mockContext as unknown as UiContext, true, true, true);
       expect(engineButtonEl.style.display).toBe('');
       expect(engineButtonEl.textContent).toBe('2D');
 
-      initSkinModeChangeButton(mockContext, true, false, true);
+      initSkinModeChangeButton(mockContext as unknown as UiContext, true, false, true);
       expect(engineButtonEl.style.display).toBe('none');
 
-      initSkinModeChangeButton(mockContext, false, true, true);
+      initSkinModeChangeButton(mockContext as unknown as UiContext, false, true, true);
       expect(engineButtonEl.style.display).toBe('none');
 
-      initSkinModeChangeButton(mockContext, true, true, false);
+      initSkinModeChangeButton(mockContext as unknown as UiContext, true, true, false);
       expect(engineButtonEl.style.display).toBe('none');
     });
 
     it('should toggle engineMode between 2D and 3D when clicking engine button', () => {
-      initSkinModeChangeButton(mockContext, true, true, true);
+      initSkinModeChangeButton(mockContext as unknown as UiContext, true, true, true);
 
       // Current mode is 2D, clicking should switch to 3D
       engineButtonEl.click();

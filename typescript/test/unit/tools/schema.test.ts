@@ -11,7 +11,6 @@ import { TOOL_ROUTING_MODE_MAP, TOOL_RESULT_MODE_MAP } from '@/core/constants';
 describe('Unit Test: core/tools/schema.js (TypeScript)', () => {
   describe('normaliseSchema', () => {
     it('should return empty schema object if invalid schema is passed', () => {
-      // @ts-ignore: Defensive runtime type checking test for null schema
       expect(normaliseSchema(null)).toEqual({
         type: 'object',
         properties: {},
@@ -127,19 +126,19 @@ describe('Unit Test: core/tools/schema.js (TypeScript)', () => {
     it('getAiAvailableTools should filter out client-only tools', () => {
       const aiTools = getAiAvailableTools(tools);
       expect(aiTools.length).toBe(2);
-      expect(aiTools.map((t: any) => t.name)).toEqual(['query_db', 'hybrid_search']);
+      expect(aiTools.map((t) => t.name)).toEqual(['query_db', 'hybrid_search']);
     });
 
     it('toOpenAiTools should convert tools to OpenAI Function Calling JSON Schema', () => {
       const openAiTools = toOpenAiTools(tools);
       expect(openAiTools.length).toBe(2);
 
-      const dbTool = openAiTools.find((t: any) => t.function.name === 'query_db') as any;
+      const dbTool = openAiTools.find((t) => t.function.name === 'query_db');
       expect(dbTool).toBeDefined();
-      expect(dbTool.type).toBe('function');
-      expect(dbTool.function.parameters.type).toBe('object');
-      expect(dbTool.function.parameters.properties.sql.type).toBe('string');
-      expect(dbTool.function.parameters.required).toEqual(['sql']);
+      expect(dbTool?.type).toBe('function');
+      expect(dbTool?.function.parameters.type).toBe('object');
+      expect(dbTool?.function.parameters.properties['sql']?.type).toBe('string');
+      expect(dbTool?.function.parameters.required).toEqual(['sql']);
     });
   });
 
@@ -189,10 +188,9 @@ describe('Unit Test: core/tools/schema.js (TypeScript)', () => {
       expect(normalizedTool.confirmationTimeoutMs).toBe(5000);
 
       const openAiTools = toOpenAiTools([rawTool]);
-      expect((openAiTools[0] as any).function.parameters.properties.age.enum).toEqual(['18', '30', '65']);
+      expect(openAiTools[0]?.function.parameters.properties['age']?.enum).toEqual(['18', '30', '65']);
 
-      // @ts-ignore: Defensive runtime type checking test for null args
-      expect(argumentSummary(rawTool, null)).toBe('');
+      expect(argumentSummary(rawTool, null as unknown as Record<string, unknown>)).toBe('');
     });
   });
 });

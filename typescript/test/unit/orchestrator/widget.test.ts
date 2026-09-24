@@ -314,18 +314,14 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     widget.enableMemory = false;
     expect(widget.enableMemory).toBe(false);
     expect(mockEngines.brainEngine.memory.enabled).toBe(false);
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore: Defensive runtime type checking test
-    widget.enableMemory = 'not_boolean'; // ignored
+    widget.enableMemory = 'not_boolean' as unknown as boolean; // ignored
     expect(widget.enableMemory).toBe(false);
 
     // enableAiProvider
     widget.enableAiProvider = true;
     expect(widget.enableAiProvider).toBe(true);
     expect(mockEngines.brainEngine.enableAiProvider).toBe(true);
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore: Defensive runtime type checking test
-    widget.enableAiProvider = 123; // ignored
+    widget.enableAiProvider = 123 as unknown as boolean; // ignored
     expect(widget.enableAiProvider).toBe(true);
 
     // preloadWebLLM
@@ -368,9 +364,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     expect(widget.autoContinuePrompt).toBe('string prompt');
     widget.autoContinuePrompt = null;
     expect(widget.autoContinuePrompt).toBeNull();
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore: Defensive runtime type checking test
-    widget.autoContinuePrompt = 12345; // ignored
+    widget.autoContinuePrompt = 12345 as unknown as string; // ignored
     expect(widget.autoContinuePrompt).toBeNull();
 
     // enableModelDrop
@@ -590,9 +584,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     expect(mockUiDom.minimalEl.style.display).toBe('none');
 
     // Setting non-boolean should be ignored
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore: Defensive runtime type checking test
-    widget.isMinimal = 'not-a-bool';
+    widget.isMinimal = 'not-a-bool' as unknown as boolean;
     expect(widget.isMinimal).toBe(false);
   });
 

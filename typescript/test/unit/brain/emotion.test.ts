@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { classifyEmotion, applyEmotionFromText } from '@/core/brain/emotion';
+import type { BrainEngine } from '@/core/brain/types';
 
 describe('Unit Test: core/brain/emotion.js', () => {
   describe('classifyEmotion', () => {
@@ -22,10 +23,8 @@ describe('Unit Test: core/brain/emotion.js', () => {
     it('should return neutral for standard plain statements', () => {
       expect(classifyEmotion('台北今天氣溫攝氏 24 度。')).toBe('neutral');
       expect(classifyEmotion('')).toBe('neutral');
-      // @ts-ignore: Defensive runtime type checking test for null input
-      expect(classifyEmotion(null)).toBe('neutral');
-      // @ts-ignore: Defensive runtime type checking test for undefined input
-      expect(classifyEmotion(undefined)).toBe('neutral');
+      expect(classifyEmotion(null as unknown as string)).toBe('neutral');
+      expect(classifyEmotion(undefined as unknown as string)).toBe('neutral');
       // Sad and happy count tie / balanced
       expect(classifyEmotion('謝謝你，但是連不上伺服器。')).toBe('happy');
       expect(classifyEmotion('抱歉失敗了，謝謝大家！')).toBe('sad');
@@ -35,19 +34,16 @@ describe('Unit Test: core/brain/emotion.js', () => {
   describe('applyEmotionFromText', () => {
     it('should trigger onEmotionChange callback on brainEngine', () => {
       const onEmotionChange = vi.fn();
-      const brainEngine = { onEmotionChange };
+      const brainEngine = { onEmotionChange } as unknown as BrainEngine;
 
-      applyEmotionFromText(brainEngine as any, '太棒了，完成囉！');
+      applyEmotionFromText(brainEngine, '太棒了，完成囉！');
       expect(onEmotionChange).toHaveBeenCalledWith('happy');
     });
 
     it('should handle null or invalid brainEngine safely without errors', () => {
-      // @ts-ignore: Defensive runtime type checking test
-      expect(() => applyEmotionFromText(null, '太棒了')).not.toThrow();
-      // @ts-ignore: Defensive runtime type checking test
-      expect(() => applyEmotionFromText({}, '太棒了')).not.toThrow();
-      // @ts-ignore: Defensive runtime type checking test
-      expect(() => applyEmotionFromText({ onEmotionChange: null }, '太棒了')).not.toThrow();
+      expect(() => applyEmotionFromText(null as unknown as BrainEngine, '太棒了')).not.toThrow();
+      expect(() => applyEmotionFromText({} as unknown as BrainEngine, '太棒了')).not.toThrow();
+      expect(() => applyEmotionFromText({ onEmotionChange: null } as unknown as BrainEngine, '太棒了')).not.toThrow();
     });
   });
 });

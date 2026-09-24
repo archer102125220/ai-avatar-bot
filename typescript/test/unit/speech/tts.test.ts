@@ -16,12 +16,9 @@ describe('Unit Test: core/speech/tts.js', () => {
 
   describe('validateTTSEngine', () => {
     it('should report missing methods when invalid or non-object engine is passed', () => {
-      // @ts-ignore: Defensive runtime type checking test
       expect(validateTTSEngine(null).isValid).toBe(false);
-      // @ts-ignore: Defensive runtime type checking test
       expect(validateTTSEngine(null).missing).toContain('engine instance');
 
-      // @ts-ignore: Defensive runtime type checking test
       const result = validateTTSEngine({});
       expect(result.isValid).toBe(false);
       expect(result.missing).toContain('speak()');
@@ -43,7 +40,6 @@ describe('Unit Test: core/speech/tts.js', () => {
         isSpeaking: false,
         isMuted: false
       };
-      // @ts-ignore: Defensive runtime type checking test for partial mock engine
       const result = validateTTSEngine(engine);
       expect(result.isValid).toBe(true);
       expect(result.missing).toEqual([]);
@@ -95,8 +91,7 @@ describe('Unit Test: core/speech/tts.js', () => {
         '這是一段沒有標點符號的文字'
       ]);
       expect(splitSentences('')).toEqual([]);
-      // @ts-ignore: Defensive runtime type checking test for null input
-      expect(splitSentences(null)).toEqual([]);
+      expect(splitSentences(null as unknown as string)).toEqual([]);
     });
   });
 
@@ -113,10 +108,13 @@ describe('Unit Test: core/speech/tts.js', () => {
   describe('loadVoice', () => {
     it('should return null when speechSynthesis is not supported', () => {
       const origSpeech = window.speechSynthesis;
-      // @ts-ignore: Testing environment without speechSynthesis
-      delete (window as any).speechSynthesis;
+      Reflect.deleteProperty(window, 'speechSynthesis');
       expect(loadVoice('female', 'zh-TW')).toBeNull();
-      (window as any).speechSynthesis = origSpeech;
+      Object.defineProperty(window, 'speechSynthesis', {
+        value: origSpeech,
+        configurable: true,
+        writable: true
+      });
     });
 
     it('should match en-US male and female voices', () => {
