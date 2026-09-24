@@ -451,7 +451,8 @@ export async function triggerRollingSummaryIfNeeded(
             typeof summaryResponse === 'object' &&
             summaryResponse !== null &&
             'content' in summaryResponse &&
-            typeof (summaryResponse as { content: unknown }).content === 'string'
+            typeof (summaryResponse as { content: unknown }).content ===
+              'string'
           ) {
             return (summaryResponse as { content: string }).content;
           }
@@ -466,17 +467,18 @@ export async function triggerRollingSummaryIfNeeded(
         llmChat = async (
           promptMsgs: Array<{ role: string; content: string }>
         ): Promise<string> => {
-          const completionResult =
-            (await llm.engine!.chat!.completions!.create({
+          const completionResult = (await llm.engine!.chat!.completions!.create(
+            {
               messages: promptMsgs,
               temperature: 0.3
-            })) as {
-              choices?: Array<{
-                message?: {
-                  content?: string | null;
-                };
-              }>;
-            };
+            }
+          )) as {
+            choices?: Array<{
+              message?: {
+                content?: string | null;
+              };
+            }>;
+          };
           return completionResult?.choices?.[0]?.message?.content || '';
         };
       }

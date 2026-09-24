@@ -51,7 +51,9 @@ test.describe('Contract Track A: Minimal Toggle & Collapsing Specifications', ()
     await page.locator('.aw-minimal').click();
 
     // 驗證回呼按順序觸發 [true, false]
-    const triggers = await page.evaluate(() => (window as any).__minimalTriggers);
+    const triggers = await page.evaluate(
+      () => (window as any).__minimalTriggers
+    );
     expect(triggers).toEqual([true, false]);
   });
 });

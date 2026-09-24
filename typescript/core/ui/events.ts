@@ -121,8 +121,7 @@ export function bindUiEvent(context: UiContext | null = null): void {
       }
       const muteButtonEl = uiDom.muteButtonEl;
       speechEngine.ttsMuted = !speechEngine.ttsMuted;
-      muteButtonEl.textContent =
-        speechEngine.ttsMuted === true ? '🔇' : '🔊';
+      muteButtonEl.textContent = speechEngine.ttsMuted === true ? '🔇' : '🔊';
       muteButtonEl.setAttribute(
         'aria-pressed',
         String(speechEngine.ttsMuted === true)
@@ -150,9 +149,7 @@ export function bindUiEvent(context: UiContext | null = null): void {
       const speedButtonEl = uiDom.speedButtonEl;
       const steps = [0.9, 1.0, 1.2, 1.4];
       speechEngine.ttsRate =
-        steps[
-          (steps.indexOf(speechEngine.ttsRate) + 1) % steps.length
-        ] || 1.0;
+        steps[(steps.indexOf(speechEngine.ttsRate) + 1) % steps.length] || 1.0;
       speedButtonEl.textContent = speechEngine.ttsRate.toFixed(1) + '×';
       speechEngine.spokenDisplayText =
         typeof context.i18nEngine?.t === 'function'
@@ -256,9 +253,7 @@ export function bindUiEvent(context: UiContext | null = null): void {
         if (speechEngine) {
           speechEngine.spokenDisplayText =
             isServerReady === true
-              ? 'AI 伺服器大腦運作中（' +
-                brainEngine.aiProvider.model +
-                '）🧠'
+              ? 'AI 伺服器大腦運作中（' + brainEngine.aiProvider.model + '）🧠'
               : 'AI 伺服器連不上：確認 AI 伺服器在跑、且 AI_PROVIDER_ORIGINS 已允許這個網站。';
         }
 
@@ -273,7 +268,10 @@ export function bindUiEvent(context: UiContext | null = null): void {
       }
       const readyState = context.STATE_MAP?.READY;
       const loadingState = context.STATE_MAP?.LOADING;
-      if (typeof readyState === 'string' && brainEngine.llm?.state === readyState) {
+      if (
+        typeof readyState === 'string' &&
+        brainEngine.llm?.state === readyState
+      ) {
         if (speechEngine) {
           speechEngine.spokenDisplayText = 'AI 大腦已啟用，問我問題吧 🧠';
         }

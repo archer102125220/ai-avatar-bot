@@ -34,7 +34,10 @@ export function normaliseSchema(
   ) {
     return { type: 'object', properties: {}, required: [] };
   }
-  const propertiesRecord = schema.properties as Record<string, Record<string, unknown>>;
+  const propertiesRecord = schema.properties as Record<
+    string,
+    Record<string, unknown>
+  >;
   const normalizedProperties: Record<string, ToolSchemaProperty> = {};
   Object.keys(propertiesRecord)
     .slice(0, 20)
@@ -136,13 +139,17 @@ export function normaliseTool(
       : {};
   const rawRoutingMode = targetTool.routingMode as string;
   const routingMode =
-    (Object.values(TOOL_ROUTING_MODE_MAP) as string[]).includes(rawRoutingMode) === true
+    (Object.values(TOOL_ROUTING_MODE_MAP) as string[]).includes(
+      rawRoutingMode
+    ) === true
       ? rawRoutingMode
       : DEFAULT_TOOL_ROUTING_MODE;
 
   const rawResultMode = targetTool.resultMode as string;
   const resultMode =
-    (Object.values(TOOL_RESULT_MODE_MAP) as string[]).includes(rawResultMode) === true
+    (Object.values(TOOL_RESULT_MODE_MAP) as string[]).includes(
+      rawResultMode
+    ) === true
       ? rawResultMode
       : DEFAULT_TOOL_RESULT_MODE;
 
@@ -162,7 +169,9 @@ export function normaliseTool(
   }
 
   const execute =
-    typeof targetTool.execute === 'function' ? (targetTool.execute as ToolDefinition['execute']) : undefined;
+    typeof targetTool.execute === 'function'
+      ? (targetTool.execute as ToolDefinition['execute'])
+      : undefined;
 
   return {
     name: sanitizeText(targetTool.name, 64).replace(/[^a-zA-Z0-9_.-]/g, ''),

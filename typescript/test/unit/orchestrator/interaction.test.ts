@@ -6,7 +6,15 @@ import {
 import { createBaseStore } from '@/core/store';
 import { initI18nEngine } from '@/core/i18n';
 import { AVATAR_MODE_MAP } from '@/core/constants';
-import type { I18nEngine, AiAvatarWidget, AvatarBotOptions, GetEnginesFn, BaseStore, OrchestratorEngines, SkinEngine } from '@core';
+import type {
+  I18nEngine,
+  AiAvatarWidget,
+  AvatarBotOptions,
+  GetEnginesFn,
+  BaseStore,
+  OrchestratorEngines,
+  SkinEngine
+} from '@core';
 
 describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
   let rootStore: BaseStore;
@@ -65,7 +73,8 @@ describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
     };
   });
 
-  const getEngines: GetEnginesFn = () => mockEngines as unknown as OrchestratorEngines;
+  const getEngines: GetEnginesFn = () =>
+    mockEngines as unknown as OrchestratorEngines;
   const getWidget = () => mockWidget as unknown as AiAvatarWidget;
 
   describe('createTapAvatarHandler greetings across modes and locales', () => {
@@ -132,12 +141,16 @@ describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
       mockEngines.brainEngine.memory.data.name = 'タロウ';
       mockEngines.speechEngine.onTapTimer = false;
       onTap();
-      expect(mockEngines.speechEngine.spokenAudioText).toContain('タロウさん〜');
+      expect(mockEngines.speechEngine.spokenAudioText).toContain(
+        'タロウさん〜'
+      );
 
       mockEngines.brainEngine.memory.data.name = '';
       mockEngines.speechEngine.onTapTimer = false;
       onTap();
-      expect(mockEngines.speechEngine.spokenAudioText).toContain('こんにちは〜');
+      expect(mockEngines.speechEngine.spokenAudioText).toContain(
+        'こんにちは〜'
+      );
 
       // ko-KR
       i18nEngine.setLocale('ko-KR');
@@ -178,13 +191,17 @@ describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
       });
       onTap();
 
-      expect(mockEngines.speechEngine.spokenAudioText).toContain('Hello~ I am the');
+      expect(mockEngines.speechEngine.spokenAudioText).toContain(
+        'Hello~ I am the'
+      );
 
       // ja-JP
       i18nEngine.setLocale('ja-JP');
       mockEngines.speechEngine.onTapTimer = false;
       onTap();
-      expect(mockEngines.speechEngine.spokenAudioText).toContain('こんにちは〜！');
+      expect(mockEngines.speechEngine.spokenAudioText).toContain(
+        'こんにちは〜！'
+      );
 
       // ko-KR
       i18nEngine.setLocale('ko-KR');
@@ -243,9 +260,11 @@ describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
       vi.useFakeTimers();
 
       // Catch error when avatarModel.motion throws
-      mockEngines.skinEngine.avatarModel.motion = vi.fn().mockImplementation(() => {
-        throw new Error('Motion error');
-      });
+      mockEngines.skinEngine.avatarModel.motion = vi
+        .fn()
+        .mockImplementation(() => {
+          throw new Error('Motion error');
+        });
 
       const onTap = createTapAvatarHandler({
         widget: mockWidget as unknown as AiAvatarWidget,

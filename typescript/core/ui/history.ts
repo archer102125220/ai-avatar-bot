@@ -153,17 +153,18 @@ export function renderHistory(context: UiContext): void {
       choicesContainerEl.className = 'history-confirm';
       chatItem.pendingChoices.forEach(
         (choice: ToolRouteCandidate, index: number) => {
-        const choiceButtonEl = document.createElement('button');
-        choiceButtonEl.type = 'button';
-        choiceButtonEl.className = 'confirm';
-        choiceButtonEl.textContent = choice.tool?.label || '';
-        choiceButtonEl.onclick = () => {
-          if (typeof chatItem.id === 'string') {
-            context.toolsEngine?.chooseTool(chatItem.id, index);
-          }
-        };
-        choicesContainerEl.appendChild(choiceButtonEl);
-      });
+          const choiceButtonEl = document.createElement('button');
+          choiceButtonEl.type = 'button';
+          choiceButtonEl.className = 'confirm';
+          choiceButtonEl.textContent = choice.tool?.label || '';
+          choiceButtonEl.onclick = () => {
+            if (typeof chatItem.id === 'string') {
+              context.toolsEngine?.chooseTool(chatItem.id, index);
+            }
+          };
+          choicesContainerEl.appendChild(choiceButtonEl);
+        }
+      );
       historyItemRowEl.appendChild(choicesContainerEl);
     }
 

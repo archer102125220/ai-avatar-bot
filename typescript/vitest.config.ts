@@ -18,7 +18,7 @@ export default defineConfig({
     exclude: [
       'test/e2e/**',
       '**/node_modules/**',
-      '**/dist/**',
+      '**/dist/**'
 
       // [PHASE-3-STEP-1-UNLOCKED]
       // 已完成實作並解鎖驗證：

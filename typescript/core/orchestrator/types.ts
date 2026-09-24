@@ -113,8 +113,7 @@ export interface AvatarBotOptions {
   aiProviderModel?: string;
   /** Custom fetch configuration object or factory for AI Provider. */
   aiProviderCreateFetchSetting?:
-    | ((...args: unknown[]) => RequestInit)
-    | RequestInit;
+    ((...args: unknown[]) => RequestInit) | RequestInit;
   /** Custom fetch payload object or factory for AI Provider. */
   aiProviderCreateFetchPayload?:
     | ((...args: unknown[]) => Record<string, unknown> | BodyInit)
@@ -137,10 +136,7 @@ export interface AvatarBotOptions {
   knowledge?: KnowledgeEntry[] | Record<string, unknown> | string | null;
   /** Preloaded companion knowledge data. */
   companionKnowledge?:
-    | KnowledgeEntry[]
-    | Record<string, unknown>
-    | string
-    | null;
+    KnowledgeEntry[] | Record<string, unknown> | string | null;
   /** 2D or 3D avatar model URL. */
   modelUrl?: string;
   /** Speech synthesis (TTS) API endpoint. */
@@ -254,7 +250,9 @@ export interface AvatarBotOptions {
   /** Alias for confirmationTimeoutMs. */
   toolConfirmationTimeoutMs?: number;
   /** Custom message builder function for LLM inference. */
-  buildLLMMessages?: (...args: unknown[]) => LLMMessage[] | Promise<LLMMessage[]>;
+  buildLLMMessages?: (
+    ...args: unknown[]
+  ) => LLMMessage[] | Promise<LLMMessage[]>;
   /** Welcome message text. */
   welcomeText?: string;
   /** Welcome message text for companion mode. */
@@ -283,7 +281,11 @@ export interface AvatarBotOptions {
   /** Lifecycle callback fired when widget is fully initialized and mounted. */
   onReady?: (widget: AiAvatarWidget, ...args: unknown[]) => void;
   /** Callback fired when minimal UI mode is toggled. */
-  onMinimalTrigger?: (isMinimal: boolean, widget: unknown, ...args: unknown[]) => void;
+  onMinimalTrigger?: (
+    isMinimal: boolean,
+    widget: unknown,
+    ...args: unknown[]
+  ) => void;
   /** Global error callback. */
   onError?: (error: Error, widget: AiAvatarWidget, ...args: unknown[]) => void;
   /** Callback fired when WebLLM starts loading. */
@@ -330,11 +332,20 @@ export interface AvatarBotOptions {
   /** Callback fired when LLM stream finishes. */
   onStreamEnd?: (fullText: string, ...args: unknown[]) => void;
   /** Callback fired when auto-continuation starts. */
-  onAutoContinueStart?: (info: AutoContinueStartInfo, ...args: unknown[]) => void;
+  onAutoContinueStart?: (
+    info: AutoContinueStartInfo,
+    ...args: unknown[]
+  ) => void;
   /** Callback fired when waiting for continuation stream. */
-  onAutoContinueWait?: (info: AutoContinueStartInfo, ...args: unknown[]) => void;
+  onAutoContinueWait?: (
+    info: AutoContinueStartInfo,
+    ...args: unknown[]
+  ) => void;
   /** Callback fired when continuation resumes speaking. */
-  onAutoContinueResume?: (info: AutoContinueResumeInfo, ...args: unknown[]) => void;
+  onAutoContinueResume?: (
+    info: AutoContinueResumeInfo,
+    ...args: unknown[]
+  ) => void;
   /** Callback fired when auto-continuation completes. */
   onAutoContinueEnd?: (info: AutoContinueEndInfo, ...args: unknown[]) => void;
   /** Callback fired when rolling memory summary updates. */
@@ -352,9 +363,17 @@ export interface AvatarBotOptions {
     ...args: unknown[]
   ) => void;
   /** Callback fired when AI requests an unregistered tool. */
-  onToolNotFound?: (info: ToolNotFoundErrorInfo, widget: AiAvatarWidget, ...args: unknown[]) => unknown;
+  onToolNotFound?: (
+    info: ToolNotFoundErrorInfo,
+    widget: AiAvatarWidget,
+    ...args: unknown[]
+  ) => unknown;
   /** Callback fired when a tool execution fails. */
-  onToolError?: (info: ToolErrorInfo, widget: AiAvatarWidget, ...args: unknown[]) => unknown;
+  onToolError?: (
+    info: ToolErrorInfo,
+    widget: AiAvatarWidget,
+    ...args: unknown[]
+  ) => unknown;
   /** Callback fired when history panel opens/closes. */
   onSetHistoryOpen?: (isOpen: boolean, ...args: unknown[]) => void;
   /** Callback fired when history panel renders. */
@@ -463,7 +482,11 @@ export interface AiAvatarWidget {
   /** Updates container fitting mode ('half' | 'full'). */
   setFitMode: (fitMode: FitMode) => void;
   onReady?: (widget: AiAvatarWidget, ...args: unknown[]) => void;
-  onMinimalTrigger?: (isMinimal: boolean, widget: unknown, ...args: unknown[]) => void;
+  onMinimalTrigger?: (
+    isMinimal: boolean,
+    widget: unknown,
+    ...args: unknown[]
+  ) => void;
   onError?: (error: Error, widget: AiAvatarWidget, ...args: unknown[]) => void;
 }
 

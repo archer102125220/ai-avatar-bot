@@ -60,7 +60,9 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       const onConnecting = vi.fn();
       const onConnected = vi.fn();
 
-      global.fetch = vi.fn().mockResolvedValue({ ok: true } as unknown as Response);
+      global.fetch = vi
+        .fn()
+        .mockResolvedValue({ ok: true } as unknown as Response);
 
       const provider: AiProviderController = await initAiProvider({
         enableAiProvider: true,
@@ -135,7 +137,10 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
                 {
                   id: 'call_123',
                   type: 'function',
-                  function: { name: 'get_weather', arguments: '{"city":"Taipei"}' }
+                  function: {
+                    name: 'get_weather',
+                    arguments: '{"city":"Taipei"}'
+                  }
                 }
               ]
             },
@@ -182,7 +187,8 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
           {
             message: {
               role: 'assistant',
-              content: '<tool_call>{"name":"get_time","arguments":{}}</tool_call>'
+              content:
+                '<tool_call>{"name":"get_time","arguments":{}}</tool_call>'
             },
             finish_reason: 'stop'
           }
@@ -199,7 +205,9 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         providerBaseUrl: 'https://api.openai.com/v1'
       });
 
-      const response = await provider.chat([{ role: 'user', content: '現在幾點？' }]);
+      const response = await provider.chat([
+        { role: 'user', content: '現在幾點？' }
+      ]);
       expect(response.type).toBe('tool_calls');
       expect(response.toolCalls?.[0]?.function?.name).toBe('get_time');
     });
@@ -301,22 +309,28 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       expect(updateChatMessage).toHaveBeenCalled();
       expect(applyEmotionFromText).toHaveBeenCalled();
       expect(onSpokenAudioPlayNow).toHaveBeenCalled();
-      expect(addTurn).toHaveBeenCalledWith('assistant', '串流第一段...\n串流第二段完成。');
+      expect(addTurn).toHaveBeenCalledWith(
+        'assistant',
+        '串流第一段...\n串流第二段完成。'
+      );
       expect(triggerRollingSummaryIfNeeded).toHaveBeenCalled();
     });
 
     it('should sanitize nested and non-string message contents before sending', async () => {
-      let sentBody: { messages: Array<{ role: string; content: string }> } | undefined;
-      global.fetch = vi.fn().mockImplementation((_url: string, opt?: RequestInit) => {
-        sentBody = JSON.parse(opt?.body as string);
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            choices: [{ message: { role: 'assistant', content: 'OK' } }],
-            done_reason: 'length'
-          })
-        } as unknown as Response);
-      });
+      let sentBody:
+        { messages: Array<{ role: string; content: string }> } | undefined;
+      global.fetch = vi
+        .fn()
+        .mockImplementation((_url: string, opt?: RequestInit) => {
+          sentBody = JSON.parse(opt?.body as string);
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              choices: [{ message: { role: 'assistant', content: 'OK' } }],
+              done_reason: 'length'
+            })
+          } as unknown as Response);
+        });
 
       const provider: AiProviderController = await initAiProvider({
         enableAiProvider: true,
@@ -324,12 +338,17 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       });
 
       const res = await provider.chat([
-        { role: 'user', content: { content: '從 content.content 取出的文字' } } as unknown as LLMMessage,
+        {
+          role: 'user',
+          content: { content: '從 content.content 取出的文字' }
+        } as unknown as LLMMessage,
         { role: 'assistant', content: { other: 123 } } as unknown as LLMMessage,
         { role: 'user', content: 8888 as unknown as string }
       ]);
 
-      expect(sentBody?.messages[0]?.content).toBe('從 content.content 取出的文字');
+      expect(sentBody?.messages[0]?.content).toBe(
+        '從 content.content 取出的文字'
+      );
       expect(sentBody?.messages[1]?.content).toBe('{"other":123}');
       expect(sentBody?.messages[2]?.content).toBe('8888');
       expect(res.finishReason).toBe('length');
@@ -366,7 +385,9 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       } as unknown as Response);
 
       const customExtractToolCalls = vi.fn((res: unknown) => {
-        const payload = (res as { custom_tool_payload?: Array<{ id: string; fn: string }> })?.custom_tool_payload;
+        const payload = (
+          res as { custom_tool_payload?: Array<{ id: string; fn: string }> }
+        )?.custom_tool_payload;
         return [
           {
             id: payload?.[0]?.id || '',
@@ -381,7 +402,9 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         providerExtractToolCalls: customExtractToolCalls
       });
 
-      const result = await provider.chat([{ role: 'user', content: 'call custom' }]);
+      const result = await provider.chat([
+        { role: 'user', content: 'call custom' }
+      ]);
       expect(customExtractToolCalls).toHaveBeenCalled();
       expect(result.type).toBe('tool_calls');
       expect(result.toolCalls?.[0]?.function?.name).toBe('my_custom_tool');
@@ -416,13 +439,17 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
 
       await chatWithAiProvider(brainEngine, '緩衝測試');
 
-      expect(emitAnswer).toHaveBeenCalledWith('緩衝第一段...\n緩衝第二段結束。');
+      expect(emitAnswer).toHaveBeenCalledWith(
+        '緩衝第一段...\n緩衝第二段結束。'
+      );
     });
 
     it('should handle tool_calls response in chatWithAiProvider and route to tools execution', async () => {
       const mockChat = vi.fn().mockResolvedValue({
         type: 'tool_calls',
-        toolCalls: [{ id: 'call_1', function: { name: 'get_weather', arguments: '{}' } }],
+        toolCalls: [
+          { id: 'call_1', function: { name: 'get_weather', arguments: '{}' } }
+        ],
         message: { role: 'assistant', content: '' }
       });
 
@@ -450,7 +477,9 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         memory: { enabled: true, addTurn: vi.fn() },
         emitAnswer: vi.fn()
       } as unknown as BrainEngine;
-      await expect(chatWithAiProvider(brainEngine, '測試空回覆')).rejects.toThrow('AI Provider 回應為空或格式錯誤');
+      await expect(
+        chatWithAiProvider(brainEngine, '測試空回覆')
+      ).rejects.toThrow('AI Provider 回應為空或格式錯誤');
     });
 
     it('should handle auto-continue loop in stream mode and single_turn mode', async () => {
@@ -488,7 +517,9 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         autoContinueMode: AUTO_CONTINUE_MODE_MAP.STREAM,
         locale: 'zh-TW',
         memory: { enabled: true, addTurn: vi.fn() },
-        buildLLMMessages: vi.fn().mockResolvedValue([{ role: 'user', content: '故事' }]),
+        buildLLMMessages: vi
+          .fn()
+          .mockResolvedValue([{ role: 'user', content: '故事' }]),
         onAutoContinueStart,
         onAutoContinueResume,
         onAutoContinueEnd,
@@ -507,8 +538,15 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       expect(onAutoContinueStart).toHaveBeenCalled();
       expect(onAutoContinueResume).toHaveBeenCalled();
       expect(onAutoContinueEnd).toHaveBeenCalled();
-      expect(addChatMessage).toHaveBeenCalledWith('assistant', '這是第一段文字...');
-      expect(updateChatMessage).toHaveBeenCalledWith('msg_stream_1', expect.stringContaining('這是第二段文字結束'), false);
+      expect(addChatMessage).toHaveBeenCalledWith(
+        'assistant',
+        '這是第一段文字...'
+      );
+      expect(updateChatMessage).toHaveBeenCalledWith(
+        'msg_stream_1',
+        expect.stringContaining('這是第二段文字結束'),
+        false
+      );
       expect(onSpokenAudioPlayNow).toHaveBeenCalled();
       expect(triggerRollingSummaryIfNeeded).toHaveBeenCalled();
     });
@@ -544,7 +582,9 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         text: async () => 'Invalid model parameter'
       } as unknown as Response);
 
-      await expect(provider.chat([{ role: 'user', content: 'test' }])).rejects.toThrow('HTTP 400 Bad Request - Invalid model parameter');
+      await expect(
+        provider.chat([{ role: 'user', content: 'test' }])
+      ).rejects.toThrow('HTTP 400 Bad Request - Invalid model parameter');
     });
 
     it('should break auto-continue loop early on empty next chunk and handle missing emitAnswer in BUFFERED mode', async () => {
@@ -574,9 +614,11 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       } as unknown as BrainEngine;
 
       await chatWithAiProvider(brainEngine, '講故事');
-      expect(onAutoContinueEnd).toHaveBeenCalledWith(expect.objectContaining({
-        totalContinuations: 1
-      }));
+      expect(onAutoContinueEnd).toHaveBeenCalledWith(
+        expect.objectContaining({
+          totalContinuations: 1
+        })
+      );
     });
   });
 });

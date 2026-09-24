@@ -32,8 +32,12 @@ test.describe('Contract Track A: Tool Calling & Confirmation Flow Specifications
     await expect(historyPanel).toHaveAttribute('css-is-open', 'true');
 
     // 驗證出現「確認」與「取消」按鈕
-    const confirmBtn = page.locator('#history-list .history-confirm button.confirm');
-    const cancelBtn = page.locator('#history-list .history-confirm button.cancel');
+    const confirmBtn = page.locator(
+      '#history-list .history-confirm button.confirm'
+    );
+    const cancelBtn = page.locator(
+      '#history-list .history-confirm button.cancel'
+    );
 
     await expect(confirmBtn).toBeVisible();
     await expect(cancelBtn).toBeVisible();
@@ -42,7 +46,9 @@ test.describe('Contract Track A: Tool Calling & Confirmation Flow Specifications
     await cancelBtn.click();
 
     // 驗證取消後紀錄更新為取消訊息且確認按鈕消失
-    const lastMsg = page.locator('#history-list .history-item.assistant').last();
+    const lastMsg = page
+      .locator('#history-list .history-item.assistant')
+      .last();
     await expect(lastMsg).toContainText('好的，已取消。');
     await expect(confirmBtn).not.toBeVisible();
   });
@@ -78,7 +84,9 @@ test.describe('Contract Track A: Tool Calling & Confirmation Flow Specifications
     });
 
     // 點擊「確認執行」按鈕
-    const confirmBtn = page.locator('#history-list .history-confirm button.confirm');
+    const confirmBtn = page.locator(
+      '#history-list .history-confirm button.confirm'
+    );
     await expect(confirmBtn).toBeVisible();
     await confirmBtn.click();
 
@@ -87,7 +95,9 @@ test.describe('Contract Track A: Tool Calling & Confirmation Flow Specifications
     expect(callId).not.toBeNull();
 
     // 驗證結果訊息呈現在歷史紀錄中
-    const resultMsg = page.locator('#history-list .history-item.assistant').last();
+    const resultMsg = page
+      .locator('#history-list .history-item.assistant')
+      .last();
     await expect(resultMsg).toContainText('工具執行成功！');
   });
 });

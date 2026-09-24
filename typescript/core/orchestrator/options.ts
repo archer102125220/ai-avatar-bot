@@ -31,10 +31,7 @@ export function callOptionEvent<T = unknown>(
   eventName: string,
   ...eventArguments: unknown[]
 ): T | undefined {
-  if (
-    typeof options === 'object' &&
-    options !== null
-  ) {
+  if (typeof options === 'object' && options !== null) {
     const fn = (options as Record<string, unknown>)[eventName];
     if (typeof fn === 'function') {
       return fn.call(context, ...eventArguments) as T;

@@ -53,7 +53,9 @@ interface MLCEngineInstance {
     completions: {
       create(
         options: Record<string, unknown>
-      ): Promise<MLCChatCompletionResult | AsyncIterable<MLCChatCompletionResult>>;
+      ): Promise<
+        MLCChatCompletionResult | AsyncIterable<MLCChatCompletionResult>
+      >;
     };
   };
 }
@@ -305,7 +307,8 @@ export function initWebLLM(
           this.isStream === false ||
           hasTools === true
         ) {
-          const rawMessages = (options.messages as Array<Record<string, unknown>>) || [];
+          const rawMessages =
+            (options.messages as Array<Record<string, unknown>>) || [];
           const normalizedOptions = {
             ...options,
             messages: rawMessages.map(
@@ -378,19 +381,18 @@ export function initWebLLM(
           };
         }
 
-        const rawMessages = (options.messages as Array<Record<string, unknown>>) || [];
+        const rawMessages =
+          (options.messages as Array<Record<string, unknown>>) || [];
         const streamOptions = {
           ...options,
           stream: true,
-          messages: rawMessages.map(
-            (messageItem: Record<string, unknown>) => ({
-              ...messageItem,
-              content:
-                typeof messageItem?.content === 'string'
-                  ? messageItem.content
-                  : ''
-            })
-          )
+          messages: rawMessages.map((messageItem: Record<string, unknown>) => ({
+            ...messageItem,
+            content:
+              typeof messageItem?.content === 'string'
+                ? messageItem.content
+                : ''
+          }))
         };
         const stream = (await engine!.chat.completions.create(
           streamOptions
@@ -492,7 +494,7 @@ export function initWebLLM(
 
         this.onChatting(fullResponse, messages, brain);
         return {
-            type: 'text',
+          type: 'text',
           content: fullResponse,
           finishReason: streamFinishReason
         };

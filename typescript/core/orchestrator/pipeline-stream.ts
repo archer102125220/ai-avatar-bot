@@ -1,9 +1,5 @@
 import { callOptionEvent } from './options';
-import type {
-  AiAvatarWidget,
-  AvatarBotOptions,
-  GetEnginesFn
-} from './types';
+import type { AiAvatarWidget, AvatarBotOptions, GetEnginesFn } from './types';
 
 export interface AutoContinueState {
   isActive: boolean;
@@ -192,8 +188,7 @@ export function createStreamPipeline({
       autoContinueState.accumulatedText = '';
       const llmObj = brainEngine?.llm as Record<string, unknown> | undefined;
       const controller = llmObj?.controller as
-        | { abort?: () => void }
-        | undefined;
+        { abort?: () => void } | undefined;
       if (typeof controller?.abort === 'function') {
         try {
           controller.abort();

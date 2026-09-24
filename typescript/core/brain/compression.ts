@@ -134,7 +134,9 @@ export function estimateChars(input: unknown): number {
     ) {
       for (const toolCall of inputObj.tool_calls) {
         if (typeof toolCall === 'object' && toolCall !== null) {
-          const fn = (toolCall as { function?: { name?: string; arguments?: string } }).function;
+          const fn = (
+            toolCall as { function?: { name?: string; arguments?: string } }
+          ).function;
           if (typeof fn?.arguments === 'string') {
             charCount += fn.arguments.length;
           }
@@ -155,9 +157,7 @@ export function estimateChars(input: unknown): number {
  * @param messages - Message array to sanitize.
  * @returns Sanitized message array.
  */
-export function sanitizeToolCalls(
-  messages: LLMMessage[]
-): LLMMessage[] {
+export function sanitizeToolCalls(messages: LLMMessage[]): LLMMessage[] {
   if (Array.isArray(messages) === false || messages.length === 0) {
     return [];
   }
@@ -596,8 +596,11 @@ export async function compressContext({
           : '';
     const recentTurnsCount =
       typeof (compressionOptions as Record<string, unknown>)?.recentTurns ===
-        'number' && ((compressionOptions as Record<string, unknown>).recentTurns as number) > 0
-        ? ((compressionOptions as Record<string, unknown>).recentTurns as number)
+        'number' &&
+      ((compressionOptions as Record<string, unknown>).recentTurns as number) >
+        0
+        ? ((compressionOptions as Record<string, unknown>)
+            .recentTurns as number)
         : DEFAULT_SUMMARY_RECENT_TURNS;
 
     return rollingSummaryCompressor({

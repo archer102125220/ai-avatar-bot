@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Real Engine Track B: Brain Pipeline & SSE Stream Smoke Specifications', () => {
-  test('should route queries to AI Provider when enabled and receive response', async ({ page }) => {
+  test('should route queries to AI Provider when enabled and receive response', async ({
+    page
+  }) => {
     // 攔截並 Mock AI Provider 的 /api/tags (ping) 與 /chat/completions (chat)
     await page.route('**/api/tags', async (route) => {
       await route.fulfill({
@@ -50,7 +52,9 @@ test.describe('Real Engine Track B: Brain Pipeline & SSE Stream Smoke Specificat
     await expect(bubble).toContainText('這是來自 AI 伺服器的真實串流回覆。');
   });
 
-  test('should fallback to retrieval answer when AI Provider fails', async ({ page }) => {
+  test('should fallback to retrieval answer when AI Provider fails', async ({
+    page
+  }) => {
     // 模擬 AI Provider 連線失敗
     await page.route('**/api/tags', async (route) => {
       await route.fulfill({ status: 500 });

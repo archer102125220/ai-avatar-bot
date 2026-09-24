@@ -107,7 +107,11 @@ describe('Unit Test: core/store.js (TypeScript)', () => {
   it('should throw error when invalid arguments are passed to subscribe', () => {
     const store = createBaseStore();
 
-    expect(() => store.subscribe(123 as unknown as () => void)).toThrow('Invalid subscribe arguments');
-    expect(() => store.subscribe('key', null as unknown as () => void)).toThrow('Invalid subscribe arguments');
+    expect(() => store.subscribe(123 as unknown as () => void)).toThrow(
+      'Invalid subscribe arguments'
+    );
+    expect(() => store.subscribe('key', null as unknown as () => void)).toThrow(
+      'Invalid subscribe arguments'
+    );
   });
 });

@@ -42,7 +42,8 @@ export function applyEmotionFromText(
   text: string
 ): void {
   if (typeof brainEngine === 'object' && brainEngine !== null) {
-    const onEmotionChange = (brainEngine as Partial<BrainEngine>).onEmotionChange;
+    const onEmotionChange = (brainEngine as Partial<BrainEngine>)
+      .onEmotionChange;
     if (typeof onEmotionChange === 'function') {
       onEmotionChange(classifyEmotion(text));
     }

@@ -40,7 +40,8 @@ export function setupStoreSubscribers({
       brainEngine !== null &&
       typeof newAvatarMode === 'string'
     ) {
-      brainEngine.avatarMode = newAvatarMode as import('@/core/brain').AvatarMode;
+      brainEngine.avatarMode =
+        newAvatarMode as import('@/core/brain').AvatarMode;
     }
     renderSuggestions(widget);
     if (typeof uiDom?.updateMicState === 'function') {
@@ -152,9 +153,7 @@ export function setupStoreSubscribers({
           newAutoContinuePrompt === null)
       ) {
         brainEngine.autoContinuePrompt = newAutoContinuePrompt as
-          | string
-          | ((...args: unknown[]) => string)
-          | null;
+          string | ((...args: unknown[]) => string) | null;
       }
     }
   );
@@ -291,59 +290,63 @@ export function setupI18nSubscribers({
       renderSuggestions(widget);
     });
 
-    i18nEngine.subscribe('locale', (newLocale: string, localeLabels?: unknown) => {
-      const { brainEngine, speechEngine } = getEngines();
-      const uiDom = getUiDom();
+    i18nEngine.subscribe(
+      'locale',
+      (newLocale: string, localeLabels?: unknown) => {
+        const { brainEngine, speechEngine } = getEngines();
+        const uiDom = getUiDom();
 
-      rootStore.setState({ locale: newLocale });
-      if (typeof brainEngine?.setLocale === 'function') {
-        brainEngine.setLocale(newLocale);
-      }
-      if (typeof speechEngine?.setLocale === 'function') {
-        speechEngine.setLocale(newLocale);
-      }
-      updateUIStrings(container, i18nEngine);
-      if (typeof uiDom?.updateMicState === 'function') {
-        const isCompanion =
-          rootStore.getState().avatarMode === AVATAR_MODE_MAP.companion;
-        uiDom.updateMicState(
-          speechEngine?.isListening ?? false,
-          speechEngine?.convoOn ?? false,
-          isCompanion,
-          i18nEngine
+        rootStore.setState({ locale: newLocale });
+        if (typeof brainEngine?.setLocale === 'function') {
+          brainEngine.setLocale(newLocale);
+        }
+        if (typeof speechEngine?.setLocale === 'function') {
+          speechEngine.setLocale(newLocale);
+        }
+        updateUIStrings(container, i18nEngine);
+        if (typeof uiDom?.updateMicState === 'function') {
+          const isCompanion =
+            rootStore.getState().avatarMode === AVATAR_MODE_MAP.companion;
+          uiDom.updateMicState(
+            speechEngine?.isListening ?? false,
+            speechEngine?.convoOn ?? false,
+            isCompanion,
+            i18nEngine
+          );
+        }
+        if (typeof uiDom?.updateVoiceStatus === 'function') {
+          uiDom.updateVoiceStatus(
+            speechEngine?.convoOn ?? false,
+            undefined,
+            undefined,
+            undefined,
+            i18nEngine
+          );
+        }
+        renderSuggestions(widget);
+
+        const labelsObj =
+          typeof localeLabels === 'object' && localeLabels !== null
+            ? (localeLabels as { label?: unknown; shortLabel?: unknown })
+            : null;
+        const label =
+          typeof labelsObj?.label === 'string' ? labelsObj.label : '';
+        const shortLabel =
+          typeof labelsObj?.shortLabel === 'string' ? labelsObj.shortLabel : '';
+
+        if (uiDom?.langButtonEl instanceof HTMLButtonElement) {
+          uiDom.langButtonEl.textContent =
+            shortLabel !== '' ? shortLabel : label !== '' ? label : newLocale;
+        }
+        callOptionEvent(
+          options,
+          widget,
+          'onLanguageChanged',
+          newLocale,
+          label,
+          shortLabel
         );
       }
-      if (typeof uiDom?.updateVoiceStatus === 'function') {
-        uiDom.updateVoiceStatus(
-          speechEngine?.convoOn ?? false,
-          undefined,
-          undefined,
-          undefined,
-          i18nEngine
-        );
-      }
-      renderSuggestions(widget);
-
-      const labelsObj =
-        typeof localeLabels === 'object' && localeLabels !== null
-          ? (localeLabels as { label?: unknown; shortLabel?: unknown })
-          : null;
-      const label = typeof labelsObj?.label === 'string' ? labelsObj.label : '';
-      const shortLabel =
-        typeof labelsObj?.shortLabel === 'string' ? labelsObj.shortLabel : '';
-
-      if (uiDom?.langButtonEl instanceof HTMLButtonElement) {
-        uiDom.langButtonEl.textContent =
-          shortLabel !== '' ? shortLabel : label !== '' ? label : newLocale;
-      }
-      callOptionEvent(
-        options,
-        widget,
-        'onLanguageChanged',
-        newLocale,
-        label,
-        shortLabel
-      );
-    });
+    );
   }
 }

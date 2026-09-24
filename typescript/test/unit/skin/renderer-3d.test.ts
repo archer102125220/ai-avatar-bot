@@ -171,7 +171,9 @@ vi.mock('three/addons/loaders/GLTFLoader.js', () => {
         };
         const expressionManager = {
           setValue: vi.fn(),
-          getExpression: vi.fn((name: string) => ({ overrideMouth: name === 'surprised' ? 'none' : 'block' }))
+          getExpression: vi.fn((name: string) => ({
+            overrideMouth: name === 'surprised' ? 'none' : 'block'
+          }))
         };
         const humanoid = {
           getNormalizedBoneNode: vi.fn(() => ({
@@ -224,10 +226,7 @@ vi.mock('@pixiv/three-vrm-animation', () => {
   return {
     VRMAnimationLoaderPlugin: class VRMAnimationLoaderPlugin {},
     createVRMAnimationClip: vi.fn(() => ({
-      tracks: [
-        { name: 'spine.quaternion' },
-        { name: 'spine.position' }
-      ]
+      tracks: [{ name: 'spine.quaternion' }, { name: 'spine.position' }]
     }))
   };
 });
@@ -238,8 +237,14 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
   beforeEach(() => {
     stageEl = document.createElement('div');
     stageEl.id = 'stage';
-    Object.defineProperty(stageEl, 'clientWidth', { value: 640, configurable: true });
-    Object.defineProperty(stageEl, 'clientHeight', { value: 480, configurable: true });
+    Object.defineProperty(stageEl, 'clientWidth', {
+      value: 640,
+      configurable: true
+    });
+    Object.defineProperty(stageEl, 'clientHeight', {
+      value: 480,
+      configurable: true
+    });
     stageEl.getBoundingClientRect = vi.fn(() => ({
       left: 0,
       top: 0,
@@ -261,9 +266,15 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
 
   describe('defaultGesture3D', () => {
     it('should safely return on invalid arguments', async () => {
-      await expect(defaultGesture3D(null as unknown as SkinEngine, 'wave')).resolves.toBeUndefined();
-      await expect(defaultGesture3D({} as unknown as SkinEngine, '')).resolves.toBeUndefined();
-      await expect(defaultGesture3D({} as unknown as SkinEngine, null as unknown as string)).resolves.toBeUndefined();
+      await expect(
+        defaultGesture3D(null as unknown as SkinEngine, 'wave')
+      ).resolves.toBeUndefined();
+      await expect(
+        defaultGesture3D({} as unknown as SkinEngine, '')
+      ).resolves.toBeUndefined();
+      await expect(
+        defaultGesture3D({} as unknown as SkinEngine, null as unknown as string)
+      ).resolves.toBeUndefined();
     });
 
     it('should invoke renderer.playGesture and catch errors', async () => {
@@ -276,21 +287,31 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       playGesture.mockImplementationOnce(() => {
         throw new Error('Play gesture fail');
       });
-      await expect(defaultGesture3D(skinEngine, 'bow')).resolves.toBeUndefined();
+      await expect(
+        defaultGesture3D(skinEngine, 'bow')
+      ).resolves.toBeUndefined();
     });
   });
 
   describe('loadVRMFile', () => {
     it('should log error when stageEl is not an HTMLElement', () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      loadVRMFile({ stageEl: null } as unknown as SkinEngine, new File(['dummy'], 'model.vrm'));
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+      loadVRMFile(
+        { stageEl: null } as unknown as SkinEngine,
+        new File(['dummy'], 'model.vrm')
+      );
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
 
     it('should trigger VRMFileChangeFail when file is not a .vrm file', () => {
       const VRMFileChangeFail = vi.fn();
-      const skinEngine = { stageEl, VRMFileChangeFail } as unknown as SkinEngine;
+      const skinEngine = {
+        stageEl,
+        VRMFileChangeFail
+      } as unknown as SkinEngine;
 
       loadVRMFile(skinEngine, new File(['dummy'], 'model.png'));
       expect(VRMFileChangeFail).toHaveBeenCalledWith(expect.any(Error));
@@ -301,8 +322,12 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
 
     it('should revoke previous blob url, create new object url and switch engine mode on valid .vrm file', () => {
       const VRMFileChangeSuccess = vi.fn();
-      const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-      const createSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:http://localhost/new-model');
+      const revokeSpy = vi
+        .spyOn(URL, 'revokeObjectURL')
+        .mockImplementation(() => {});
+      const createSpy = vi
+        .spyOn(URL, 'createObjectURL')
+        .mockReturnValue('blob:http://localhost/new-model');
 
       const skinEngine = {
         stageEl,
@@ -310,15 +335,23 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         _engineMode: 'threeDimensional',
         engineMode: null as unknown as string,
         VRMFileChangeSuccess
-      } as unknown as SkinEngine & { _engineMode: string; vrmUrl: string; engineMode: unknown };
+      } as unknown as SkinEngine & {
+        _engineMode: string;
+        vrmUrl: string;
+        engineMode: unknown;
+      };
 
-      const validFile = new File(['content'], 'avatar.vrm', { type: 'model/vrm' });
+      const validFile = new File(['content'], 'avatar.vrm', {
+        type: 'model/vrm'
+      });
       loadVRMFile(skinEngine as unknown as SkinEngine, validFile);
 
       expect(revokeSpy).toHaveBeenCalledWith('blob:http://localhost/old-model');
       expect(createSpy).toHaveBeenCalledWith(validFile);
       expect(skinEngine.vrmUrl).toBe('blob:http://localhost/new-model');
-      expect(VRMFileChangeSuccess).toHaveBeenCalledWith('blob:http://localhost/new-model');
+      expect(VRMFileChangeSuccess).toHaveBeenCalledWith(
+        'blob:http://localhost/new-model'
+      );
       expect(skinEngine.engineMode).toBe(ENGINE_MODE_MAP.threeDimensional);
 
       revokeSpy.mockRestore();
@@ -335,7 +368,10 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       } as unknown as SkinEngine;
 
       await bootVRM(skinEngine);
-      expect(onThreeDimensionalError).toHaveBeenCalledWith(expect.any(Error), skinEngine);
+      expect(onThreeDimensionalError).toHaveBeenCalledWith(
+        expect.any(Error),
+        skinEngine
+      );
     });
 
     it('should initialize VRM, setup cameras, gestures, subscribers and animation loop', async () => {
@@ -357,11 +393,27 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
             rotation: [0, 0, 0]
           },
           half: {
-            camera: { fov: 35, near: 0.1, far: 300, position: { x: 0, y: 1.5, z: 1.8 }, lookAt: [0, 1.4, 0] },
-            model: { position: { x: 0, y: -0.5, z: 0 }, scale: [1, 1, 1], rotation: { x: 0, y: 0, z: 0 } }
+            camera: {
+              fov: 35,
+              near: 0.1,
+              far: 300,
+              position: { x: 0, y: 1.5, z: 1.8 },
+              lookAt: [0, 1.4, 0]
+            },
+            model: {
+              position: { x: 0, y: -0.5, z: 0 },
+              scale: [1, 1, 1],
+              rotation: { x: 0, y: 0, z: 0 }
+            }
           },
           full: {
-            camera: { fov: 50, near: 0.1, far: 500, position: [0, 1.0, 3.0], lookAt: [0, 0.9, 0] },
+            camera: {
+              fov: 50,
+              near: 0.1,
+              far: 500,
+              position: [0, 1.0, 3.0],
+              lookAt: [0, 0.9, 0]
+            },
             model: { position: [0, 0, 0], scale: 1.0, rotation: [0, 0, 0] }
           }
         }
@@ -372,11 +424,19 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         stageEl,
         vrmUrl: 'valid.vrm',
         getState: () => currentState,
-        subscribe: vi.fn((selector: (s: typeof currentState) => unknown, cb: (val: unknown) => void) => {
-          const key = selector(currentState) === currentState.skin3d ? 'skin3d' : 'fitMode';
-          callbacks[key] = cb;
-          return vi.fn();
-        }),
+        subscribe: vi.fn(
+          (
+            selector: (s: typeof currentState) => unknown,
+            cb: (val: unknown) => void
+          ) => {
+            const key =
+              selector(currentState) === currentState.skin3d
+                ? 'skin3d'
+                : 'fitMode';
+            callbacks[key] = cb;
+            return vi.fn();
+          }
+        ),
         setSkin3d: vi.fn(),
         onMounted: vi.fn(),
         computeMouth: vi.fn().mockResolvedValue(0.6),
@@ -386,7 +446,10 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
           name: 'surprised',
           applied: ''
         }
-      } as unknown as SkinEngine & { emo: { target: number; weight: number; name: string; applied: string }; computeMouth: unknown };
+      } as unknown as SkinEngine & {
+        emo: { target: number; weight: number; name: string; applied: string };
+        computeMouth: unknown;
+      };
 
       const renderer = (await bootVRM(skinEngine as unknown as SkinEngine, {
         vrmaRootPath: 'https://custom.vrma.com/',
@@ -403,7 +466,10 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       expect(skinEngine.onMounted).toHaveBeenCalled();
 
       // Test pointermove
-      const pointerEvent = new MouseEvent('pointermove', { clientX: 320, clientY: 240 });
+      const pointerEvent = new MouseEvent('pointermove', {
+        clientX: 320,
+        clientY: 240
+      });
       stageEl.dispatchEvent(pointerEvent);
 
       // Test window resize
@@ -437,7 +503,9 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
 
       // Test updateTransform
       renderer.updateTransform({ camera: { fov: 60 } });
-      expect(skinEngine.setSkin3d).toHaveBeenCalledWith({ camera: { fov: 60 } });
+      expect(skinEngine.setSkin3d).toHaveBeenCalledWith({
+        camera: { fov: 60 }
+      });
 
       // Test dispose
       renderer.dispose();
@@ -520,14 +588,20 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         subscribe: vi.fn(),
         setSkin3d: vi.fn(),
         onMounted: vi.fn(),
-        computeMouth: vi.fn().mockImplementationOnce(() => mouthPromise).mockImplementation(() => 0.7),
+        computeMouth: vi
+          .fn()
+          .mockImplementationOnce(() => mouthPromise)
+          .mockImplementation(() => 0.7),
         emo: {
           target: 0.8,
           weight: 0.001,
           name: 'surprised',
           applied: 'happy'
         }
-      } as unknown as SkinEngine & { emo: { target: number; weight: number; name: string; applied: string }; computeMouth: unknown };
+      } as unknown as SkinEngine & {
+        emo: { target: number; weight: number; name: string; applied: string };
+        computeMouth: unknown;
+      };
 
       const rendererPromise = bootVRM(skinEngine as unknown as SkinEngine);
       await vi.runOnlyPendingTimersAsync();
@@ -547,7 +621,9 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       await vi.advanceTimersByTimeAsync(50);
 
       // Tick 3: test computeMouth rejected promise
-      skinEngine.computeMouth = vi.fn(() => Promise.reject(new Error('Mouth fail')));
+      skinEngine.computeMouth = vi.fn(() =>
+        Promise.reject(new Error('Mouth fail'))
+      );
       await vi.advanceTimersByTimeAsync(50);
 
       // Tick 4: test blink progression
@@ -593,7 +669,9 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
           name: 'happy',
           applied: ''
         }
-      } as unknown as SkinEngine & { emo: { target: number; weight: number; name: string; applied: string } };
+      } as unknown as SkinEngine & {
+        emo: { target: number; weight: number; name: string; applied: string };
+      };
 
       // Mock getBoundingClientRect on stageEl
       stageEl.getBoundingClientRect = () => ({

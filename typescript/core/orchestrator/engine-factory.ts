@@ -525,7 +525,14 @@ export async function setupBrainEngine({
       );
     },
     onToolError(info?: unknown, ...args: unknown[]) {
-      return callOptionEvent(options, widget, 'onToolError', info, widget, ...args);
+      return callOptionEvent(
+        options,
+        widget,
+        'onToolError',
+        info,
+        widget,
+        ...args
+      );
     }
   };
 
@@ -792,7 +799,9 @@ export function setupToolsEngine({
       return brainEngine?.addChatMessage(
         role,
         text,
-        messageOptions as Parameters<NonNullable<typeof brainEngine>['addChatMessage']>[2]
+        messageOptions as Parameters<
+          NonNullable<typeof brainEngine>['addChatMessage']
+        >[2]
       );
     },
     onUpdateChatMessage(
@@ -833,7 +842,13 @@ export function setupToolsEngine({
           String(isOpen === true)
         );
       }
-      return callOptionEvent(options, widget, 'onSetHistoryOpen', isOpen, ...args);
+      return callOptionEvent(
+        options,
+        widget,
+        'onSetHistoryOpen',
+        isOpen,
+        ...args
+      );
     },
     onRenderHistory(...args: unknown[]) {
       renderHistory(widget);
@@ -848,7 +863,13 @@ export function setupToolsEngine({
       ) {
         speechEngine.speak(text);
       }
-      return callOptionEvent(options, widget, 'onSpokenAudioPlayNow', text, ...args);
+      return callOptionEvent(
+        options,
+        widget,
+        'onSpokenAudioPlayNow',
+        text,
+        ...args
+      );
     },
     getChatLog: () => getEngines().brainEngine?.chatLog || [],
     getChatSeq: () => getEngines().brainEngine?.chatSeq || 0,
@@ -865,7 +886,9 @@ export function setupToolsEngine({
     try {
       const customInstance =
         typeof customEngines.tools === 'function'
-          ? (customEngines.tools as (opts: unknown) => ToolsEngine)(toolsOptions)
+          ? (customEngines.tools as (opts: unknown) => ToolsEngine)(
+              toolsOptions
+            )
           : (customEngines.tools as ToolsEngine);
 
       const validation = validateToolsEngine(customInstance);
@@ -1065,8 +1088,7 @@ export async function setupSkinEngine({
             directWarnEl.style.display = 'flex';
           }
           if (typeof widget.onError === 'function') {
-            const errObj =
-              error instanceof Error ? error : new Error(errorMsg);
+            const errObj = error instanceof Error ? error : new Error(errorMsg);
             widget.onError(errObj, widget);
           }
           return callOptionEvent(
@@ -1091,11 +1113,16 @@ export async function setupSkinEngine({
             speechEngine.spokenDisplayText = errorMsg;
           }
           if (typeof widget.onError === 'function') {
-            const errObj =
-              error instanceof Error ? error : new Error(errorMsg);
+            const errObj = error instanceof Error ? error : new Error(errorMsg);
             widget.onError(errObj, widget);
           }
-          return callOptionEvent(options, widget, 'VRMFileChangeFail', error, ...args);
+          return callOptionEvent(
+            options,
+            widget,
+            'VRMFileChangeFail',
+            error,
+            ...args
+          );
         },
         VRMFileChangeSuccess() {
           const { skinEngine: currentSkin, speechEngine } = getEngines();
@@ -1155,9 +1182,7 @@ export async function setupSkinEngine({
                   playGesture?: (g: string) => void;
                 })
               | undefined;
-            if (
-              typeof renderer3D?.canvas?.addEventListener === 'function'
-            ) {
+            if (typeof renderer3D?.canvas?.addEventListener === 'function') {
               renderer3D.canvas.addEventListener('pointerdown', () => {
                 if (
                   Array.isArray(renderer3D.TAP_GESTURES) === true &&
@@ -1166,9 +1191,7 @@ export async function setupSkinEngine({
                 ) {
                   renderer3D.playGesture(
                     renderer3D.TAP_GESTURES[
-                      Math.floor(
-                        Math.random() * renderer3D.TAP_GESTURES.length
-                      )
+                      Math.floor(Math.random() * renderer3D.TAP_GESTURES.length)
                     ]
                   );
                 }
@@ -1180,9 +1203,12 @@ export async function setupSkinEngine({
               typeof currentSkin?.renderer?.canvas?.addEventListener ===
               'function'
             ) {
-              currentSkin.renderer.canvas.addEventListener('pointerdown', () => {
-                speechEngine?.triggerTap();
-              });
+              currentSkin.renderer.canvas.addEventListener(
+                'pointerdown',
+                () => {
+                  speechEngine?.triggerTap();
+                }
+              );
             }
           }
           callOptionEvent(options, widget, 'onModelChangeEnd');

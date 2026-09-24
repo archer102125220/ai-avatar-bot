@@ -89,10 +89,7 @@ export function createBaseStore<T extends object = Record<string, unknown>>(
     }
   }
 
-  function subscribe(
-    selector: unknown,
-    callback?: unknown
-  ): () => void {
+  function subscribe(selector: unknown, callback?: unknown): () => void {
     let listener: StoreListener<T>;
 
     // Pattern 1: Subscribe to all state mutations

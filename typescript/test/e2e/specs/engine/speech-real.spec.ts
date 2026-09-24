@@ -1,12 +1,15 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Real Engine Track B: Speech Web Audio API Smoke Specifications', () => {
-  test('should verify browser AudioContext and AnalyserNode capability', async ({ page }) => {
+  test('should verify browser AudioContext and AnalyserNode capability', async ({
+    page
+  }) => {
     await page.goto('/test/e2e/harness/engine.html');
 
     // 驗證現代瀏覽器支援 Web Audio API
     const audioSupport = await page.evaluate(() => {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return null;
       const ctx = new AudioCtx();
       const analyser = ctx.createAnalyser();
@@ -24,7 +27,9 @@ test.describe('Real Engine Track B: Speech Web Audio API Smoke Specifications', 
     expect(audioSupport?.hasAnalyser).toBe(true);
   });
 
-  test('should compute mouth movements smoothly through real speechEngine computeMouth', async ({ page }) => {
+  test('should compute mouth movements smoothly through real speechEngine computeMouth', async ({
+    page
+  }) => {
     await page.goto('/test/e2e/harness/engine.html');
 
     const mouthValue = await page.evaluate(() => {

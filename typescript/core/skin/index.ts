@@ -582,7 +582,8 @@ export function initSkinEngine(
             console.error(error);
 
             if (typeof this.onModelChangeError === 'function') {
-              const err = error instanceof Error ? error : new Error(String(error));
+              const err =
+                error instanceof Error ? error : new Error(String(error));
               this.onModelChangeError(err);
             }
           }
@@ -667,7 +668,8 @@ export function initSkinEngine(
           } catch (error) {
             console.error(error);
             if (typeof this.onGestureError === 'function') {
-              const err = error instanceof Error ? error : new Error(String(error));
+              const err =
+                error instanceof Error ? error : new Error(String(error));
               this.onGestureError(err, newGestureName, this);
             }
           } finally {

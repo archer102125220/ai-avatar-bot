@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { validate, extractPropertyValue, extract } from '@/core/tools/validator';
+import {
+  validate,
+  extractPropertyValue,
+  extract
+} from '@/core/tools/validator';
 
 describe('Unit Test: core/tools/validator.js (TypeScript)', () => {
   describe('validate', () => {
@@ -121,11 +125,41 @@ describe('Unit Test: core/tools/validator.js (TypeScript)', () => {
       const contactSchema = { type: 'string', format: 'contact', prefixes: [] };
       const intSchema = { type: 'integer', prefixes: ['數量:'] };
 
-      const email = extractPropertyValue('email', emailSchema, '請發送到 admin@domain.org 謝謝', {}, false);
-      const url = extractPropertyValue('link', urlSchema, '參考網址是 https://google.com 可以看看', {}, false);
-      const phone = extractPropertyValue('tel', phoneSchema, '我的電話是 0912-345-678 請撥打', {}, false);
-      const contact = extractPropertyValue('c', contactSchema, '聯絡方式 0988-111-222 喔', {}, false);
-      const count = extractPropertyValue('cnt', intSchema, '數量: 42 個', {}, false);
+      const email = extractPropertyValue(
+        'email',
+        emailSchema,
+        '請發送到 admin@domain.org 謝謝',
+        {},
+        false
+      );
+      const url = extractPropertyValue(
+        'link',
+        urlSchema,
+        '參考網址是 https://google.com 可以看看',
+        {},
+        false
+      );
+      const phone = extractPropertyValue(
+        'tel',
+        phoneSchema,
+        '我的電話是 0912-345-678 請撥打',
+        {},
+        false
+      );
+      const contact = extractPropertyValue(
+        'c',
+        contactSchema,
+        '聯絡方式 0988-111-222 喔',
+        {},
+        false
+      );
+      const count = extractPropertyValue(
+        'cnt',
+        intSchema,
+        '數量: 42 個',
+        {},
+        false
+      );
 
       expect(email).toBe('admin@domain.org');
       expect(url).toBe('https://google.com');
@@ -147,39 +181,91 @@ describe('Unit Test: core/tools/validator.js (TypeScript)', () => {
 
     it('should support allowWhole for single string parameter', () => {
       const stringSchema = { type: 'string', prefixes: [], maxLength: 100 };
-      const val = extractPropertyValue('query', stringSchema, '這是一整句查詢內容', {}, true);
+      const val = extractPropertyValue(
+        'query',
+        stringSchema,
+        '這是一整句查詢內容',
+        {},
+        true
+      );
       expect(val).toBe('這是一整句查詢內容');
     });
 
     it('should extract enum and context direct property name values', () => {
-      const enumSchema = { type: 'string', enum: ['tech', 'life', 'gaming'], prefixes: [] };
-      const enumVal = extractPropertyValue('category', enumSchema, '我想要看 tech 相關新聞', {}, false);
+      const enumSchema = {
+        type: 'string',
+        enum: ['tech', 'life', 'gaming'],
+        prefixes: []
+      };
+      const enumVal = extractPropertyValue(
+        'category',
+        enumSchema,
+        '我想要看 tech 相關新聞',
+        {},
+        false
+      );
       expect(enumVal).toBe('tech');
 
       // Unmatched enum
-      const unmatchedEnum = extractPropertyValue('category', enumSchema, '沒有相符選項', {}, false);
+      const unmatchedEnum = extractPropertyValue(
+        'category',
+        enumSchema,
+        '沒有相符選項',
+        {},
+        false
+      );
       expect(unmatchedEnum).toBeUndefined();
 
       // Direct context lookup by propertyName
       const propertySchema = { type: 'string', prefixes: [] };
-      const ctxVal = extractPropertyValue('author', propertySchema, '查詢文章', { author: '王小明' }, false);
+      const ctxVal = extractPropertyValue(
+        'author',
+        propertySchema,
+        '查詢文章',
+        { author: '王小明' },
+        false
+      );
       expect(ctxVal).toBe('王小明');
     });
 
     it('should extract contact with email or phone, and float/integer values', () => {
       const contactSchema = { type: 'string', format: 'contact', prefixes: [] };
-      const emailContact = extractPropertyValue('c', contactSchema, '信箱 contact@service.io 謝謝', {}, false);
+      const emailContact = extractPropertyValue(
+        'c',
+        contactSchema,
+        '信箱 contact@service.io 謝謝',
+        {},
+        false
+      );
       expect(emailContact).toBe('contact@service.io');
 
-      const phoneContact = extractPropertyValue('c', contactSchema, '電話 0911-222-333 謝謝', {}, false);
+      const phoneContact = extractPropertyValue(
+        'c',
+        contactSchema,
+        '電話 0911-222-333 謝謝',
+        {},
+        false
+      );
       expect(phoneContact).toBe('0911-222-333');
 
       const floatSchema = { type: 'number', prefixes: ['分數:'] };
-      const floatVal = extractPropertyValue('score', floatSchema, '分數: 88.5 分', {}, false);
+      const floatVal = extractPropertyValue(
+        'score',
+        floatSchema,
+        '分數: 88.5 分',
+        {},
+        false
+      );
       expect(floatVal).toBe(88.5);
 
       const intSchema = { type: 'integer', prefixes: ['個數:'] };
-      const intVal = extractPropertyValue('count', intSchema, '個數: 4.6 顆', {}, false);
+      const intVal = extractPropertyValue(
+        'count',
+        intSchema,
+        '個數: 4.6 顆',
+        {},
+        false
+      );
       expect(intVal).toBe(5);
     });
   });

@@ -72,9 +72,7 @@ export async function getWelcomeText(
       return typeof awaitedText === 'string' ? awaitedText : '';
     }
     if (typeof resolvedWelcomeText !== 'undefined') {
-      return typeof resolvedWelcomeText === 'string'
-        ? resolvedWelcomeText
-        : '';
+      return typeof resolvedWelcomeText === 'string' ? resolvedWelcomeText : '';
     }
   }
 
@@ -243,11 +241,7 @@ export function resolveAutoContinuePrompt(
       index?: number,
       accum?: string
     ) => unknown;
-    const result = fn(
-      brainEngine,
-      continuationIndex,
-      accumulatedText
-    );
+    const result = fn(brainEngine, continuationIndex, accumulatedText);
     if (typeof result === 'string' && result.trim() !== '') {
       return result;
     }
@@ -426,12 +420,7 @@ export function buildDefaultLLMMessages(
       (currentCustomMode.systemContextTemplate as string | undefined);
     const resolvedCustomPrompt = resolveLocalized<
       string | ((...args: unknown[]) => string)
-    >(
-      rawCustomPrompt,
-      locale,
-      undefined,
-      engine
-    );
+    >(rawCustomPrompt, locale, undefined, engine);
     const customPromptTemplate = (
       typeof resolvedCustomPrompt === 'function'
         ? resolvedCustomPrompt(engine, RAG, styleRuleText)
@@ -502,12 +491,7 @@ export function buildDefaultLLMMessages(
 
     const rawAssistantTemplate = resolveLocalized<
       string | ((...args: unknown[]) => string)
-    >(
-      engine.systemContextTemplate,
-      locale,
-      defaultAssistantTemplate,
-      engine
-    );
+    >(engine.systemContextTemplate, locale, defaultAssistantTemplate, engine);
     const assistantTemplate = (
       typeof rawAssistantTemplate === 'function'
         ? rawAssistantTemplate(engine, RAG, styleRuleText)

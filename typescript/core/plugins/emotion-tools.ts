@@ -26,8 +26,7 @@ export interface EmotionToolsPluginOptions {
   resultMode?: string;
   /** Optional callback fired when an emotion or gesture is triggered. */
   onEmotionTrigger?:
-    | ((emotionName: string, context?: Record<string, unknown>) => void)
-    | null;
+    ((emotionName: string, context?: Record<string, unknown>) => void) | null;
 }
 
 /**
@@ -113,13 +112,16 @@ export function createEmotionToolsPlugin(
         const targetSkinEngine =
           skinEngineFromGetter !== null && skinEngineFromGetter !== undefined
             ? (skinEngineFromGetter as unknown as Record<string, unknown>)
-            : (resolvedContext?.skinEngine as Record<string, unknown> | undefined);
+            : (resolvedContext?.skinEngine as
+                Record<string, unknown> | undefined);
 
         if (typeof targetSkinEngine === 'object' && targetSkinEngine !== null) {
           if (typeof targetSkinEngine.setEmotion === 'function') {
             (targetSkinEngine.setEmotion as (e: string) => void)(safeEmotion);
           } else if (typeof targetSkinEngine.gesture === 'function') {
-            await (targetSkinEngine.gesture as (e: string) => Promise<void>)(safeEmotion);
+            await (targetSkinEngine.gesture as (e: string) => Promise<void>)(
+              safeEmotion
+            );
           }
         } else {
           console.warn(

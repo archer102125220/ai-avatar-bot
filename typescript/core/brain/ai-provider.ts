@@ -223,7 +223,10 @@ export async function initAiProvider(
                   typeof typedItem.content === 'object' &&
                   typedItem.content !== null
                 ) {
-                  const contentObj = typedItem.content as Record<string, unknown>;
+                  const contentObj = typedItem.content as Record<
+                    string,
+                    unknown
+                  >;
                   if (typeof contentObj.text === 'string') {
                     safeContent = contentObj.text;
                   } else if (typeof contentObj.content === 'string') {
@@ -295,7 +298,11 @@ export async function initAiProvider(
               defaultPayload: Record<string, unknown>,
               fetchSetting: RequestInit,
               engine: AiProviderEngine
-            ) => Promise<BodyInit | null | undefined> | BodyInit | null | undefined)
+            ) =>
+              | Promise<BodyInit | null | undefined>
+              | BodyInit
+              | null
+              | undefined)
           | null;
         if (typeof createPayloadFn === 'function') {
           const currentPayload = await createPayloadFn(
@@ -306,7 +313,10 @@ export async function initAiProvider(
             resolvedSetting,
             this
           );
-          if (typeof currentPayload !== 'undefined' && currentPayload !== null) {
+          if (
+            typeof currentPayload !== 'undefined' &&
+            currentPayload !== null
+          ) {
             resolvedSetting.body = currentPayload;
           }
         }
@@ -362,7 +372,10 @@ export async function initAiProvider(
         };
         let toolCalls: unknown = null;
         const extractToolCallsFn = this.extractToolCalls as
-          | ((result: unknown, engine: AiProviderEngine) => Promise<unknown> | unknown)
+          | ((
+              result: unknown,
+              engine: AiProviderEngine
+            ) => Promise<unknown> | unknown)
           | null;
         if (typeof extractToolCallsFn === 'function') {
           toolCalls = await extractToolCallsFn(result, this);
@@ -463,7 +476,11 @@ export async function chatWithAiProvider(
     const tools =
       typeof engine.getTools === 'function' ? engine.getTools() : [];
 
-    const chatResponse = (await engine.aiProvider?.chat(messages, null, tools)) as
+    const chatResponse = (await engine.aiProvider?.chat(
+      messages,
+      null,
+      tools
+    )) as
       | {
           type?: string;
           toolCalls?: ParsedToolCall[];

@@ -149,13 +149,11 @@ export async function bootVRM(
       throw new Error('[aiAvatar bootVRM] stageEl is not an HTMLElement');
     }
     const THREE = await import('three');
-    const { GLTFLoader } = await import(
-      'three/examples/jsm/loaders/GLTFLoader.js'
-    );
+    const { GLTFLoader } =
+      await import('three/examples/jsm/loaders/GLTFLoader.js');
     const { VRMLoaderPlugin, VRMUtils } = await import('@pixiv/three-vrm');
-    const { VRMAnimationLoaderPlugin, createVRMAnimationClip } = await import(
-      '@pixiv/three-vrm-animation'
-    );
+    const { VRMAnimationLoaderPlugin, createVRMAnimationClip } =
+      await import('@pixiv/three-vrm-animation');
 
     const safeVrmaRootPath =
       typeof vrmaRootPath === 'string' && vrmaRootPath !== ''
@@ -507,10 +505,7 @@ export async function bootVRM(
           } catch (error: unknown) {
             const err =
               error instanceof Error ? error : new Error(String(error));
-            console.warn(
-              'VRMA ' + gestureName + ' load failed:',
-              err.message
-            );
+            console.warn('VRMA ' + gestureName + ' load failed:', err.message);
           }
         }
         mixer.addEventListener('finished', (event: { action?: unknown }) => {

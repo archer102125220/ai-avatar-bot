@@ -41,9 +41,18 @@ describe('Unit Test: core/brain/emotion.js', () => {
     });
 
     it('should handle null or invalid brainEngine safely without errors', () => {
-      expect(() => applyEmotionFromText(null as unknown as BrainEngine, '太棒了')).not.toThrow();
-      expect(() => applyEmotionFromText({} as unknown as BrainEngine, '太棒了')).not.toThrow();
-      expect(() => applyEmotionFromText({ onEmotionChange: null } as unknown as BrainEngine, '太棒了')).not.toThrow();
+      expect(() =>
+        applyEmotionFromText(null as unknown as BrainEngine, '太棒了')
+      ).not.toThrow();
+      expect(() =>
+        applyEmotionFromText({} as unknown as BrainEngine, '太棒了')
+      ).not.toThrow();
+      expect(() =>
+        applyEmotionFromText(
+          { onEmotionChange: null } as unknown as BrainEngine,
+          '太棒了'
+        )
+      ).not.toThrow();
     });
   });
 });

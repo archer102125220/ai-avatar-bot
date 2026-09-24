@@ -66,8 +66,12 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
     });
 
     it('should handle null engine or empty emotion gracefully', async () => {
-      await expect(defaultGesture3D(null as unknown as SkinEngine, 'wave')).resolves.toBeUndefined();
-      await expect(defaultGesture3D({} as unknown as SkinEngine, '')).resolves.toBeUndefined();
+      await expect(
+        defaultGesture3D(null as unknown as SkinEngine, 'wave')
+      ).resolves.toBeUndefined();
+      await expect(
+        defaultGesture3D({} as unknown as SkinEngine, '')
+      ).resolves.toBeUndefined();
     });
   });
 
@@ -81,7 +85,10 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
         startMode: ENGINE_MODE_MAP.twoDimensional,
         gesture2D: gesture2DMock,
         gesture3D: gesture3DMock
-      }) as SkinEngine & { _engineMode: string | null; gesture: ((emotion: string) => void) | null };
+      }) as SkinEngine & {
+        _engineMode: string | null;
+        gesture: ((emotion: string) => void) | null;
+      };
 
       expect(engine.engineMode).toBe(ENGINE_MODE_MAP.twoDimensional);
       expect(typeof engine.gesture).toBe('function');
@@ -136,7 +143,11 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
 
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(onGestureError).toHaveBeenCalledWith(gestureError, 'surprised', engine);
+      expect(onGestureError).toHaveBeenCalledWith(
+        gestureError,
+        'surprised',
+        engine
+      );
       expect(onGestureEnd).toHaveBeenCalledWith('surprised', engine);
     });
 
@@ -154,15 +165,23 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
       engine.gesture3D = null;
 
       // calling unassigned gesture getters
-      const g2 = (engine.gesture2D as ((emotion: string) => unknown) | null)?.('smile');
-      expect(warnSpy).toHaveBeenCalledWith('2D hand movement function is not registered');
+      const g2 = (engine.gesture2D as ((emotion: string) => unknown) | null)?.(
+        'smile'
+      );
+      expect(warnSpy).toHaveBeenCalledWith(
+        '2D hand movement function is not registered'
+      );
       if (typeof g2 === 'function') {
         g2();
         expect(warnSpy).toHaveBeenCalledWith('gesture2D is not registered');
       }
 
-      const g3 = (engine.gesture3D as ((emotion: string) => unknown) | null)?.('wave');
-      expect(warnSpy).toHaveBeenCalledWith('3D hand movement function is not registered');
+      const g3 = (engine.gesture3D as ((emotion: string) => unknown) | null)?.(
+        'wave'
+      );
+      expect(warnSpy).toHaveBeenCalledWith(
+        '3D hand movement function is not registered'
+      );
       if (typeof g3 === 'function') {
         g3();
         expect(warnSpy).toHaveBeenCalledWith('gesture3D is not registered');

@@ -85,4 +85,3 @@ export function initSkinMode(skinEngine: SkinEngine | null = null): void {
   skinEngine.startMode = startMode;
   skinEngine.engineMode = startMode;
 }
-

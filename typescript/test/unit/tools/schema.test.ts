@@ -137,7 +137,9 @@ describe('Unit Test: core/tools/schema.js (TypeScript)', () => {
       expect(dbTool).toBeDefined();
       expect(dbTool?.type).toBe('function');
       expect(dbTool?.function.parameters.type).toBe('object');
-      expect(dbTool?.function.parameters.properties['sql']?.type).toBe('string');
+      expect(dbTool?.function.parameters.properties['sql']?.type).toBe(
+        'string'
+      );
       expect(dbTool?.function.parameters.required).toEqual(['sql']);
     });
   });
@@ -188,9 +190,13 @@ describe('Unit Test: core/tools/schema.js (TypeScript)', () => {
       expect(normalizedTool.confirmationTimeoutMs).toBe(5000);
 
       const openAiTools = toOpenAiTools([rawTool]);
-      expect(openAiTools[0]?.function.parameters.properties['age']?.enum).toEqual(['18', '30', '65']);
+      expect(
+        openAiTools[0]?.function.parameters.properties['age']?.enum
+      ).toEqual(['18', '30', '65']);
 
-      expect(argumentSummary(rawTool, null as unknown as Record<string, unknown>)).toBe('');
+      expect(
+        argumentSummary(rawTool, null as unknown as Record<string, unknown>)
+      ).toBe('');
     });
   });
 });

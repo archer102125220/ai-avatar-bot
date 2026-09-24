@@ -23,11 +23,24 @@
     "noFallthroughCasesInSwitch": true,
     "declaration": true,
     "paths": {
-      "@/*": ["./*", "./*/index"],
-      "@core": ["./core/index.ts"],
-      "@core/*": ["./core/*", "./core/*/index"],
-      "@test/*": ["./test/*", "./test/*/index"],
-      "@style/*": ["./style/*"]
+      "@/*": [
+        "./*",
+        "./*/index"
+      ],
+      "@core": [
+        "./core/index.ts"
+      ],
+      "@core/*": [
+        "./core/*",
+        "./core/*/index"
+      ],
+      "@test/*": [
+        "./test/*",
+        "./test/*/index"
+      ],
+      "@style/*": [
+        "./style/*"
+      ]
     }
   },
   "include": [

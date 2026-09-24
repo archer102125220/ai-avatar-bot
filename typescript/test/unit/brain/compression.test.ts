@@ -25,14 +25,18 @@ describe('Unit Test: core/brain/compression.js', () => {
         BRAIN_ENGINE_TYPE_MAP.WEB_LLM
       );
       expect(webLlmLimits.maxTurns).toBe(DEFAULT_WEB_LLM_MAX_TURNS);
-      expect(webLlmLimits.strategy).toBe(COMPRESSION_STRATEGY_MAP.SLIDING_WINDOW);
+      expect(webLlmLimits.strategy).toBe(
+        COMPRESSION_STRATEGY_MAP.SLIDING_WINDOW
+      );
 
       const aiProviderLimits = resolveCompressionLimits(
         {},
         BRAIN_ENGINE_TYPE_MAP.AI_PROVIDER
       );
       expect(aiProviderLimits.maxTurns).toBe(DEFAULT_AI_PROVIDER_MAX_TURNS);
-      expect(aiProviderLimits.strategy).toBe(COMPRESSION_STRATEGY_MAP.SLIDING_WINDOW);
+      expect(aiProviderLimits.strategy).toBe(
+        COMPRESSION_STRATEGY_MAP.SLIDING_WINDOW
+      );
     });
 
     it('should respect custom options override', () => {
@@ -102,7 +106,9 @@ describe('Unit Test: core/brain/compression.js', () => {
 
       const sanitized = sanitizeToolCalls(messages);
       expect(sanitized).toHaveLength(3);
-      expect(sanitized.some((m) => m.tool_call_id === 'orphan_call')).toBe(false);
+      expect(sanitized.some((m) => m.tool_call_id === 'orphan_call')).toBe(
+        false
+      );
     });
   });
 
@@ -211,7 +217,9 @@ describe('Unit Test: core/brain/compression.js', () => {
         summary: '用戶喜好喝拿鐵咖啡'
       });
 
-      expect(compressed[0].content).toContain('【歷史對話前情備忘 / Context Summary】');
+      expect(compressed[0].content).toContain(
+        '【歷史對話前情備忘 / Context Summary】'
+      );
       expect(compressed[0].content).toContain('用戶喜好喝拿鐵咖啡');
     });
   });
@@ -273,7 +281,9 @@ describe('Unit Test: core/brain/compression.js', () => {
       ];
 
       // 2. customCompressor throwing error -> falls back to sliding window
-      const throwingCompressor = vi.fn().mockRejectedValue(new Error('Compression failure'));
+      const throwingCompressor = vi
+        .fn()
+        .mockRejectedValue(new Error('Compression failure'));
       const fallbackResult1 = await compressContext({
         messages: sampleMessages,
         compressionOptions: { customCompressor: throwingCompressor }

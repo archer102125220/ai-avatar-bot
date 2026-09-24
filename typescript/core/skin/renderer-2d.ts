@@ -250,7 +250,9 @@ export async function bootAvatar(
         skinEngine.avatarModel?.internalModel?.height || 1000;
 
       const state =
-        typeof skinEngine.getState === 'function' ? skinEngine.getState() : null;
+        typeof skinEngine.getState === 'function'
+          ? skinEngine.getState()
+          : null;
       const currentFitMode =
         state?.fitMode || skinEngine.fitMode || DEFAULT_FIT_MODE;
       const skin2d: Skin2DConfig =
@@ -355,10 +357,7 @@ export async function bootAvatar(
         let isComputingMouth = false;
         core.update = function () {
           const computeFn = skinEngine.computeMouth;
-          if (
-            typeof computeFn === 'function' &&
-            isComputingMouth === false
-          ) {
+          if (typeof computeFn === 'function' && isComputingMouth === false) {
             isComputingMouth = true;
             (async function () {
               try {

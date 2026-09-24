@@ -244,7 +244,10 @@ export interface ToolsEngineSetting {
     toolCallId?: string | null;
   }) => void;
   /** Callback fired when a tool execution is confirmed by the user. */
-  onToolConfirm?: (confirm: { name: string; toolCallId?: string | null }) => void;
+  onToolConfirm?: (confirm: {
+    name: string;
+    toolCallId?: string | null;
+  }) => void;
   /** Callback fired when a tool is cancelled. */
   onToolCancel?: (cancel: {
     name: string;

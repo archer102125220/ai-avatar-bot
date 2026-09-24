@@ -17,7 +17,11 @@ import {
   DEFAULT_ENABLE_MODEL_DROP,
   DEFAULT_ENABLE_ENGINE_TOGGLE
 } from '@/core/constants';
-import { initSkinModeChangeButton, renderSuggestions, type UiDom } from '@/core/ui';
+import {
+  initSkinModeChangeButton,
+  renderSuggestions,
+  type UiDom
+} from '@/core/ui';
 import type { I18nEngine } from '@/core/i18n';
 import type { BrainEngine, LLMMessage } from '@/core/brain';
 import type { SpeechEngine } from '@/core/speech';
@@ -151,8 +155,7 @@ export function createAvatarWidget({
     },
 
     get answerQuestion():
-      | ((question: string) => Promise<string | void>)
-      | undefined {
+      ((question: string) => Promise<string | void>) | undefined {
       return getEngines().brainEngine?.answerQuestion;
     },
 
@@ -448,9 +451,7 @@ export function createAvatarWidget({
         null
       );
     },
-    set autoContinuePrompt(
-      newPrompt: AutoContinuePromptResolver | null
-    ) {
+    set autoContinuePrompt(newPrompt: AutoContinuePromptResolver | null) {
       if (
         typeof newPrompt === 'string' ||
         typeof newPrompt === 'function' ||

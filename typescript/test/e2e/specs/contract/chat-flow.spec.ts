@@ -29,10 +29,14 @@ test.describe('Contract Track A: Chat Flow & Text Input Specifications', () => {
     const historyPanel = page.locator('#history-panel');
     await expect(historyPanel).toHaveAttribute('css-is-open', 'true');
 
-    const userMessage = page.locator('#history-list .history-item.user').first();
+    const userMessage = page
+      .locator('#history-list .history-item.user')
+      .first();
     await expect(userMessage).toContainText('你好，我是測試使用者');
 
-    const botMessage = page.locator('#history-list .history-item.assistant').first();
+    const botMessage = page
+      .locator('#history-list .history-item.assistant')
+      .first();
     await expect(botMessage).toBeVisible();
     await expect(botMessage).toContainText('你好，我是測試使用者');
   });

@@ -212,17 +212,25 @@ export type SkinComputeMouthFn = (
 /**
  * Trigger function for invoking a named 2D or 3D gesture.
  */
-export type SkinGestureTrigger = (emotionName: string) => Promise<void> | unknown;
+export type SkinGestureTrigger = (
+  emotionName: string
+) => Promise<void> | unknown;
 
 /**
  * Handler function registered for executing 2D or 3D gestures.
  */
-export type SkinGestureHandler = (skinEngine: SkinEngine, emotionName: string) => void;
+export type SkinGestureHandler = (
+  skinEngine: SkinEngine,
+  emotionName: string
+) => void;
 
 /**
  * Callback fired when a gesture starts or ends playing.
  */
-export type SkinGestureCallback = (gestureName?: string, skinEngine?: SkinEngine) => void;
+export type SkinGestureCallback = (
+  gestureName?: string,
+  skinEngine?: SkinEngine
+) => void;
 
 /**
  * Callback fired when a gesture encounters an error.
@@ -254,7 +262,10 @@ export type SkinModelChangeErrorCallback = (error?: Error) => void;
 /**
  * Callback fired on engine-specific errors (2D or 3D).
  */
-export type SkinErrorCallback = (error?: Error, skinEngine?: SkinEngine) => void;
+export type SkinErrorCallback = (
+  error?: Error,
+  skinEngine?: SkinEngine
+) => void;
 
 /**
  * Callback fired when VRM file loading fails.

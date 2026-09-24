@@ -178,18 +178,18 @@ describe('Unit Test: core/constants.js (TypeScript)', () => {
     });
 
     it('getDefaultModelUrl should return URL based on gender and engineMode', () => {
-      expect(
-        getDefaultModelUrl('female', ENGINE_MODE_MAP.twoDimensional)
-      ).toBe(DEFAULT_FEMALE_2D_MODEL_URL);
-      expect(
-        getDefaultModelUrl('male', ENGINE_MODE_MAP.twoDimensional)
-      ).toBe(DEFAULT_MALE_2D_MODEL_URL);
+      expect(getDefaultModelUrl('female', ENGINE_MODE_MAP.twoDimensional)).toBe(
+        DEFAULT_FEMALE_2D_MODEL_URL
+      );
+      expect(getDefaultModelUrl('male', ENGINE_MODE_MAP.twoDimensional)).toBe(
+        DEFAULT_MALE_2D_MODEL_URL
+      );
       expect(
         getDefaultModelUrl('female', ENGINE_MODE_MAP.threeDimensional)
       ).toBe(DEFAULT_FEMALE_3D_MODEL_URL);
-      expect(
-        getDefaultModelUrl('male', ENGINE_MODE_MAP.threeDimensional)
-      ).toBe(DEFAULT_MALE_3D_MODEL_URL);
+      expect(getDefaultModelUrl('male', ENGINE_MODE_MAP.threeDimensional)).toBe(
+        DEFAULT_MALE_3D_MODEL_URL
+      );
       expect(getDefaultModelUrl()).toBe(DEFAULT_MODEL_URL);
     });
 
@@ -224,13 +224,17 @@ describe('Unit Test: core/constants.js (TypeScript)', () => {
         isWebLLMFunctionCallingSupported('Hermes-2-Pro-Llama-3-8B-q4f16_1-MLC')
       ).toBe(true);
       expect(
-        isWebLLMFunctionCallingSupported('Nous-Hermes-2-Mistral-7B-DPO-q4f16_1-MLC')
+        isWebLLMFunctionCallingSupported(
+          'Nous-Hermes-2-Mistral-7B-DPO-q4f16_1-MLC'
+        )
       ).toBe(true);
       expect(
         isWebLLMFunctionCallingSupported('Qwen2.5-1.5B-Instruct-q4f16_1-MLC')
       ).toBe(false);
       expect(isWebLLMFunctionCallingSupported('')).toBe(false);
-      expect(isWebLLMFunctionCallingSupported(null as unknown as string)).toBe(false);
+      expect(isWebLLMFunctionCallingSupported(null as unknown as string)).toBe(
+        false
+      );
     });
   });
 });

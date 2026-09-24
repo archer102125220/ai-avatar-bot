@@ -53,22 +53,34 @@ export async function* createMockChatCompletionStream(
  * @param options
  * @returns Mock AI Provider Object
  */
-export function createMockAiProvider(options: { defaultText?: string; name?: string; toolCalls?: unknown[] } = {}) {
+export function createMockAiProvider(
+  options: { defaultText?: string; name?: string; toolCalls?: unknown[] } = {}
+) {
   const defaultText = options.defaultText || '你好！我是你的 AI 助理。';
   return {
     name: options.name || 'openai',
-    chat: vi.fn(async ({ messages: _messages, onStream, stream = true }: { messages?: unknown[]; onStream?: (text: string) => void; stream?: boolean }) => {
-      const chunks = [defaultText.slice(0, 3), defaultText.slice(3)];
-      if (stream && typeof onStream === 'function') {
-        for (const chunk of chunks) {
-          onStream(chunk);
+    chat: vi.fn(
+      async ({
+        messages: _messages,
+        onStream,
+        stream = true
+      }: {
+        messages?: unknown[];
+        onStream?: (text: string) => void;
+        stream?: boolean;
+      }) => {
+        const chunks = [defaultText.slice(0, 3), defaultText.slice(3)];
+        if (stream && typeof onStream === 'function') {
+          for (const chunk of chunks) {
+            onStream(chunk);
+          }
         }
+        return {
+          text: defaultText,
+          toolCalls: options.toolCalls || []
+        };
       }
-      return {
-        text: defaultText,
-        toolCalls: options.toolCalls || []
-      };
-    }),
+    ),
     streamChat: vi.fn(async function* () {
       yield* createMockChatCompletionStream([defaultText]);
     })
@@ -90,7 +102,9 @@ export interface MockWebLLMEngine {
   reload: Mock<() => Promise<void>>;
   chat: {
     completions: {
-      create: Mock<(params?: { stream?: boolean }) => Promise<MockChatCompletionResult>>;
+      create: Mock<
+        (params?: { stream?: boolean }) => Promise<MockChatCompletionResult>
+      >;
     };
   };
   interruptGenerate: Mock<() => unknown>;
@@ -102,7 +116,9 @@ export interface MockWebLLMEngine {
  * @param options
  * @returns Mock WebLLM Engine Object
  */
-export function createMockWebLLMEngine(options: { defaultResponse?: string } = {}): MockWebLLMEngine {
+export function createMockWebLLMEngine(
+  options: { defaultResponse?: string } = {}
+): MockWebLLMEngine {
   const defaultResponse = options.defaultResponse || '來自 WebLLM 的回應';
 
   return {

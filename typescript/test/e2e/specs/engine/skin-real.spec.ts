@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Real Engine Track B: Skin WebGL & Canvas Smoke Specifications', () => {
-  test('should create canvas with WebGL context when 2D mode mounts', async ({ page }) => {
+  test('should create canvas with WebGL context when 2D mode mounts', async ({
+    page
+  }) => {
     await page.goto('/test/e2e/harness/engine.html');
 
     // 驗證 stage 容器成功建立
@@ -16,14 +18,19 @@ test.describe('Real Engine Track B: Skin WebGL & Canvas Smoke Specifications', (
     const hasWebGL = await page.evaluate(() => {
       const cvs = document.querySelector('#stage canvas') as HTMLCanvasElement;
       if (!cvs) return false;
-      const gl = cvs.getContext('webgl') || cvs.getContext('experimental-webgl') || cvs.getContext('webgl2');
+      const gl =
+        cvs.getContext('webgl') ||
+        cvs.getContext('experimental-webgl') ||
+        cvs.getContext('webgl2');
       return gl !== null && typeof gl === 'object';
     });
 
     expect(hasWebGL).toBe(true);
   });
 
-  test('should support dynamically toggling to 3D mode and recreate WebGL canvas', async ({ page }) => {
+  test('should support dynamically toggling to 3D mode and recreate WebGL canvas', async ({
+    page
+  }) => {
     await page.goto('/test/e2e/harness/engine.html');
 
     const stage = page.locator('#stage');
@@ -44,7 +51,10 @@ test.describe('Real Engine Track B: Skin WebGL & Canvas Smoke Specifications', (
     const isWebGLActive = await page.evaluate(() => {
       const cvs = document.querySelector('#stage canvas') as HTMLCanvasElement;
       if (!cvs) return false;
-      const gl = cvs.getContext('webgl') || cvs.getContext('experimental-webgl') || cvs.getContext('webgl2');
+      const gl =
+        cvs.getContext('webgl') ||
+        cvs.getContext('experimental-webgl') ||
+        cvs.getContext('webgl2');
       return gl !== null && typeof gl === 'object';
     });
 

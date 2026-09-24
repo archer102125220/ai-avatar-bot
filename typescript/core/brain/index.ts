@@ -533,8 +533,8 @@ export async function initBrainEngine(
     onError: (error?: unknown, ...args: unknown[]) => {
       const safeError =
         error instanceof Error
-            ? error
-            : new Error(String(error ?? 'Unknown error'));
+          ? error
+          : new Error(String(error ?? 'Unknown error'));
       return brainEngine.onAiProviderError?.(safeError, ...args);
     },
     onChatting: (response?: unknown, ...args: unknown[]) => {

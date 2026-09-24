@@ -12,9 +12,17 @@ export interface MockRenderer2D {
       height: number;
       width: number;
     };
-    position: { x: number; y: number; set: Mock<(...args: unknown[]) => unknown> };
+    position: {
+      x: number;
+      y: number;
+      set: Mock<(...args: unknown[]) => unknown>;
+    };
     scale: { x: number; y: number; set: Mock<(...args: unknown[]) => unknown> };
-    anchor: { x: number; y: number; set: Mock<(...args: unknown[]) => unknown> };
+    anchor: {
+      x: number;
+      y: number;
+      set: Mock<(...args: unknown[]) => unknown>;
+    };
     expression: Mock<(...args: unknown[]) => Promise<boolean>>;
     motion: Mock<(...args: unknown[]) => Promise<boolean>>;
     on: Mock<(...args: unknown[]) => unknown>;
@@ -60,7 +68,12 @@ export interface MockRenderer3D {
     [key: string]: unknown;
   };
   camera: {
-    position: { x: number; y: number; z: number; set: Mock<(...args: unknown[]) => unknown> };
+    position: {
+      x: number;
+      y: number;
+      z: number;
+      set: Mock<(...args: unknown[]) => unknown>;
+    };
     lookAt: Mock<() => unknown>;
     fov: number;
     near: number;
@@ -86,7 +99,9 @@ export interface MockRenderer3D {
  * @param overrides
  * @returns Mocked 2D Live2D Renderer
  */
-export function createMockRenderer2D(overrides: Partial<MockRenderer2D> = {}): MockRenderer2D {
+export function createMockRenderer2D(
+  overrides: Partial<MockRenderer2D> = {}
+): MockRenderer2D {
   const canvas = document.createElement('canvas');
   const avatarModel = {
     internalModel: {
@@ -137,12 +152,17 @@ export function createMockRenderer2D(overrides: Partial<MockRenderer2D> = {}): M
  * @param overrides
  * @returns Mocked 3D VRM Renderer
  */
-export function createMockRenderer3D(overrides: Partial<MockRenderer3D> = {}): MockRenderer3D {
+export function createMockRenderer3D(
+  overrides: Partial<MockRenderer3D> = {}
+): MockRenderer3D {
   const canvas = document.createElement('canvas');
   const vrm = {
     scene: {},
     humanoid: {
-      getNormalizedBoneNode: vi.fn(() => ({ position: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0 } }))
+      getNormalizedBoneNode: vi.fn(() => ({
+        position: { x: 0, y: 0, z: 0 },
+        rotation: { x: 0, y: 0, z: 0 }
+      }))
     },
     expressionManager: {
       setValue: vi.fn(),
@@ -192,7 +212,8 @@ interface WindowWithMockPixi {
  * 全域安裝 PIXI 與 Live2D Mock
  */
 export function setupWindowPixiMock() {
-  ((window as unknown) as WindowWithMockPixi).__cdnDependenciePromise__ = Promise.resolve();
+  (window as unknown as WindowWithMockPixi).__cdnDependenciePromise__ =
+    Promise.resolve();
 
   class MockLive2DModel {
     internalModel: Record<string, unknown>;
@@ -210,9 +231,7 @@ export function setupWindowPixiMock() {
           motions: {
             idle: [{ File: 'idle.motion3.json', Sound: 'idle.mp3' }]
           },
-          groups: [
-            { Name: 'Lipsync', Ids: ['ParamMouthOpenY'] }
-          ]
+          groups: [{ Name: 'Lipsync', Ids: ['ParamMouthOpenY'] }]
         },
         coreModel: {
           update: vi.fn(),
@@ -235,8 +254,15 @@ export function setupWindowPixiMock() {
   }
 
   class MockPIXIApplication {
-    stage: { addChild: ReturnType<typeof vi.fn>; removeChild: ReturnType<typeof vi.fn> };
-    renderer: { width: number; height: number; resize: ReturnType<typeof vi.fn> };
+    stage: {
+      addChild: ReturnType<typeof vi.fn>;
+      removeChild: ReturnType<typeof vi.fn>;
+    };
+    renderer: {
+      width: number;
+      height: number;
+      resize: ReturnType<typeof vi.fn>;
+    };
     destroy: ReturnType<typeof vi.fn>;
 
     constructor() {
@@ -246,7 +272,7 @@ export function setupWindowPixiMock() {
     }
   }
 
-  ((window as unknown) as WindowWithMockPixi).PIXI = {
+  (window as unknown as WindowWithMockPixi).PIXI = {
     Application: MockPIXIApplication,
     Ticker: {},
     live2d: {

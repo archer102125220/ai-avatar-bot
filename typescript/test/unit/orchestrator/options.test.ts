@@ -12,7 +12,11 @@ import type { AvatarBotOptions, CustomEnginesConfig } from '@core';
 describe('Orchestrator Options & Configuration', () => {
   describe('callOptionEvent', () => {
     it('should invoke the specified option callback with context and arguments', () => {
-      const callback = vi.fn(function (this: { name: string }, a: number, b: number) {
+      const callback = vi.fn(function (
+        this: { name: string },
+        a: number,
+        b: number
+      ) {
         return `${this.name}:${a + b}`;
       });
       const options = { onCustomEvent: callback };
@@ -27,15 +31,23 @@ describe('Orchestrator Options & Configuration', () => {
     it('should safely do nothing and return undefined if options is invalid or callback does not exist', () => {
       expect(callOptionEvent(null, {}, 'onTest')).toBeUndefined();
       expect(callOptionEvent({}, {}, 'onMissing')).toBeUndefined();
-      expect(callOptionEvent({ notAFunc: 123 }, {}, 'notAFunc')).toBeUndefined();
+      expect(
+        callOptionEvent({ notAFunc: 123 }, {}, 'notAFunc')
+      ).toBeUndefined();
     });
   });
 
   describe('normalizeOptions', () => {
     it('should throw an error if container is not an HTMLElement', () => {
-      expect(() => normalizeOptions({} as unknown as AvatarBotOptions)).toThrow('container must be an HTMLElement');
-      expect(() => normalizeOptions({ container: null } as unknown as AvatarBotOptions)).toThrow('container must be an HTMLElement');
-      expect(() => normalizeOptions({ container: {} } as unknown as AvatarBotOptions)).toThrow('container must be an HTMLElement');
+      expect(() => normalizeOptions({} as unknown as AvatarBotOptions)).toThrow(
+        'container must be an HTMLElement'
+      );
+      expect(() =>
+        normalizeOptions({ container: null } as unknown as AvatarBotOptions)
+      ).toThrow('container must be an HTMLElement');
+      expect(() =>
+        normalizeOptions({ container: {} } as unknown as AvatarBotOptions)
+      ).toThrow('container must be an HTMLElement');
     });
 
     it('should throw a TypeError if avatarMode is invalid', () => {
@@ -43,7 +55,8 @@ describe('Orchestrator Options & Configuration', () => {
       expect(() =>
         normalizeOptions({
           container,
-          avatarMode: 'invalid_mode' as unknown as AvatarBotOptions['avatarMode']
+          avatarMode:
+            'invalid_mode' as unknown as AvatarBotOptions['avatarMode']
         })
       ).toThrowError(/Invalid avatarMode "invalid_mode"/);
     });
@@ -69,7 +82,9 @@ describe('Orchestrator Options & Configuration', () => {
       expect(normalized.container).toBe(container);
       expect(normalized.targetAvatarMode).toBe(DEFAULT_AVATAR_MODE);
       expect(normalized.safeGender).toBe(DEFAULT_GENDER);
-      expect(normalized.safeNeuralVoice).toBe(getDefaultNeuralVoice(DEFAULT_GENDER));
+      expect(normalized.safeNeuralVoice).toBe(
+        getDefaultNeuralVoice(DEFAULT_GENDER)
+      );
       expect(normalized.initialMinimal).toBe(false);
       expect(normalized.isModelDropEnabled).toBe(false);
       expect(normalized.isEngineToggleEnabled).toBe(true);
@@ -98,7 +113,9 @@ describe('Orchestrator Options & Configuration', () => {
       });
 
       expect(normalizedMale.safeGender).toBe(GENDER_MAP.male);
-      expect(normalizedMale.safeNeuralVoice).toBe(getDefaultNeuralVoice(GENDER_MAP.male));
+      expect(normalizedMale.safeNeuralVoice).toBe(
+        getDefaultNeuralVoice(GENDER_MAP.male)
+      );
 
       const normalizedFemale = normalizeOptions({
         container,
@@ -106,7 +123,9 @@ describe('Orchestrator Options & Configuration', () => {
       });
 
       expect(normalizedFemale.safeGender).toBe(GENDER_MAP.female);
-      expect(normalizedFemale.safeNeuralVoice).toBe(getDefaultNeuralVoice(GENDER_MAP.female));
+      expect(normalizedFemale.safeNeuralVoice).toBe(
+        getDefaultNeuralVoice(GENDER_MAP.female)
+      );
 
       const normalizedCustomVoice = normalizeOptions({
         container,
@@ -122,29 +141,41 @@ describe('Orchestrator Options & Configuration', () => {
       const norm1 = normalizeOptions({ container, isMinimal: true });
       expect(norm1.initialMinimal).toBe(true);
 
-      const norm2 = normalizeOptions({ container, isMinimal: true, isIframe: true });
+      const norm2 = normalizeOptions({
+        container,
+        isMinimal: true,
+        isIframe: true
+      });
       expect(norm2.initialMinimal).toBe(false); // isIframe overrides isMinimal
 
-      const norm3 = normalizeOptions({ container, isMinimal: false, isIframe: false });
+      const norm3 = normalizeOptions({
+        container,
+        isMinimal: false,
+        isIframe: false
+      });
       expect(norm3.initialMinimal).toBe(false);
     });
 
     it('should initialize custom i18n engine if provided as function or object', () => {
       const container = document.createElement('div');
 
-      const customI18nFactory = vi.fn((opts: { locale: string; messages?: Record<string, unknown> }) => ({
-        locale: opts.locale,
-        t: (k: string) => `custom:${k}`,
-        addMessages: vi.fn(),
-        setLocale: vi.fn(),
-        subscribe: vi.fn(),
-        subscribeMessages: vi.fn()
-      }));
+      const customI18nFactory = vi.fn(
+        (opts: { locale: string; messages?: Record<string, unknown> }) => ({
+          locale: opts.locale,
+          t: (k: string) => `custom:${k}`,
+          addMessages: vi.fn(),
+          setLocale: vi.fn(),
+          subscribe: vi.fn(),
+          subscribeMessages: vi.fn()
+        })
+      );
 
       const normWithFactory = normalizeOptions({
         container,
         locale: 'en-US',
-        customEngines: { i18n: customI18nFactory as unknown as CustomEnginesConfig['i18n'] }
+        customEngines: {
+          i18n: customI18nFactory as unknown as CustomEnginesConfig['i18n']
+        }
       });
 
       expect(customI18nFactory).toHaveBeenCalledWith({
@@ -165,7 +196,9 @@ describe('Orchestrator Options & Configuration', () => {
 
       const normWithObj = normalizeOptions({
         container,
-        customEngines: { i18n: customI18nObj as unknown as CustomEnginesConfig['i18n'] }
+        customEngines: {
+          i18n: customI18nObj as unknown as CustomEnginesConfig['i18n']
+        }
       });
 
       expect(normWithObj.i18nEngine).toBe(customI18nObj);
@@ -188,7 +221,9 @@ describe('Orchestrator Options & Configuration', () => {
         enableAiProvider: false,
         aiProviderBaseUrl: 'https://api.example.com/ai'
       });
-      expect(normExplicitFalse.rootStore.getState().enableAiProvider).toBe(false);
+      expect(normExplicitFalse.rootStore.getState().enableAiProvider).toBe(
+        false
+      );
     });
 
     it('should configure autoContinue options, autoContinueMode, and custom prompt', () => {
@@ -198,7 +233,8 @@ describe('Orchestrator Options & Configuration', () => {
         container,
         enableAutoContinue: true,
         maxAutoContinuations: -1, // invalid -> fallback to default (3)
-        autoContinueMode: 'invalid_mode' as unknown as AvatarBotOptions['autoContinueMode'],
+        autoContinueMode:
+          'invalid_mode' as unknown as AvatarBotOptions['autoContinueMode'],
         autoContinuePrompt: '請接續回答'
       });
 

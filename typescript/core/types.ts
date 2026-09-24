@@ -79,16 +79,13 @@ export type ChatRole = 'system' | 'user' | 'assistant' | 'tool' | (string & {});
  * Supports static value, multi-locale dictionary mapping, or resolver function.
  */
 export type LocalizableOrResolver<T, C = Record<string, unknown>> =
-  | T
-  | Record<string, T>
-  | ((context: C) => T);
+  T | Record<string, T> | ((context: C) => T);
 
 /**
  * Dynamic text template or resolver function.
  */
 export type DynamicTextOrResolver<C = Record<string, unknown>> =
-  | string
-  | ((context: C, ...args: unknown[]) => string);
+  string | ((context: C, ...args: unknown[]) => string);
 
 /**
  * Auto-continuation prompt template, multi-locale mapping, or resolver function.
@@ -98,7 +95,11 @@ export type AutoContinuePromptResolver =
   | Record<string, string>
   | ((accumulatedText: string, ...args: unknown[]) => string)
   | ((context: Record<string, unknown>, ...args: unknown[]) => string)
-  | ((brain: unknown, continuationIndex?: number, accumulatedText?: string) => string);
+  | ((
+      brain: unknown,
+      continuationIndex?: number,
+      accumulatedText?: string
+    ) => string);
 
 // ============================================================================
 // 5. Tool & Dialogue State
@@ -164,5 +165,4 @@ export interface ToolErrorInfo {
 
 /** Progress payload emitted during LLM model loading */
 export type LlmLoadProgressInfo =
-  | number
-  | { progress?: number; [key: string]: unknown };
+  number | { progress?: number; [key: string]: unknown };
