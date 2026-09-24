@@ -90,9 +90,7 @@ describe('Emotion Tools Plugin', () => {
       context: { skinEngine: mockSkinEngine }
     };
 
-    const result = await tool.execute(
-      payload as unknown as Record<string, unknown>
-    );
+    const result = await tool.execute(payload);
 
     expect(result).toEqual({
       success: true,

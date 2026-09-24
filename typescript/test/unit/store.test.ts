@@ -83,7 +83,7 @@ describe('Unit Test: core/store.js (TypeScript)', () => {
     const store = createBaseStore({ user: { age: 18 } });
     const ageListener = vi.fn();
 
-    store.subscribe((state: any) => state.user?.age, ageListener);
+    store.subscribe((state) => state.user?.age, ageListener);
 
     store.setState({ user: { age: 19 } });
     expect(ageListener).toHaveBeenCalledTimes(1);
