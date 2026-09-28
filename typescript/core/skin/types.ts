@@ -149,13 +149,16 @@ export interface Live2DModelInstance {
 /**
  * 2D Live2D renderer controller instance.
  */
-export interface Renderer2D {
+export interface Renderer2D<
+  TModel = Live2DModelInstance,
+  TApp = unknown
+> {
   /** Canvas element used for rendering. */
   readonly canvas: HTMLCanvasElement;
   /** Live2D model instance. */
-  readonly avatarModel: Live2DModelInstance | null | unknown;
+  readonly avatarModel: TModel | null | unknown;
   /** PIXI Application instance. */
-  readonly pixiApp: unknown;
+  readonly pixiApp: TApp;
   /** Re-calculates and applies fitting transform. */
   fit(): void;
   /** Updates 2D visual transformation configuration. */
@@ -167,19 +170,24 @@ export interface Renderer2D {
 /**
  * 3D VRM renderer controller instance.
  */
-export interface Renderer3D {
+export interface Renderer3D<
+  TVrm = unknown,
+  TCamera = unknown,
+  TScene = unknown,
+  TGltf = unknown
+> {
   /** Loaded GLTF object instance. */
-  readonly gltf: unknown;
+  readonly gltf: TGltf;
   /** Loaded VRM model instance. */
-  readonly vrm: unknown;
+  readonly vrm: TVrm;
   /** Supported tap gesture action keys. */
   readonly TAP_GESTURES: string[];
   /** Canvas element used for rendering. */
   readonly canvas: HTMLCanvasElement;
   /** THREE.PerspectiveCamera instance. */
-  readonly camera: unknown;
+  readonly camera: TCamera;
   /** THREE.Scene instance. */
-  readonly scene: unknown;
+  readonly scene: TScene;
   /** Plays a named 3D gesture animation (e.g. 'wave', 'bow'). */
   readonly playGesture?: (gestureName: string) => void | Promise<void>;
   /** Pauses or resumes animation rendering loop. */

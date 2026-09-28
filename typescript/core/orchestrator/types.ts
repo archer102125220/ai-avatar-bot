@@ -7,7 +7,10 @@ import type {
   BrainCompressionOptions,
   LLMMessage,
   ChatLogItem,
-  ParsedToolCall
+  ParsedToolCall,
+  AiProviderFetchSettingFactory,
+  AiProviderFetchPayloadFactory,
+  AiProviderToolCallExtractor
 } from '@/core/brain';
 import type {
   SpeechEngine,
@@ -113,11 +116,15 @@ export interface AvatarBotOptions {
   aiProviderModel?: string;
   /** Custom fetch configuration object or factory for AI Provider. */
   aiProviderCreateFetchSetting?:
-    ((...args: unknown[]) => RequestInit) | RequestInit;
+    | AiProviderFetchSettingFactory
+    | ((...args: unknown[]) => RequestInit)
+    | RequestInit;
   /** Custom fetch payload object or factory for AI Provider. */
   aiProviderCreateFetchPayload?:
+    | AiProviderFetchPayloadFactory
     | ((...args: unknown[]) => Record<string, unknown> | BodyInit)
-    | Record<string, unknown>;
+    | Record<string, unknown>
+    | BodyInit;
   /** Custom response format ('sse', 'json', or parsing object). */
   aiProviderResponseFormat?: string | Record<string, unknown>;
   /** Maximum token limit for AI Provider responses. */
@@ -125,7 +132,9 @@ export interface AvatarBotOptions {
   /** Whether AI Provider should use streaming response. */
   aiProviderStream?: boolean;
   /** Custom extractor for tool calls from AI Provider chunks. */
-  aiProviderExtractToolCalls?: (chunk: string) => unknown;
+  aiProviderExtractToolCalls?:
+    | AiProviderToolCallExtractor
+    | ((chunk: string) => unknown);
   /** Neural voice model identifier for speech synthesis. */
   neuralVoice?: string;
   /** URL to knowledge base JSON for assistant persona. */
@@ -280,7 +289,11 @@ export interface AvatarBotOptions {
 
   /** Lifecycle callback fired when widget is fully initialized and mounted. */
   onReady?: (widget: AiAvatarWidget, ...args: unknown[]) => void;
-  /** Callback fired when minimal UI mode is toggled. */
+  /**
+   * Callback fired when minimal UI mode is toggled.
+   * @param isMinimal - Whether the widget is now minimized.
+   * @param widget - Active AiAvatarWidget controller instance.
+   */
   onMinimalTrigger?: (
     isMinimal: boolean,
     widget: unknown,

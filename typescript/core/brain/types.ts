@@ -141,12 +141,12 @@ export interface KnowledgeEntry {
 /**
  * LLM chat message structure used in inference calls.
  */
-export interface LLMMessage {
+export interface LLMMessage<TContent = string | null> {
   role: ChatRole;
-  content: string | unknown;
+  content: TContent;
   name?: string;
   tool_call_id?: string;
-  tool_calls?: ParsedToolCall[] | unknown[];
+  tool_calls?: ParsedToolCall[];
   [key: string]: unknown;
 }
 
@@ -274,6 +274,36 @@ export interface LLMEngine {
 }
 
 /**
+ * Factory callback for creating custom fetch RequestInit settings for AI Provider.
+ */
+export type AiProviderFetchSettingFactory = (
+  messages: LLMMessage[] | Array<Record<string, unknown>>,
+  model: string,
+  defaultFetchSetting: RequestInit,
+  engine: AiProviderEngine
+) => Promise<RequestInit> | RequestInit;
+
+/**
+ * Factory callback for creating custom fetch body payload for AI Provider.
+ */
+export type AiProviderFetchPayloadFactory = (
+  messages: LLMMessage[] | Array<Record<string, unknown>>,
+  tools: ToolDefinition[] | undefined,
+  model: string,
+  defaultPayload: Record<string, unknown>,
+  fetchSetting: RequestInit,
+  engine: AiProviderEngine
+) => Promise<BodyInit | null | undefined> | BodyInit | null | undefined;
+
+/**
+ * Extractor callback for parsing tool calls from AI Provider streaming response chunk.
+ */
+export type AiProviderToolCallExtractor = (
+  chunk: string,
+  ...args: unknown[]
+) => ParsedToolCall[] | null | unknown;
+
+/**
  * Options for server-side AI Provider engine.
  */
 export interface AiProviderOptions {
@@ -289,10 +319,17 @@ export interface AiProviderOptions {
   providerModel?: string;
   model?: string;
   providerCreateFetchSetting?:
-    ((...args: unknown[]) => RequestInit) | RequestInit | null;
+    | AiProviderFetchSettingFactory
+    | ((...args: unknown[]) => RequestInit)
+    | RequestInit
+    | null;
   createFetchSetting?:
-    ((...args: unknown[]) => RequestInit) | RequestInit | null;
+    | AiProviderFetchSettingFactory
+    | ((...args: unknown[]) => RequestInit)
+    | RequestInit
+    | null;
   providerCreateFetchPayload?:
+    | AiProviderFetchPayloadFactory
     | ((
         ...args: unknown[]
       ) =>
@@ -305,6 +342,7 @@ export interface AiProviderOptions {
     | Record<string, unknown>
     | null;
   createFetchPayload?:
+    | AiProviderFetchPayloadFactory
     | ((
         ...args: unknown[]
       ) =>
@@ -320,17 +358,23 @@ export interface AiProviderOptions {
     ((...args: unknown[]) => unknown) | string | Record<string, unknown> | null;
   responseFormat?:
     ((...args: unknown[]) => unknown) | string | Record<string, unknown> | null;
-  providerExtractToolCalls?: ((...args: unknown[]) => unknown) | null;
-  extractToolCalls?: ((...args: unknown[]) => unknown) | null;
+  providerExtractToolCalls?:
+    | AiProviderToolCallExtractor
+    | ((...args: unknown[]) => unknown)
+    | null;
+  extractToolCalls?:
+    | AiProviderToolCallExtractor
+    | ((...args: unknown[]) => unknown)
+    | null;
   providerMaxTokens?: number;
   maxTokens?: number;
   providerIsStream?: boolean;
   isStream?: boolean;
-  onConnecting?: ((...args: unknown[]) => unknown) | null;
-  onConnected?: ((...args: unknown[]) => unknown) | null;
-  onError?: ((...args: unknown[]) => unknown) | null;
-  onChatting?: ((...args: unknown[]) => unknown) | null;
-  onStreamChatting?: ((...args: unknown[]) => unknown) | null;
+  onConnecting?: ((...args: unknown[]) => void) | null;
+  onConnected?: ((...args: unknown[]) => void) | null;
+  onError?: ((error?: unknown, ...args: unknown[]) => void) | null;
+  onChatting?: ((...args: unknown[]) => void) | null;
+  onStreamChatting?: ((chunk?: unknown, ...args: unknown[]) => void) | null;
 }
 
 export interface AiProviderChatResult {
@@ -349,17 +393,30 @@ export interface AiProviderEngine {
   baseUrl: string;
   pingUrl: string;
   chatUrl: string;
-  readonly createFetchSetting: unknown;
-  readonly createFetchPayload: unknown;
+  readonly createFetchSetting:
+    | AiProviderFetchSettingFactory
+    | RequestInit
+    | null
+    | unknown;
+  readonly createFetchPayload:
+    | AiProviderFetchPayloadFactory
+    | BodyInit
+    | Record<string, unknown>
+    | null
+    | unknown;
   readonly responseFormat: unknown;
-  readonly extractToolCalls: unknown;
+  readonly extractToolCalls:
+    | AiProviderToolCallExtractor
+    | ((...args: unknown[]) => unknown)
+    | null
+    | unknown;
   readonly maxTokens: number;
   readonly isStream: boolean;
-  readonly onConnecting: (...args: unknown[]) => unknown;
-  readonly onConnected: (...args: unknown[]) => unknown;
-  readonly onError: (...args: unknown[]) => unknown;
-  readonly onChatting: (...args: unknown[]) => unknown;
-  readonly onStreamChatting: (...args: unknown[]) => unknown;
+  readonly onConnecting: (...args: unknown[]) => void;
+  readonly onConnected: (...args: unknown[]) => void;
+  readonly onError: (error?: unknown, ...args: unknown[]) => void;
+  readonly onChatting: (...args: unknown[]) => void;
+  readonly onStreamChatting: (chunk?: unknown, ...args: unknown[]) => void;
   model: string;
   enabled: boolean;
   ready: boolean;
@@ -401,23 +458,23 @@ export interface BrainEngineOptions {
   assistantWelcomeText?: string | ((context: unknown) => string) | null;
   llmMaxTokens?: number;
   llmIsStream?: boolean;
-  onLlmLoading?: (...args: unknown[]) => unknown;
+  onLlmLoading?: (...args: unknown[]) => void;
   onLlmLoadProgress?: (
     progress: LlmLoadProgressInfo,
     ...args: unknown[]
-  ) => unknown;
-  onLlmLoaded?: (engineInstance?: unknown, ...args: unknown[]) => unknown;
-  onLlmLoadError?: (error: Error, ...args: unknown[]) => unknown;
-  onLlmChatting?: (response?: unknown, ...args: unknown[]) => unknown;
-  onLlmStreamChatting?: (chunk?: unknown, ...args: unknown[]) => unknown;
+  ) => void;
+  onLlmLoaded?: (engineInstance?: unknown, ...args: unknown[]) => void;
+  onLlmLoadError?: (error: Error, ...args: unknown[]) => void;
+  onLlmChatting?: (response?: unknown, ...args: unknown[]) => void;
+  onLlmStreamChatting?: (chunk?: unknown, ...args: unknown[]) => void;
   onAiProviderConnecting?: (
     fetchSetting?: unknown,
     ...args: unknown[]
-  ) => unknown;
-  onAiProviderConnected?: (response?: unknown, ...args: unknown[]) => unknown;
-  onAiProviderError?: (error: Error, ...args: unknown[]) => unknown;
-  onAiProviderChatting?: (response?: unknown, ...args: unknown[]) => unknown;
-  onAiProviderStreamChatting?: (chunk?: unknown, ...args: unknown[]) => unknown;
+  ) => void;
+  onAiProviderConnected?: (response?: unknown, ...args: unknown[]) => void;
+  onAiProviderError?: (error: Error, ...args: unknown[]) => void;
+  onAiProviderChatting?: (response?: unknown, ...args: unknown[]) => void;
+  onAiProviderStreamChatting?: (chunk?: unknown, ...args: unknown[]) => void;
   onAddChatMessage?:
     | ((item: ChatLogItem, ...args: unknown[]) => unknown)
     | ((
@@ -559,24 +616,24 @@ export interface BrainEngine {
         options?: unknown
       ) => Promise<unknown> | unknown)
     | null;
-  onLlmLoading: ((...args: unknown[]) => unknown) | null;
+  onLlmLoading: ((...args: unknown[]) => void) | null;
   onLlmLoadProgress:
-    ((progress: LlmLoadProgressInfo, ...args: unknown[]) => unknown) | null;
+    ((progress: LlmLoadProgressInfo, ...args: unknown[]) => void) | null;
   onLlmLoaded:
-    ((engineInstance?: unknown, ...args: unknown[]) => unknown) | null;
-  onLlmLoadError: ((error: Error, ...args: unknown[]) => unknown) | null;
-  onLlmChatting: ((response?: unknown, ...args: unknown[]) => unknown) | null;
+    ((engineInstance?: unknown, ...args: unknown[]) => void) | null;
+  onLlmLoadError: ((error: Error, ...args: unknown[]) => void) | null;
+  onLlmChatting: ((response?: unknown, ...args: unknown[]) => void) | null;
   onLlmStreamChatting:
-    ((chunk?: unknown, ...args: unknown[]) => unknown) | null;
+    ((chunk?: unknown, ...args: unknown[]) => void) | null;
   onAiProviderConnecting:
-    ((fetchSetting?: unknown, ...args: unknown[]) => unknown) | null;
+    ((fetchSetting?: unknown, ...args: unknown[]) => void) | null;
   onAiProviderConnected:
-    ((response?: unknown, ...args: unknown[]) => unknown) | null;
-  onAiProviderError: ((error: Error, ...args: unknown[]) => unknown) | null;
+    ((response?: unknown, ...args: unknown[]) => void) | null;
+  onAiProviderError: ((error: Error, ...args: unknown[]) => void) | null;
   onAiProviderChatting:
-    ((response?: unknown, ...args: unknown[]) => unknown) | null;
+    ((response?: unknown, ...args: unknown[]) => void) | null;
   onAiProviderStreamChatting:
-    ((chunk?: unknown, ...args: unknown[]) => unknown) | null;
+    ((chunk?: unknown, ...args: unknown[]) => void) | null;
   onAddChatMessage:
     | ((item: ChatLogItem, ...args: unknown[]) => unknown)
     | ((
