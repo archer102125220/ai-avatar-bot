@@ -38,7 +38,15 @@ test.describe('Real Engine Track B: Skin WebGL & Canvas Smoke Specifications', (
 
     // 切換引擎模式至 3D
     await page.evaluate(async () => {
-      const widget = (window as any).aiAvatarWidget;
+      const widget = (
+        window as unknown as {
+          aiAvatarWidget?: {
+            skinEngine?: {
+              engineMode?: string;
+            };
+          };
+        }
+      ).aiAvatarWidget;
       if (widget?.skinEngine) {
         widget.skinEngine.engineMode = '3D';
       }

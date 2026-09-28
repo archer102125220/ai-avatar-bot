@@ -35,7 +35,13 @@ test.describe('Real Engine Track B: Brain Pipeline & SSE Stream Smoke Specificat
 
     // 重新以 AI Provider 選項啟動 Widget
     await page.evaluate(async () => {
-      await (window as any).initEngineHarness({
+      await (
+        window as unknown as {
+          initEngineHarness: (
+            opts?: Record<string, unknown>
+          ) => Promise<unknown>;
+        }
+      ).initEngineHarness({
         enableAiProvider: true,
         aiProviderBaseUrl: 'http://127.0.0.1:5173/api/ai',
         aiProviderModel: 'test-model'
@@ -63,7 +69,13 @@ test.describe('Real Engine Track B: Brain Pipeline & SSE Stream Smoke Specificat
     await page.goto('/test/e2e/harness/engine.html');
 
     await page.evaluate(async () => {
-      await (window as any).initEngineHarness({
+      await (
+        window as unknown as {
+          initEngineHarness: (
+            opts?: Record<string, unknown>
+          ) => Promise<unknown>;
+        }
+      ).initEngineHarness({
         enableAiProvider: true,
         aiProviderBaseUrl: 'http://127.0.0.1:5173/api/ai-fail',
         aiProviderModel: 'test-model'

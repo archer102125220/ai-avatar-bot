@@ -7,9 +7,13 @@ test.describe('Phase 4: Release Bundle Dist Smoke Specifications', () => {
     await page.goto('/test/e2e/harness/dist.html');
 
     // 驗證 dist 模組成功 import 並執行 onReady
-    await page.waitForFunction(() => (window as any).__distLoaded === true);
+    await page.waitForFunction(
+      () => (window as unknown as { __distLoaded?: boolean }).__distLoaded === true
+    );
 
-    const hasError = await page.evaluate(() => (window as any).__distError);
+    const hasError = await page.evaluate(
+      () => (window as unknown as { __distError?: unknown }).__distError
+    );
     expect(hasError).toBeNull();
 
     // 驗證核心 DOM 與控制按鈕完全健全

@@ -3,7 +3,9 @@ import { test, expect } from '@playwright/test';
 test.describe('Contract Track A: Toolbar Controls & Drawer Specifications', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/test/e2e/harness/contract.html');
-    await page.waitForFunction(() => (window as any).__harnessReady === true);
+    await page.waitForFunction(
+      () => (window as unknown as { __harnessReady?: boolean }).__harnessReady === true
+    );
   });
 
   test('should toggle mute state and update button label and aria-pressed', async ({

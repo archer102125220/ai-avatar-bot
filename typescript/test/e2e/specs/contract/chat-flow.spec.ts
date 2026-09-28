@@ -3,7 +3,9 @@ import { test, expect } from '@playwright/test';
 test.describe('Contract Track A: Chat Flow & Text Input Specifications', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/test/e2e/harness/contract.html');
-    await page.waitForFunction(() => (window as any).__harnessReady === true);
+    await page.waitForFunction(
+      () => (window as unknown as { __harnessReady?: boolean }).__harnessReady === true
+    );
   });
 
   test('should submit message on click send button and clear input', async ({

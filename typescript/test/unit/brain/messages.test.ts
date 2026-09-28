@@ -8,8 +8,52 @@ import {
 import { AVATAR_MODE_MAP, BRAIN_ENGINE_TYPE_MAP } from '@/core/constants';
 import type { BrainEngine } from '@core';
 
+interface MockBrainEngineType {
+  locale: string;
+  avatarMode?: string;
+  gender?: string;
+  knowledge?: Array<{
+    q?: string;
+    a?: string;
+    kw?: string;
+    source?: { title?: string; url?: string; [key: string]: unknown };
+    [key: string]: unknown;
+  }>;
+  companionKnowledge?: Array<{
+    q?: string;
+    a?: string;
+    kw?: string;
+    source?: { title?: string; url?: string; [key: string]: unknown };
+    [key: string]: unknown;
+  }>;
+  memory: {
+    enabled?: boolean;
+    data: {
+      visits?: number;
+      name?: string;
+      summary?: string;
+      history?: unknown[];
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  };
+  chatLog?: unknown[];
+  i18nEngine?: {
+    t: (k: string, p?: Record<string, unknown>) => string;
+  };
+  welcomeText?: unknown;
+  assistantWelcomeText?: unknown;
+  companionWelcomeText?: unknown;
+  autoContinuePrompt?: unknown;
+  systemContextTemplate?: unknown;
+  customContext?: unknown;
+  languageRule?: unknown;
+  modes?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
-  let mockBrainEngine: any;
+  let mockBrainEngine: MockBrainEngineType;
 
   beforeEach(() => {
     mockBrainEngine = {
@@ -29,10 +73,10 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
     it('should use i18nEngine.t if available, otherwise fallback to locale dictionaries or raw key', () => {
       // With i18nEngine
       mockBrainEngine.i18nEngine = {
-        t: vi.fn((k: string, p: any) => `translated:${k}:${p?.name || ''}`)
+        t: vi.fn((k: string, p?: Record<string, unknown>) => `translated:${k}:${(p?.name as string) || ''}`)
       };
       expect(
-        getBrainMessage(mockBrainEngine as BrainEngine, 'test.key', {
+        getBrainMessage(mockBrainEngine as unknown as BrainEngine, 'test.key', {
           name: 'Bob'
         })
       ).toBe('translated:test.key:Bob');
@@ -40,13 +84,13 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       // Without i18nEngine, default zh-TW
       delete mockBrainEngine.i18nEngine;
       expect(
-        getBrainMessage(mockBrainEngine as BrainEngine, 'brain.llm.loading')
+        getBrainMessage(mockBrainEngine as unknown as BrainEngine, 'brain.llm.loading')
       ).toBe('開始下載 AI 大腦（約 1GB，只需第一次）…');
 
       // Unknown key falls back to key itself
       expect(
         getBrainMessage(
-          mockBrainEngine as BrainEngine,
+          mockBrainEngine as unknown as BrainEngine,
           'unknown.nonexistent.key'
         )
       ).toBe('unknown.nonexistent.key');
@@ -56,12 +100,12 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
   describe('getWelcomeText', () => {
     it('should support top-level welcomeText as string and async Promise', async () => {
       mockBrainEngine.welcomeText = '自訂頂層歡迎詞';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toBe(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toBe(
         '自訂頂層歡迎詞'
       );
 
       mockBrainEngine.welcomeText = async () => '非同步歡迎詞';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toBe(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toBe(
         '非同步歡迎詞'
       );
     });
@@ -73,7 +117,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
         customDoc: { welcomeText: async () => '醫生歡迎您' }
       };
 
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toBe(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toBe(
         '醫生歡迎您'
       );
     });
@@ -85,34 +129,34 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       // en-US with name
       mockBrainEngine.locale = 'en-US';
       mockBrainEngine.memory.data.name = 'Alice';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toContain(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toContain(
         'Alice, welcome back! This is our 5th visit!'
       );
 
       // en-US without name
       mockBrainEngine.memory.data.name = '';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toContain(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toContain(
         'welcome back! This is our 5th visit!'
       );
 
       // ja-JP
       mockBrainEngine.locale = 'ja-JP';
       mockBrainEngine.memory.data.name = 'サクラ';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toContain(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toContain(
         'サクラさん、おかえりなさい！5回目の訪問ですね！'
       );
 
       // ko-KR
       mockBrainEngine.locale = 'ko-KR';
       mockBrainEngine.memory.data.name = '지우';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toContain(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toContain(
         '지우님, 다시 오신 것을 환영해요! 벌써 5번째 만남이네요!'
       );
 
       // zh-TW
       mockBrainEngine.locale = 'zh-TW';
       mockBrainEngine.memory.data.name = '小美';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toContain(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toContain(
         '小美，歡迎回來～這是我們第 5 次見面！'
       );
     });
@@ -122,22 +166,22 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       mockBrainEngine.memory.data.visits = 1;
 
       mockBrainEngine.locale = 'en-US';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toContain(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toContain(
         'Hi~ I am your companion avatar!'
       );
 
       mockBrainEngine.locale = 'ja-JP';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toContain(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toContain(
         'こんにちは〜！お話し相手のアバターです！'
       );
 
       mockBrainEngine.locale = 'ko-KR';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toContain(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toContain(
         '안녕하세요~ 대화형 버추얼 아바타입니다!'
       );
 
       mockBrainEngine.locale = 'zh-TW';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toContain(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toContain(
         '嗨～我是這裡的陪聊虛擬人！'
       );
     });
@@ -146,22 +190,22 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       mockBrainEngine.avatarMode = AVATAR_MODE_MAP.assistant;
 
       mockBrainEngine.locale = 'en-US';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toContain(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toContain(
         'Click 🎤 to speak'
       );
 
       mockBrainEngine.locale = 'ja-JP';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toContain(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toContain(
         '🎤 を押して話すか'
       );
 
       mockBrainEngine.locale = 'ko-KR';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toContain(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toContain(
         '🎤를 눌러 말하거나'
       );
 
       mockBrainEngine.locale = 'zh-TW';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toContain(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toContain(
         '點 🎤 說話'
       );
     });
@@ -171,37 +215,37 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
     it('should resolve default auto-continue prompt across languages', () => {
       mockBrainEngine.locale = 'zh-TW';
       expect(
-        resolveAutoContinuePrompt(mockBrainEngine as BrainEngine, 1)
+        resolveAutoContinuePrompt(mockBrainEngine as unknown as BrainEngine, 1)
       ).toContain('請接著你剛才尚未說完的內容');
 
       mockBrainEngine.locale = 'en-US';
       expect(
-        resolveAutoContinuePrompt(mockBrainEngine as BrainEngine, 1)
+        resolveAutoContinuePrompt(mockBrainEngine as unknown as BrainEngine, 1)
       ).toContain('Please continue directly');
 
       mockBrainEngine.locale = 'ja-JP';
       expect(
-        resolveAutoContinuePrompt(mockBrainEngine as BrainEngine, 1)
+        resolveAutoContinuePrompt(mockBrainEngine as unknown as BrainEngine, 1)
       ).toContain('先ほどの続きから');
 
       mockBrainEngine.locale = 'ko-KR';
       expect(
-        resolveAutoContinuePrompt(mockBrainEngine as BrainEngine, 1)
+        resolveAutoContinuePrompt(mockBrainEngine as unknown as BrainEngine, 1)
       ).toContain('이전 문장을 반복하지 말고');
     });
 
     it('should support custom function and string prompt', () => {
       mockBrainEngine.autoContinuePrompt = (
-        _brain: any,
+        _brain: unknown,
         index: number,
         text: string
       ) => `繼續第 ${index} 次：${text}`;
       expect(
-        resolveAutoContinuePrompt(mockBrainEngine as BrainEngine, 2, '前文')
+        resolveAutoContinuePrompt(mockBrainEngine as unknown as BrainEngine, 2, '前文')
       ).toBe('繼續第 2 次：前文');
 
       mockBrainEngine.autoContinuePrompt = '自訂接續字串';
-      expect(resolveAutoContinuePrompt(mockBrainEngine as BrainEngine, 1)).toBe(
+      expect(resolveAutoContinuePrompt(mockBrainEngine as unknown as BrainEngine, 1)).toBe(
         '自訂接續字串'
       );
     });
@@ -215,7 +259,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       mockBrainEngine.customContext = { 'Special Field': ['ValueA', 'ValueB'] };
 
       const msgsEn = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         'How are you?'
       );
       expect(msgsEn[0].role).toBe('system');
@@ -229,7 +273,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       mockBrainEngine.gender = 'female';
       mockBrainEngine.customContext = null;
       const msgsJaFem = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         'お元気ですか？'
       );
       expect(msgsJaFem[0].content).toContain('あなたは女性です');
@@ -239,7 +283,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       mockBrainEngine.locale = 'ko-KR';
       mockBrainEngine.gender = 'female';
       const msgsKoFem = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         '잘 지내세요?'
       );
       expect(msgsKoFem[0].content).toContain('당신은 여성입니다');
@@ -249,7 +293,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       mockBrainEngine.locale = 'zh-TW';
       mockBrainEngine.gender = 'female';
       const msgsZhFem = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         '你好嗎？'
       );
       expect(msgsZhFem[0].content).toContain('你是一名女性');
@@ -259,7 +303,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       mockBrainEngine.locale = 'en-US';
       mockBrainEngine.gender = 'male';
       const msgsEnMale = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         'Hello'
       );
       expect(msgsEnMale[0].content).toContain('masculine phrasing');
@@ -268,7 +312,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       mockBrainEngine.locale = 'ja-JP';
       mockBrainEngine.gender = 'male';
       const msgsJa = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         '元気？'
       );
       expect(msgsJa[0].content).toContain('あなたは男性です');
@@ -277,7 +321,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       mockBrainEngine.locale = 'ko-KR';
       mockBrainEngine.gender = 'male';
       const msgsKo = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         '안녕'
       );
       expect(msgsKo[0].content).toContain('당신은 남성입니다');
@@ -286,7 +330,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       mockBrainEngine.locale = 'zh-TW';
       mockBrainEngine.gender = 'male';
       const msgsZh = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         '你好'
       );
       expect(msgsZh[0].content).toContain('你是一名男性');
@@ -301,7 +345,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       // zh-TW
       mockBrainEngine.locale = 'zh-TW';
       const msgsZh = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         '今天好嗎？'
       );
       expect(msgsZh[0].content).toContain('小美');
@@ -310,7 +354,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       // en-US
       mockBrainEngine.locale = 'en-US';
       const msgsEn = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         'How is your day?'
       );
       expect(msgsEn[0].content).toContain('visitor\'s name is "小美"');
@@ -318,7 +362,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       // ja-JP
       mockBrainEngine.locale = 'ja-JP';
       const msgsJa = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         'こんにちは'
       );
       expect(msgsJa[0].content).toContain('訪問者の名前は「小美」です');
@@ -326,7 +370,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       // ko-KR
       mockBrainEngine.locale = 'ko-KR';
       const msgsKo = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         '안녕하세요'
       );
       expect(msgsKo[0].content).toContain('방문자의 이름은 "小美"입니다');
@@ -345,14 +389,14 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
 
       mockBrainEngine.locale = 'zh-TW';
       const msgsZh = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         '頭痛'
       );
       expect(msgsZh[0].content).toContain('專屬醫生模式');
 
       mockBrainEngine.locale = 'en-US';
       const msgsEn = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         'headache'
       );
       expect(msgsEn[0].content).toContain('Dedicated doctor mode');
@@ -361,9 +405,9 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
     it('should format different historyItem content structures and handle custom systemContextTemplate', async () => {
       // Custom systemContextTemplate with function
       mockBrainEngine.systemContextTemplate = (
-        _brain: any,
-        _rag: any,
-        _style: any
+        _brain: unknown,
+        _rag: unknown,
+        _style: unknown
       ) => `[EXPERT TEMPLATE]`;
       mockBrainEngine.memory.enabled = true;
       mockBrainEngine.memory.data = {
@@ -377,7 +421,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       };
 
       const msgs = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         '專家請回答',
         BRAIN_ENGINE_TYPE_MAP.WEB_LLM
       );
@@ -396,12 +440,12 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
 
       // 1. assistantWelcomeText as Promise and string
       mockBrainEngine.assistantWelcomeText = async () => '非同步助理歡迎詞';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toBe(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toBe(
         '非同步助理歡迎詞'
       );
 
       mockBrainEngine.assistantWelcomeText = '助理字串歡迎詞';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toBe(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toBe(
         '助理字串歡迎詞'
       );
 
@@ -409,22 +453,22 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
 
       // 2. Default assistant welcome across locales
       mockBrainEngine.locale = 'en-US';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toContain(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toContain(
         'Click 🎤 to speak'
       );
 
       mockBrainEngine.locale = 'ja-JP';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toContain(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toContain(
         '🎤 を押して話すか'
       );
 
       mockBrainEngine.locale = 'ko-KR';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toContain(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toContain(
         '🎤를 눌러 말하거나'
       );
 
       mockBrainEngine.locale = 'zh-TW';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toContain(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toContain(
         '點 🎤 說話'
       );
     });
@@ -433,12 +477,12 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       mockBrainEngine.avatarMode = AVATAR_MODE_MAP.companion;
 
       mockBrainEngine.companionWelcomeText = async () => '非同步陪聊歡迎詞';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toBe(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toBe(
         '非同步陪聊歡迎詞'
       );
 
       mockBrainEngine.companionWelcomeText = '陪聊字串歡迎詞';
-      expect(await getWelcomeText(mockBrainEngine as BrainEngine)).toBe(
+      expect(await getWelcomeText(mockBrainEngine as unknown as BrainEngine)).toBe(
         '陪聊字串歡迎詞'
       );
     });
@@ -456,7 +500,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       mockBrainEngine.gender = 'female';
       mockBrainEngine.locale = 'en-US';
       const msgsEn = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         '知識問題'
       );
       expect(msgsEn[0].content).toContain(
@@ -467,7 +511,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       // Female in JA
       mockBrainEngine.locale = 'ja-JP';
       const msgsJa = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         '知識問題'
       );
       expect(msgsJa[0].content).toContain('あなたは女性です');
@@ -475,7 +519,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       // Female in KO
       mockBrainEngine.locale = 'ko-KR';
       const msgsKo = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         '知識問題'
       );
       expect(msgsKo[0].content).toContain('당신은 여성입니다');
@@ -483,7 +527,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       // Female in ZH
       mockBrainEngine.locale = 'zh-TW';
       const msgsZh = await buildDefaultLLMMessages(
-        mockBrainEngine as BrainEngine,
+        mockBrainEngine as unknown as BrainEngine,
         '知識問題'
       );
       expect(msgsZh[0].content).toContain('你是一名女性');
@@ -492,33 +536,33 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
     it('should resolve autoContinuePrompt as function, string, or localized object', () => {
       // 1. autoContinuePrompt as function
       mockBrainEngine.autoContinuePrompt = vi.fn(
-        (_b: any, idx: number) => `第 ${idx} 續講提示`
+        (_b: unknown, idx: number) => `第 ${idx} 續講提示`
       );
       expect(
-        resolveAutoContinuePrompt(mockBrainEngine as BrainEngine, 1, '第一段')
+        resolveAutoContinuePrompt(mockBrainEngine as unknown as BrainEngine, 1, '第一段')
       ).toBe('第 1 續講提示');
 
       // 2. autoContinuePrompt as string
       mockBrainEngine.autoContinuePrompt = '固定續講指令';
       expect(
-        resolveAutoContinuePrompt(mockBrainEngine as BrainEngine, 2, '前文')
+        resolveAutoContinuePrompt(mockBrainEngine as unknown as BrainEngine, 2, '前文')
       ).toBe('固定續講指令');
 
       // 3. autoContinuePrompt across locales
       delete mockBrainEngine.autoContinuePrompt;
       mockBrainEngine.locale = 'en-US';
       expect(
-        resolveAutoContinuePrompt(mockBrainEngine as BrainEngine, 1, 'text')
+        resolveAutoContinuePrompt(mockBrainEngine as unknown as BrainEngine, 1, 'text')
       ).toContain('Please continue directly from where you left off');
 
       mockBrainEngine.locale = 'ja-JP';
       expect(
-        resolveAutoContinuePrompt(mockBrainEngine as BrainEngine, 1, 'text')
+        resolveAutoContinuePrompt(mockBrainEngine as unknown as BrainEngine, 1, 'text')
       ).toContain('先ほどの続きから');
 
       mockBrainEngine.locale = 'ko-KR';
       expect(
-        resolveAutoContinuePrompt(mockBrainEngine as BrainEngine, 1, 'text')
+        resolveAutoContinuePrompt(mockBrainEngine as unknown as BrainEngine, 1, 'text')
       ).toContain('이전 문장을 반복하지 말고');
     });
   });

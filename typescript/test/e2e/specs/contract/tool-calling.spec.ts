@@ -3,7 +3,9 @@ import { test, expect } from '@playwright/test';
 test.describe('Contract Track A: Tool Calling & Confirmation Flow Specifications', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/test/e2e/harness/contract.html');
-    await page.waitForFunction(() => (window as any).__harnessReady === true);
+    await page.waitForFunction(
+      () => (window as unknown as { __harnessReady?: boolean }).__harnessReady === true
+    );
   });
 
   test('should display confirmation buttons when a tool requires confirmation', async ({
@@ -11,8 +13,24 @@ test.describe('Contract Track A: Tool Calling & Confirmation Flow Specifications
   }) => {
     // 註冊一個需要使用者確認的工具
     await page.evaluate(() => {
-      const widget = (window as any).aiAvatarWidget;
-      (window as any).__toolCallExecuted = false;
+      interface HarnessWidget {
+        toolsEngine: {
+          HOST_TOOLS: Array<{
+            name: string;
+            label: string;
+            description: string;
+            requiresConfirmation: boolean;
+            inputSchema: { type: string; properties: Record<string, unknown> };
+          }>;
+          offerHostTool: (tool: unknown, query: string) => void;
+        };
+      }
+      const win = window as unknown as {
+        aiAvatarWidget: HarnessWidget;
+        __toolCallExecuted?: boolean;
+      };
+      const widget = win.aiAvatarWidget;
+      win.__toolCallExecuted = false;
 
       const tool = {
         name: 'test_action',
@@ -58,11 +76,38 @@ test.describe('Contract Track A: Tool Calling & Confirmation Flow Specifications
   }) => {
     // 註冊工具並監聽 onToolCall
     await page.evaluate(() => {
-      const widget = (window as any).aiAvatarWidget;
-      (window as any).__executedCallId = null;
+      interface PendingCall {
+        callId: string;
+      }
+      interface HarnessWidget {
+        options: {
+          onToolCall?: (pendingCall: PendingCall) => void;
+        };
+        toolsEngine: {
+          HOST_TOOLS: Array<{
+            name: string;
+            label: string;
+            description: string;
+            requiresConfirmation: boolean;
+            inputSchema: { type: string; properties: Record<string, unknown> };
+          }>;
+          offerHostTool: (tool: unknown, query: string) => void;
+          handleToolResult: (result: {
+            callId: string;
+            ok: boolean;
+            message: string;
+          }) => void;
+        };
+      }
+      const win = window as unknown as {
+        aiAvatarWidget: HarnessWidget;
+        __executedCallId: string | null;
+      };
+      const widget = win.aiAvatarWidget;
+      win.__executedCallId = null;
 
-      widget.options.onToolCall = (pendingCall: any) => {
-        (window as any).__executedCallId = pendingCall.callId;
+      widget.options.onToolCall = (pendingCall: PendingCall) => {
+        win.__executedCallId = pendingCall.callId;
         // 回傳執行成功
         widget.toolsEngine.handleToolResult({
           callId: pendingCall.callId,
@@ -91,7 +136,11 @@ test.describe('Contract Track A: Tool Calling & Confirmation Flow Specifications
     await confirmBtn.click();
 
     // 驗證 onToolCall 回呼被觸發
-    const callId = await page.evaluate(() => (window as any).__executedCallId);
+    const callId = await page.evaluate(
+      () =>
+        (window as unknown as { __executedCallId?: string | null })
+          .__executedCallId
+    );
     expect(callId).not.toBeNull();
 
     // 驗證結果訊息呈現在歷史紀錄中

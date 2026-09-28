@@ -7,7 +7,9 @@ test.describe('Contract Track A: Lifecycle & Mount Specifications', () => {
     await page.goto('/test/e2e/harness/contract.html');
 
     // 等待沙盒初始化就緒
-    await page.waitForFunction(() => (window as any).__harnessReady === true);
+    await page.waitForFunction(
+      () => (window as unknown as { __harnessReady?: boolean }).__harnessReady === true
+    );
 
     // 驗證根節點與核心 UI 成功掛載
     const app = page.locator('#app');
@@ -24,16 +26,24 @@ test.describe('Contract Track A: Lifecycle & Mount Specifications', () => {
     page
   }) => {
     await page.goto('/test/e2e/harness/contract.html');
-    await page.waitForFunction(() => (window as any).__harnessReady === true);
+    await page.waitForFunction(
+      () => (window as unknown as { __harnessReady?: boolean }).__harnessReady === true
+    );
 
     // 以 isMinimal: true 初始化
     await page.evaluate(async () => {
-      await (window as any).initHarness({
+      await (
+        window as unknown as {
+          initHarness: (opts?: Record<string, unknown>) => Promise<unknown>;
+        }
+      ).initHarness({
         isMinimal: true
       });
     });
 
-    await page.waitForFunction(() => (window as any).__harnessReady === true);
+    await page.waitForFunction(
+      () => (window as unknown as { __harnessReady?: boolean }).__harnessReady === true
+    );
 
     // 驗證最小化懸浮按鈕可見
     const minimalBtn = page.locator('.aw-minimal');
@@ -44,17 +54,26 @@ test.describe('Contract Track A: Lifecycle & Mount Specifications', () => {
     page
   }) => {
     await page.goto('/test/e2e/harness/contract.html');
-    await page.waitForFunction(() => (window as any).__harnessReady === true);
+    await page.waitForFunction(
+      () => (window as unknown as { __harnessReady?: boolean }).__harnessReady === true
+    );
 
     const reInitResult = await page.evaluate(async () => {
       try {
-        await (window as any).initHarness({
+        await (
+          window as unknown as {
+            initHarness: (opts?: Record<string, unknown>) => Promise<unknown>;
+          }
+        ).initHarness({
           gender: 'female',
           locale: 'en-US'
         });
         return { success: true };
-      } catch (err: any) {
-        return { success: false, error: err?.message };
+      } catch (err: unknown) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : String(err)
+        };
       }
     });
 

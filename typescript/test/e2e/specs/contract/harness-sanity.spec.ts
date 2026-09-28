@@ -7,7 +7,9 @@ test.describe('Phase 1: E2E Test Infrastructure & Harness Sanity Check', () => {
     await page.goto('/test/e2e/harness/contract.html');
 
     // 等待沙盒初始化就緒
-    await page.waitForFunction(() => (window as any).__harnessReady === true);
+    await page.waitForFunction(
+      () => (window as unknown as { __harnessReady?: boolean }).__harnessReady === true
+    );
 
     // 1. 驗證容器與核心 DOM 元素存在
     const app = page.locator('#app');
@@ -40,16 +42,24 @@ test.describe('Phase 1: E2E Test Infrastructure & Harness Sanity Check', () => {
     page
   }) => {
     await page.goto('/test/e2e/harness/contract.html');
-    await page.waitForFunction(() => (window as any).__harnessReady === true);
+    await page.waitForFunction(
+      () => (window as unknown as { __harnessReady?: boolean }).__harnessReady === true
+    );
 
     // 透過 window.initHarness 重新掛載
     await page.evaluate(async () => {
-      await (window as any).initHarness({
+      await (
+        window as unknown as {
+          initHarness: (opts?: Record<string, unknown>) => Promise<unknown>;
+        }
+      ).initHarness({
         isMinimal: true
       });
     });
 
-    await page.waitForFunction(() => (window as any).__harnessReady === true);
+    await page.waitForFunction(
+      () => (window as unknown as { __harnessReady?: boolean }).__harnessReady === true
+    );
 
     // 驗證仍能正常獲取控制項
     await expect(page.locator('#btn-send')).toBeAttached();

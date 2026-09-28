@@ -9,7 +9,9 @@ test.describe('Real Engine Track B: Speech Web Audio API Smoke Specifications', 
     // 驗證現代瀏覽器支援 Web Audio API
     const audioSupport = await page.evaluate(() => {
       const AudioCtx =
-        window.AudioContext || (window as any).webkitAudioContext;
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
       if (!AudioCtx) return null;
       const ctx = new AudioCtx();
       const analyser = ctx.createAnalyser();
@@ -33,7 +35,16 @@ test.describe('Real Engine Track B: Speech Web Audio API Smoke Specifications', 
     await page.goto('/test/e2e/harness/engine.html');
 
     const mouthValue = await page.evaluate(() => {
-      const widget = (window as any).aiAvatarWidget;
+      const widget = (
+        window as unknown as {
+          aiAvatarWidget?: {
+            speechEngine?: {
+              isSpeaking?: boolean;
+              computeMouth: () => number;
+            };
+          };
+        }
+      ).aiAvatarWidget;
       if (!widget?.speechEngine) return null;
 
       // 模擬語音正在說話狀態
