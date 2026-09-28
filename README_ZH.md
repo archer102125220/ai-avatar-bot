@@ -28,7 +28,7 @@
 | :--- | :--- | :---: | :--- | :---: |
 | [`/vanilla-js`](./vanilla-js) | `ai-avatar-bot-vanilla-js` | 🟢 **最完整 (核心主力)** | **零框架依賴**的純 JavaScript 核心 SDK，內建完整 TypeScript 定義檔 (`types/index.d.ts`)。具備多引擎架構、記憶壓縮、Auto-Continue、無頭模式 (Headless) 與 Vite/Webpack 離線構建插件。後續所有版本的基石。 | [📄 詳細文件](./vanilla-js/README_ZH.md) |
 | [`/iframe`](./iframe) | `ai-avatar-bot-iframe` | 🟡 **經典重構** | **原版初步模組化重構**。保留原作者經典的 Iframe 與 `embed.js` 一行腳本嵌入設計，提供極致的 DOM / CSS 隔離與開箱即用的 Standalone Demo。 | [📄 詳細文件](./iframe/README_ZH.md) |
-| [`/typescript`](./typescript) | `ai-avatar-bot-typescript` | 🚧 **進行中** | 以 `vanilla-js` 為基礎移植的 **TypeScript 型別安全版**。提供完整的型別定義檔 (`.d.ts`)、介面約束與更佳的 IDE 自動補全體驗。 | [📁 原始碼](./typescript) |
+| [`/typescript`](./typescript) | `ai-avatar-bot-typescript` | 🟢 **已完成 (TypeScript 型別版)** | 以 `vanilla-js` 為基礎移植的 **100% 原生 TypeScript 型別安全版**。提供完整的型別定義檔 (`.d.ts`)、嚴格介面約束、豐富泛型 (`LLMMessage<T>`, `BaseStore<T>`) 與極致的 IDE 自動補全體驗。 | [📄 詳細文件](./typescript/README_ZH.md) |
 | [`/vue`](./vue) | `ai-avatar-bot-vue` | 🚧 **進行中** | 針對 **Vue 3** 封裝的專屬元件庫。提供 `<AiAvatarBot />` 元件與 `useAvatar` 組合式函式 (Composables)，支援響應式 Props 與自訂插槽。 | [📁 原始碼](./vue) |
 | [`/react`](./react) | `ai-avatar-bot-react` | 🚧 **進行中** | 針對 **React 18 / 19** 封裝的專屬元件庫。提供 `<AiAvatarBot />` 元件與 `useAvatar` Hooks，完美融入 React 狀態週期與 JSX 渲染。 | [📁 原始碼](./react) |
 
@@ -76,42 +76,53 @@
 
 ---
 
-## 🚀 快速開始 (以 Vanilla JS 為例)
+## 🚀 快速開始
 
-目前最穩定且功能完整的版本為 `vanilla-js`。您可以直接透過 npm 安裝或引入模組使用：
+### 1. Vanilla JS（零框架依賴核心版）
 
 ```bash
-# 安裝 Vanilla JS 核心套件
 npm install ai-avatar-bot-vanilla-js
 ```
-
-### 初始化範例：
 
 ```javascript
 import { initAvatarBot } from 'ai-avatar-bot-vanilla-js';
 
-// 初始化並掛載至指定容器
 const widget = await initAvatarBot({
   container: document.getElementById('avatar-container'),
-  
-  // 模式設定：'assistant' (助理) 或 'companion' (陪伴連續對話)
   avatarMode: 'assistant',
   gender: 'female',
-  
-  // 大腦模型配置
   llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
-  welcomeText: '你好！我是你的專屬 AI 虛擬助理。',
-
-  // 上下文壓縮與顯存管理
-  compression: {
-    strategy: 'sliding-window',
-    maxTurns: 6,
-    maxTotalChars: 4000
-  }
+  welcomeText: '你好！我是你的專屬 AI 虛擬助理。'
 });
 ```
 
-> 📖 **完整參數設定、API 介面與進階功能**：請參閱 [Vanilla JS 詳細說明文件](./vanilla-js/README_ZH.md)。
+> 📖 **完整參數設定與指南**：請參閱 [Vanilla JS 詳細說明文件](./vanilla-js/README_ZH.md)。
+
+### 2. TypeScript（嚴格型別安全版）
+
+```bash
+npm install ai-avatar-bot-typescript
+```
+
+```typescript
+import { 
+  initAvatarBot, 
+  type AvatarBotOptions, 
+  type AiAvatarWidget 
+} from 'ai-avatar-bot-typescript';
+
+const options: AvatarBotOptions = {
+  container: document.getElementById('avatar-container'),
+  avatarMode: 'assistant',
+  gender: 'female',
+  llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+  welcomeText: '你好！我是你的專屬 AI 虛擬助理。'
+};
+
+const widget: AiAvatarWidget = await initAvatarBot(options);
+```
+
+> 📖 **完整參數設定與指南**：請參閱 [TypeScript 詳細說明文件](./typescript/README_ZH.md)。
 
 ---
 
@@ -149,8 +160,10 @@ yarn build
   - WebLLM + 雲端 AI Provider 智慧降級與自動接續
   - 記憶管理、安全 Tool Call 修剪與上下文壓縮管線
   - Vite / Webpack 零配置離線資產插件
-- [ ] **階段二：TypeScript 嚴格型別化移植 (`/typescript`)**
-  - 將 Vanilla JS 完整邏輯遷移至 TS，建立全型別定義檔
+- [x] **階段二：TypeScript 嚴格型別化移植 (`/typescript`)**
+  - 將 Vanilla JS 完整邏輯遷移至 100% 原生 TS，建立全型別定義檔
+  - 嚴格泛型介面約束（`LLMMessage<T>`, `BaseStore<T>`, `LocalizableOrResolver<T>`）
+  - 自動化完整測試體系（Vitest 單元測試、TypeScript 編譯檢查、Playwright E2E）
 - [ ] **階段三：Vue 3 & React 官方封裝元件庫 (`/vue`, `/react`)**
   - 開發 `<AiAvatarBot />` 元件與響應式 Hooks / Composables
 - [ ] **階段四：npm 公開發布與 CDN 生態**
