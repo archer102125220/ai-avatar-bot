@@ -4,6 +4,9 @@
   --text-color: #f8fafc;
   --text-muted: #94a3b8;
   --primary-color: #38bdf8;
+  --primary-hover: #0284c7;
+  --danger-color: #ef4444;
+  --danger-hover: #dc2626;
   --card-bg: rgba(30, 41, 59, 0.7);
   --border-color: rgba(255, 255, 255, 0.1);
 }
@@ -28,10 +31,11 @@ body {
   flex-direction: column;
   min-height: 100vh;
   padding: 2rem;
+  align-items: center;
 }
 
 .app-container__header {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   text-align: center;
 }
 
@@ -47,8 +51,46 @@ body {
   color: var(--text-muted);
 }
 
+.app-container__controls {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.app-container__button {
+  background-color: var(--primary-color);
+  color: #0f172a;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.app-container__button:hover {
+  background-color: var(--primary-hover);
+  color: #ffffff;
+}
+
+.app-container__button:active {
+  transform: scale(0.98);
+}
+
+.app-container__button--danger {
+  background-color: var(--danger-color);
+  color: #ffffff;
+}
+
+.app-container__button--danger:hover {
+  background-color: var(--danger-hover);
+}
+
 .app-container__content {
-  flex: 1;
+  width: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -64,4 +106,12 @@ body {
   position: relative;
   overflow: hidden;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-container__notice {
+  font-size: 1.2rem;
+  color: var(--text-muted);
 }
