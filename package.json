@@ -30,6 +30,11 @@
     "test:ts:smoke": "yarn workspace ai-avatar-bot-typescript test:smoke",
     "typecheck:ts": "yarn workspace ai-avatar-bot-typescript test:typecheck",
     "lint:ts": "yarn workspace ai-avatar-bot-typescript lint",
+    "test:matrix": "node scripts/verify-matrix.mjs ts",
+    "test:matrix:ts": "node scripts/verify-matrix.mjs ts",
+    "test:matrix:react": "node scripts/verify-matrix.mjs react",
+    "test:matrix:vue": "node scripts/verify-matrix.mjs vue",
+    "test:matrix:all": "node scripts/verify-matrix.mjs all",
     "test": "npm run test:unit --workspaces --if-present"
   },
   "workspaces": [
