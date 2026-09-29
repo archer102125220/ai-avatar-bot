@@ -19,8 +19,7 @@ const __dirname = path.dirname(__filename);
 
 // Root paths
 const packageRoot = path.resolve(__dirname, '..');
-const workspaceRoot = path.resolve(packageRoot, '..');
-const sandboxBaseDir = path.join(workspaceRoot, '.temp-sandbox');
+const sandboxBaseDir = path.join(packageRoot, '.temp-sandbox');
 
 // Terminal colors
 const colors = {
@@ -40,7 +39,7 @@ function logStep(step, message) {
 function runCmd(command, args, cwd) {
   const isWindows = process.platform === 'win32';
   const cmdStr = `${command} ${args.join(' ')}`;
-  console.log(`${colors.dim}> [cwd: ${path.relative(workspaceRoot, cwd)}] ${cmdStr}${colors.reset}`);
+  console.log(`${colors.dim}> [cwd: ${path.relative(packageRoot, cwd)}] ${cmdStr}${colors.reset}`);
 
   const result = spawnSync(command, args, {
     cwd,
@@ -177,7 +176,8 @@ function prepareSandbox(targetDir, pmName, targetConfig) {
     name: `sandbox-${targetConfig.dirName}-${pmName}`,
     version: '1.0.0',
     private: true,
-    type: 'module'
+    type: 'module',
+    ...(pmName === 'pnpm' ? { packageManager: 'pnpm@10.28.1' } : {})
   };
   fs.writeFileSync(path.join(targetDir, 'package.json'), JSON.stringify(pkgJson, null, 2));
 
@@ -203,7 +203,7 @@ function prepareSandbox(targetDir, pmName, targetConfig) {
 
 function testPackageManager(pmName, targetConfig, tgzPath, installFn) {
   const sandboxDir = path.join(sandboxBaseDir, `matrix-${targetConfig.dirName}-${pmName}`);
-  logStep(`Testing: ${pmName.toUpperCase()}`, `Creating isolated sandbox at ${path.relative(workspaceRoot, sandboxDir)}...`);
+  logStep(`Testing: ${pmName.toUpperCase()}`, `Creating isolated sandbox at ${path.relative(packageRoot, sandboxDir)}...`);
 
   prepareSandbox(sandboxDir, pmName, targetConfig);
 

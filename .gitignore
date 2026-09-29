@@ -2,7 +2,7 @@
 node_modules/
 ai-avatar-bot-typescript-*.tgz
 
-.temp-sandbox/*
+.temp-sandbox/
 
 .yarn/*
 !.yarn/patches
