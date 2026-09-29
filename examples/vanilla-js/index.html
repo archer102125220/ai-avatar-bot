@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Avatar Bot - Vanilla JavaScript Example</title>
+  </head>
+  <body>
+    <div id="app" class="app-container">
+      <header class="app-container__header">
+        <h1 class="app-container__title">AI Avatar Bot - Vanilla JS Example</h1>
+        <p class="app-container__desc">Pure JavaScript (No TypeScript / No Framework) consumer verification playground</p>
+      </header>
+
+      <div class="app-container__controls">
+        <button id="btn-wave" type="button" class="app-container__button">揮手動作 (Wave)</button>
+        <button id="btn-toggle-engine" type="button" class="app-container__button">切換 2D / 3D 引擎</button>
+        <button id="btn-destroy" type="button" class="app-container__button app-container__button--danger">銷毀實例 (Destroy)</button>
+      </div>
+
+      <main class="app-container__content">
+        <div id="avatar-container" class="app-container__avatar-box"></div>
+      </main>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
