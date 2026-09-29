@@ -28,7 +28,7 @@
 | :--- | :--- | :---: | :--- | :---: |
 | [`/vanilla-js`](./vanilla-js) | `ai-avatar-bot-vanilla-js` | 🟢 **最完整 (核心主力)** | **零框架依賴**的純 JavaScript 核心 SDK，內建完整 TypeScript 定義檔 (`types/index.d.ts`)。具備多引擎架構、記憶壓縮、Auto-Continue、無頭模式 (Headless) 與 Vite/Webpack 離線構建插件。後續所有版本的基石。 | [📄 詳細文件](./vanilla-js/README_ZH.md) |
 | [`/iframe`](./iframe) | `ai-avatar-bot-iframe` | 🟡 **經典重構** | **原版初步模組化重構**。保留原作者經典的 Iframe 與 `embed.js` 一行腳本嵌入設計，提供極致的 DOM / CSS 隔離與開箱即用的 Standalone Demo。 | [📄 詳細文件](./iframe/README_ZH.md) |
-| [`/typescript`](./typescript) | `ai-avatar-bot-typescript` | 🟢 **已完成 (TypeScript 型別版)** | 以 `vanilla-js` 為基礎移植的 **100% 原生 TypeScript 型別安全版**。提供完整的型別定義檔 (`.d.ts`)、嚴格介面約束、豐富泛型 (`LLMMessage<T>`, `BaseStore<T>`) 與極致的 IDE 自動補全體驗。 | [📄 詳細文件](./typescript/README_ZH.md) |
+| [`/typescript`](./typescript) | `ai-avatar-bot-typescript` | 🟢 **已完成 (發布就緒 / 推薦)** | **100% 原生 TypeScript 嚴格型別版**。以現代開源規範發布就緒：支援 Subpath 按需導出 (`/brain`, `/skin` 等)、ESM/IIFE 雙 CDN 構建、可選 Peer 依賴極致輕量化 (核心僅 223KB)、CLI 資產同步工具與 6+ 框架生態外掛。 | [📄 詳細文件](./typescript/README_ZH.md) |
 | [`/vue`](./vue) | `ai-avatar-bot-vue` | 🚧 **進行中** | 針對 **Vue 3** 封裝的專屬元件庫。提供 `<AiAvatarBot />` 元件與 `useAvatar` 組合式函式 (Composables)，支援響應式 Props 與自訂插槽。 | [📁 原始碼](./vue) |
 | [`/react`](./react) | `ai-avatar-bot-react` | 🚧 **進行中** | 針對 **React 18 / 19** 封裝的專屬元件庫。提供 `<AiAvatarBot />` 元件與 `useAvatar` Hooks，完美融入 React 狀態週期與 JSX 渲染。 | [📁 原始碼](./react) |
 
@@ -81,11 +81,16 @@
 ### 1. Vanilla JS（零框架依賴核心版）
 
 ```bash
+# yarn
+yarn add ai-avatar-bot-vanilla-js
+
+# npm
 npm install ai-avatar-bot-vanilla-js
 ```
 
 ```javascript
 import { initAvatarBot } from 'ai-avatar-bot-vanilla-js';
+import 'ai-avatar-bot-vanilla-js/style.css';
 
 const widget = await initAvatarBot({
   container: document.getElementById('avatar-container'),
@@ -101,6 +106,10 @@ const widget = await initAvatarBot({
 ### 2. TypeScript（嚴格型別安全版）
 
 ```bash
+# yarn (推薦)
+yarn add ai-avatar-bot-typescript
+
+# npm
 npm install ai-avatar-bot-typescript
 ```
 
@@ -110,6 +119,7 @@ import {
   type AvatarBotOptions, 
   type AiAvatarWidget 
 } from 'ai-avatar-bot-typescript';
+import 'ai-avatar-bot-typescript/style.css';
 
 const options: AvatarBotOptions = {
   container: document.getElementById('avatar-container'),
@@ -146,6 +156,12 @@ yarn dev:react
 # 啟動 Iframe 經典版開發伺服器
 yarn dev:iframe
 
+# 執行 TypeScript 版本完整檢驗 (型別檢查、單元測試、冒煙測試、代碼風格)
+yarn typecheck:ts
+yarn test:ts
+yarn test:ts:smoke
+yarn lint:ts
+
 # 建構所有套件產物
 yarn build
 ```
@@ -160,13 +176,16 @@ yarn build
   - WebLLM + 雲端 AI Provider 智慧降級與自動接續
   - 記憶管理、安全 Tool Call 修剪與上下文壓縮管線
   - Vite / Webpack 零配置離線資產插件
-- [x] **階段二：TypeScript 嚴格型別化移植 (`/typescript`)**
-  - 將 Vanilla JS 完整邏輯遷移至 100% 原生 TS，建立全型別定義檔
-  - 嚴格泛型介面約束（`LLMMessage<T>`, `BaseStore<T>`, `LocalizableOrResolver<T>`）
-  - 自動化完整測試體系（Vitest 單元測試、TypeScript 編譯檢查、Playwright E2E）
+- [x] **階段二：TypeScript 嚴格型別化與 npm 發布健全化 (`/typescript`)**
+  - 將完整邏輯遷移至 100% 原生 TS，建立全型別定義檔
+  - 支援模組化子路徑導出 (`/brain`, `/skin`, `/speech`, `/tools`, `/i18n`, `/constants`, `/types`)
+  - 支援雙構建 CDN 生態（ESM `+esm` 與傳統 `<script>` IIFE `window.AiAvatarBot`）
+  - 大型依賴外部化與可選 Peer 依賴（核心大幅瘦身至 223KB，降幅 -96.9%）
+  - 內建靜態資產同步 CLI (`sync`) 與 6+ 主流前端/全端框架整合外掛 (Vite, Next, Nuxt, Webpack...)
+  - 跨平台自動化測試（Vitest 494 項測試、TypeScript 編譯檢查、Playwright E2E 冒煙測試）
 - [ ] **階段三：Vue 3 & React 官方封裝元件庫 (`/vue`, `/react`)**
   - 開發 `<AiAvatarBot />` 元件與響應式 Hooks / Composables
-- [ ] **階段四：npm 公開發布與 CDN 生態**
+- [ ] **階段四：npm 公開發布與多套件生態維護**
   - 正式發布各版本至 npm 註冊表
 
 ---

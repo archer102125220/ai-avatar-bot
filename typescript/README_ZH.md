@@ -17,7 +17,19 @@
 - [🌟 核心特色與 TypeScript 優勢](#-核心特色與-typescript-優勢)
 - [🏗️ 架構設計](#️-架構設計)
 - [📦 安裝方式與依賴配置](#-安裝方式與依賴配置)
+  - [透過套件管理器安裝](#透過套件管理器安裝)
+  - [透過 CDN 引入 (ESM / 傳統 `<script>` 標籤)](#透過-cdn-引入-esm--傳統-script-標籤)
+  - [模組化子路徑按需引入 (Subpath Imports)](#模組化子路徑按需引入-subpath-imports)
+  - [Peer Dependencies 依賴配置與輕量化最佳實踐](#peer-dependencies-依賴配置與輕量化最佳實踐)
 - [🚀 快速開始 (TypeScript 範例)](#-快速開始-typescript-範例)
+- [🗂️ 靜態模型資產與 CLI 一鍵同步 (Asset Sync CLI)](#️-靜態模型資產與-cli-一鍵同步-asset-sync-cli)
+- [🔌 前端與全端框架外掛整合 (Framework Plugins)](#-前端與全端框架外掛整合-framework-plugins)
+  - [1. Vite 專案配置 (Vue 3, Svelte, Vite React)](#1-vite-專案配置-vue-3-svelte-vite-react)
+  - [2. Next.js 專案配置 (App Router / Pages Router)](#2-nextjs-專案配置-app-router--pages-router)
+  - [3. Nuxt 3 專案配置 (Nuxt Module)](#3-nuxt-3-專案配置-nuxt-module)
+  - [4. Webpack 專案配置 (Create React App, Vue CLI, Webpack 5)](#4-webpack-專案配置-create-react-app-vue-cli-webpack-5)
+  - [5. AnalogJS 專案配置 (Angular Meta-Framework)](#5-analogjs-專案配置-angular-meta-framework)
+  - [6. Node.js 路徑輔助工具](#6-nodejs-路徑輔助工具)
 - [⚙️ 詳細設定選項 (AvatarBotOptions)](#️-詳細設定選項-avatarbotoptions)
 - [🧠 進階功能指南](#-進階功能指南)
   - [1. 大腦引擎與三層降級推論 (型別化工廠)](#1-大腦引擎與三層降級推論-型別化工廠)
@@ -90,23 +102,102 @@
 ### 透過套件管理器安裝
 
 ```bash
+# yarn (推薦)
+yarn add ai-avatar-bot-typescript
+
 # npm
 npm install ai-avatar-bot-typescript
 
 # pnpm
 pnpm add ai-avatar-bot-typescript
-
-# yarn
-yarn add ai-avatar-bot-typescript
 ```
 
-### 渲染相關 Peer 依賴 (可選)
+### 透過 CDN 引入 (ESM / 傳統 `<script>` 標籤)
 
-`ai-avatar-bot-typescript` 內部已預先配置好常用運行時。若您的專案需要自行呼叫底層 Three.js 或 Pixi.js，可手動安裝對應依賴：
+本套件提供雙打包架構，不僅完整支援現代前端打包工具，也兼具 CDN 開箱即用：
+
+#### 1. ES Module CDN (`+esm`)
+```html
+<!-- 引入樣式 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ai-avatar-bot-typescript/dist/ai-avatar-bot.css" />
+
+<!-- 透過現代瀏覽器原生 import 使用 -->
+<script type="module">
+  import { initAvatarBot } from 'https://cdn.jsdelivr.net/npm/ai-avatar-bot-typescript/+esm';
+  // 或使用 unpkg: https://unpkg.com/ai-avatar-bot-typescript?module
+</script>
+```
+
+#### 2. 傳統 `<script>` 標籤 (IIFE，掛載於 `window.AiAvatarBot`)
+```html
+<!-- 引入樣式 -->
+<link rel="stylesheet" href="https://unpkg.com/ai-avatar-bot-typescript/dist/ai-avatar-bot.css" />
+
+<!-- 引入獨立 IIFE Bundle -->
+<script src="https://unpkg.com/ai-avatar-bot-typescript/dist/ai-avatar-bot.iife.js"></script>
+<script>
+  // 所有導出方法皆自動掛載於全域物件 window.AiAvatarBot
+  const { initAvatarBot, GENDER_MAP, AVATAR_MODE_MAP } = window.AiAvatarBot;
+</script>
+```
+
+---
+
+### 模組化子路徑按需引入 (Subpath Imports)
+
+`ai-avatar-bot-typescript` 支援現代 `package.json` 的 `exports` 子路徑映射，允許您只載入所需模組並享有獨立的 TypeScript 宣告檔：
+
+```typescript
+// 1. 全量整合入口 (包含預設 UI 與所有控制器)
+import { initAvatarBot } from 'ai-avatar-bot-typescript';
+import 'ai-avatar-bot-typescript/style.css';
+
+// 2. 僅引入大腦與記憶子系統
+import { BrainEngine, MemoryManager, WebLLMAdapter } from 'ai-avatar-bot-typescript/brain';
+
+// 3. 僅引入語音引擎 (STT / Neural TTS)
+import { SpeechEngine, WebSpeechStt, EdgeNeuralTts } from 'ai-avatar-bot-typescript/speech';
+
+// 4. 僅引入 2D/3D 外觀渲染引擎
+import { SkinEngine } from 'ai-avatar-bot-typescript/skin';
+
+// 5. 僅引入工具管理器 (Function Calling)
+import { ToolsEngine } from 'ai-avatar-bot-typescript/tools';
+
+// 6. 僅引入多語系模組
+import { I18nEngine } from 'ai-avatar-bot-typescript/i18n';
+
+// 7. 僅引入常數與對應表
+import { GENDER_MAP, AVATAR_MODE_MAP, EmotionState } from 'ai-avatar-bot-typescript/constants';
+
+// 8. 僅引入型別定義
+import type { AvatarBotOptions, AiAvatarWidget, ToolDefinition } from 'ai-avatar-bot-typescript/types';
+```
+
+---
+
+### Peer Dependencies 依賴配置與輕量化最佳實踐
+
+為了防止外部專案（例如已有自帶 Three.js 或自定義 WebGPU 渲染管線的專案）發生 **Three.js 多重實例衝突 (Multiple instances of Three.js)**，並將核心發布體積由 7.2MB 大幅壓縮至 **223KB (-96.9%)**，大型渲染引擎與模型庫均已宣告為**可選的 `peerDependencies`**。
+
+請依照專案實際需求安裝對應渲染引擎：
 
 ```bash
-npm install three @pixiv/three-vrm @pixiv/three-vrm-animation pixi.js pixi-live2d-display @mlc-ai/web-llm
+# 🎯 情境 A：若需要 3D (VRM) 渲染
+yarn add three @pixiv/three-vrm @pixiv/three-vrm-animation
+
+# 🎯 情境 B：若需要 2D (Live2D) 渲染
+yarn add pixi.js pixi-live2d-display
+
+# 🎯 情境 C：若需要瀏覽器端端側推論 (WebLLM)
+yarn add @mlc-ai/web-llm
+
+# 🎯 情境 D：全功能齊備
+yarn add three @pixiv/three-vrm @pixiv/three-vrm-animation pixi.js pixi-live2d-display @mlc-ai/web-llm
 ```
+
+> [!TIP]
+> 如果您的應用場景僅使用「純雲端 AI 提供者（如 Ollama / OpenAI API）」與「純 2D Live2D」，您完全不需要安裝 `three` 或 `@mlc-ai/web-llm`，打包產物將維持最輕量狀態！
 
 ---
 
@@ -193,6 +284,129 @@ const options: AvatarBotOptions = {
 
 // 3. 初始化掛載並取得 Controller 實例
 const widget: AiAvatarWidget = await initAvatarBot(options);
+```
+
+---
+
+## 🗂️ 靜態模型資產與 CLI 一鍵同步 (Asset Sync CLI)
+
+本套件隨附完整的 2D (Live2D) 與 3D (VRM) 實體靜態模型資產（位於套件內 `avatar-skin/` 目錄下）。
+
+為了讓前端專案能直接以本機 HTTP 伺服器讀取模型資產，無需手動尋找套件目錄或繁瑣拷貝，本套件內建 **全自動 CLI 同步工具**：
+
+```bash
+# 🎯 自動偵測當前專案框架結構（Next.js / Nuxt / Angular / Vite）並同步至目標 public/ 目錄
+npx ai-avatar-bot sync
+
+# 🎯 若使用 Yarn
+yarn ai-avatar-bot sync
+
+# 🎯 僅模擬執行，不實際寫入（檢驗即將複製的檔案清單）
+npx ai-avatar-bot sync --dry-run
+
+# 🎯 手動指定輸出目錄（例如自訂 assets 資料夾）
+npx ai-avatar-bot sync --out src/assets/avatar-skin
+
+# 🎯 若目標檔案已存在則略過不覆蓋
+npx ai-avatar-bot sync --no-overwrite
+```
+
+### 框架自動偵測規則：
+* **Angular 專案** (`angular.json`) ➔ 自動同步至 `src/assets/avatar-skin`
+* **Next.js 專案** (`next.config.*`) ➔ 自動同步至 `public/avatar-skin`
+* **Nuxt 專案** (`nuxt.config.*`) ➔ 自動同步至 `public/avatar-skin`
+* **一般前端專案** (含有 `public/` 目錄) ➔ 自動同步至 `public/avatar-skin`
+
+---
+
+## 🔌 前端與全端框架外掛整合 (Framework Plugins)
+
+除了手動執行 CLI 同步外，本套件提供一系列具備原生 TypeScript 強型別支援的各框架整合外掛。在本地開發時實現**零拷貝直接串流 (Zero-Copy Proxy)**，在生產構建時**自動拷貝資產**：
+
+### 1. Vite 專案配置 (Vue 3, Svelte, Vite React)
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite';
+import { avatarBotVitePlugin } from 'ai-avatar-bot-typescript/vite';
+
+export default defineConfig({
+  plugins: [
+    avatarBotVitePlugin() // 開發期自動攔截 /avatar-skin/*，構建時自動複製至 dist/avatar-skin
+  ]
+});
+```
+
+### 2. Next.js 專案配置 (App Router / Pages Router)
+
+```typescript
+// next.config.mjs 或 next.config.ts
+import { withAvatarBot } from 'ai-avatar-bot-typescript/next';
+
+const nextConfig = {
+  // 原有的 Next.js 設定
+};
+
+export default withAvatarBot(nextConfig);
+```
+> [!NOTE]
+> `withAvatarBot` 同時相容於 **Turbopack** (`next dev --turbo`) 與傳統 **Webpack** 構建模式，啟動時會自動確保模型資產同步至 `public/avatar-skin`。
+
+### 3. Nuxt 3 專案配置 (Nuxt Module)
+
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  modules: [
+    'ai-avatar-bot-typescript/nuxt' // 基於 Nitro 引擎，開發期 0 拷貝串流，生產構建自動複製
+  ]
+});
+```
+
+### 4. Webpack 專案配置 (Create React App, Vue CLI, Webpack 5)
+
+```typescript
+// webpack.config.js
+import { AvatarBotWebpackPlugin } from 'ai-avatar-bot-typescript/webpack';
+
+export default {
+  plugins: [
+    new AvatarBotWebpackPlugin() // 自動配置 DevServer 中間件與構建資產複製
+  ]
+};
+```
+
+### 5. AnalogJS 專案配置 (Angular Meta-Framework)
+
+```typescript
+// vite.config.ts (AnalogJS)
+import { defineConfig } from 'vite';
+import analog from '@analogjs/platform';
+import { avatarBotAnalogPlugin, getAnalogNitroConfig } from 'ai-avatar-bot-typescript/analog';
+
+export default defineConfig(() => ({
+  plugins: [
+    analog({
+      nitro: getAnalogNitroConfig()
+    }),
+    avatarBotAnalogPlugin()
+  ]
+}));
+```
+
+### 6. Node.js 路徑輔助工具
+
+如果您的專案有自定義的部署腳本或 CI/CD 管線，可直接調用 Node.js 輔助函式：
+
+```typescript
+import { getAvatarSkinPath, copyAvatarSkin } from 'ai-avatar-bot-typescript/node';
+
+// 取得本套件 avatar-skin 模型庫的實體絕對路徑
+const skinPath: string = getAvatarSkinPath();
+console.log('Avatar Skin 實體路徑：', skinPath);
+
+// 程式化複製資產至指定路徑
+copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 ```
 
 ---

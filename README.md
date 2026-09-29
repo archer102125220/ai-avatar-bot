@@ -28,7 +28,7 @@ This Monorepo is organized into dedicated sub-packages for various usage scenari
 | :--- | :--- | :---: | :--- | :---: |
 | [`/vanilla-js`](./vanilla-js) | `ai-avatar-bot-vanilla-js` | 🟢 **Most Complete (Core Baseline)** | **Zero framework dependencies** pure JavaScript core SDK with built-in comprehensive TypeScript definitions (`types/index.d.ts`). Features multi-engine architecture, memory compression, Auto-Continue, Headless mode, and Vite/Webpack offline asset plugins. The foundation for all subsequent packages. | [📄 Documentation](./vanilla-js/README.md) |
 | [`/iframe`](./iframe) | `ai-avatar-bot-iframe` | 🟡 **Classic Refactor** | **Initial modular refactor of the original version**. Preserves the original author's classic iframe and `embed.js` one-line script embedding design, offering maximum DOM/CSS isolation and standalone demo pages. | [📄 Documentation](./iframe/README.en.md) |
-| [`/typescript`](./typescript) | `ai-avatar-bot-typescript` | 🟢 **Ready (TypeScript Port)** | **100% native TypeScript type-safe port** based on `vanilla-js`. Provides complete type definition files (`.d.ts`), strict interface constraints, rich generics (`LLMMessage<T>`, `BaseStore<T>`), and superior IDE autocomplete. | [📄 Documentation](./typescript/README.md) |
+| [`/typescript`](./typescript) | `ai-avatar-bot-typescript` | 🟢 **Ready (Release-Ready / Recommended)** | **100% native TypeScript type-safe SDK**. Release-ready with modern standards: modular subpath exports (`/brain`, `/skin`, etc.), dual ESM/IIFE CDN builds, optional peer dependencies (compact 223KB core), CLI asset sync tool, and 6+ framework plugins. | [📄 Documentation](./typescript/README.md) |
 | [`/vue`](./vue) | `ai-avatar-bot-vue` | 🚧 **In Progress** | Dedicated component library for **Vue 3**. Provides `<AiAvatarBot />` components and `useAvatar` composables, supporting reactive props and custom slots. | [📁 Source Code](./vue) |
 | [`/react`](./react) | `ai-avatar-bot-react` | 🚧 **In Progress** | Dedicated component library for **React 18 / 19**. Provides `<AiAvatarBot />` components and `useAvatar` hooks, seamlessly integrating with React lifecycle and JSX rendering. | [📁 Source Code](./react) |
 
@@ -81,11 +81,16 @@ The entire SDK adopts a highly decoupled "Multi-Engine Architecture", allowing d
 ### 1. Vanilla JS (Zero Framework Dependencies)
 
 ```bash
+# yarn
+yarn add ai-avatar-bot-vanilla-js
+
+# npm
 npm install ai-avatar-bot-vanilla-js
 ```
 
 ```javascript
 import { initAvatarBot } from 'ai-avatar-bot-vanilla-js';
+import 'ai-avatar-bot-vanilla-js/style.css';
 
 const widget = await initAvatarBot({
   container: document.getElementById('avatar-container'),
@@ -101,6 +106,10 @@ const widget = await initAvatarBot({
 ### 2. TypeScript (Strict Type Safety)
 
 ```bash
+# yarn (recommended)
+yarn add ai-avatar-bot-typescript
+
+# npm
 npm install ai-avatar-bot-typescript
 ```
 
@@ -110,6 +119,7 @@ import {
   type AvatarBotOptions, 
   type AiAvatarWidget 
 } from 'ai-avatar-bot-typescript';
+import 'ai-avatar-bot-typescript/style.css';
 
 const options: AvatarBotOptions = {
   container: document.getElementById('avatar-container'),
@@ -146,6 +156,12 @@ yarn dev:react
 # Start Iframe classic version development server
 yarn dev:iframe
 
+# Run full TypeScript package verification (typecheck, unit tests, smoke test, lint)
+yarn typecheck:ts
+yarn test:ts
+yarn test:ts:smoke
+yarn lint:ts
+
 # Build all workspace packages
 yarn build
 ```
@@ -160,13 +176,16 @@ yarn build
   - WebLLM + Cloud AI Provider fallback and Auto-Continue
   - Memory management, safe Tool Call pruning, and context compression pipeline
   - Vite / Webpack zero-config offline asset plugins
-- [x] **Phase 2: TypeScript Strict Porting (`/typescript`)**
-  - Migrate full Vanilla JS logic to 100% native TS with complete type declarations
-  - Strict generic interfaces (`LLMMessage<T>`, `BaseStore<T>`, `LocalizableOrResolver<T>`)
-  - Automated testing suite (Vitest Unit tests, TypeScript compile-time checks, Playwright E2E)
+- [x] **Phase 2: TypeScript Strict Porting & npm Release Hardening (`/typescript`)**
+  - Complete 100% native TS porting with full declaration files
+  - Modular subpath exports (`/brain`, `/skin`, `/speech`, `/tools`, `/i18n`, `/constants`, `/types`)
+  - Dual-build CDN ecosystem (ESM `+esm` and traditional `<script>` IIFE `window.AiAvatarBot`)
+  - Externalized heavy dependencies & optional peerDependencies (core slimmed to 223KB, -96.9%)
+  - Built-in static asset sync CLI (`sync`) and 6+ framework plugins (Vite, Next, Nuxt, Webpack...)
+  - Cross-platform automated test suite (Vitest 494 tests, TypeScript compile-time checks, Playwright E2E smoke test)
 - [ ] **Phase 3: Vue 3 & React Official Wrapper Component Libraries (`/vue`, `/react`)**
   - Develop `<AiAvatarBot />` components and reactive Hooks / Composables
-- [ ] **Phase 4: Public npm Release & CDN Ecosystem**
+- [ ] **Phase 4: Public npm Release & Multi-Package Maintenance**
   - Officially publish all packages to the npm registry
 
 ---

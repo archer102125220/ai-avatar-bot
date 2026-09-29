@@ -17,7 +17,19 @@
 - [🌟 Key Features & TypeScript Highlights](#-key-features--typescript-highlights)
 - [🏗️ Architecture](#️-architecture)
 - [📦 Installation & Setup](#-installation--setup)
+  - [Package Managers](#package-managers)
+  - [CDN Usage (ESM / Traditional `<script>` Tag)](#cdn-usage-esm--traditional-script-tag)
+  - [Modular Subpath Imports](#modular-subpath-imports)
+  - [Peer Dependencies & Lightweight Best Practices](#peer-dependencies--lightweight-best-practices)
 - [🚀 Quick Start (TypeScript)](#-quick-start-typescript)
+- [🗂️ Asset Management & CLI Sync Tool (`sync`)](#️-asset-management--cli-sync-tool-sync)
+- [🔌 Framework & Build Tool Plugins](#-framework--build-tool-plugins)
+  - [1. Vite (Vue 3, Svelte, Vite React)](#1-vite-vue-3-svelte-vite-react)
+  - [2. Next.js (App Router / Pages Router)](#2-nextjs-app-router--pages-router)
+  - [3. Nuxt 3 (Nuxt Module)](#3-nuxt-3-nuxt-module)
+  - [4. Webpack (Create React App, Vue CLI, Webpack 5)](#4-webpack-create-react-app-vue-cli-webpack-5)
+  - [5. AnalogJS (Angular Meta-Framework)](#5-analogjs-angular-meta-framework)
+  - [6. Node.js Path Resolution Helpers](#6-nodejs-path-resolution-helpers)
 - [⚙️ Configuration Options (AvatarBotOptions)](#️-configuration-options-avatarbotoptions)
 - [🧠 In-Depth Guides](#-in-depth-guides)
   - [1. Brain Engine & Three-Tier Fallback Inference](#1-brain-engine--three-tier-fallback-inference)
@@ -90,23 +102,99 @@
 ### Package Managers
 
 ```bash
+# yarn (recommended)
+yarn add ai-avatar-bot-typescript
+
 # npm
 npm install ai-avatar-bot-typescript
 
 # pnpm
 pnpm add ai-avatar-bot-typescript
-
-# yarn
-yarn add ai-avatar-bot-typescript
 ```
 
-### Peer Dependencies (if using custom 3D / Live2D pipelines)
+### CDN Usage (ESM / Traditional `<script>` Tag)
 
-`ai-avatar-bot-typescript` bundles required runtime adapters. If your project uses Three.js or Pixi.js directly, ensure compatible versions are installed:
+`ai-avatar-bot-typescript` provides a dual-build architecture supporting both modern module bundlers and CDN script tags:
+
+#### 1. ES Module CDN (`+esm`)
+```html
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ai-avatar-bot-typescript/dist/ai-avatar-bot.css" />
+
+<script type="module">
+  import { initAvatarBot } from 'https://cdn.jsdelivr.net/npm/ai-avatar-bot-typescript/+esm';
+  // Or via unpkg: https://unpkg.com/ai-avatar-bot-typescript?module
+</script>
+```
+
+#### 2. Traditional `<script>` Tag (IIFE, attached to `window.AiAvatarBot`)
+```html
+<link rel="stylesheet" href="https://unpkg.com/ai-avatar-bot-typescript/dist/ai-avatar-bot.css" />
+
+<!-- Load standalone IIFE bundle -->
+<script src="https://unpkg.com/ai-avatar-bot-typescript/dist/ai-avatar-bot.iife.js"></script>
+<script>
+  // All exported functions are mounted globally on window.AiAvatarBot
+  const { initAvatarBot, GENDER_MAP, AVATAR_MODE_MAP } = window.AiAvatarBot;
+</script>
+```
+
+---
+
+### Modular Subpath Imports
+
+The package leverages modern `package.json` `exports` subpaths, enabling fine-grained on-demand imports and dedicated TypeScript declaration files:
+
+```typescript
+// 1. Full-Featured Entry (UI + Orchestrator)
+import { initAvatarBot } from 'ai-avatar-bot-typescript';
+import 'ai-avatar-bot-typescript/style.css';
+
+// 2. Brain & Memory Subsystems only
+import { BrainEngine, MemoryManager, WebLLMAdapter } from 'ai-avatar-bot-typescript/brain';
+
+// 3. Speech Engine only (STT / Neural TTS)
+import { SpeechEngine, WebSpeechStt, EdgeNeuralTts } from 'ai-avatar-bot-typescript/speech';
+
+// 4. Skin Engine only (2D Live2D / 3D VRM)
+import { SkinEngine } from 'ai-avatar-bot-typescript/skin';
+
+// 5. Tools Engine only (Function Calling & Routing)
+import { ToolsEngine } from 'ai-avatar-bot-typescript/tools';
+
+// 6. i18n Engine only
+import { I18nEngine } from 'ai-avatar-bot-typescript/i18n';
+
+// 7. Constants and Maps
+import { GENDER_MAP, AVATAR_MODE_MAP, EmotionState } from 'ai-avatar-bot-typescript/constants';
+
+// 8. Type Definitions only
+import type { AvatarBotOptions, AiAvatarWidget, ToolDefinition } from 'ai-avatar-bot-typescript/types';
+```
+
+---
+
+### Peer Dependencies & Lightweight Best Practices
+
+To prevent **multiple instances of Three.js** in host applications and keep the core package ultra-compact at **223KB (-96.9%)**, heavy rendering and AI engines are declared as **optional `peerDependencies`**.
+
+Install only what your application requires:
 
 ```bash
-npm install three @pixiv/three-vrm @pixiv/three-vrm-animation pixi.js pixi-live2d-display @mlc-ai/web-llm
+# 🎯 Scenario A: If using 3D VRM rendering
+yarn add three @pixiv/three-vrm @pixiv/three-vrm-animation
+
+# 🎯 Scenario B: If using 2D Live2D rendering
+yarn add pixi.js pixi-live2d-display
+
+# 🎯 Scenario C: If using In-Browser WebGPU WebLLM
+yarn add @mlc-ai/web-llm
+
+# 🎯 Scenario D: All engines enabled
+yarn add three @pixiv/three-vrm @pixiv/three-vrm-animation pixi.js pixi-live2d-display @mlc-ai/web-llm
 ```
+
+> [!TIP]
+> If your application only uses remote AI providers (e.g., Ollama / OpenAI API) and 2D Live2D models, you do **not** need to install `three` or `@mlc-ai/web-llm`.
 
 ---
 
@@ -193,6 +281,129 @@ const options: AvatarBotOptions = {
 
 // 3. Mount and start
 const widget: AiAvatarWidget = await initAvatarBot(options);
+```
+
+---
+
+## 🗂️ Asset Management & CLI Sync Tool (`sync`)
+
+The package includes complete 2D (Live2D) and 3D (VRM) model assets located under the `avatar-skin/` directory.
+
+To allow local development servers to serve model assets without manual file copying or path searching, the package provides an **automated CLI sync tool**:
+
+```bash
+# 🎯 Automatically detect host project framework (Next.js / Nuxt / Angular / Vite) and sync assets
+npx ai-avatar-bot sync
+
+# 🎯 When using Yarn
+yarn ai-avatar-bot sync
+
+# 🎯 Dry run simulation (lists target files without modifying disk)
+npx ai-avatar-bot sync --dry-run
+
+# 🎯 Manually specify custom destination directory
+npx ai-avatar-bot sync --out src/assets/avatar-skin
+
+# 🎯 Skip existing files without overwriting
+npx ai-avatar-bot sync --no-overwrite
+```
+
+### Auto-Detection Rules:
+* **Angular Projects** (`angular.json`) ➔ syncs to `src/assets/avatar-skin`
+* **Next.js Projects** (`next.config.*`) ➔ syncs to `public/avatar-skin`
+* **Nuxt Projects** (`nuxt.config.*`) ➔ syncs to `public/avatar-skin`
+* **Standard Web Projects** (with `public/` directory) ➔ syncs to `public/avatar-skin`
+
+---
+
+## 🔌 Framework & Build Tool Plugins
+
+In addition to the CLI, the package provides zero-config build plugins with native TypeScript support. These proxy requests directly from `node_modules` during local development (zero-copy) and automatically copy assets to the output directory during production builds:
+
+### 1. Vite (Vue 3, Svelte, Vite React)
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite';
+import { avatarBotVitePlugin } from 'ai-avatar-bot-typescript/vite';
+
+export default defineConfig({
+  plugins: [
+    avatarBotVitePlugin() // Intercepts /avatar-skin/* in dev; copies to dist/avatar-skin on build
+  ]
+});
+```
+
+### 2. Next.js (App Router / Pages Router)
+
+```typescript
+// next.config.mjs or next.config.ts
+import { withAvatarBot } from 'ai-avatar-bot-typescript/next';
+
+const nextConfig = {
+  // Your Next.js configuration
+};
+
+export default withAvatarBot(nextConfig);
+```
+> [!NOTE]
+> `withAvatarBot` supports both **Turbopack** (`next dev --turbo`) and standard **Webpack** modes, automatically verifying that assets exist in `public/avatar-skin`.
+
+### 3. Nuxt 3 (Nuxt Module)
+
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  modules: [
+    'ai-avatar-bot-typescript/nuxt' // Zero-copy Nitro dev streaming & automatic build output
+  ]
+});
+```
+
+### 4. Webpack (Create React App, Vue CLI, Webpack 5)
+
+```typescript
+// webpack.config.js
+import { AvatarBotWebpackPlugin } from 'ai-avatar-bot-typescript/webpack';
+
+export default {
+  plugins: [
+    new AvatarBotWebpackPlugin() // DevServer middleware & production asset copy
+  ]
+};
+```
+
+### 5. AnalogJS (Angular Meta-Framework)
+
+```typescript
+// vite.config.ts (AnalogJS)
+import { defineConfig } from 'vite';
+import analog from '@analogjs/platform';
+import { avatarBotAnalogPlugin, getAnalogNitroConfig } from 'ai-avatar-bot-typescript/analog';
+
+export default defineConfig(() => ({
+  plugins: [
+    analog({
+      nitro: getAnalogNitroConfig()
+    }),
+    avatarBotAnalogPlugin()
+  ]
+}));
+```
+
+### 6. Node.js Path Resolution Helpers
+
+For custom build scripts or CI/CD pipelines:
+
+```typescript
+import { getAvatarSkinPath, copyAvatarSkin } from 'ai-avatar-bot-typescript/node';
+
+// Resolves absolute path to packaged avatar-skin folder
+const skinPath: string = getAvatarSkinPath();
+console.log('Avatar skin path:', skinPath);
+
+// Programmatically copy assets to destination directory
+copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 ```
 
 ---
