@@ -21,14 +21,32 @@ export default defineConfig({
   ],
   publicDir: 'public',
   build: {
+    copyPublicDir: false,
     lib: {
       entry: resolve(import.meta.dirname, 'core/main.ts'),
       name: 'AiAvatarBot',
       fileName: 'ai-avatar-bot'
     },
     rollupOptions: {
+      external: [
+        'three',
+        /^three\/.*/,
+        '@pixiv/three-vrm',
+        '@pixiv/three-vrm-animation',
+        '@mlc-ai/web-llm',
+        'pixi.js',
+        'pixi-live2d-display'
+      ],
       output: {
-        exports: 'named'
+        exports: 'named',
+        globals: {
+          three: 'THREE',
+          '@pixiv/three-vrm': 'THREE_VRM',
+          '@pixiv/three-vrm-animation': 'THREE_VRM_ANIMATION',
+          '@mlc-ai/web-llm': 'webllm',
+          'pixi.js': 'PIXI',
+          'pixi-live2d-display': 'PIXI.live2d'
+        }
       }
     }
   }

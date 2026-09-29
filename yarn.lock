@@ -4259,6 +4259,26 @@ __metadata:
     vite: "npm:^8.1.1"
     vite-plugin-dts: "npm:^4.5.0"
     vitest: "npm:^5.0.0"
+  peerDependencies:
+    "@mlc-ai/web-llm": ^0.2.84
+    "@pixiv/three-vrm": ^3.5.4
+    "@pixiv/three-vrm-animation": ^3.5.4
+    pixi-live2d-display: ^0.4.0
+    pixi.js: ^6.5.10
+    three: ^0.180.0
+  peerDependenciesMeta:
+    "@mlc-ai/web-llm":
+      optional: true
+    "@pixiv/three-vrm":
+      optional: true
+    "@pixiv/three-vrm-animation":
+      optional: true
+    pixi-live2d-display:
+      optional: true
+    pixi.js:
+      optional: true
+    three:
+      optional: true
   languageName: unknown
   linkType: soft
 
