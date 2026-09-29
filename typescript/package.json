@@ -1,9 +1,16 @@
 {
   "name": "ai-avatar-bot-typescript",
   "version": "1.0.0",
+  "description": "100% Native TypeScript SDK for interactive 2D (Live2D) and 3D (VRM) AI Avatar Bot with Voice STT/TTS, WebGPU WebLLM, Cloud AI Brain, Conversation Memory, and Function Calling",
   "type": "module",
   "files": [
-    "dist"
+    "dist",
+    "avatar-skin"
+  ],
+  "sideEffects": [
+    "*.css",
+    "*.scss",
+    "./dist/*.css"
   ],
   "main": "./dist/ai-avatar-bot.umd.cjs",
   "module": "./dist/ai-avatar-bot.js",
@@ -17,9 +24,37 @@
     "./style.css": "./dist/ai-avatar-bot.css",
     "./dist/*": "./dist/*"
   },
+  "keywords": [
+    "avatar",
+    "typescript",
+    "ai",
+    "live2d",
+    "vrm",
+    "threejs",
+    "webllm",
+    "webgpu",
+    "speech-recognition",
+    "tts",
+    "stt",
+    "chatbot",
+    "virtual-human",
+    "3d-avatar"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/archer102125220/ai-avatar-bot.git",
+    "directory": "package/typescript"
+  },
+  "bugs": {
+    "url": "https://github.com/archer102125220/ai-avatar-bot/issues"
+  },
+  "homepage": "https://github.com/archer102125220/ai-avatar-bot#readme",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "prepublishOnly": "npm run test:typecheck && npm run test:unit && npm run build",
+    "pack:dry-run": "npm pack --dry-run",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "test:unit:ui": "vitest --ui",
