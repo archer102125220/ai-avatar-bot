@@ -1,5 +1,6 @@
 # dependencies (install from package.json / package-lock.json instead)
 node_modules/
+ai-avatar-bot-typescript-*.tgz
 
 .yarn/*
 !.yarn/patches
