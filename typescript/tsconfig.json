@@ -45,6 +45,8 @@
   },
   "include": [
     "core/**/*",
+    "plugins/**/*",
+    "bin/**/*",
     "test/**/*",
     "*.config.ts",
     "*.d.ts"

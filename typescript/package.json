@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "100% Native TypeScript SDK for interactive 2D (Live2D) and 3D (VRM) AI Avatar Bot with Voice STT/TTS, WebGPU WebLLM, Cloud AI Brain, Conversation Memory, and Function Calling",
   "type": "module",
+  "bin": {
+    "ai-avatar-bot": "./dist/bin/cli.js"
+  },
   "files": [
     "dist",
     "avatar-skin"
@@ -65,7 +68,42 @@
     "./style.css": "./dist/ai-avatar-bot.css",
     "./dist/*": "./dist/*",
     "./avatar-skin/*": "./avatar-skin/*",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./vite": {
+      "types": "./dist/plugins/vite.d.ts",
+      "import": "./dist/plugins/vite.js",
+      "require": "./dist/plugins/vite.cjs"
+    },
+    "./webpack": {
+      "types": "./dist/plugins/webpack.d.ts",
+      "import": "./dist/plugins/webpack.js",
+      "require": "./dist/plugins/webpack.cjs"
+    },
+    "./next": {
+      "types": "./dist/plugins/next.d.ts",
+      "import": "./dist/plugins/next.js",
+      "require": "./dist/plugins/next.cjs"
+    },
+    "./nuxt": {
+      "types": "./dist/plugins/nuxt.d.ts",
+      "import": "./dist/plugins/nuxt.js",
+      "require": "./dist/plugins/nuxt.cjs"
+    },
+    "./analog": {
+      "types": "./dist/plugins/analog.d.ts",
+      "import": "./dist/plugins/analog.js",
+      "require": "./dist/plugins/analog.cjs"
+    },
+    "./nitro": {
+      "types": "./dist/plugins/nitro.d.ts",
+      "import": "./dist/plugins/nitro.js",
+      "require": "./dist/plugins/nitro.cjs"
+    },
+    "./node": {
+      "types": "./dist/plugins/node.d.ts",
+      "import": "./dist/plugins/node.js",
+      "require": "./dist/plugins/node.cjs"
+    }
   },
   "keywords": [
     "avatar",
@@ -95,8 +133,11 @@
   "homepage": "https://github.com/archer102125220/ai-avatar-bot#readme",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && vite build --config vite.iife.config.ts",
-    "prepublishOnly": "npm run test:typecheck && npm run test:unit && npm run build",
+    "build": "tsc && yarn build:core && yarn build:iife && yarn build:plugins",
+    "build:core": "vite build",
+    "build:iife": "vite build --config vite.iife.config.ts",
+    "build:plugins": "vite build --config vite.plugins.config.ts",
+    "prepublishOnly": "yarn test:typecheck && yarn test:unit && yarn build",
     "pack:dry-run": "npm pack --dry-run",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
@@ -105,14 +146,14 @@
     "test:unit:coverage": "vitest run --coverage",
     "test:benchmark": "vitest run test/unit",
     "test:typecheck": "tsc --noEmit --project tsconfig.test.json",
-    "test:e2e": "PLAYWRIGHT_HTML_REPORT_DIR=playwright-report/all playwright test",
-    "test:e2e:contract": "PLAYWRIGHT_HTML_REPORT_DIR=playwright-report/contract playwright test --project=contract",
-    "test:e2e:engine": "PLAYWRIGHT_HTML_REPORT_DIR=playwright-report/engine playwright test --project=engine",
+    "test:e2e": "cross-env PLAYWRIGHT_HTML_REPORT_DIR=playwright-report/all playwright test",
+    "test:e2e:contract": "cross-env PLAYWRIGHT_HTML_REPORT_DIR=playwright-report/contract playwright test --project=contract",
+    "test:e2e:engine": "cross-env PLAYWRIGHT_HTML_REPORT_DIR=playwright-report/engine playwright test --project=engine",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report playwright-report/all",
     "test:e2e:report:contract": "playwright show-report playwright-report/contract",
     "test:e2e:report:engine": "playwright show-report playwright-report/engine",
-    "test:smoke": "yarn build && PLAYWRIGHT_HTML_REPORT_DIR=playwright-report/smoke playwright test test/e2e/specs/engine/dist-smoke.spec.ts",
+    "test:smoke": "yarn build && cross-env PLAYWRIGHT_HTML_REPORT_DIR=playwright-report/smoke playwright test test/e2e/specs/engine/dist-smoke.spec.ts",
     "test:e2e:report:smoke": "playwright show-report playwright-report/smoke",
     "lint": "eslint core/",
     "lint:fix": "eslint core/ --fix"
@@ -154,6 +195,7 @@
     "@types/three": "^0.186.0",
     "@vitest/coverage-v8": "^5.0.0",
     "@vitest/ui": "^5.0.0",
+    "cross-env": "^10.1.0",
     "eslint": "^10.6.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-unicorn": "^71.1.0",
