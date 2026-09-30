@@ -163,10 +163,8 @@ export async function bootVRM(
         ? vrmaRootPath
         : DEFAULT_VRMA_ROOT_PATH;
 
-    const safeGoodbye = goodbye || safeVrmaRootPath + 'goodbye.vrma';
-
     const GESTURES: Record<string, string> = {
-      goodbye: safeGoodbye,
+      goodbye: goodbye || safeVrmaRootPath + 'goodbye.vrma',
       bow: bow || safeVrmaRootPath + 'bow.vrma',
       thinking: thinking || safeVrmaRootPath + 'Thinking.vrma',
       look: look || safeVrmaRootPath + 'LookAround.vrma',
@@ -176,7 +174,7 @@ export async function bootVRM(
       liked: liked || safeVrmaRootPath + 'liked.vrma',
       waiting: waiting || safeVrmaRootPath + 'waiting.vrma'
     };
-    const TAP_GESTURES = ['goodbye', 'bow'];
+    const TAP_GESTURES = ['goodbye', 'bow', 'waiting'];
 
     const canvas = createCanvas(skinEngine);
     const webGLRenderer = new THREE.WebGLRenderer({
