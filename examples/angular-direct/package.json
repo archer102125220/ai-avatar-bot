@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "ng": "ng",
+    "dev": "ng serve",
     "start": "ng serve",
     "build": "ng build",
+    "preview": "npx --yes serve dist/example-angular-direct/browser -l 4200",
     "watch": "ng build --watch --configuration development"
   },
   "dependencies": {

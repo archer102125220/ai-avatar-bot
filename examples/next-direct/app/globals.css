@@ -70,6 +70,7 @@ body {
 
 .avatar-bot-direct__stage-card {
   background: var(--panel-bg);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border: 1px solid var(--panel-border);
   border-radius: 1rem;
@@ -105,6 +106,7 @@ body {
 
 .avatar-bot-direct__control-card {
   background: var(--panel-bg);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border: 1px solid var(--panel-border);
   border-radius: 1rem;
