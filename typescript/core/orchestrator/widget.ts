@@ -154,6 +154,25 @@ export function createAvatarWidget({
       return getEngines().brainEngine?.applyEmotionFromText;
     },
 
+    playGesture(gestureName: string): void {
+      if (typeof gestureName !== 'string' || gestureName === '') {
+        return;
+      }
+      const skinEngine = getEngines().skinEngine;
+      if (typeof skinEngine === 'object' && skinEngine !== null) {
+        if (
+          skinEngine.engineMode === ENGINE_MODE_MAP.threeDimensional &&
+          typeof skinEngine.gesture3D === 'function'
+        ) {
+          skinEngine.gesture3D(gestureName);
+        } else if (typeof skinEngine.gesture === 'function') {
+          skinEngine.gesture(gestureName);
+        } else {
+          skinEngine.gestureName = gestureName;
+        }
+      }
+    },
+
     get answerQuestion():
       ((question: string) => Promise<string | void>) | undefined {
       return getEngines().brainEngine?.answerQuestion;

@@ -44,7 +44,7 @@
         // aiProviderModel: 'gemma4:latest',
         // aiProviderBaseUrl: 'http://localhost:5173/api/ollama',
         knowledge: KNOWLEDGE,
-        startMode: ENGINE_MODE_MAP.twoDimensional,
+        startMode: ENGINE_MODE_MAP.threeDimensional, // 預設以 3D 模式啟動方便測試 3D VRMA 動作
         fitMode: FIT_MODE_MAP.HALF, // FIT_MODE_MAP.HALF (半身特寫) | FIT_MODE_MAP.FULL (全身)
         // 2D Live2D 縮放與位置客製化 (支援通用設定與 half/full 雙模式專屬設定)
         // skin2d: {
@@ -99,6 +99,18 @@
 
         onReady(aiAvatar) {
           console.log('[avatar] widget ready:', aiAvatar);
+          console.log(
+            '%c[3D 動作測試指南]',
+            'color: #3b82f6; font-weight: bold; font-size: 14px;'
+          );
+          console.log('可直接在 Console 執行下列任一動作進行測試：');
+          console.log('▶ playGesture("goodbye")    // goodbye.vrma (登場動作/揮手再見)');
+          console.log('▶ playGesture("appearing")  // appearing.vrma');
+          console.log('▶ playGesture("liked")      // liked.vrma');
+          console.log('▶ playGesture("waiting")    // waiting.vrma');
+          console.log(
+            '其他既有動作：bow, thinking, look, relax, surprised'
+          );
         },
         onSpeaking(text, aiAvatar) {
           console.log('[avatar] speaking:', text);
@@ -109,21 +121,19 @@
         onError(error) {
           console.warn('[avatar] widget error:', error);
         }
-        // // 1. 註冊工具被觸發時的監聽器
-        // onToolCall(pendingCall, avatarWidget) {
-        //   // 檢查是否是我們定義的「笑一個」工具
-        //   if (pendingCall.name === 'make_smile') {
-        //     if (avatarWidget.applyEmotionFromText) {
-        //       avatarWidget.applyEmotionFromText('哈哈哈哈太開心了！');
-        //     }
-        //     avatarWidget.toolsEngine.handleToolResult({
-        //       callId: pendingCall.callId,
-        //       ok: true,
-        //       message: '好的，我笑一個囉！😊'
-        //     });
-        //   }
-        // }
       });
+
+      // 掛載全域便捷函式供開發者工具直接呼叫
+      window.playGesture = (gestureName) => {
+        if (typeof window.aiAvatarWidget?.playGesture === 'function') {
+          window.aiAvatarWidget.playGesture(gestureName);
+          console.log(`[playGesture] 播放動作: ${gestureName}`);
+        } else {
+          console.warn(
+            '[playGesture] aiAvatarWidget 尚未就緒或未提供 playGesture'
+          );
+        }
+      };
     </script>
   </body>
 </html>

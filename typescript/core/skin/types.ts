@@ -94,8 +94,8 @@ export interface Skin3DConfig {
   pointerLook?: boolean;
   /** URL to bow animation file (.vrma). */
   bow?: string;
-  /** URL to wave animation file (.vrma). */
-  wave?: string;
+  /** URL to goodbye animation file (.vrma). */
+  goodbye?: string;
   /** URL to thinking animation file (.vrma). */
   thinking?: string;
   /** URL to look-around animation file (.vrma). */
@@ -104,6 +104,12 @@ export interface Skin3DConfig {
   relax?: string;
   /** URL to surprised animation file (.vrma). */
   surprised?: string;
+  /** URL to appearing animation file (.vrma). */
+  appearing?: string;
+  /** URL to liked animation file (.vrma). */
+  liked?: string;
+  /** URL to waiting animation file (.vrma). */
+  waiting?: string;
   /** Root directory URL path for VRMA animation files. */
   vrmaRootPath?: string;
 }
@@ -188,7 +194,7 @@ export interface Renderer3D<
   readonly camera: TCamera;
   /** THREE.Scene instance. */
   readonly scene: TScene;
-  /** Plays a named 3D gesture animation (e.g. 'wave', 'bow'). */
+  /** Plays a named 3D gesture animation (e.g. 'goodbye', 'bow'). */
   readonly playGesture?: (gestureName: string) => void | Promise<void>;
   /** Pauses or resumes animation rendering loop. */
   setPaused(isPaused: boolean): void;
@@ -378,8 +384,8 @@ export interface SkinEngineOptions {
   onModelChangeError?: SkinModelChangeErrorCallback;
   /** URL to bow animation file (.vrma). */
   bow?: string;
-  /** URL to wave animation file (.vrma). */
-  wave?: string;
+  /** URL to goodbye animation file (.vrma). */
+  goodbye?: string;
   /** URL to thinking animation file (.vrma). */
   thinking?: string;
   /** URL to look-around animation file (.vrma). */
@@ -388,6 +394,12 @@ export interface SkinEngineOptions {
   relax?: string;
   /** URL to surprised animation file (.vrma). */
   surprised?: string;
+  /** URL to appearing animation file (.vrma). */
+  appearing?: string;
+  /** URL to liked animation file (.vrma). */
+  liked?: string;
+  /** URL to waiting animation file (.vrma). */
+  waiting?: string;
   /** Root directory URL path for VRMA animation files. */
   vrmaRootPath?: string;
 }

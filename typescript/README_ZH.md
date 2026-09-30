@@ -914,7 +914,7 @@ widget.i18nEngine.setLocale('zh-CN'); // 簡體中文
 | **Natori 範例模型** (`2d-model/male/natori_pro_t06.*`) | Live2D **Free Material License** | **僅供技術展示與測試使用**。不可直接用於商業產品部署。 |
 | **初音未來 VRM 模型** (`3d-model/HatsuneMiku.vrm`) | **Piapro Character License (PCL)** | 角色 IP 屬於 Crypton Future Media, INC.。**嚴格限於非商業技術展示**，未經授權禁止商業營利。 |
 | **洛克人 VRM 模型** (`3d-model/RockmanEXE.vrm`) | **Capcom Derivative Guidelines** | 遊戲 IP 屬於 CAPCOM CO., LTD.。**嚴格限於個人非商業技術展示使用**。 |
-| **VRMA 動作庫** (`3d-model/vrma/*.vrma`) | **MIT / CC-BY 4.0** | 包含揮手、鞠躬、思考、張望、放鬆、驚訝 6 組動作。免費提供商業與個人使用。 |
+| **VRMA 動作庫** (`3d-model/vrma/*.vrma`) | **MIT / CC-BY 4.0** | 包含揮手再見 (goodbye)、鞠躬 (bow)、思考 (thinking)、張望 (look)、放鬆 (relax)、驚訝 (surprised)、登場 (appearing)、喜歡/讚 (liked)、等待 (waiting) 等動作。免費提供商業與個人使用。 |
 | **Pixi.js / pixi-live2d-display** | **MIT License** | 開源 2D WebGL 渲染引擎與 Live2D 整合套件。 |
 | **Three.js / @pixiv/three-vrm** | **MIT License** | 開源 3D WebGL 渲染器與 VRM 標準庫。 |
 | **@mlc-ai/web-llm** (WebLLM) | **Apache-2.0** | 瀏覽器 WebGPU 端側模型推論引擎。 |

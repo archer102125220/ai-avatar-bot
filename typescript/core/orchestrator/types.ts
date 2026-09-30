@@ -457,6 +457,8 @@ export interface AiAvatarWidget {
   classifyEmotion?: (text: string) => string;
   /** Applies emotion to skin from input text. */
   applyEmotionFromText?: (text: string) => void;
+  /** Plays a 3D or 2D avatar gesture/animation by name (e.g. 'appearing', 'liked', 'waiting', 'goodbye', 'bow'). */
+  playGesture?: (gestureName: string) => void;
   /** Sends a question to the brain engine and streams / returns response. */
   answerQuestion?: (question: string) => Promise<string | void>;
   /** Main handler for user input text (handles tools, LLM, and UI). */

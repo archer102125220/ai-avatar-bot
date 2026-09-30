@@ -194,7 +194,7 @@ export function createMockRenderer3D(
     vrm,
     camera,
     scene,
-    TAP_GESTURES: ['wave', 'bow', 'thinking', 'surprised', 'relax', 'look'],
+    TAP_GESTURES: ['goodbye', 'bow', 'thinking', 'surprised', 'relax', 'look'],
     playGesture: vi.fn((_gestureName?: string) => Promise.resolve()),
     setPaused: vi.fn(),
     updateTransform: vi.fn(),

@@ -267,7 +267,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
   describe('defaultGesture3D', () => {
     it('should safely return on invalid arguments', async () => {
       await expect(
-        defaultGesture3D(null as unknown as SkinEngine, 'wave')
+        defaultGesture3D(null as unknown as SkinEngine, 'goodbye')
       ).resolves.toBeUndefined();
       await expect(
         defaultGesture3D({} as unknown as SkinEngine, '')
@@ -281,8 +281,8 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       const playGesture = vi.fn();
       const skinEngine = { renderer: { playGesture } } as unknown as SkinEngine;
 
-      await defaultGesture3D(skinEngine, 'wave');
-      expect(playGesture).toHaveBeenCalledWith('wave');
+      await defaultGesture3D(skinEngine, 'goodbye');
+      expect(playGesture).toHaveBeenCalledWith('goodbye');
 
       playGesture.mockImplementationOnce(() => {
         throw new Error('Play gesture fail');
@@ -453,13 +453,16 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
 
       const renderer = (await bootVRM(skinEngine as unknown as SkinEngine, {
         vrmaRootPath: 'https://custom.vrma.com/',
-        wave: 'https://custom.vrma.com/wave.vrma'
+        goodbye: 'https://custom.vrma.com/goodbye.vrma',
+        appearing: 'https://custom.vrma.com/appearing.vrma',
+        liked: 'https://custom.vrma.com/liked.vrma',
+        waiting: 'https://custom.vrma.com/waiting.vrma'
       })) as Required<Renderer3D>;
 
       expect(renderer).toBeDefined();
       expect(renderer.gltf).toBeDefined();
       expect(renderer.vrm).toBeDefined();
-      expect(renderer.TAP_GESTURES).toEqual(['wave', 'bow']);
+      expect(renderer.TAP_GESTURES).toEqual(['goodbye', 'bow']);
       expect(renderer.canvas).toBeInstanceOf(HTMLCanvasElement);
       expect(renderer.camera).toBeDefined();
       expect(renderer.scene).toBeDefined();
@@ -484,7 +487,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       }
 
       // Test playGesture
-      renderer.playGesture('wave');
+      renderer.playGesture('goodbye');
       // Already waving -> ignores second play
       renderer.playGesture('bow');
 
@@ -558,7 +561,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       expect(renderer).toBeDefined();
 
       // Trigger gesture finished event
-      renderer.playGesture('wave');
+      renderer.playGesture('goodbye');
 
       // Test dispose cleanup
       renderer.dispose();

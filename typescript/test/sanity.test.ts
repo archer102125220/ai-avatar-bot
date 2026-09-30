@@ -77,7 +77,7 @@ describe('Phase 1: Test Infrastructure & Global Mocks Sanity Check (TypeScript)'
     expect(typeof mock2d.avatarModel.expression).toBe('function');
 
     const mock3d = createMockRenderer3D();
-    expect(mock3d.TAP_GESTURES).toContain('wave');
+    expect(mock3d.TAP_GESTURES).toContain('goodbye');
     expect(typeof mock3d.playGesture).toBe('function');
 
     setupWindowPixiMock();

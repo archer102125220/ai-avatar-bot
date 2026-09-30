@@ -148,7 +148,7 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
       // Custom gesture3D setter
       const custom3D = vi.fn();
       engine.gesture3D = custom3D;
-      engine.gesture3D('wave');
+      engine.gesture3D('goodbye');
       expect(custom3D).toHaveBeenCalled();
 
       // Set to null -> logs warning
@@ -166,7 +166,7 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
       engine.gesture3D = null;
       const trigger3D = (engine as unknown as { gesture3D: SkinGestureTrigger })
         .gesture3D;
-      const fallback3D = trigger3D('wave');
+      const fallback3D = trigger3D('goodbye');
       expect(warnSpy).toHaveBeenCalledWith(
         '3D hand movement function is not registered'
       );

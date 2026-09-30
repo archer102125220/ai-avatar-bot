@@ -233,11 +233,14 @@ export function initSkinEngine(
         ? (skin3dOption.pointerLook ?? setting.pointerLook)
         : DEFAULT_3D_POINTER_LOOK,
     bow: skin3dOption.bow || setting.bow || '',
-    wave: skin3dOption.wave || setting.wave || '',
+    goodbye: skin3dOption.goodbye || setting.goodbye || '',
     thinking: skin3dOption.thinking || setting.thinking || '',
     look: skin3dOption.look || setting.look || '',
     relax: skin3dOption.relax || setting.relax || '',
     surprised: skin3dOption.surprised || setting.surprised || '',
+    appearing: skin3dOption.appearing || setting.appearing || '',
+    liked: skin3dOption.liked || setting.liked || '',
+    waiting: skin3dOption.waiting || setting.waiting || '',
     vrmaRootPath: skin3dOption.vrmaRootPath || setting.vrmaRootPath || ''
   };
 

@@ -222,10 +222,10 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
         renderer: { playGesture }
       } as unknown as SkinEngine;
 
-      await defaultGesture3D(skinEngine, 'wave');
-      expect(playGesture).toHaveBeenCalledWith('wave');
+      await defaultGesture3D(skinEngine, 'goodbye');
+      expect(playGesture).toHaveBeenCalledWith('goodbye');
 
-      await defaultGesture3D(null as unknown as SkinEngine, 'wave');
+      await defaultGesture3D(null as unknown as SkinEngine, 'goodbye');
       await defaultGesture3D(skinEngine, '');
 
       // Catch error
@@ -283,14 +283,14 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
       expect(renderer3D.camera).toBeDefined();
       expect(renderer3D.scene).toBeDefined();
       expect(renderer3D.vrm).toBeDefined();
-      expect(renderer3D.TAP_GESTURES).toContain('wave');
+      expect(renderer3D.TAP_GESTURES).toContain('goodbye');
     });
 
     it('should support playGesture, setPaused, and updateTransform', () => {
       const renderer3D = createMockRenderer3D();
 
-      renderer3D.playGesture('wave');
-      expect(renderer3D.playGesture).toHaveBeenCalledWith('wave');
+      renderer3D.playGesture('goodbye');
+      expect(renderer3D.playGesture).toHaveBeenCalledWith('goodbye');
 
       renderer3D.setPaused(true);
       expect(renderer3D.setPaused).toHaveBeenCalledWith(true);

@@ -58,8 +58,8 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
         renderer: { playGesture: playGestureMock }
       } as unknown as SkinEngine;
 
-      await defaultGesture3D(skinEngine, 'wave');
-      expect(playGestureMock).toHaveBeenCalledWith('wave');
+      await defaultGesture3D(skinEngine, 'goodbye');
+      expect(playGestureMock).toHaveBeenCalledWith('goodbye');
 
       await defaultGesture3D(skinEngine, 'bow');
       expect(playGestureMock).toHaveBeenCalledWith('bow');
@@ -67,7 +67,7 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
 
     it('should handle null engine or empty emotion gracefully', async () => {
       await expect(
-        defaultGesture3D(null as unknown as SkinEngine, 'wave')
+        defaultGesture3D(null as unknown as SkinEngine, 'goodbye')
       ).resolves.toBeUndefined();
       await expect(
         defaultGesture3D({} as unknown as SkinEngine, '')
@@ -97,8 +97,8 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
 
       engine._engineMode = ENGINE_MODE_MAP.threeDimensional;
       expect(typeof engine.gesture).toBe('function');
-      engine.gesture?.('wave');
-      expect(gesture3DMock).toHaveBeenCalledWith(engine, 'wave');
+      engine.gesture?.('goodbye');
+      expect(gesture3DMock).toHaveBeenCalledWith(engine, 'goodbye');
     });
 
     it('should trigger onGesture, execute gesture function, and trigger onGestureEnd upon setting gestureName', async () => {
@@ -177,7 +177,7 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
       }
 
       const g3 = (engine.gesture3D as ((emotion: string) => unknown) | null)?.(
-        'wave'
+        'goodbye'
       );
       expect(warnSpy).toHaveBeenCalledWith(
         '3D hand movement function is not registered'

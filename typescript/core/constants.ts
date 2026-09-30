@@ -780,9 +780,12 @@ export const DEFAULT_SUPPORTED_EMOTIONS = [
   'sad',
   'thinking',
   'neutral',
-  'wave',
+  'goodbye',
   'bow',
-  'relax'
+  'relax',
+  'appearing',
+  'liked',
+  'waiting'
 ] as const;
 
 /**

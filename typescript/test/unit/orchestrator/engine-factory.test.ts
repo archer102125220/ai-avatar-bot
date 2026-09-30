@@ -1269,7 +1269,7 @@ describe('Orchestrator Engine Factory', () => {
         },
         renderer: {
           canvas: mockCanvas3D,
-          TAP_GESTURES: ['wave', 'bow'],
+          TAP_GESTURES: ['goodbye', 'bow'],
           playGesture: playGestureMock
         }
       };

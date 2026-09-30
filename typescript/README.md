@@ -66,7 +66,7 @@
   * Real-Time Barge-in voice interruption, Companion continuous conversation, audio queuing, and automated Lip Sync.
 * 🎭 **2D / 3D Dual-Renderer Avatar (Skin Engine)**:
   * Supports Live2D (Pixi.js) and 3D VRM models (Three.js) with spatial geometry interfaces (`Vector3Coord`, `Point2D`, `Vector3Scale`).
-  * 8+ built-in emotional gestures (happy, surprised, sad, wave, bow, relax, etc.) and runtime VRM hot-swapping.
+  * 8+ built-in emotional gestures (happy, surprised, sad, goodbye, bow, relax, etc.) and runtime VRM hot-swapping.
 * 🛠️ **Type-Safe Function Calling (Tools Engine)**:
   * Strict `ToolDefinition` interfaces with JSON Schema parameter validation.
   * 3 routing modes (`'client'`, `'ai'`, `'hybrid'`) and built-in Human-in-the-loop confirmation dialogs.
@@ -911,7 +911,7 @@ The source code created in this package is licensed under the **[MIT License](LI
 | **Natori Sample Model** (`2d-model/male/natori_pro_t06.*`) | Live2D **Free Material License** | **For technical demonstration and testing only**. |
 | **Hatsune Miku VRM Model** (`3d-model/HatsuneMiku.vrm`) | **Piapro Character License (PCL)** | Character IP © Crypton Future Media, INC. **Strictly for non-commercial personal derivative / technical demo use**. |
 | **Rockman.EXE VRM Model** (`3d-model/RockmanEXE.vrm`) | **Capcom Derivative Guidelines** | Game IP © CAPCOM CO., LTD. **Strictly for non-commercial personal demonstration use**. |
-| **VRMA Animation Library** (`3d-model/vrma/*.vrma`) | **MIT / CC-BY 4.0** | Open-source 3D animations (wave, bow, thinking, look around, relax, surprised). Free for commercial/personal use. |
+| **VRMA Animation Library** (`3d-model/vrma/*.vrma`) | **MIT / CC-BY 4.0** | Open-source 3D animations (goodbye, bow, thinking, look around, relax, surprised, appearing, liked, waiting). Free for commercial/personal use. |
 | **Pixi.js / pixi-live2d-display** | **MIT License** | Open-source 2D WebGL rendering engine and Live2D integration plugin. |
 | **Three.js / @pixiv/three-vrm** | **MIT License** | Open-source 3D WebGL renderer and VRM avatar standard library. |
 | **@mlc-ai/web-llm** (WebLLM) | **Apache-2.0** | In-browser WebGPU language model inference engine. |

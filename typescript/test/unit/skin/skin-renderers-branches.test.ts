@@ -84,12 +84,12 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
         renderer: { playGesture }
       } as unknown as SkinEngine;
 
-      await defaultGesture3D(skinEngine, 'wave');
-      expect(playGesture).toHaveBeenCalledWith('wave');
+      await defaultGesture3D(skinEngine, 'goodbye');
+      expect(playGesture).toHaveBeenCalledWith('goodbye');
 
       // Guard conditions
       expect(
-        await defaultGesture3D(null as unknown as SkinEngine, 'wave')
+        await defaultGesture3D(null as unknown as SkinEngine, 'goodbye')
       ).toBeUndefined();
       expect(await defaultGesture3D(skinEngine, '')).toBeUndefined();
     });

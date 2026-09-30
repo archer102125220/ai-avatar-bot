@@ -213,6 +213,23 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     widget.answerQuestion?.('問題');
     expect(mockEngines.brainEngine.answerQuestion).toHaveBeenCalledWith('問題');
 
+    // Test playGesture
+    const gesture3DMock = vi.fn();
+    mockEngines.skinEngine.engineMode = ENGINE_MODE_MAP.threeDimensional;
+    mockEngines.skinEngine.gesture3D = gesture3DMock;
+    widget.playGesture?.('appearing');
+    expect(gesture3DMock).toHaveBeenCalledWith('appearing');
+
+    mockEngines.skinEngine.engineMode = ENGINE_MODE_MAP.twoDimensional;
+    const gesture2DMock = vi.fn();
+    mockEngines.skinEngine.gesture = gesture2DMock;
+    widget.playGesture?.('liked');
+    expect(gesture2DMock).toHaveBeenCalledWith('liked');
+
+    // Edge cases
+    widget.playGesture?.('');
+    expect(gesture2DMock).toHaveBeenCalledTimes(1);
+
     widget.handleUser('輸入');
     expect(mockHandleUser).toHaveBeenCalledWith('輸入');
   });

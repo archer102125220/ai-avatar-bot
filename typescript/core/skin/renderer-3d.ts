@@ -99,7 +99,7 @@ function applyScale(
  * Executes the default 3D body gesture animation.
  *
  * @param skinEngine - Skin engine instance.
- * @param emotionName - Name of the gesture animation to play (e.g., 'wave', 'bow', 'thinking', 'surprised').
+ * @param emotionName - Name of the gesture animation to play (e.g., 'goodbye', 'bow', 'thinking', 'surprised').
  */
 export async function defaultGesture3D(
   skinEngine: SkinEngine | null = null,
@@ -137,11 +137,14 @@ export async function bootVRM(
   const stageEl = skinEngine?.stageEl;
   const {
     bow = '',
-    wave = '',
+    goodbye = '',
     thinking = '',
     look = '',
     relax = '',
     surprised = '',
+    appearing = '',
+    liked = '',
+    waiting = '',
     vrmaRootPath = ''
   } = setting;
   try {
@@ -160,15 +163,21 @@ export async function bootVRM(
         ? vrmaRootPath
         : DEFAULT_VRMA_ROOT_PATH;
 
+    const safeGoodbye =
+      goodbye || safeVrmaRootPath + 'goodbye.vrma';
+
     const GESTURES: Record<string, string> = {
-      wave: wave || safeVrmaRootPath + 'Goodbye.vrma',
+      goodbye: safeGoodbye,
       bow: bow || safeVrmaRootPath + 'quick_formal_bow.vrma',
       thinking: thinking || safeVrmaRootPath + 'Thinking.vrma',
       look: look || safeVrmaRootPath + 'LookAround.vrma',
       relax: relax || safeVrmaRootPath + 'Relax.vrma',
-      surprised: surprised || safeVrmaRootPath + 'Surprised.vrma'
+      surprised: surprised || safeVrmaRootPath + 'Surprised.vrma',
+      appearing: appearing || safeVrmaRootPath + 'appearing.vrma',
+      liked: liked || safeVrmaRootPath + 'liked.vrma',
+      waiting: waiting || safeVrmaRootPath + 'waiting.vrma'
     };
-    const TAP_GESTURES = ['wave', 'bow'];
+    const TAP_GESTURES = ['goodbye', 'bow'];
 
     const canvas = createCanvas(skinEngine);
     const webGLRenderer = new THREE.WebGLRenderer({
@@ -517,8 +526,8 @@ export async function bootVRM(
             waving = false;
           }
         });
-        if (typeof gestureActions.wave !== 'undefined') {
-          setTimeout(() => playGesture('wave'), 800);
+        if (typeof gestureActions.goodbye !== 'undefined') {
+          setTimeout(() => playGesture('goodbye'), 800);
         }
         idleBreak = setInterval(() => {
           if (

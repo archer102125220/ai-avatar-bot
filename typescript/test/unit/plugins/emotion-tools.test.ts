@@ -86,7 +86,7 @@ describe('Emotion Tools Plugin', () => {
     const tool = tools[0] as ExecutableEmotionTool;
 
     const payload = {
-      args: { emotion: 'wave' },
+      args: { emotion: 'goodbye' },
       context: { skinEngine: mockSkinEngine }
     };
 
@@ -94,9 +94,9 @@ describe('Emotion Tools Plugin', () => {
 
     expect(result).toEqual({
       success: true,
-      currentEmotion: 'wave'
+      currentEmotion: 'goodbye'
     });
-    expect(mockSkinEngine.gesture).toHaveBeenCalledWith('wave');
+    expect(mockSkinEngine.gesture).toHaveBeenCalledWith('goodbye');
   });
 
   it('should return failure if emotion argument is empty or invalid', async () => {
