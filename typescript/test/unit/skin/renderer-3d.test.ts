@@ -462,7 +462,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       expect(renderer).toBeDefined();
       expect(renderer.gltf).toBeDefined();
       expect(renderer.vrm).toBeDefined();
-      expect(renderer.TAP_GESTURES).toEqual(['goodbye', 'bow']);
+      expect(renderer.TAP_GESTURES).toEqual(['goodbye', 'bow', 'waiting']);
       expect(renderer.canvas).toBeInstanceOf(HTMLCanvasElement);
       expect(renderer.camera).toBeDefined();
       expect(renderer.scene).toBeDefined();
