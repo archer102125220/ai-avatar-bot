@@ -163,12 +163,11 @@ export async function bootVRM(
         ? vrmaRootPath
         : DEFAULT_VRMA_ROOT_PATH;
 
-    const safeGoodbye =
-      goodbye || safeVrmaRootPath + 'goodbye.vrma';
+    const safeGoodbye = goodbye || safeVrmaRootPath + 'goodbye.vrma';
 
     const GESTURES: Record<string, string> = {
       goodbye: safeGoodbye,
-      bow: bow || safeVrmaRootPath + 'quick_formal_bow.vrma',
+      bow: bow || safeVrmaRootPath + 'bow.vrma',
       thinking: thinking || safeVrmaRootPath + 'Thinking.vrma',
       look: look || safeVrmaRootPath + 'LookAround.vrma',
       relax: relax || safeVrmaRootPath + 'Relax.vrma',
