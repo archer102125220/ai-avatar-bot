@@ -977,8 +977,8 @@ yarn test:smoke
 
 ## ❓ 常見問題 (FAQ)
 
-### Q1: `ai-avatar-bot-typescript` 與 `ai-avatar-bot-vanilla-js` 有什麼差異？
-> **A:** 兩者共享完全相同的核心引擎架構與多引擎能力。`ai-avatar-bot-typescript` 採用 100% 原生 TypeScript 撰寫，具備嚴格的型別約束、泛型介面、專屬的型別定義檔輸出與絕佳的 IDE 自動補全，非常適合 TypeScript 或需要高度強型別保證的中大型專案。
+### Q1: `ai-avatar-bot-typescript` 與早期 `vanilla-js` 原型的關係與演進？
+> **A:** 本專案早期曾以純 JavaScript（`vanilla-js`）進行多引擎架構驗證，在確認功能成熟健全後，該原型已於 Commit [`2e4cb12a4c689d8dc98a814211279ce0cb3ebf59`](https://github.com/archer102125220/ai-avatar-bot/commit/2e4cb12a4c689d8dc98a814211279ce0cb3ebf59)（Tag: `archive/vanilla-js-baseline`）完成階段性使命並封存歸檔。目前的 `ai-avatar-bot-typescript` 為單一核心事實來源（Single Source of Truth），採用 100% 原生 TypeScript 撰寫，具備更極致的輕量化（核心 223KB）、完善的型別約束與 Subpath 導出，且編譯出的標準 ESM/CJS/IIFE 產物可讓純 JavaScript 專案無縫直接使用。
 
 ### Q2: 是否能在無預設 UI（無頭模式 Headless）下使用？
 > **A:** 可以！初始化時傳入 `isMinimal: true` 即可隱藏預設懸浮窗與氣泡，接著可完全使用 React、Vue、Svelte 繪製專屬介面，並透過 `widget.handleUser()` 及訂閱 `widget.speechEngine` 與之互動。

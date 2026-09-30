@@ -2885,15 +2885,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^22.20.3":
-  version: 22.20.4
-  resolution: "@types/node@npm:22.20.4"
-  dependencies:
-    undici-types: "npm:~6.21.0"
-  checksum: 10c0/3a17e19f7b7b7a6d6c695ef8b0a34b70f84829a1539f57d338487bc3b51ddd4ca86ffbcbcc4f1307a41de83d02c1b7dfbb16e8cb6a9c3a8360b4306ccf9ead2d
-  languageName: node
-  linkType: hard
-
 "@types/node@npm:^24.13.2":
   version: 24.19.0
   resolution: "@types/node@npm:24.19.0"
@@ -4282,35 +4273,6 @@ __metadata:
       optional: true
   bin:
     ai-avatar-bot: ./dist/bin/cli.js
-  languageName: unknown
-  linkType: soft
-
-"ai-avatar-bot-vanilla-js@workspace:vanilla-js":
-  version: 0.0.0-use.local
-  resolution: "ai-avatar-bot-vanilla-js@workspace:vanilla-js"
-  dependencies:
-    "@eslint/js": "npm:^10.0.1"
-    "@mlc-ai/web-llm": "npm:^0.2.84"
-    "@pixiv/three-vrm": "npm:^3.5.4"
-    "@pixiv/three-vrm-animation": "npm:^3.5.4"
-    "@playwright/test": "npm:^1.63.0"
-    "@types/node": "npm:^22.20.3"
-    "@vitest/coverage-v8": "npm:^5.0.0"
-    "@vitest/ui": "npm:^5.0.0"
-    eslint: "npm:^10.6.0"
-    eslint-config-prettier: "npm:^10.1.8"
-    eslint-plugin-unicorn: "npm:^71.1.0"
-    globals: "npm:^17.7.0"
-    jsdom: "npm:^30.0.1"
-    pixi-live2d-display: "npm:^0.4.0"
-    pixi.js: "npm:^6.5.10"
-    prettier: "npm:^3.9.4"
-    sass: "npm:^1.101.0"
-    three: "npm:^0.180.0"
-    vite: "npm:^8.1.1"
-    vitest: "npm:^5.0.0"
-  bin:
-    ai-avatar-bot: ./bin/cli.js
   languageName: unknown
   linkType: soft
 

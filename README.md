@@ -11,8 +11,9 @@ This project originated from the open-source exploration by [YuriCrystal/ai-avat
 ## 📑 Table of Contents
 
 - [📦 Package Matrix & Navigation](#-package-matrix--navigation)
+- [📜 History & Archive Notice](#-history--archive-notice)
 - [🌟 Core Architecture & Multi-Engine Design](#-core-architecture--multi-engine-design)
-- [🚀 Quick Start (Vanilla JS Example)](#-quick-start-vanilla-js-example)
+- [🚀 Quick Start](#-quick-start)
 - [🛠️ Monorepo Development Commands](#️-monorepo-development-commands)
 - [🗺️ Roadmap](#️-roadmap)
 - [🤝 Credits & Attribution](#-credits--attribution)
@@ -22,15 +23,27 @@ This project originated from the open-source exploration by [YuriCrystal/ai-avat
 
 ## 📦 Package Matrix & Navigation
 
-This Monorepo is organized into dedicated sub-packages for various usage scenarios and frontend technology stacks. Among them, **`vanilla-js` serves as the foundational core package (currently the most complete)**, and all other framework wrappers and typed versions are built upon it:
+This Monorepo is organized into dedicated sub-packages for various usage scenarios and frontend technology stacks. The core SDK is crafted in **100% Native TypeScript** (compiled bundles cover ESM, CJS, and IIFE, seamlessly supporting both TypeScript and pure JavaScript projects):
 
 | Package Directory | Package Name / Type | Status | Role & Characteristics | Quick Link |
 | :--- | :--- | :---: | :--- | :---: |
-| [`/vanilla-js`](./vanilla-js) | `ai-avatar-bot-vanilla-js` | 🟢 **Most Complete (Core Baseline)** | **Zero framework dependencies** pure JavaScript core SDK with built-in comprehensive TypeScript definitions (`types/index.d.ts`). Features multi-engine architecture, memory compression, Auto-Continue, Headless mode, and Vite/Webpack offline asset plugins. The foundation for all subsequent packages. | [📄 Documentation](./vanilla-js/README.md) |
+| [`/typescript`](./typescript) | `ai-avatar-bot-typescript` | 🟢 **Core Baseline (Recommended / Ready)** | **100% native TypeScript core SDK**. Release-ready with modern standards: modular subpath exports (`/brain`, `/skin`, etc.), dual ESM/IIFE CDN builds, optional peer dependencies (compact 223KB core), CLI asset sync tool, and 6+ framework plugins. Fully supports pure JavaScript (ESM/CJS/IIFE) projects. | [📄 Documentation](./typescript/README.md) |
 | [`/iframe`](./iframe) | `ai-avatar-bot-iframe` | 🟡 **Classic Refactor** | **Initial modular refactor of the original version**. Preserves the original author's classic iframe and `embed.js` one-line script embedding design, offering maximum DOM/CSS isolation and standalone demo pages. | [📄 Documentation](./iframe/README.en.md) |
-| [`/typescript`](./typescript) | `ai-avatar-bot-typescript` | 🟢 **Ready (Release-Ready / Recommended)** | **100% native TypeScript type-safe SDK**. Release-ready with modern standards: modular subpath exports (`/brain`, `/skin`, etc.), dual ESM/IIFE CDN builds, optional peer dependencies (compact 223KB core), CLI asset sync tool, and 6+ framework plugins. | [📄 Documentation](./typescript/README.md) |
 | [`/vue`](./vue) | `ai-avatar-bot-vue` | 🚧 **In Progress** | Dedicated component library for **Vue 3**. Provides `<AiAvatarBot />` components and `useAvatar` composables, supporting reactive props and custom slots. | [📁 Source Code](./vue) |
 | [`/react`](./react) | `ai-avatar-bot-react` | 🚧 **In Progress** | Dedicated component library for **React 18 / 19**. Provides `<AiAvatarBot />` components and `useAvatar` hooks, seamlessly integrating with React lifecycle and JSX rendering. | [📁 Source Code](./react) |
+
+---
+
+## 📜 History & Archive Notice
+
+In the early stages, this project utilized a JavaScript prototype (`/vanilla-js`) to validate modular architecture, memory compression, tool calls, and cross-framework builds. After achieving complete feature validation and production standards, it has been fully ported and superseded by the native TypeScript core (`/typescript`).
+
+- **Original Vanilla JS Prototype Baseline Archive**:
+  - **Git Commit ID**: [`2e4cb12a4c689d8dc98a814211279ce0cb3ebf59`](https://github.com/archer102125220/ai-avatar-bot/commit/2e4cb12a4c689d8dc98a814211279ce0cb3ebf59)
+  - **Git Tag**: `archive/vanilla-js-baseline`
+- **Maintenance Policy**:
+  - The `package/vanilla-js` directory has been officially archived and removed from active workspaces, with `/typescript` serving as the Single Source of Truth.
+  - Pure JavaScript projects can directly consume the compiled ESM / CJS / IIFE distributions, or check the [`examples/vanilla-js`](./examples/vanilla-js) demo.
 
 ---
 
@@ -78,32 +91,7 @@ The entire SDK adopts a highly decoupled "Multi-Engine Architecture", allowing d
 
 ## 🚀 Quick Start
 
-### 1. Vanilla JS (Zero Framework Dependencies)
-
-```bash
-# yarn
-yarn add ai-avatar-bot-vanilla-js
-
-# npm
-npm install ai-avatar-bot-vanilla-js
-```
-
-```javascript
-import { initAvatarBot } from 'ai-avatar-bot-vanilla-js';
-import 'ai-avatar-bot-vanilla-js/style.css';
-
-const widget = await initAvatarBot({
-  container: document.getElementById('avatar-container'),
-  avatarMode: 'assistant',
-  gender: 'female',
-  llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
-  welcomeText: 'Hello! I am your AI Avatar assistant.'
-});
-```
-
-> 📖 **Full Options & Guides**: See [Vanilla JS Documentation](./vanilla-js/README.md).
-
-### 2. TypeScript (Strict Type Safety)
+### 1. Installation
 
 ```bash
 # yarn (recommended)
@@ -112,6 +100,8 @@ yarn add ai-avatar-bot-typescript
 # npm
 npm install ai-avatar-bot-typescript
 ```
+
+### 2. TypeScript / Modern Frontend Project
 
 ```typescript
 import { 
@@ -132,6 +122,22 @@ const options: AvatarBotOptions = {
 const widget: AiAvatarWidget = await initAvatarBot(options);
 ```
 
+### 3. Pure JavaScript (ESM / Bundler)
+
+This package compiles to standard ESM and CJS bundles, ready to be used directly in pure JavaScript projects:
+
+```javascript
+import { initAvatarBot } from 'ai-avatar-bot-typescript';
+import 'ai-avatar-bot-typescript/style.css';
+
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  avatarMode: 'assistant',
+  gender: 'female',
+  welcomeText: 'Hello! I am your AI Avatar assistant.'
+});
+```
+
 > 📖 **Full Options & Guides**: See [TypeScript Documentation](./typescript/README.md).
 
 ---
@@ -141,10 +147,7 @@ const widget: AiAvatarWidget = await initAvatarBot(options);
 This project uses Yarn Workspaces to manage sub-packages:
 
 ```bash
-# Start Vanilla JS development server (Recommended: Most complete)
-yarn dev:js
-
-# Start TypeScript development server
+# Start core TypeScript development server
 yarn dev:ts
 
 # Start Vue 3 development server
@@ -176,6 +179,7 @@ yarn build
   - WebLLM + Cloud AI Provider fallback and Auto-Continue
   - Memory management, safe Tool Call pruning, and context compression pipeline
   - Vite / Webpack zero-config offline asset plugins
+  - *(Completed and archived at commit `2e4cb12a4c689d8dc98a814211279ce0cb3ebf59`)*
 - [x] **Phase 2: TypeScript Strict Porting & npm Release Hardening (`/typescript`)**
   - Complete 100% native TS porting with full declaration files
   - Modular subpath exports (`/brain`, `/skin`, `/speech`, `/tools`, `/i18n`, `/constants`, `/types`)
@@ -202,4 +206,4 @@ We express our sincere gratitude to the original author for the pioneering explo
 
 The original source code created in this project is licensed under the **[MIT License](LICENSE)**.
 
-> ⚠️ **Important Notice**: Third-party runtimes and model assets referenced in this project (Live2D Cubism Core proprietary license, Haru/Natori sample models, Hatsune Miku/Rockman VRM character models, etc.) are governed by their respective authors' licenses and **are NOT covered by this project's MIT License**. Please review the [Third-Party Assets & License Disclaimers](./vanilla-js/README.md#-third-party-assets--licensing-please-read-carefully) before commercial use or distribution.
+> ⚠️ **Important Notice**: Third-party runtimes and model assets referenced in this project (Live2D Cubism Core proprietary license, Haru/Natori sample models, Hatsune Miku/Rockman VRM character models, etc.) are governed by their respective authors' licenses and **are NOT covered by this project's MIT License**. Please review the [Third-Party Assets & License Disclaimers](./typescript/README.md#-third-party-assets--licenses-must-read) before commercial use or distribution.

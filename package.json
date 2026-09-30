@@ -5,19 +5,13 @@
   "description": "Web 右下角 Live2D 語音 AI 虛擬人 demo",
   "scripts": {
     "dev:iframe": "npm run dev -w iframe",
-    "dev:js": "yarn workspace ai-avatar-bot-vanilla-js dev",
     "dev:ts": "yarn workspace ai-avatar-bot-typescript dev",
     "dev:vue": "yarn workspace ai-avatar-bot-vue dev",
     "dev:react": "yarn workspace ai-avatar-bot-react dev",
-    "build:js": "yarn workspace ai-avatar-bot-vanilla-js build",
     "build:ts": "yarn workspace ai-avatar-bot-typescript build",
     "build:vue": "yarn workspace ai-avatar-bot-vue build",
     "build:react": "yarn workspace ai-avatar-bot-react build",
     "build": "npm run build --workspaces --if-present",
-    "test:js": "yarn workspace ai-avatar-bot-vanilla-js test:unit",
-    "test:js:ui": "yarn workspace ai-avatar-bot-vanilla-js test:unit:ui",
-    "test:js:report": "yarn workspace ai-avatar-bot-vanilla-js test:unit:report",
-    "test:js:coverage": "yarn workspace ai-avatar-bot-vanilla-js test:unit:coverage",
     "test:ts": "yarn workspace ai-avatar-bot-typescript test:unit",
     "test:ts:benchmark": "yarn workspace ai-avatar-bot-typescript test:benchmark",
     "test:ts:watch": "yarn workspace ai-avatar-bot-typescript test:unit:watch",
@@ -66,7 +60,6 @@
     "test": "npm run test:unit --workspaces --if-present"
   },
   "workspaces": [
-    "vanilla-js",
     "typescript",
     "vue",
     "react",

@@ -11,8 +11,9 @@
 ## 📑 目錄
 
 - [📦 套件矩陣與版本導覽](#-套件矩陣與版本導覽)
+- [📜 歷史演進與封存說明 (History & Archive)](#-歷史演進與封存說明-history--archive)
 - [🌟 核心架構與多引擎設計](#-核心架構與多引擎設計)
-- [🚀 快速開始 (以 Vanilla JS 為例)](#-快速開始-以-vanilla-js-為例)
+- [🚀 快速開始](#-快速開始)
 - [🛠️ Monorepo 開發指令](#️-monorepo-開發指令)
 - [🗺️ 開發藍圖 (Roadmap)](#️-開發藍圖-roadmap)
 - [🤝 鳴謝與原作者 (Credits)](#-鳴謝與原作者-credits)
@@ -22,15 +23,27 @@
 
 ## 📦 套件矩陣與版本導覽
 
-本 Monorepo 依據不同使用場景與技術棧，規劃並拆分為多個獨立的子專案包。其中 **`vanilla-js` 為核心基礎版本（目前最完整）**，其他框架與型別版本均以此為藍本進行擴充與封裝：
+本 Monorepo 依據不同使用場景與技術棧，規劃並拆分為多個獨立的子專案包。核心 SDK 採用 **100% 原生 TypeScript** 打造（發布產物涵蓋 ESM、CJS 與 IIFE，同時完美支援 TypeScript 與純 JavaScript 專案）：
 
 | 套件目錄 | 套件名稱 / 類型 | 狀態 | 定位與特點說明 | 快速連結 |
 | :--- | :--- | :---: | :--- | :---: |
-| [`/vanilla-js`](./vanilla-js) | `ai-avatar-bot-vanilla-js` | 🟢 **最完整 (核心主力)** | **零框架依賴**的純 JavaScript 核心 SDK，內建完整 TypeScript 定義檔 (`types/index.d.ts`)。具備多引擎架構、記憶壓縮、Auto-Continue、無頭模式 (Headless) 與 Vite/Webpack 離線構建插件。後續所有版本的基石。 | [📄 詳細文件](./vanilla-js/README_ZH.md) |
+| [`/typescript`](./typescript) | `ai-avatar-bot-typescript` | 🟢 **核心主力 (推薦 / 發布就緒)** | **100% 原生 TypeScript 核心 SDK**。以現代開源規範發布就緒：支援 Subpath 按需導出 (`/brain`, `/skin` 等)、ESM/IIFE 雙 CDN 構建、可選 Peer 依賴極致輕量化 (核心僅 223KB)、CLI 資產同步工具與 6+ 框架生態外掛。亦完全支援純 JavaScript (ESM/CJS/IIFE) 專案。 | [📄 詳細文件](./typescript/README_ZH.md) |
 | [`/iframe`](./iframe) | `ai-avatar-bot-iframe` | 🟡 **經典重構** | **原版初步模組化重構**。保留原作者經典的 Iframe 與 `embed.js` 一行腳本嵌入設計，提供極致的 DOM / CSS 隔離與開箱即用的 Standalone Demo。 | [📄 詳細文件](./iframe/README_ZH.md) |
-| [`/typescript`](./typescript) | `ai-avatar-bot-typescript` | 🟢 **已完成 (發布就緒 / 推薦)** | **100% 原生 TypeScript 嚴格型別版**。以現代開源規範發布就緒：支援 Subpath 按需導出 (`/brain`, `/skin` 等)、ESM/IIFE 雙 CDN 構建、可選 Peer 依賴極致輕量化 (核心僅 223KB)、CLI 資產同步工具與 6+ 框架生態外掛。 | [📄 詳細文件](./typescript/README_ZH.md) |
 | [`/vue`](./vue) | `ai-avatar-bot-vue` | 🚧 **進行中** | 針對 **Vue 3** 封裝的專屬元件庫。提供 `<AiAvatarBot />` 元件與 `useAvatar` 組合式函式 (Composables)，支援響應式 Props 與自訂插槽。 | [📁 原始碼](./vue) |
 | [`/react`](./react) | `ai-avatar-bot-react` | 🚧 **進行中** | 針對 **React 18 / 19** 封裝的專屬元件庫。提供 `<AiAvatarBot />` 元件與 `useAvatar` Hooks，完美融入 React 狀態週期與 JSX 渲染。 | [📁 原始碼](./react) |
+
+---
+
+## 📜 歷史演進與封存說明 (History & Archive)
+
+本專案早期以 JavaScript 原型進行模組化驗證（目錄 `/vanilla-js`），在完成多引擎架構、記憶壓縮、Tool Call 與跨框架構建驗證後，我們將其全面重構並升級為原生 TypeScript 核心（`/typescript`）。
+
+- **原 Vanilla JS 原型封存基準點**：
+  - **Git Commit ID**：[`2e4cb12a4c689d8dc98a814211279ce0cb3ebf59`](https://github.com/archer102125220/ai-avatar-bot/commit/2e4cb12a4c689d8dc98a814211279ce0cb3ebf59)
+  - **Git Tag**：`archive/vanilla-js-baseline`
+- **現行維護政策**：
+  - 原 `package/vanilla-js` 目錄已正式封存並從工作區移除，由 `/typescript` 承接為單一事實來源 (Single Source of Truth)。
+  - 純 JavaScript 專案請直接引用由 TypeScript 編譯出的 ESM / CJS / IIFE 產物，或參考 [`examples/vanilla-js`](./examples/vanilla-js) 範例。
 
 ---
 
@@ -78,32 +91,7 @@
 
 ## 🚀 快速開始
 
-### 1. Vanilla JS（零框架依賴核心版）
-
-```bash
-# yarn
-yarn add ai-avatar-bot-vanilla-js
-
-# npm
-npm install ai-avatar-bot-vanilla-js
-```
-
-```javascript
-import { initAvatarBot } from 'ai-avatar-bot-vanilla-js';
-import 'ai-avatar-bot-vanilla-js/style.css';
-
-const widget = await initAvatarBot({
-  container: document.getElementById('avatar-container'),
-  avatarMode: 'assistant',
-  gender: 'female',
-  llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
-  welcomeText: '你好！我是你的專屬 AI 虛擬助理。'
-});
-```
-
-> 📖 **完整參數設定與指南**：請參閱 [Vanilla JS 詳細說明文件](./vanilla-js/README_ZH.md)。
-
-### 2. TypeScript（嚴格型別安全版）
+### 1. 安裝套件
 
 ```bash
 # yarn (推薦)
@@ -112,6 +100,8 @@ yarn add ai-avatar-bot-typescript
 # npm
 npm install ai-avatar-bot-typescript
 ```
+
+### 2. TypeScript / 現代前端專案引入
 
 ```typescript
 import { 
@@ -132,7 +122,23 @@ const options: AvatarBotOptions = {
 const widget: AiAvatarWidget = await initAvatarBot(options);
 ```
 
-> 📖 **完整參數設定與指南**：請參閱 [TypeScript 詳細說明文件](./typescript/README_ZH.md)。
+### 3. 純 JavaScript (ESM / Bundler) 引入
+
+本套件完全編譯為標準 ESM 與 CJS，即使在純 JavaScript 專案中亦可直接導入：
+
+```javascript
+import { initAvatarBot } from 'ai-avatar-bot-typescript';
+import 'ai-avatar-bot-typescript/style.css';
+
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  avatarMode: 'assistant',
+  gender: 'female',
+  welcomeText: '你好！我是你的專屬 AI 虛擬助理。'
+});
+```
+
+> 📖 **完整參數設定、外掛與指南**：請參閱 [TypeScript 詳細說明文件](./typescript/README_ZH.md)。
 
 ---
 
@@ -141,10 +147,7 @@ const widget: AiAvatarWidget = await initAvatarBot(options);
 本專案採用 Yarn Workspaces 管理多套件：
 
 ```bash
-# 啟動 Vanilla JS 開發伺服器（推薦：目前最完整）
-yarn dev:js
-
-# 啟動 TypeScript 版本開發伺服器
+# 啟動核心 TypeScript 版本開發伺服器
 yarn dev:ts
 
 # 啟動 Vue 3 版本開發伺服器
@@ -176,6 +179,7 @@ yarn build
   - WebLLM + 雲端 AI Provider 智慧降級與自動接續
   - 記憶管理、安全 Tool Call 修剪與上下文壓縮管線
   - Vite / Webpack 零配置離線資產插件
+  - *(已達成並封存於 commit `2e4cb12a4c689d8dc98a814211279ce0cb3ebf59`)*
 - [x] **階段二：TypeScript 嚴格型別化與 npm 發布健全化 (`/typescript`)**
   - 將完整邏輯遷移至 100% 原生 TS，建立全型別定義檔
   - 支援模組化子路徑導出 (`/brain`, `/skin`, `/speech`, `/tools`, `/i18n`, `/constants`, `/types`)
@@ -202,4 +206,4 @@ yarn build
 
 本專案自有原始程式碼採用 **[MIT License](LICENSE)** 開源。
 
-> ⚠️ **重要提醒**：本專案引用之第三方運行時核心與模型資產（Live2D Cubism Core 專有授權、Haru/Natori 範例模型、初音未來/洛克人 VRM 角色模型等）各有其原作者與版權方之授權條款，**不包含於本專案 MIT 授權範圍內**。商業用途或公開散布前請務必詳閱 [第三方資產與授權條款說明](./vanilla-js/README_ZH.md#-第三方資產與授權請務必詳閱)。
+> ⚠️ **重要提醒**：本專案引用之第三方運行時核心與模型資產（Live2D Cubism Core 專有授權、Haru/Natori 範例模型、初音未來/洛克人 VRM 角色模型等）各有其原作者與版權方之授權條款，**不包含於本專案 MIT 授權範圍內**。商業用途或公開散布前請務必詳閱 [第三方資產與授權條款說明](./typescript/README_ZH.md#-第三方資產與授權請務必詳閱)。

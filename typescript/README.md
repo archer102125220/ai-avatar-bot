@@ -974,8 +974,8 @@ yarn test:smoke
 
 ## ❓ Frequently Asked Questions (FAQ)
 
-### Q1: What are the differences between `ai-avatar-bot-typescript` and `ai-avatar-bot-vanilla-js`?
-> **A:** Both share the same underlying architecture and feature set. `ai-avatar-bot-typescript` is authored in 100% native TypeScript with strict compile-time types, generic interfaces (`LLMMessage<T>`, `BaseStore<T>`, `LocalizableOrResolver<T>`), dedicated type exports, and `.d.ts` declaration maps, offering superior developer experience for TypeScript projects.
+### Q1: What is the relationship and evolution between `ai-avatar-bot-typescript` and the earlier `vanilla-js` prototype?
+> **A:** The project originally validated multi-engine architecture with a pure JavaScript prototype (`vanilla-js`). Following complete feature and integration validation, that prototype was officially archived at Commit [`2e4cb12a4c689d8dc98a814211279ce0cb3ebf59`](https://github.com/archer102125220/ai-avatar-bot/commit/2e4cb12a4c689d8dc98a814211279ce0cb3ebf59) (Tag: `archive/vanilla-js-baseline`). Today, `ai-avatar-bot-typescript` serves as the Single Source of Truth—offering 100% native TypeScript type safety, a compact 223KB core, subpath exports, and standard ESM/CJS/IIFE builds that can be seamlessly consumed in pure JavaScript projects as well.
 
 ### Q2: Can I use this package without any UI (Headless)?
 > **A:** Yes! Pass `isMinimal: true` during initialization to hide the built-in UI dock and bubbles. You can then render your own UI using React, Vue, Svelte, or native DOM while interacting with `widget.handleUser()` and subscribing to `widget.speechEngine`.

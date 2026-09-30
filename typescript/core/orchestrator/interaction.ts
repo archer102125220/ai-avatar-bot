@@ -150,7 +150,7 @@ export function createTapAvatarHandler({
           'Hello~ I am the ai-avatar-bot-typescript avatar. Ask me how to install, switch 3D, or use tools!';
       } else if (/ja/i.test(currentLocale) === true) {
         defaultAssistantGreeting =
-          'こんにちは〜！ai-avatar-bot-vanilla-js アバターです。導入方法や3D切り替え、ツール機能について何でも聞いてください！';
+          'こんにちは〜！ai-avatar-bot-typescript アバターです。導入方法や3D切り替え、ツール機能について何でも聞いてください！';
       } else if (/ko/i.test(currentLocale) === true) {
         defaultAssistantGreeting =
           '안녕하세요~ ai-avatar-bot-typescript 아바타입니다. 설치 방법, 3D 전환, 도구機能 등을 편하게 물어보세요!';

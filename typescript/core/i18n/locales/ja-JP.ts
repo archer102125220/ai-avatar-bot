@@ -99,7 +99,7 @@ export default {
   'greeting.companion':
     '{name}何でも気軽に話しかけてね、💬 をクリックすると始まります！',
   'greeting.assistant':
-    'こんにちは！ai-avatar-bot-vanilla-js アバターです。導入方法や3D切り替え、ツール機能について何でも聞いてくださいね！',
+    'こんにちは！ai-avatar-bot-typescript アバターです。導入方法や3D切り替え、ツール機能について何でも聞いてくださいね！',
   'welcome.assistant':
     'こんにちは！AIアシスタントです。何かお手伝いできることはありますか？',
   'welcome.companion':
