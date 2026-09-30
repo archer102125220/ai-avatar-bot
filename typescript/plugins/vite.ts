@@ -5,10 +5,9 @@
 
 import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
 import type { Plugin, ResolvedConfig } from 'vite';
 import type { AvatarBotPluginOptions } from './types';
-import { copyDirRecursive } from './node';
+import { copyDirRecursive, getAvatarSkinPath } from './node';
 
 const MIME_TYPES: Record<string, string> = {
   '.json': 'application/json',
@@ -45,14 +44,10 @@ export function avatarBotVitePlugin(options: AvatarBotPluginOptions = {}): Plugi
   const route = typeof options?.route === 'string' && options.route !== '' ? options.route : '/avatar-skin';
   const cleanRoute = route.startsWith('/') ? route : `/${route}`;
 
-  const currentDir =
-    typeof __dirname !== 'undefined'
-      ? __dirname
-      : path.dirname(fileURLToPath(import.meta.url));
   const assetsDir =
     typeof options?.assetsDir === 'string' && options.assetsDir !== ''
       ? options.assetsDir
-      : path.resolve(currentDir, '../avatar-skin');
+      : getAvatarSkinPath();
 
   let viteConfig: ResolvedConfig | null = null;
 

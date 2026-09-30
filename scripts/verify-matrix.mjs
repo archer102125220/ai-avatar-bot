@@ -196,6 +196,28 @@ function prepareSandbox(targetDir, pmName, targetConfig) {
   };
   fs.writeFileSync(path.join(targetDir, 'tsconfig.json'), JSON.stringify(tsConfig, null, 2));
 
+  // index.html for production build check
+  const indexHtml = `<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>Matrix Sandbox</title></head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/index.ts"></script>
+  </body>
+</html>`;
+  fs.writeFileSync(path.join(targetDir, 'index.html'), indexHtml);
+
+  // vite.config.ts for testing bundler asset plugins
+  if (targetConfig.dirName === 'typescript') {
+    const viteConfig = `import { defineConfig } from 'vite';
+import avatarBotVitePlugin from 'ai-avatar-bot-typescript/vite';
+
+export default defineConfig({
+  plugins: [avatarBotVitePlugin()]
+});`;
+    fs.writeFileSync(path.join(targetDir, 'vite.config.ts'), viteConfig);
+  }
+
   // src/index.ts
   const testCode = targetConfig.generateTestCode(targetConfig.pkgName);
   fs.writeFileSync(path.join(targetDir, 'src', 'index.ts'), testCode);
@@ -219,6 +241,16 @@ function testPackageManager(pmName, targetConfig, tgzPath, installFn) {
   console.log(`${colors.cyan}> Running runtime module import check (tsx)...${colors.reset}`);
   runCmd('npx', ['--yes', 'tsx', 'src/index.ts'], sandboxDir);
 
+  // 4. Production Build Verification
+  console.log(`${colors.cyan}> Running Vite production build (vite build)...${colors.reset}`);
+  runCmd('npx', ['--yes', 'vite', 'build'], sandboxDir);
+
+  const distDir = path.join(sandboxDir, 'dist');
+  if (!fs.existsSync(distDir)) {
+    throw new Error(`Build finished but dist/ directory not found in ${sandboxDir}`);
+  }
+  console.log(`${colors.green}✓ Production build verified (dist/ generated)${colors.reset}`);
+
   console.log(`${colors.green}✓ ${pmName.toUpperCase()} Matrix Verification PASSED!${colors.reset}`);
 }
 
@@ -236,7 +268,7 @@ async function verifySingleTarget(targetKey) {
     // Test NPM
     try {
       testPackageManager('npm', targetConfig, tgzPath, (dir) => {
-        runCmd('npm', ['install', tgzPath, 'typescript', '--save-dev'], dir);
+        runCmd('npm', ['install', tgzPath, 'typescript', 'vite', '--save-dev'], dir);
       });
       targetResults['npm (Flat Hoisting)'] = true;
     } catch (err) {
@@ -247,7 +279,7 @@ async function verifySingleTarget(targetKey) {
     // Test PNPM
     try {
       testPackageManager('pnpm', targetConfig, tgzPath, (dir) => {
-        runCmd('corepack', ['pnpm', 'add', tgzPath, 'typescript', '-D'], dir);
+        runCmd('corepack', ['pnpm', 'add', tgzPath, 'typescript', 'vite', '-D'], dir);
       });
       targetResults['pnpm (Isolated Symlinks)'] = true;
     } catch (err) {
