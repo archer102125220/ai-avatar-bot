@@ -1,0 +1,33 @@
+{
+  "name": "example-analog-direct",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@angular/animations": "^19.1.8",
+    "@angular/common": "^19.1.8",
+    "@angular/compiler": "^19.1.8",
+    "@angular/core": "^19.1.8",
+    "@angular/forms": "^19.1.8",
+    "@angular/platform-browser": "^19.1.8",
+    "@angular/platform-server": "^19.1.8",
+    "@angular/router": "^19.1.8",
+    "ai-avatar-bot-typescript": "file:../../typescript/ai-avatar-bot-typescript-1.0.0.tgz",
+    "rxjs": "~7.8.2",
+    "tslib": "^2.8.1",
+    "zone.js": "~0.15.0"
+  },
+  "devDependencies": {
+    "@analogjs/platform": "^2.7.5",
+    "@angular/build": "^19.1.8",
+    "@angular/compiler-cli": "^19.1.8",
+    "@types/node": "^20.17.19",
+    "typescript": "~5.6.3",
+    "vite": "^8.1.1"
+  }
+}
