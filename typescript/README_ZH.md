@@ -486,6 +486,11 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `vrmUrl` | `string` | 內建預設 | 3D VRM `.vrm` 模型檔案路徑或 URL。 |
 | `enableModelDrop` | `boolean` | `false` | 是否允許拖曳 `.vrm` 檔案換裝（基於安全考量預設關閉）。 |
 | `enableEngineToggle` | `boolean` | `true` | 當同時具備 2D 與 3D 模型時是否顯示切換按鈕。 |
+| `gesture` | `SkinUnifiedGestureHandler` | `undefined` | 全域統一動作攔截器 `(engine, gestureName, context) => Promise<void> \| void`，可自訂動作邏輯或委派至 `context.gesture2D` / `context.gesture3D`。 |
+| `tapGestures` | `string[]` | `['goodbye', 'bow', 'waiting']` (3D) | 點擊虛擬人時隨機播放的動作清單。3D 與 2D 皆可作為點擊動作來源。 |
+| `tapMotions` | `string[]` | `undefined` | Live2D 2D 專屬的隨機點擊動作群組名稱陣列。 |
+| `motionMap` | `Record<string, string>` | `{}` | Live2D 2D 自訂動作對照表（例如 `{ wave: 'SpecialWave' }`）。 |
+| `expressionMap` | `Record<string, string>` | `{}` | 2D/3D 通用自訂語意表情對照表（例如 `{ happy: 'MyCustomSmile' }`）。 |
 
 ### 建議問題與問候語設定
 
@@ -760,7 +765,70 @@ widget.setSkin3d({
 // 觸發情緒動作與手勢
 widget.skinEngine?.setEmotion('happy');
 widget.applyEmotionFromText?.('這真是個令人開心的好消息！');
+
+// 播放統一語意動作 (2D/3D 自動同構適配)
+widget.playGesture?.('bow');
+
+// 程式化觸發全身點擊互動 (播放隨機點擊動作並朗讀問候語)
+widget.tap?.();
 ```
+
+#### 🎭 統一動作調度與全域攔截器 (`gesture`)
+可在初始化時傳入 `gesture` 攔截器，根據當前渲染模式或動作名稱進行自訂轉發，並安全委派回原生 2D / 3D 渲染器：
+
+```typescript
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  // 全域動作攔截器
+  gesture: async (engine, gestureName, context) => {
+    console.log(`[Gesture] 請求動作: ${gestureName}, 當前渲染模式: ${context.mode}`);
+
+    if (gestureName === 'special_welcome') {
+      if (context.mode === '2d') {
+        await context.gesture2D('Wave'); // 委派至 Live2D 動作
+      } else {
+        await context.gesture3D('goodbye'); // 委派至 3D VRM 動作
+      }
+      return;
+    }
+
+    // 未攔截之動作委派回預設通道
+    if (context.mode === '2d') {
+      await context.gesture2D(gestureName);
+    } else {
+      await context.gesture3D(gestureName);
+    }
+  }
+});
+```
+
+#### 👆 點擊動作清單與自訂映射 (`tapGestures`, `motionMap`, `expressionMap`)
+
+```typescript
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  // 點擊虛擬人時隨機播放的動作列表
+  tapGestures: ['bow', 'goodbye', 'nod'],
+  // 2D Live2D 專屬自訂動作名稱對照表 (外部名稱 ➔ 模型內建 Group)
+  motionMap: {
+    greeting: 'Tap',
+    special_dance: 'DanceGroup'
+  },
+  // 2D / 3D 通用自訂語意表情對照表 (情緒名稱 ➔ 模型表情名稱)
+  expressionMap: {
+    happy: 'MyCustomSmile',
+    angry: 'f08'
+  }
+});
+```
+
+#### 🔍 2D 三層階梯動作解析機制 (Three-tier Motion Resolution)
+當呼叫 `widget.playGesture('greet')` 或 2D 渲染器執行動作時，內部採用優先級分層解析，開箱即用且高度相容各種第三方 Live2D 模型：
+1. **第一層（自訂動作對照表）**：比對 `motionMap['greet']`，有對應則直接播放對應群組。
+2. **第二層（模型原生直通群組）**：直接在 Live2D 模型中比對同名群組（大小寫不拘，如 `'Tap'`）。
+3. **第三層（內建預設動作別名庫）**：比對內建語意別名庫（如 `tap`、`goodbye`、`bow`、`thinking`、`look`、`relax`、`surprised`、`waiting`），自動匹配模型中存在的別名。
+4. **第四層（語意表情降級切換）**：若未命中任何動作群組，則檢查 `expressionMap` 或模型表情切換。
+5. **未命中保護**：若完全未命中，安全觸發 `onGestureError` 並拋出 `GestureNotFoundError`，不中斷主執行緒。
 
 ---
 

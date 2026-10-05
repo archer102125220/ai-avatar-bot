@@ -483,6 +483,11 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `vrmUrl` | `string` | Built-in | URL to 3D VRM `.vrm` file. |
 | `enableModelDrop` | `boolean` | `false` | Allow drag-and-drop `.vrm` hot swapping (disabled by default). |
 | `enableEngineToggle` | `boolean` | `true` | Show 2D/3D toggle button when both models are available. |
+| `gesture` | `SkinUnifiedGestureHandler` | `undefined` | Global unified gesture interceptor `(engine, gestureName, context) => Promise<void> \| void`, allowing custom gesture routing and safe delegation via `context.gesture2D` / `context.gesture3D`. |
+| `tapGestures` | `string[]` | `['goodbye', 'bow', 'waiting']` (3D) | List of gestures picked randomly when the avatar is clicked/tapped. Available across both 2D and 3D. |
+| `tapMotions` | `string[]` | `undefined` | 2D Live2D specific list of motion group names triggered randomly on tap. |
+| `motionMap` | `Record<string, string>` | `{}` | 2D Live2D custom motion mapping dictionary (e.g. `{ wave: 'SpecialWave' }`). |
+| `expressionMap` | `Record<string, string>` | `{}` | Universal semantic expression mapping dictionary for 2D/3D (e.g. `{ happy: 'MyCustomSmile' }`). |
 
 ### Suggestions & Greetings Settings
 
@@ -757,7 +762,70 @@ widget.setSkin3d({
 // Trigger emotions & gestures
 widget.skinEngine?.setEmotion('happy');
 widget.applyEmotionFromText?.('That sounds wonderful!');
+
+// Play isomorphic semantic gesture (adapts automatically across 2D/3D)
+widget.playGesture?.('bow');
+
+// Programmatically trigger avatar tap interaction (plays tap gesture & greets)
+widget.tap?.();
 ```
+
+#### 🎭 Unified Gesture Dispatcher & Interceptor (`gesture`)
+You can pass a custom `gesture` interceptor during initialization to customize animations or safely delegate to the underlying 2D / 3D renderers:
+
+```typescript
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  // Global gesture interceptor
+  gesture: async (engine, gestureName, context) => {
+    console.log(`[Gesture] Requested: ${gestureName}, Mode: ${context.mode}`);
+
+    if (gestureName === 'special_welcome') {
+      if (context.mode === '2d') {
+        await context.gesture2D('Wave'); // Delegate to Live2D
+      } else {
+        await context.gesture3D('goodbye'); // Delegate to 3D VRM
+      }
+      return;
+    }
+
+    // Delegate unintercepted gestures to default channels
+    if (context.mode === '2d') {
+      await context.gesture2D(gestureName);
+    } else {
+      await context.gesture3D(gestureName);
+    }
+  }
+});
+```
+
+#### 👆 Tap Gestures & Custom Mappings (`tapGestures`, `motionMap`, `expressionMap`)
+
+```typescript
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  // Gestures picked randomly when user taps the avatar
+  tapGestures: ['bow', 'goodbye', 'nod'],
+  // 2D Live2D specific motion mapping (external name ➔ model motion group)
+  motionMap: {
+    greeting: 'Tap',
+    special_dance: 'DanceGroup'
+  },
+  // Universal semantic expression mapping (semantic emotion ➔ model expression)
+  expressionMap: {
+    happy: 'MyCustomSmile',
+    angry: 'f08'
+  }
+});
+```
+
+#### 🔍 Three-tier Live2D Motion Resolution
+When calling `widget.playGesture('greet')` or triggering 2D animations, the engine resolves names hierarchically for seamless out-of-the-box compatibility with arbitrary third-party Live2D models:
+1. **Tier 1 (Custom Motion Map)**: Looks up `motionMap['greet']`. Plays the mapped group immediately if present.
+2. **Tier 2 (Direct Model Match)**: Searches directly for a matching group in the model definition (case-insensitive, e.g. `'Tap'`).
+3. **Tier 3 (Preset Motion Aliases)**: Matches against built-in aliases (such as `tap`, `goodbye`, `bow`, `thinking`, `look`, `relax`, `surprised`, `waiting`).
+4. **Tier 4 (Fallback Expression)**: If no motion group matches, checks `expressionMap` or model expressions to perform facial expression morphing.
+5. **Safe Error Handling**: If completely unresolved, safely fires `onGestureError` with `GestureNotFoundError` without crashing the main thread.
 
 ---
 
