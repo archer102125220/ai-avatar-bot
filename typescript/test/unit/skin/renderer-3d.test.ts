@@ -736,7 +736,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
     });
   });
 
-  describe('Unified Gestures & Expressions (Phase 3 Upgrade)', () => {
+  describe('Unified Gestures & Expressions', () => {
     let stageEl: HTMLElement;
 
     beforeEach(() => {

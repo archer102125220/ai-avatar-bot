@@ -272,7 +272,7 @@ describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
     });
   });
 
-  describe('Unified Gesture Interceptor & Tap Gestures (Phase 4 Upgrade)', () => {
+  describe('Unified Gesture Interceptor & Tap Gestures', () => {
     it('should propagate top-level tapMotions, tapGestures, motionMap, and expressionMap to skin2d and skin3d', () => {
       const engine = initSkinEngine({
         stageEl,

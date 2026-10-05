@@ -10,7 +10,7 @@ import {
   createMockChatCompletionStream
 } from '@/test/mocks/ai-provider-mock';
 
-describe('Phase 1: Test Infrastructure & Global Mocks Sanity Check (TypeScript)', () => {
+describe('Test Infrastructure & Global Mocks Sanity Check (TypeScript)', () => {
   it('should have DOM environment properly set up by jsdom', () => {
     const div = document.createElement('div');
     div.id = 'avatar-container';
