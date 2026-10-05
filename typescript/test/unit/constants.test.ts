@@ -53,8 +53,13 @@ import {
   DEFAULT_TOOL_RESULT_MODE,
   DEFAULT_TOOL_CONFIRMATION_TIMEOUT_MS,
   TOOL_CANCEL_REASON_MAP,
-  isWebLLMFunctionCallingSupported
+  isWebLLMFunctionCallingSupported,
+  DEFAULT_2D_FEMALE_EXPRESSION_MAP,
+  DEFAULT_2D_MALE_EXPRESSION_MAP,
+  DEFAULT_3D_EXPRESSION_ALIASES,
+  DEFAULT_2D_MOTION_ALIASES
 } from '@/core/constants';
+import { GestureNotFoundError } from '@/core/skin';
 
 describe('Unit Test: core/constants.js (TypeScript)', () => {
   describe('Enums and Maps Integrity', () => {
@@ -235,6 +240,32 @@ describe('Unit Test: core/constants.js (TypeScript)', () => {
       expect(isWebLLMFunctionCallingSupported(null as unknown as string)).toBe(
         false
       );
+    });
+
+    it('should verify 2D and 3D default expression and motion alias maps', () => {
+      expect(DEFAULT_2D_FEMALE_EXPRESSION_MAP.neutral).toBe('f00');
+      expect(DEFAULT_2D_FEMALE_EXPRESSION_MAP.happy).toBe('f04');
+      expect(DEFAULT_2D_MALE_EXPRESSION_MAP.neutral).toBe('Normal');
+      expect(DEFAULT_2D_MALE_EXPRESSION_MAP.happy).toBe('Smile');
+
+      expect(DEFAULT_3D_EXPRESSION_ALIASES.happy).toContain('joy');
+      expect(DEFAULT_3D_EXPRESSION_ALIASES.sad).toContain('sorrow');
+
+      expect(DEFAULT_2D_MOTION_ALIASES.tap).toContain('Tap');
+      expect(DEFAULT_2D_MOTION_ALIASES.goodbye).toContain('Wave');
+    });
+
+    it('should verify GestureNotFoundError properties and error code', () => {
+      const error = new GestureNotFoundError('unknown_action', '2d');
+      expect(error.name).toBe('GestureNotFoundError');
+      expect(error.code).toBe('ERR_GESTURE_NOT_FOUND');
+      expect(error.gestureName).toBe('unknown_action');
+      expect(error.mode).toBe('2d');
+      expect(error.message).toContain('unknown_action');
+      expect(error.message).toContain('2d');
+
+      const fallbackError = new GestureNotFoundError('missing', null);
+      expect(fallbackError.message).toContain('unknown mode');
     });
   });
 });

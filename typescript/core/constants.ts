@@ -792,3 +792,53 @@ export const DEFAULT_SUPPORTED_EMOTIONS = [
  * Default emotion dispatcher tool name.
  */
 export const DEFAULT_EMOTION_TOOL_NAME = 'express_emotion';
+
+/**
+ * Default expression mapping for 2D female Live2D model (Hiyori specification).
+ */
+export const DEFAULT_2D_FEMALE_EXPRESSION_MAP: Record<string, string> = {
+  neutral: 'f00',
+  happy: 'f04',
+  sad: 'f03',
+  surprised: 'f05',
+  thinking: 'f01',
+  angry: 'f02'
+};
+
+/**
+ * Default expression mapping for 2D male Live2D model (Mao specification).
+ */
+export const DEFAULT_2D_MALE_EXPRESSION_MAP: Record<string, string> = {
+  neutral: 'Normal',
+  happy: 'Smile',
+  sad: 'Sad',
+  surprised: 'Surprised',
+  thinking: 'Normal',
+  angry: 'Sad'
+};
+
+/**
+ * Default alias mapping for 3D VRM expressions (supporting both VRM 1.0 and VRM 0.x specifications).
+ */
+export const DEFAULT_3D_EXPRESSION_ALIASES: Record<string, string[]> = {
+  neutral: ['neutral', 'relaxed'],
+  happy: ['happy', 'joy'],
+  sad: ['sad', 'sorrow'],
+  surprised: ['surprised', 'joy'],
+  angry: ['angry'],
+  relaxed: ['relaxed', 'fun', 'neutral']
+};
+
+/**
+ * Default preset motion group aliases for 2D Live2D models.
+ */
+export const DEFAULT_2D_MOTION_ALIASES: Record<string, string[]> = {
+  tap: ['Tap', 'tap', 'TapBody', 'tap_body', 'Click'],
+  goodbye: ['Wave', 'wave', 'Goodbye', 'goodbye', 'Bye', 'bye'],
+  bow: ['Bow', 'bow', 'Greeting', 'greeting'],
+  thinking: ['Thinking', 'thinking', 'Think', 'think'],
+  look: ['Look', 'look', 'LookAround', 'look_around'],
+  relax: ['Relax', 'relax', 'Idle', 'idle'],
+  surprised: ['Surprised', 'surprised', 'Shock', 'shock'],
+  waiting: ['Waiting', 'waiting', 'Idle', 'idle']
+};

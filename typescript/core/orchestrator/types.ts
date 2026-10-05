@@ -28,7 +28,8 @@ import type {
   Skin3DCameraConfig,
   Skin3DModelConfig,
   Renderer2D,
-  Renderer3D
+  Renderer3D,
+  SkinUnifiedGestureHandler
 } from '@/core/skin';
 import type {
   ToolsEngine,
@@ -212,6 +213,8 @@ export interface AvatarBotOptions {
   gesture3D?: Record<string, unknown>;
   /** Custom 2D gesture data. */
   gesture2D?: Record<string, unknown>;
+  /** Global unified gesture handler interceptor. */
+  gesture?: SkinUnifiedGestureHandler;
   /** Whether to start in minimal UI mode. */
   isMinimal?: boolean;
   /** Whether running inside an iframe. */

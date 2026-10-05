@@ -38,6 +38,14 @@ export interface Skin2DConfig {
   half?: Skin2DModeConfig;
   /** Full-body mode specific overrides. */
   full?: Skin2DModeConfig;
+  /** Tap / click motion keys triggered randomly when avatar is clicked. Default: ['tap'] */
+  tapMotions?: string[];
+  /** Alias for tapMotions. */
+  tapGestures?: string[];
+  /** Semantic motion mapping from action names to Live2D motion group names. */
+  motionMap?: Record<string, string>;
+  /** Custom semantic expression mapping to Live2D expression names. */
+  expressionMap?: Record<string, string>;
 }
 
 /**
@@ -112,6 +120,12 @@ export interface Skin3DConfig {
   waiting?: string;
   /** Root directory URL path for VRMA animation files. */
   vrmaRootPath?: string;
+  /** Gesture action keys triggered randomly when 3D avatar is clicked. Default: ['goodbye', 'bow', 'waiting'] */
+  tapGestures?: string[];
+  /** Custom gesture library dictionary mapping gesture names to VRMA URLs. */
+  gestures?: Record<string, string>;
+  /** Custom semantic expression mapping to VRM morph/expression names. */
+  expressionMap?: Record<string, string>;
 }
 
 /**
@@ -165,6 +179,10 @@ export interface Renderer2D<
   readonly avatarModel: TModel | null | unknown;
   /** PIXI Application instance. */
   readonly pixiApp: TApp;
+  /** Supported tap gesture action keys. */
+  readonly TAP_GESTURES?: string[];
+  /** Plays a named 2D gesture motion or expression. */
+  readonly playGesture?: (gestureName: string) => void | Promise<void>;
   /** Re-calculates and applies fitting transform. */
   fit(): void;
   /** Updates 2D visual transformation configuration. */
@@ -254,6 +272,47 @@ export type SkinGestureErrorCallback = (
   gestureName?: string,
   skinEngine?: SkinEngine
 ) => void;
+
+/**
+ * Error thrown when a requested gesture or motion name is not found in the active model/library.
+ */
+export class GestureNotFoundError extends Error {
+  readonly code = 'ERR_GESTURE_NOT_FOUND';
+  readonly gestureName: string;
+  readonly mode: EngineMode | null;
+
+  constructor(gestureName: string, mode: EngineMode | null) {
+    super(
+      `[aiAvatar] Gesture "${gestureName}" not found on ${mode !== null && typeof mode === 'string' && mode !== '' ? mode : 'unknown'} mode`
+    );
+    this.name = 'GestureNotFoundError';
+    this.gestureName = gestureName;
+    this.mode = mode;
+  }
+}
+
+/**
+ * Execution context passed to global unified gesture interceptor.
+ */
+export interface SkinGestureContext {
+  /** Current active engine rendering mode ('2d' | '3d' | null). */
+  readonly mode: EngineMode | null;
+  /** Direct native 2D gesture motion/expression trigger (bypasses global interceptor to prevent recursion). */
+  readonly gesture2D: (name: string) => Promise<void> | void;
+  /** Direct native 3D VRMA gesture trigger (bypasses global interceptor to prevent recursion). */
+  readonly gesture3D: (name: string) => Promise<void> | void;
+  /** Currently active renderer instance (Renderer2D | Renderer3D | null). */
+  readonly renderer: Renderer2D | Renderer3D | null;
+}
+
+/**
+ * Global unified gesture handler interceptor registered by developer.
+ */
+export type SkinUnifiedGestureHandler = (
+  skinEngine: SkinEngine,
+  gestureName: string,
+  context: SkinGestureContext
+) => Promise<void> | void;
 
 /**
  * Callback fired when engine mode switch starts or updates.
@@ -402,6 +461,16 @@ export interface SkinEngineOptions {
   waiting?: string;
   /** Root directory URL path for VRMA animation files. */
   vrmaRootPath?: string;
+  /** Global unified gesture handler interceptor. */
+  gesture?: SkinUnifiedGestureHandler | null;
+  /** List of gesture keys triggered randomly when 3D avatar is tapped. */
+  tapGestures?: string[];
+  /** List of motion keys triggered randomly when 2D avatar is tapped. */
+  tapMotions?: string[];
+  /** Semantic motion mapping from action names to Live2D motion group names. */
+  motionMap?: Record<string, string>;
+  /** Custom semantic expression mapping to expression names. */
+  expressionMap?: Record<string, string>;
 }
 
 /**
@@ -463,6 +532,10 @@ export interface SkinEngine extends SubscribableStore<SkinEngineState> {
   gesture2D: SkinGestureTrigger | null;
   /** Plays a gesture on the current active engine (2D or 3D). */
   gesture?: SkinGestureTrigger | null;
+  /** Plays tap gesture randomly from TAP_GESTURES on active engine. */
+  playTapGesture?(): void;
+  /** Plays a gesture on the current active engine (2D or 3D). */
+  playGesture?(name: string): Promise<void> | void;
   /** Current active gesture / emotion name. Setting triggers onGesture lifecycle. */
   gestureName: string;
   /** Initial rendering start mode. */
