@@ -221,6 +221,7 @@ export function setupWindowPixiMock() {
     scale: { set: ReturnType<typeof vi.fn> };
     anchor: { set: ReturnType<typeof vi.fn> };
     expression: ReturnType<typeof vi.fn>;
+    motion: ReturnType<typeof vi.fn>;
     on: ReturnType<typeof vi.fn>;
     x: number;
     y: number;
@@ -243,6 +244,7 @@ export function setupWindowPixiMock() {
       this.scale = { set: vi.fn() };
       this.anchor = { set: vi.fn() };
       this.expression = vi.fn(() => Promise.resolve(true));
+      this.motion = vi.fn(() => Promise.resolve(true));
       this.on = vi.fn();
       this.x = 0;
       this.y = 0;

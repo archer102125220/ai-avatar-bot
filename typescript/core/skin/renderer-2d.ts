@@ -7,15 +7,19 @@ import {
   DEFAULT_2D_OFFSET_X,
   DEFAULT_2D_OFFSET_Y,
   DEFAULT_2D_HALF_ANCHOR,
-  DEFAULT_2D_FULL_ANCHOR
+  DEFAULT_2D_FULL_ANCHOR,
+  DEFAULT_2D_FEMALE_EXPRESSION_MAP,
+  DEFAULT_2D_MALE_EXPRESSION_MAP,
+  DEFAULT_2D_MOTION_ALIASES
 } from '@/core/constants';
 import { createCanvas } from './canvas';
-import type {
-  Renderer2D,
-  SkinEngine,
-  Skin2DConfig,
-  SkinEngineState,
-  Live2DModelInstance
+import {
+  GestureNotFoundError,
+  type Renderer2D,
+  type SkinEngine,
+  type Skin2DConfig,
+  type SkinEngineState,
+  type Live2DModelInstance
 } from './types';
 
 interface PixiAppInstance {
@@ -114,6 +118,41 @@ export function loadUMD(): Promise<void> {
 }
 
 /**
+ * Helper to look up a string value from a dictionary map ignoring case.
+ */
+function findInMap(
+  map: Record<string, string> | undefined,
+  key: string
+): string | undefined {
+  if (
+    typeof map !== 'object' ||
+    map === null ||
+    typeof key !== 'string' ||
+    key === ''
+  ) {
+    return undefined;
+  }
+  if (typeof map[key] === 'string' && map[key] !== '') {
+    return map[key];
+  }
+  const lowerKey = key.toLowerCase();
+  if (typeof map[lowerKey] === 'string' && map[lowerKey] !== '') {
+    return map[lowerKey];
+  }
+  const matchedKey = Object.keys(map).find(
+    (k) => k.toLowerCase() === lowerKey
+  );
+  if (
+    matchedKey !== undefined &&
+    typeof map[matchedKey] === 'string' &&
+    map[matchedKey] !== ''
+  ) {
+    return map[matchedKey];
+  }
+  return undefined;
+}
+
+/**
  * Executes the default 2D emotion expression / gesture corresponding to avatar gender.
  *
  * @param skinEngine - Skin engine instance.
@@ -127,31 +166,32 @@ export async function defaultGesture2D(
     return;
   }
 
-  const emotionFemaleNameMap: Record<string, string> = {
-    neutral: 'f00',
-    happy: 'f04',
-    sad: 'f03',
-    surprised: 'f05'
-  };
-
-  const emotionMaleNameMap: Record<string, string> = {
-    neutral: 'Normal',
-    happy: 'Smile',
-    sad: 'Sad',
-    surprised: 'Surprised'
-  };
-
-  const emotionNameMap =
-    skinEngine.gender === GENDER_MAP.female
-      ? emotionFemaleNameMap
-      : emotionMaleNameMap;
-
   const targetEmotion = typeof emotionName === 'string' ? emotionName : '';
-  const emotionCode = emotionNameMap[targetEmotion];
+  if (targetEmotion === '') {
+    return;
+  }
+
+  const state =
+    typeof skinEngine.getState === 'function' ? skinEngine.getState() : null;
+  const skin2d: Skin2DConfig =
+    typeof state?.skin2d === 'object' && state.skin2d !== null
+      ? state.skin2d
+      : typeof skinEngine.skin2d === 'object' && skinEngine.skin2d !== null
+        ? skinEngine.skin2d
+        : {};
+
+  const defaultEmotionMap =
+    skinEngine.gender === GENDER_MAP.female
+      ? DEFAULT_2D_FEMALE_EXPRESSION_MAP
+      : DEFAULT_2D_MALE_EXPRESSION_MAP;
+
+  const emotionCode =
+    findInMap(skin2d.expressionMap, targetEmotion) ??
+    findInMap(defaultEmotionMap, targetEmotion);
 
   if (
     typeof emotionCode === 'string' &&
-    Object.values(emotionNameMap).includes(emotionCode) &&
+    emotionCode !== '' &&
     typeof skinEngine?.avatarModel?.expression === 'function'
   ) {
     try {
@@ -386,6 +426,100 @@ export async function bootAvatar(
       }
     } catch (_error) {}
 
+    function getSkin2dConfig(): Skin2DConfig {
+      const state =
+        typeof skinEngine.getState === 'function' ? skinEngine.getState() : null;
+      return typeof state?.skin2d === 'object' && state.skin2d !== null
+        ? state.skin2d
+        : typeof skinEngine.skin2d === 'object' && skinEngine.skin2d !== null
+          ? skinEngine.skin2d
+          : {};
+    }
+
+    async function playGesture(gestureName: string): Promise<void> {
+      if (typeof gestureName !== 'string' || gestureName === '') {
+        throw new GestureNotFoundError(String(gestureName), '2d');
+      }
+
+      const avatarModel = skinEngine.avatarModel as Live2DModelInstance | null;
+      const motions: Record<string, unknown> =
+        typeof avatarModel?.internalModel?.settings?.motions === 'object' &&
+        avatarModel.internalModel.settings.motions !== null
+          ? avatarModel.internalModel.settings.motions
+          : {};
+      const motionKeys = Object.keys(motions);
+      const skin2d = getSkin2dConfig();
+
+      // 1. 自訂 motionMap 優先
+      const customMotion = findInMap(skin2d.motionMap, gestureName);
+      if (typeof customMotion === 'string' && customMotion !== '') {
+        const directMatch = motionKeys.find(
+          (k) => k.toLowerCase() === customMotion.toLowerCase()
+        );
+        const targetMotion =
+          directMatch !== undefined ? directMatch : customMotion;
+        if (typeof avatarModel?.motion === 'function') {
+          await avatarModel.motion(targetMotion);
+          return;
+        }
+      }
+
+      // 2. 直接比對 Live2D 內建動作名稱 (大小寫不拘)
+      const directMatch = motionKeys.find(
+        (k) => k.toLowerCase() === gestureName.toLowerCase()
+      );
+      if (
+        directMatch !== undefined &&
+        typeof avatarModel?.motion === 'function'
+      ) {
+        await avatarModel.motion(directMatch);
+        return;
+      }
+
+      // 3. 預設別名庫比對 (DEFAULT_2D_MOTION_ALIASES)
+      const aliases = DEFAULT_2D_MOTION_ALIASES[gestureName.toLowerCase()];
+      if (Array.isArray(aliases) && typeof avatarModel?.motion === 'function') {
+        for (const alias of aliases) {
+          const aliasMatch = motionKeys.find(
+            (k) => k.toLowerCase() === alias.toLowerCase()
+          );
+          if (aliasMatch !== undefined) {
+            await avatarModel.motion(aliasMatch);
+            return;
+          }
+        }
+      }
+
+      // 4. 表情 fallback (Expression Fallback)
+      const defaultEmotionMap =
+        skinEngine.gender === GENDER_MAP.female
+          ? DEFAULT_2D_FEMALE_EXPRESSION_MAP
+          : DEFAULT_2D_MALE_EXPRESSION_MAP;
+      const targetExpression =
+        findInMap(skin2d.expressionMap, gestureName) ??
+        findInMap(defaultEmotionMap, gestureName);
+
+      if (
+        typeof targetExpression === 'string' &&
+        targetExpression !== '' &&
+        typeof avatarModel?.expression === 'function'
+      ) {
+        await defaultGesture2D(skinEngine, gestureName);
+        return;
+      }
+
+      // 5. 若模型未暴露 motions metadata，但有 motion 函式，做盲調嘗試
+      if (motionKeys.length === 0 && typeof avatarModel?.motion === 'function') {
+        const res = await avatarModel.motion(gestureName);
+        if (res !== false) {
+          return;
+        }
+      }
+
+      // 6. 完全未命中
+      throw new GestureNotFoundError(gestureName, '2d');
+    }
+
     if (typeof skinEngine.onMounted === 'function') {
       skinEngine.onMounted();
     }
@@ -400,6 +534,23 @@ export async function bootAvatar(
       get pixiApp(): unknown {
         return pixiApp;
       },
+      get TAP_GESTURES(): string[] {
+        const config = getSkin2dConfig();
+        if (
+          Array.isArray(config.tapMotions) &&
+          config.tapMotions.length > 0
+        ) {
+          return config.tapMotions;
+        }
+        if (
+          Array.isArray(config.tapGestures) &&
+          config.tapGestures.length > 0
+        ) {
+          return config.tapGestures;
+        }
+        return ['tap'];
+      },
+      playGesture,
       fit(): void {
         fit();
       },

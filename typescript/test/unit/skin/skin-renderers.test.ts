@@ -7,7 +7,11 @@ import {
 import { FIT_MODE_MAP } from '@/core/constants';
 import { defaultGesture2D, bootAvatar, loadUMD } from '@/core/skin/renderer-2d';
 import { defaultGesture3D } from '@/core/skin/renderer-3d';
-import { isRenderer2D, isRenderer3D } from '@/core/skin/types';
+import {
+  GestureNotFoundError,
+  isRenderer2D,
+  isRenderer3D
+} from '@/core/skin/types';
 import type { Renderer2D, SkinEngine } from '@/core/skin';
 
 describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)', () => {
@@ -74,6 +78,29 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
       // Null skinEngine or invalid emotion
       await defaultGesture2D(null as unknown as SkinEngine, 'happy');
       await defaultGesture2D(skinEngine, 'unknown_emotion');
+    });
+
+    it('should support custom expressionMap override and case-insensitivity', async () => {
+      const expressionMock = vi.fn().mockResolvedValue(true);
+      const skinEngine = {
+        gender: 'female',
+        skin2d: {
+          expressionMap: {
+            happy: 'custom_happy_01',
+            Surprised: 'custom_surprised_02'
+          }
+        },
+        avatarModel: { expression: expressionMock }
+      } as unknown as SkinEngine;
+
+      await defaultGesture2D(skinEngine, 'happy');
+      expect(expressionMock).toHaveBeenCalledWith('custom_happy_01');
+
+      await defaultGesture2D(skinEngine, 'surprised');
+      expect(expressionMock).toHaveBeenCalledWith('custom_surprised_02');
+
+      await defaultGesture2D(skinEngine, 'HAPPY');
+      expect(expressionMock).toHaveBeenCalledWith('custom_happy_01');
     });
   });
 
@@ -212,6 +239,115 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
       // Subsequent call returns cached promise
       const promise2 = loadUMD();
       expect(promise2).toBe(promise1);
+    });
+
+    it('should expose TAP_GESTURES with proper fallback order', async () => {
+      const skinEngineMock = {
+        stageEl,
+        fitMode: FIT_MODE_MAP.FULL,
+        skin2d: {},
+        avatarModel: null as unknown
+      };
+      const renderer = (await bootAvatar(
+        skinEngineMock as unknown as SkinEngine,
+        'model.json'
+      )) as Renderer2D;
+      expect(renderer.TAP_GESTURES).toEqual(['tap']);
+
+      skinEngineMock.skin2d = { tapGestures: ['tap_body', 'head_pat'] };
+      expect(renderer.TAP_GESTURES).toEqual(['tap_body', 'head_pat']);
+
+      skinEngineMock.skin2d = {
+        tapMotions: ['tap_motion_override'],
+        tapGestures: ['tap_body']
+      };
+      expect(renderer.TAP_GESTURES).toEqual(['tap_motion_override']);
+
+      renderer.dispose();
+    });
+
+    it('should handle playGesture through motionMap, direct match, aliases, expression fallback, and error handling', async () => {
+      const skinEngineMock = {
+        stageEl,
+        fitMode: FIT_MODE_MAP.FULL,
+        gender: 'female',
+        skin2d: {
+          motionMap: {
+            custom_tap: 'idle'
+          },
+          expressionMap: {
+            confused: 'f03'
+          }
+        },
+        avatarModel: null as unknown
+      };
+      const renderer = (await bootAvatar(
+        skinEngineMock as unknown as SkinEngine,
+        'model.json'
+      )) as Renderer2D;
+
+      const avatarModel = skinEngineMock.avatarModel as {
+        motion: ReturnType<typeof vi.fn>;
+        expression: ReturnType<typeof vi.fn>;
+        internalModel: { settings: { motions: Record<string, unknown> } };
+      };
+
+      // 1. motionMap match
+      await renderer.playGesture?.('custom_tap');
+      expect(avatarModel.motion).toHaveBeenCalledWith('idle');
+
+      // 2. Direct match (case-insensitive)
+      avatarModel.motion.mockClear();
+      await renderer.playGesture?.('IDLE');
+      expect(avatarModel.motion).toHaveBeenCalledWith('idle');
+
+      // 3. Preset Aliases: add 'Tap' to internal motions and trigger 'tap'
+      avatarModel.internalModel.settings.motions.Tap = [
+        { File: 'tap.motion3.json' }
+      ];
+      avatarModel.motion.mockClear();
+      await renderer.playGesture?.('tap');
+      expect(avatarModel.motion).toHaveBeenCalledWith('Tap');
+
+      // 4. Expression fallback: standard emotion
+      avatarModel.expression.mockClear();
+      await renderer.playGesture?.('happy');
+      expect(avatarModel.expression).toHaveBeenCalledWith('f04');
+
+      // 4b. Expression fallback: custom expressionMap
+      avatarModel.expression.mockClear();
+      await renderer.playGesture?.('confused');
+      expect(avatarModel.expression).toHaveBeenCalledWith('f03');
+
+      // 5. Unmatched gesture throws GestureNotFoundError
+      await expect(
+        renderer.playGesture?.('completely_unknown_gesture')
+      ).rejects.toThrow(GestureNotFoundError);
+
+      try {
+        await renderer.playGesture?.('completely_unknown_gesture');
+      } catch (err: unknown) {
+        expect(err).toBeInstanceOf(GestureNotFoundError);
+        const gestureErr = err as GestureNotFoundError;
+        expect(gestureErr.code).toBe('ERR_GESTURE_NOT_FOUND');
+        expect(gestureErr.mode).toBe('2d');
+        expect(gestureErr.gestureName).toBe('completely_unknown_gesture');
+      }
+
+      // Empty string throws GestureNotFoundError
+      await expect(renderer.playGesture?.('')).rejects.toThrow(
+        GestureNotFoundError
+      );
+
+      // 6. Runtime error thrown by motion is propagated directly
+      avatarModel.motion.mockRejectedValueOnce(
+        new Error('Motion file missing')
+      );
+      await expect(renderer.playGesture?.('idle')).rejects.toThrow(
+        'Motion file missing'
+      );
+
+      renderer.dispose();
     });
   });
 
