@@ -660,7 +660,9 @@ export async function bootVRM(
             if (typeof vrm.expressionManager.update === 'function') {
               vrm.expressionManager.update();
             }
-          } catch (_error) {}
+          } catch (error) {
+            console.warn('[AvatarBot] Failed to set VRM expression:', error);
+          }
         }
         return;
       }

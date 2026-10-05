@@ -1178,6 +1178,15 @@ describe('Orchestrator Engine Factory', () => {
       );
       expect(mockEngines.speechEngine.triggerTap).toHaveBeenCalled();
 
+      // simulate pointerdown when speechEngine is null -> falls back to widget.tap
+      mockEngines.speechEngine = null as unknown as typeof mockEngines.speechEngine;
+      const widgetTapSpy = vi.fn();
+      mockWidget.tap = widgetTapSpy;
+      mockEngines.skinEngine.renderer.canvas.dispatchEvent(
+        new Event('pointerdown')
+      );
+      expect(widgetTapSpy).toHaveBeenCalled();
+
       initSkinSpy.mockRestore();
     });
 

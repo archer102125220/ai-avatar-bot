@@ -717,7 +717,7 @@ export function initSkinEngine(
       const context: SkinGestureContext = {
         mode: currentMode,
         renderer: this.renderer,
-        gesture2D: (name: string): Promise<void> | void => {
+        gesture2D: (name?: string): Promise<void> | void => {
           const target =
             typeof name === 'string' && name !== '' ? name : gestureName;
           if (
@@ -745,7 +745,7 @@ export function initSkinEngine(
             return;
           }
         },
-        gesture3D: (name: string): Promise<void> | void => {
+        gesture3D: (name?: string): Promise<void> | void => {
           const target =
             typeof name === 'string' && name !== '' ? name : gestureName;
           if (

@@ -375,5 +375,88 @@ describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
         GestureNotFoundError
       );
     });
+
+    it('should dispatch to context.gesture3D in 3D mode without interceptor', async () => {
+      const engine = initSkinEngine({
+        stageEl,
+        startMode: ENGINE_MODE_MAP.threeDimensional
+      }) as SkinEngine;
+
+      const mock3DPlay = vi.fn().mockResolvedValue(undefined);
+      engine.renderer = {
+        playGesture: mock3DPlay
+      } as unknown as Renderer2D;
+
+      await engine.playGesture?.('bow');
+      expect(mock3DPlay).toHaveBeenCalledWith('bow');
+    });
+
+    it('should fallback to this.gesture in gestureName setter if playGesture is missing', async () => {
+      const engine = initSkinEngine({
+        stageEl,
+        startMode: ENGINE_MODE_MAP.twoDimensional
+      }) as SkinEngine;
+
+      const gestureFallback = vi.fn().mockResolvedValue(undefined);
+      engine.gesture2D = gestureFallback;
+      (engine as unknown as { playGesture: null }).playGesture = null;
+
+      engine.gestureName = 'nod';
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(gestureFallback).toHaveBeenCalledWith(engine, 'nod');
+    });
+
+    it('should handle custom gesture2D and gesture3D branches in context', async () => {
+      const customG2D = vi.fn();
+      const customG3D = vi.fn();
+      const engine = initSkinEngine({
+        stageEl,
+        startMode: ENGINE_MODE_MAP.twoDimensional,
+        gesture: async (_eng, _name, ctx) => {
+          ctx.gesture2D('override2D');
+          ctx.gesture3D('override3D');
+        }
+      }) as SkinEngine;
+
+      engine.gesture2D = customG2D;
+      engine.gesture3D = customG3D;
+      await engine.playGesture?.('test');
+      expect(customG2D).toHaveBeenCalledWith(engine, 'override2D');
+      expect(customG3D).toHaveBeenCalledWith(engine, 'override3D');
+
+      // Test async Promise return and renderer.playGesture delegation
+      const mockRendererSync = { playGesture: vi.fn(() => {}) } as unknown as Renderer2D;
+      const mockRendererAsync = { playGesture: vi.fn(async () => {}) } as unknown as Renderer2D;
+
+      const engineWithRenderer = initSkinEngine({
+        stageEl,
+        startMode: ENGINE_MODE_MAP.twoDimensional,
+        gesture: async (_eng, _name, ctx) => {
+          await ctx.gesture2D();
+          await ctx.gesture3D();
+        }
+      }) as SkinEngine;
+
+      // Renderer sync return
+      engineWithRenderer.renderer = mockRendererSync;
+      await engineWithRenderer.playGesture?.('greet');
+      expect(mockRendererSync.playGesture).toHaveBeenCalledWith('greet');
+
+      // Renderer async return
+      engineWithRenderer.renderer = mockRendererAsync;
+      await engineWithRenderer.playGesture?.('greet');
+      expect(mockRendererAsync.playGesture).toHaveBeenCalledWith('greet');
+
+      // Fallback to gesture2D / gesture3D when renderer has no playGesture
+      engineWithRenderer.renderer = null;
+      const fallback2D = vi.fn().mockReturnValue(undefined);
+      const fallback3D = vi.fn().mockReturnValue(Promise.resolve());
+      engineWithRenderer.gesture2D = fallback2D;
+      engineWithRenderer.gesture3D = fallback3D;
+      await engineWithRenderer.playGesture?.('fallbackAction');
+      expect(fallback2D).toHaveBeenCalledWith(engineWithRenderer, 'fallbackAction');
+      expect(fallback3D).toHaveBeenCalledWith(engineWithRenderer, 'fallbackAction');
+    });
   });
 });

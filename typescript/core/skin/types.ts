@@ -300,9 +300,9 @@ export interface SkinGestureContext {
   /** Current active engine rendering mode ('2d' | '3d' | null). */
   readonly mode: EngineMode | null;
   /** Direct native 2D gesture motion/expression trigger (bypasses global interceptor to prevent recursion). */
-  readonly gesture2D: (name: string) => Promise<void> | void;
+  readonly gesture2D: (name?: string) => Promise<void> | void;
   /** Direct native 3D VRMA gesture trigger (bypasses global interceptor to prevent recursion). */
-  readonly gesture3D: (name: string) => Promise<void> | void;
+  readonly gesture3D: (name?: string) => Promise<void> | void;
   /** Currently active renderer instance (Renderer2D | Renderer3D | null). */
   readonly renderer: Renderer2D | Renderer3D | null;
 }

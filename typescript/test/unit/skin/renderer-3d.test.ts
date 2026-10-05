@@ -727,9 +727,9 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       skinEngine.emo.name = 'neutral';
       await vi.advanceTimersByTimeAsync(50);
 
-      // 4. Test speaking = false
+      // 4. Test speaking = false and trigger blink cycles / idleBreak
       isSpeaking = false;
-      await vi.advanceTimersByTimeAsync(50);
+      await vi.advanceTimersByTimeAsync(16000);
 
       renderer.dispose();
       vi.useRealTimers();
@@ -834,6 +834,17 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       expect(skinEngine.emo.name).toBe('happy');
       if (vrm?.expressionManager) {
         expect(vrm.expressionManager.setValue).toHaveBeenCalledWith('happy', 1);
+
+        // Expression update and error handling branches
+        const updateMock = vi.fn();
+        vrm.expressionManager.update = updateMock;
+        await renderer.playGesture('custom_happy');
+        expect(updateMock).toHaveBeenCalled();
+
+        vrm.expressionManager.setValue = vi.fn().mockImplementation(() => {
+          throw new Error('Expression setValue failed');
+        });
+        await renderer.playGesture('custom_happy');
       }
 
       // 5. Unmatched gesture throws GestureNotFoundError
