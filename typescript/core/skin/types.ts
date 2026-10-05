@@ -8,6 +8,8 @@ import type {
   EngineMode
 } from '@/core/types';
 
+export type { EngineMode };
+
 /**
  * 2D visual transformation settings for a specific display mode (half / full).
  */

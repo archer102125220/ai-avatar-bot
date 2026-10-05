@@ -3,7 +3,9 @@ import {
   initSkinEngine,
   validateSkinEngine,
   createCanvas,
-  initSkinMode
+  initSkinMode,
+  GestureNotFoundError,
+  type Renderer2D
 } from '@/core/skin';
 import {
   ENGINE_MODE_MAP,
@@ -267,6 +269,111 @@ describe('Unit Test: core/skin/skin-engine-init.js (Init & DOM Setup)', () => {
 
       initSkinMode(mockEngine3DOnly);
       expect(mockEngine3DOnly.startMode).toBe(ENGINE_MODE_MAP.threeDimensional);
+    });
+  });
+
+  describe('Unified Gesture Interceptor & Tap Gestures (Phase 4 Upgrade)', () => {
+    it('should propagate top-level tapMotions, tapGestures, motionMap, and expressionMap to skin2d and skin3d', () => {
+      const engine = initSkinEngine({
+        stageEl,
+        tapMotions: ['tap_motion_01'],
+        tapGestures: ['tap_gesture_01'],
+        motionMap: { wave: 'SpecialWave' },
+        expressionMap: { joy: 'happy' }
+      }) as SkinEngine;
+
+      const state = engine.getState();
+      expect(state.skin2d.tapMotions).toEqual(['tap_motion_01']);
+      expect(state.skin2d.tapGestures).toEqual(['tap_gesture_01']);
+      expect(state.skin2d.motionMap).toEqual({ wave: 'SpecialWave' });
+      expect(state.skin2d.expressionMap).toEqual({ joy: 'happy' });
+
+      expect(state.skin3d.tapGestures).toEqual(['tap_gesture_01']);
+      expect(state.skin3d.expressionMap).toEqual({ joy: 'happy' });
+    });
+
+    it('should trigger custom unified gesture interceptor and allow context delegation', async () => {
+      const mockPlayGesture = vi.fn().mockResolvedValue(undefined);
+      const interceptor = vi.fn(async (_engine, _gestureName, context) => {
+        if (context.mode === '2d') {
+          await context.gesture2D('intercepted_2d_motion');
+        } else {
+          await context.gesture3D('intercepted_3d_motion');
+        }
+      });
+
+      const engine = initSkinEngine({
+        stageEl,
+        startMode: ENGINE_MODE_MAP.twoDimensional,
+        gesture: interceptor
+      }) as SkinEngine;
+
+      engine.renderer = {
+        playGesture: mockPlayGesture,
+        TAP_GESTURES: ['tap']
+      } as unknown as Renderer2D;
+
+      await engine.playGesture?.('greet');
+
+      expect(interceptor).toHaveBeenCalledWith(
+        engine,
+        'greet',
+        expect.objectContaining({
+          mode: '2d',
+          gesture2D: expect.any(Function),
+          gesture3D: expect.any(Function),
+          renderer: engine.renderer
+        })
+      );
+      expect(mockPlayGesture).toHaveBeenCalledWith('intercepted_2d_motion');
+
+      // Test error propagation from interceptor
+      interceptor.mockRejectedValueOnce(new Error('Interceptor failure'));
+      await expect(engine.playGesture?.('greet')).rejects.toThrow(
+        'Interceptor failure'
+      );
+    });
+
+    it('should pick random tap gesture from renderer.TAP_GESTURES and execute via playGesture', async () => {
+      const playGestureSpy = vi.fn().mockResolvedValue(undefined);
+      const engine = initSkinEngine({
+        stageEl,
+        startMode: ENGINE_MODE_MAP.twoDimensional
+      }) as SkinEngine;
+
+      engine.renderer = {
+        TAP_GESTURES: ['tap_body', 'tap_head']
+      } as unknown as Renderer2D;
+
+      engine.playGesture = playGestureSpy;
+
+      await engine.playTapGesture?.();
+      expect(playGestureSpy).toHaveBeenCalled();
+      const calledGesture = playGestureSpy.mock.calls[0][0];
+      expect(['tap_body', 'tap_head']).toContain(calledGesture);
+
+      // Fallback when TAP_GESTURES is missing or empty
+      engine.renderer = null;
+      playGestureSpy.mockClear();
+      await engine.playTapGesture?.();
+      expect(playGestureSpy).toHaveBeenCalledWith('tap');
+
+      // 3D mode fallback
+      engine._engineMode = ENGINE_MODE_MAP.threeDimensional;
+      playGestureSpy.mockClear();
+      await engine.playTapGesture?.();
+      expect(playGestureSpy).toHaveBeenCalledWith('goodbye');
+    });
+
+    it('should throw GestureNotFoundError on empty string in playGesture', async () => {
+      const engine = initSkinEngine({
+        stageEl,
+        startMode: ENGINE_MODE_MAP.twoDimensional
+      }) as SkinEngine;
+
+      await expect(engine.playGesture?.('')).rejects.toThrow(
+        GestureNotFoundError
+      );
     });
   });
 });

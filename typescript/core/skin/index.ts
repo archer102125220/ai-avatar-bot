@@ -24,25 +24,29 @@ import {
 import { initSkinMode } from './canvas';
 import { defaultGesture2D, bootAvatar } from './renderer-2d';
 import { defaultGesture3D, loadVRMFile, bootVRM } from './renderer-3d';
-import type {
-  SkinEngine,
-  SkinEngineOptions,
-  Skin2DConfig,
-  Skin3DConfig,
-  Renderer2D,
-  Renderer3D,
-  SkinGestureHandler,
-  SkinGestureTrigger,
-  SkinComputeMouthFn,
-  SkinMountedCallback,
-  SkinErrorCallback,
-  SkinVRMFileFailCallback,
-  SkinVRMFileSuccessCallback,
-  SkinGestureCallback,
-  SkinGestureErrorCallback,
-  SkinModelChangeStartCallback,
-  SkinModelChangeEndCallback,
-  SkinModelChangeErrorCallback
+import {
+  GestureNotFoundError,
+  type EngineMode,
+  type SkinEngine,
+  type SkinEngineOptions,
+  type Skin2DConfig,
+  type Skin3DConfig,
+  type Renderer2D,
+  type Renderer3D,
+  type SkinGestureHandler,
+  type SkinGestureTrigger,
+  type SkinComputeMouthFn,
+  type SkinMountedCallback,
+  type SkinErrorCallback,
+  type SkinVRMFileFailCallback,
+  type SkinVRMFileSuccessCallback,
+  type SkinGestureCallback,
+  type SkinGestureErrorCallback,
+  type SkinModelChangeStartCallback,
+  type SkinModelChangeEndCallback,
+  type SkinModelChangeErrorCallback,
+  type SkinGestureContext,
+  type SkinUnifiedGestureHandler
 } from './types';
 
 export * from './types';
@@ -68,11 +72,14 @@ interface InternalSkinEngine extends SkinEngine {
   _engineMode: string | null;
   _gesture3D: SkinGestureHandler | null;
   _gesture2D: SkinGestureHandler | null;
+  _customUnifiedGesture?: SkinUnifiedGestureHandler | null;
   _gestureName: string;
   _vrmUrl: string;
   _switching: boolean | null;
   _lipIds: string[];
   _startMode: string;
+  playGesture: (gestureName: string) => Promise<void> | void;
+  playTapGesture: () => Promise<void>;
 }
 
 /**
@@ -182,7 +189,36 @@ export function initSkinEngine(
       ...(typeof skin2dOption.full === 'object' && skin2dOption.full !== null
         ? skin2dOption.full
         : {})
-    }
+    },
+    tapMotions:
+      Array.isArray(skin2dOption.tapMotions) &&
+      skin2dOption.tapMotions.length > 0
+        ? skin2dOption.tapMotions
+        : Array.isArray(setting.tapMotions) && setting.tapMotions.length > 0
+          ? setting.tapMotions
+          : undefined,
+    tapGestures:
+      Array.isArray(skin2dOption.tapGestures) &&
+      skin2dOption.tapGestures.length > 0
+        ? skin2dOption.tapGestures
+        : Array.isArray(setting.tapGestures) && setting.tapGestures.length > 0
+          ? setting.tapGestures
+          : undefined,
+    motionMap:
+      typeof skin2dOption.motionMap === 'object' &&
+      skin2dOption.motionMap !== null
+        ? skin2dOption.motionMap
+        : typeof setting.motionMap === 'object' && setting.motionMap !== null
+          ? setting.motionMap
+          : undefined,
+    expressionMap:
+      typeof skin2dOption.expressionMap === 'object' &&
+      skin2dOption.expressionMap !== null
+        ? skin2dOption.expressionMap
+        : typeof setting.expressionMap === 'object' &&
+            setting.expressionMap !== null
+          ? setting.expressionMap
+          : undefined
   };
 
   const skin3dOption =
@@ -241,7 +277,27 @@ export function initSkinEngine(
     appearing: skin3dOption.appearing || setting.appearing || '',
     liked: skin3dOption.liked || setting.liked || '',
     waiting: skin3dOption.waiting || setting.waiting || '',
-    vrmaRootPath: skin3dOption.vrmaRootPath || setting.vrmaRootPath || ''
+    vrmaRootPath: skin3dOption.vrmaRootPath || setting.vrmaRootPath || '',
+    tapGestures:
+      Array.isArray(skin3dOption.tapGestures) &&
+      skin3dOption.tapGestures.length > 0
+        ? skin3dOption.tapGestures
+        : Array.isArray(setting.tapGestures) && setting.tapGestures.length > 0
+          ? setting.tapGestures
+          : undefined,
+    gestures:
+      typeof skin3dOption.gestures === 'object' &&
+      skin3dOption.gestures !== null
+        ? skin3dOption.gestures
+        : undefined,
+    expressionMap:
+      typeof skin3dOption.expressionMap === 'object' &&
+      skin3dOption.expressionMap !== null
+        ? skin3dOption.expressionMap
+        : typeof setting.expressionMap === 'object' &&
+            setting.expressionMap !== null
+          ? setting.expressionMap
+          : undefined
   };
 
   const store = createBaseStore<InternalSkinStoreState>({
@@ -641,6 +697,111 @@ export function initSkinEngine(
       }
     },
 
+    _customUnifiedGesture:
+      typeof setting.gesture === 'function' ? setting.gesture : null,
+
+    playGesture(gestureName: string): Promise<void> | void {
+      const currentMode: EngineMode | null =
+        this.engineMode === ENGINE_MODE_MAP.twoDimensional
+          ? '2d'
+          : this.engineMode === ENGINE_MODE_MAP.threeDimensional
+            ? '3d'
+            : null;
+
+      if (typeof gestureName !== 'string' || gestureName === '') {
+        return Promise.reject(
+          new GestureNotFoundError(String(gestureName), currentMode)
+        );
+      }
+
+      const context: SkinGestureContext = {
+        mode: currentMode,
+        renderer: this.renderer,
+        gesture2D: (name: string): Promise<void> | void => {
+          const target =
+            typeof name === 'string' && name !== '' ? name : gestureName;
+          if (
+            this._gesture2D !== safeGesture2D &&
+            typeof this.gesture2D === 'function'
+          ) {
+            const res = this.gesture2D(target);
+            if (res instanceof Promise) {
+              return res;
+            }
+            return;
+          }
+          if (typeof this.renderer?.playGesture === 'function') {
+            const res = this.renderer.playGesture(target);
+            if (res instanceof Promise) {
+              return res;
+            }
+            return;
+          }
+          if (typeof this.gesture2D === 'function') {
+            const res = this.gesture2D(target);
+            if (res instanceof Promise) {
+              return res;
+            }
+            return;
+          }
+        },
+        gesture3D: (name: string): Promise<void> | void => {
+          const target =
+            typeof name === 'string' && name !== '' ? name : gestureName;
+          if (
+            this._gesture3D !== safeGesture3D &&
+            typeof this.gesture3D === 'function'
+          ) {
+            const res = this.gesture3D(target);
+            if (res instanceof Promise) {
+              return res;
+            }
+            return;
+          }
+          if (typeof this.renderer?.playGesture === 'function') {
+            const res = this.renderer.playGesture(target);
+            if (res instanceof Promise) {
+              return res;
+            }
+            return;
+          }
+          if (typeof this.gesture3D === 'function') {
+            const res = this.gesture3D(target);
+            if (res instanceof Promise) {
+              return res;
+            }
+            return;
+          }
+        }
+      };
+
+      if (typeof this._customUnifiedGesture === 'function') {
+        return this._customUnifiedGesture(this, gestureName, context);
+      }
+
+      if (currentMode === '2d') {
+        return context.gesture2D(gestureName);
+      } else if (currentMode === '3d') {
+        return context.gesture3D(gestureName);
+      }
+    },
+
+    async playTapGesture(): Promise<void> {
+      const currentMode: '2d' | '3d' =
+        this.engineMode === ENGINE_MODE_MAP.twoDimensional ? '2d' : '3d';
+      const tapGestures = this.renderer?.TAP_GESTURES;
+      let selectedGesture = '';
+
+      if (Array.isArray(tapGestures) && tapGestures.length > 0) {
+        const randomIndex = Math.floor(Math.random() * tapGestures.length);
+        selectedGesture = tapGestures[randomIndex];
+      } else {
+        selectedGesture = currentMode === '2d' ? 'tap' : 'goodbye';
+      }
+
+      await this.playGesture(selectedGesture);
+    },
+
     get gesture(): SkinGestureTrigger | null {
       if (this.engineMode === ENGINE_MODE_MAP.threeDimensional) {
         return this.gesture3D;
@@ -665,7 +826,9 @@ export function initSkinEngine(
               this.onGesture(newGestureName, this);
             }
 
-            if (typeof this.gesture === 'function') {
+            if (typeof this.playGesture === 'function') {
+              await this.playGesture(newGestureName);
+            } else if (typeof this.gesture === 'function') {
               await this.gesture(newGestureName);
             }
           } catch (error) {
