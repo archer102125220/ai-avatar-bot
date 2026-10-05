@@ -17,7 +17,7 @@ import { callOptionEvent } from './options';
 import type { I18nEngine } from '@/core/i18n';
 import type { BrainEngine, BrainCompressionOptions } from '@/core/brain';
 import type { SpeechEngine } from '@/core/speech';
-import type { SkinEngine, Renderer3D } from '@/core/skin';
+import type { SkinEngine } from '@/core/skin';
 import type { ToolsEngine, HostTool, ToolDefinition } from '@/core/tools';
 import type { AiAvatarWidget, AvatarBotOptions, AvatarBotStore } from './types';
 import type { StreamPipeline } from './pipeline-stream';
@@ -972,6 +972,11 @@ export async function setupSkinEngine({
     camera,
     modelTransform,
     pointerLook,
+    gesture,
+    tapGestures,
+    tapMotions,
+    motionMap,
+    expressionMap,
     gesture3D,
     gesture2D,
     customEngines = {}
@@ -1033,6 +1038,11 @@ export async function setupSkinEngine({
         camera,
         modelTransform,
         pointerLook,
+        gesture,
+        tapGestures,
+        tapMotions,
+        motionMap,
+        expressionMap,
         gesture3D,
         gesture2D,
         get gender() {
@@ -1175,41 +1185,18 @@ export async function setupSkinEngine({
               speechEngine?.triggerTap();
             });
           }
-          if (currentSkin?.engineMode === ENGINE_MODE_MAP.threeDimensional) {
-            const renderer3D = currentSkin.renderer as
-              | (Renderer3D & {
-                  TAP_GESTURES?: string[];
-                  playGesture?: (g: string) => void;
-                })
-              | undefined;
-            if (typeof renderer3D?.canvas?.addEventListener === 'function') {
-              renderer3D.canvas.addEventListener('pointerdown', () => {
-                if (
-                  Array.isArray(renderer3D.TAP_GESTURES) === true &&
-                  renderer3D.TAP_GESTURES.length > 0 &&
-                  typeof renderer3D.playGesture === 'function'
-                ) {
-                  renderer3D.playGesture(
-                    renderer3D.TAP_GESTURES[
-                      Math.floor(Math.random() * renderer3D.TAP_GESTURES.length)
-                    ]
-                  );
-                }
-                speechEngine?.triggerTap();
-              });
-            }
-          } else {
-            if (
-              typeof currentSkin?.renderer?.canvas?.addEventListener ===
-              'function'
-            ) {
-              currentSkin.renderer.canvas.addEventListener(
-                'pointerdown',
-                () => {
-                  speechEngine?.triggerTap();
-                }
-              );
-            }
+          if (
+            typeof currentSkin?.renderer?.canvas?.addEventListener ===
+            'function'
+          ) {
+            currentSkin.renderer.canvas.addEventListener('pointerdown', () => {
+              const { speechEngine } = getEngines();
+              if (typeof speechEngine?.triggerTap === 'function') {
+                speechEngine.triggerTap();
+              } else if (typeof widget?.tap === 'function') {
+                widget.tap();
+              }
+            });
           }
           callOptionEvent(options, widget, 'onModelChangeEnd');
         }

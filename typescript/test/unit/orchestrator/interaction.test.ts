@@ -289,5 +289,21 @@ describe('Orchestrator Interactions (Deep Branch Coverage)', () => {
 
       vi.useRealTimers();
     });
+
+    it('should invoke skinEngine.playTapGesture if available and handle rejected promise', async () => {
+      const playTapGestureMock = vi.fn().mockRejectedValue(new Error('Tap gesture failed'));
+      (mockEngines.skinEngine as unknown as Record<string, unknown>).playTapGesture = playTapGestureMock;
+
+      const onTap = createTapAvatarHandler({
+        widget: mockWidget as unknown as AiAvatarWidget,
+        options: {},
+        rootStore,
+        i18nEngine,
+        getEngines
+      });
+
+      onTap();
+      expect(playTapGestureMock).toHaveBeenCalled();
+    });
   });
 });

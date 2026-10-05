@@ -226,9 +226,21 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     widget.playGesture?.('liked');
     expect(gesture2DMock).toHaveBeenCalledWith('liked');
 
+    // Test skinEngine.playGesture priority and error catching
+    const playGestureMock = vi.fn().mockRejectedValue(new Error('Gesture failed'));
+    mockEngines.skinEngine.playGesture = playGestureMock;
+    widget.playGesture?.('customGesture');
+    expect(playGestureMock).toHaveBeenCalledWith('customGesture');
+
     // Edge cases
     widget.playGesture?.('');
     expect(gesture2DMock).toHaveBeenCalledTimes(1);
+
+    // Test widget.tap()
+    const triggerTapMock = vi.fn();
+    mockEngines.speechEngine.triggerTap = triggerTapMock;
+    widget.tap?.();
+    expect(triggerTapMock).toHaveBeenCalled();
 
     widget.handleUser('輸入');
     expect(mockHandleUser).toHaveBeenCalledWith('輸入');

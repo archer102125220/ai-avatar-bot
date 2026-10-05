@@ -215,6 +215,14 @@ export interface AvatarBotOptions {
   gesture2D?: Record<string, unknown>;
   /** Global unified gesture handler interceptor. */
   gesture?: SkinUnifiedGestureHandler;
+  /** Tap gestures list for avatar random tap interactions. */
+  tapGestures?: string[];
+  /** Tap motions list for Live2D random tap interactions. */
+  tapMotions?: string[];
+  /** Custom motion name mapping for Live2D motions. */
+  motionMap?: Record<string, string>;
+  /** Custom semantic expression mapping for 2D/3D expressions. */
+  expressionMap?: Record<string, string>;
   /** Whether to start in minimal UI mode. */
   isMinimal?: boolean;
   /** Whether running inside an iframe. */
@@ -462,6 +470,8 @@ export interface AiAvatarWidget {
   applyEmotionFromText?: (text: string) => void;
   /** Plays a 3D or 2D avatar gesture/animation by name (e.g. 'appearing', 'liked', 'waiting', 'goodbye', 'bow'). */
   playGesture?: (gestureName: string) => void;
+  /** Triggers avatar tap interaction, playing the tap gesture and speech greeting. */
+  tap?: () => void;
   /** Sends a question to the brain engine and streams / returns response. */
   answerQuestion?: (question: string) => Promise<string | void>;
   /** Main handler for user input text (handles tools, LLM, and UI). */

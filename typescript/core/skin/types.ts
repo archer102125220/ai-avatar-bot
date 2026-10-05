@@ -535,7 +535,7 @@ export interface SkinEngine extends SubscribableStore<SkinEngineState> {
   /** Plays a gesture on the current active engine (2D or 3D). */
   gesture?: SkinGestureTrigger | null;
   /** Plays tap gesture randomly from TAP_GESTURES on active engine. */
-  playTapGesture?(): void;
+  playTapGesture?(): Promise<void> | void;
   /** Plays a gesture on the current active engine (2D or 3D). */
   playGesture?(name: string): Promise<void> | void;
   /** Current active gesture / emotion name. Setting triggers onGesture lifecycle. */

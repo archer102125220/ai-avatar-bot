@@ -160,7 +160,14 @@ export function createAvatarWidget({
       }
       const skinEngine = getEngines().skinEngine;
       if (typeof skinEngine === 'object' && skinEngine !== null) {
-        if (
+        if (typeof skinEngine.playGesture === 'function') {
+          const res = skinEngine.playGesture(gestureName);
+          if (res instanceof Promise) {
+            res.catch((error: unknown) => {
+              console.warn('[AvatarBot] widget.playGesture failed:', error);
+            });
+          }
+        } else if (
           skinEngine.engineMode === ENGINE_MODE_MAP.threeDimensional &&
           typeof skinEngine.gesture3D === 'function'
         ) {
@@ -170,6 +177,13 @@ export function createAvatarWidget({
         } else {
           skinEngine.gestureName = gestureName;
         }
+      }
+    },
+
+    tap(): void {
+      const { speechEngine } = getEngines();
+      if (typeof speechEngine?.triggerTap === 'function') {
+        speechEngine.triggerTap();
       }
     },
 

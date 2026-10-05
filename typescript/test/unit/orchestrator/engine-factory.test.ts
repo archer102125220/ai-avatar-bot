@@ -1041,8 +1041,14 @@ describe('Orchestrator Engine Factory', () => {
         getWelcomeText: vi.fn(async () => 'Welcome!')
       };
 
+      const customUnifiedGesture = vi.fn();
       await setupSkinEngine({
         options: {
+          gesture: customUnifiedGesture,
+          tapGestures: ['custom_tap'],
+          tapMotions: ['custom_motion'],
+          motionMap: { wave: 'CustomWave' },
+          expressionMap: { happy: 'CustomHappy' },
           onThreeDimensionalError,
           onTwoDimensionalError,
           VRMFileChangeFail,
@@ -1055,6 +1061,15 @@ describe('Orchestrator Engine Factory', () => {
         getEngines,
         getUiDom,
         stageEl
+      });
+
+      // verify unified gesture options forwarded
+      expect(capturedSkinOptions.gesture).toBe(customUnifiedGesture);
+      expect(capturedSkinOptions.tapGestures).toEqual(['custom_tap']);
+      expect(capturedSkinOptions.tapMotions).toEqual(['custom_motion']);
+      expect(capturedSkinOptions.motionMap).toEqual({ wave: 'CustomWave' });
+      expect(capturedSkinOptions.expressionMap).toEqual({
+        happy: 'CustomHappy'
       });
 
       // computeMouth
@@ -1109,11 +1124,10 @@ describe('Orchestrator Engine Factory', () => {
       expect(mockUiDom.engineButtonEl.textContent).toBe('3D');
       expect(onModelChangeEnd).toHaveBeenCalled();
 
-      // simulate pointerdown on 3D canvas
+      // simulate pointerdown on 3D canvas (unified triggerTap)
       mockEngines.skinEngine.renderer.canvas.dispatchEvent(
         new Event('pointerdown')
       );
-      expect(mockEngines.skinEngine.renderer.playGesture).toHaveBeenCalled();
       expect(mockEngines.speechEngine.triggerTap).toHaveBeenCalled();
 
       // onModelChangeEnd in 2D mode with avatarModel hit
@@ -1162,7 +1176,6 @@ describe('Orchestrator Engine Factory', () => {
       mockEngines.skinEngine.renderer.canvas.dispatchEvent(
         new Event('pointerdown')
       );
-      expect(playGestureMock).toHaveBeenCalled();
       expect(mockEngines.speechEngine.triggerTap).toHaveBeenCalled();
 
       initSkinSpy.mockRestore();
@@ -1281,7 +1294,6 @@ describe('Orchestrator Engine Factory', () => {
 
       // Trigger 3D pointerdown event
       pointerDown3DHandler?.();
-      expect(playGestureMock).toHaveBeenCalled();
       expect(mockEngines.speechEngine?.triggerTap).toHaveBeenCalled();
 
       // 5. onModelChangeEnd with 2D skin and pointerdown

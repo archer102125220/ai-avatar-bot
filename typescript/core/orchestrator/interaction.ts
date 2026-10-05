@@ -49,12 +49,24 @@ export function createTapAvatarHandler({
       }, 400);
     }
 
-    const avatarModel = skinEngine?.avatarModel as
-      { motion?: (name: string) => void } | undefined;
-    if (typeof avatarModel?.motion === 'function') {
-      try {
-        avatarModel.motion('Tap');
-      } catch (_error) {}
+    if (typeof skinEngine?.playTapGesture === 'function') {
+      const res: unknown = skinEngine.playTapGesture();
+      if (res instanceof Promise) {
+        res.catch((error: unknown) => {
+          console.warn('[AvatarBot] playTapGesture failed:', error);
+        });
+      }
+    } else {
+      const avatarModel = skinEngine?.avatarModel as
+        | { motion?: (name: string) => void }
+        | undefined;
+      if (typeof avatarModel?.motion === 'function') {
+        try {
+          avatarModel.motion('Tap');
+        } catch (error) {
+          console.warn('[AvatarBot] avatarModel.motion Tap failed:', error);
+        }
+      }
     }
 
     let greeting = '你好～';
