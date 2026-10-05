@@ -11,6 +11,7 @@ import {
   bootVRM,
   loadVRMFile
 } from '@/core/skin/renderer-3d';
+import { GestureNotFoundError } from '@/core/skin/types';
 import type { SkinEngine, Renderer3D } from '@core';
 
 // Mock Three.js and VRM packages
@@ -732,6 +733,129 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
 
       renderer.dispose();
       vi.useRealTimers();
+    });
+  });
+
+  describe('Unified Gestures & Expressions (Phase 3 Upgrade)', () => {
+    let stageEl: HTMLElement;
+
+    beforeEach(() => {
+      stageEl = document.createElement('div');
+      stageEl.style.width = '800px';
+      stageEl.style.height = '600px';
+      document.body.appendChild(stageEl);
+    });
+
+    afterEach(() => {
+      stageEl.remove();
+      vi.restoreAllMocks();
+    });
+
+    it('should resolve TAP_GESTURES dynamically from skin3d.tapGestures with default fallback', async () => {
+      const currentState: { skin3d: { tapGestures?: string[] } } = {
+        skin3d: {}
+      };
+      const skinEngine = {
+        stageEl,
+        fitMode: FIT_MODE_MAP.FULL,
+        getState: () => currentState,
+        onMounted: vi.fn(),
+        subscribe: vi.fn(() => vi.fn())
+      } as unknown as SkinEngine;
+
+      const renderer = (await bootVRM(skinEngine)) as Required<Renderer3D>;
+      expect(renderer.TAP_GESTURES).toEqual(['goodbye', 'bow', 'waiting']);
+
+      currentState.skin3d = { tapGestures: ['wave', 'cheer'] };
+      expect(renderer.TAP_GESTURES).toEqual(['wave', 'cheer']);
+
+      renderer.dispose();
+    });
+
+    it('should support VRMA gesture playback, custom gestures, expression aliases fallback, and throw GestureNotFoundError on unmatched', async () => {
+      const currentState: {
+        skin3d: {
+          expressionMap?: Record<string, string>;
+        };
+      } = {
+        skin3d: {
+          expressionMap: {
+            custom_happy: 'happy'
+          }
+        }
+      };
+
+      const skinEngine = {
+        stageEl,
+        fitMode: FIT_MODE_MAP.FULL,
+        getState: () => currentState,
+        onMounted: vi.fn(),
+        subscribe: vi.fn(() => vi.fn()),
+        emo: { name: 'neutral', target: 0, weight: 0, applied: '' }
+      } as unknown as SkinEngine;
+
+      const renderer = (await bootVRM(skinEngine, {
+        gestures: {
+          special_dance: 'https://example.com/dance.vrma'
+        }
+      })) as Required<Renderer3D>;
+
+      const vrm = renderer.vrm as {
+        expressionManager?: {
+          setValue: ReturnType<typeof vi.fn>;
+          update: ReturnType<typeof vi.fn>;
+        };
+      };
+
+      // 1. VRMA motion match (case-insensitive)
+      await expect(renderer.playGesture('GOODBYE')).resolves.not.toThrow();
+
+      // 2. Custom VRMA motion from setting.gestures
+      await expect(
+        renderer.playGesture('special_dance')
+      ).resolves.not.toThrow();
+
+      // 3. Expression fallback: standard preset alias
+      if (vrm?.expressionManager) {
+        vrm.expressionManager.setValue = vi.fn();
+      }
+      await renderer.playGesture('happy');
+      expect(skinEngine.emo.name).toBe('happy');
+      expect(skinEngine.emo.target).toBe(1);
+      if (vrm?.expressionManager) {
+        expect(vrm.expressionManager.setValue).toHaveBeenCalledWith('happy', 1);
+      }
+
+      // 4. Expression fallback: custom expressionMap
+      if (vrm?.expressionManager) {
+        vrm.expressionManager.setValue = vi.fn();
+      }
+      await renderer.playGesture('custom_happy');
+      expect(skinEngine.emo.name).toBe('happy');
+      if (vrm?.expressionManager) {
+        expect(vrm.expressionManager.setValue).toHaveBeenCalledWith('happy', 1);
+      }
+
+      // 5. Unmatched gesture throws GestureNotFoundError
+      await expect(
+        renderer.playGesture('completely_unknown_3d_gesture')
+      ).rejects.toThrow(GestureNotFoundError);
+      try {
+        await renderer.playGesture('completely_unknown_3d_gesture');
+      } catch (err: unknown) {
+        expect(err).toBeInstanceOf(GestureNotFoundError);
+        const gestureErr = err as GestureNotFoundError;
+        expect(gestureErr.code).toBe('ERR_GESTURE_NOT_FOUND');
+        expect(gestureErr.mode).toBe('3d');
+        expect(gestureErr.gestureName).toBe('completely_unknown_3d_gesture');
+      }
+
+      // Empty string throws GestureNotFoundError
+      await expect(renderer.playGesture('')).rejects.toThrow(
+        GestureNotFoundError
+      );
+
+      renderer.dispose();
     });
   });
 });

@@ -14,11 +14,13 @@ import {
   DEFAULT_3D_MODEL_POSITION,
   DEFAULT_3D_MODEL_SCALE,
   DEFAULT_3D_MODEL_ROTATION,
-  DEFAULT_3D_POINTER_LOOK
+  DEFAULT_3D_POINTER_LOOK,
+  DEFAULT_3D_EXPRESSION_ALIASES
 } from '@/core/constants';
 import { createCanvas } from './canvas';
 import {
   isRenderer3D,
+  GestureNotFoundError,
   type Renderer3D,
   type SkinEngine,
   type VRMSettings,
@@ -29,6 +31,41 @@ import {
 import type * as THREE from 'three';
 import type { VRM } from '@pixiv/three-vrm';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
+/**
+ * Helper to look up a string value from a dictionary map ignoring case.
+ */
+function findInMap(
+  map: Record<string, string> | undefined,
+  key: string
+): string | undefined {
+  if (
+    typeof map !== 'object' ||
+    map === null ||
+    typeof key !== 'string' ||
+    key === ''
+  ) {
+    return undefined;
+  }
+  if (typeof map[key] === 'string' && map[key] !== '') {
+    return map[key];
+  }
+  const lowerKey = key.toLowerCase();
+  if (typeof map[lowerKey] === 'string' && map[lowerKey] !== '') {
+    return map[lowerKey];
+  }
+  const matchedKey = Object.keys(map).find(
+    (k) => k.toLowerCase() === lowerKey
+  );
+  if (
+    matchedKey !== undefined &&
+    typeof map[matchedKey] === 'string' &&
+    map[matchedKey] !== ''
+  ) {
+    return map[matchedKey];
+  }
+  return undefined;
+}
 
 /**
  * Applies source coordinates onto a Vector3 target object.
@@ -116,7 +153,7 @@ export async function defaultGesture3D(
   const renderer = skinEngine.renderer;
   if (isRenderer3D(renderer) && typeof renderer.playGesture === 'function') {
     try {
-      renderer.playGesture(emotionName);
+      await renderer.playGesture(emotionName);
     } catch (error) {
       console.error(error);
     }
@@ -163,6 +200,14 @@ export async function bootVRM(
         ? vrmaRootPath
         : DEFAULT_VRMA_ROOT_PATH;
 
+    const userCustomGestures: Record<string, string> =
+      typeof setting.gestures === 'object' && setting.gestures !== null
+        ? setting.gestures
+        : typeof skinEngine?.skin3d?.gestures === 'object' &&
+            skinEngine.skin3d.gestures !== null
+          ? skinEngine.skin3d.gestures
+          : {};
+
     const GESTURES: Record<string, string> = {
       goodbye: goodbye || safeVrmaRootPath + 'goodbye.vrma',
       bow: bow || safeVrmaRootPath + 'bow.vrma',
@@ -172,7 +217,8 @@ export async function bootVRM(
       surprised: surprised || safeVrmaRootPath + 'Surprised.vrma',
       appearing: appearing || safeVrmaRootPath + 'appearing.vrma',
       liked: liked || safeVrmaRootPath + 'liked.vrma',
-      waiting: waiting || safeVrmaRootPath + 'waiting.vrma'
+      waiting: waiting || safeVrmaRootPath + 'waiting.vrma',
+      ...userCustomGestures
     };
     const TAP_GESTURES = ['goodbye', 'bow', 'waiting'];
 
@@ -545,16 +591,82 @@ export async function bootVRM(
       skinEngine.onMounted();
     }
 
-    function playGesture(gestureName: string): void {
-      const clipAction = gestureActions[gestureName];
-      if (clipAction === undefined || clipAction === null || waving === true) {
+    function getSkin3dConfig(): Skin3DConfig {
+      const state =
+        typeof skinEngine.getState === 'function' ? skinEngine.getState() : null;
+      return typeof state?.skin3d === 'object' && state.skin3d !== null
+        ? state.skin3d
+        : typeof skinEngine.skin3d === 'object' && skinEngine.skin3d !== null
+          ? skinEngine.skin3d
+          : {};
+    }
+
+    async function playGesture(gestureName: string): Promise<void> {
+      if (typeof gestureName !== 'string' || gestureName === '') {
+        throw new GestureNotFoundError(String(gestureName), '3d');
+      }
+
+      const skin3d = getSkin3dConfig();
+
+      // 1. VRMA 動作庫匹配 (包含 setting.gestures 與內建動作，大小寫不拘)
+      const actionKeys = Object.keys(gestureActions);
+      const matchedActionKey = actionKeys.find(
+        (k) => k.toLowerCase() === gestureName.toLowerCase()
+      );
+      if (matchedActionKey !== undefined) {
+        const clipAction = gestureActions[matchedActionKey];
+        if (clipAction !== undefined && clipAction !== null) {
+          if (waving === true) {
+            return;
+          }
+          waving = true;
+          currentGesture = clipAction;
+          clipAction.reset();
+          clipAction.setEffectiveWeight(1);
+          clipAction.play();
+          return;
+        }
+      }
+
+      // 2. 表情 Fallback (Expression Fallback)
+      const customExpression = findInMap(skin3d.expressionMap, gestureName);
+      const defaultAliases =
+        DEFAULT_3D_EXPRESSION_ALIASES[gestureName.toLowerCase()];
+      const candidateExpressions: string[] =
+        typeof customExpression === 'string' && customExpression !== ''
+          ? [customExpression]
+          : Array.isArray(defaultAliases)
+            ? defaultAliases
+            : [];
+
+      if (candidateExpressions.length > 0) {
+        const targetExpression = candidateExpressions[0];
+        if (
+          typeof skinEngine.emo === 'object' &&
+          skinEngine.emo !== null
+        ) {
+          skinEngine.emo.name = targetExpression;
+          skinEngine.emo.target = 1;
+        }
+        if (
+          typeof vrm === 'object' &&
+          vrm !== null &&
+          typeof vrm.expressionManager === 'object' &&
+          vrm.expressionManager !== null &&
+          typeof vrm.expressionManager.setValue === 'function'
+        ) {
+          try {
+            vrm.expressionManager.setValue(targetExpression, 1);
+            if (typeof vrm.expressionManager.update === 'function') {
+              vrm.expressionManager.update();
+            }
+          } catch (_error) {}
+        }
         return;
       }
-      waving = true;
-      currentGesture = clipAction;
-      clipAction.reset();
-      clipAction.setEffectiveWeight(1);
-      clipAction.play();
+
+      // 3. 完全未命中
+      throw new GestureNotFoundError(gestureName, '3d');
     }
 
     let alive = true;
@@ -745,6 +857,13 @@ export async function bootVRM(
         return vrm;
       },
       get TAP_GESTURES(): string[] {
+        const config = getSkin3dConfig();
+        if (
+          Array.isArray(config.tapGestures) &&
+          config.tapGestures.length > 0
+        ) {
+          return config.tapGestures;
+        }
         return TAP_GESTURES;
       },
       get canvas(): HTMLCanvasElement {
@@ -756,7 +875,7 @@ export async function bootVRM(
       get scene(): unknown {
         return scene;
       },
-      get playGesture(): (gestureName: string) => void {
+      get playGesture(): (gestureName: string) => Promise<void> {
         return playGesture;
       },
       setPaused(isPaused: boolean): void {
