@@ -74,9 +74,9 @@ export function createBaseStore<T extends object = Record<string, unknown>>(
 
     for (const key in newValues) {
       if (Object.prototype.hasOwnProperty.call(newValues, key)) {
-        const k = key as unknown as keyof T;
-        if (state[k] !== newValues[k]) {
-          state[k] = newValues[k] as T[keyof T];
+        const typedKey = key as unknown as keyof T;
+        if (state[typedKey] !== newValues[key]) {
+          state[typedKey] = newValues[key] as T[keyof T];
           hasChanges = true;
         }
       }
@@ -102,22 +102,22 @@ export function createBaseStore<T extends object = Record<string, unknown>>(
       typeof callback === 'function'
     ) {
       const key = selector as keyof T;
-      const propCb = callback as PropertyListener<T[keyof T]>;
+      const propertyCallback = callback as PropertyListener<T[keyof T]>;
       listener = function (currentState: T, previousState: T) {
         if (currentState[key] !== previousState[key]) {
-          propCb(currentState[key], previousState[key]);
+          propertyCallback(currentState[key], previousState[key]);
         }
       };
     }
     // Pattern 3: Subscribe to a specific property via selector function
     else if (typeof selector === 'function' && typeof callback === 'function') {
-      const fn = selector as Selector<T, unknown>;
-      const propCb = callback as PropertyListener<unknown>;
+      const selectorFn = selector as Selector<T, unknown>;
+      const propertyCallback = callback as PropertyListener<unknown>;
       listener = function (currentState: T, previousState: T) {
-        const currentValue = fn(currentState);
-        const previousValue = fn(previousState);
+        const currentValue = selectorFn(currentState);
+        const previousValue = selectorFn(previousState);
         if (currentValue !== previousValue) {
-          propCb(currentValue, previousValue);
+          propertyCallback(currentValue, previousValue);
         }
       };
     } else {

@@ -161,9 +161,9 @@ export function createAvatarWidget({
       const skinEngine = getEngines().skinEngine;
       if (typeof skinEngine === 'object' && skinEngine !== null) {
         if (typeof skinEngine.playGesture === 'function') {
-          const res = skinEngine.playGesture(gestureName);
-          if (res instanceof Promise) {
-            res.catch((error: unknown) => {
+          const gestureResult = skinEngine.playGesture(gestureName);
+          if (gestureResult instanceof Promise) {
+            gestureResult.catch((error: unknown) => {
               console.warn('[AvatarBot] widget.playGesture failed:', error);
             });
           }

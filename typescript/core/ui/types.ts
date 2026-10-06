@@ -55,7 +55,7 @@ export interface UiDom {
   /** TTS mute toggle button element. */
   readonly muteButtonEl: HTMLButtonElement;
   /** In-browser WebLLM AI brain load/status button element. */
-  readonly btnLlmEl: HTMLButtonElement;
+  readonly llmButtonEl: HTMLButtonElement;
   /** Speech rate cycle button element. */
   readonly speedButtonEl: HTMLButtonElement;
   /** Interface language switch button element. */

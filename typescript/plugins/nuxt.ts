@@ -50,10 +50,10 @@ export function avatarBotNuxtModule(
     });
   } else if (typeof nuxt?.hook === 'function') {
     nuxt.hook('nitro:config', (nitroConfig: unknown) => {
-      const cfg = nitroConfig as { publicAssets?: Array<{ dir: string; baseURL: string; maxAge: number }> };
-      if (cfg) {
-        cfg.publicAssets = cfg.publicAssets || [];
-        cfg.publicAssets.push({
+      const targetNitroConfig = nitroConfig as { publicAssets?: Array<{ dir: string; baseURL: string; maxAge: number }> };
+      if (targetNitroConfig) {
+        targetNitroConfig.publicAssets = targetNitroConfig.publicAssets || [];
+        targetNitroConfig.publicAssets.push({
           dir: assetsDir,
           baseURL: cleanRoute,
           maxAge

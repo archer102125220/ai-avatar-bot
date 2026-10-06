@@ -140,7 +140,7 @@ function findInMap(
     return map[lowerKey];
   }
   const matchedKey = Object.keys(map).find(
-    (k) => k.toLowerCase() === lowerKey
+    (mapKey) => mapKey.toLowerCase() === lowerKey
   );
   if (
     matchedKey !== undefined &&
@@ -454,7 +454,7 @@ export async function bootAvatar(
       const customMotion = findInMap(skin2d.motionMap, gestureName);
       if (typeof customMotion === 'string' && customMotion !== '') {
         const directMatch = motionKeys.find(
-          (k) => k.toLowerCase() === customMotion.toLowerCase()
+          (motionKey) => motionKey.toLowerCase() === customMotion.toLowerCase()
         );
         const targetMotion =
           directMatch !== undefined ? directMatch : customMotion;
@@ -466,7 +466,7 @@ export async function bootAvatar(
 
       // 2. 直接比對 Live2D 內建動作名稱 (大小寫不拘)
       const directMatch = motionKeys.find(
-        (k) => k.toLowerCase() === gestureName.toLowerCase()
+        (motionKey) => motionKey.toLowerCase() === gestureName.toLowerCase()
       );
       if (
         directMatch !== undefined &&
@@ -481,7 +481,7 @@ export async function bootAvatar(
       if (Array.isArray(aliases) && typeof avatarModel?.motion === 'function') {
         for (const alias of aliases) {
           const aliasMatch = motionKeys.find(
-            (k) => k.toLowerCase() === alias.toLowerCase()
+            (motionKey) => motionKey.toLowerCase() === alias.toLowerCase()
           );
           if (aliasMatch !== undefined) {
             await avatarModel.motion(aliasMatch);
@@ -510,8 +510,8 @@ export async function bootAvatar(
 
       // 5. 若模型未暴露 motions metadata，但有 motion 函式，做盲調嘗試
       if (motionKeys.length === 0 && typeof avatarModel?.motion === 'function') {
-        const res = await avatarModel.motion(gestureName);
-        if (res !== false) {
+        const motionResult = await avatarModel.motion(gestureName);
+        if (motionResult !== false) {
           return;
         }
       }
@@ -588,9 +588,9 @@ export async function bootAvatar(
   } catch (error: unknown) {
     console.error(error);
 
-    const err = error instanceof Error ? error : new Error(String(error));
+    const normalizedError = error instanceof Error ? error : new Error(String(error));
     if (typeof skinEngine?.onTwoDimensionalError === 'function') {
-      skinEngine.onTwoDimensionalError(err, skinEngine);
+      skinEngine.onTwoDimensionalError(normalizedError, skinEngine);
     }
   }
 }

@@ -189,8 +189,9 @@ describe('Orchestrator Engine Factory', () => {
     historyListEl.id = 'history-list';
     historyPanelEl.appendChild(historyListEl);
 
+    const llmButton = document.createElement('button');
     mockUiDom = {
-      btnLlmEl: document.createElement('button'),
+      llmButtonEl: llmButton,
       bubbleEl: document.createElement('p'),
       historyPanelEl,
       historyButtonEl: document.createElement('button'),
@@ -449,16 +450,16 @@ describe('Orchestrator Engine Factory', () => {
 
       // test onLlmLoadProgress
       capturedBrainOptions.onLlmLoadProgress({ progress: 0.5 });
-      expect(mockUiDom.btnLlmEl.textContent).toBe('🧠 50%');
+      expect(mockUiDom.llmButtonEl.textContent).toBe('🧠 50%');
 
       // test onLlmLoaded
       capturedBrainOptions.onLlmLoaded();
-      expect(mockUiDom.btnLlmEl.textContent).toBe('🧠✓');
-      expect(mockUiDom.btnLlmEl.getAttribute('css-llm-on')).toBe('true');
+      expect(mockUiDom.llmButtonEl.textContent).toBe('🧠✓');
+      expect(mockUiDom.llmButtonEl.getAttribute('css-llm-on')).toBe('true');
 
       // test onLlmLoadError
       capturedBrainOptions.onLlmLoadError(new Error('LLM load failed'));
-      expect(mockUiDom.btnLlmEl.textContent).toBe('🧠✗');
+      expect(mockUiDom.llmButtonEl.textContent).toBe('🧠✗');
       expect(mockEngines.speechEngine.spokenDisplayText).toContain(
         'LLM load failed'
       );
@@ -517,8 +518,8 @@ describe('Orchestrator Engine Factory', () => {
 
       // onAiProviderConnecting
       capturedBrainOptions.onAiProviderConnecting();
-      expect(mockUiDom.btnLlmEl.textContent).toBe('🧠…');
-      expect(mockUiDom.btnLlmEl.title).toBe('AI 伺服器大腦（連線中）');
+      expect(mockUiDom.llmButtonEl.textContent).toBe('🧠…');
+      expect(mockUiDom.llmButtonEl.title).toBe('AI 伺服器大腦（連線中）');
 
       // onAiProviderConnected (success)
       capturedBrainOptions.onAiProviderConnected(
@@ -526,10 +527,10 @@ describe('Orchestrator Engine Factory', () => {
         {},
         { model: 'gpt-4o' }
       );
-      expect(mockUiDom.btnLlmEl.textContent).toBe('🧠✓');
-      expect(mockUiDom.btnLlmEl.getAttribute('css-llm-on')).toBe('true');
-      expect(mockUiDom.btnLlmEl.getAttribute('aria-pressed')).toBe('true');
-      expect(mockUiDom.btnLlmEl.title).toContain('gpt-4o');
+      expect(mockUiDom.llmButtonEl.textContent).toBe('🧠✓');
+      expect(mockUiDom.llmButtonEl.getAttribute('css-llm-on')).toBe('true');
+      expect(mockUiDom.llmButtonEl.getAttribute('aria-pressed')).toBe('true');
+      expect(mockUiDom.llmButtonEl.title).toContain('gpt-4o');
 
       vi.advanceTimersByTime(1400);
       expect(mockEngines.speechEngine.spokenDisplayText).toContain(
@@ -542,10 +543,10 @@ describe('Orchestrator Engine Factory', () => {
         {},
         { model: 'gpt-4o' }
       );
-      expect(mockUiDom.btnLlmEl.textContent).toBe('🧠✗');
-      expect(mockUiDom.btnLlmEl.hasAttribute('css-llm-on')).toBe(false);
-      expect(mockUiDom.btnLlmEl.getAttribute('aria-pressed')).toBe('false');
-      expect(mockUiDom.btnLlmEl.title).toContain('AI 伺服器連不上');
+      expect(mockUiDom.llmButtonEl.textContent).toBe('🧠✗');
+      expect(mockUiDom.llmButtonEl.hasAttribute('css-llm-on')).toBe(false);
+      expect(mockUiDom.llmButtonEl.getAttribute('aria-pressed')).toBe('false');
+      expect(mockUiDom.llmButtonEl.title).toContain('AI 伺服器連不上');
 
       // onSummaryUpdated, onChatHistoryChanged, onSpokenAudioPlayNow, onSpokenDisplayTextChange, onSpokenAudioTextChange
       capturedBrainOptions.onSummaryUpdated('New Summary');

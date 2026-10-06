@@ -60,7 +60,7 @@ interface WebpackRequest {
 interface WebpackResponse {
   statusCode: number;
   end: (content?: string) => void;
-  setHeader: (key: string, val: string) => void;
+  setHeader: (key: string, headerValue: string) => void;
 }
 
 export class AvatarBotWebpackPlugin {
@@ -89,8 +89,8 @@ export class AvatarBotWebpackPlugin {
     if (compiler.options?.devServer) {
       const originalSetupMiddlewares = compiler.options.devServer.setupMiddlewares;
       compiler.options.devServer.setupMiddlewares = (middlewares, devServer) => {
-        devServer.app.use((req: WebpackRequest, res: WebpackResponse, next: () => void) => {
-          const url = req?.url || '';
+        devServer.app.use((request: WebpackRequest, response: WebpackResponse, next: () => void) => {
+          const url = request?.url || '';
           const pathname = decodeURIComponent(url.split('?')[0]);
 
           if (pathname.startsWith(this.cleanRoute)) {
@@ -98,15 +98,15 @@ export class AvatarBotWebpackPlugin {
             const filePath = path.resolve(this.assetsDir, relativePath);
 
             if (filePath.startsWith(path.resolve(this.assetsDir)) === false) {
-              res.statusCode = 403;
-              return res.end('Forbidden');
+              response.statusCode = 403;
+              return response.end('Forbidden');
             }
 
             if (fs.existsSync(filePath) && fs.statSync(filePath).isFile() === true) {
               const mimeType = getMimeType(filePath);
-              res.setHeader('Content-Type', mimeType);
-              res.setHeader('Cache-Control', 'no-cache');
-              return fs.createReadStream(filePath).pipe(res as unknown as NodeJS.WritableStream);
+              response.setHeader('Content-Type', mimeType);
+              response.setHeader('Cache-Control', 'no-cache');
+              return fs.createReadStream(filePath).pipe(response as unknown as NodeJS.WritableStream);
             }
           }
           next();
@@ -127,8 +127,8 @@ export class AvatarBotWebpackPlugin {
         try {
           copyDirRecursive(this.assetsDir, targetDir);
           console.log(`[ai-avatar-bot/webpack] Assets successfully synced to: ${targetDir}`);
-        } catch (err) {
-          console.warn('[ai-avatar-bot/webpack] Failed to copy avatar assets during build:', err);
+        } catch (error) {
+          console.warn('[ai-avatar-bot/webpack] Failed to copy avatar assets during build:', error);
         }
       });
     }

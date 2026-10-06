@@ -230,9 +230,9 @@ export function bindUiEvent(context: UiContext | null = null): void {
     }
   }
 
-  if (uiDom.btnLlmEl instanceof HTMLElement) {
-    uiDom.btnLlmEl.onclick = async () => {
-      const btnLlmEl = uiDom.btnLlmEl;
+  const llmButtonEl = uiDom.llmButtonEl;
+  if (llmButtonEl instanceof HTMLElement) {
+    llmButtonEl.onclick = async () => {
       const brainEngine = context.brainEngine;
       const speechEngine = context.speechEngine;
       if (!brainEngine) {
@@ -243,13 +243,13 @@ export function bindUiEvent(context: UiContext | null = null): void {
         const isServerReady =
           brainEngine.aiProvider.ready === true ||
           (await brainEngine.aiProvider.ping());
-        btnLlmEl.textContent = isServerReady === true ? '🧠✓' : '🧠✗';
+        llmButtonEl.textContent = isServerReady === true ? '🧠✓' : '🧠✗';
         if (isServerReady === true) {
-          btnLlmEl.setAttribute('css-llm-on', 'true');
+          llmButtonEl.setAttribute('css-llm-on', 'true');
         } else {
-          btnLlmEl.removeAttribute('css-llm-on');
+          llmButtonEl.removeAttribute('css-llm-on');
         }
-        btnLlmEl.setAttribute('aria-pressed', String(isServerReady === true));
+        llmButtonEl.setAttribute('aria-pressed', String(isServerReady === true));
         if (speechEngine) {
           speechEngine.spokenDisplayText =
             isServerReady === true

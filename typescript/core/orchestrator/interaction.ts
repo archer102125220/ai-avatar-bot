@@ -50,9 +50,9 @@ export function createTapAvatarHandler({
     }
 
     if (typeof skinEngine?.playTapGesture === 'function') {
-      const res: unknown = skinEngine.playTapGesture();
-      if (res instanceof Promise) {
-        res.catch((error: unknown) => {
+      const tapGestureResult: unknown = skinEngine.playTapGesture();
+      if (tapGestureResult instanceof Promise) {
+        tapGestureResult.catch((error: unknown) => {
           console.warn('[AvatarBot] playTapGesture failed:', error);
         });
       }

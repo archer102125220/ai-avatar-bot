@@ -287,8 +287,9 @@ export async function setupBrainEngine({
             ? (loadProgress as { progress: number }).progress
             : 0;
       const uiDom = getUiDom();
-      if (uiDom?.btnLlmEl instanceof HTMLElement) {
-        uiDom.btnLlmEl.textContent =
+      const llmButtonEl = uiDom?.llmButtonEl;
+      if (llmButtonEl instanceof HTMLElement) {
+        llmButtonEl.textContent =
           '🧠 ' + Math.round(progressRatio * 100) + '%';
       }
       return callOptionEvent(
@@ -302,9 +303,10 @@ export async function setupBrainEngine({
     onLlmLoaded(...args: unknown[]) {
       const { speechEngine } = getEngines();
       const uiDom = getUiDom();
-      if (uiDom?.btnLlmEl instanceof HTMLElement) {
-        uiDom.btnLlmEl.textContent = '🧠✓';
-        uiDom.btnLlmEl.setAttribute('css-llm-on', 'true');
+      const llmButtonEl = uiDom?.llmButtonEl;
+      if (llmButtonEl instanceof HTMLElement) {
+        llmButtonEl.textContent = '🧠✓';
+        llmButtonEl.setAttribute('css-llm-on', 'true');
       }
       const loadedMsg =
         typeof i18nEngine?.t === 'function'
@@ -319,8 +321,9 @@ export async function setupBrainEngine({
     onLlmLoadError(error?: unknown, ...args: unknown[]) {
       const { speechEngine } = getEngines();
       const uiDom = getUiDom();
-      if (uiDom?.btnLlmEl instanceof HTMLElement) {
-        uiDom.btnLlmEl.textContent = '🧠✗';
+      const llmButtonEl = uiDom?.llmButtonEl;
+      if (llmButtonEl instanceof HTMLElement) {
+        llmButtonEl.textContent = '🧠✗';
       }
       const errorMsg =
         typeof error === 'object' &&
@@ -342,10 +345,10 @@ export async function setupBrainEngine({
     },
     onAiProviderConnecting(...args: unknown[]) {
       const uiDom = getUiDom();
-      const btnLlmEl = uiDom?.btnLlmEl;
-      if (btnLlmEl instanceof HTMLElement) {
-        btnLlmEl.textContent = '🧠…';
-        btnLlmEl.title =
+      const llmButtonEl = uiDom?.llmButtonEl;
+      if (llmButtonEl instanceof HTMLElement) {
+        llmButtonEl.textContent = '🧠…';
+        llmButtonEl.title =
           typeof i18nEngine?.t === 'function'
             ? i18nEngine.t('brain.aiProvider.connecting')
             : 'AI 伺服器大腦（連線中）';
@@ -370,7 +373,7 @@ export async function setupBrainEngine({
         response !== null &&
         'ok' in response &&
         (response as { ok?: unknown }).ok === true;
-      const btnLlmEl = uiDom?.btnLlmEl;
+      const llmButtonEl = uiDom?.llmButtonEl;
 
       const aiProviderObj =
         typeof aiProvider === 'object' && aiProvider !== null
@@ -379,26 +382,26 @@ export async function setupBrainEngine({
       const aiProviderModelName =
         typeof aiProviderObj?.model === 'string' ? aiProviderObj.model : '';
 
-      if (btnLlmEl instanceof HTMLElement) {
-        btnLlmEl.textContent = isConnectionSuccessful === true ? '🧠✓' : '🧠✗';
+      if (llmButtonEl instanceof HTMLElement) {
+        llmButtonEl.textContent = isConnectionSuccessful === true ? '🧠✓' : '🧠✗';
         if (isConnectionSuccessful === true) {
-          btnLlmEl.setAttribute('css-llm-on', 'true');
+          llmButtonEl.setAttribute('css-llm-on', 'true');
         } else {
-          btnLlmEl.removeAttribute('css-llm-on');
+          llmButtonEl.removeAttribute('css-llm-on');
         }
-        btnLlmEl.setAttribute(
+        llmButtonEl.setAttribute(
           'aria-pressed',
           String(isConnectionSuccessful === true)
         );
         if (isConnectionSuccessful === true) {
-          btnLlmEl.title =
+          llmButtonEl.title =
             typeof i18nEngine?.t === 'function'
               ? i18nEngine.t('brain.aiProvider.connected', {
                   model: aiProviderModelName
                 })
               : 'AI 伺服器：已連線 ' + aiProviderModelName;
         } else {
-          btnLlmEl.title =
+          llmButtonEl.title =
             typeof i18nEngine?.t === 'function'
               ? i18nEngine.t('brain.aiProvider.error')
               : 'AI 伺服器連不上（檢查 AI 伺服器是否在跑 / CORS）';

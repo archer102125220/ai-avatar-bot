@@ -134,14 +134,14 @@ export function estimateChars(input: unknown): number {
     ) {
       for (const toolCall of inputObj.tool_calls) {
         if (typeof toolCall === 'object' && toolCall !== null) {
-          const fn = (
+          const toolCallFunction = (
             toolCall as { function?: { name?: string; arguments?: string } }
           ).function;
-          if (typeof fn?.arguments === 'string') {
-            charCount += fn.arguments.length;
+          if (typeof toolCallFunction?.arguments === 'string') {
+            charCount += toolCallFunction.arguments.length;
           }
-          if (typeof fn?.name === 'string') {
-            charCount += fn.name.length;
+          if (typeof toolCallFunction?.name === 'string') {
+            charCount += toolCallFunction.name.length;
           }
         }
       }

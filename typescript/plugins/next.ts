@@ -29,9 +29,9 @@ function syncAssets(options: SyncAssetsOptions): void {
     if (silent === false) {
       console.log(`[ai-avatar-bot/next] Assets successfully synced to: ${targetDir}`);
     }
-  } catch (err) {
+  } catch (error) {
     if (silent === false) {
-      console.warn('[ai-avatar-bot/next] Failed to sync assets:', err);
+      console.warn('[ai-avatar-bot/next] Failed to sync assets:', error);
     }
   }
 }

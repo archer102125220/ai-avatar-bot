@@ -301,7 +301,7 @@ describe('UI Events Binding', () => {
       );
     });
 
-    it('should handle AI provider and WebLLM readiness states on btnLlmEl click', async () => {
+    it('should handle AI provider and WebLLM readiness states on llmButtonEl click', async () => {
       bindUiEvent(getContext());
 
       // 1. AI Provider enabled and ready
@@ -312,9 +312,9 @@ describe('UI Events Binding', () => {
         ping: vi.fn().mockResolvedValue(true)
       };
       const pointerEvent = new PointerEvent('click');
-      await uiDom.btnLlmEl.onclick?.(pointerEvent);
-      expect(uiDom.btnLlmEl.textContent).toBe('🧠✓');
-      expect(uiDom.btnLlmEl.getAttribute('css-llm-on')).toBe('true');
+      await uiDom.llmButtonEl.onclick?.(pointerEvent);
+      expect(uiDom.llmButtonEl.textContent).toBe('🧠✓');
+      expect(uiDom.llmButtonEl.getAttribute('css-llm-on')).toBe('true');
       expect(mockContext.speechEngine.spokenDisplayText).toContain(
         'AI 伺服器大腦運作中'
       );
@@ -324,9 +324,9 @@ describe('UI Events Binding', () => {
       mockContext.brainEngine.aiProvider.ping = vi
         .fn()
         .mockResolvedValue(false);
-      await uiDom.btnLlmEl.onclick?.(pointerEvent);
-      expect(uiDom.btnLlmEl.textContent).toBe('🧠✗');
-      expect(uiDom.btnLlmEl.getAttribute('css-llm-on')).toBeNull();
+      await uiDom.llmButtonEl.onclick?.(pointerEvent);
+      expect(uiDom.llmButtonEl.textContent).toBe('🧠✗');
+      expect(uiDom.llmButtonEl.getAttribute('css-llm-on')).toBeNull();
       expect(mockContext.speechEngine.spokenDisplayText).toContain(
         'AI 伺服器連不上'
       );
@@ -334,14 +334,14 @@ describe('UI Events Binding', () => {
       // 3. WebLLM not supported
       mockContext.brainEngine.aiProvider = { enabled: false };
       mockContext.brainEngine.llm = { supported: false };
-      await uiDom.btnLlmEl.onclick?.(pointerEvent);
+      await uiDom.llmButtonEl.onclick?.(pointerEvent);
       expect(mockContext.speechEngine.spokenDisplayText).toContain(
         '這個裝置不支援 WebGPU'
       );
 
       // 4. WebLLM already ready
       mockContext.brainEngine.llm = { supported: true, state: STATE_MAP.READY };
-      await uiDom.btnLlmEl.onclick?.(pointerEvent);
+      await uiDom.llmButtonEl.onclick?.(pointerEvent);
       expect(mockContext.speechEngine.spokenDisplayText).toContain(
         'AI 大腦已啟用'
       );
@@ -352,7 +352,7 @@ describe('UI Events Binding', () => {
         state: STATE_MAP.LOADING,
         progress: 0.45
       };
-      await uiDom.btnLlmEl.onclick?.(pointerEvent);
+      await uiDom.llmButtonEl.onclick?.(pointerEvent);
       expect(mockContext.speechEngine.spokenDisplayText).toContain('45%');
 
       // 6. WebLLM unloaded -> trigger load
@@ -362,7 +362,7 @@ describe('UI Events Binding', () => {
         state: STATE_MAP.IDLE,
         load: loadMock
       };
-      await uiDom.btnLlmEl.onclick?.(pointerEvent);
+      await uiDom.llmButtonEl.onclick?.(pointerEvent);
       expect(loadMock).toHaveBeenCalled();
     });
 
@@ -489,7 +489,7 @@ describe('UI Events Binding', () => {
       expect(() => uiDom.speedButtonEl.click()).not.toThrow();
 
       // LLM button with null brainEngine
-      expect(() => uiDom.btnLlmEl.click()).not.toThrow();
+      expect(() => uiDom.llmButtonEl.click()).not.toThrow();
     });
   });
 });

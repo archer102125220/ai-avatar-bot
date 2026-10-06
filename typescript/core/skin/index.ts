@@ -641,9 +641,9 @@ export function initSkinEngine(
             console.error(error);
 
             if (typeof this.onModelChangeError === 'function') {
-              const err =
+              const normalizedError =
                 error instanceof Error ? error : new Error(String(error));
-              this.onModelChangeError(err);
+              this.onModelChangeError(normalizedError);
             }
           }
 
@@ -724,23 +724,23 @@ export function initSkinEngine(
             this._gesture2D !== safeGesture2D &&
             typeof this.gesture2D === 'function'
           ) {
-            const res = this.gesture2D(target);
-            if (res instanceof Promise) {
-              return res;
+            const gestureResult = this.gesture2D(target);
+            if (gestureResult instanceof Promise) {
+              return gestureResult;
             }
             return;
           }
           if (typeof this.renderer?.playGesture === 'function') {
-            const res = this.renderer.playGesture(target);
-            if (res instanceof Promise) {
-              return res;
+            const gestureResult = this.renderer.playGesture(target);
+            if (gestureResult instanceof Promise) {
+              return gestureResult;
             }
             return;
           }
           if (typeof this.gesture2D === 'function') {
-            const res = this.gesture2D(target);
-            if (res instanceof Promise) {
-              return res;
+            const gestureResult = this.gesture2D(target);
+            if (gestureResult instanceof Promise) {
+              return gestureResult;
             }
             return;
           }
@@ -752,23 +752,23 @@ export function initSkinEngine(
             this._gesture3D !== safeGesture3D &&
             typeof this.gesture3D === 'function'
           ) {
-            const res = this.gesture3D(target);
-            if (res instanceof Promise) {
-              return res;
+            const gestureResult = this.gesture3D(target);
+            if (gestureResult instanceof Promise) {
+              return gestureResult;
             }
             return;
           }
           if (typeof this.renderer?.playGesture === 'function') {
-            const res = this.renderer.playGesture(target);
-            if (res instanceof Promise) {
-              return res;
+            const gestureResult = this.renderer.playGesture(target);
+            if (gestureResult instanceof Promise) {
+              return gestureResult;
             }
             return;
           }
           if (typeof this.gesture3D === 'function') {
-            const res = this.gesture3D(target);
-            if (res instanceof Promise) {
-              return res;
+            const gestureResult = this.gesture3D(target);
+            if (gestureResult instanceof Promise) {
+              return gestureResult;
             }
             return;
           }
@@ -834,9 +834,9 @@ export function initSkinEngine(
           } catch (error) {
             console.error(error);
             if (typeof this.onGestureError === 'function') {
-              const err =
+              const normalizedError =
                 error instanceof Error ? error : new Error(String(error));
-              this.onGestureError(err, newGestureName, this);
+              this.onGestureError(normalizedError, newGestureName, this);
             }
           } finally {
             if (typeof this.onGestureEnd === 'function') {

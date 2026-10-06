@@ -55,7 +55,7 @@ function findInMap(
     return map[lowerKey];
   }
   const matchedKey = Object.keys(map).find(
-    (k) => k.toLowerCase() === lowerKey
+    (mapKey) => mapKey.toLowerCase() === lowerKey
   );
   if (
     matchedKey !== undefined &&
@@ -349,11 +349,11 @@ export async function bootVRM(
       )
     ).catch((error: unknown) => {
       console.error(error);
-      const err = error instanceof Error ? error : new Error(String(error));
+      const normalizedError = error instanceof Error ? error : new Error(String(error));
       if (typeof skinEngine.VRMFileChangeFail === 'function') {
-        skinEngine.VRMFileChangeFail(err);
+        skinEngine.VRMFileChangeFail(normalizedError);
       }
-      throw err;
+      throw normalizedError;
     });
 
     VRMUtils.removeUnnecessaryVertices(gltf.scene);
@@ -555,9 +555,9 @@ export async function bootVRM(
             clipAction.clampWhenFinished = true;
             gestureActions[gestureName] = clipAction;
           } catch (error: unknown) {
-            const err =
+            const normalizedError =
               error instanceof Error ? error : new Error(String(error));
-            console.warn('VRMA ' + gestureName + ' load failed:', err.message);
+            console.warn('VRMA ' + gestureName + ' load failed:', normalizedError.message);
           }
         }
         mixer.addEventListener('finished', (event: { action?: unknown }) => {
@@ -582,8 +582,8 @@ export async function bootVRM(
           }
         }, 15000);
       } catch (error: unknown) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        console.warn('VRMA gesture library load failed:', err.message);
+        const normalizedError = error instanceof Error ? error : new Error(String(error));
+        console.warn('VRMA gesture library load failed:', normalizedError.message);
       }
     })();
 
@@ -611,7 +611,7 @@ export async function bootVRM(
       // 1. VRMA 動作庫匹配 (包含 setting.gestures 與內建動作，大小寫不拘)
       const actionKeys = Object.keys(gestureActions);
       const matchedActionKey = actionKeys.find(
-        (k) => k.toLowerCase() === gestureName.toLowerCase()
+        (actionKey) => actionKey.toLowerCase() === gestureName.toLowerCase()
       );
       if (matchedActionKey !== undefined) {
         const clipAction = gestureActions[matchedActionKey];
@@ -929,9 +929,9 @@ export async function bootVRM(
     };
   } catch (error: unknown) {
     console.error(error);
-    const err = error instanceof Error ? error : new Error(String(error));
+    const normalizedError = error instanceof Error ? error : new Error(String(error));
     if (typeof skinEngine?.onThreeDimensionalError === 'function') {
-      skinEngine.onThreeDimensionalError(err, skinEngine);
+      skinEngine.onThreeDimensionalError(normalizedError, skinEngine);
     }
   }
 }

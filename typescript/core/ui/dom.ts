@@ -170,16 +170,16 @@ export function initUi(
   muteButtonSpanEl.textContent = '🔊';
   muteButtonEl.appendChild(muteButtonSpanEl);
 
-  const btnLlmEl = document.createElement('button');
-  btnLlmEl.setAttribute('id', 'btn-llm');
-  btnLlmEl.setAttribute('aria-label', '啟用瀏覽器內 AI 大腦（首次需下載模型）');
-  btnLlmEl.setAttribute('data-i18n-aria', 'ui.llm.ariaLabel');
-  btnLlmEl.setAttribute('aria-pressed', 'false');
-  btnLlmEl.classList.add('ctrl');
-  const btnLlmSpanEl = document.createElement('span');
-  btnLlmSpanEl.setAttribute('aria-hidden', 'true');
-  btnLlmSpanEl.textContent = '🧠';
-  btnLlmEl.appendChild(btnLlmSpanEl);
+  const llmButtonEl = document.createElement('button');
+  llmButtonEl.setAttribute('id', 'btn-llm');
+  llmButtonEl.setAttribute('aria-label', '啟用瀏覽器內 AI 大腦（首次需下載模型）');
+  llmButtonEl.setAttribute('data-i18n-aria', 'ui.llm.ariaLabel');
+  llmButtonEl.setAttribute('aria-pressed', 'false');
+  llmButtonEl.classList.add('ctrl');
+  const llmButtonSpanEl = document.createElement('span');
+  llmButtonSpanEl.setAttribute('aria-hidden', 'true');
+  llmButtonSpanEl.textContent = '🧠';
+  llmButtonEl.appendChild(llmButtonSpanEl);
 
   const speedButtonEl = document.createElement('button');
   speedButtonEl.setAttribute('id', 'btn-speed');
@@ -245,7 +245,7 @@ export function initUi(
   dockRow1El.appendChild(questionInputEl);
   dockRow1El.appendChild(sendButtonEl);
   dockRow2El.appendChild(micButtonEl);
-  dockRow2El.appendChild(btnLlmEl);
+  dockRow2El.appendChild(llmButtonEl);
   dockRow2El.appendChild(engineButtonEl);
   dockRow2El.appendChild(muteButtonEl);
   dockRow2El.appendChild(speedButtonEl);
@@ -383,8 +383,8 @@ export function initUi(
     get muteButtonEl() {
       return muteButtonEl;
     },
-    get btnLlmEl() {
-      return btnLlmEl;
+    get llmButtonEl() {
+      return llmButtonEl;
     },
     get speedButtonEl() {
       return speedButtonEl;

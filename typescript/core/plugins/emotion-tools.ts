@@ -117,11 +117,11 @@ export function createEmotionToolsPlugin(
 
         if (typeof targetSkinEngine === 'object' && targetSkinEngine !== null) {
           if (typeof targetSkinEngine.setEmotion === 'function') {
-            (targetSkinEngine.setEmotion as (e: string) => void)(safeEmotion);
+            (targetSkinEngine.setEmotion as (emotion: string) => void)(safeEmotion);
           } else if (typeof targetSkinEngine.gesture === 'function') {
-            await (targetSkinEngine.gesture as (e: string) => Promise<void>)(
-              safeEmotion
-            );
+            await (
+              targetSkinEngine.gesture as (gestureName: string) => Promise<void>
+            )(safeEmotion);
           }
         } else {
           console.warn(

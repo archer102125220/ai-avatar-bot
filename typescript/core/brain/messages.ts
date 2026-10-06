@@ -236,12 +236,16 @@ export function resolveAutoContinuePrompt(
 
   const customPrompt = engine?.autoContinuePrompt;
   if (typeof customPrompt === 'function') {
-    const fn = customPrompt as (
+    const promptResolver = customPrompt as (
       brain: unknown,
       index?: number,
       accum?: string
     ) => unknown;
-    const result = fn(brainEngine, continuationIndex, accumulatedText);
+    const result = promptResolver(
+      brainEngine,
+      continuationIndex,
+      accumulatedText
+    );
     if (typeof result === 'string' && result.trim() !== '') {
       return result;
     }

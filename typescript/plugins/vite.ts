@@ -59,8 +59,8 @@ export function avatarBotVitePlugin(options: AvatarBotPluginOptions = {}): Plugi
     },
 
     configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        const url = req?.url || '';
+      server.middlewares.use((request, response, next) => {
+        const url = request?.url || '';
         const pathname = decodeURIComponent(url.split('?')[0]);
 
         if (pathname.startsWith(cleanRoute)) {
@@ -69,15 +69,15 @@ export function avatarBotVitePlugin(options: AvatarBotPluginOptions = {}): Plugi
 
           // Prevent path traversal attacks
           if (filePath.startsWith(path.resolve(assetsDir)) === false) {
-            res.statusCode = 403;
-            return res.end('Forbidden');
+            response.statusCode = 403;
+            return response.end('Forbidden');
           }
 
           if (fs.existsSync(filePath) && fs.statSync(filePath).isFile() === true) {
             const mimeType = getMimeType(filePath);
-            res.setHeader('Content-Type', mimeType);
-            res.setHeader('Cache-Control', 'no-cache');
-            return fs.createReadStream(filePath).pipe(res);
+            response.setHeader('Content-Type', mimeType);
+            response.setHeader('Cache-Control', 'no-cache');
+            return fs.createReadStream(filePath).pipe(response);
           }
         }
         next();
@@ -92,8 +92,8 @@ export function avatarBotVitePlugin(options: AvatarBotPluginOptions = {}): Plugi
         try {
           copyDirRecursive(assetsDir, targetDir);
           console.log(`[ai-avatar-bot] Assets successfully copied to ${targetDir}`);
-        } catch (err) {
-          console.warn('[ai-avatar-bot] Failed to copy avatar assets during build:', err);
+        } catch (error) {
+          console.warn('[ai-avatar-bot] Failed to copy avatar assets during build:', error);
         }
       }
     }

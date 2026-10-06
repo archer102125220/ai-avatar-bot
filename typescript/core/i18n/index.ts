@@ -347,10 +347,12 @@ export function initI18nEngine(options: I18nEngineOptions = {}): I18nEngine {
           }
         );
       }
-      return (store.subscribe as (k: unknown, l?: unknown) => () => void)(
-        key,
-        listener
-      );
+      return (
+        store.subscribe as (
+          storeKey: unknown,
+          storeListener?: unknown
+        ) => () => void
+      )(key, listener);
     },
     getState: store.getState,
     setState: store.setState

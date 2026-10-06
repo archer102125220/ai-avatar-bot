@@ -136,10 +136,10 @@ export function migrateMemoryData(rawData: unknown): MemoryData {
         const result = migrationFn(migratedData);
         migratedData = result as unknown as Record<string, unknown>;
         currentVersion = nextVersion;
-      } catch (err) {
+      } catch (migrationError) {
         console.warn(
           `[Memory Migration] Failed migrating to v${nextVersion}:`,
-          err
+          migrationError
         );
         return createDefaultMemoryData();
       }

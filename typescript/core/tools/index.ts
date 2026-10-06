@@ -439,7 +439,11 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
       });
 
       if (typeof pendingToolData?.onConfirmResume === 'function') {
-        (pendingToolData.onConfirmResume as (res: unknown) => void)(result);
+        (
+          pendingToolData.onConfirmResume as (
+            toolExecutionResult: unknown
+          ) => void
+        )(result);
       } else if (tool.resultMode !== TOOL_RESULT_MODE_MAP.AI_SUMMARY) {
         const message =
           typeof result === 'string'
@@ -460,7 +464,11 @@ export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
       const errorMessage =
         error instanceof Error ? error.message : String(error || '執行錯誤');
       if (typeof pendingToolData?.onConfirmResume === 'function') {
-        (pendingToolData.onConfirmResume as (res: unknown) => void)({
+        (
+          pendingToolData.onConfirmResume as (
+            toolExecutionResult: unknown
+          ) => void
+        )({
           ok: false,
           error: errorMessage
         });

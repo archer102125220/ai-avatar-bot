@@ -45,7 +45,7 @@ describe('UI DOM & Scaffolding (initUi)', () => {
     expect(uiDom.questionInputEl.id).toBe('type-input');
     expect(uiDom.sendButtonEl.id).toBe('btn-send');
     expect(uiDom.micButtonEl.id).toBe('btn-mic');
-    expect(uiDom.btnLlmEl.id).toBe('btn-llm');
+    expect(uiDom.llmButtonEl.id).toBe('btn-llm');
     expect(uiDom.engineButtonEl.id).toBe('btn-engine');
     expect(uiDom.muteButtonEl.id).toBe('btn-mute');
     expect(uiDom.speedButtonEl.id).toBe('btn-speed');
