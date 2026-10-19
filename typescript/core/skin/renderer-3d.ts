@@ -213,7 +213,7 @@ export async function bootVRM(
       bow: bow || safeVrmaRootPath + 'bow.vrma', // 彎腰90度的鞠躬
       // thinking_deprecated:
       //   thinking || safeVrmaRootPath + 'thinking_deprecated.vrma', // 雙手在腰部交叉呈現接近抱胸的類似思考的姿勢
-      thinking: thinking || safeVrmaRootPath + 'thinking.vrma', // 單手托下巴，另一隻手叉腰，類似思考的動作，實際套用後覺得應該屬於不區分性別的動作
+      thinking: thinking || safeVrmaRootPath + 'thinking.vrma', // 單手托下巴，另一隻手叉腰，類似思考的動作
       look: look || safeVrmaRootPath + 'LookAround.vrma', // 左右環顧
       relax: relax || safeVrmaRootPath + 'Relax.vrma', // 雙手往外伸展的伸懶腰姿勢
       surprised: surprised || safeVrmaRootPath + 'Surprised.vrma', // 雙手往臉的旁邊靠，擺出驚訝的動作
@@ -228,12 +228,12 @@ export async function bootVRM(
       idleFemale2: safeVrmaRootPath + 'idleFemale2.vrma', // 雙手在臀部後方交叉，，雙腳交替輕微往前踢
       idleMale1: safeVrmaRootPath + 'idleMale1.vrma', // 舒展左手臂的動作
       idleMale2: safeVrmaRootPath + 'idleMale2.vrma', // 左右舒展脖子的動作
-      salute: safeVrmaRootPath + 'salute.vrma', // 將右手舉起與頭部齊高，手掌張開，呈現敬禮的動作，但不像軍人那麼正經，更偏耍帥的動作
+      salute: safeVrmaRootPath + 'salute.vrma', // 將右手舉起與頭部齊高，手掌張開，呈現敬禮的姿勢後，快速將手往下方揮下，不像軍人的敬禮姿勢那麼正經，更偏耍帥的動作
       standingGreeting: safeVrmaRootPath + 'standingGreeting.vrma', // 單手舉起，並將手掌左右揮動，接近打招呼的動作
       talking_v01: safeVrmaRootPath + 'talking.v.01.vrma', // 頭部輕微點一次頭，類似對話的動作
       talking_v02: safeVrmaRootPath + 'talking.v.02.vrma', // 頭往前看，並像說話做出約四次的輕微點頭反動作，每次點頭的幅度都會逐漸變小
       talking_v03: safeVrmaRootPath + 'talking.v.03.vrma', // 單手向前晃，頭部向輕微往手部的方向傾斜，然後作出約兩次的輕微點頭動作，類似講話的動作
-      talkingMale: safeVrmaRootPath + 'talkingMale.vrma', // 頭部傾斜後回正，並做出約兩次的輕微點頭動作，類似講話的動作，實際套用後覺得應該屬於不區分性別的動作
+      talking_v04: safeVrmaRootPath + 'talking.v.04.vrma', // 頭部傾斜後回正，並做出約兩次的輕微點頭動作，類似講話的動作
       thankful: safeVrmaRootPath + 'thankful.vrma', // 單手放胸，頭部微微點頭，類似表示感謝的動作
       ...userCustomGestures
     };
