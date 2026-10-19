@@ -220,10 +220,10 @@ export async function bootVRM(
       appearing: appearing || safeVrmaRootPath + 'appearing.vrma', // 走路後轉身面向到鏡頭
       liked: liked || safeVrmaRootPath + 'liked.vrma', // 單手握拳的類似表達「太好了」的動作
       waiting: waiting || safeVrmaRootPath + 'waiting.vrma', // 環顧四周，然後單手用手背做出類似擦嘴的動作
-      idle_v01: safeVrmaRootPath + 'idle.v.01.vrma', // 頭往斜上方看，保持呼吸起伏的動作
+      // idle_v01_deprecated: safeVrmaRootPath + 'idle.v.01_deprecated.vrma', // 頭往斜上方看，保持呼吸起伏的動作
       // idle_v02_deprecated: safeVrmaRootPath + 'idle.v.02_deprecated.vrma', // 左右換顧，但好像比較接近剛旁邊的人說話的動作
-      idle_v02: safeVrmaRootPath + 'idle.v.02.vrma', // 自動調整站姿，頭往斜上放看，並保持呼吸起伏的動作
-      idle_v03: safeVrmaRootPath + 'idle.v.03.vrma', // 頭往斜前方看，並保持呼吸起伏的動作
+      idle_v01: safeVrmaRootPath + 'idle.v.01.vrma', // 自動調整站姿，頭往斜上放看，並保持呼吸起伏的動作
+      idle_v02: safeVrmaRootPath + 'idle.v.02.vrma', // 頭往斜前方看，並保持呼吸起伏的動作
       idleFemale1: safeVrmaRootPath + 'idleFemale1.vrma', // 右手抬起，並作出檢視自己指甲的動作
       idleFemale2: safeVrmaRootPath + 'idleFemale2.vrma', // 雙手在臀部後方交叉，，雙腳交替輕微往前踢
       idleMale1: safeVrmaRootPath + 'idleMale1.vrma', // 舒展左手臂的動作
