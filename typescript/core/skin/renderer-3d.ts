@@ -209,15 +209,32 @@ export async function bootVRM(
           : {};
 
     const GESTURES: Record<string, string> = {
-      goodbye: goodbye || safeVrmaRootPath + 'goodbye.vrma',
-      bow: bow || safeVrmaRootPath + 'bow.vrma',
-      thinking: thinking || safeVrmaRootPath + 'Thinking.vrma',
-      look: look || safeVrmaRootPath + 'LookAround.vrma',
-      relax: relax || safeVrmaRootPath + 'Relax.vrma',
-      surprised: surprised || safeVrmaRootPath + 'Surprised.vrma',
-      appearing: appearing || safeVrmaRootPath + 'appearing.vrma',
-      liked: liked || safeVrmaRootPath + 'liked.vrma',
-      waiting: waiting || safeVrmaRootPath + 'waiting.vrma',
+      goodbye: goodbye || safeVrmaRootPath + 'goodbye.vrma', // 雙手向斜前方伸直並揮動，接近道別的動作
+      bow: bow || safeVrmaRootPath + 'bow.vrma', // 彎腰90度的鞠躬
+      // thinking_deprecated:
+      //   thinking || safeVrmaRootPath + 'thinking_deprecated.vrma', // 雙手在腰部交叉呈現接近抱胸的類似思考的姿勢
+      thinking: thinking || safeVrmaRootPath + 'thinkingFemale.vrma', // 單手托下巴，另一隻手叉腰，類似思考的動作，實際套用後覺得應該屬於不區分性別的動作
+      look: look || safeVrmaRootPath + 'LookAround.vrma', // 左右環顧
+      relax: relax || safeVrmaRootPath + 'Relax.vrma', // 雙手往外伸展的伸懶腰姿勢
+      surprised: surprised || safeVrmaRootPath + 'Surprised.vrma', // 雙手往臉的旁邊靠，擺出驚訝的動作
+      appearing: appearing || safeVrmaRootPath + 'appearing.vrma', // 走路後轉身面向到鏡頭
+      liked: liked || safeVrmaRootPath + 'liked.vrma', // 單手握拳的類似表達「太好了」的動作
+      waiting: waiting || safeVrmaRootPath + 'waiting.vrma', // 環顧四周，然後單手用手背做出類似擦嘴的動作
+      idle_v01: safeVrmaRootPath + 'idle.v.01.vrma', // 頭往斜上方看，保持呼吸起伏的動作
+      // idle_v02_deprecated: safeVrmaRootPath + 'idle.v.02_deprecated.vrma', // 左右換顧，但好像比較接近剛旁邊的人說話的動作
+      idle_v02: safeVrmaRootPath + 'idle.v.02.vrma', // 自動調整站姿，頭往斜上放看，並保持呼吸起伏的動作
+      idle_v03: safeVrmaRootPath + 'idle.v.03.vrma', // 頭往斜前方看，並保持呼吸起伏的動作
+      idleFemale1: safeVrmaRootPath + 'idleFemale1.vrma', // 右手抬起，並作出檢視自己指甲的動作
+      idleFemale2: safeVrmaRootPath + 'idleFemale2.vrma', // 雙手在臀部後方交叉，，雙腳交替輕微往前踢
+      idleMale1: safeVrmaRootPath + 'idleMale1.vrma', // 舒展左手臂的動作
+      idleMale2: safeVrmaRootPath + 'idleMale2.vrma', // 左右舒展脖子的動作
+      salute: safeVrmaRootPath + 'salute.vrma', // 將右手舉起與頭部齊高，手掌張開，呈現敬禮的動作，但不像軍人那麼正經，更偏耍帥的動作
+      standingGreeting: safeVrmaRootPath + 'standingGreeting.vrma', // 單手舉起，並將手掌左右揮動，接近打招呼的動作
+      talking_v01: safeVrmaRootPath + 'talking.v.01.vrma', // 頭部輕微點一次頭，類似對話的動作
+      talking_v02: safeVrmaRootPath + 'talking.v.02.vrma', // 頭往前看，並像說話做出約四次的輕微點頭反動作，每次點頭的幅度都會逐漸變小
+      talking_v03: safeVrmaRootPath + 'talking.v.03.vrma', // 單手向前晃，頭部向輕微往手部的方向傾斜，然後作出約兩次的輕微點頭動作，類似講話的動作
+      talkingMale: safeVrmaRootPath + 'talkingMale.vrma', // 頭部傾斜後回正，並做出約兩次的輕微點頭動作，類似講話的動作，實際套用後覺得應該屬於不區分性別的動作
+      thankful: safeVrmaRootPath + 'thankful.vrma', // 單手放胸，頭部微微點頭，類似表示感謝的動作
       ...userCustomGestures
     };
     const TAP_GESTURES = ['goodbye', 'bow', 'waiting'];
@@ -349,7 +366,8 @@ export async function bootVRM(
       )
     ).catch((error: unknown) => {
       console.error(error);
-      const normalizedError = error instanceof Error ? error : new Error(String(error));
+      const normalizedError =
+        error instanceof Error ? error : new Error(String(error));
       if (typeof skinEngine.VRMFileChangeFail === 'function') {
         skinEngine.VRMFileChangeFail(normalizedError);
       }
@@ -557,7 +575,10 @@ export async function bootVRM(
           } catch (error: unknown) {
             const normalizedError =
               error instanceof Error ? error : new Error(String(error));
-            console.warn('VRMA ' + gestureName + ' load failed:', normalizedError.message);
+            console.warn(
+              'VRMA ' + gestureName + ' load failed:',
+              normalizedError.message
+            );
           }
         }
         mixer.addEventListener('finished', (event: { action?: unknown }) => {
@@ -582,8 +603,12 @@ export async function bootVRM(
           }
         }, 15000);
       } catch (error: unknown) {
-        const normalizedError = error instanceof Error ? error : new Error(String(error));
-        console.warn('VRMA gesture library load failed:', normalizedError.message);
+        const normalizedError =
+          error instanceof Error ? error : new Error(String(error));
+        console.warn(
+          'VRMA gesture library load failed:',
+          normalizedError.message
+        );
       }
     })();
 
@@ -593,7 +618,9 @@ export async function bootVRM(
 
     function getSkin3dConfig(): Skin3DConfig {
       const state =
-        typeof skinEngine.getState === 'function' ? skinEngine.getState() : null;
+        typeof skinEngine.getState === 'function'
+          ? skinEngine.getState()
+          : null;
       return typeof state?.skin3d === 'object' && state.skin3d !== null
         ? state.skin3d
         : typeof skinEngine.skin3d === 'object' && skinEngine.skin3d !== null
@@ -641,10 +668,7 @@ export async function bootVRM(
 
       if (candidateExpressions.length > 0) {
         const targetExpression = candidateExpressions[0];
-        if (
-          typeof skinEngine.emo === 'object' &&
-          skinEngine.emo !== null
-        ) {
+        if (typeof skinEngine.emo === 'object' && skinEngine.emo !== null) {
           skinEngine.emo.name = targetExpression;
           skinEngine.emo.target = 1;
         }
@@ -929,7 +953,8 @@ export async function bootVRM(
     };
   } catch (error: unknown) {
     console.error(error);
-    const normalizedError = error instanceof Error ? error : new Error(String(error));
+    const normalizedError =
+      error instanceof Error ? error : new Error(String(error));
     if (typeof skinEngine?.onThreeDimensionalError === 'function') {
       skinEngine.onThreeDimensionalError(normalizedError, skinEngine);
     }
