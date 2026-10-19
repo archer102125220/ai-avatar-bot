@@ -4187,7 +4187,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "ai-avatar-bot-iframe@workspace:iframe"
   dependencies:
-    msedge-tts: "npm:^2.0.5"
+    msedge-tts: "npm:^2.1.0"
     vercel: "npm:^54.20.0"
   languageName: unknown
   linkType: soft
@@ -4321,7 +4321,7 @@ __metadata:
   resolution: "ai-avatar-bot@workspace:."
   dependencies:
     "@types/node": "npm:^20.0.0"
-    msedge-tts: "npm:^2.0.6"
+    msedge-tts: "npm:^2.1.0"
   languageName: unknown
   linkType: soft
 
@@ -7543,16 +7543,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"msedge-tts@npm:^2.0.5, msedge-tts@npm:^2.0.6":
-  version: 2.0.8
-  resolution: "msedge-tts@npm:2.0.8"
+"msedge-tts@npm:^2.1.0":
+  version: 2.1.0
+  resolution: "msedge-tts@npm:2.1.0"
   dependencies:
     axios: "npm:^1.11.0"
     buffer: "npm:^6.0.3"
     isomorphic-ws: "npm:^5.0.0"
     stream-browserify: "npm:^3.0.0"
     ws: "npm:^8.21.3"
-  checksum: 10c0/a1ab0cf218d484a2ee6fcb37025c49c54019558328a41cdb40102d9f30e39781421c681211607ff382722756ecb9a263b38071cd9582c8028c1b4fb327bea4f9
+  checksum: 10c0/006a1fdff3a04dc5507150d04d8203f80e90f514e762fe24fdd99639a97769eb65634f6e62bd5ed4d1772c98c91e38b6ee34f71c7280d64cb0467805c7b5c021
   languageName: node
   linkType: hard
 
