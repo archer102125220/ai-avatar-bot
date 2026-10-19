@@ -213,7 +213,7 @@ export async function bootVRM(
       bow: bow || safeVrmaRootPath + 'bow.vrma', // 彎腰90度的鞠躬
       // thinking_deprecated:
       //   thinking || safeVrmaRootPath + 'thinking_deprecated.vrma', // 雙手在腰部交叉呈現接近抱胸的類似思考的姿勢
-      thinking: thinking || safeVrmaRootPath + 'thinkingFemale.vrma', // 單手托下巴，另一隻手叉腰，類似思考的動作，實際套用後覺得應該屬於不區分性別的動作
+      thinking: thinking || safeVrmaRootPath + 'thinking.vrma', // 單手托下巴，另一隻手叉腰，類似思考的動作，實際套用後覺得應該屬於不區分性別的動作
       look: look || safeVrmaRootPath + 'LookAround.vrma', // 左右環顧
       relax: relax || safeVrmaRootPath + 'Relax.vrma', // 雙手往外伸展的伸懶腰姿勢
       surprised: surprised || safeVrmaRootPath + 'Surprised.vrma', // 雙手往臉的旁邊靠，擺出驚訝的動作
