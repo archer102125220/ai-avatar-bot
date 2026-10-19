@@ -25,6 +25,29 @@ export interface Skin2DModeConfig {
 }
 
 /**
+ * Cascade inheritance container type supporting gender-specific overrides.
+ * Resolves priority: config[gender]?.field ➜ config.field ➜ default Fallback.
+ */
+export type SkinGenderCascade<T> = T & {
+  /** Female-specific overrides. */
+  female?: T;
+  /** Male-specific overrides. */
+  male?: T;
+};
+
+/**
+ * 2D motion configuration item: can be a motion group string or an option object with pointerLook.
+ */
+export type Skin2DMotionItem =
+  | string
+  | {
+      /** Live2D motion group name or file name. */
+      motion: string;
+      /** Whether to enable mouse cursor gaze/focus tracking during motion playback. Default: true. */
+      pointerLook?: boolean;
+    };
+
+/**
  * Comprehensive 2D visual configuration object.
  */
 export interface Skin2DConfig {
@@ -44,10 +67,10 @@ export interface Skin2DConfig {
   tapMotions?: string[];
   /** Alias for tapMotions. */
   tapGestures?: string[];
-  /** Semantic motion mapping from action names to Live2D motion group names. */
-  motionMap?: Record<string, string>;
-  /** Custom semantic expression mapping to Live2D expression names. */
-  expressionMap?: Record<string, string>;
+  /** Semantic motion mapping from action names to Live2D motion group names (supports cascade gender overrides). */
+  motionMap?: SkinGenderCascade<Record<string, Skin2DMotionItem>>;
+  /** Custom semantic expression mapping to Live2D expression names (supports cascade gender overrides). */
+  expressionMap?: SkinGenderCascade<Record<string, string>>;
 }
 
 /**
@@ -89,6 +112,91 @@ export interface Skin3DModeConfig {
 }
 
 /**
+ * Standard built-in 3D gesture and animation action names.
+ * Ensures typo prevention in IDE autocompletion.
+ */
+export type StandardSkin3DGestureName =
+  | 'idle-1'
+  | 'idle-2'
+  | 'idle-female-1'
+  | 'idle-female-2'
+  | 'idle-male-1'
+  | 'idle-male-2'
+  | 'talking-1'
+  | 'talking-2'
+  | 'talking-3'
+  | 'talking-4'
+  | 'standing-greeting'
+  | 'salute'
+  | 'bow'
+  | 'goodbye'
+  | 'thankful'
+  | 'thinking'
+  | 'look-around'
+  | 'relax'
+  | 'surprised'
+  | 'appearing'
+  | 'liked'
+  | 'waiting'
+  // Legacy alias keys for backwards compatibility
+  | 'look'
+  | 'idle_v01'
+  | 'idle_v02'
+  | 'idleFemale1'
+  | 'idleFemale2'
+  | 'idleMale1'
+  | 'idleMale2'
+  | 'standingGreeting'
+  | 'talking_v01'
+  | 'talking_v02'
+  | 'talking_v03'
+  | 'talking_v04';
+
+/**
+ * 3D gesture name type that combines built-in standard names for autocomplete and string for custom extensions.
+ */
+export type Skin3DGestureName = StandardSkin3DGestureName | (string & {});
+
+/**
+ * Detailed configuration option for a 3D animation action.
+ */
+export interface Skin3DActionOption {
+  /** Action identifier key matching StandardSkin3DGestureName or custom string. */
+  name: Skin3DGestureName;
+  /** Explicit URL to the .vrma animation file. */
+  url?: string;
+  /**
+   * Whether to enable mouse cursor gaze/head tracking during this action's playback.
+   * Default: true (actions like inspecting nails or bowing can be set to false).
+   */
+  pointerLook?: boolean;
+}
+
+/**
+ * Single item in a 3D animation pool: can be a simple action name string or a detailed option object.
+ */
+export type Skin3DActionItem = Skin3DGestureName | Skin3DActionOption;
+
+/**
+ * Gesture option object in gestures dictionary.
+ */
+export interface Skin3DGestureOption {
+  /** Explicit URL to the .vrma animation file. */
+  url?: string;
+  /** Whether to enable mouse cursor gaze/head tracking during this action. Default: true. */
+  pointerLook?: boolean;
+}
+
+/**
+ * Custom gesture library dictionary mapping gesture names to VRMA URLs or option objects.
+ */
+export type Skin3DGesturesMap = {
+  [K in StandardSkin3DGestureName]?: string | Skin3DGestureOption;
+} & {
+  [customName: string]: string | Skin3DGestureOption | undefined;
+};
+
+/**
  * Comprehensive 3D VRM visual and animation configuration object.
  */
 export interface Skin3DConfig {
@@ -100,8 +208,24 @@ export interface Skin3DConfig {
   half?: Skin3DModeConfig;
   /** Full-body mode specific overrides. */
   full?: Skin3DModeConfig;
-  /** Whether to enable 3D eye gaze and head tracking towards the mouse cursor. */
+  /** Whether to enable 3D eye gaze and head tracking towards the mouse cursor globally. Default: true. */
   pointerLook?: boolean;
+  /** Animation crossfade transition duration in seconds. Default: 0.3s. */
+  crossfadeDuration?: number;
+  /** Base idle loop animation pool. Default: ['idle-1', 'idle-2']. */
+  idlePool?: Skin3DActionItem[];
+  /** Speaking speech motion animation pool. Default: ['talking-1', 'talking-2', 'talking-3', 'talking-4']. */
+  talkingPool?: Skin3DActionItem[];
+  /** Occasional gender-specific idle variant animation pool (triggered randomly every 10~20s). */
+  idleVariants?: {
+    female?: Skin3DActionItem[];
+    male?: Skin3DActionItem[];
+  };
+  /** Model mount initial greeting animation action (supports cascade gender overrides). */
+  greetings?: {
+    female?: Skin3DActionItem;
+    male?: Skin3DActionItem;
+  };
   /** URL to bow animation file (.vrma). */
   bow?: string;
   /** URL to goodbye animation file (.vrma). */
@@ -119,15 +243,15 @@ export interface Skin3DConfig {
   /** URL to liked animation file (.vrma). */
   liked?: string;
   /** URL to waiting animation file (.vrma). */
-  waiting?: string;
+  waiting?: string | { female?: string; male?: string };
   /** Root directory URL path for VRMA animation files. */
   vrmaRootPath?: string;
   /** Gesture action keys triggered randomly when 3D avatar is clicked. Default: ['goodbye', 'bow', 'waiting'] */
-  tapGestures?: string[];
-  /** Custom gesture library dictionary mapping gesture names to VRMA URLs. */
-  gestures?: Record<string, string>;
+  tapGestures?: Skin3DActionItem[];
+  /** Custom gesture library dictionary mapping gesture names to VRMA URLs or options. */
+  gestures?: SkinGenderCascade<Skin3DGesturesMap>;
   /** Custom semantic expression mapping to VRM morph/expression names. */
-  expressionMap?: Record<string, string>;
+  expressionMap?: SkinGenderCascade<Record<string, string>>;
 }
 
 /**
@@ -171,10 +295,7 @@ export interface Live2DModelInstance {
 /**
  * 2D Live2D renderer controller instance.
  */
-export interface Renderer2D<
-  TModel = Live2DModelInstance,
-  TApp = unknown
-> {
+export interface Renderer2D<TModel = Live2DModelInstance, TApp = unknown> {
   /** Canvas element used for rendering. */
   readonly canvas: HTMLCanvasElement;
   /** Live2D model instance. */

@@ -121,7 +121,7 @@ export function loadUMD(): Promise<void> {
  * Helper to look up a string value from a dictionary map ignoring case.
  */
 function findInMap(
-  map: Record<string, string> | undefined,
+  map: Record<string, string | { motion?: string } | unknown> | undefined,
   key: string
 ): string | undefined {
   if (
@@ -132,22 +132,34 @@ function findInMap(
   ) {
     return undefined;
   }
-  if (typeof map[key] === 'string' && map[key] !== '') {
-    return map[key];
+  const extractVal = (val: unknown): string | undefined => {
+    if (typeof val === 'string' && val !== '') {
+      return val;
+    }
+    if (
+      typeof val === 'object' &&
+      val !== null &&
+      typeof (val as { motion?: unknown }).motion === 'string'
+    ) {
+      return (val as { motion: string }).motion;
+    }
+    return undefined;
+  };
+
+  const directVal = extractVal(map[key]);
+  if (directVal !== undefined) {
+    return directVal;
   }
   const lowerKey = key.toLowerCase();
-  if (typeof map[lowerKey] === 'string' && map[lowerKey] !== '') {
-    return map[lowerKey];
+  const lowerVal = extractVal(map[lowerKey]);
+  if (lowerVal !== undefined) {
+    return lowerVal;
   }
   const matchedKey = Object.keys(map).find(
     (mapKey) => mapKey.toLowerCase() === lowerKey
   );
-  if (
-    matchedKey !== undefined &&
-    typeof map[matchedKey] === 'string' &&
-    map[matchedKey] !== ''
-  ) {
-    return map[matchedKey];
+  if (matchedKey !== undefined) {
+    return extractVal(map[matchedKey]);
   }
   return undefined;
 }
@@ -428,7 +440,9 @@ export async function bootAvatar(
 
     function getSkin2dConfig(): Skin2DConfig {
       const state =
-        typeof skinEngine.getState === 'function' ? skinEngine.getState() : null;
+        typeof skinEngine.getState === 'function'
+          ? skinEngine.getState()
+          : null;
       return typeof state?.skin2d === 'object' && state.skin2d !== null
         ? state.skin2d
         : typeof skinEngine.skin2d === 'object' && skinEngine.skin2d !== null
@@ -509,7 +523,10 @@ export async function bootAvatar(
       }
 
       // 5. 若模型未暴露 motions metadata，但有 motion 函式，做盲調嘗試
-      if (motionKeys.length === 0 && typeof avatarModel?.motion === 'function') {
+      if (
+        motionKeys.length === 0 &&
+        typeof avatarModel?.motion === 'function'
+      ) {
         const motionResult = await avatarModel.motion(gestureName);
         if (motionResult !== false) {
           return;
@@ -536,10 +553,7 @@ export async function bootAvatar(
       },
       get TAP_GESTURES(): string[] {
         const config = getSkin2dConfig();
-        if (
-          Array.isArray(config.tapMotions) &&
-          config.tapMotions.length > 0
-        ) {
+        if (Array.isArray(config.tapMotions) && config.tapMotions.length > 0) {
           return config.tapMotions;
         }
         if (
@@ -588,7 +602,8 @@ export async function bootAvatar(
   } catch (error: unknown) {
     console.error(error);
 
-    const normalizedError = error instanceof Error ? error : new Error(String(error));
+    const normalizedError =
+      error instanceof Error ? error : new Error(String(error));
     if (typeof skinEngine?.onTwoDimensionalError === 'function') {
       skinEngine.onTwoDimensionalError(normalizedError, skinEngine);
     }

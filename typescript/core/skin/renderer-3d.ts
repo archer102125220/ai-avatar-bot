@@ -200,7 +200,7 @@ export async function bootVRM(
         ? vrmaRootPath
         : DEFAULT_VRMA_ROOT_PATH;
 
-    const userCustomGestures: Record<string, string> =
+    const rawCustomGestures =
       typeof setting.gestures === 'object' && setting.gestures !== null
         ? setting.gestures
         : typeof skinEngine?.skin3d?.gestures === 'object' &&
@@ -208,33 +208,63 @@ export async function bootVRM(
           ? skinEngine.skin3d.gestures
           : {};
 
+    const userCustomGestures: Record<string, string> = {};
+    for (const [key, value] of Object.entries(rawCustomGestures)) {
+      if (typeof value === 'string' && value !== '') {
+        userCustomGestures[key] = value;
+      } else if (
+        typeof value === 'object' &&
+        value !== null &&
+        typeof (value as { url?: string }).url === 'string'
+      ) {
+        userCustomGestures[key] = (value as { url: string }).url;
+      }
+    }
+
+    const waitingUrl =
+      typeof waiting === 'string' && waiting !== ''
+        ? waiting
+        : typeof waiting === 'object' && waiting !== null
+          ? (skinEngine.gender === 'female' ? waiting.female : waiting.male) ||
+            safeVrmaRootPath + 'common/waiting.vrma'
+          : safeVrmaRootPath + 'common/waiting.vrma';
+
     const GESTURES: Record<string, string> = {
-      goodbye: goodbye || safeVrmaRootPath + 'goodbye.vrma', // 雙手向斜前方伸直並揮動，接近道別的動作
-      bow: bow || safeVrmaRootPath + 'bow.vrma', // 彎腰90度的鞠躬
-      // thinking_deprecated:
-      //   thinking || safeVrmaRootPath + 'thinking_deprecated.vrma', // 雙手在腰部交叉呈現接近抱胸的類似思考的姿勢
-      thinking: thinking || safeVrmaRootPath + 'thinking.vrma', // 單手托下巴，另一隻手叉腰，類似思考的動作
-      look: look || safeVrmaRootPath + 'LookAround.vrma', // 左右環顧
-      relax: relax || safeVrmaRootPath + 'Relax.vrma', // 雙手往外伸展的伸懶腰姿勢
-      surprised: surprised || safeVrmaRootPath + 'Surprised.vrma', // 雙手往臉的旁邊靠，擺出驚訝的動作
-      appearing: appearing || safeVrmaRootPath + 'appearing.vrma', // 走路後轉身面向到鏡頭
-      liked: liked || safeVrmaRootPath + 'liked.vrma', // 單手握拳的類似表達「太好了」的動作
-      waiting: waiting || safeVrmaRootPath + 'waiting.vrma', // 環顧四周，然後單手用手背做出類似擦嘴的動作
-      // idle_v01_deprecated: safeVrmaRootPath + 'idle.v.01_deprecated.vrma', // 頭往斜上方看，保持呼吸起伏的動作
-      // idle_v02_deprecated: safeVrmaRootPath + 'idle.v.02_deprecated.vrma', // 左右換顧，但好像比較接近剛旁邊的人說話的動作
-      idle_v01: safeVrmaRootPath + 'idle.v.01.vrma', // 自動調整站姿，頭往斜上放看，並保持呼吸起伏的動作
-      idle_v02: safeVrmaRootPath + 'idle.v.02.vrma', // 頭往斜前方看，並保持呼吸起伏的動作
-      idleFemale1: safeVrmaRootPath + 'idleFemale1.vrma', // 右手抬起，並作出檢視自己指甲的動作
-      idleFemale2: safeVrmaRootPath + 'idleFemale2.vrma', // 雙手在臀部後方交叉，，雙腳交替輕微往前踢
-      idleMale1: safeVrmaRootPath + 'idleMale1.vrma', // 舒展左手臂的動作
-      idleMale2: safeVrmaRootPath + 'idleMale2.vrma', // 左右舒展脖子的動作
-      salute: safeVrmaRootPath + 'salute.vrma', // 將右手舉起與頭部齊高，手掌張開，呈現敬禮的姿勢後，快速將手往下方揮下，不像軍人的敬禮姿勢那麼正經，更偏耍帥的動作
-      standingGreeting: safeVrmaRootPath + 'standingGreeting.vrma', // 單手舉起，並將手掌左右揮動，接近打招呼的動作
-      talking_v01: safeVrmaRootPath + 'talking.v.01.vrma', // 頭部輕微點一次頭，類似對話的動作
-      talking_v02: safeVrmaRootPath + 'talking.v.02.vrma', // 頭往前看，並像說話做出約四次的輕微點頭反動作，每次點頭的幅度都會逐漸變小
-      talking_v03: safeVrmaRootPath + 'talking.v.03.vrma', // 單手向前晃，頭部向輕微往手部的方向傾斜，然後作出約兩次的輕微點頭動作，類似講話的動作
-      talking_v04: safeVrmaRootPath + 'talking.v.04.vrma', // 頭部傾斜後回正，並做出約兩次的輕微點頭動作，類似講話的動作
-      thankful: safeVrmaRootPath + 'thankful.vrma', // 單手放胸，頭部微微點頭，類似表示感謝的動作
+      goodbye: goodbye || safeVrmaRootPath + 'common/goodbye.vrma', // 雙手向斜前方伸直並揮動，接近道別的動作
+      bow: bow || safeVrmaRootPath + 'common/bow.vrma', // 彎腰90度的鞠躬
+      thinking: thinking || safeVrmaRootPath + 'common/thinking.vrma', // 單手托下巴，另一隻手叉腰，類似思考的動作
+      look: look || safeVrmaRootPath + 'common/look-around.vrma', // 左右環顧
+      'look-around': look || safeVrmaRootPath + 'common/look-around.vrma', // 左右環顧 (kebab-case)
+      relax: relax || safeVrmaRootPath + 'common/relax.vrma', // 雙手往外伸展的伸懶腰姿勢
+      surprised: surprised || safeVrmaRootPath + 'common/surprised.vrma', // 雙手往臉的旁邊靠，擺出驚訝的動作
+      appearing: appearing || safeVrmaRootPath + 'common/appearing.vrma', // 走路後轉身面向到鏡頭
+      liked: liked || safeVrmaRootPath + 'common/liked.vrma', // 單手握拳的類似表達「太好了」的動作
+      waiting: waitingUrl, // 環顧四周，然後單手用手背做出類似擦嘴的動作
+      'idle-1': safeVrmaRootPath + 'common/idle-1.vrma', // 自動調整站姿，頭往斜上放看，並保持呼吸起伏的動作
+      'idle-2': safeVrmaRootPath + 'common/idle-2.vrma', // 頭往斜前方看，並保持呼吸起伏的動作
+      'idle-female-1': safeVrmaRootPath + 'female/idle-female-1.vrma', // 右手抬起，並作出檢視自己指甲的動作
+      'idle-female-2': safeVrmaRootPath + 'female/idle-female-2.vrma', // 雙手在臀部後方交叉，雙腳交替輕微往前踢
+      'idle-male-1': safeVrmaRootPath + 'male/idle-male-1.vrma', // 舒展左手臂的動作
+      'idle-male-2': safeVrmaRootPath + 'male/idle-male-2.vrma', // 左右舒展脖子的動作
+      salute: safeVrmaRootPath + 'male/salute.vrma', // 將右手舉起與頭部齊高，手掌張開呈現敬禮的姿勢後帥氣揮下
+      'standing-greeting': safeVrmaRootPath + 'female/standing-greeting.vrma', // 單手舉起左右揮動打招呼
+      'talking-1': safeVrmaRootPath + 'common/talking/talking-1.vrma', // 頭部輕微點一次頭
+      'talking-2': safeVrmaRootPath + 'common/talking/talking-2.vrma', // 頭往前看微點頭四次
+      'talking-3': safeVrmaRootPath + 'common/talking/talking-3.vrma', // 單手向前晃傾斜點頭
+      'talking-4': safeVrmaRootPath + 'common/talking/talking-4.vrma', // 頭部傾斜後回正微點頭兩次
+      thankful: safeVrmaRootPath + 'common/thankful.vrma', // 單手放胸，微點頭表示感謝
+      // Legacy alias keys backwards compatibility
+      idle_v01: safeVrmaRootPath + 'common/idle-1.vrma',
+      idle_v02: safeVrmaRootPath + 'common/idle-2.vrma',
+      idleFemale1: safeVrmaRootPath + 'female/idle-female-1.vrma',
+      idleFemale2: safeVrmaRootPath + 'female/idle-female-2.vrma',
+      idleMale1: safeVrmaRootPath + 'male/idle-male-1.vrma',
+      idleMale2: safeVrmaRootPath + 'male/idle-male-2.vrma',
+      standingGreeting: safeVrmaRootPath + 'female/standing-greeting.vrma',
+      talking_v01: safeVrmaRootPath + 'common/talking/talking-1.vrma',
+      talking_v02: safeVrmaRootPath + 'common/talking/talking-2.vrma',
+      talking_v03: safeVrmaRootPath + 'common/talking/talking-3.vrma',
+      talking_v04: safeVrmaRootPath + 'common/talking/talking-4.vrma',
       ...userCustomGestures
     };
     const TAP_GESTURES = ['goodbye', 'bow', 'waiting'];
@@ -888,7 +918,9 @@ export async function bootVRM(
           Array.isArray(config.tapGestures) &&
           config.tapGestures.length > 0
         ) {
-          return config.tapGestures;
+          return config.tapGestures.map((item) =>
+            typeof item === 'string' ? item : item.name
+          );
         }
         return TAP_GESTURES;
       },

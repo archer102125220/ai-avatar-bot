@@ -205,6 +205,131 @@ export const DEFAULT_START_MODE: EngineMode = ENGINE_MODE_MAP.twoDimensional;
 export const DEFAULT_VRMA_ROOT_PATH = '/avatar-skin/3d-model/vrma/';
 
 /**
+ * Default 3D animation crossfade transition blending duration in seconds.
+ */
+export const DEFAULT_3D_CROSSFADE_DURATION = 0.3;
+
+/**
+ * Default 3D occasional idle variant random trigger interval range in milliseconds [min, max].
+ * Triggers a special idle gesture every 10 ~ 20 seconds.
+ */
+export const DEFAULT_3D_IDLE_VARIANT_INTERVAL: [number, number] = [
+  10000, 20000
+];
+
+/**
+ * Default 3D built-in standard gesture metadata map (standard sub-path suffix and default pointerLook behavior).
+ */
+export const DEFAULT_3D_GESTURE_MAP = {
+  // Common idle loop motions
+  'idle-1': { urlSuffix: 'common/idle-1.vrma', pointerLook: true },
+  'idle-2': { urlSuffix: 'common/idle-2.vrma', pointerLook: true },
+
+  // Common interactive / reaction motions
+  'look-around': { urlSuffix: 'common/look-around.vrma', pointerLook: true },
+  relax: { urlSuffix: 'common/relax.vrma', pointerLook: true },
+  surprised: { urlSuffix: 'common/surprised.vrma', pointerLook: true },
+  appearing: { urlSuffix: 'common/appearing.vrma', pointerLook: true },
+  bow: { urlSuffix: 'common/bow.vrma', pointerLook: false },
+  goodbye: { urlSuffix: 'common/goodbye.vrma', pointerLook: true },
+  liked: { urlSuffix: 'common/liked.vrma', pointerLook: true },
+  waiting: { urlSuffix: 'common/waiting.vrma', pointerLook: true },
+  thinking: { urlSuffix: 'common/thinking.vrma', pointerLook: true },
+  thankful: { urlSuffix: 'common/thankful.vrma', pointerLook: true },
+
+  // Common talking motions pool
+  'talking-1': {
+    urlSuffix: 'common/talking/talking-1.vrma',
+    pointerLook: true
+  },
+  'talking-2': {
+    urlSuffix: 'common/talking/talking-2.vrma',
+    pointerLook: true
+  },
+  'talking-3': {
+    urlSuffix: 'common/talking/talking-3.vrma',
+    pointerLook: true
+  },
+  'talking-4': {
+    urlSuffix: 'common/talking/talking-4.vrma',
+    pointerLook: true
+  },
+
+  // Female-specific idle variants & greetings
+  'idle-female-1': {
+    urlSuffix: 'female/idle-female-1.vrma',
+    pointerLook: false
+  },
+  'idle-female-2': {
+    urlSuffix: 'female/idle-female-2.vrma',
+    pointerLook: true
+  },
+  'standing-greeting': {
+    urlSuffix: 'female/standing-greeting.vrma',
+    pointerLook: true
+  },
+
+  // Male-specific idle variants & greetings
+  'idle-male-1': { urlSuffix: 'male/idle-male-1.vrma', pointerLook: true },
+  'idle-male-2': { urlSuffix: 'male/idle-male-2.vrma', pointerLook: true },
+  salute: { urlSuffix: 'male/salute.vrma', pointerLook: true },
+
+  // Legacy alias keys backwards compatibility mapping
+  look: { urlSuffix: 'common/look-around.vrma', pointerLook: true },
+  idle_v01: { urlSuffix: 'common/idle-1.vrma', pointerLook: true },
+  idle_v02: { urlSuffix: 'common/idle-2.vrma', pointerLook: true },
+  idleFemale1: { urlSuffix: 'female/idle-female-1.vrma', pointerLook: false },
+  idleFemale2: { urlSuffix: 'female/idle-female-2.vrma', pointerLook: true },
+  idleMale1: { urlSuffix: 'male/idle-male-1.vrma', pointerLook: true },
+  idleMale2: { urlSuffix: 'male/idle-male-2.vrma', pointerLook: true },
+  standingGreeting: {
+    urlSuffix: 'female/standing-greeting.vrma',
+    pointerLook: true
+  },
+  talking_v01: {
+    urlSuffix: 'common/talking/talking-1.vrma',
+    pointerLook: true
+  },
+  talking_v02: {
+    urlSuffix: 'common/talking/talking-2.vrma',
+    pointerLook: true
+  },
+  talking_v03: {
+    urlSuffix: 'common/talking/talking-3.vrma',
+    pointerLook: true
+  },
+  talking_v04: { urlSuffix: 'common/talking/talking-4.vrma', pointerLook: true }
+} as const;
+
+/**
+ * Default 3D action pools configuration.
+ */
+export const DEFAULT_3D_POOLS = {
+  /** Default base idle loop actions. */
+  idlePool: ['idle-1', 'idle-2'],
+  /** Default speaking speech motions pool. */
+  talkingPool: ['talking-1', 'talking-2', 'talking-3', 'talking-4'],
+  /** Default occasional idle variant actions by gender. */
+  idleVariants: {
+    female: [
+      { name: 'idle-female-1', pointerLook: false },
+      { name: 'idle-female-2', pointerLook: true }
+    ],
+    male: [
+      { name: 'idle-male-1', pointerLook: true },
+      { name: 'idle-male-2', pointerLook: true }
+    ]
+  },
+  /** Default greeting action played after avatar is ready. */
+  greetings: {
+    female: 'standing-greeting',
+    male: 'salute'
+  },
+  /** Default tap feedback gesture keys. */
+  tapGestures: ['goodbye', 'bow', 'waiting']
+} as const;
+
+/**
  * Screen aspect framing fit mode mapping enum.
  */
 export const FIT_MODE_MAP = {
