@@ -150,20 +150,7 @@ export type StandardSkin3DGestureName =
   | 'surprised'
   | 'appearing'
   | 'liked'
-  | 'waiting'
-  // Legacy alias keys for backwards compatibility
-  | 'look'
-  | 'idle_v01'
-  | 'idle_v02'
-  | 'idleFemale1'
-  | 'idleFemale2'
-  | 'idleMale1'
-  | 'idleMale2'
-  | 'standingGreeting'
-  | 'talking_v01'
-  | 'talking_v02'
-  | 'talking_v03'
-  | 'talking_v04';
+  | 'waiting';
 
 /**
  * 3D gesture name type that combines built-in standard names for autocomplete and string for custom extensions.
@@ -250,7 +237,7 @@ export interface Skin3DConfig {
   /** URL to thinking animation file (.vrma). */
   thinking?: string;
   /** URL to look-around animation file (.vrma). */
-  look?: string;
+  'look-around'?: string;
   /** URL to relax / idle animation file (.vrma). */
   relax?: string;
   /** URL to surprised animation file (.vrma). */
@@ -604,7 +591,7 @@ export interface SkinEngineOptions {
   /** URL to thinking animation file (.vrma). */
   thinking?: string;
   /** URL to look-around animation file (.vrma). */
-  look?: string;
+  'look-around'?: string;
   /** URL to relax / idle animation file (.vrma). */
   relax?: string;
   /** URL to surprised animation file (.vrma). */

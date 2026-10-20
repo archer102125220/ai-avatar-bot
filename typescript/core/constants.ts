@@ -272,33 +272,7 @@ export const DEFAULT_3D_GESTURE_MAP = {
   // Male-specific idle variants & greetings
   'idle-male-1': { urlSuffix: 'male/idle-male-1.vrma', pointerLook: true },
   'idle-male-2': { urlSuffix: 'male/idle-male-2.vrma', pointerLook: true },
-  salute: { urlSuffix: 'male/salute.vrma', pointerLook: true },
-
-  // Legacy alias keys backwards compatibility mapping
-  look: { urlSuffix: 'common/look-around.vrma', pointerLook: true },
-  idle_v01: { urlSuffix: 'common/idle-1.vrma', pointerLook: true },
-  idle_v02: { urlSuffix: 'common/idle-2.vrma', pointerLook: true },
-  idleFemale1: { urlSuffix: 'female/idle-female-1.vrma', pointerLook: false },
-  idleFemale2: { urlSuffix: 'female/idle-female-2.vrma', pointerLook: true },
-  idleMale1: { urlSuffix: 'male/idle-male-1.vrma', pointerLook: true },
-  idleMale2: { urlSuffix: 'male/idle-male-2.vrma', pointerLook: true },
-  standingGreeting: {
-    urlSuffix: 'female/standing-greeting.vrma',
-    pointerLook: true
-  },
-  talking_v01: {
-    urlSuffix: 'common/talking/talking-1.vrma',
-    pointerLook: true
-  },
-  talking_v02: {
-    urlSuffix: 'common/talking/talking-2.vrma',
-    pointerLook: true
-  },
-  talking_v03: {
-    urlSuffix: 'common/talking/talking-3.vrma',
-    pointerLook: true
-  },
-  talking_v04: { urlSuffix: 'common/talking/talking-4.vrma', pointerLook: true }
+  salute: { urlSuffix: 'male/salute.vrma', pointerLook: true }
 } as const;
 
 /**
@@ -968,7 +942,7 @@ export const DEFAULT_2D_MOTION_ALIASES: Record<string, string[]> = {
   goodbye: ['Wave', 'wave', 'Goodbye', 'goodbye', 'Bye', 'bye'],
   bow: ['Bow', 'bow', 'Greeting', 'greeting'],
   thinking: ['Thinking', 'thinking', 'Think', 'think'],
-  look: ['Look', 'look', 'LookAround', 'look_around'],
+  'look-around': ['Look', 'look', 'LookAround', 'look_around'],
   relax: ['Relax', 'relax', 'Idle', 'idle'],
   surprised: ['Surprised', 'surprised', 'Shock', 'shock'],
   waiting: ['Waiting', 'waiting', 'Idle', 'idle']

@@ -217,7 +217,7 @@ export async function bootVRM(
     bow = '',
     goodbye = '',
     thinking = '',
-    look = '',
+    'look-around': lookAround = '',
     relax = '',
     surprised = '',
     appearing = '',
@@ -276,9 +276,16 @@ export async function bootVRM(
     if (typeof bow === 'string' && bow !== '') rawCustomGestures.bow = bow;
     if (typeof goodbye === 'string' && goodbye !== '')
       rawCustomGestures.goodbye = goodbye;
-    if (typeof thinking === 'string' && thinking !== '')
-      rawCustomGestures.thinking = thinking;
-    if (typeof look === 'string' && look !== '') rawCustomGestures.look = look;
+    const lookAroundVal =
+      typeof activeSkin3d['look-around'] === 'string' &&
+      activeSkin3d['look-around'] !== ''
+        ? activeSkin3d['look-around']
+        : typeof lookAround === 'string' && lookAround !== ''
+          ? lookAround
+          : undefined;
+    if (lookAroundVal !== undefined) {
+      rawCustomGestures['look-around'] = lookAroundVal;
+    }
     if (typeof relax === 'string' && relax !== '')
       rawCustomGestures.relax = relax;
     if (typeof surprised === 'string' && surprised !== '')
@@ -299,8 +306,9 @@ export async function bootVRM(
         ...activeSkin3d,
         ...setting,
         vrmaRootPath: safeVrmaRootPath,
-        gestures:
-          rawCustomGestures as SkinCascadeMap<string | Skin3DActionOption>
+        gestures: rawCustomGestures as SkinCascadeMap<
+          string | Skin3DActionOption
+        >
       },
       currentGender
     );
@@ -348,8 +356,9 @@ export async function bootVRM(
         if (match !== undefined) {
           const normalized = normalize3DActionItem(match);
           const resolved = resolve3DAction(normalized.name, {
-            gestures:
-              rawCustomGestures as SkinCascadeMap<string | Skin3DActionOption>,
+            gestures: rawCustomGestures as SkinCascadeMap<
+              string | Skin3DActionOption
+            >,
             gender: currentGender,
             vrmaRootPath: safeVrmaRootPath
           });
@@ -394,8 +403,8 @@ export async function bootVRM(
       goodbye: goodbye || safeVrmaRootPath + 'common/goodbye.vrma', // 雙手向斜前方伸直並揮動，接近道別的動作
       bow: bow || safeVrmaRootPath + 'common/bow.vrma', // 彎腰90度的鞠躬
       thinking: thinking || safeVrmaRootPath + 'common/thinking.vrma', // 單手托下巴，另一隻手叉腰，類似思考的動作
-      look: look || safeVrmaRootPath + 'common/look-around.vrma', // 左右環顧
-      'look-around': look || safeVrmaRootPath + 'common/look-around.vrma', // 左右環顧 (kebab-case)
+      'look-around':
+        lookAroundVal || safeVrmaRootPath + 'common/look-around.vrma', // 左右環顧
       relax: relax || safeVrmaRootPath + 'common/relax.vrma', // 雙手往外伸展的伸懶腰姿勢
       surprised: surprised || safeVrmaRootPath + 'common/surprised.vrma', // 雙手往臉的旁邊靠，擺出驚訝的動作
       appearing: appearing || safeVrmaRootPath + 'common/appearing.vrma', // 走路後轉身面向到鏡頭
@@ -414,18 +423,6 @@ export async function bootVRM(
       'talking-3': safeVrmaRootPath + 'common/talking/talking-3.vrma', // 單手向前晃傾斜點頭
       'talking-4': safeVrmaRootPath + 'common/talking/talking-4.vrma', // 頭部傾斜後回正微點頭兩次
       thankful: safeVrmaRootPath + 'common/thankful.vrma', // 單手放胸，微點頭表示感謝
-      // Legacy alias keys backwards compatibility
-      idle_v01: safeVrmaRootPath + 'common/idle-1.vrma',
-      idle_v02: safeVrmaRootPath + 'common/idle-2.vrma',
-      idleFemale1: safeVrmaRootPath + 'female/idle-female-1.vrma',
-      idleFemale2: safeVrmaRootPath + 'female/idle-female-2.vrma',
-      idleMale1: safeVrmaRootPath + 'male/idle-male-1.vrma',
-      idleMale2: safeVrmaRootPath + 'male/idle-male-2.vrma',
-      standingGreeting: safeVrmaRootPath + 'female/standing-greeting.vrma',
-      talking_v01: safeVrmaRootPath + 'common/talking/talking-1.vrma',
-      talking_v02: safeVrmaRootPath + 'common/talking/talking-2.vrma',
-      talking_v03: safeVrmaRootPath + 'common/talking/talking-3.vrma',
-      talking_v04: safeVrmaRootPath + 'common/talking/talking-4.vrma',
       ...userCustomGestures
     };
     const TAP_GESTURES: string[] = pools.tapGestures.map((item) =>
@@ -761,8 +758,7 @@ export async function bootVRM(
               currentGestureName !== null &&
               pools.talkingPool.some(
                 (item) =>
-                  item.name.toLowerCase() ===
-                  currentGestureName?.toLowerCase()
+                  item.name.toLowerCase() === currentGestureName?.toLowerCase()
               );
             if (isCurrentTalking === true) {
               crossfadeToBaseIdle();
@@ -822,8 +818,9 @@ export async function bootVRM(
             const actionOption =
               poolAction ??
               resolve3DAction(gestureName, {
-                gestures:
-                  rawCustomGestures as SkinCascadeMap<string | Skin3DActionOption>,
+                gestures: rawCustomGestures as SkinCascadeMap<
+                  string | Skin3DActionOption
+                >,
                 gender: currentGender,
                 vrmaRootPath: safeVrmaRootPath
               });
@@ -951,8 +948,9 @@ export async function bootVRM(
         const resolvedAction =
           poolAction ??
           resolve3DAction(gestureName, {
-            gestures:
-              rawCustomGestures as SkinCascadeMap<string | Skin3DActionOption>,
+            gestures: rawCustomGestures as SkinCascadeMap<
+              string | Skin3DActionOption
+            >,
             gender: currentGender,
             vrmaRootPath: safeVrmaRootPath
           });
@@ -1004,43 +1002,43 @@ export async function bootVRM(
           }
         }
 
-      if (targetAction !== null && targetAction !== undefined) {
-        const fadeDuration =
-          typeof actionOption?.crossfadeDuration === 'number' &&
-          Number.isFinite(actionOption.crossfadeDuration)
-            ? actionOption.crossfadeDuration
-            : defaultCrossfadeDuration;
+        if (targetAction !== null && targetAction !== undefined) {
+          const fadeDuration =
+            typeof actionOption?.crossfadeDuration === 'number' &&
+            Number.isFinite(actionOption.crossfadeDuration)
+              ? actionOption.crossfadeDuration
+              : defaultCrossfadeDuration;
 
-        if (actionOption?.pointerLook === false) {
-          isGestureSuspendedPointerLook = true;
-        } else {
-          isGestureSuspendedPointerLook = false;
-        }
-
-        waving = true;
-        currentGesture = targetAction;
-        currentGestureName = actionOption?.name ?? gestureName;
-
-        targetAction.reset();
-        if (typeof targetAction.setEffectiveTimeScale === 'function') {
-          targetAction.setEffectiveTimeScale(1);
-        }
-        targetAction.setEffectiveWeight(1);
-        targetAction.play();
-
-        if (currentAction !== null && currentAction !== targetAction) {
-          if (typeof currentAction.crossFadeTo === 'function') {
-            currentAction.crossFadeTo(targetAction, fadeDuration, false);
-          } else if (typeof currentAction.stop === 'function') {
-            currentAction.stop();
+          if (actionOption?.pointerLook === false) {
+            isGestureSuspendedPointerLook = true;
+          } else {
+            isGestureSuspendedPointerLook = false;
           }
-        }
 
-        currentAction = targetAction;
-        scheduleNextIdleVariant();
-        return;
+          waving = true;
+          currentGesture = targetAction;
+          currentGestureName = actionOption?.name ?? gestureName;
+
+          targetAction.reset();
+          if (typeof targetAction.setEffectiveTimeScale === 'function') {
+            targetAction.setEffectiveTimeScale(1);
+          }
+          targetAction.setEffectiveWeight(1);
+          targetAction.play();
+
+          if (currentAction !== null && currentAction !== targetAction) {
+            if (typeof currentAction.crossFadeTo === 'function') {
+              currentAction.crossFadeTo(targetAction, fadeDuration, false);
+            } else if (typeof currentAction.stop === 'function') {
+              currentAction.stop();
+            }
+          }
+
+          currentAction = targetAction;
+          scheduleNextIdleVariant();
+          return;
+        }
       }
-    }
 
       // 2. 表情 Fallback (Expression Fallback)
       const customExpression = findInMap(skin3d.expressionMap, gestureName);
@@ -1116,7 +1114,10 @@ export async function bootVRM(
       }
       const randomIndex = Math.floor(Math.random() * pools.talkingPool.length);
       const chosenTalking = pools.talkingPool[randomIndex];
-      if (typeof chosenTalking?.name === 'string' && chosenTalking.name !== '') {
+      if (
+        typeof chosenTalking?.name === 'string' &&
+        chosenTalking.name !== ''
+      ) {
         playGesture(chosenTalking.name, chosenTalking).catch(() => {});
       }
     }

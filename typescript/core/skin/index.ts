@@ -273,7 +273,7 @@ export function initSkinEngine(
     bow: skin3dOption.bow || setting.bow || '',
     goodbye: skin3dOption.goodbye || setting.goodbye || '',
     thinking: skin3dOption.thinking || setting.thinking || '',
-    look: skin3dOption.look || setting.look || '',
+    'look-around': skin3dOption['look-around'] || setting['look-around'] || '',
     relax: skin3dOption.relax || setting.relax || '',
     surprised: skin3dOption.surprised || setting.surprised || '',
     appearing: skin3dOption.appearing || setting.appearing || '',
