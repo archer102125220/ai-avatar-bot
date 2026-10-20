@@ -988,6 +988,13 @@ export async function bootVRM(
       waving = false;
 
       if (baseIdleAction !== null && currentAction !== baseIdleAction) {
+        baseIdleAction.reset();
+        if (typeof baseIdleAction.setEffectiveTimeScale === 'function') {
+          baseIdleAction.setEffectiveTimeScale(1);
+        }
+        baseIdleAction.setEffectiveWeight(1);
+        baseIdleAction.play();
+
         if (typeof currentAction?.crossFadeTo === 'function') {
           currentAction.crossFadeTo(
             baseIdleAction,
@@ -1175,6 +1182,7 @@ export async function bootVRM(
         }
 
         if (
+          baseIdleAction === null &&
           waving === false &&
           typeof vrm.humanoid === 'object' &&
           vrm.humanoid !== null
