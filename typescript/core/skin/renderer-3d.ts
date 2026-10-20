@@ -245,19 +245,28 @@ export async function bootVRM(
         ? skinEngine.gender
         : 'common';
 
+    const activeSkin3d: Skin3DConfig =
+      typeof skinEngine.getState === 'function' &&
+      typeof skinEngine.getState()?.skin3d === 'object' &&
+      skinEngine.getState().skin3d !== null
+        ? skinEngine.getState().skin3d
+        : typeof skinEngine.skin3d === 'object' && skinEngine.skin3d !== null
+          ? skinEngine.skin3d
+          : {};
+
     const defaultCrossfadeDuration =
       typeof setting.crossfadeDuration === 'number' &&
       Number.isFinite(setting.crossfadeDuration)
         ? setting.crossfadeDuration
-        : typeof skinEngine?.skin3d?.crossfadeDuration === 'number' &&
-            Number.isFinite(skinEngine.skin3d.crossfadeDuration)
-          ? skinEngine.skin3d.crossfadeDuration
+        : typeof activeSkin3d.crossfadeDuration === 'number' &&
+            Number.isFinite(activeSkin3d.crossfadeDuration)
+          ? activeSkin3d.crossfadeDuration
           : DEFAULT_3D_CROSSFADE_DURATION;
 
     const rawCustomGestures: Record<string, unknown> = {
-      ...(typeof skinEngine?.skin3d?.gestures === 'object' &&
-      skinEngine.skin3d.gestures !== null
-        ? skinEngine.skin3d.gestures
+      ...(typeof activeSkin3d.gestures === 'object' &&
+      activeSkin3d.gestures !== null
+        ? activeSkin3d.gestures
         : {}),
       ...(typeof setting.gestures === 'object' && setting.gestures !== null
         ? setting.gestures
@@ -286,7 +295,7 @@ export async function bootVRM(
 
     const pools = resolveAll3DPools(
       {
-        ...skinEngine?.skin3d,
+        ...activeSkin3d,
         ...setting,
         vrmaRootPath: safeVrmaRootPath,
         gestures:
@@ -502,6 +511,11 @@ export async function bootVRM(
     let mixer: THREE.AnimationMixer | null = null;
     let baseIdleAction: THREE.AnimationAction | null = null;
     let currentAction: THREE.AnimationAction | null = null;
+    const primaryIdleItem: Resolved3DAction = pools.idlePool[0] ?? {
+      name: 'idle-1',
+      url: safeVrmaRootPath + 'common/idle-1.vrma',
+      pointerLook: true
+    };
     let isGestureSuspendedPointerLook = false;
     let waving = false;
     const BLINK = 0.12;
@@ -741,20 +755,16 @@ export async function bootVRM(
         mixer = new THREE.AnimationMixer(vrm.scene);
 
         // 1. Preload and start base idle animation with decoupled lookAt tracks
-        const primaryIdleItem = pools.idlePool[0] ?? {
-          name: 'idle-1',
-          url: safeVrmaRootPath + 'common/idle-1.vrma',
-          pointerLook: true
-        };
         try {
           const idleGltf = await loader.loadAsync(primaryIdleItem.url);
           const idleAnimation =
             idleGltf.userData.vrmAnimations &&
             idleGltf.userData.vrmAnimations[0];
           if (idleAnimation !== undefined && idleAnimation !== null) {
+            const shouldStripLookAt = primaryIdleItem.pointerLook !== false;
             const idleClip = filterClipTracks(
               createVRMAnimationClip(idleAnimation, vrm),
-              { stripLookAtTracks: true }
+              { stripLookAtTracks: shouldStripLookAt }
             );
             baseIdleAction = mixer.clipAction(idleClip);
             baseIdleAction.setLoop(THREE.LoopRepeat ?? 2201, Infinity);
@@ -1236,12 +1246,15 @@ export async function bootVRM(
             ? skinEngine.getState()?.skin3d?.pointerLook !== false
             : DEFAULT_3D_POINTER_LOOK;
 
-        if (
-          isPointerLookEnabled === true &&
-          isGestureSuspendedPointerLook === false
-        ) {
+        const isIdleSuspendedPointerLook =
+          waving === false && primaryIdleItem.pointerLook === false;
+        const isSuspended =
+          isGestureSuspendedPointerLook === true ||
+          isIdleSuspendedPointerLook === true;
+
+        if (isPointerLookEnabled === true && isSuspended === false) {
           lookTarget.position.set(cursorX * 0.9, 1.42 - cursorY * 0.55, 1.6);
-        } else if (isGestureSuspendedPointerLook === true) {
+        } else {
           lookTarget.position.set(0, 1.42, 1.6);
         }
 
@@ -1250,7 +1263,7 @@ export async function bootVRM(
           const headNode = humanoid.getNormalizedBoneNode('head');
 
           if (typeof headNode === 'object' && headNode !== null) {
-            if (isGestureSuspendedPointerLook === false) {
+            if (isSuspended === false) {
               let headRotationY =
                 isPointerLookEnabled === true
                   ? cursorX * 0.35

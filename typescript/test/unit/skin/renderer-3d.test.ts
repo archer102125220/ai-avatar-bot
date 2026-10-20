@@ -1141,5 +1141,64 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       renderer.dispose();
       vi.useRealTimers();
     });
+
+    it('should respect pointerLook: false configured in pools.idlePool during base idle', async () => {
+      vi.useFakeTimers();
+      const currentState = {
+        fitMode: FIT_MODE_MAP.FULL,
+        gender: 'female',
+        isSpeaking: false,
+        skin3d: {
+          pointerLook: true,
+          idlePool: [
+            {
+              name: 'idle-1',
+              pointerLook: false
+            }
+          ]
+        }
+      };
+
+      const skinEngine = {
+        stageEl,
+        fitMode: FIT_MODE_MAP.FULL,
+        gender: 'female',
+        getState: () => currentState,
+        onMounted: vi.fn(),
+        subscribe: vi.fn(() => vi.fn()),
+        emo: { name: 'neutral', target: 0, weight: 0, applied: '' }
+      } as unknown as SkinEngine;
+
+      const bootPromise = bootVRM(skinEngine);
+      await vi.advanceTimersByTimeAsync(0);
+      const renderer = (await bootPromise) as Required<Renderer3D>;
+      expect(renderer).toBeDefined();
+
+      // Verify that base idle action kept head and neck tracks
+      const baseAction = mockMixerState.actions[0];
+      expect(baseAction).toBeDefined();
+      const trackNames = baseAction.clip.tracks.map((t) => t.name);
+      expect(trackNames).toContain('head.quaternion');
+      expect(trackNames).toContain('neck.quaternion');
+
+      // Trigger pointermove
+      const mouseEvent = new MouseEvent('pointermove', {
+        clientX: 250,
+        clientY: 250
+      });
+      window.dispatchEvent(mouseEvent);
+      await vi.advanceTimersByTimeAsync(50);
+
+      // Verify lookTarget remains centered
+      const vrmInstance = renderer.vrm as {
+        lookAt?: { target?: { position: { x: number; y: number; z: number } } };
+      };
+      expect(vrmInstance.lookAt?.target?.position.x).toBe(0);
+      expect(vrmInstance.lookAt?.target?.position.y).toBe(1.42);
+      expect(vrmInstance.lookAt?.target?.position.z).toBe(1.6);
+
+      renderer.dispose();
+      vi.useRealTimers();
+    });
   });
 });
