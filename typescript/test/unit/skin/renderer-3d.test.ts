@@ -1200,5 +1200,96 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       renderer.dispose();
       vi.useRealTimers();
     });
+
+    it('should respect pointerLook: false configured in pools.talkingPool during speaking cycle', async () => {
+      vi.useFakeTimers();
+      const currentState = {
+        fitMode: FIT_MODE_MAP.FULL,
+        gender: 'female',
+        isSpeaking: false,
+        skin3d: {
+          pointerLook: true,
+          talkingPool: [
+            {
+              name: 'talking-1',
+              pointerLook: false
+            }
+          ]
+        }
+      };
+
+      let isSpeakingCallback: ((isSpeaking: boolean) => void) | undefined;
+      const skinEngine = {
+        stageEl,
+        fitMode: FIT_MODE_MAP.FULL,
+        gender: 'female',
+        getState: () => currentState,
+        onMounted: vi.fn(),
+        subscribe: vi.fn(
+          (
+            selector: (state: Record<string, unknown>) => unknown,
+            callback: (val: unknown) => void
+          ) => {
+            const probeState = {
+              isSpeaking: true,
+              skin3d: {},
+              fitMode: FIT_MODE_MAP.FULL
+            };
+            if (selector(probeState) === true) {
+              isSpeakingCallback = callback as (isSpeaking: boolean) => void;
+            }
+            return vi.fn();
+          }
+        ),
+        emo: { name: 'neutral', target: 0, weight: 0, applied: '' }
+      } as unknown as SkinEngine;
+
+      const bootPromise = bootVRM(skinEngine);
+      await vi.advanceTimersByTimeAsync(0);
+      const renderer = (await bootPromise) as Required<Renderer3D>;
+      expect(renderer).toBeDefined();
+
+      // Verify that talking-1 was preloaded with head/neck tracks preserved
+      const talkingRecord = mockMixerState.actions.find(
+        (item) => item.clip.name === 'talking-1'
+      );
+      if (talkingRecord !== undefined) {
+        const trackNames = talkingRecord.clip.tracks.map((t) => t.name);
+        expect(trackNames).toContain('head.quaternion');
+        expect(trackNames).toContain('neck.quaternion');
+      }
+
+      // Trigger speaking
+      expect(typeof isSpeakingCallback).toBe('function');
+      if (typeof isSpeakingCallback === 'function') {
+        currentState.isSpeaking = true;
+        isSpeakingCallback(true);
+      }
+
+      // Move mouse
+      const mouseEvent = new MouseEvent('pointermove', {
+        clientX: 280,
+        clientY: 280
+      });
+      window.dispatchEvent(mouseEvent);
+      await vi.advanceTimersByTimeAsync(50);
+
+      // Verify lookTarget remains centered during speaking because talking-1 has pointerLook: false
+      const vrmInstance = renderer.vrm as {
+        lookAt?: { target?: { position: { x: number; y: number; z: number } } };
+      };
+      expect(vrmInstance.lookAt?.target?.position.x).toBe(0);
+      expect(vrmInstance.lookAt?.target?.position.y).toBe(1.42);
+      expect(vrmInstance.lookAt?.target?.position.z).toBe(1.6);
+
+      // Finish speaking
+      if (typeof isSpeakingCallback === 'function') {
+        currentState.isSpeaking = false;
+        isSpeakingCallback(false);
+      }
+
+      renderer.dispose();
+      vi.useRealTimers();
+    });
   });
 });
