@@ -14,7 +14,7 @@ describe('Skin Cascade & Fallback Resolver', () => {
   describe('resolveCascadeValue', () => {
     it('should return undefined if cascade is empty or invalid', () => {
       expect(resolveCascadeValue(undefined, 'female', 'tap')).toBeUndefined();
-      expect(resolveCascadeValue(null as any, 'male', 'tap')).toBeUndefined();
+      expect(resolveCascadeValue(null, 'male', 'tap')).toBeUndefined();
       expect(resolveCascadeValue({}, 'female', '')).toBeUndefined();
     });
 

@@ -38,7 +38,7 @@ export interface Resolved3DAction {
  * @returns The resolved item if found, otherwise undefined.
  */
 export function resolveCascadeValue<T>(
-  cascade: SkinCascadeMap<T> | undefined,
+  cascade: SkinCascadeMap<T> | null | undefined,
   gender: Gender | string | undefined,
   key: string
 ): T | undefined {
