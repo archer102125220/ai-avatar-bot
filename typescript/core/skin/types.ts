@@ -620,7 +620,7 @@ export interface SkinEngineOptions {
   /** Global unified gesture handler interceptor. */
   gesture?: SkinUnifiedGestureHandler | null;
   /** List of gesture keys triggered randomly when 3D avatar is tapped. */
-  tapGestures?: string[];
+  tapGestures?: string[] | Skin3DActionItem[];
   /** List of motion keys triggered randomly when 2D avatar is tapped. */
   tapMotions?: string[];
   /** Semantic motion mapping from action names to Live2D motion group names. */

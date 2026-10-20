@@ -1291,5 +1291,109 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       renderer.dispose();
       vi.useRealTimers();
     });
+
+    it('should respect pointerLook: false configured in tapGestures during tap gesture playback', async () => {
+      vi.useFakeTimers();
+      const currentState = {
+        fitMode: FIT_MODE_MAP.FULL,
+        gender: 'female',
+        skin3d: {
+          pointerLook: true,
+          tapGestures: [
+            {
+              name: 'bow',
+              pointerLook: false
+            }
+          ]
+        }
+      };
+
+      stageEl.getBoundingClientRect = () => ({
+        left: 0,
+        top: 0,
+        width: 800,
+        height: 600,
+        right: 800,
+        bottom: 600,
+        x: 0,
+        y: 0,
+        toJSON: () => {}
+      });
+
+      const skinEngine = {
+        stageEl,
+        fitMode: FIT_MODE_MAP.FULL,
+        gender: 'female',
+        getState: () => currentState,
+        onMounted: vi.fn(),
+        subscribe: vi.fn(() => vi.fn()),
+        emo: { name: 'neutral', target: 0, weight: 0, applied: '' }
+      } as unknown as SkinEngine;
+
+      const bootPromise = bootVRM(skinEngine);
+      await vi.advanceTimersByTimeAsync(0);
+      const renderer = (await bootPromise) as Required<Renderer3D>;
+      expect(renderer).toBeDefined();
+
+      // Verify renderer.TAP_GESTURES reflects tapGestures names
+      expect(renderer.TAP_GESTURES).toEqual(['bow']);
+
+      // Verify that bow preserved head/neck tracks
+      const bowRecord = mockMixerState.actions.find(
+        (item, index) =>
+          index > 0 &&
+          item.clip.tracks.some((t) => t.name === 'head.quaternion')
+      );
+      expect(bowRecord).toBeDefined();
+      if (bowRecord !== undefined) {
+        const trackNames = bowRecord.clip.tracks.map((t) => t.name);
+        expect(trackNames).toContain('head.quaternion');
+        expect(trackNames).toContain('neck.quaternion');
+      }
+
+      // Play tap gesture (bow)
+      await renderer.playGesture('bow');
+
+      // Move mouse while tap gesture is playing
+      const mouseEvent = new MouseEvent('pointermove', {
+        clientX: 280,
+        clientY: 280
+      });
+      window.dispatchEvent(mouseEvent);
+      await vi.advanceTimersByTimeAsync(50);
+
+      // Verify lookTarget remains centered because bow in tapGestures has pointerLook: false
+      const vrmInstance = renderer.vrm as {
+        lookAt?: { target?: { position: { x: number; y: number; z: number } } };
+      };
+      expect(vrmInstance.lookAt?.target?.position.x).toBe(0);
+      expect(vrmInstance.lookAt?.target?.position.y).toBe(1.42);
+      expect(vrmInstance.lookAt?.target?.position.z).toBe(1.6);
+
+      // Simulate gesture finish
+      const mixerInstance =
+        mockMixerState.instances[mockMixerState.instances.length - 1];
+      const finishedCallback = mixerInstance?.listeners['finished'];
+      if (typeof finishedCallback === 'function') {
+        const currentBowAction = bowRecord?.action ?? null;
+        finishedCallback({ action: currentBowAction });
+      }
+
+      // Move mouse after tap gesture finished
+      window.dispatchEvent(
+        new MouseEvent('pointermove', {
+          clientX: 280,
+          clientY: 280
+        })
+      );
+      await vi.advanceTimersByTimeAsync(50);
+
+      // Verify lookTarget resumed cursor tracking
+      expect(vrmInstance.lookAt?.target?.position.x).not.toBe(0);
+
+      renderer.dispose();
+      vi.useRealTimers();
+    });
   });
 });
+

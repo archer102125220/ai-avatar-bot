@@ -202,7 +202,9 @@ export function initSkinEngine(
       skin2dOption.tapGestures.length > 0
         ? skin2dOption.tapGestures
         : Array.isArray(setting.tapGestures) && setting.tapGestures.length > 0
-          ? setting.tapGestures
+          ? setting.tapGestures.map((item) =>
+              typeof item === 'string' ? item : item.name
+            )
           : undefined,
     motionMap:
       typeof skin2dOption.motionMap === 'object' &&

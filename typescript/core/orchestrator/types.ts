@@ -29,7 +29,8 @@ import type {
   Skin3DModelConfig,
   Renderer2D,
   Renderer3D,
-  SkinUnifiedGestureHandler
+  SkinUnifiedGestureHandler,
+  Skin3DActionItem
 } from '@/core/skin';
 import type {
   ToolsEngine,
@@ -216,7 +217,7 @@ export interface AvatarBotOptions {
   /** Global unified gesture handler interceptor. */
   gesture?: SkinUnifiedGestureHandler;
   /** Tap gestures list for avatar random tap interactions. */
-  tapGestures?: string[];
+  tapGestures?: string[] | Skin3DActionItem[];
   /** Tap motions list for Live2D random tap interactions. */
   tapMotions?: string[];
   /** Custom motion name mapping for Live2D motions. */

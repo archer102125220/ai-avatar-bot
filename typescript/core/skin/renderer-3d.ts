@@ -37,6 +37,7 @@ import type { Gender } from '@/core/types';
 import {
   resolveAll3DPools,
   resolve3DAction,
+  normalize3DActionItem,
   type Resolved3DAction
 } from './resolver';
 import type * as THREE from 'three';
@@ -337,6 +338,33 @@ export async function bootVRM(
       );
       if (inTap !== undefined) {
         return inTap;
+      }
+      const runtimeTap = getSkin3dConfig().tapGestures;
+      if (Array.isArray(runtimeTap) && runtimeTap.length > 0) {
+        const match = runtimeTap.find((item) => {
+          const name = typeof item === 'string' ? item : item.name;
+          return name.toLowerCase() === lower;
+        });
+        if (match !== undefined) {
+          const normalized = normalize3DActionItem(match);
+          const resolved = resolve3DAction(normalized.name, {
+            gestures:
+              rawCustomGestures as SkinCascadeMap<string | Skin3DActionOption>,
+            gender: currentGender,
+            vrmaRootPath: safeVrmaRootPath
+          });
+          return {
+            name: normalized.name,
+            url:
+              typeof normalized.url === 'string' && normalized.url !== ''
+                ? normalized.url
+                : resolved.url,
+            pointerLook:
+              normalized.pointerLook !== undefined
+                ? normalized.pointerLook
+                : resolved.pointerLook
+          };
+        }
       }
       return undefined;
     }
