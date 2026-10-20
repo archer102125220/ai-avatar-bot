@@ -366,7 +366,10 @@ export interface Renderer3D<
   /** THREE.Scene instance. */
   readonly scene: TScene;
   /** Plays a named 3D gesture animation (e.g. 'goodbye', 'bow'). */
-  readonly playGesture?: (gestureName: string) => void | Promise<void>;
+  readonly playGesture?: (
+    gestureName: string,
+    optionOverride?: Skin3DActionOption
+  ) => void | Promise<void>;
   /** Pauses or resumes animation rendering loop. */
   setPaused(isPaused: boolean): void;
   /** Updates 3D visual transformation configuration. */
@@ -688,7 +691,10 @@ export interface SkinEngine extends SubscribableStore<SkinEngineState> {
   /** Plays tap gesture randomly from TAP_GESTURES on active engine. */
   playTapGesture?(): Promise<void> | void;
   /** Plays a gesture on the current active engine (2D or 3D). */
-  playGesture?(name: string): Promise<void> | void;
+  playGesture?(
+    name: string,
+    optionOverride?: Skin3DActionOption
+  ): Promise<void> | void;
   /** Current active gesture / emotion name. Setting triggers onGesture lifecycle. */
   gestureName: string;
   /** Initial rendering start mode. */

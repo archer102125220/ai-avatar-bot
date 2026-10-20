@@ -34,7 +34,11 @@ import {
   type SkinCascadeMap
 } from './types';
 import type { Gender } from '@/core/types';
-import { resolveAll3DPools, resolve3DAction } from './resolver';
+import {
+  resolveAll3DPools,
+  resolve3DAction,
+  type Resolved3DAction
+} from './resolver';
 import type * as THREE from 'three';
 import type { VRM } from '@pixiv/three-vrm';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -290,6 +294,43 @@ export async function bootVRM(
       },
       currentGender
     );
+
+    function findActionInPools(
+      actionName: string
+    ): Resolved3DAction | undefined {
+      if (typeof actionName !== 'string' || actionName === '') {
+        return undefined;
+      }
+      const lower = actionName.toLowerCase();
+      if (pools.greeting?.name?.toLowerCase() === lower) {
+        return pools.greeting;
+      }
+      const inVariants = pools.idleVariants.find(
+        (item) => item.name.toLowerCase() === lower
+      );
+      if (inVariants !== undefined) {
+        return inVariants;
+      }
+      const inTalking = pools.talkingPool.find(
+        (item) => item.name.toLowerCase() === lower
+      );
+      if (inTalking !== undefined) {
+        return inTalking;
+      }
+      const inIdle = pools.idlePool.find(
+        (item) => item.name.toLowerCase() === lower
+      );
+      if (inIdle !== undefined) {
+        return inIdle;
+      }
+      const inTap = pools.tapGestures.find(
+        (item) => item.name.toLowerCase() === lower
+      );
+      if (inTap !== undefined) {
+        return inTap;
+      }
+      return undefined;
+    }
 
     const userCustomGestures: Record<string, string> = {};
     for (const [key, value] of Object.entries(rawCustomGestures)) {
@@ -739,12 +780,15 @@ export async function bootVRM(
             if (vrmAnimation === undefined || vrmAnimation === null) {
               continue;
             }
-            const actionOption = resolve3DAction(gestureName, {
-              gestures:
-                rawCustomGestures as SkinCascadeMap<string | Skin3DActionOption>,
-              gender: currentGender,
-              vrmaRootPath: safeVrmaRootPath
-            });
+            const poolAction = findActionInPools(gestureName);
+            const actionOption =
+              poolAction ??
+              resolve3DAction(gestureName, {
+                gestures:
+                  rawCustomGestures as SkinCascadeMap<string | Skin3DActionOption>,
+                gender: currentGender,
+                vrmaRootPath: safeVrmaRootPath
+              });
             const shouldStripLookAt = actionOption?.pointerLook !== false;
             const clipAction = mixer.clipAction(
               filterClipTracks(createVRMAnimationClip(vrmAnimation, vrm), {
@@ -800,7 +844,7 @@ export async function bootVRM(
         ) {
           greetingTimeout = setTimeout(() => {
             if (alive === true) {
-              playGesture(initialGreetingName).catch(() => {});
+              playGesture(initialGreetingName, greetingItem).catch(() => {});
             }
           }, 800);
         }
@@ -833,7 +877,10 @@ export async function bootVRM(
           : {};
     }
 
-    async function playGesture(gestureName: string): Promise<void> {
+    async function playGesture(
+      gestureName: string,
+      optionOverride?: Skin3DActionOption
+    ): Promise<void> {
       if (typeof gestureName !== 'string' || gestureName === '') {
         throw new GestureNotFoundError(String(gestureName), '3d');
       }
@@ -851,6 +898,8 @@ export async function bootVRM(
       const isDefault3D = Object.keys(DEFAULT_3D_GESTURE_MAP).some(
         (k) => k.toLowerCase() === gestureName.toLowerCase()
       );
+      const poolAction = optionOverride ?? findActionInPools(gestureName);
+      const isPoolGesture = poolAction !== undefined;
       const matchedActionKey = actionKeys.find(
         (actionKey) => actionKey.toLowerCase() === gestureName.toLowerCase()
       );
@@ -858,14 +907,17 @@ export async function bootVRM(
       if (
         matchedActionKey !== undefined ||
         isCustomGesture === true ||
-        isDefault3D === true
+        isDefault3D === true ||
+        isPoolGesture === true
       ) {
-        const resolvedAction = resolve3DAction(gestureName, {
-          gestures:
-            rawCustomGestures as SkinCascadeMap<string | Skin3DActionOption>,
-          gender: currentGender,
-          vrmaRootPath: safeVrmaRootPath
-        });
+        const resolvedAction =
+          poolAction ??
+          resolve3DAction(gestureName, {
+            gestures:
+              rawCustomGestures as SkinCascadeMap<string | Skin3DActionOption>,
+            gender: currentGender,
+            vrmaRootPath: safeVrmaRootPath
+          });
 
         let targetAction: THREE.AnimationAction | null = null;
         const actionOption: Skin3DActionOption | null = resolvedAction;
@@ -1027,7 +1079,7 @@ export async function bootVRM(
       const randomIndex = Math.floor(Math.random() * pools.talkingPool.length);
       const chosenTalking = pools.talkingPool[randomIndex];
       if (typeof chosenTalking?.name === 'string' && chosenTalking.name !== '') {
-        playGesture(chosenTalking.name).catch(() => {});
+        playGesture(chosenTalking.name, chosenTalking).catch(() => {});
       }
     }
 
@@ -1060,7 +1112,7 @@ export async function bootVRM(
             typeof chosenVariant?.name === 'string' &&
             chosenVariant.name !== ''
           ) {
-            playGesture(chosenVariant.name)
+            playGesture(chosenVariant.name, chosenVariant)
               .catch(() => {})
               .finally(() => {
                 scheduleNextIdleVariant();
@@ -1198,25 +1250,24 @@ export async function bootVRM(
           const headNode = humanoid.getNormalizedBoneNode('head');
 
           if (typeof headNode === 'object' && headNode !== null) {
-            let headRotationY =
-              isPointerLookEnabled === true &&
-              isGestureSuspendedPointerLook === false
-                ? cursorX * 0.35
-                : Math.sin(elapsedTime * 0.5) * 0.02;
-            let headRotationX =
-              (isPointerLookEnabled === true &&
-              isGestureSuspendedPointerLook === false
-                ? cursorY * 0.15
-                : 0) + Math.sin(elapsedTime * 0.5) * 0.01;
+            if (isGestureSuspendedPointerLook === false) {
+              let headRotationY =
+                isPointerLookEnabled === true
+                  ? cursorX * 0.35
+                  : Math.sin(elapsedTime * 0.5) * 0.02;
+              let headRotationX =
+                (isPointerLookEnabled === true ? cursorY * 0.15 : 0) +
+                Math.sin(elapsedTime * 0.5) * 0.01;
 
-            if (skinEngine.getState().isSpeaking === true) {
-              const speechTime = elapsedTime * 3.0;
-              headRotationX += Math.abs(Math.sin(speechTime * 0.9)) * 0.045;
-              headRotationY += Math.sin(speechTime * 0.55) * 0.05;
+              if (skinEngine.getState().isSpeaking === true) {
+                const speechTime = elapsedTime * 3.0;
+                headRotationX += Math.abs(Math.sin(speechTime * 0.9)) * 0.045;
+                headRotationY += Math.sin(speechTime * 0.55) * 0.05;
+              }
+
+              headNode.rotation.y = headRotationY;
+              headNode.rotation.x = headRotationX;
             }
-
-            headNode.rotation.y = headRotationY;
-            headNode.rotation.x = headRotationX;
           }
 
           if (baseIdleAction === null && waving === false) {
@@ -1288,7 +1339,10 @@ export async function bootVRM(
       get scene(): unknown {
         return scene;
       },
-      get playGesture(): (gestureName: string) => Promise<void> {
+      get playGesture(): (
+        gestureName: string,
+        optionOverride?: Skin3DActionOption
+      ) => Promise<void> {
         return playGesture;
       },
       setPaused(isPaused: boolean): void {

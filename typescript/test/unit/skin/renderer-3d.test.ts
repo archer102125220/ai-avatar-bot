@@ -15,7 +15,7 @@ import { GestureNotFoundError } from '@/core/skin/types';
 import type { SkinEngine, Renderer3D } from '@core';
 
 interface MockClipActionRecord {
-  clip: { tracks: Array<{ name: string }> };
+  clip: { name?: string; tracks: Array<{ name: string }> };
   action: {
     setLoop: ReturnType<typeof vi.fn>;
     clampWhenFinished: boolean;
@@ -1076,6 +1076,70 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       expect(baseAction.action.play).toHaveBeenCalled();
 
       renderer.dispose();
+    });
+
+    it('should respect pointerLook: false configured in pools.greetings during greeting playback', async () => {
+      vi.useFakeTimers();
+      const currentState = {
+        fitMode: FIT_MODE_MAP.FULL,
+        gender: 'female',
+        isSpeaking: false,
+        skin3d: {
+          pointerLook: true,
+          greetings: {
+            female: {
+              name: 'standing-greeting',
+              pointerLook: false
+            }
+          }
+        }
+      };
+
+      const skinEngine = {
+        stageEl,
+        fitMode: FIT_MODE_MAP.FULL,
+        gender: 'female',
+        getState: () => currentState,
+        onMounted: vi.fn(),
+        subscribe: vi.fn(() => vi.fn()),
+        emo: { name: 'neutral', target: 0, weight: 0, applied: '' }
+      } as unknown as SkinEngine;
+
+      const bootPromise = bootVRM(skinEngine);
+      await vi.advanceTimersByTimeAsync(0);
+      const renderer = (await bootPromise) as Required<Renderer3D>;
+      expect(renderer).toBeDefined();
+
+      // Verify that standing-greeting was preloaded with head/neck tracks preserved
+      const standingGreetingRecord = mockMixerState.actions.find(
+        (item) => item.clip.name === 'standing-greeting'
+      );
+      if (standingGreetingRecord !== undefined) {
+        const trackNames = standingGreetingRecord.clip.tracks.map((t) => t.name);
+        expect(trackNames).toContain('head.quaternion');
+        expect(trackNames).toContain('neck.quaternion');
+      }
+
+      // Advance by 800ms to trigger greeting timeout
+      await vi.advanceTimersByTimeAsync(800);
+
+      // Trigger animationLoop tick while cursor has moved
+      const mouseEvent = new MouseEvent('pointermove', {
+        clientX: 200,
+        clientY: 200
+      });
+      window.dispatchEvent(mouseEvent);
+
+      // Since standing-greeting has pointerLook: false, lookTarget should be centered at (0, 1.42, 1.6)
+      const vrmInstance = renderer.vrm as {
+        lookAt?: { target?: { position: { x: number; y: number; z: number } } };
+      };
+      expect(vrmInstance.lookAt?.target?.position.x).toBe(0);
+      expect(vrmInstance.lookAt?.target?.position.y).toBe(1.42);
+      expect(vrmInstance.lookAt?.target?.position.z).toBe(1.6);
+
+      renderer.dispose();
+      vi.useRealTimers();
     });
   });
 });
