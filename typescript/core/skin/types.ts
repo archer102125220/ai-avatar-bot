@@ -28,11 +28,24 @@ export interface Skin2DModeConfig {
  * Cascade inheritance container type supporting gender-specific overrides.
  * Resolves priority: config[gender]?.field ➜ config.field ➜ default Fallback.
  */
-export type SkinGenderCascade<T> = T & {
+export type SkinGenderCascade<T> = {
   /** Female-specific overrides. */
   female?: T;
   /** Male-specific overrides. */
   male?: T;
+} & {
+  [key: string]: unknown;
+};
+
+/**
+ * Cascade dictionary mapping arbitrary keys to item type T, with optional female and male nested dictionaries.
+ */
+export type SkinCascadeMap<T> = {
+  /** Female-specific overrides. */
+  female?: Record<string, T>;
+  /** Male-specific overrides. */
+  male?: Record<string, T>;
+  [key: string]: T | Record<string, T> | undefined;
 };
 
 /**
@@ -68,9 +81,9 @@ export interface Skin2DConfig {
   /** Alias for tapMotions. */
   tapGestures?: string[];
   /** Semantic motion mapping from action names to Live2D motion group names (supports cascade gender overrides). */
-  motionMap?: SkinGenderCascade<Record<string, Skin2DMotionItem>>;
+  motionMap?: SkinCascadeMap<Skin2DMotionItem>;
   /** Custom semantic expression mapping to Live2D expression names (supports cascade gender overrides). */
-  expressionMap?: SkinGenderCascade<Record<string, string>>;
+  expressionMap?: SkinCascadeMap<string>;
 }
 
 /**
@@ -249,9 +262,9 @@ export interface Skin3DConfig {
   /** Gesture action keys triggered randomly when 3D avatar is clicked. Default: ['goodbye', 'bow', 'waiting'] */
   tapGestures?: Skin3DActionItem[];
   /** Custom gesture library dictionary mapping gesture names to VRMA URLs or options. */
-  gestures?: SkinGenderCascade<Skin3DGesturesMap>;
+  gestures?: SkinCascadeMap<string | Skin3DGestureOption>;
   /** Custom semantic expression mapping to VRM morph/expression names. */
-  expressionMap?: SkinGenderCascade<Record<string, string>>;
+  expressionMap?: SkinCascadeMap<string>;
 }
 
 /**

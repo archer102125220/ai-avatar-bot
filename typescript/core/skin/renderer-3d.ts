@@ -36,7 +36,7 @@ import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
  * Helper to look up a string value from a dictionary map ignoring case.
  */
 function findInMap(
-  map: Record<string, string> | undefined,
+  map: Record<string, string | unknown> | undefined,
   key: string
 ): string | undefined {
   if (

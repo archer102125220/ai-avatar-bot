@@ -905,3 +905,15 @@ export function initSkinEngine(
 
   return skinEngine;
 }
+
+export {
+  resolveCascadeValue,
+  resolve2DMotion,
+  resolve2DExpression,
+  normalize3DActionItem,
+  resolve3DAction,
+  resolve3DActionPool,
+  resolveAll3DPools,
+  type Resolved2DMotion,
+  type Resolved3DAction
+} from './resolver';
