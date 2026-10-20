@@ -308,5 +308,15 @@ describe('Skin Cascade & Fallback Resolver', () => {
       // idlePool was omitted, should safely fall back to default
       expect(femalePools.idlePool).toHaveLength(2);
     });
+
+    it('should correctly resolve default greetings when configured as option objects', () => {
+      const femalePools = resolveAll3DPools({}, 'female');
+      expect(femalePools.greeting.name).toBe('standing-greeting');
+      expect(typeof femalePools.greeting.pointerLook).toBe('boolean');
+
+      const malePools = resolveAll3DPools({}, 'male');
+      expect(malePools.greeting.name).toBe('salute');
+      expect(typeof malePools.greeting.pointerLook).toBe('boolean');
+    });
   });
 });

@@ -331,7 +331,7 @@ export function resolveAll3DPools(
 
   const idleVariants = resolve3DActionPool(userVariants, defaultVariants, options);
 
-  const defaultGreetingKey =
+  const defaultGreeting =
     gender === 'female'
       ? DEFAULT_3D_POOLS.greetings.female
       : DEFAULT_3D_POOLS.greetings.male;
@@ -341,10 +341,8 @@ export function resolveAll3DPools(
       ? config.greetings?.female
       : config.greetings?.male;
 
-  const normalizedGreeting =
-    userGreeting !== undefined
-      ? normalize3DActionItem(userGreeting)
-      : { name: defaultGreetingKey };
+  const targetGreeting = userGreeting !== undefined ? userGreeting : defaultGreeting;
+  const normalizedGreeting = normalize3DActionItem(targetGreeting as Skin3DActionItem);
 
   const resolvedGreetingMeta = resolve3DAction(normalizedGreeting.name, options);
 

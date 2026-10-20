@@ -799,8 +799,14 @@ const widget = await initAvatarBot({
 
     // 4. Initial greeting gesture (triggered once upon model mount)
     greetings: {
-      female: 'standing-greeting', // Hand-wave greeting
-      male: 'salute'               // Crisp salute
+      female: {
+        name: 'standing-greeting',  // Hand-wave greeting
+        pointerLook: false          // Crisp salute
+      },
+      male: {
+        name: 'salute',
+        pointerLook: false
+      }
     },
 
     // 5. Tap interaction feedback actions

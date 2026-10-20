@@ -322,8 +322,14 @@ export const DEFAULT_3D_POOLS = {
   },
   /** Default greeting action played after avatar is ready. */
   greetings: {
-    female: 'standing-greeting',
-    male: 'salute'
+    female: {
+      name: 'standing-greeting',
+      pointerLook: false
+    },
+    male: {
+      name: 'salute',
+      pointerLook: false
+    }
   },
   /** Default tap feedback gesture keys. */
   tapGestures: ['goodbye', 'bow', 'waiting']

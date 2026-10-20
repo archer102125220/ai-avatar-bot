@@ -432,29 +432,29 @@ export async function bootVRM(
     let cursorY = 0;
     const onMove = (event: PointerEvent): void => {
       const stageElClientRect = stageEl.getBoundingClientRect();
-      if (stageElClientRect.width === 0) {
+      if (stageElClientRect.width === 0 || stageElClientRect.height === 0) {
         return;
       }
+      const centerX = stageElClientRect.left + stageElClientRect.width / 2;
+      const centerY = stageElClientRect.top + stageElClientRect.height / 2;
+      const halfWidth = Math.max(
+        window.innerWidth / 2,
+        stageElClientRect.width / 2
+      );
+      const halfHeight = Math.max(
+        window.innerHeight / 2,
+        stageElClientRect.height / 2
+      );
       cursorX = Math.max(
         -1,
-        Math.min(
-          1,
-          ((event.clientX - stageElClientRect.left) / stageElClientRect.width) *
-            2 -
-            1
-        )
+        Math.min(1, (event.clientX - centerX) / halfWidth)
       );
       cursorY = Math.max(
         -1,
-        Math.min(
-          1,
-          ((event.clientY - stageElClientRect.top) / stageElClientRect.height) *
-            2 -
-            1
-        )
+        Math.min(1, (event.clientY - centerY) / halfHeight)
       );
     };
-    stageEl.addEventListener('pointermove', onMove);
+    window.addEventListener('pointermove', onMove);
 
     let nextBlink = 2 + Math.random() * 3;
     let blinkTime = -1;
@@ -739,8 +739,17 @@ export async function bootVRM(
             if (vrmAnimation === undefined || vrmAnimation === null) {
               continue;
             }
+            const actionOption = resolve3DAction(gestureName, {
+              gestures:
+                rawCustomGestures as SkinCascadeMap<string | Skin3DActionOption>,
+              gender: currentGender,
+              vrmaRootPath: safeVrmaRootPath
+            });
+            const shouldStripLookAt = actionOption?.pointerLook !== false;
             const clipAction = mixer.clipAction(
-              filterClipTracks(createVRMAnimationClip(vrmAnimation, vrm))
+              filterClipTracks(createVRMAnimationClip(vrmAnimation, vrm), {
+                stripLookAtTracks: shouldStripLookAt
+              })
             );
             clipAction.setLoop(THREE.LoopOnce, 1);
             clipAction.clampWhenFinished = true;
@@ -884,8 +893,11 @@ export async function bootVRM(
               typeof vrm === 'object' &&
               vrm !== null
             ) {
+              const shouldStripLookAt = resolvedAction?.pointerLook !== false;
               const clipAction = mixer.clipAction(
-                filterClipTracks(createVRMAnimationClip(vrmAnimation, vrm))
+                filterClipTracks(createVRMAnimationClip(vrmAnimation, vrm), {
+                  stripLookAtTracks: shouldStripLookAt
+                })
               );
               clipAction.setLoop(THREE.LoopOnce, 1);
               clipAction.clampWhenFinished = true;
@@ -1181,60 +1193,65 @@ export async function bootVRM(
           lookTarget.position.set(0, 1.42, 1.6);
         }
 
-        if (
-          baseIdleAction === null &&
-          waving === false &&
-          typeof vrm.humanoid === 'object' &&
-          vrm.humanoid !== null
-        ) {
+        if (typeof vrm.humanoid === 'object' && vrm.humanoid !== null) {
           const humanoid = vrm.humanoid;
-          const leftUpperArmNode =
-            humanoid.getNormalizedBoneNode('leftUpperArm');
-          const rightUpperArmNode =
-            humanoid.getNormalizedBoneNode('rightUpperArm');
-          const spineNode = humanoid.getNormalizedBoneNode('spine');
           const headNode = humanoid.getNormalizedBoneNode('head');
-          let leftArmRotationZ = 1.15 * armSign;
-          let rightArmRotationZ = -1.15 * armSign;
-          const spineRotationX = Math.sin(elapsedTime * 0.9) * 0.018;
-          let spineRotationY = Math.sin(elapsedTime * 0.5) * 0.012;
-          let headRotationY =
-            isPointerLookEnabled === true &&
-            isGestureSuspendedPointerLook === false
-              ? cursorX * 0.3
-              : Math.sin(elapsedTime * 0.5) * 0.02;
-          let headRotationX =
-            (isPointerLookEnabled === true &&
-            isGestureSuspendedPointerLook === false
-              ? cursorY * 0.12
-              : 0) + Math.sin(elapsedTime * 0.5) * 0.01;
-          if (skinEngine.getState().isSpeaking === true) {
-            const speechTime = elapsedTime * 3.0;
-            spineRotationY += Math.sin(speechTime) * 0.03;
-            headRotationX += Math.abs(Math.sin(speechTime * 0.9)) * 0.045;
-            headRotationY += Math.sin(speechTime * 0.55) * 0.05;
-            leftArmRotationZ += Math.sin(speechTime * 0.7) * 0.06;
-            rightArmRotationZ -= Math.sin(speechTime * 0.62) * 0.06;
-          }
-          if (
-            typeof leftUpperArmNode === 'object' &&
-            leftUpperArmNode !== null
-          ) {
-            leftUpperArmNode.rotation.z = leftArmRotationZ;
-          }
-          if (
-            typeof rightUpperArmNode === 'object' &&
-            rightUpperArmNode !== null
-          ) {
-            rightUpperArmNode.rotation.z = rightArmRotationZ;
-          }
-          if (typeof spineNode === 'object' && spineNode !== null) {
-            spineNode.rotation.x = spineRotationX;
-            spineNode.rotation.y = spineRotationY;
-          }
+
           if (typeof headNode === 'object' && headNode !== null) {
+            let headRotationY =
+              isPointerLookEnabled === true &&
+              isGestureSuspendedPointerLook === false
+                ? cursorX * 0.35
+                : Math.sin(elapsedTime * 0.5) * 0.02;
+            let headRotationX =
+              (isPointerLookEnabled === true &&
+              isGestureSuspendedPointerLook === false
+                ? cursorY * 0.15
+                : 0) + Math.sin(elapsedTime * 0.5) * 0.01;
+
+            if (skinEngine.getState().isSpeaking === true) {
+              const speechTime = elapsedTime * 3.0;
+              headRotationX += Math.abs(Math.sin(speechTime * 0.9)) * 0.045;
+              headRotationY += Math.sin(speechTime * 0.55) * 0.05;
+            }
+
             headNode.rotation.y = headRotationY;
             headNode.rotation.x = headRotationX;
+          }
+
+          if (baseIdleAction === null && waving === false) {
+            const leftUpperArmNode =
+              humanoid.getNormalizedBoneNode('leftUpperArm');
+            const rightUpperArmNode =
+              humanoid.getNormalizedBoneNode('rightUpperArm');
+            const spineNode = humanoid.getNormalizedBoneNode('spine');
+            let leftArmRotationZ = 1.15 * armSign;
+            let rightArmRotationZ = -1.15 * armSign;
+            const spineRotationX = Math.sin(elapsedTime * 0.9) * 0.018;
+            let spineRotationY = Math.sin(elapsedTime * 0.5) * 0.012;
+
+            if (skinEngine.getState().isSpeaking === true) {
+              const speechTime = elapsedTime * 3.0;
+              spineRotationY += Math.sin(speechTime) * 0.03;
+              leftArmRotationZ += Math.sin(speechTime * 0.7) * 0.06;
+              rightArmRotationZ -= Math.sin(speechTime * 0.62) * 0.06;
+            }
+            if (
+              typeof leftUpperArmNode === 'object' &&
+              leftUpperArmNode !== null
+            ) {
+              leftUpperArmNode.rotation.z = leftArmRotationZ;
+            }
+            if (
+              typeof rightUpperArmNode === 'object' &&
+              rightUpperArmNode !== null
+            ) {
+              rightUpperArmNode.rotation.z = rightArmRotationZ;
+            }
+            if (typeof spineNode === 'object' && spineNode !== null) {
+              spineNode.rotation.x = spineRotationX;
+              spineNode.rotation.y = spineRotationY;
+            }
           }
         }
         vrm.update(delta);
@@ -1309,7 +1326,7 @@ export async function bootVRM(
           greetingTimeout = 0;
         }
         window.removeEventListener('resize', resize);
-        stageEl.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointermove', onMove);
         try {
           if (typeof mixer?.stopAllAction === 'function') {
             mixer.stopAllAction();

@@ -802,8 +802,14 @@ const widget = await initAvatarBot({
 
     // 4. 開場招呼手勢 (模型載入就緒後自動觸發一次)
     greetings: {
-      female: 'standing-greeting', // 女生單手揮手問候
-      male: 'salute'               // 男生甩手敬禮
+      female: {
+        name: 'standing-greeting',  // 女生單手揮手問候
+        pointerLook: false          // 男生甩手敬禮
+      },
+      male: {
+        name: 'salute',
+        pointerLook: false
+      }
     },
 
     // 5. 點擊互動隨機反饋動作池
