@@ -16,6 +16,7 @@ import {
   DEFAULT_3D_MODEL_ROTATION,
   DEFAULT_3D_POINTER_LOOK,
   DEFAULT_3D_CROSSFADE_DURATION,
+  DEFAULT_3D_IDLE_VARIANT_INTERVAL,
   DEFAULT_3D_GESTURE_MAP,
   DEFAULT_3D_EXPRESSION_ALIASES
 } from '@/core/constants';
@@ -465,7 +466,14 @@ export async function bootVRM(
     const BLINK = 0.12;
     const gestureActions: Record<string, THREE.AnimationAction | null> = {};
     let currentGesture: THREE.AnimationAction | null = null;
-    let idleBreak: ReturnType<typeof setInterval> | number = 0;
+    let currentGestureName: string | null = null;
+    let alive = true;
+    let paused = false;
+    let renderRaf = 0;
+    let lastMouthValue = 0;
+    let isComputingMouth = false;
+    let idleVariantTimeout: ReturnType<typeof setTimeout> | number = 0;
+    let greetingTimeout: ReturnType<typeof setTimeout> | number = 0;
     const clock = new THREE.Clock();
     const loader = new GLTFLoader();
     loader.register((parser) => new VRMLoaderPlugin(parser));
@@ -641,6 +649,7 @@ export async function bootVRM(
 
     let unsubscribeSkin3d: (() => void) | null = null;
     let unsubscribeFitMode: (() => void) | null = null;
+    let unsubscribeSpeaking: (() => void) | null = null;
     if (typeof skinEngine.subscribe === 'function') {
       unsubscribeSkin3d = skinEngine.subscribe(
         (state: SkinEngineState) => state.skin3d,
@@ -655,6 +664,27 @@ export async function bootVRM(
         (fitMode: string) => {
           const currentSkin3d = skinEngine.getState().skin3d || {};
           applySkin3dConfig(currentSkin3d, fitMode);
+        }
+      );
+      unsubscribeSpeaking = skinEngine.subscribe(
+        (state: SkinEngineState) => state.isSpeaking,
+        (isSpeaking: boolean) => {
+          if (isSpeaking === true) {
+            if (waving === false && pools.talkingPool.length > 0) {
+              playNextTalkingAction();
+            }
+          } else {
+            const isCurrentTalking =
+              currentGestureName !== null &&
+              pools.talkingPool.some(
+                (item) =>
+                  item.name.toLowerCase() ===
+                  currentGestureName?.toLowerCase()
+              );
+            if (isCurrentTalking === true) {
+              crossfadeToBaseIdle();
+            }
+          }
         }
       );
     }
@@ -725,57 +755,49 @@ export async function bootVRM(
           }
         }
 
-        // 3. Listen for animation completion and crossfade back to base idle
+        // 3. Listen for animation completion and crossfade back to base idle or next talking motion
         mixer.addEventListener('finished', (event: { action?: unknown }) => {
           if (event.action === currentGesture) {
             isGestureSuspendedPointerLook = false;
             currentGesture = null;
+            currentGestureName = null;
             waving = false;
 
-            if (baseIdleAction !== null) {
-              baseIdleAction.reset();
-              if (typeof baseIdleAction.setEffectiveTimeScale === 'function') {
-                baseIdleAction.setEffectiveTimeScale(1);
-              }
-              baseIdleAction.setEffectiveWeight(1);
-              baseIdleAction.play();
-
-              if (
-                typeof (event.action as THREE.AnimationAction).crossFadeTo ===
-                'function'
-              ) {
-                (event.action as THREE.AnimationAction).crossFadeTo(
-                  baseIdleAction,
-                  defaultCrossfadeDuration,
-                  false
-                );
-              } else {
-                try {
-                  (event.action as THREE.AnimationAction).stop();
-                } catch (_error) {}
-              }
-              currentAction = baseIdleAction;
-            } else {
-              try {
-                (event.action as THREE.AnimationAction).stop();
-              } catch (_error) {}
-              currentAction = null;
+            // If speaking is active, continue cycling talking motions
+            if (
+              skinEngine.getState()?.isSpeaking === true &&
+              pools.talkingPool.length > 0
+            ) {
+              playNextTalkingAction();
+              return;
             }
+
+            crossfadeToBaseIdle();
           }
         });
 
-        if (typeof gestureActions.goodbye !== 'undefined') {
-          setTimeout(() => playGesture('goodbye'), 800);
+        // 4. Initial model greeting action
+        const greetingItem = pools.greeting;
+        const initialGreetingName =
+          typeof greetingItem?.name === 'string' && greetingItem.name !== ''
+            ? greetingItem.name
+            : typeof gestureActions.goodbye !== 'undefined'
+              ? 'goodbye'
+              : undefined;
+
+        if (
+          typeof initialGreetingName === 'string' &&
+          initialGreetingName !== ''
+        ) {
+          greetingTimeout = setTimeout(() => {
+            if (alive === true) {
+              playGesture(initialGreetingName).catch(() => {});
+            }
+          }, 800);
         }
-        idleBreak = setInterval(() => {
-          if (
-            waving === false &&
-            skinEngine.getState().isSpeaking !== true &&
-            Math.random() < 0.65
-          ) {
-            playGesture(Math.random() < 0.5 ? 'look' : 'relax');
-          }
-        }, 15000);
+
+        // 5. Schedule occasional idle variants (10~20s dynamic random timer)
+        scheduleNextIdleVariant();
       } catch (error: unknown) {
         const normalizedError =
           error instanceof Error ? error : new Error(String(error));
@@ -895,6 +917,7 @@ export async function bootVRM(
 
         waving = true;
         currentGesture = targetAction;
+        currentGestureName = actionOption?.name ?? gestureName;
 
         targetAction.reset();
         if (typeof targetAction.setEffectiveTimeScale === 'function') {
@@ -912,6 +935,7 @@ export async function bootVRM(
         }
 
         currentAction = targetAction;
+        scheduleNextIdleVariant();
         return;
       }
     }
@@ -949,6 +973,7 @@ export async function bootVRM(
             console.warn('[AvatarBot] Failed to set VRM expression:', error);
           }
         }
+        scheduleNextIdleVariant();
         return;
       }
 
@@ -956,11 +981,77 @@ export async function bootVRM(
       throw new GestureNotFoundError(gestureName, '3d');
     }
 
-    let alive = true;
-    let paused = false;
-    let renderRaf = 0;
-    let lastMouthValue = 0;
-    let isComputingMouth = false;
+    function crossfadeToBaseIdle(): void {
+      isGestureSuspendedPointerLook = false;
+      currentGesture = null;
+      currentGestureName = null;
+      waving = false;
+
+      if (baseIdleAction !== null && currentAction !== baseIdleAction) {
+        if (typeof currentAction?.crossFadeTo === 'function') {
+          currentAction.crossFadeTo(
+            baseIdleAction,
+            defaultCrossfadeDuration,
+            false
+          );
+        } else if (typeof currentAction?.stop === 'function') {
+          currentAction.stop();
+        }
+        currentAction = baseIdleAction;
+      }
+    }
+
+    function playNextTalkingAction(): void {
+      if (pools.talkingPool.length === 0 || alive !== true || paused === true) {
+        return;
+      }
+      const randomIndex = Math.floor(Math.random() * pools.talkingPool.length);
+      const chosenTalking = pools.talkingPool[randomIndex];
+      if (typeof chosenTalking?.name === 'string' && chosenTalking.name !== '') {
+        playGesture(chosenTalking.name).catch(() => {});
+      }
+    }
+
+    function scheduleNextIdleVariant(): void {
+      if (idleVariantTimeout !== 0) {
+        clearTimeout(idleVariantTimeout);
+        idleVariantTimeout = 0;
+      }
+      if (alive !== true || pools.idleVariants.length === 0) {
+        return;
+      }
+
+      const [minInterval, maxInterval] = DEFAULT_3D_IDLE_VARIANT_INTERVAL;
+      const randomInterval =
+        minInterval + Math.random() * (maxInterval - minInterval);
+
+      idleVariantTimeout = setTimeout(() => {
+        if (
+          alive === true &&
+          paused === false &&
+          waving === false &&
+          skinEngine.getState()?.isSpeaking !== true &&
+          pools.idleVariants.length > 0
+        ) {
+          const randomIndex = Math.floor(
+            Math.random() * pools.idleVariants.length
+          );
+          const chosenVariant = pools.idleVariants[randomIndex];
+          if (
+            typeof chosenVariant?.name === 'string' &&
+            chosenVariant.name !== ''
+          ) {
+            playGesture(chosenVariant.name)
+              .catch(() => {})
+              .finally(() => {
+                scheduleNextIdleVariant();
+              });
+            return;
+          }
+        }
+        scheduleNextIdleVariant();
+      }, randomInterval);
+    }
 
     function animationLoop(): void {
       if (alive !== true || paused === true) {
@@ -1197,9 +1288,18 @@ export async function bootVRM(
           unsubscribeFitMode();
           unsubscribeFitMode = null;
         }
-        try {
-          clearInterval(idleBreak);
-        } catch (_error) {}
+        if (typeof unsubscribeSpeaking === 'function') {
+          unsubscribeSpeaking();
+          unsubscribeSpeaking = null;
+        }
+        if (idleVariantTimeout !== 0) {
+          clearTimeout(idleVariantTimeout);
+          idleVariantTimeout = 0;
+        }
+        if (greetingTimeout !== 0) {
+          clearTimeout(greetingTimeout);
+          greetingTimeout = 0;
+        }
         window.removeEventListener('resize', resize);
         stageEl.removeEventListener('pointermove', onMove);
         try {
@@ -1210,6 +1310,7 @@ export async function bootVRM(
         baseIdleAction = null;
         currentAction = null;
         currentGesture = null;
+        currentGestureName = null;
         try {
           if (typeof vrm === 'object' && vrm !== null) {
             VRMUtils.deepDispose(vrm.scene);

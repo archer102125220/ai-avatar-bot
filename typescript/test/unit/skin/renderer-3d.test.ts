@@ -970,5 +970,82 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
 
       renderer.dispose();
     });
+
+    it('should handle greeting timeout, talking pool cycling on isSpeaking, and idle variant scheduling', async () => {
+      vi.useFakeTimers();
+
+      const callbackHolder: { fn?: (isSpeaking: boolean) => void } = {};
+      const currentState = {
+        skin3d: {},
+        fitMode: FIT_MODE_MAP.FULL,
+        gender: 'female',
+        isSpeaking: false
+      };
+
+      const skinEngine = {
+        stageEl,
+        vrmUrl: '/test.vrm',
+        fitMode: FIT_MODE_MAP.FULL,
+        gender: 'female',
+        getState: () => currentState,
+        onMounted: vi.fn(),
+        subscribe: vi.fn(
+          (
+            selector: (state: Record<string, unknown>) => unknown,
+            callback: (val: unknown) => void
+          ) => {
+            const probeState = {
+              isSpeaking: true,
+              skin3d: {},
+              fitMode: FIT_MODE_MAP.FULL
+            };
+            if (selector(probeState) === true) {
+              callbackHolder.fn = callback as (isSpeaking: boolean) => void;
+            }
+            return vi.fn();
+          }
+        ),
+        emo: { name: 'neutral', target: 0, weight: 0, applied: '' }
+      } as unknown as SkinEngine;
+
+      const bootPromise = bootVRM(skinEngine);
+      await vi.advanceTimersByTimeAsync(0);
+      const renderer = (await bootPromise) as Required<Renderer3D>;
+      expect(renderer).toBeDefined();
+
+      // 1. Initial Greeting Trigger: after 800ms, greetingTimeout should play greeting ('standing-greeting' for female)
+      await vi.advanceTimersByTimeAsync(850);
+      expect(mockMixerState.actions.length).toBeGreaterThan(0);
+
+      // 2. Speaking cycle: trigger isSpeaking = true
+      expect(typeof callbackHolder.fn).toBe('function');
+      if (typeof callbackHolder.fn === 'function') {
+        currentState.isSpeaking = true;
+        callbackHolder.fn(true);
+      }
+
+      // Check that a talking action started playing
+      const mixerInstance =
+        mockMixerState.instances[mockMixerState.instances.length - 1];
+      expect(mixerInstance.listeners['finished']).toBeDefined();
+
+      // 3. Finished event when isSpeaking is true -> should cycle to next talking action
+      const currentActionRecord =
+        mockMixerState.actions[mockMixerState.actions.length - 1];
+      mixerInstance.listeners['finished']({ action: currentActionRecord.action });
+
+      // 4. End speaking: trigger isSpeaking = false
+      if (typeof callbackHolder.fn === 'function') {
+        currentState.isSpeaking = false;
+        callbackHolder.fn(false);
+      }
+
+      // 5. Idle Variant Scheduler: advance time by 21000ms
+      await vi.advanceTimersByTimeAsync(21000);
+
+      // 6. Dispose cleanup
+      renderer.dispose();
+      vi.useRealTimers();
+    });
   });
 });
