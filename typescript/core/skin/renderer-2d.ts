@@ -23,7 +23,8 @@ import {
   type SkinEngine,
   type Skin2DConfig,
   type SkinEngineState,
-  type Live2DModelInstance
+  type Live2DModelInstance,
+  type Live2DLookAtController
 } from './types';
 
 interface PixiAppInstance {
@@ -475,21 +476,39 @@ export async function bootAvatar(
         gestureName
       );
 
-      const playWithLookControl = async (
+      /**
+       * Suspends or restores 2D look-at cursor tracking during non-pointerLook motions.
+       */
+      const suspend2DPointerLook = (
+        lookAt: Live2DLookAtController | undefined,
+        suspend: boolean,
+        savedTarget?: { x: number; y: number }
+      ): { x: number; y: number } => {
+        if (typeof lookAt !== 'object' || lookAt === null) {
+          return { x: 0, y: 0 };
+        }
+        if (suspend === true) {
+          const original = { x: lookAt.targetX, y: lookAt.targetY };
+          if (typeof lookAt.focus === 'function') {
+            lookAt.focus(0, 0, false);
+          }
+          return original;
+        }
+        if (typeof lookAt.focus === 'function' && savedTarget !== undefined) {
+          lookAt.focus(savedTarget.x, savedTarget.y, false);
+        }
+        return { x: 0, y: 0 };
+      };
+
+      const playWithLookAtControl = async (
         targetMotion: string,
         pointerLook: boolean
       ): Promise<boolean> => {
-        const internalModel = avatarModel?.internalModel;
-        const focusController = internalModel?.focusController;
-        let originalTargetX = 0;
-        let originalTargetY = 0;
+        const lookAtController = avatarModel?.internalModel?.focusController;
+        let savedTarget: { x: number; y: number } | undefined;
 
-        if (pointerLook === false && typeof focusController === 'object' && focusController !== null) {
-          originalTargetX = focusController.targetX;
-          originalTargetY = focusController.targetY;
-          if (typeof focusController.focus === 'function') {
-            focusController.focus(0, 0, false);
-          }
+        if (pointerLook === false) {
+          savedTarget = suspend2DPointerLook(lookAtController, true);
         }
 
         try {
@@ -499,10 +518,8 @@ export async function bootAvatar(
           }
           return false;
         } finally {
-          if (pointerLook === false && typeof focusController === 'object' && focusController !== null) {
-            if (typeof focusController.focus === 'function') {
-              focusController.focus(originalTargetX, originalTargetY, false);
-            }
+          if (pointerLook === false && savedTarget !== undefined) {
+            suspend2DPointerLook(lookAtController, false, savedTarget);
           }
         }
       };
@@ -512,7 +529,7 @@ export async function bootAvatar(
           (motionKey) => motionKey.toLowerCase() === resolvedCustom.motion.toLowerCase()
         );
         const targetMotion = directMatch !== undefined ? directMatch : resolvedCustom.motion;
-        const played = await playWithLookControl(targetMotion, resolvedCustom.pointerLook);
+        const played = await playWithLookAtControl(targetMotion, resolvedCustom.pointerLook);
         if (played === true) {
           return;
         }
@@ -523,7 +540,7 @@ export async function bootAvatar(
         (motionKey) => motionKey.toLowerCase() === gestureName.toLowerCase()
       );
       if (directMatch !== undefined && typeof avatarModel?.motion === 'function') {
-        const played = await playWithLookControl(directMatch, true);
+        const played = await playWithLookAtControl(directMatch, true);
         if (played === true) {
           return;
         }
@@ -537,7 +554,7 @@ export async function bootAvatar(
             (motionKey) => motionKey.toLowerCase() === alias.toLowerCase()
           );
           if (aliasMatch !== undefined) {
-            const played = await playWithLookControl(aliasMatch, true);
+            const played = await playWithLookAtControl(aliasMatch, true);
             if (played === true) {
               return;
             }
@@ -568,7 +585,7 @@ export async function bootAvatar(
         motionKeys.length === 0 &&
         typeof avatarModel?.motion === 'function'
       ) {
-        const motionResult = await playWithLookControl(gestureName, true);
+        const motionResult = await playWithLookAtControl(gestureName, true);
         if (motionResult === true) {
           return;
         }

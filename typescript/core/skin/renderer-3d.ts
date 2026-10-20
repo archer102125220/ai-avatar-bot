@@ -15,6 +15,8 @@ import {
   DEFAULT_3D_MODEL_SCALE,
   DEFAULT_3D_MODEL_ROTATION,
   DEFAULT_3D_POINTER_LOOK,
+  DEFAULT_3D_CROSSFADE_DURATION,
+  DEFAULT_3D_GESTURE_MAP,
   DEFAULT_3D_EXPRESSION_ALIASES
 } from '@/core/constants';
 import { createCanvas } from './canvas';
@@ -26,11 +28,44 @@ import {
   type VRMSettings,
   Skin3DConfig,
   Skin3DModelConfig,
-  SkinEngineState
+  SkinEngineState,
+  type Skin3DActionOption,
+  type SkinCascadeMap
 } from './types';
+import type { Gender } from '@/core/types';
+import { resolveAll3DPools, resolve3DAction } from './resolver';
 import type * as THREE from 'three';
 import type { VRM } from '@pixiv/three-vrm';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
+/**
+ * Filters animation clip tracks, ensuring only quaternion tracks are retained,
+ * and optionally stripping head and neck rotation tracks to decouple cursor lookAt/head tracking.
+ *
+ * @param clip - THREE.AnimationClip to filter.
+ * @param options - Filtering configuration.
+ * @returns The filtered THREE.AnimationClip.
+ */
+function filterClipTracks(
+  clip: THREE.AnimationClip,
+  options?: { stripLookAtTracks?: boolean }
+): THREE.AnimationClip {
+  clip.tracks = clip.tracks.filter((track: THREE.KeyframeTrack) => {
+    if (!/\.quaternion$/.test(track.name)) {
+      return false;
+    }
+    if (options?.stripLookAtTracks === true) {
+      if (
+        /(?:^|[._])(?:head|neck)(?:[._]|\.quaternion$)/i.test(track.name) ||
+        /(?:^|\.)(?:head|neck)\.quaternion$/i.test(track.name)
+      ) {
+        return false;
+      }
+    }
+    return true;
+  });
+  return clip;
+}
 
 /**
  * Helper to look up a string value from a dictionary map ignoring case.
@@ -200,13 +235,60 @@ export async function bootVRM(
         ? vrmaRootPath
         : DEFAULT_VRMA_ROOT_PATH;
 
-    const rawCustomGestures =
-      typeof setting.gestures === 'object' && setting.gestures !== null
+    const currentGender: Gender =
+      skinEngine.gender === 'female' || skinEngine.gender === 'male'
+        ? skinEngine.gender
+        : 'common';
+
+    const defaultCrossfadeDuration =
+      typeof setting.crossfadeDuration === 'number' &&
+      Number.isFinite(setting.crossfadeDuration)
+        ? setting.crossfadeDuration
+        : typeof skinEngine?.skin3d?.crossfadeDuration === 'number' &&
+            Number.isFinite(skinEngine.skin3d.crossfadeDuration)
+          ? skinEngine.skin3d.crossfadeDuration
+          : DEFAULT_3D_CROSSFADE_DURATION;
+
+    const rawCustomGestures: Record<string, unknown> = {
+      ...(typeof skinEngine?.skin3d?.gestures === 'object' &&
+      skinEngine.skin3d.gestures !== null
+        ? skinEngine.skin3d.gestures
+        : {}),
+      ...(typeof setting.gestures === 'object' && setting.gestures !== null
         ? setting.gestures
-        : typeof skinEngine?.skin3d?.gestures === 'object' &&
-            skinEngine.skin3d.gestures !== null
-          ? skinEngine.skin3d.gestures
-          : {};
+        : {})
+    };
+    if (typeof bow === 'string' && bow !== '') rawCustomGestures.bow = bow;
+    if (typeof goodbye === 'string' && goodbye !== '')
+      rawCustomGestures.goodbye = goodbye;
+    if (typeof thinking === 'string' && thinking !== '')
+      rawCustomGestures.thinking = thinking;
+    if (typeof look === 'string' && look !== '') rawCustomGestures.look = look;
+    if (typeof relax === 'string' && relax !== '')
+      rawCustomGestures.relax = relax;
+    if (typeof surprised === 'string' && surprised !== '')
+      rawCustomGestures.surprised = surprised;
+    if (typeof appearing === 'string' && appearing !== '')
+      rawCustomGestures.appearing = appearing;
+    if (typeof liked === 'string' && liked !== '')
+      rawCustomGestures.liked = liked;
+    if (
+      (typeof waiting === 'string' && waiting !== '') ||
+      (typeof waiting === 'object' && waiting !== null)
+    ) {
+      rawCustomGestures.waiting = waiting;
+    }
+
+    const pools = resolveAll3DPools(
+      {
+        ...skinEngine?.skin3d,
+        ...setting,
+        vrmaRootPath: safeVrmaRootPath,
+        gestures:
+          rawCustomGestures as SkinCascadeMap<string | Skin3DActionOption>
+      },
+      currentGender
+    );
 
     const userCustomGestures: Record<string, string> = {};
     for (const [key, value] of Object.entries(rawCustomGestures)) {
@@ -267,7 +349,9 @@ export async function bootVRM(
       talking_v04: safeVrmaRootPath + 'common/talking/talking-4.vrma',
       ...userCustomGestures
     };
-    const TAP_GESTURES = ['goodbye', 'bow', 'waiting'];
+    const TAP_GESTURES: string[] = pools.tapGestures.map((item) =>
+      typeof item === 'string' ? item : item.name
+    );
 
     const canvas = createCanvas(skinEngine);
     const webGLRenderer = new THREE.WebGLRenderer({
@@ -374,6 +458,9 @@ export async function bootVRM(
     let nextBlink = 2 + Math.random() * 3;
     let blinkTime = -1;
     let mixer: THREE.AnimationMixer | null = null;
+    let baseIdleAction: THREE.AnimationAction | null = null;
+    let currentAction: THREE.AnimationAction | null = null;
+    let isGestureSuspendedPointerLook = false;
     let waving = false;
     const BLINK = 0.12;
     const gestureActions: Record<string, THREE.AnimationAction | null> = {};
@@ -579,14 +666,40 @@ export async function bootVRM(
     } catch (_error) {}
 
     await (async () => {
-      const bodyOnly = (clip: THREE.AnimationClip) => {
-        clip.tracks = clip.tracks.filter((track: THREE.KeyframeTrack) =>
-          /\.quaternion$/.test(track.name)
-        );
-        return clip;
-      };
       try {
         mixer = new THREE.AnimationMixer(vrm.scene);
+
+        // 1. Preload and start base idle animation with decoupled lookAt tracks
+        const primaryIdleItem = pools.idlePool[0] ?? {
+          name: 'idle-1',
+          url: safeVrmaRootPath + 'common/idle-1.vrma',
+          pointerLook: true
+        };
+        try {
+          const idleGltf = await loader.loadAsync(primaryIdleItem.url);
+          const idleAnimation =
+            idleGltf.userData.vrmAnimations &&
+            idleGltf.userData.vrmAnimations[0];
+          if (idleAnimation !== undefined && idleAnimation !== null) {
+            const idleClip = filterClipTracks(
+              createVRMAnimationClip(idleAnimation, vrm),
+              { stripLookAtTracks: true }
+            );
+            baseIdleAction = mixer.clipAction(idleClip);
+            baseIdleAction.setLoop(THREE.LoopRepeat ?? 2201, Infinity);
+            baseIdleAction.play();
+            currentAction = baseIdleAction;
+          }
+        } catch (error: unknown) {
+          const normalizedError =
+            error instanceof Error ? error : new Error(String(error));
+          console.warn(
+            `Base idle VRMA ${primaryIdleItem.name} load failed:`,
+            normalizedError.message
+          );
+        }
+
+        // 2. Preload full body gesture animations
         for (const [gestureName, gestureFilePath] of Object.entries(GESTURES)) {
           try {
             const gestureGltf = await loader.loadAsync(gestureFilePath);
@@ -597,7 +710,7 @@ export async function bootVRM(
               continue;
             }
             const clipAction = mixer.clipAction(
-              bodyOnly(createVRMAnimationClip(vrmAnimation, vrm))
+              filterClipTracks(createVRMAnimationClip(vrmAnimation, vrm))
             );
             clipAction.setLoop(THREE.LoopOnce, 1);
             clipAction.clampWhenFinished = true;
@@ -611,15 +724,46 @@ export async function bootVRM(
             );
           }
         }
+
+        // 3. Listen for animation completion and crossfade back to base idle
         mixer.addEventListener('finished', (event: { action?: unknown }) => {
           if (event.action === currentGesture) {
-            try {
-              (event.action as THREE.AnimationAction).stop();
-            } catch (_error) {}
+            isGestureSuspendedPointerLook = false;
             currentGesture = null;
             waving = false;
+
+            if (baseIdleAction !== null) {
+              baseIdleAction.reset();
+              if (typeof baseIdleAction.setEffectiveTimeScale === 'function') {
+                baseIdleAction.setEffectiveTimeScale(1);
+              }
+              baseIdleAction.setEffectiveWeight(1);
+              baseIdleAction.play();
+
+              if (
+                typeof (event.action as THREE.AnimationAction).crossFadeTo ===
+                'function'
+              ) {
+                (event.action as THREE.AnimationAction).crossFadeTo(
+                  baseIdleAction,
+                  defaultCrossfadeDuration,
+                  false
+                );
+              } else {
+                try {
+                  (event.action as THREE.AnimationAction).stop();
+                } catch (_error) {}
+              }
+              currentAction = baseIdleAction;
+            } else {
+              try {
+                (event.action as THREE.AnimationAction).stop();
+              } catch (_error) {}
+              currentAction = null;
+            }
           }
         });
+
         if (typeof gestureActions.goodbye !== 'undefined') {
           setTimeout(() => playGesture('goodbye'), 800);
         }
@@ -667,23 +811,110 @@ export async function bootVRM(
 
       // 1. VRMA 動作庫匹配 (包含 setting.gestures 與內建動作，大小寫不拘)
       const actionKeys = Object.keys(gestureActions);
+      const isCustomGesture =
+        typeof rawCustomGestures === 'object' &&
+        rawCustomGestures !== null &&
+        Object.keys(rawCustomGestures).some(
+          (k) => k.toLowerCase() === gestureName.toLowerCase()
+        );
+      const isDefault3D = Object.keys(DEFAULT_3D_GESTURE_MAP).some(
+        (k) => k.toLowerCase() === gestureName.toLowerCase()
+      );
       const matchedActionKey = actionKeys.find(
         (actionKey) => actionKey.toLowerCase() === gestureName.toLowerCase()
       );
-      if (matchedActionKey !== undefined) {
-        const clipAction = gestureActions[matchedActionKey];
-        if (clipAction !== undefined && clipAction !== null) {
-          if (waving === true) {
-            return;
+
+      if (
+        matchedActionKey !== undefined ||
+        isCustomGesture === true ||
+        isDefault3D === true
+      ) {
+        const resolvedAction = resolve3DAction(gestureName, {
+          gestures:
+            rawCustomGestures as SkinCascadeMap<string | Skin3DActionOption>,
+          gender: currentGender,
+          vrmaRootPath: safeVrmaRootPath
+        });
+
+        let targetAction: THREE.AnimationAction | null = null;
+        const actionOption: Skin3DActionOption | null = resolvedAction;
+
+        if (
+          matchedActionKey !== undefined &&
+          gestureActions[matchedActionKey] !== null
+        ) {
+          targetAction = gestureActions[matchedActionKey];
+        } else if (
+          resolvedAction !== null &&
+          typeof resolvedAction.url === 'string' &&
+          resolvedAction.url !== ''
+        ) {
+          try {
+            const loadedGltf = await loader.loadAsync(resolvedAction.url);
+            const vrmAnimation =
+              loadedGltf.userData.vrmAnimations &&
+              loadedGltf.userData.vrmAnimations[0];
+            if (
+              vrmAnimation !== undefined &&
+              vrmAnimation !== null &&
+              typeof mixer === 'object' &&
+              mixer !== null &&
+              typeof vrm === 'object' &&
+              vrm !== null
+            ) {
+              const clipAction = mixer.clipAction(
+                filterClipTracks(createVRMAnimationClip(vrmAnimation, vrm))
+              );
+              clipAction.setLoop(THREE.LoopOnce, 1);
+              clipAction.clampWhenFinished = true;
+              gestureActions[resolvedAction.name] = clipAction;
+              targetAction = clipAction;
+            }
+          } catch (error: unknown) {
+            const normalizedError =
+              error instanceof Error ? error : new Error(String(error));
+            console.warn(
+              'VRMA ' + resolvedAction.name + ' lazy load failed:',
+              normalizedError.message
+            );
           }
-          waving = true;
-          currentGesture = clipAction;
-          clipAction.reset();
-          clipAction.setEffectiveWeight(1);
-          clipAction.play();
-          return;
         }
+
+      if (targetAction !== null && targetAction !== undefined) {
+        const fadeDuration =
+          typeof actionOption?.crossfadeDuration === 'number' &&
+          Number.isFinite(actionOption.crossfadeDuration)
+            ? actionOption.crossfadeDuration
+            : defaultCrossfadeDuration;
+
+        if (actionOption?.pointerLook === false) {
+          isGestureSuspendedPointerLook = true;
+        } else {
+          isGestureSuspendedPointerLook = false;
+        }
+
+        waving = true;
+        currentGesture = targetAction;
+
+        targetAction.reset();
+        if (typeof targetAction.setEffectiveTimeScale === 'function') {
+          targetAction.setEffectiveTimeScale(1);
+        }
+        targetAction.setEffectiveWeight(1);
+        targetAction.play();
+
+        if (currentAction !== null && currentAction !== targetAction) {
+          if (typeof currentAction.crossFadeTo === 'function') {
+            currentAction.crossFadeTo(targetAction, fadeDuration, false);
+          } else if (typeof currentAction.stop === 'function') {
+            currentAction.stop();
+          }
+        }
+
+        currentAction = targetAction;
+        return;
       }
+    }
 
       // 2. 表情 Fallback (Expression Fallback)
       const customExpression = findInMap(skin3d.expressionMap, gestureName);
@@ -843,8 +1074,13 @@ export async function bootVRM(
             ? skinEngine.getState()?.skin3d?.pointerLook !== false
             : DEFAULT_3D_POINTER_LOOK;
 
-        if (isPointerLookEnabled === true) {
+        if (
+          isPointerLookEnabled === true &&
+          isGestureSuspendedPointerLook === false
+        ) {
           lookTarget.position.set(cursorX * 0.9, 1.42 - cursorY * 0.55, 1.6);
+        } else if (isGestureSuspendedPointerLook === true) {
+          lookTarget.position.set(0, 1.42, 1.6);
         }
 
         if (
@@ -864,12 +1100,15 @@ export async function bootVRM(
           const spineRotationX = Math.sin(elapsedTime * 0.9) * 0.018;
           let spineRotationY = Math.sin(elapsedTime * 0.5) * 0.012;
           let headRotationY =
-            isPointerLookEnabled === true
+            isPointerLookEnabled === true &&
+            isGestureSuspendedPointerLook === false
               ? cursorX * 0.3
               : Math.sin(elapsedTime * 0.5) * 0.02;
           let headRotationX =
-            (isPointerLookEnabled === true ? cursorY * 0.12 : 0) +
-            Math.sin(elapsedTime * 0.5) * 0.01;
+            (isPointerLookEnabled === true &&
+            isGestureSuspendedPointerLook === false
+              ? cursorY * 0.12
+              : 0) + Math.sin(elapsedTime * 0.5) * 0.01;
           if (skinEngine.getState().isSpeaking === true) {
             const speechTime = elapsedTime * 3.0;
             spineRotationY += Math.sin(speechTime) * 0.03;
@@ -968,6 +1207,9 @@ export async function bootVRM(
             mixer.stopAllAction();
           }
         } catch (_error) {}
+        baseIdleAction = null;
+        currentAction = null;
+        currentGesture = null;
         try {
           if (typeof vrm === 'object' && vrm !== null) {
             VRMUtils.deepDispose(vrm.scene);

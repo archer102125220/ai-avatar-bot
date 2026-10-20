@@ -14,6 +14,37 @@ import {
 import { GestureNotFoundError } from '@/core/skin/types';
 import type { SkinEngine, Renderer3D } from '@core';
 
+interface MockClipActionRecord {
+  clip: { tracks: Array<{ name: string }> };
+  action: {
+    setLoop: ReturnType<typeof vi.fn>;
+    clampWhenFinished: boolean;
+    reset: ReturnType<typeof vi.fn>;
+    setEffectiveWeight: ReturnType<typeof vi.fn>;
+    setEffectiveTimeScale: ReturnType<typeof vi.fn>;
+    crossFadeTo: ReturnType<typeof vi.fn>;
+    fadeIn: ReturnType<typeof vi.fn>;
+    fadeOut: ReturnType<typeof vi.fn>;
+    play: ReturnType<typeof vi.fn>;
+    stop: ReturnType<typeof vi.fn>;
+  };
+}
+
+interface MockMixerTracker {
+  instances: Array<{
+    listeners: Record<string, (e: { action: unknown }) => void>;
+  }>;
+  actions: MockClipActionRecord[];
+}
+
+const mockMixerState: MockMixerTracker = vi.hoisted(() => {
+  const instances: Array<{
+    listeners: Record<string, (e: { action: unknown }) => void>;
+  }> = [];
+  const actions: MockClipActionRecord[] = [];
+  return { instances, actions };
+});
+
 // Mock Three.js and VRM packages
 vi.mock('three', () => {
   class MockVector3 {
@@ -114,22 +145,29 @@ vi.mock('three', () => {
   }
 
   class MockAnimationMixer {
-    listeners: Record<string, (e: unknown) => void>;
+    listeners: Record<string, (e: { action: unknown }) => void>;
     constructor() {
       this.listeners = {};
+      mockMixerState.instances.push(this);
     }
-    addEventListener(event: string, fn: (e: unknown) => void) {
+    addEventListener(event: string, fn: (e: { action: unknown }) => void) {
       this.listeners[event] = fn;
     }
-    clipAction() {
-      return {
+    clipAction(clip: { tracks: Array<{ name: string }> }) {
+      const action = {
         setLoop: vi.fn(),
         clampWhenFinished: true,
         reset: vi.fn(),
         setEffectiveWeight: vi.fn(),
+        setEffectiveTimeScale: vi.fn(),
+        crossFadeTo: vi.fn(),
+        fadeIn: vi.fn(),
+        fadeOut: vi.fn(),
         play: vi.fn(),
         stop: vi.fn()
       };
+      mockMixerState.actions.push({ clip, action });
+      return action;
     }
     update() {}
     stopAllAction() {}
@@ -146,7 +184,8 @@ vi.mock('three', () => {
     AmbientLight: class MockAmbient extends MockObject3D {},
     Clock: MockClock,
     AnimationMixer: MockAnimationMixer,
-    LoopOnce: 2200
+    LoopOnce: 2200,
+    LoopRepeat: 2201
   };
 });
 
@@ -227,7 +266,12 @@ vi.mock('@pixiv/three-vrm-animation', () => {
   return {
     VRMAnimationLoaderPlugin: class VRMAnimationLoaderPlugin {},
     createVRMAnimationClip: vi.fn(() => ({
-      tracks: [{ name: 'spine.quaternion' }, { name: 'spine.position' }]
+      tracks: [
+        { name: 'spine.quaternion' },
+        { name: 'spine.position' },
+        { name: 'head.quaternion' },
+        { name: 'neck.quaternion' }
+      ]
     }))
   };
 });
@@ -238,6 +282,8 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
   beforeEach(() => {
     stageEl = document.createElement('div');
     stageEl.id = 'stage';
+    mockMixerState.instances.length = 0;
+    mockMixerState.actions.length = 0;
     Object.defineProperty(stageEl, 'clientWidth', {
       value: 640,
       configurable: true
@@ -865,6 +911,62 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       await expect(renderer.playGesture('')).rejects.toThrow(
         GestureNotFoundError
       );
+
+      renderer.dispose();
+    });
+
+    it('should decouple head/neck tracks for base idle, crossfade on playGesture, and handle pointerLook suspension', async () => {
+      const currentState = {
+        fitMode: FIT_MODE_MAP.FULL,
+        isSpeaking: false,
+        skin3d: {
+          pointerLook: true,
+          crossfadeDuration: 0.25
+        }
+      };
+
+      const skinEngine = {
+        stageEl,
+        fitMode: FIT_MODE_MAP.FULL,
+        gender: 'female',
+        getState: () => currentState,
+        onMounted: vi.fn(),
+        subscribe: vi.fn(() => vi.fn()),
+        emo: { name: 'neutral', target: 0, weight: 0, applied: '' }
+      } as unknown as SkinEngine;
+
+      const renderer = (await bootVRM(skinEngine)) as Required<Renderer3D>;
+      expect(renderer).toBeDefined();
+
+      // 1. Verify track decoupling: first loaded action is baseIdleAction (idle-female-1 or idle-1)
+      const baseActionRecord = mockMixerState.actions[0];
+      expect(baseActionRecord).toBeDefined();
+      // Base idle clip should have head/neck tracks stripped
+      const baseTrackNames = baseActionRecord.clip.tracks.map((t) => t.name);
+      expect(baseTrackNames).toContain('spine.quaternion');
+      expect(baseTrackNames).not.toContain('head.quaternion');
+      expect(baseTrackNames).not.toContain('neck.quaternion');
+
+      // 2. Play gesture with pointerLook: false (bow)
+      await renderer.playGesture('bow');
+
+      // 3. Play another gesture (goodbye) while waving -> should crossfade to next gesture
+      await renderer.playGesture('goodbye');
+
+      // 4. Trigger mixer finished event for goodbye action
+      const mixerInstance =
+        mockMixerState.instances[mockMixerState.instances.length - 1];
+
+      expect(mixerInstance.listeners['finished']).toBeDefined();
+
+      // Get the goodbye action
+      const goodbyeRecord = mockMixerState.actions.find((item) =>
+        item.clip.tracks.some((t) => t.name === 'head.quaternion')
+      );
+
+      if (goodbyeRecord !== undefined) {
+        mixerInstance.listeners['finished']({ action: goodbyeRecord.action });
+      }
 
       renderer.dispose();
     });

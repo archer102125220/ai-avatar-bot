@@ -183,6 +183,8 @@ export interface Skin3DActionOption {
    * Default: true (actions like inspecting nails or bowing can be set to false).
    */
   pointerLook?: boolean;
+  /** Optional custom crossfade duration in seconds for this specific action. */
+  crossfadeDuration?: number;
 }
 
 /**
@@ -198,6 +200,8 @@ export interface Skin3DGestureOption {
   url?: string;
   /** Whether to enable mouse cursor gaze/head tracking during this action. Default: true. */
   pointerLook?: boolean;
+  /** Optional custom crossfade duration in seconds for this specific gesture. */
+  crossfadeDuration?: number;
 }
 
 /**
@@ -273,6 +277,17 @@ export interface Skin3DConfig {
 export type VRMSettings = Skin3DConfig;
 
 /**
+ * Live2D eye gaze and head look-at controller (maps to underlying Cubism FocusController).
+ */
+export interface Live2DLookAtController {
+  targetX: number;
+  targetY: number;
+  x: number;
+  y: number;
+  focus: (x: number, y: number, instant?: boolean) => void;
+}
+
+/**
  * Internal model structure of Live2D model instance.
  */
 export interface Live2DInternalModel {
@@ -287,13 +302,8 @@ export interface Live2DInternalModel {
     setParameterValueById: (id: string, value: number) => void;
     getParameterValueById?: (id: string) => number;
   };
-  focusController?: {
-    targetX: number;
-    targetY: number;
-    x: number;
-    y: number;
-    focus: (x: number, y: number, instant?: boolean) => void;
-  };
+  /** Look-at gaze controller (underlying Live2D focusController). */
+  focusController?: Live2DLookAtController;
 }
 
 /**
