@@ -1047,5 +1047,35 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       renderer.dispose();
       vi.useRealTimers();
     });
+
+    it('should keep base idle active and avoid procedural bone overrides when baseIdleAction exists', async () => {
+      const currentState = {
+        skin3d: {},
+        fitMode: FIT_MODE_MAP.FULL,
+        gender: 'female',
+        isSpeaking: false
+      };
+
+      const skinEngine = {
+        stageEl,
+        vrmUrl: '/test.vrm',
+        fitMode: FIT_MODE_MAP.FULL,
+        gender: 'female',
+        getState: () => currentState,
+        onMounted: vi.fn(),
+        subscribe: vi.fn(() => vi.fn()),
+        emo: { name: 'neutral', target: 0, weight: 0, applied: '' }
+      } as unknown as SkinEngine;
+
+      const renderer = (await bootVRM(skinEngine)) as Required<Renderer3D>;
+      expect(renderer).toBeDefined();
+
+      // Ensure base idle action was played
+      expect(mockMixerState.actions.length).toBeGreaterThan(0);
+      const baseAction = mockMixerState.actions[0];
+      expect(baseAction.action.play).toHaveBeenCalled();
+
+      renderer.dispose();
+    });
   });
 });

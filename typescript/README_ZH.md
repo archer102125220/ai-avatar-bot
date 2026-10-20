@@ -773,6 +773,53 @@ widget.playGesture?.('bow');
 widget.tap?.();
 ```
 
+#### 🎬 3D 動作池與性別層疊繼承 (Action Pools & Cascade Gender Inheritance)
+3D VRM 引擎採用生動的動作池架構，包含常態呼吸待機、性別專屬偶發小動作（10~20秒隨機輪播）、說話動作池與開場問候，並支援動作級別的視線追蹤控制（`pointerLook`）與平滑融混過渡（`crossfadeDuration`）：
+
+```typescript
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  startMode: '3d',
+  gender: 'female',
+  skin3d: {
+    // 1. 常態呼吸待機動作池 (LoopRepeat 無縫循環，頭頸解耦跟隨游標)
+    idlePool: ['idle-1', 'idle-2'],
+
+    // 2. 性別專屬偶發小動作池 (每 10~20 秒隨機插播，播畢平滑淡回常態待機)
+    idleVariants: {
+      female: [
+        { name: 'idle-female-1', pointerLook: false }, // 檢視指甲 (關閉注視避免斜視)
+        { name: 'idle-female-2', pointerLook: true }   // 背手輕踢腿 (開啟注視)
+      ],
+      male: [
+        { name: 'idle-male-1', pointerLook: true },    // 舒展手臂
+        { name: 'idle-male-2', pointerLook: true }     // 舒展脖子
+      ]
+    },
+
+    // 3. 說話動作池 (說話時隨機抽樣循環，對嘴演算法精準疊加)
+    talkingPool: ['talking-1', 'talking-2', 'talking-3', 'talking-4'],
+
+    // 4. 開場招呼手勢 (模型載入就緒後自動觸發一次)
+    greetings: {
+      female: 'standing-greeting', // 女生單手揮手問候
+      male: 'salute'               // 男生甩手敬禮
+    },
+
+    // 5. 點擊互動隨機反饋動作池
+    tapGestures: ['goodbye', 'bow', 'waiting'],
+
+    // 6. 自訂手勢庫字典 (支援層疊繼承：通用定義 + 性別個別覆蓋)
+    gestures: {
+      bow: { pointerLook: false, crossfadeDuration: 0.4 }, // 鞠躬不跟隨滑鼠
+      female: {
+        waiting: { url: '/avatar-skin/3d-model/vrma/common/waiting.vrma' }
+      }
+    }
+  }
+});
+```
+
 #### 🎭 統一動作調度與全域攔截器 (`gesture`)
 可在初始化時傳入 `gesture` 攔截器，根據當前渲染模式或動作名稱進行自訂轉發，並安全委派回原生 2D / 3D 渲染器：
 

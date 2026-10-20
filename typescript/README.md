@@ -770,6 +770,53 @@ widget.playGesture?.('bow');
 widget.tap?.();
 ```
 
+#### 🎬 3D Action Pools & Cascade Gender Inheritance
+The 3D VRM engine incorporates a dynamic action pool system, featuring a continuous breathing base idle loop, gender-specific occasional idle variants (randomly scheduled every 10~20s), talking speech motions, and initial mount greetings, all paired with per-action cursor gaze tracking (`pointerLook`) and smooth crossfades (`crossfadeDuration`):
+
+```typescript
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  startMode: '3d',
+  gender: 'female',
+  skin3d: {
+    // 1. Base breathing idle loop (seamless LoopRepeat with decoupled head/neck tracking)
+    idlePool: ['idle-1', 'idle-2'],
+
+    // 2. Gender-specific idle variants (scheduled randomly every 10~20s with smooth crossfade back)
+    idleVariants: {
+      female: [
+        { name: 'idle-female-1', pointerLook: false }, // Inspecting nails (gaze suspended to prevent cross-eyes)
+        { name: 'idle-female-2', pointerLook: true }   // Gentle foot-kicking (gaze active)
+      ],
+      male: [
+        { name: 'idle-male-1', pointerLook: true },    // Arm stretch
+        { name: 'idle-male-2', pointerLook: true }     // Neck stretch
+      ]
+    },
+
+    // 3. Talking speech motions pool (randomly cycles during speech, synced with lip-sync algorithm)
+    talkingPool: ['talking-1', 'talking-2', 'talking-3', 'talking-4'],
+
+    // 4. Initial greeting gesture (triggered once upon model mount)
+    greetings: {
+      female: 'standing-greeting', // Hand-wave greeting
+      male: 'salute'               // Crisp salute
+    },
+
+    // 5. Tap interaction feedback actions
+    tapGestures: ['goodbye', 'bow', 'waiting'],
+
+    // 6. Custom gestures dictionary (supports cascade inheritance: common base + gender overrides)
+    gestures: {
+      bow: { pointerLook: false, crossfadeDuration: 0.4 }, // Bow without following cursor
+      female: {
+        waiting: { url: '/avatar-skin/3d-model/vrma/common/waiting.vrma' }
+      }
+    }
+  }
+});
+```
+
 #### 🎭 Unified Gesture Dispatcher & Interceptor (`gesture`)
 You can pass a custom `gesture` interceptor during initialization to customize animations or safely delegate to the underlying 2D / 3D renderers:
 
