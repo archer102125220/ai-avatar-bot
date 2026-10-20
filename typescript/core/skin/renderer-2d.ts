@@ -14,6 +14,10 @@ import {
 } from '@/core/constants';
 import { createCanvas } from './canvas';
 import {
+  resolve2DMotion,
+  resolve2DExpression
+} from './resolver';
+import {
   GestureNotFoundError,
   type Renderer2D,
   type SkinEngine,
@@ -198,7 +202,7 @@ export async function defaultGesture2D(
       : DEFAULT_2D_MALE_EXPRESSION_MAP;
 
   const emotionCode =
-    findInMap(skin2d.expressionMap, targetEmotion) ??
+    resolve2DExpression(skin2d.expressionMap, skinEngine.gender, targetEmotion) ??
     findInMap(defaultEmotionMap, targetEmotion);
 
   if (
@@ -464,16 +468,52 @@ export async function bootAvatar(
       const motionKeys = Object.keys(motions);
       const skin2d = getSkin2dConfig();
 
-      // 1. 自訂 motionMap 優先
-      const customMotion = findInMap(skin2d.motionMap, gestureName);
-      if (typeof customMotion === 'string' && customMotion !== '') {
+      // 1. 自訂 motionMap 優先 (支援性別層疊繼承與 pointerLook 配置)
+      const resolvedCustom = resolve2DMotion(
+        skin2d.motionMap,
+        skinEngine.gender,
+        gestureName
+      );
+
+      const playWithLookControl = async (
+        targetMotion: string,
+        pointerLook: boolean
+      ): Promise<boolean> => {
+        const internalModel = avatarModel?.internalModel;
+        const focusController = internalModel?.focusController;
+        let originalTargetX = 0;
+        let originalTargetY = 0;
+
+        if (pointerLook === false && typeof focusController === 'object' && focusController !== null) {
+          originalTargetX = focusController.targetX;
+          originalTargetY = focusController.targetY;
+          if (typeof focusController.focus === 'function') {
+            focusController.focus(0, 0, false);
+          }
+        }
+
+        try {
+          if (typeof avatarModel?.motion === 'function') {
+            const res = await avatarModel.motion(targetMotion);
+            return res !== false;
+          }
+          return false;
+        } finally {
+          if (pointerLook === false && typeof focusController === 'object' && focusController !== null) {
+            if (typeof focusController.focus === 'function') {
+              focusController.focus(originalTargetX, originalTargetY, false);
+            }
+          }
+        }
+      };
+
+      if (resolvedCustom !== undefined && resolvedCustom.motion !== '') {
         const directMatch = motionKeys.find(
-          (motionKey) => motionKey.toLowerCase() === customMotion.toLowerCase()
+          (motionKey) => motionKey.toLowerCase() === resolvedCustom.motion.toLowerCase()
         );
-        const targetMotion =
-          directMatch !== undefined ? directMatch : customMotion;
-        if (typeof avatarModel?.motion === 'function') {
-          await avatarModel.motion(targetMotion);
+        const targetMotion = directMatch !== undefined ? directMatch : resolvedCustom.motion;
+        const played = await playWithLookControl(targetMotion, resolvedCustom.pointerLook);
+        if (played === true) {
           return;
         }
       }
@@ -482,12 +522,11 @@ export async function bootAvatar(
       const directMatch = motionKeys.find(
         (motionKey) => motionKey.toLowerCase() === gestureName.toLowerCase()
       );
-      if (
-        directMatch !== undefined &&
-        typeof avatarModel?.motion === 'function'
-      ) {
-        await avatarModel.motion(directMatch);
-        return;
+      if (directMatch !== undefined && typeof avatarModel?.motion === 'function') {
+        const played = await playWithLookControl(directMatch, true);
+        if (played === true) {
+          return;
+        }
       }
 
       // 3. 預設別名庫比對 (DEFAULT_2D_MOTION_ALIASES)
@@ -498,8 +537,10 @@ export async function bootAvatar(
             (motionKey) => motionKey.toLowerCase() === alias.toLowerCase()
           );
           if (aliasMatch !== undefined) {
-            await avatarModel.motion(aliasMatch);
-            return;
+            const played = await playWithLookControl(aliasMatch, true);
+            if (played === true) {
+              return;
+            }
           }
         }
       }
@@ -510,7 +551,7 @@ export async function bootAvatar(
           ? DEFAULT_2D_FEMALE_EXPRESSION_MAP
           : DEFAULT_2D_MALE_EXPRESSION_MAP;
       const targetExpression =
-        findInMap(skin2d.expressionMap, gestureName) ??
+        resolve2DExpression(skin2d.expressionMap, skinEngine.gender, gestureName) ??
         findInMap(defaultEmotionMap, gestureName);
 
       if (
@@ -527,8 +568,8 @@ export async function bootAvatar(
         motionKeys.length === 0 &&
         typeof avatarModel?.motion === 'function'
       ) {
-        const motionResult = await avatarModel.motion(gestureName);
-        if (motionResult !== false) {
+        const motionResult = await playWithLookControl(gestureName, true);
+        if (motionResult === true) {
           return;
         }
       }

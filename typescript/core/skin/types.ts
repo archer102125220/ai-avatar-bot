@@ -287,6 +287,13 @@ export interface Live2DInternalModel {
     setParameterValueById: (id: string, value: number) => void;
     getParameterValueById?: (id: string) => number;
   };
+  focusController?: {
+    targetX: number;
+    targetY: number;
+    x: number;
+    y: number;
+    focus: (x: number, y: number, instant?: boolean) => void;
+  };
 }
 
 /**

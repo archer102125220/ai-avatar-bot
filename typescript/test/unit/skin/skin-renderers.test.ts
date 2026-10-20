@@ -12,7 +12,7 @@ import {
   isRenderer2D,
   isRenderer3D
 } from '@/core/skin/types';
-import type { Renderer2D, SkinEngine } from '@/core/skin';
+import type { Renderer2D, SkinEngine, Skin2DConfig } from '@/core/skin';
 
 describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)', () => {
   let stageEl: HTMLElement;
@@ -278,7 +278,7 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
           expressionMap: {
             confused: 'f03'
           }
-        },
+        } as Skin2DConfig,
         avatarModel: null as unknown
       };
       const renderer = (await bootAvatar(
@@ -346,6 +346,37 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
       await expect(renderer.playGesture?.('idle')).rejects.toThrow(
         'Motion file missing'
       );
+
+      // 7. Cascade gender override and pointerLook: false focusController suspension
+      const focusMock = vi.fn();
+      const mockFocusController = {
+        targetX: 0.75,
+        targetY: -0.5,
+        x: 0.75,
+        y: -0.5,
+        focus: focusMock
+      };
+      (avatarModel as Record<string, unknown>).internalModel = {
+        ...avatarModel.internalModel,
+        focusController: mockFocusController
+      };
+
+      skinEngineMock.skin2d = {
+        motionMap: {
+          shy: { motion: 'base_shy', pointerLook: true },
+          female: {
+            shy: { motion: 'female_shy', pointerLook: false }
+          }
+        }
+      };
+
+      avatarModel.motion.mockClear();
+      await renderer.playGesture?.('shy');
+      expect(avatarModel.motion).toHaveBeenCalledWith('female_shy');
+      // When pointerLook: false, focusController.focus(0, 0, false) should be called before motion,
+      // and restored to (0.75, -0.5, false) after motion completes
+      expect(focusMock).toHaveBeenCalledWith(0, 0, false);
+      expect(focusMock).toHaveBeenCalledWith(0.75, -0.5, false);
 
       renderer.dispose();
     });
