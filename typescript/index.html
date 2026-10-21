@@ -38,6 +38,7 @@
       window.aiAvatarWidget = await initAvatarBot({
         container: app,
         // llmModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 中文不錯、約 1.1GB、首次下載後會被快取
+        // llmModel: 'gemma-2-2b-it-q4f32_1-MLC', // Google 公開模型
         llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC', // 支援工具調用的模型
         // llmMaxTokens: 1024, // WebLLM 端側模型回應最大 Token 數（預設 1024）
         // aiProviderModel: 'qwen2.5:latest',
@@ -104,7 +105,9 @@
             'color: #3b82f6; font-weight: bold; font-size: 14px;'
           );
           console.log('可直接在 Console 執行下列任一動作進行測試：');
-          console.log('▶ playGesture("goodbye")    // goodbye.vrma (登場動作/揮手再見)');
+          console.log(
+            '▶ playGesture("goodbye")    // goodbye.vrma (登場動作/揮手再見)'
+          );
           console.log('▶ playGesture("appearing")  // appearing.vrma');
           console.log('▶ playGesture("liked")      // liked.vrma');
           console.log('▶ playGesture("waiting")    // waiting.vrma');
