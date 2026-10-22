@@ -207,11 +207,16 @@ export interface ToolChatMessage {
   id?: string;
   role?: string;
   text?: string;
+  streaming?: boolean;
+  reasoning?: string;
+  reasoningTimeMs?: number;
+  reasoningStreaming?: boolean;
   pendingTool?: PendingToolState | null;
   choiceQuery?: string;
   pendingChoices?: ToolRouteCandidate[] | null;
   timedOut?: boolean;
   cancelled?: boolean;
+  executed?: boolean;
   [key: string]: unknown;
 }
 

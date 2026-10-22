@@ -431,6 +431,87 @@ describe('Orchestrator Pipelines & Interactions', () => {
       expect(mockEngines.brainEngine.llm.controller.abort).toHaveBeenCalled();
     });
 
+    it('should synchronize bubble thinking indicator and reset on answering or interrupt', () => {
+      const mockBubbleEl = document.createElement('p');
+      const mockUiDom = {
+        bubbleEl: mockBubbleEl,
+        updateBubble: vi.fn((text?: string, show?: boolean, isThinking?: boolean) => {
+          if (typeof text === 'string') mockBubbleEl.textContent = text;
+          if (show === true) mockBubbleEl.setAttribute('css-is-show', 'true');
+          else if (show === false) mockBubbleEl.removeAttribute('css-is-show');
+          if (isThinking === true) mockBubbleEl.setAttribute('css-is-thinking', 'true');
+          else if (isThinking === false) mockBubbleEl.removeAttribute('css-is-thinking');
+        })
+      };
+
+      const customWidget = {
+        name: 'CustomWidget',
+        uiDom: mockUiDom,
+        i18nEngine
+      } as unknown as AiAvatarWidget;
+
+      const streamPipeline = createStreamPipeline({
+        getWidget: () => customWidget,
+        options: {
+          reasoning: {
+            showThinkingInBubble: true
+          }
+        },
+        getEngines,
+        autoContinueState,
+        streamSpeechState
+      });
+
+      // 1. Reasoning starts -> bubble shows thinking
+      streamPipeline.onStreamStart();
+      streamPipeline.onReasoningStart({ model: 'Hermes-3-8B' });
+      expect(mockUiDom.updateBubble).toHaveBeenCalledWith('讓我想想…', true, true);
+      expect(mockBubbleEl.getAttribute('css-is-thinking')).toBe('true');
+      expect(mockBubbleEl.getAttribute('css-is-show')).toBe('true');
+
+      // 2. Answering starts (onStreamChunk) -> removes css-is-thinking
+      streamPipeline.onStreamChunk('答案第一句');
+      expect(mockUiDom.updateBubble).toHaveBeenCalledWith(undefined, undefined, false);
+      expect(mockBubbleEl.getAttribute('css-is-thinking')).toBeNull();
+
+      // 3. Test interrupt resets thinking attribute
+      streamPipeline.onReasoningStart({ model: 'Hermes-3-8B' });
+      expect(mockBubbleEl.getAttribute('css-is-thinking')).toBe('true');
+      streamPipeline.onInterrupt();
+      expect(mockBubbleEl.getAttribute('css-is-thinking')).toBeNull();
+      expect(mockBubbleEl.getAttribute('css-is-show')).toBeNull();
+    });
+
+    it('should respect reasoning.showThinkingInBubble = false and not update bubble', () => {
+      const mockBubbleEl = document.createElement('p');
+      const mockUiDom = {
+        bubbleEl: mockBubbleEl,
+        updateBubble: vi.fn()
+      };
+
+      const customWidget = {
+        name: 'CustomWidget',
+        uiDom: mockUiDom,
+        i18nEngine
+      } as unknown as AiAvatarWidget;
+
+      const streamPipeline = createStreamPipeline({
+        getWidget: () => customWidget,
+        options: {
+          reasoning: {
+            showThinkingInBubble: false
+          }
+        },
+        getEngines,
+        autoContinueState,
+        streamSpeechState
+      });
+
+      streamPipeline.onReasoningStart({ model: 'Hermes-3-8B' });
+      expect(mockUiDom.updateBubble).not.toHaveBeenCalled();
+      expect(mockBubbleEl.getAttribute('css-is-thinking')).toBeNull();
+    });
+
     it('should push remaining sentences on onStreamEnd when speechEngine matches sequence id', () => {
       const getEnginesFn = () => mockEngines;
       const getWidgetFn = () => mockWidget;

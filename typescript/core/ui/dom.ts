@@ -359,6 +359,25 @@ export function initUi(
             : 'flex';
       }
     },
+    updateBubble(text?: string, show?: boolean, isThinking?: boolean) {
+      if (typeof text === 'string' && text !== '') {
+        bubbleEl.textContent = text;
+      }
+      if (typeof show === 'boolean') {
+        if (show === true) {
+          bubbleEl.setAttribute('css-is-show', 'true');
+        } else {
+          bubbleEl.removeAttribute('css-is-show');
+        }
+      }
+      if (typeof isThinking === 'boolean') {
+        if (isThinking === true) {
+          bubbleEl.setAttribute('css-is-thinking', 'true');
+        } else {
+          bubbleEl.removeAttribute('css-is-thinking');
+        }
+      }
+    },
     get controlBarEl() {
       return controlBarEl;
     },

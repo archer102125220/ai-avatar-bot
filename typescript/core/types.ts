@@ -213,3 +213,17 @@ export interface LlmOomFallbackInfo {
   [key: string]: unknown;
 }
 
+/** Configuration options for AI reasoning/thinking capture and display */
+export interface ReasoningOptions {
+  /**
+   * Whether to capture and display reasoning content.
+   * @default 'auto' Automatically detect if the model outputs reasoning
+   */
+  mode?: 'auto' | 'always' | 'never';
+  /**
+   * Whether to show brief thinking dynamic status in speech bubble.
+   * @default true
+   */
+  showThinkingInBubble?: boolean;
+}
+

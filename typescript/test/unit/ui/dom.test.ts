@@ -152,4 +152,24 @@ describe('UI DOM & Scaffolding (initUi)', () => {
     expect(uiDom.voiceStatusEl.textContent).toBe('即時語音待命');
     expect(uiDom.voiceLevelEl.style.width).toBe('100%');
   });
+
+  it('should update bubble text, visibility, and thinking indicator via uiDom.updateBubble', () => {
+    const uiDom: UiDom = initUi(container, stageEl, i18nEngine)!;
+
+    // 1. Thinking state
+    uiDom.updateBubble('思考中…', true, true);
+    expect(uiDom.bubbleEl.textContent).toBe('思考中…');
+    expect(uiDom.bubbleEl.getAttribute('css-is-show')).toBe('true');
+    expect(uiDom.bubbleEl.getAttribute('css-is-thinking')).toBe('true');
+
+    // 2. Answering state (remove thinking, update text)
+    uiDom.updateBubble('正式回答文字', true, false);
+    expect(uiDom.bubbleEl.textContent).toBe('正式回答文字');
+    expect(uiDom.bubbleEl.getAttribute('css-is-show')).toBe('true');
+    expect(uiDom.bubbleEl.getAttribute('css-is-thinking')).toBeNull();
+
+    // 3. Hide bubble
+    uiDom.updateBubble(undefined, false);
+    expect(uiDom.bubbleEl.getAttribute('css-is-show')).toBeNull();
+  });
 });

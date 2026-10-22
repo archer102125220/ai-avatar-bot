@@ -59,6 +59,7 @@ import type {
   ReasoningStartInfo,
   ReasoningChunkInfo,
   ReasoningEndInfo,
+  ReasoningOptions,
   LlmOomFallbackInfo,
   Point2D
 } from '@/core/types';
@@ -268,6 +269,8 @@ export interface AvatarBotOptions {
   genderRule?: DynamicTextOrResolver;
   /** List of registered tools for function calling. */
   tools?: ToolDefinition[];
+  /** Configuration for AI reasoning and thinking process. */
+  reasoning?: ReasoningOptions;
   /** Alias for tools. */
   hostTools?: ToolDefinition[];
   /** Whether to enable built-in emotion tool plugin. */
@@ -551,6 +554,8 @@ export interface AiAvatarWidget {
     rawChunk?: unknown,
     ...args: unknown[]
   ) => void;
+  /** Configuration for AI reasoning and thinking process. */
+  readonly reasoning?: ReasoningOptions;
 }
 
 /**
@@ -609,5 +614,6 @@ export type {
   ReasoningStartInfo,
   ReasoningChunkInfo,
   ReasoningEndInfo,
+  ReasoningOptions,
   LlmOomFallbackInfo
 };

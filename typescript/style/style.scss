@@ -4,6 +4,11 @@
   --ink: #222033;
   --surface: rgba(255, 255, 255, 0.97);
   --dock: rgba(26, 28, 46, 0.58);
+  --thought-bg: rgba(240, 241, 250, 0.85);
+  --thought-bg-open: rgba(244, 245, 253, 0.98);
+  --thought-border: rgba(91, 84, 232, 0.14);
+  --thought-text-summary: #5c5d75;
+  --thought-text-content: #44455a;
 }
 
 #stage {
@@ -219,6 +224,19 @@
   opacity: 1;
   transform: none;
 }
+#bubble[css-is-thinking='true'] {
+  color: var(--thought-text-summary);
+  font-style: italic;
+  animation: bubble-thinking-pulse 1.8s ease-in-out infinite alternate;
+}
+@keyframes bubble-thinking-pulse {
+  from {
+    opacity: 0.82;
+  }
+  to {
+    opacity: 1;
+  }
+}
 
 /* ===== 範例提示清單 ===== */
 #suggestions {
@@ -348,9 +366,81 @@
   flex-direction: column;
   align-items: flex-start;
   margin: 0 0 10px;
-}
-.history-item.user {
-  align-items: flex-end;
+
+  &.user {
+    align-items: flex-end;
+  }
+
+  &__thought {
+    max-width: 88%;
+    margin-bottom: 6px;
+    border-radius: 10px;
+    background: var(--thought-bg);
+    border: 1px solid var(--thought-border);
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1.45;
+    transition: background 0.18s ease;
+
+    &[open] {
+      background: var(--thought-bg-open);
+      box-shadow: 0 2px 8px rgba(28, 29, 55, 0.05);
+    }
+  }
+
+  &__thought-summary {
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    padding: 6px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--thought-text-summary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    list-style: none;
+    transition: color 0.15s ease;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &:hover {
+      color: var(--brand);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--brand);
+      outline-offset: -1px;
+    }
+
+    &::after {
+      content: '›';
+      margin-left: auto;
+      font-size: 13px;
+      font-weight: bold;
+      transform: rotate(90deg);
+      transition: transform 0.2s ease;
+    }
+  }
+
+  &__thought[open] &__thought-summary::after {
+    transform: rotate(270deg);
+  }
+
+  &__thought-content {
+    padding: 6px 10px 9px;
+    border-top: 1px dashed var(--thought-border);
+    color: var(--thought-text-content);
+    font-size: 11.5px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 240px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
 }
 .history-message {
   max-width: 88%;

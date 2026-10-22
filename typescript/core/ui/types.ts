@@ -38,6 +38,12 @@ export interface UiDom {
     isCompanion?: boolean,
     i18n?: I18nEngine | null
   ): void;
+  /** Updates dialogue bubble with optional text, visibility and thinking indicator states. */
+  updateBubble(
+    text?: string,
+    show?: boolean,
+    isThinking?: boolean
+  ): void;
   /** Main control bar container. */
   readonly controlBarEl: HTMLElement;
   /** Text input dock row. */

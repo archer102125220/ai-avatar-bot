@@ -24,6 +24,9 @@ interface MockUiContext {
       timedOut?: boolean;
       cancelled?: boolean;
       pendingChoices?: Array<{ tool: { name: string; label: string } }>;
+      reasoning?: string;
+      reasoningTimeMs?: number;
+      reasoningStreaming?: boolean;
     }>;
   };
   toolsEngine: {
@@ -274,6 +277,143 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
         }
       } as unknown as UiContext;
       expect(() => renderHistory(invalidContext)).not.toThrow();
+    });
+
+    it('should render collapsible thought block with duration when assistant message has reasoning', () => {
+      mockContext.brainEngine.chatLog = [
+        {
+          id: 'msg-reasoning-1',
+          role: 'assistant',
+          text: '這是回答正文。',
+          reasoning: '這是詳細的內心思考與推理推論過程。',
+          reasoningTimeMs: 1540
+        }
+      ];
+
+      renderHistory(getContext());
+
+      const historyListEl =
+        uiDom.historyPanelEl.querySelector('#history-list')!;
+      const row = historyListEl.children[0] as HTMLElement;
+      expect(row.className).toContain('history-item assistant');
+
+      const thoughtDetails = row.querySelector(
+        'details.history-item__thought'
+      ) as HTMLDetailsElement;
+      expect(thoughtDetails).toBeDefined();
+
+      const summaryEl = thoughtDetails.querySelector(
+        'summary.history-item__thought-summary'
+      );
+      expect(summaryEl?.textContent).toBe('🤔 思考過程 (1.5秒)');
+
+      const contentEl = thoughtDetails.querySelector(
+        'div.history-item__thought-content'
+      );
+      expect(contentEl?.textContent).toBe('這是詳細的內心思考與推理推論過程。');
+
+      const messageEl = row.querySelector('.history-message');
+      expect(messageEl?.textContent).toBe('這是回答正文。');
+    });
+
+    it('should render thought block without duration when reasoningTimeMs is absent or 0', () => {
+      mockContext.brainEngine.chatLog = [
+        {
+          id: 'msg-reasoning-2',
+          role: 'assistant',
+          text: '回答。',
+          reasoning: '純思考。'
+        }
+      ];
+
+      renderHistory(getContext());
+
+      const historyListEl =
+        uiDom.historyPanelEl.querySelector('#history-list')!;
+      const row = historyListEl.children[0] as HTMLElement;
+
+      const summaryEl = row.querySelector(
+        'summary.history-item__thought-summary'
+      );
+      expect(summaryEl?.textContent).toBe('🤔 思考過程');
+    });
+
+    it('should render thinking indicator when reasoning is still streaming without content', () => {
+      mockContext.brainEngine.chatLog = [
+        {
+          id: 'msg-reasoning-streaming',
+          role: 'assistant',
+          text: '',
+          streaming: true,
+          reasoningStreaming: true
+        }
+      ];
+
+      renderHistory(getContext());
+
+      const historyListEl =
+        uiDom.historyPanelEl.querySelector('#history-list')!;
+      const row = historyListEl.children[0] as HTMLElement;
+
+      const summaryEl = row.querySelector(
+        'summary.history-item__thought-summary'
+      );
+      expect(summaryEl?.textContent).toBe('🤔 思考中…');
+
+      const contentEl = row.querySelector(
+        'div.history-item__thought-content'
+      );
+      expect(contentEl?.textContent).toBe('…');
+    });
+
+    it('should not render thought block for user messages or assistant messages without reasoning', () => {
+      mockContext.brainEngine.chatLog = [
+        {
+          id: 'user-1',
+          role: 'user',
+          text: '使用者問題',
+          reasoning: '不應渲染的使用者思考'
+        },
+        {
+          id: 'assistant-1',
+          role: 'assistant',
+          text: '普通回答，無思考'
+        }
+      ];
+
+      renderHistory(getContext());
+
+      const historyListEl =
+        uiDom.historyPanelEl.querySelector('#history-list')!;
+      expect(historyListEl.querySelectorAll('details.history-item__thought').length).toBe(0);
+    });
+
+    it('should support english localization for thought process and seconds unit', () => {
+      const enI18n = initI18nEngine({ locale: 'en-US' });
+      const enContext = {
+        ...mockContext,
+        i18nEngine: enI18n,
+        brainEngine: {
+          chatLog: [
+            {
+              id: 'msg-en',
+              role: 'assistant',
+              text: 'Hello world.',
+              reasoning: 'Step by step thinking.',
+              reasoningTimeMs: 2300
+            }
+          ]
+        }
+      } as unknown as UiContext;
+
+      renderHistory(enContext);
+
+      const historyListEl =
+        uiDom.historyPanelEl.querySelector('#history-list')!;
+      const summaryEl = historyListEl.querySelector(
+        'summary.history-item__thought-summary'
+      );
+      expect(summaryEl?.textContent).toBe('🤔 Thought Process (2.3s)');
     });
   });
 });

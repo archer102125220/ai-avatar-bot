@@ -82,6 +82,12 @@ export function createStreamPipeline({
         skinEngine.gestureName = 'talking';
       }
     }
+    const widgetInstance = resolveWidget();
+    if (typeof widgetInstance?.uiDom?.updateBubble === 'function') {
+      widgetInstance.uiDom.updateBubble(undefined, undefined, false);
+    } else if (widgetInstance?.uiDom?.bubbleEl instanceof HTMLElement) {
+      widgetInstance.uiDom.bubbleEl.removeAttribute('css-is-thinking');
+    }
   }
 
   return {
@@ -116,6 +122,21 @@ export function createStreamPipeline({
         }
         if (typeof skinEngine.setEmotion === 'function') {
           skinEngine.setEmotion('thinking');
+        }
+      }
+      if (options.reasoning?.showThinkingInBubble !== false) {
+        const widgetInstance = resolveWidget();
+        const i18n = widgetInstance?.i18nEngine;
+        const thinkingText =
+          typeof i18n?.t === 'function'
+            ? i18n.t('brain.thinking')
+            : '讓我想想…';
+        if (typeof widgetInstance?.uiDom?.updateBubble === 'function') {
+          widgetInstance.uiDom.updateBubble(thinkingText, true, true);
+        } else if (widgetInstance?.uiDom?.bubbleEl instanceof HTMLElement) {
+          widgetInstance.uiDom.bubbleEl.textContent = thinkingText;
+          widgetInstance.uiDom.bubbleEl.setAttribute('css-is-show', 'true');
+          widgetInstance.uiDom.bubbleEl.setAttribute('css-is-thinking', 'true');
         }
       }
       const safeInfo =
@@ -253,6 +274,13 @@ export function createStreamPipeline({
         }
       }
 
+      const widgetInstance = resolveWidget();
+      if (typeof widgetInstance?.uiDom?.updateBubble === 'function') {
+        widgetInstance.uiDom.updateBubble(undefined, undefined, false);
+      } else if (widgetInstance?.uiDom?.bubbleEl instanceof HTMLElement) {
+        widgetInstance.uiDom.bubbleEl.removeAttribute('css-is-thinking');
+      }
+
       isThinkingState = false;
       hasSpeechStarted = false;
       callOptionEvent(options, resolveWidget(), 'onStreamEnd', fullText);
@@ -332,6 +360,12 @@ export function createStreamPipeline({
       }
       if (speechEngine !== null && typeof speechEngine === 'object') {
         speechEngine.isProcessing = false;
+      }
+      const widgetInstance = resolveWidget();
+      if (typeof widgetInstance?.uiDom?.updateBubble === 'function') {
+        widgetInstance.uiDom.updateBubble(undefined, false, false);
+      } else if (widgetInstance?.uiDom?.bubbleEl instanceof HTMLElement) {
+        widgetInstance.uiDom.bubbleEl.removeAttribute('css-is-thinking');
       }
       const llmObj = brainEngine?.llm as Record<string, unknown> | undefined;
       const controller = llmObj?.controller as

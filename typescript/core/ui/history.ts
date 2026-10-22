@@ -82,6 +82,48 @@ export function renderHistory(context: UiContext): void {
     const historyItemRowEl = document.createElement('div');
     historyItemRowEl.className = 'history-item ' + chatItem.role;
 
+    const hasReasoning =
+      typeof chatItem.reasoning === 'string' && chatItem.reasoning !== '';
+    const isReasoningStreaming = chatItem.reasoningStreaming === true;
+
+    if (
+      chatItem.role === 'assistant' &&
+      (hasReasoning === true || isReasoningStreaming === true)
+    ) {
+      const thoughtDetailsEl = document.createElement('details');
+      thoughtDetailsEl.className = 'history-item__thought';
+
+      const thoughtSummaryEl = document.createElement('summary');
+      thoughtSummaryEl.className = 'history-item__thought-summary';
+
+      let durationLabel = '';
+      if (
+        typeof chatItem.reasoningTimeMs === 'number' &&
+        Number.isFinite(chatItem.reasoningTimeMs) === true &&
+        chatItem.reasoningTimeMs > 0
+      ) {
+        const seconds = (chatItem.reasoningTimeMs / 1000).toFixed(1);
+        const secondUnit = translate('ui.history.secondUnit', '秒');
+        durationLabel = ` (${seconds}${secondUnit})`;
+      }
+
+      const thoughtTitle =
+        isReasoningStreaming === true && hasReasoning === false
+          ? translate('ui.history.thinking', '思考中…')
+          : translate('ui.history.thought', '思考過程');
+
+      thoughtSummaryEl.textContent = `🤔 ${thoughtTitle}${durationLabel}`;
+
+      const thoughtContentEl = document.createElement('div');
+      thoughtContentEl.className = 'history-item__thought-content';
+      thoughtContentEl.textContent =
+        hasReasoning === true ? (chatItem.reasoning as string) : '…';
+
+      thoughtDetailsEl.appendChild(thoughtSummaryEl);
+      thoughtDetailsEl.appendChild(thoughtContentEl);
+      historyItemRowEl.appendChild(thoughtDetailsEl);
+    }
+
     const messageEl = document.createElement('div');
     messageEl.className = 'history-message';
     messageEl.textContent =

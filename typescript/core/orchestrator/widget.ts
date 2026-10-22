@@ -526,6 +526,9 @@ export function createAvatarWidget({
     get onStreamChunk() {
       return options?.onStreamChunk;
     },
+    get reasoning() {
+      return options?.reasoning;
+    },
 
     get enableModelDrop(): boolean {
       return rootStore.getState().enableModelDrop ?? DEFAULT_ENABLE_MODEL_DROP;
