@@ -73,10 +73,20 @@ const MIGRATIONS: Record<
         ) {
           safeContent = String(item.content);
         }
-        return {
+        const sanitizedItem: ChatHistoryItem = {
           role: item.role === 'user' ? 'user' : 'assistant',
           content: safeContent
         };
+        if (typeof item.reasoning === 'string' && item.reasoning !== '') {
+          sanitizedItem.reasoning = item.reasoning;
+        }
+        if (
+          typeof item.reasoningTimeMs === 'number' &&
+          Number.isFinite(item.reasoningTimeMs) === true
+        ) {
+          sanitizedItem.reasoningTimeMs = item.reasoningTimeMs;
+        }
+        return sanitizedItem;
       });
 
     return {

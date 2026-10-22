@@ -533,6 +533,65 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       expect(msgsZh[0].content).toContain('你是一名女性');
     });
 
+    it('should strictly isolate reasoning and reasoningTimeMs from prompt messages preventing context pollution', async () => {
+      mockBrainEngine.memory.enabled = true;
+      mockBrainEngine.memory.data = {
+        visits: 2,
+        name: 'Bob',
+        summary: '',
+        history: [
+          { role: 'user', content: 'What is the capital of France?' },
+          {
+            role: 'assistant',
+            content: 'The capital of France is Paris.',
+            reasoning:
+              'The user is asking for the capital of France. Paris is the capital. <think>Let me double check geography.</think>',
+            reasoningTimeMs: 1450
+          },
+          { role: 'user', content: 'What is the population there?' },
+          {
+            role: 'assistant',
+            content:
+              'Paris has a population of approximately 2.1 million within city limits.',
+            reasoning:
+              '<thought>Looking up Paris population demographics</thought>',
+            reasoningTimeMs: 980
+          }
+        ]
+      };
+
+      const messages = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        'Tell me more about its culture.'
+      );
+
+      // Verify that every message has only role and content, and zero reasoning fields
+      for (const msg of messages) {
+        expect((msg as Record<string, unknown>).reasoning).toBeUndefined();
+        expect(
+          (msg as Record<string, unknown>).reasoningTimeMs
+        ).toBeUndefined();
+        expect(msg.content).not.toContain('The user is asking for the capital');
+        expect(msg.content).not.toContain('<think>');
+        expect(msg.content).not.toContain('</think>');
+        expect(msg.content).not.toContain(
+          'Looking up Paris population demographics'
+        );
+        expect(msg.content).not.toContain('<thought>');
+        expect(msg.content).not.toContain('</thought>');
+      }
+
+      // Verify assistant messages contain purely the clean answer content
+      const assistantMessages = messages.filter((m) => m.role === 'assistant');
+      expect(assistantMessages).toHaveLength(2);
+      expect(assistantMessages[0].content).toBe(
+        'The capital of France is Paris.'
+      );
+      expect(assistantMessages[1].content).toBe(
+        'Paris has a population of approximately 2.1 million within city limits.'
+      );
+    });
+
     it('should resolve autoContinuePrompt as function, string, or localized object', () => {
       // 1. autoContinuePrompt as function
       mockBrainEngine.autoContinuePrompt = vi.fn(

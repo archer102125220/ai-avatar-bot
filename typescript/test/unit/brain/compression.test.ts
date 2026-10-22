@@ -83,6 +83,20 @@ describe('Unit Test: core/brain/compression.js', () => {
         })
       ).toBe(4);
     });
+
+    it('should strictly ignore reasoning and reasoningTimeMs when estimating character counts', () => {
+      const normalItem = { role: 'assistant', content: 'Short answer' };
+      const itemWithReasoning = {
+        role: 'assistant',
+        content: 'Short answer',
+        reasoning:
+          'Extremely long internal reasoning steps exceeding thousands of characters...',
+        reasoningTimeMs: 15420
+      };
+
+      expect(estimateChars(itemWithReasoning)).toBe(estimateChars(normalItem));
+      expect(estimateChars(itemWithReasoning)).toBe('Short answer'.length);
+    });
   });
 
   describe('sanitizeToolCalls', () => {
@@ -176,9 +190,57 @@ describe('Unit Test: core/brain/compression.js', () => {
       expect(result[2].content).toBe('較新回答 2');
       expect(result[3].content).toBe('最新問題');
     });
+
+    it('should calculate budget strictly from content without bloat from reasoning fields', () => {
+      const messages: LLMMessage[] = [
+        { role: 'system', content: 'Sys' },
+        {
+          role: 'assistant',
+          content: 'Answer 1'
+        },
+        { role: 'user', content: 'Question 2' }
+      ];
+      // Attach reasoning to message object (simulating history turn)
+      (messages[1] as Record<string, unknown>).reasoning = 'A'.repeat(5000);
+
+      const result = slidingWindowCompressor({
+        messages,
+        maxTurns: 2,
+        maxTotalChars: 100
+      });
+
+      // Answer 1 should NOT be dropped because reasoning is not counted in estimateChars
+      expect(result).toHaveLength(3);
+      expect(result[1].content).toBe('Answer 1');
+    });
   });
 
   describe('generateRollingSummary & rollingSummaryCompressor', () => {
+    it('should ignore reasoning and only use content when generating rolling summary', async () => {
+      const newTurns = [
+        {
+          role: 'user',
+          content: '我想學日文'
+        },
+        {
+          role: 'assistant',
+          content: '建議從五十音開始。',
+          reasoning: '用戶想學日文，我應該建議五十音。不要提到思考細節。'
+        }
+      ];
+
+      const summary = await generateRollingSummary({
+        oldSummary: '',
+        newTurns: newTurns as LLMMessage[],
+        locale: 'zh-TW'
+      });
+
+      expect(summary).toContain('日文');
+      expect(summary).toContain('五十音');
+      expect(summary).not.toContain('思考細節');
+      expect(summary).not.toContain('我應該建議');
+    });
+
     it('should generate summary using fallback heuristic when llmChat is not provided', async () => {
       const newTurns: LLMMessage[] = [
         { role: 'user', content: '我想學習 JavaScript' },

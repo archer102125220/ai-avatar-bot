@@ -55,7 +55,19 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
           { role: 'assistant', content: { text: 'rich object' } },
           { role: 'user', content: { nested: 'data' } },
           { role: 'assistant', content: 999 },
-          { role: 'unknown_role', content: 'fallback assistant' }
+          { role: 'unknown_role', content: 'fallback assistant' },
+          {
+            role: 'assistant',
+            content: 'thoughtful answer',
+            reasoning: 'step 1, step 2',
+            reasoningTimeMs: 1420
+          },
+          {
+            role: 'assistant',
+            content: 'answer with invalid reasoning types',
+            reasoning: 123,
+            reasoningTimeMs: 'invalid-ms'
+          }
         ]
       };
 
@@ -67,13 +79,19 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
       expect(migrated.lastSummarizedTurnIndex).toBe(2);
       expect(migrated.metadata).toEqual({ role: 'admin' });
       expect(migrated.summary).toBe('先前摘要');
-      expect(migrated.history.length).toBe(6);
+      expect(migrated.history.length).toBe(8);
       expect(migrated.history[0].content).toBe('hello');
       expect(migrated.history[1].content).toBe('hi there');
       expect(migrated.history[2].content).toBe('rich object');
       expect(migrated.history[3].content).toBe('{"nested":"data"}');
       expect(migrated.history[4].content).toBe('999');
       expect(migrated.history[5].role).toBe('assistant');
+      expect(migrated.history[6].content).toBe('thoughtful answer');
+      expect(migrated.history[6].reasoning).toBe('step 1, step 2');
+      expect(migrated.history[6].reasoningTimeMs).toBe(1420);
+      expect(migrated.history[7].content).toBe('answer with invalid reasoning types');
+      expect(migrated.history[7].reasoning).toBeUndefined();
+      expect(migrated.history[7].reasoningTimeMs).toBeUndefined();
     });
 
     it('should sanitize invalid property types in migrateMemoryData', () => {
@@ -251,6 +269,34 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
       corruptedMem.adapter = {} as unknown as MemoryAdapter;
       corruptedMem.clear(); // Should not throw
       expect(corruptedMem.data.visits).toBe(1);
+    });
+
+    it('should persist and restore reasoning and reasoningTimeMs across memory reloads', () => {
+      const memory1 = initMemory({
+        memoryKey: 'reasoning_persistence_test',
+        enableMemory: true
+      });
+
+      memory1.addTurn(
+        'assistant',
+        'Here is my response',
+        'Detailed internal thought process...',
+        1850
+      );
+
+      // Re-initialize memory with the same key
+      const memory2 = initMemory({
+        memoryKey: 'reasoning_persistence_test',
+        enableMemory: true
+      });
+
+      expect(memory2.data.history.length).toBe(1);
+      expect(memory2.data.history[0].role).toBe('assistant');
+      expect(memory2.data.history[0].content).toBe('Here is my response');
+      expect(memory2.data.history[0].reasoning).toBe(
+        'Detailed internal thought process...'
+      );
+      expect(memory2.data.history[0].reasoningTimeMs).toBe(1850);
     });
   });
 
