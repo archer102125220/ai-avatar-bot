@@ -158,18 +158,22 @@ function extractChunkPayload(chunk: unknown): {
 
   const obj = chunk as Record<string, unknown>;
 
-  // 1. OpenAI / WebLLM chunk structure: choices[0].delta
+  // 1. OpenAI / WebLLM chunk structure: choices[0].delta or choices[0].message
   const choices = obj.choices;
-  if (Array.isArray(choices) && choices.length > 0) {
+  if (Array.isArray(choices) === true && choices.length > 0) {
     const firstChoice = choices[0] as Record<string, unknown> | undefined;
-    const delta = firstChoice?.delta as Record<string, unknown> | undefined;
+    const delta = (firstChoice?.delta || firstChoice?.message) as
+      | Record<string, unknown>
+      | undefined;
     if (typeof delta === 'object' && delta !== null) {
       const reasoning =
         typeof delta.reasoning_content === 'string'
           ? delta.reasoning_content
           : typeof delta.reasoning === 'string'
             ? delta.reasoning
-            : undefined;
+            : typeof delta.thinking === 'string'
+              ? delta.thinking
+              : undefined;
       const content =
         typeof delta.content === 'string' ? delta.content : undefined;
       return { reasoningDelta: reasoning, contentDelta: content };
@@ -319,7 +323,6 @@ export class StreamParser {
       if (
         this.state === STREAM_PARSER_STATE.THINKING &&
         this.reasoningMode === 'structured' &&
-        (reasoningDelta === undefined || reasoningDelta === '') &&
         contentDelta !== ''
       ) {
         // If contentDelta does not contain further reasoning start tags, close structured reasoning

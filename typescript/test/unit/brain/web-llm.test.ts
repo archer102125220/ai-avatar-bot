@@ -109,7 +109,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
 
     it('should handle load error and transition to ERROR state', async () => {
       vi.mocked(WebLLMModule.CreateMLCEngine).mockRejectedValueOnce(
-        new Error('GPU out of memory')
+        new Error('Failed to fetch model weights')
       );
 
       const onLoadError = vi.fn();
@@ -118,9 +118,87 @@ describe('Unit Test: core/brain/web-llm.js', () => {
         onLoadError
       });
 
-      await expect(llm.load()).rejects.toThrow('GPU out of memory');
+      await expect(llm.load()).rejects.toThrow('Failed to fetch model weights');
       expect(llm.state).toBe(STATE_MAP.ERROR);
       expect(onLoadError).toHaveBeenCalled();
+    });
+
+    it('should gracefully perform two-tier OOM adaptive fallback when primary model OOMs', async () => {
+      vi.mocked(WebLLMModule.CreateMLCEngine)
+        .mockRejectedValueOnce(new Error('WebGPU out of memory allocation failure'))
+        .mockResolvedValueOnce({
+          chat: {
+            completions: {
+              create: vi.fn().mockResolvedValue({
+                choices: [{ message: { content: 'Fallback response' } }]
+              })
+            }
+          }
+        } as unknown as WebLLMModule.MLCEngine);
+
+      const onLlmOomFallback = vi.fn();
+      const onLoaded = vi.fn();
+      const llm: WebLLMController = initWebLLM({
+        llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+        llmFallbackModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+        enableOomFallback: true,
+        onLlmOomFallback,
+        onLoaded
+      });
+
+      const loadedEngine = await llm.load();
+      expect(loadedEngine).toBeDefined();
+      expect(llm.state).toBe(STATE_MAP.READY);
+      expect(llm.model).toBe('Qwen2.5-1.5B-Instruct-q4f16_1-MLC');
+      expect(onLlmOomFallback).toHaveBeenCalledTimes(1);
+      expect(onLlmOomFallback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          failedModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+          fallbackModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'
+        })
+      );
+      expect(onLoaded).toHaveBeenCalledTimes(1);
+    });
+
+    it('should fail fast if both primary and fallback models fail on load', async () => {
+      vi.mocked(WebLLMModule.CreateMLCEngine)
+        .mockRejectedValueOnce(new Error('Primary GPU out of memory'))
+        .mockRejectedValueOnce(new Error('Fallback GPU allocation error'));
+
+      const onLlmOomFallback = vi.fn();
+      const onLoadError = vi.fn();
+      const llm: WebLLMController = initWebLLM({
+        llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+        llmFallbackModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+        enableOomFallback: true,
+        onLlmOomFallback,
+        onLoadError
+      });
+
+      await expect(llm.load()).rejects.toThrow('Fallback GPU allocation error');
+      expect(llm.state).toBe(STATE_MAP.ERROR);
+      expect(onLlmOomFallback).toHaveBeenCalledTimes(1);
+      expect(onLoadError).toHaveBeenCalledTimes(1);
+    });
+
+    it('should directly fail without fallback when enableOomFallback is false', async () => {
+      vi.mocked(WebLLMModule.CreateMLCEngine).mockRejectedValueOnce(
+        new Error('WebGPU buffer allocation exceeds memory limits')
+      );
+
+      const onLlmOomFallback = vi.fn();
+      const onLoadError = vi.fn();
+      const llm: WebLLMController = initWebLLM({
+        llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+        enableOomFallback: false,
+        onLlmOomFallback,
+        onLoadError
+      });
+
+      await expect(llm.load()).rejects.toThrow('WebGPU buffer allocation exceeds memory limits');
+      expect(llm.state).toBe(STATE_MAP.ERROR);
+      expect(onLlmOomFallback).not.toHaveBeenCalled();
+      expect(onLoadError).toHaveBeenCalledTimes(1);
     });
 
     it('should be idempotent if load() is called multiple times while already loaded', async () => {
@@ -887,6 +965,166 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       expect(onAutoContinueStart).toHaveBeenCalled();
       expect(onAutoContinueResume).toHaveBeenCalled();
       expect(onAutoContinueEnd).toHaveBeenCalled();
+    });
+
+    it('should persist reasoning and reasoningTimeMs into memory and updateChatMessage', async () => {
+      const mockLlm = {
+        chat: vi.fn().mockResolvedValue({
+          type: 'text',
+          content: '回答內容',
+          reasoning: '推論過程思考中',
+          reasoningTimeMs: 125,
+          finishReason: LLM_FINISH_REASON_MAP.STOP
+        })
+      };
+
+      const addTurn = vi.fn();
+      const updateChatMessage = vi.fn();
+      const addChatMessage = vi.fn(() => 'msg_123');
+
+      const brainEngine = {
+        llm: mockLlm,
+        locale: 'zh-TW',
+        memory: { enabled: true, addTurn },
+        addChatMessage,
+        updateChatMessage,
+        onStreamEnd: vi.fn()
+      };
+
+      const result = await chatWithWebLLM(brainEngine, '分析問題');
+
+      expect(result).toBe('回答內容');
+      expect(addTurn).toHaveBeenCalledWith(
+        'assistant',
+        '回答內容',
+        '推論過程思考中',
+        125
+      );
+      expect(updateChatMessage).toHaveBeenCalledWith(
+        expect.stringMatching(/^stream-/),
+        '回答內容',
+        false,
+        '推論過程思考中',
+        125
+      );
+    });
+  });
+
+  describe('WebLLM StreamParser Reasoning Integration', () => {
+    it('should silently stream reasoning and route answer tokens exclusively to onDelta', async () => {
+      vi.mocked(WebLLMModule.CreateMLCEngine).mockResolvedValueOnce(
+        asMLCEngine({
+          chat: {
+            completions: {
+              create: vi.fn().mockImplementation((opt) => {
+                if (opt.stream === true) {
+                  return (async function* () {
+                    yield { choices: [{ delta: { content: '<think>步驟' } }] };
+                    yield { choices: [{ delta: { content: '一：分析問題\n' } }] };
+                    yield { choices: [{ delta: { content: '步驟二：得出結論</think>' } }] };
+                    yield { choices: [{ delta: { content: '您好，' } }] };
+                    yield {
+                      choices: [
+                        { delta: { content: '這是解答！' }, finish_reason: 'stop' }
+                      ]
+                    };
+                  })();
+                }
+                return Promise.resolve({
+                  choices: [
+                    {
+                      message: { role: 'assistant', content: 'fallback' },
+                      finish_reason: 'stop'
+                    }
+                  ]
+                });
+              })
+            }
+          }
+        })
+      );
+
+      const onReasoningStart = vi.fn();
+      const onReasoningChunk = vi.fn();
+      const onReasoningEnd = vi.fn();
+      const onDelta = vi.fn();
+
+      const llm: WebLLMController = initWebLLM({
+        llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+        llmIsStream: true,
+        onReasoningStart,
+        onReasoningChunk,
+        onReasoningEnd
+      });
+      await llm.load();
+
+      const result = (await llm.chat(
+        [{ role: 'user', content: '複雜問題' }],
+        onDelta
+      )) as {
+        type: string;
+        content: string;
+        reasoning: string;
+        reasoningTimeMs: number;
+        finishReason: string;
+      };
+
+      expect(result.type).toBe('text');
+      expect(result.content).toBe('您好，這是解答！');
+      expect(result.reasoning).toBe('步驟一：分析問題\n步驟二：得出結論');
+      expect(typeof result.reasoningTimeMs).toBe('number');
+
+      // Reasoning callbacks must be triggered
+      expect(onReasoningStart).toHaveBeenCalledTimes(1);
+      expect(onReasoningChunk).toHaveBeenCalled();
+      expect(onReasoningEnd).toHaveBeenCalledTimes(1);
+
+      // onDelta must NEVER be called with any reasoning tokens!
+      const receivedDeltas = onDelta.mock.calls.map((c) => c[0]);
+      expect(receivedDeltas.join('')).toBe('您好，這是解答！');
+      receivedDeltas.forEach((delta) => {
+        expect(delta).not.toContain('<think>');
+        expect(delta).not.toContain('步驟一');
+        expect(delta).not.toContain('</think>');
+      });
+    });
+
+    it('should parse reasoning in non-streaming mode', async () => {
+      vi.mocked(WebLLMModule.CreateMLCEngine).mockResolvedValueOnce(
+        asMLCEngine({
+          chat: {
+            completions: {
+              create: vi.fn().mockResolvedValue({
+                choices: [
+                  {
+                    message: {
+                      role: 'assistant',
+                      content: '<think>非串流推論中</think>乾淨回覆'
+                    },
+                    finish_reason: 'stop'
+                  }
+                ]
+              })
+            }
+          }
+        })
+      );
+
+      const llm: WebLLMController = initWebLLM({
+        llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+        llmIsStream: false
+      });
+      await llm.load();
+
+      const result = (await llm.chat([
+        { role: 'user', content: '非串流測試' }
+      ])) as {
+        content: string;
+        reasoning: string;
+      };
+
+      expect(result.content).toBe('乾淨回覆');
+      expect(result.reasoning).toBe('非串流推論中');
     });
   });
 });

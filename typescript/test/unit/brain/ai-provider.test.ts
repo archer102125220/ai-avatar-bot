@@ -620,5 +620,160 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         })
       );
     });
+
+    it('should handle SSE streaming with dual-track reasoning in provider.chat', async () => {
+      const sseChunks = [
+        'data: {"choices":[{"delta":{"reasoning_content":"思考"}}]}\n\n',
+        'data: {"choices":[{"delta":{"reasoning_content":"過程..."}}]}\n\n',
+        'data: {"choices":[{"delta":{"content":"你好"}}]}\n\n',
+        'data: {"choices":[{"delta":{"content":"，世界！"}}]}\n\n',
+        'data: [DONE]\n\n'
+      ];
+
+      const encoder = new TextEncoder();
+      let chunkIdx = 0;
+      const mockReader = {
+        read: vi.fn(async () => {
+          if (chunkIdx < sseChunks.length) {
+            const chunkText = sseChunks[chunkIdx++];
+            return { done: false, value: encoder.encode(chunkText) };
+          }
+          return { done: true, value: undefined };
+        })
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        body: {
+          getReader: () => mockReader
+        }
+      } as unknown as Response);
+
+      const onReasoningStart = vi.fn();
+      const onReasoningChunk = vi.fn();
+      const onReasoningEnd = vi.fn();
+      const onDelta = vi.fn();
+
+      const provider = await initAiProvider({
+        baseUrl: 'https://api.example.com',
+        providerIsStream: true,
+        onReasoningStart,
+        onReasoningChunk,
+        onReasoningEnd
+      });
+
+      const result = await provider.chat(
+        [{ role: 'user', content: 'hello' }],
+        onDelta
+      );
+
+      expect(result.type).toBe('text');
+      expect(result.content).toBe('你好，世界！');
+      expect(result.reasoning).toBe('思考過程...');
+      expect(typeof result.reasoningTimeMs).toBe('number');
+
+      expect(onReasoningStart).toHaveBeenCalledTimes(1);
+      expect(onReasoningChunk).toHaveBeenCalled();
+      expect(onReasoningEnd).toHaveBeenCalledTimes(1);
+
+      const receivedDeltas = onDelta.mock.calls.map((c) => c[0]);
+      expect(receivedDeltas.join('')).toBe('你好，世界！');
+      receivedDeltas.forEach((delta) => {
+        expect(delta).not.toContain('思考');
+      });
+    });
+
+    it('should extract reasoning from choices[0].message.reasoning_content in non-streaming mode', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                role: 'assistant',
+                content: '非串流乾淨回覆',
+                reasoning_content: 'DeepSeek風格推論'
+              },
+              finish_reason: 'stop'
+            }
+          ]
+        })
+      } as unknown as Response);
+
+      const onReasoningEnd = vi.fn();
+      const provider = await initAiProvider({
+        baseUrl: 'https://api.example.com',
+        providerIsStream: false,
+        onReasoningEnd
+      });
+
+      const result = await provider.chat([{ role: 'user', content: 'test' }]);
+      expect(result.content).toBe('非串流乾淨回覆');
+      expect(result.reasoning).toBe('DeepSeek風格推論');
+      expect(onReasoningEnd).toHaveBeenCalled();
+    });
+
+    it('should extract reasoning from <think> tags in non-streaming mode (Ollama style)', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                role: 'assistant',
+                content: '<think>Ollama標籤推論</think>Ollama回覆內容'
+              },
+              finish_reason: 'stop'
+            }
+          ]
+        })
+      } as unknown as Response);
+
+      const provider = await initAiProvider({
+        baseUrl: 'https://api.example.com',
+        providerIsStream: false
+      });
+
+      const result = await provider.chat([{ role: 'user', content: 'test' }]);
+      expect(result.content).toBe('Ollama回覆內容');
+      expect(result.reasoning).toBe('Ollama標籤推論');
+    });
+
+    it('should propagate reasoning into memory and updateChatMessage in chatWithAiProvider streaming', async () => {
+      const mockChat = vi.fn().mockResolvedValue({
+        type: 'text',
+        content: 'AI回覆',
+        reasoning: '推論紀錄',
+        reasoningTimeMs: 88,
+        finishReason: LLM_FINISH_REASON_MAP.STOP
+      });
+
+      const addTurn = vi.fn();
+      const updateChatMessage = vi.fn();
+      const addChatMessage = vi.fn(() => 'msg_ai_1');
+
+      const brainEngine = {
+        aiProvider: {
+          chat: mockChat,
+          isStream: true
+        },
+        locale: 'zh-TW',
+        memory: { enabled: true, addTurn },
+        addChatMessage,
+        updateChatMessage,
+        onStreamEnd: vi.fn()
+      } as unknown as BrainEngine;
+
+      const result = await chatWithAiProvider(brainEngine, '問題');
+      expect(result).toBe('AI回覆');
+      expect(addTurn).toHaveBeenCalledWith('assistant', 'AI回覆', '推論紀錄', 88);
+      expect(updateChatMessage).toHaveBeenCalledWith(
+        'msg_ai_1',
+        'AI回覆',
+        false,
+        '推論紀錄',
+        88
+      );
+    });
   });
 });

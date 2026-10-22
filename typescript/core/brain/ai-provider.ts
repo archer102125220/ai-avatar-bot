@@ -10,6 +10,11 @@ import {
 } from '@/core/constants';
 import { toOpenAiTools, type ToolDefinition } from '@/core/tools';
 import type {
+  ReasoningStartInfo,
+  ReasoningChunkInfo,
+  ReasoningEndInfo
+} from '@/core/types';
+import type {
   AiProviderOptions,
   AiProviderEngine,
   AiProviderChatResult,
@@ -23,6 +28,7 @@ import {
   resolveAutoContinuePrompt,
   buildDefaultLLMMessages
 } from './messages';
+import { StreamParser } from './stream-parser';
 
 export type { AiProviderOptions, AiProviderEngine };
 
@@ -30,10 +36,12 @@ export type { AiProviderOptions, AiProviderEngine };
  * Initializes the AI Provider backend connection and client interface.
  *
  * @param setting - AI Provider options.
+ * @param brain - Optional parent BrainEngine instance.
  * @returns Initialized AI Provider engine instance.
  */
 export async function initAiProvider(
-  setting: AiProviderOptions = {}
+  setting: AiProviderOptions = {},
+  brain?: BrainEngine | Record<string, unknown>
 ): Promise<AiProviderEngine> {
   const {
     enableAiProvider,
@@ -65,7 +73,10 @@ export async function initAiProvider(
     onConnected = null,
     onError = null,
     onChatting = null,
-    onStreamChatting = null
+    onStreamChatting = null,
+    onReasoningStart = null,
+    onReasoningChunk = null,
+    onReasoningEnd = null
   } = setting;
 
   const resolvedBaseUrl = providerBaseUrl || baseUrl || '';
@@ -168,6 +179,45 @@ export async function initAiProvider(
         }
       };
     },
+    get onReasoningStart() {
+      return function _onReasoningStart(info: ReasoningStartInfo) {
+        if (typeof onReasoningStart === 'function') {
+          onReasoningStart(info);
+        }
+        if (
+          typeof (brain as Partial<BrainEngine>)?.onReasoningStart ===
+          'function'
+        ) {
+          (brain as Partial<BrainEngine>).onReasoningStart!(info);
+        }
+      };
+    },
+    get onReasoningChunk() {
+      return function _onReasoningChunk(info: ReasoningChunkInfo) {
+        if (typeof onReasoningChunk === 'function') {
+          onReasoningChunk(info);
+        }
+        if (
+          typeof (brain as Partial<BrainEngine>)?.onReasoningChunk ===
+          'function'
+        ) {
+          (brain as Partial<BrainEngine>).onReasoningChunk!(info);
+        }
+      };
+    },
+    get onReasoningEnd() {
+      return function _onReasoningEnd(info: ReasoningEndInfo) {
+        if (typeof onReasoningEnd === 'function') {
+          onReasoningEnd(info);
+        }
+        if (
+          typeof (brain as Partial<BrainEngine>)?.onReasoningEnd ===
+          'function'
+        ) {
+          (brain as Partial<BrainEngine>).onReasoningEnd!(info);
+        }
+      };
+    },
 
     model: resolvedModel,
     get enabled() {
@@ -201,10 +251,31 @@ export async function initAiProvider(
     },
     async chat(
       messages: LLMMessage[] | Array<Record<string, unknown>>,
-      fetchSetting?: RequestInit | null,
+      onDeltaOrFetchSetting?:
+        | ((
+            chunkDelta: string,
+            accumulatedText: string,
+            engine?: unknown,
+            brain?: unknown
+          ) => void)
+        | unknown,
       tools?: ToolDefinition[]
     ): Promise<AiProviderChatResult> {
       try {
+        const onDelta =
+          typeof onDeltaOrFetchSetting === 'function'
+            ? (onDeltaOrFetchSetting as (
+                chunkDelta: string,
+                accumulatedText: string,
+                engine?: unknown,
+                brain?: unknown
+              ) => void)
+            : null;
+        const fetchSetting =
+          typeof onDeltaOrFetchSetting === 'object' &&
+          onDeltaOrFetchSetting !== null
+            ? (onDeltaOrFetchSetting as RequestInit)
+            : null;
         const defaultFetchSetting: RequestInit = {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
@@ -360,10 +431,195 @@ export async function initAiProvider(
           )) as AiProviderChatResult;
         }
 
+        if (
+          this.isStream === true &&
+          typeof onDelta === 'function' &&
+          response.body &&
+          typeof response.body.getReader === 'function'
+        ) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder('utf-8');
+          let buffer = '';
+          let streamFinishReason: string = LLM_FINISH_REASON_MAP.STOP;
+          const toolCallsMap: Record<
+            number,
+            {
+              id: string;
+              type: string;
+              function: { name: string; arguments: string };
+            }
+          > = {};
+          let hasToolCalls = false;
+
+          const parser = new StreamParser({
+            model: this.model,
+            onReasoningStart: (info) => this.onReasoningStart?.(info),
+            onReasoningChunk: (info) => this.onReasoningChunk?.(info),
+            onReasoningEnd: (info) => this.onReasoningEnd?.(info),
+            onAnswerChunk: (chunkDelta, accumulatedAnswer) => {
+              onDelta(chunkDelta, accumulatedAnswer, this, brain);
+              this.onStreamChatting(chunkDelta, accumulatedAnswer, brain);
+            }
+          });
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done === true) {
+              break;
+            }
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i].trim();
+              if (line === '' || line.startsWith(':')) {
+                continue;
+              }
+              if (line.startsWith('data:')) {
+                const dataStr = line.slice(5).trim();
+                if (dataStr === '[DONE]') {
+                  continue;
+                }
+                try {
+                  const parsed = JSON.parse(dataStr) as {
+                    choices?: Array<{
+                      delta?: {
+                        content?: string;
+                        reasoning_content?: string;
+                        reasoning?: string;
+                        tool_calls?: Array<{
+                          index?: number;
+                          id?: string;
+                          function?: {
+                            name?: string;
+                            arguments?: string;
+                          };
+                        }>;
+                      };
+                      finish_reason?: string;
+                    }>;
+                  };
+                  const choice = parsed?.choices?.[0];
+                  if (
+                    typeof choice?.finish_reason === 'string' &&
+                    choice.finish_reason !== ''
+                  ) {
+                    streamFinishReason = choice.finish_reason;
+                  }
+                  const delta = choice?.delta;
+                  if (
+                    Array.isArray(delta?.tool_calls) === true &&
+                    delta.tool_calls.length > 0
+                  ) {
+                    hasToolCalls = true;
+                    delta.tool_calls.forEach((toolCallDelta) => {
+                      const callIndex =
+                        typeof toolCallDelta.index === 'number'
+                          ? toolCallDelta.index
+                          : 0;
+                      if (toolCallsMap[callIndex] === undefined) {
+                        toolCallsMap[callIndex] = {
+                          id: toolCallDelta.id || `call_${callIndex}`,
+                          type: 'function',
+                          function: { name: '', arguments: '' }
+                        };
+                      }
+                      if (
+                        typeof toolCallDelta.id === 'string' &&
+                        toolCallDelta.id !== ''
+                      ) {
+                        toolCallsMap[callIndex].id = toolCallDelta.id;
+                      }
+                      if (typeof toolCallDelta.function?.name === 'string') {
+                        toolCallsMap[callIndex].function.name +=
+                          toolCallDelta.function.name;
+                      }
+                      if (
+                        typeof toolCallDelta.function?.arguments === 'string'
+                      ) {
+                        toolCallsMap[callIndex].function.arguments +=
+                          toolCallDelta.function.arguments;
+                      }
+                    });
+                  } else {
+                    parser.feed(parsed);
+                  }
+                } catch (_jsonErr) {
+                  parser.feed(dataStr);
+                }
+              }
+            }
+          }
+
+          if (buffer.trim() !== '') {
+            const line = buffer.trim();
+            if (line.startsWith('data:')) {
+              const dataStr = line.slice(5).trim();
+              if (dataStr !== '[DONE]') {
+                try {
+                  const parsed = JSON.parse(dataStr);
+                  parser.feed(parsed);
+                } catch (_e) {
+                  parser.feed(dataStr);
+                }
+              }
+            }
+          }
+
+          const parseResult = parser.finish();
+
+          if (hasToolCalls === true) {
+            const toolCalls = Object.values(toolCallsMap);
+            const toolMessage = {
+              role: CHAT_ROLE_MAP.ASSISTANT,
+              content: parseResult.answer,
+              tool_calls: toolCalls
+            };
+            this.onChatting(toolMessage, messages, brain);
+            return {
+              type: 'tool_calls',
+              toolCalls,
+              message: toolMessage,
+              finishReason: streamFinishReason
+            };
+          }
+
+          const fallbackStreamToolCalls = extractToolCallsFromText(
+            parseResult.answer
+          );
+          if (fallbackStreamToolCalls.length > 0) {
+            const toolMessage = {
+              role: CHAT_ROLE_MAP.ASSISTANT,
+              content: parseResult.answer,
+              tool_calls: fallbackStreamToolCalls
+            };
+            this.onChatting(toolMessage, messages, brain);
+            return {
+              type: 'tool_calls',
+              toolCalls: fallbackStreamToolCalls,
+              message: toolMessage,
+              finishReason: streamFinishReason
+            };
+          }
+
+          this.onChatting(parseResult.answer, messages, brain);
+          return {
+            type: 'text',
+            content: parseResult.answer,
+            reasoning: parseResult.reasoning,
+            reasoningTimeMs: parseResult.reasoningTimeMs,
+            finishReason: streamFinishReason
+          };
+        }
+
         const result = (await response.json()) as {
           choices?: Array<{
             message?: {
               content?: string;
+              reasoning_content?: string;
+              reasoning?: string;
+              thinking?: string;
               tool_calls?: unknown[];
             };
             finish_reason?: string;
@@ -394,13 +650,24 @@ export async function initAiProvider(
               : LLM_FINISH_REASON_MAP.STOP;
 
         const rawContent = choice?.message?.content || '';
+        const parser = new StreamParser({
+          model: this.model,
+          onReasoningStart: (info) => this.onReasoningStart?.(info),
+          onReasoningChunk: (info) => this.onReasoningChunk?.(info),
+          onReasoningEnd: (info) => this.onReasoningEnd?.(info)
+        });
+        parser.feed(choice || result || rawContent);
+        const parseResult = parser.finish();
+
         if (
           (toolCalls === null ||
             (Array.isArray(toolCalls) === true && toolCalls.length === 0)) &&
           typeof rawContent === 'string' &&
           rawContent !== ''
         ) {
-          const fallbackToolCalls = extractToolCallsFromText(rawContent);
+          const fallbackToolCalls = extractToolCallsFromText(
+            parseResult.answer !== '' ? parseResult.answer : rawContent
+          );
           if (fallbackToolCalls.length > 0) {
             toolCalls = fallbackToolCalls;
           }
@@ -412,16 +679,19 @@ export async function initAiProvider(
             toolCalls,
             message: choice?.message || {
               role: CHAT_ROLE_MAP.ASSISTANT,
-              content: rawContent,
+              content: parseResult.answer,
               tool_calls: toolCalls
             },
             finishReason
           };
         }
 
+        this.onChatting(result, messages, brain);
         return {
           type: 'text',
-          content: rawContent,
+          content: parseResult.answer,
+          reasoning: parseResult.reasoning,
+          reasoningTimeMs: parseResult.reasoningTimeMs,
           finishReason
         };
       } catch (error) {
@@ -476,15 +746,50 @@ export async function chatWithAiProvider(
     const tools =
       typeof engine.getTools === 'function' ? engine.getTools() : [];
 
+    let streamMessageId: string | void = undefined;
+    if (engine.aiProvider?.isStream === true) {
+      if (typeof engine.onStreamStart === 'function') {
+        engine.onStreamStart();
+      }
+      if (typeof engine.addChatMessage === 'function') {
+        streamMessageId = engine.addChatMessage('assistant', '', {
+          streaming: true
+        });
+      }
+    }
+
+    const onDeltaCallback =
+      engine.aiProvider?.isStream === true
+        ? (chunkDelta: string, currentStreamText: string) => {
+            if (typeof engine.onSpokenDisplayTextChange === 'function') {
+              engine.onSpokenDisplayTextChange(currentStreamText);
+            }
+            if (
+              typeof engine.updateChatMessage === 'function' &&
+              typeof streamMessageId === 'string'
+            ) {
+              engine.updateChatMessage(streamMessageId, currentStreamText, true);
+            }
+            if (typeof engine.applyEmotionFromText === 'function') {
+              engine.applyEmotionFromText(currentStreamText);
+            }
+            if (typeof engine.onStreamChunk === 'function') {
+              engine.onStreamChunk(chunkDelta);
+            }
+          }
+        : null;
+
     const chatResponse = (await engine.aiProvider?.chat(
       messages,
-      null,
+      onDeltaCallback,
       tools
     )) as
       | {
           type?: string;
           toolCalls?: ParsedToolCall[];
           content?: string;
+          reasoning?: string;
+          reasoningTimeMs?: number;
           finishReason?: string;
         }
       | string
@@ -496,6 +801,12 @@ export async function chatWithAiProvider(
       chatResponse !== null &&
       chatResponse.type === 'tool_calls'
     ) {
+      if (
+        typeof engine.updateChatMessage === 'function' &&
+        typeof streamMessageId === 'string'
+      ) {
+        engine.updateChatMessage(streamMessageId, '', false);
+      }
       return await executeToolCallsLoop(
         engine as BrainEngine,
         chatResponse,
@@ -518,6 +829,16 @@ export async function chatWithAiProvider(
       typeof chatResponseObj?.finishReason === 'string'
         ? chatResponseObj.finishReason
         : LLM_FINISH_REASON_MAP.STOP;
+    const initialReasoning =
+      typeof chatResponseObj?.reasoning === 'string' &&
+      chatResponseObj.reasoning !== ''
+        ? chatResponseObj.reasoning
+        : undefined;
+    const initialReasoningTimeMs =
+      typeof chatResponseObj?.reasoningTimeMs === 'number' &&
+      Number.isFinite(chatResponseObj.reasoningTimeMs) === true
+        ? chatResponseObj.reasoningTimeMs
+        : undefined;
 
     if (initialText.trim() === '') {
       throw new Error(
@@ -657,12 +978,34 @@ export async function chatWithAiProvider(
 
       if (autoContinueMode === AUTO_CONTINUE_MODE_MAP.BUFFERED) {
         if (typeof engine.emitAnswer === 'function') {
+          if (
+            typeof initialReasoning === 'string' ||
+            typeof initialReasoningTimeMs === 'number'
+          ) {
+            return engine.emitAnswer(
+              accumulatedText,
+              initialReasoning,
+              initialReasoningTimeMs
+            );
+          }
           return engine.emitAnswer(accumulatedText);
         }
         return;
       } else {
         if (engine.memory?.enabled === true) {
-          engine.memory.addTurn('assistant', accumulatedText);
+          if (
+            typeof initialReasoning === 'string' ||
+            typeof initialReasoningTimeMs === 'number'
+          ) {
+            engine.memory.addTurn(
+              'assistant',
+              accumulatedText,
+              initialReasoning,
+              initialReasoningTimeMs
+            );
+          } else {
+            engine.memory.addTurn('assistant', accumulatedText);
+          }
         }
         if (typeof engine.triggerRollingSummaryIfNeeded === 'function') {
           engine.triggerRollingSummaryIfNeeded();
@@ -671,7 +1014,60 @@ export async function chatWithAiProvider(
       }
     }
 
+    if (engine.aiProvider?.isStream === true) {
+      if (engine.memory?.enabled === true) {
+        if (
+          typeof initialReasoning === 'string' ||
+          typeof initialReasoningTimeMs === 'number'
+        ) {
+          engine.memory.addTurn(
+            'assistant',
+            accumulatedText,
+            initialReasoning,
+            initialReasoningTimeMs
+          );
+        } else {
+          engine.memory.addTurn('assistant', accumulatedText);
+        }
+      }
+      if (
+        typeof engine.updateChatMessage === 'function' &&
+        typeof streamMessageId === 'string'
+      ) {
+        engine.updateChatMessage(
+          streamMessageId,
+          accumulatedText,
+          false,
+          initialReasoning,
+          initialReasoningTimeMs
+        );
+      }
+      if (typeof engine.applyEmotionFromText === 'function') {
+        engine.applyEmotionFromText(accumulatedText);
+      }
+      if (typeof engine.onSpokenAudioPlayNow === 'function') {
+        engine.onSpokenAudioPlayNow(accumulatedText);
+      }
+      if (typeof engine.onStreamEnd === 'function') {
+        engine.onStreamEnd(accumulatedText);
+      }
+      if (typeof engine.triggerRollingSummaryIfNeeded === 'function') {
+        engine.triggerRollingSummaryIfNeeded();
+      }
+      return accumulatedText;
+    }
+
     if (typeof engine.emitAnswer === 'function') {
+      if (
+        typeof initialReasoning === 'string' ||
+        typeof initialReasoningTimeMs === 'number'
+      ) {
+        return engine.emitAnswer(
+          accumulatedText,
+          initialReasoning,
+          initialReasoningTimeMs
+        );
+      }
       return engine.emitAnswer(accumulatedText);
     }
   } catch (error) {

@@ -223,6 +223,12 @@ export interface AddChatMessageOptions {
   streaming?: boolean;
   pendingTool?: PendingToolState | null;
   pendingChoices?: ToolRouteCandidate[] | null;
+  /** Reasoning / thinking content trace. */
+  reasoning?: string;
+  /** Whether the reasoning trace is currently streaming. */
+  reasoningStreaming?: boolean;
+  /** Duration of reasoning process in milliseconds. */
+  reasoningTimeMs?: number;
   [key: string]: unknown;
 }
 
@@ -289,6 +295,10 @@ export interface LLMEngine {
   readonly onLoadError: (...args: unknown[]) => unknown;
   readonly onChatting: (...args: unknown[]) => unknown;
   readonly onStreamChatting: (...args: unknown[]) => unknown;
+  readonly onLlmOomFallback?: (info: LlmOomFallbackInfo) => void;
+  readonly onReasoningStart?: (info: ReasoningStartInfo) => void;
+  readonly onReasoningChunk?: (info: ReasoningChunkInfo) => void;
+  readonly onReasoningEnd?: (info: ReasoningEndInfo) => void;
   readonly engine?: {
     chat?: {
       completions?: {
@@ -413,11 +423,22 @@ export interface AiProviderOptions {
   onError?: ((error?: unknown, ...args: unknown[]) => void) | null;
   onChatting?: ((...args: unknown[]) => void) | null;
   onStreamChatting?: ((chunk?: unknown, ...args: unknown[]) => void) | null;
+  onReasoningStart?:
+    | ((info: ReasoningStartInfo, ...args: unknown[]) => void)
+    | null;
+  onReasoningChunk?:
+    | ((info: ReasoningChunkInfo, ...args: unknown[]) => void)
+    | null;
+  onReasoningEnd?:
+    | ((info: ReasoningEndInfo, ...args: unknown[]) => void)
+    | null;
 }
 
 export interface AiProviderChatResult {
   type?: 'text' | 'tool_calls' | (string & {});
   content?: string;
+  reasoning?: string;
+  reasoningTimeMs?: number;
   finishReason?: string;
   toolCalls?: ParsedToolCall[] | null;
   message?: unknown;
@@ -455,13 +476,23 @@ export interface AiProviderEngine {
   readonly onError: (error?: unknown, ...args: unknown[]) => void;
   readonly onChatting: (...args: unknown[]) => void;
   readonly onStreamChatting: (chunk?: unknown, ...args: unknown[]) => void;
+  readonly onReasoningStart?: (info: ReasoningStartInfo) => void;
+  readonly onReasoningChunk?: (info: ReasoningChunkInfo) => void;
+  readonly onReasoningEnd?: (info: ReasoningEndInfo) => void;
   model: string;
   enabled: boolean;
   ready: boolean;
   ping(fetchSetting?: unknown): Promise<boolean>;
   chat(
     messages: LLMMessage[] | Array<Record<string, unknown>>,
-    fetchSetting?: unknown,
+    onDeltaOrFetchSetting?:
+      | ((
+          chunkDelta: string,
+          accumulatedText: string,
+          engine?: unknown,
+          brain?: unknown
+        ) => void)
+      | unknown,
     tools?: ToolDefinition[]
   ): Promise<AiProviderChatResult>;
 }
@@ -761,7 +792,11 @@ export interface BrainEngine {
   classifyEmotion(text: string): string;
   applyEmotionFromText(text: string): void;
   answerQuestion(question: string): Promise<string | void>;
-  emitAnswer(text: string): string | void;
+  emitAnswer(
+    text: string,
+    reasoning?: string,
+    reasoningTimeMs?: number
+  ): string | void;
   getRetrievalAnswer(rawQuestion: string): string;
   getCompanionFallbackResponse(question: string): string;
   chatWithAiProvider(question: string): Promise<string | void>;
@@ -772,7 +807,14 @@ export interface BrainEngine {
     text: string,
     options?: AddChatMessageOptions
   ): string;
-  updateChatMessage(id: string, text: string, streaming?: boolean): string;
+  updateChatMessage(
+    id: string,
+    text: string,
+    streaming?: boolean,
+    reasoning?: string,
+    reasoningTimeMs?: number,
+    reasoningStreaming?: boolean
+  ): string;
   locale: string;
   setLocale(locale: string): void;
   gender?: Gender;

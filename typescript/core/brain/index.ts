@@ -21,6 +21,12 @@ import {
   FINISH_REASON_MAP
 } from '@/core/constants';
 import type {
+  ReasoningStartInfo,
+  ReasoningChunkInfo,
+  ReasoningEndInfo,
+  LlmOomFallbackInfo
+} from '@/core/types';
+import type {
   BrainEngine,
   BrainEngineOptions,
   AvatarMode,
@@ -352,7 +358,8 @@ export async function initBrainEngine(
     applyEmotionFromText: (text: string) =>
       applyEmotionFromText(brainEngine, text),
     answerQuestion: (question: string) => answerQuestion(brainEngine, question),
-    emitAnswer: (text: string) => emitAnswer(brainEngine, text),
+    emitAnswer: (text: string, reasoning?: string, reasoningTimeMs?: number) =>
+      emitAnswer(brainEngine, text, reasoning, reasoningTimeMs),
     getRetrievalAnswer: (rawQuestion: string) =>
       getRetrievalAnswer(brainEngine, rawQuestion),
     getCompanionFallbackResponse: (question: string) =>
@@ -368,8 +375,23 @@ export async function initBrainEngine(
       text: string,
       options?: AddChatMessageOptions
     ) => addChatMessage(brainEngine, role, text, options),
-    updateChatMessage: (id: string, text: string, streaming?: boolean) =>
-      updateChatMessage(brainEngine, id, text, streaming),
+    updateChatMessage: (
+      id: string,
+      text: string,
+      streaming?: boolean,
+      reasoning?: string,
+      reasoningTimeMs?: number,
+      reasoningStreaming?: boolean
+    ) =>
+      updateChatMessage(
+        brainEngine,
+        id,
+        text,
+        streaming,
+        reasoning,
+        reasoningTimeMs,
+        reasoningStreaming
+      ),
 
     get llm() {
       return llm;
@@ -481,6 +503,8 @@ export async function initBrainEngine(
   llm = initWebLLM(
     {
       llmModel,
+      llmFallbackModel,
+      enableOomFallback: brainEngine.enableOomFallback,
       llmMaxTokens: resolvedLLMMaxTokens,
       llmIsStream,
       onLoading: (...args: unknown[]) => {
@@ -510,11 +534,23 @@ export async function initBrainEngine(
             : new Error(String(error ?? 'Unknown error'));
         return brainEngine.onLlmLoadError?.(safeError, ...args);
       },
+      onLlmOomFallback: (info: LlmOomFallbackInfo) => {
+        return brainEngine.onLlmOomFallback?.(info);
+      },
       onChatting: (response?: unknown, ...args: unknown[]) => {
         return brainEngine.onLlmChatting?.(response, ...args);
       },
       onStreamChatting: (chunk?: unknown, ...args: unknown[]) => {
         return brainEngine.onLlmStreamChatting?.(chunk, ...args);
+      },
+      onReasoningStart: (info: ReasoningStartInfo) => {
+        return brainEngine.onReasoningStart?.(info);
+      },
+      onReasoningChunk: (info: ReasoningChunkInfo) => {
+        return brainEngine.onReasoningChunk?.(info);
+      },
+      onReasoningEnd: (info: ReasoningEndInfo) => {
+        return brainEngine.onReasoningEnd?.(info);
       }
     },
     brainEngine
@@ -560,8 +596,17 @@ export async function initBrainEngine(
     },
     onStreamChatting: (chunk?: unknown, ...args: unknown[]) => {
       return brainEngine.onAiProviderStreamChatting?.(chunk, ...args);
+    },
+    onReasoningStart: (info: ReasoningStartInfo) => {
+      return brainEngine.onReasoningStart?.(info);
+    },
+    onReasoningChunk: (info: ReasoningChunkInfo) => {
+      return brainEngine.onReasoningChunk?.(info);
+    },
+    onReasoningEnd: (info: ReasoningEndInfo) => {
+      return brainEngine.onReasoningEnd?.(info);
     }
-  });
+  }, brainEngine);
 
   if (
     brainEngine.preloadWebLLM === true &&
@@ -810,7 +855,20 @@ export function addChatMessage(
     text: String(text || '').slice(0, 4000),
     streaming: Boolean(options.streaming),
     pendingTool: options.pendingTool || null,
-    pendingChoices: options.pendingChoices || null
+    pendingChoices: options.pendingChoices || null,
+    reasoning:
+      typeof options.reasoning === 'string' && options.reasoning !== ''
+        ? options.reasoning
+        : undefined,
+    reasoningStreaming:
+      typeof options.reasoningStreaming === 'boolean'
+        ? options.reasoningStreaming
+        : undefined,
+    reasoningTimeMs:
+      typeof options.reasoningTimeMs === 'number' &&
+      Number.isFinite(options.reasoningTimeMs) === true
+        ? options.reasoningTimeMs
+        : undefined
   };
   engine.chatLog.push(item);
   if (engine.chatLog.length > 80) {
@@ -844,7 +902,10 @@ export function updateChatMessage(
   brainEngine: BrainEngine | Record<string, unknown>,
   id: string,
   text: string,
-  streaming?: boolean
+  streaming?: boolean,
+  reasoning?: string,
+  reasoningTimeMs?: number,
+  reasoningStreaming?: boolean
 ): string {
   const engine = brainEngine as Partial<BrainEngine> & {
     chatSeq: number;
@@ -852,10 +913,28 @@ export function updateChatMessage(
   };
   const item = engine.chatLog.find((msg: ChatLogItem) => msg.id === id);
   if (item === undefined) {
-    return addChatMessage(engine, 'assistant', text, { id, streaming });
+    return addChatMessage(engine, 'assistant', text, {
+      id,
+      streaming,
+      reasoning,
+      reasoningTimeMs,
+      reasoningStreaming
+    });
   }
   item.text = String(text || '').slice(0, 4000);
   item.streaming = Boolean(streaming);
+  if (typeof reasoning === 'string') {
+    item.reasoning = reasoning;
+  }
+  if (
+    typeof reasoningTimeMs === 'number' &&
+    Number.isFinite(reasoningTimeMs) === true
+  ) {
+    item.reasoningTimeMs = reasoningTimeMs;
+  }
+  if (typeof reasoningStreaming === 'boolean') {
+    item.reasoningStreaming = reasoningStreaming;
+  }
   if (typeof engine.onUpdateChatMessage === 'function') {
     const callback = engine.onUpdateChatMessage as (
       ...args: unknown[]
@@ -986,16 +1065,35 @@ export async function answerQuestion(
  */
 export function emitAnswer(
   brainEngine: BrainEngine | Record<string, unknown>,
-  text: string
+  text: string,
+  reasoning?: string,
+  reasoningTimeMs?: number
 ): string | void {
   const engine = brainEngine as Partial<BrainEngine> & Record<string, unknown>;
   if (typeof text !== 'string' || text === '') {
     return;
   }
   if (engine.memory?.addTurn) {
-    engine.memory.addTurn('assistant', text);
+    if (
+      typeof reasoning === 'string' ||
+      (typeof reasoningTimeMs === 'number' && Number.isFinite(reasoningTimeMs))
+    ) {
+      engine.memory.addTurn('assistant', text, reasoning, reasoningTimeMs);
+    } else {
+      engine.memory.addTurn('assistant', text);
+    }
   }
-  const messageId = addChatMessage(engine, 'assistant', text);
+  const messageOptions: AddChatMessageOptions = {};
+  if (typeof reasoning === 'string') {
+    messageOptions.reasoning = reasoning;
+  }
+  if (
+    typeof reasoningTimeMs === 'number' &&
+    Number.isFinite(reasoningTimeMs) === true
+  ) {
+    messageOptions.reasoningTimeMs = reasoningTimeMs;
+  }
+  const messageId = addChatMessage(engine, 'assistant', text, messageOptions);
   if (typeof engine.applyEmotionFromText === 'function') {
     engine.applyEmotionFromText(text);
   }

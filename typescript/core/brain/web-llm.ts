@@ -2,6 +2,7 @@ import {
   STATE_MAP,
   CHAT_ROLE_MAP,
   DEFAULT_LLM_MODEL,
+  DEFAULT_LLM_FALLBACK_MODEL,
   DEFAULT_LLM_MAX_TOKENS,
   LLM_FINISH_REASON_MAP,
   BRAIN_ENGINE_TYPE_MAP,
@@ -9,6 +10,12 @@ import {
   isWebLLMFunctionCallingSupported
 } from '@/core/constants';
 import { toOpenAiTools, type ToolDefinition } from '@/core/tools';
+import type {
+  LlmOomFallbackInfo,
+  ReasoningStartInfo,
+  ReasoningChunkInfo,
+  ReasoningEndInfo
+} from '@/core/types';
 import type {
   BrainEngine,
   LLMEngineOptions,
@@ -22,8 +29,25 @@ import {
   resolveAutoContinuePrompt,
   buildDefaultLLMMessages
 } from './messages';
+import { StreamParser } from './stream-parser';
 
 export type { LLMEngineOptions, LLMEngine };
+
+/**
+ * Detects whether an error thrown during WebLLM operations is related to WebGPU memory allocation or OOM.
+ *
+ * @param error - The candidate error to evaluate.
+ * @returns True if error indicates Out-Of-Memory or GPU allocation failure.
+ */
+export function isOomError(error: unknown): boolean {
+  if (typeof error !== 'object' && typeof error !== 'string') {
+    return false;
+  }
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return /out of memory|oom|allocation|allocate|exhausted|buffer.*exceed|device.*lost|gpu.*lost|rangeerror/i.test(
+    message
+  );
+}
 
 interface MLCChatCompletionChoice {
   finish_reason?: string;
@@ -74,6 +98,9 @@ export function initWebLLM(
   const {
     llmModel,
     model,
+    llmFallbackModel,
+    fallbackModel,
+    enableOomFallback = true,
     llmMaxTokens,
     maxTokens,
     llmIsStream,
@@ -83,11 +110,32 @@ export function initWebLLM(
     onLoadProgress,
     onLoaded,
     onLoadError,
+    onLlmOomFallback,
     onChatting,
-    onStreamChatting
+    onStreamChatting,
+    onReasoningStart,
+    onReasoningChunk,
+    onReasoningEnd
   } = setting;
 
   const resolvedModel = llmModel || model || DEFAULT_LLM_MODEL;
+
+  const isFallbackExplicitlyDisabled =
+    enableOomFallback === false ||
+    llmFallbackModel === null ||
+    llmFallbackModel === false ||
+    fallbackModel === null ||
+    fallbackModel === false;
+
+  const resolvedFallbackModel =
+    isFallbackExplicitlyDisabled === false
+      ? typeof llmFallbackModel === 'string' && llmFallbackModel !== ''
+        ? llmFallbackModel
+        : typeof fallbackModel === 'string' && fallbackModel !== ''
+          ? fallbackModel
+          : DEFAULT_LLM_FALLBACK_MODEL
+      : null;
+
   const resolvedMaxTokens =
     typeof llmMaxTokens === 'number' &&
     Number.isFinite(llmMaxTokens) === true &&
@@ -171,6 +219,58 @@ export function initWebLLM(
         }
       };
     },
+    get onLlmOomFallback() {
+      return function _onLlmOomFallback(info: LlmOomFallbackInfo) {
+        if (typeof onLlmOomFallback === 'function') {
+          onLlmOomFallback(info);
+        }
+        if (
+          typeof (brain as Partial<BrainEngine>)?.onLlmOomFallback ===
+          'function'
+        ) {
+          (brain as Partial<BrainEngine>).onLlmOomFallback!(info);
+        }
+      };
+    },
+    get onReasoningStart() {
+      return function _onReasoningStart(info: ReasoningStartInfo) {
+        if (typeof onReasoningStart === 'function') {
+          onReasoningStart(info);
+        }
+        if (
+          typeof (brain as Partial<BrainEngine>)?.onReasoningStart ===
+          'function'
+        ) {
+          (brain as Partial<BrainEngine>).onReasoningStart!(info);
+        }
+      };
+    },
+    get onReasoningChunk() {
+      return function _onReasoningChunk(info: ReasoningChunkInfo) {
+        if (typeof onReasoningChunk === 'function') {
+          onReasoningChunk(info);
+        }
+        if (
+          typeof (brain as Partial<BrainEngine>)?.onReasoningChunk ===
+          'function'
+        ) {
+          (brain as Partial<BrainEngine>).onReasoningChunk!(info);
+        }
+      };
+    },
+    get onReasoningEnd() {
+      return function _onReasoningEnd(info: ReasoningEndInfo) {
+        if (typeof onReasoningEnd === 'function') {
+          onReasoningEnd(info);
+        }
+        if (
+          typeof (brain as Partial<BrainEngine>)?.onReasoningEnd ===
+          'function'
+        ) {
+          (brain as Partial<BrainEngine>).onReasoningEnd!(info);
+        }
+      };
+    },
     async load(): Promise<unknown> {
       if (typeof engine === 'object' && engine !== null) {
         return engine;
@@ -182,28 +282,81 @@ export function initWebLLM(
       this.onLoading();
 
       loadingPromise = (async () => {
-        try {
-          const webllm = await import('@mlc-ai/web-llm');
-          const createdEngine = await webllm.CreateMLCEngine(
-            llmModel || resolvedModel,
-            {
-              initProgressCallback: (progressInfo: { progress?: number }) => {
-                this.progress = progressInfo.progress || 0;
-                this.onLoadProgress(progressInfo);
-              }
-            }
-          );
-          engine = createdEngine as unknown as MLCEngineInstance;
+        const webllm = await import('@mlc-ai/web-llm');
+        const targetPrimaryModel = this.model || resolvedModel;
 
+        const attemptCreateEngine = async (
+          modelName: string
+        ): Promise<MLCEngineInstance> => {
+          const createdEngine = await webllm.CreateMLCEngine(modelName, {
+            initProgressCallback: (progressInfo: { progress?: number }) => {
+              this.progress = progressInfo.progress || 0;
+              this.onLoadProgress(progressInfo);
+            }
+          });
+          return createdEngine as unknown as MLCEngineInstance;
+        };
+
+        try {
+          const createdEngine = await attemptCreateEngine(targetPrimaryModel);
+          engine = createdEngine;
           this.state = STATE_MAP.READY;
           this.onLoaded(engine);
           return engine;
-        } catch (error: unknown) {
-          console.error('[WebLLM] 模型載入失敗:', error);
+        } catch (primaryError: unknown) {
+          const canFallback =
+            isFallbackExplicitlyDisabled === false &&
+            typeof resolvedFallbackModel === 'string' &&
+            resolvedFallbackModel !== '' &&
+            resolvedFallbackModel !== targetPrimaryModel &&
+            isOomError(primaryError);
+
+          if (canFallback === true && resolvedFallbackModel !== null) {
+            console.warn(
+              `[WebLLM] 首選模型 (${targetPrimaryModel}) 載入失敗 (OOM/記憶體不足)，嘗試自適應降級至保底模型 (${resolvedFallbackModel}):`,
+              primaryError
+            );
+
+            const oomInfo: LlmOomFallbackInfo = {
+              failedModel: targetPrimaryModel,
+              fallbackModel: resolvedFallbackModel,
+              error: primaryError
+            };
+            if (typeof onLlmOomFallback === 'function') {
+              onLlmOomFallback(oomInfo);
+            }
+            if (
+              typeof (brain as Partial<BrainEngine>)?.onLlmOomFallback ===
+              'function'
+            ) {
+              (brain as Partial<BrainEngine>).onLlmOomFallback!(oomInfo);
+            }
+
+            try {
+              this.model = resolvedFallbackModel;
+              const fallbackEngine =
+                await attemptCreateEngine(resolvedFallbackModel);
+              engine = fallbackEngine;
+              this.state = STATE_MAP.READY;
+              this.onLoaded(engine);
+              return engine;
+            } catch (fallbackError: unknown) {
+              console.error(
+                `[WebLLM] 降級備選模型 (${resolvedFallbackModel}) 亦載入失敗:`,
+                fallbackError
+              );
+              this.state = STATE_MAP.ERROR;
+              this.error = String(fallbackError);
+              this.onLoadError(fallbackError, this);
+              throw fallbackError;
+            }
+          }
+
+          console.error('[WebLLM] 模型載入失敗:', primaryError);
           this.state = STATE_MAP.ERROR;
-          this.error = String(error);
-          this.onLoadError(error, this);
-          throw error;
+          this.error = String(primaryError);
+          this.onLoadError(primaryError, this);
+          throw primaryError;
         }
       })();
 
@@ -352,15 +505,26 @@ export function initWebLLM(
           }
 
           const rawContent = message?.content || '';
+          const parser = new StreamParser({
+            model: this.model,
+            onReasoningStart: (info) => this.onReasoningStart?.(info),
+            onReasoningChunk: (info) => this.onReasoningChunk?.(info),
+            onReasoningEnd: (info) => this.onReasoningEnd?.(info)
+          });
+          parser.feed(choice || message || rawContent);
+          const parseResult = parser.finish();
+
           if (
             Array.isArray(message?.tool_calls) === false ||
             message.tool_calls.length === 0
           ) {
-            const fallbackToolCalls = extractToolCallsFromText(rawContent);
+            const fallbackToolCalls = extractToolCallsFromText(
+              parseResult.answer !== '' ? parseResult.answer : rawContent
+            );
             if (fallbackToolCalls.length > 0) {
               const normalizedAssistantMessage = {
                 role: CHAT_ROLE_MAP.ASSISTANT,
-                content: rawContent,
+                content: parseResult.answer,
                 tool_calls: fallbackToolCalls
               };
               this.onChatting(result, messages, brain);
@@ -376,7 +540,9 @@ export function initWebLLM(
           this.onChatting(result, messages, brain);
           return {
             type: 'text',
-            content: rawContent,
+            content: parseResult.answer,
+            reasoning: parseResult.reasoning,
+            reasoningTimeMs: parseResult.reasoningTimeMs,
             finishReason
           };
         }
@@ -397,7 +563,6 @@ export function initWebLLM(
         const stream = (await engine!.chat.completions.create(
           streamOptions
         )) as AsyncIterable<MLCChatCompletionResult>;
-        let fullResponse = '';
         let streamFinishReason: string = LLM_FINISH_REASON_MAP.STOP;
         const toolCallsMap: Record<
           number,
@@ -408,6 +573,17 @@ export function initWebLLM(
           }
         > = {};
         let hasToolCalls = false;
+
+        const parser = new StreamParser({
+          model: this.model,
+          onReasoningStart: (info) => this.onReasoningStart?.(info),
+          onReasoningChunk: (info) => this.onReasoningChunk?.(info),
+          onReasoningEnd: (info) => this.onReasoningEnd?.(info),
+          onAnswerChunk: (chunkDelta, accumulatedAnswer) => {
+            onDelta(chunkDelta, accumulatedAnswer, llm, brain);
+            this.onStreamChatting(chunkDelta, accumulatedAnswer, brain);
+          }
+        });
 
         for await (const chunk of stream) {
           const choice = chunk?.choices?.[0];
@@ -450,21 +626,18 @@ export function initWebLLM(
                   toolCallDelta.function.arguments;
               }
             });
-          } else if (
-            typeof delta?.content === 'string' &&
-            delta.content !== ''
-          ) {
-            fullResponse += delta.content;
-            onDelta(delta.content, fullResponse, llm, brain);
-            this.onStreamChatting(delta.content, fullResponse, brain);
+          } else {
+            parser.feed(chunk);
           }
         }
+
+        const parseResult = parser.finish();
 
         if (hasToolCalls === true) {
           const toolCalls = Object.values(toolCallsMap);
           const toolMessage = {
             role: CHAT_ROLE_MAP.ASSISTANT,
-            content: typeof fullResponse === 'string' ? fullResponse : '',
+            content: parseResult.answer,
             tool_calls: toolCalls
           };
           this.onChatting(toolMessage, messages, brain);
@@ -476,11 +649,13 @@ export function initWebLLM(
           };
         }
 
-        const fallbackStreamToolCalls = extractToolCallsFromText(fullResponse);
+        const fallbackStreamToolCalls = extractToolCallsFromText(
+          parseResult.answer
+        );
         if (fallbackStreamToolCalls.length > 0) {
           const toolMessage = {
             role: CHAT_ROLE_MAP.ASSISTANT,
-            content: fullResponse,
+            content: parseResult.answer,
             tool_calls: fallbackStreamToolCalls
           };
           this.onChatting(toolMessage, messages, brain);
@@ -492,10 +667,12 @@ export function initWebLLM(
           };
         }
 
-        this.onChatting(fullResponse, messages, brain);
+        this.onChatting(parseResult.answer, messages, brain);
         return {
           type: 'text',
-          content: fullResponse,
+          content: parseResult.answer,
+          reasoning: parseResult.reasoning,
+          reasoningTimeMs: parseResult.reasoningTimeMs,
           finishReason: streamFinishReason
         };
       };
@@ -625,6 +802,8 @@ export async function chatWithWebLLM(
           type?: string;
           toolCalls?: ParsedToolCall[];
           content?: string;
+          reasoning?: string;
+          reasoningTimeMs?: number;
           finishReason?: string;
         }
       | string
@@ -661,6 +840,16 @@ export async function chatWithWebLLM(
       typeof chatResponseObj?.finishReason === 'string'
         ? chatResponseObj.finishReason
         : LLM_FINISH_REASON_MAP.STOP;
+    const initialReasoning =
+      typeof chatResponseObj?.reasoning === 'string' &&
+      chatResponseObj.reasoning !== ''
+        ? chatResponseObj.reasoning
+        : undefined;
+    const initialReasoningTimeMs =
+      typeof chatResponseObj?.reasoningTimeMs === 'number' &&
+      Number.isFinite(chatResponseObj.reasoningTimeMs) === true
+        ? chatResponseObj.reasoningTimeMs
+        : undefined;
 
     if (initialText.trim() === '') {
       console.warn('[WebLLM] 端側模型回應為空字串 (empty response)');
@@ -788,10 +977,28 @@ export async function chatWithWebLLM(
     }
 
     if (engine.memory?.enabled === true) {
-      engine.memory.addTurn('assistant', accumulatedText);
+      if (
+        typeof initialReasoning === 'string' ||
+        typeof initialReasoningTimeMs === 'number'
+      ) {
+        engine.memory.addTurn(
+          'assistant',
+          accumulatedText,
+          initialReasoning,
+          initialReasoningTimeMs
+        );
+      } else {
+        engine.memory.addTurn('assistant', accumulatedText);
+      }
     }
     if (typeof engine.updateChatMessage === 'function') {
-      engine.updateChatMessage(streamMessageId, accumulatedText, false);
+      engine.updateChatMessage(
+        streamMessageId,
+        accumulatedText,
+        false,
+        initialReasoning,
+        initialReasoningTimeMs
+      );
     }
 
     if (typeof engine.onStreamEnd === 'function') {
