@@ -56,6 +56,10 @@ import type {
   ToolNotFoundErrorInfo,
   ToolErrorInfo,
   LlmLoadProgressInfo,
+  ReasoningStartInfo,
+  ReasoningChunkInfo,
+  ReasoningEndInfo,
+  LlmOomFallbackInfo,
   Point2D
 } from '@/core/types';
 
@@ -154,6 +158,10 @@ export interface AvatarBotOptions {
   ttsEndpoint?: string;
   /** In-browser WebLLM model identifier. */
   llmModel?: string;
+  /** Fallback in-browser WebLLM model identifier when OOM occurs. Set to null or false to disable. */
+  llmFallbackModel?: string | null | false;
+  /** Whether to enable automatic WebLLM OOM fallback. Defaults to true. */
+  enableOomFallback?: boolean;
   /** Maximum token limit for WebLLM responses. */
   llmMaxTokens?: number;
   /** Whether to preload WebLLM model on initialization. */
@@ -324,6 +332,14 @@ export interface AvatarBotOptions {
   onLlmLoaded?: (...args: unknown[]) => void;
   /** Callback fired when WebLLM loading fails. */
   onLlmLoadError?: (error: Error, ...args: unknown[]) => void;
+  /** Callback fired when WebLLM encounters OOM and switches to fallback model. */
+  onLlmOomFallback?: (info: LlmOomFallbackInfo, ...args: unknown[]) => void;
+  /** Callback fired when AI reasoning/thinking starts. */
+  onReasoningStart?: (info: ReasoningStartInfo, ...args: unknown[]) => void;
+  /** Callback fired when AI reasoning/thinking chunk is streamed. */
+  onReasoningChunk?: (info: ReasoningChunkInfo, ...args: unknown[]) => void;
+  /** Callback fired when AI reasoning/thinking process ends. */
+  onReasoningEnd?: (info: ReasoningEndInfo, ...args: unknown[]) => void;
   /** Callback fired when connecting to AI Provider. */
   onAiProviderConnecting?: (...args: unknown[]) => void;
   /** Callback fired when AI Provider connects successfully. */
@@ -430,6 +446,7 @@ export interface AiAvatarWidget {
   /** Readonly initialization options snapshot. */
   readonly options: AvatarBotOptions;
   readonly DEFAULT_LLM_MODEL: string;
+  readonly DEFAULT_LLM_FALLBACK_MODEL: string;
   readonly STATE_MAP: Record<string, string>;
   readonly ENGINE_MODE_MAP: Record<string, string>;
   readonly AVATAR_MODE_MAP: Record<string, string>;
@@ -445,6 +462,8 @@ export interface AiAvatarWidget {
   enableAiProvider: boolean;
   preloadWebLLM: boolean;
   autoFallbackWebLLM: boolean;
+  llmFallbackModel?: string | null | false;
+  enableOomFallback?: boolean;
   enableAutoContinue: boolean;
   maxAutoContinuations: number;
   autoContinueMode: AutoContinueMode;
@@ -517,6 +536,10 @@ export interface AiAvatarWidget {
     ...args: unknown[]
   ) => void;
   onError?: (error: Error, widget: AiAvatarWidget, ...args: unknown[]) => void;
+  onLlmOomFallback?: (info: LlmOomFallbackInfo, ...args: unknown[]) => void;
+  onReasoningStart?: (info: ReasoningStartInfo, ...args: unknown[]) => void;
+  onReasoningChunk?: (info: ReasoningChunkInfo, ...args: unknown[]) => void;
+  onReasoningEnd?: (info: ReasoningEndInfo, ...args: unknown[]) => void;
 }
 
 /**
@@ -571,5 +594,9 @@ export type {
   UiContext,
   BaseStore,
   I18nEngine,
-  AutoContinueMode
+  AutoContinueMode,
+  ReasoningStartInfo,
+  ReasoningChunkInfo,
+  ReasoningEndInfo,
+  LlmOomFallbackInfo
 };

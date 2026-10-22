@@ -1,5 +1,6 @@
 import {
   DEFAULT_LLM_MODEL,
+  DEFAULT_LLM_FALLBACK_MODEL,
   STATE_MAP,
   ENGINE_MODE_MAP,
   AVATAR_MODE_MAP,
@@ -75,6 +76,9 @@ export function createAvatarWidget({
 
     get DEFAULT_LLM_MODEL(): string {
       return DEFAULT_LLM_MODEL;
+    },
+    get DEFAULT_LLM_FALLBACK_MODEL(): string {
+      return DEFAULT_LLM_FALLBACK_MODEL;
     },
     get STATE_MAP(): Record<string, string> {
       return STATE_MAP;
@@ -496,6 +500,28 @@ export function createAvatarWidget({
           brain.autoContinuePrompt = newPrompt;
         }
       }
+    },
+
+    get llmFallbackModel(): string | null | false | undefined {
+      return options?.llmFallbackModel;
+    },
+    get enableOomFallback(): boolean {
+      return typeof options?.enableOomFallback === 'boolean'
+        ? options.enableOomFallback
+        : true;
+    },
+
+    get onLlmOomFallback() {
+      return options?.onLlmOomFallback;
+    },
+    get onReasoningStart() {
+      return options?.onReasoningStart;
+    },
+    get onReasoningChunk() {
+      return options?.onReasoningChunk;
+    },
+    get onReasoningEnd() {
+      return options?.onReasoningEnd;
     },
 
     get enableModelDrop(): boolean {

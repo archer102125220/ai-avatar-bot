@@ -193,6 +193,22 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
       memory.addTurn('user', null as unknown as string);
       expect(memory.data.history.length).toBe(0);
 
+      // addTurn with reasoning trace and elapsed duration
+      memory.addTurn(
+        'assistant',
+        'Final answer to user',
+        'Step 1: Analyzed input. Step 2: Formulated answer.',
+        1520
+      );
+      expect(memory.data.history.length).toBe(1);
+      expect(memory.data.history[0].role).toBe('assistant');
+      expect(memory.data.history[0].content).toBe('Final answer to user');
+      expect(memory.data.history[0].reasoning).toBe(
+        'Step 1: Analyzed input. Step 2: Formulated answer.'
+      );
+      expect(memory.data.history[0].reasoningTimeMs).toBe(1520);
+      memory.clear();
+
       // addTurn and 100 items capacity limit
       for (let i = 0; i < 110; i++) {
         memory.addTurn('user', `Message ${i}`);

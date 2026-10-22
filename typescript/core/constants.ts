@@ -118,12 +118,37 @@ export const CURRENT_MEMORY_VERSION = 1;
 /**
  * Default in-browser LLM model identifier (WebLLM).
  */
-export const DEFAULT_LLM_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
+export const DEFAULT_LLM_MODEL = 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC';
+
+/**
+ * Fallback in-browser LLM model identifier for memory-constrained devices (WebLLM).
+ */
+export const DEFAULT_LLM_FALLBACK_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 
 /**
  * Default AI Provider server model identifier (e.g. Ollama).
  */
-export const DEFAULT_AI_PROVIDER_MODEL = 'qwen2.5:latest';
+export const DEFAULT_AI_PROVIDER_MODEL = 'hermes3:latest';
+
+/**
+ * Default reasoning start tag.
+ */
+export const REASONING_START_TAG = '<think>';
+
+/**
+ * Default reasoning end tag.
+ */
+export const REASONING_END_TAG = '</think>';
+
+/**
+ * Fallback / alternative reasoning start tag (used by some models/templates).
+ */
+export const REASONING_ALT_START_TAG = '<thought>';
+
+/**
+ * Fallback / alternative reasoning end tag (used by some models/templates).
+ */
+export const REASONING_ALT_END_TAG = '</thought>';
 
 /**
  * Default maximum generated tokens for in-browser WebLLM engine.
@@ -874,6 +899,18 @@ export function isWebLLMFunctionCallingSupported(model?: string): boolean {
     return false;
   }
   return /hermes/i.test(model);
+}
+
+/**
+ * Checks whether a given model supports native reasoning / thinking output (e.g. DeepSeek-R1, QwQ, Hermes-3, o1/o3).
+ * @param model - Model identifier name.
+ * @returns Whether model supports reasoning/thinking process.
+ */
+export function isReasoningSupported(model?: string): boolean {
+  if (typeof model !== 'string' || model === '') {
+    return false;
+  }
+  return /deepseek-r1|qwq|hermes-3|hermes3|^o[13]|reasoning|thinking/i.test(model);
 }
 
 /**

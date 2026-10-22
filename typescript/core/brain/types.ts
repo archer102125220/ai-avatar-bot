@@ -10,6 +10,10 @@ import type {
   ToolNotFoundErrorInfo,
   ToolErrorInfo,
   LlmLoadProgressInfo,
+  ReasoningStartInfo,
+  ReasoningChunkInfo,
+  ReasoningEndInfo,
+  LlmOomFallbackInfo,
   ChatRole,
   AutoContinueMode,
   Gender,
@@ -26,6 +30,10 @@ export type {
   ToolNotFoundErrorInfo,
   ToolErrorInfo,
   LlmLoadProgressInfo,
+  ReasoningStartInfo,
+  ReasoningChunkInfo,
+  ReasoningEndInfo,
+  LlmOomFallbackInfo,
   AutoContinueMode,
   Gender,
   DynamicTextOrResolver,
@@ -40,6 +48,10 @@ export interface ChatHistoryItem {
   role: ChatRole;
   /** Text content of the message. */
   content: string;
+  /** Optional reasoning/thinking thought trace generated during inference. */
+  reasoning?: string;
+  /** Optional reasoning elapsed duration in milliseconds. */
+  reasoningTimeMs?: number;
   /** Optional metadata or timestamp. */
   [key: string]: unknown;
 }
@@ -101,7 +113,12 @@ export interface MemoryInstance {
   /** Clears memory data from adapter. */
   clear(): Promise<void> | void;
   /** Adds a turn to conversation history. */
-  addTurn(role: string, content: string): Promise<void> | void;
+  addTurn(
+    role: string,
+    content: string,
+    reasoning?: string,
+    reasoningTimeMs?: number
+  ): Promise<void> | void;
   /** Captures visitor name from user input. */
   captureName(text: string): void;
   /** Updates user visitor name in memory. */
@@ -189,6 +206,12 @@ export interface ChatLogItem {
   streaming?: boolean;
   pendingTool?: PendingToolState | null;
   pendingChoices?: ToolRouteCandidate[] | null;
+  /** Reasoning / thinking content trace. */
+  reasoning?: string;
+  /** Whether the reasoning trace is currently streaming. */
+  reasoningStreaming?: boolean;
+  /** Duration of reasoning process in milliseconds. */
+  reasoningTimeMs?: number;
   [key: string]: unknown;
 }
 
@@ -221,6 +244,9 @@ export interface ParsedToolCall {
 export interface LLMEngineOptions {
   llmModel?: string;
   model?: string;
+  llmFallbackModel?: string | null | false;
+  fallbackModel?: string | null | false;
+  enableOomFallback?: boolean;
   llmMaxTokens?: number;
   maxTokens?: number;
   llmIsStream?: boolean;
@@ -232,6 +258,18 @@ export interface LLMEngineOptions {
   onLoadError?: ((...args: unknown[]) => unknown) | null;
   onChatting?: ((...args: unknown[]) => unknown) | null;
   onStreamChatting?: ((...args: unknown[]) => unknown) | null;
+  onLlmOomFallback?:
+    | ((info: LlmOomFallbackInfo, ...args: unknown[]) => void)
+    | null;
+  onReasoningStart?:
+    | ((info: ReasoningStartInfo, ...args: unknown[]) => void)
+    | null;
+  onReasoningChunk?:
+    | ((info: ReasoningChunkInfo, ...args: unknown[]) => void)
+    | null;
+  onReasoningEnd?:
+    | ((info: ReasoningEndInfo, ...args: unknown[]) => void)
+    | null;
 }
 
 /**
@@ -439,6 +477,8 @@ export interface BrainEngineOptions {
   compression?: BrainCompressionOptions;
   modes?: Record<string, unknown>;
   llmModel?: string;
+  llmFallbackModel?: string | null | false;
+  enableOomFallback?: boolean;
   preloadWebLLM?: boolean;
   autoFallbackWebLLM?: boolean;
   knowledge?: KnowledgeEntry[] | Record<string, unknown> | string | null;
@@ -465,8 +505,12 @@ export interface BrainEngineOptions {
   ) => void;
   onLlmLoaded?: (engineInstance?: unknown, ...args: unknown[]) => void;
   onLlmLoadError?: (error: Error, ...args: unknown[]) => void;
+  onLlmOomFallback?: (info: LlmOomFallbackInfo, ...args: unknown[]) => void;
   onLlmChatting?: (response?: unknown, ...args: unknown[]) => void;
   onLlmStreamChatting?: (chunk?: unknown, ...args: unknown[]) => void;
+  onReasoningStart?: (info: ReasoningStartInfo, ...args: unknown[]) => void;
+  onReasoningChunk?: (info: ReasoningChunkInfo, ...args: unknown[]) => void;
+  onReasoningEnd?: (info: ReasoningEndInfo, ...args: unknown[]) => void;
   onAiProviderConnecting?: (
     fetchSetting?: unknown,
     ...args: unknown[]
@@ -575,6 +619,7 @@ export interface BrainEngine {
   readonly AVATAR_MODE_MAP: Record<string, string>;
   readonly DEFAULT_AVATAR_MODE: string;
   readonly DEFAULT_LLM_MODEL: string;
+  readonly DEFAULT_LLM_FALLBACK_MODEL?: string;
   readonly DEFAULT_AI_PROVIDER_MODEL: string;
   readonly BRAIN_ENGINE_TYPE_MAP: Record<string, string>;
   readonly BRAIN_FALLBACK_TYPE_MAP: Record<string, string>;
@@ -587,6 +632,8 @@ export interface BrainEngine {
   enableAiProvider: boolean;
   preloadWebLLM: boolean;
   autoFallbackWebLLM: boolean;
+  llmFallbackModel?: string | null | false;
+  enableOomFallback?: boolean;
   enableAutoContinue: boolean;
   maxAutoContinuations: number;
   autoContinueMode: AutoContinueMode;
@@ -622,9 +669,21 @@ export interface BrainEngine {
   onLlmLoaded:
     ((engineInstance?: unknown, ...args: unknown[]) => void) | null;
   onLlmLoadError: ((error: Error, ...args: unknown[]) => void) | null;
+  onLlmOomFallback?:
+    | ((info: LlmOomFallbackInfo, ...args: unknown[]) => void)
+    | null;
   onLlmChatting: ((response?: unknown, ...args: unknown[]) => void) | null;
   onLlmStreamChatting:
     ((chunk?: unknown, ...args: unknown[]) => void) | null;
+  onReasoningStart?:
+    | ((info: ReasoningStartInfo, ...args: unknown[]) => void)
+    | null;
+  onReasoningChunk?:
+    | ((info: ReasoningChunkInfo, ...args: unknown[]) => void)
+    | null;
+  onReasoningEnd?:
+    | ((info: ReasoningEndInfo, ...args: unknown[]) => void)
+    | null;
   onAiProviderConnecting:
     ((fetchSetting?: unknown, ...args: unknown[]) => void) | null;
   onAiProviderConnected:

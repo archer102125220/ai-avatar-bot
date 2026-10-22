@@ -166,3 +166,50 @@ export interface ToolErrorInfo {
 /** Progress payload emitted during LLM model loading */
 export type LlmLoadProgressInfo =
   number | { progress?: number; [key: string]: unknown };
+
+/** Payload emitted when AI reasoning/thinking process starts */
+export interface ReasoningStartInfo {
+  /** Optional model identifier used for reasoning. */
+  model?: string;
+  /** Timestamp (ms) when reasoning started. */
+  timestamp?: number;
+  /** Index signature for custom metadata. */
+  [key: string]: unknown;
+}
+
+/** Payload emitted when a chunk of reasoning content is received */
+export interface ReasoningChunkInfo {
+  /** Incremental reasoning text chunk. */
+  chunkDelta: string;
+  /** Accumulated reasoning text so far. */
+  accumulatedReasoning: string;
+  /** Original raw chunk delta from the engine. */
+  rawChunk?: unknown;
+  /** Index signature for custom metadata. */
+  [key: string]: unknown;
+}
+
+/** Payload emitted when AI reasoning/thinking process completes */
+export interface ReasoningEndInfo {
+  /** Complete reasoning text generated. */
+  fullReasoning: string;
+  /** Duration of the reasoning process in milliseconds. */
+  durationMs: number;
+  /** Optional model identifier used for reasoning. */
+  model?: string;
+  /** Index signature for custom metadata. */
+  [key: string]: unknown;
+}
+
+/** Payload emitted when in-browser WebLLM triggers an OOM fallback */
+export interface LlmOomFallbackInfo {
+  /** The model identifier that encountered Out-Of-Memory. */
+  failedModel: string;
+  /** The fallback model identifier being switched to. */
+  fallbackModel: string;
+  /** The underlying error that triggered fallback. */
+  error: Error | unknown;
+  /** Index signature for custom metadata. */
+  [key: string]: unknown;
+}
+

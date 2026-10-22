@@ -5,6 +5,7 @@ import {
   AVATAR_MODE_MAP,
   DEFAULT_AVATAR_MODE,
   DEFAULT_LLM_MODEL,
+  DEFAULT_LLM_FALLBACK_MODEL,
   DEFAULT_LLM_MAX_TOKENS,
   DEFAULT_AI_PROVIDER_MODEL,
   DEFAULT_ENABLE_MEMORY,
@@ -88,14 +89,20 @@ export async function initBrainEngine(
     companionWelcomeText = null,
     assistantWelcomeText = null,
 
+    llmFallbackModel = DEFAULT_LLM_FALLBACK_MODEL,
+    enableOomFallback = true,
     llmMaxTokens,
     llmIsStream,
     onLlmLoading,
     onLlmLoadProgress,
     onLlmLoaded,
     onLlmLoadError,
+    onLlmOomFallback = null,
     onLlmChatting,
     onLlmStreamChatting,
+    onReasoningStart = null,
+    onReasoningChunk = null,
+    onReasoningEnd = null,
 
     onAiProviderConnecting,
     onAiProviderConnected,
@@ -181,6 +188,9 @@ export async function initBrainEngine(
     get DEFAULT_LLM_MODEL() {
       return DEFAULT_LLM_MODEL;
     },
+    get DEFAULT_LLM_FALLBACK_MODEL() {
+      return DEFAULT_LLM_FALLBACK_MODEL;
+    },
     get DEFAULT_AI_PROVIDER_MODEL() {
       return DEFAULT_AI_PROVIDER_MODEL;
     },
@@ -242,12 +252,19 @@ export async function initBrainEngine(
     onStreamStart: onStreamStart || null,
     onStreamChunk: onStreamChunk || null,
     onStreamEnd: onStreamEnd || null,
+    onReasoningStart: onReasoningStart || null,
+    onReasoningChunk: onReasoningChunk || null,
+    onReasoningEnd: onReasoningEnd || null,
     onAutoContinueStart: onAutoContinueStart || null,
     onAutoContinueWait: onAutoContinueWait || null,
     onAutoContinueResume: onAutoContinueResume || null,
     onAutoContinueEnd: onAutoContinueEnd || null,
     onToolNotFound: onToolNotFound || null,
     onToolError: onToolError || null,
+    onLlmOomFallback: onLlmOomFallback || null,
+    llmFallbackModel,
+    enableOomFallback:
+      typeof enableOomFallback === 'boolean' ? enableOomFallback : true,
 
     enableAutoContinue:
       typeof enableAutoContinue === 'boolean'

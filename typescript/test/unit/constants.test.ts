@@ -54,6 +54,14 @@ import {
   DEFAULT_TOOL_CONFIRMATION_TIMEOUT_MS,
   TOOL_CANCEL_REASON_MAP,
   isWebLLMFunctionCallingSupported,
+  DEFAULT_LLM_MODEL,
+  DEFAULT_LLM_FALLBACK_MODEL,
+  DEFAULT_AI_PROVIDER_MODEL,
+  REASONING_START_TAG,
+  REASONING_END_TAG,
+  REASONING_ALT_START_TAG,
+  REASONING_ALT_END_TAG,
+  isReasoningSupported,
   DEFAULT_2D_FEMALE_EXPRESSION_MAP,
   DEFAULT_2D_MALE_EXPRESSION_MAP,
   DEFAULT_3D_EXPRESSION_ALIASES,
@@ -240,6 +248,31 @@ describe('Unit Test: core/constants.js (TypeScript)', () => {
       expect(isWebLLMFunctionCallingSupported(null as unknown as string)).toBe(
         false
       );
+    });
+
+    it('should verify LLM model defaults and reasoning tags', () => {
+      expect(DEFAULT_LLM_MODEL).toBe('Hermes-3-Llama-3.1-8B-q4f32_1-MLC');
+      expect(DEFAULT_LLM_FALLBACK_MODEL).toBe('Qwen2.5-1.5B-Instruct-q4f16_1-MLC');
+      expect(DEFAULT_AI_PROVIDER_MODEL).toBe('hermes3:latest');
+      expect(REASONING_START_TAG).toBe('<think>');
+      expect(REASONING_END_TAG).toBe('</think>');
+      expect(REASONING_ALT_START_TAG).toBe('<thought>');
+      expect(REASONING_ALT_END_TAG).toBe('</thought>');
+    });
+
+    it('isReasoningSupported should return true for reasoning/thinking models and false otherwise', () => {
+      expect(isReasoningSupported('DeepSeek-R1-Distill-Qwen-7B')).toBe(true);
+      expect(isReasoningSupported('deepseek-r1')).toBe(true);
+      expect(isReasoningSupported('QwQ-32B-Preview')).toBe(true);
+      expect(isReasoningSupported('Hermes-3-Llama-3.1-8B-q4f32_1-MLC')).toBe(true);
+      expect(isReasoningSupported('hermes3:latest')).toBe(true);
+      expect(isReasoningSupported('o1-mini')).toBe(true);
+      expect(isReasoningSupported('o3-mini')).toBe(true);
+      expect(isReasoningSupported('Qwen2.5-1.5B-Instruct-q4f16_1-MLC')).toBe(false);
+      expect(isReasoningSupported('gpt-4o')).toBe(false);
+      expect(isReasoningSupported('')).toBe(false);
+      expect(isReasoningSupported(null as unknown as string)).toBe(false);
+      expect(isReasoningSupported(undefined as unknown as string)).toBe(false);
     });
 
     it('should verify 2D and 3D default expression and motion alias maps', () => {

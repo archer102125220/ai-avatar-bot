@@ -282,7 +282,12 @@ export function initMemory({
       }
     },
 
-    addTurn(role: string, content: string): void {
+    addTurn(
+      role: string,
+      content: string,
+      reasoning?: string,
+      reasoningTimeMs?: number
+    ): void {
       if (
         this.enabled === false ||
         typeof content !== 'string' ||
@@ -290,7 +295,17 @@ export function initMemory({
       ) {
         return;
       }
-      this.data.history.push({ role, content: String(content) });
+      const turnItem: ChatHistoryItem = { role, content: String(content) };
+      if (typeof reasoning === 'string' && reasoning !== '') {
+        turnItem.reasoning = reasoning;
+      }
+      if (
+        typeof reasoningTimeMs === 'number' &&
+        Number.isFinite(reasoningTimeMs) === true
+      ) {
+        turnItem.reasoningTimeMs = reasoningTimeMs;
+      }
+      this.data.history.push(turnItem);
       if (this.data.history.length > 100) {
         this.data.history.splice(0, this.data.history.length - 100);
       }
