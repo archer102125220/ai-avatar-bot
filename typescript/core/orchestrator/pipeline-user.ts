@@ -153,12 +153,13 @@ export function createUserPipeline({
       speechEngine.isProcessing = true;
     }
 
-    if (
-      typeof skinEngine === 'object' &&
-      skinEngine !== null &&
-      skinEngine.gestureName !== undefined
-    ) {
-      skinEngine.gestureName = 'thinking';
+    if (typeof skinEngine === 'object' && skinEngine !== null) {
+      if (skinEngine.gestureName !== undefined) {
+        skinEngine.gestureName = 'thinking';
+      }
+      if (typeof skinEngine.setEmotion === 'function') {
+        skinEngine.setEmotion('thinking');
+      }
     }
 
     if (typeof brainEngine?.answerQuestion === 'function') {

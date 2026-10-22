@@ -213,9 +213,13 @@ describe('Orchestrator Engine Factory', () => {
     } as unknown as AiAvatarWidget;
 
     mockStreamPipeline = {
+      isThinking: vi.fn(() => false),
       onStreamStart: vi.fn(),
       onStreamChunk: vi.fn(),
       onStreamEnd: vi.fn(),
+      onReasoningStart: vi.fn(),
+      onReasoningChunk: vi.fn(),
+      onReasoningEnd: vi.fn(),
       onAutoContinueStart: vi.fn(),
       onAutoContinueWait: vi.fn(),
       onAutoContinueResume: vi.fn(),
@@ -632,6 +636,67 @@ describe('Orchestrator Engine Factory', () => {
       capturedBrainOptions.offerToolConfirmation('any', {}, {});
       const nullExec = await capturedBrainOptions.executeTool('any', {}, {});
       expect(nullExec).toBeNull();
+    });
+
+    it('should forward OOM fallback options and reasoning stream callbacks to brainOptions', async () => {
+      let capturedBrainOptions!: Record<string, unknown> & {
+        llmFallbackModel: string;
+        enableOomFallback: boolean;
+        onLlmOomFallback: (primary: string, fallback: string, error: unknown) => unknown;
+        onReasoningStart: unknown;
+        onReasoningChunk: unknown;
+        onReasoningEnd: unknown;
+      };
+      const customBrainFactory = vi.fn(async (opts: unknown) => {
+        capturedBrainOptions = opts as typeof capturedBrainOptions;
+        return {
+          addChatMessage: vi.fn(),
+          updateChatMessage: vi.fn(),
+          answerQuestion: vi.fn(),
+          getWelcomeText: vi.fn(),
+          buildLLMMessages: vi.fn(),
+          classifyEmotion: vi.fn(),
+          applyEmotionFromText: vi.fn(),
+          memory: {},
+          llm: {},
+          aiProvider: {},
+          chatLog: [],
+          chatSeq: 0
+        } as unknown as BrainEngine;
+      });
+
+      const onLlmOomFallback = vi.fn();
+      await setupBrainEngine({
+        options: {
+          llmFallbackModel: 'Qwen2.5-1.5B',
+          enableOomFallback: true,
+          onLlmOomFallback,
+          customEngines: { brain: customBrainFactory }
+        },
+        widget: mockWidget,
+        rootStore,
+        i18nEngine,
+        getEngines,
+        getUiDom,
+        streamPipeline: mockStreamPipeline
+      });
+
+      expect(capturedBrainOptions.llmFallbackModel).toBe('Qwen2.5-1.5B');
+      expect(capturedBrainOptions.enableOomFallback).toBe(true);
+      expect(capturedBrainOptions.onReasoningStart).toBe(mockStreamPipeline.onReasoningStart);
+      expect(capturedBrainOptions.onReasoningChunk).toBe(mockStreamPipeline.onReasoningChunk);
+      expect(capturedBrainOptions.onReasoningEnd).toBe(mockStreamPipeline.onReasoningEnd);
+
+      capturedBrainOptions.onLlmOomFallback('Hermes-8B', 'Qwen-1.5B', new Error('OOM'));
+      expect(onLlmOomFallback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          failedModel: 'Hermes-8B',
+          fallbackModel: 'Qwen-1.5B'
+        }),
+        'Hermes-8B',
+        'Qwen-1.5B',
+        expect.any(Error)
+      );
     });
 
     it('should handle custom brain factory throwing error and fallback to default', async () => {

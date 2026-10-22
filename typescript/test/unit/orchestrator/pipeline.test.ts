@@ -305,10 +305,13 @@ describe('Orchestrator Pipelines & Interactions', () => {
       });
 
       streamPipeline.onStreamStart();
-      expect(mockEngines.speechEngine.beginSpeech).toHaveBeenCalled();
-      expect(streamPipeline.getStreamSpeechId()).toBe(1);
+      // Speech playback is lazily deferred until the first answer chunk arrives
+      expect(mockEngines.speechEngine.beginSpeech).not.toHaveBeenCalled();
+      expect(streamPipeline.getStreamSpeechId()).toBe(0);
 
       streamPipeline.onStreamChunk('今天天氣真好。');
+      expect(mockEngines.speechEngine.beginSpeech).toHaveBeenCalled();
+      expect(streamPipeline.getStreamSpeechId()).toBe(1);
       expect(mockEngines.speechEngine.pushSpeech).toHaveBeenCalledWith(
         1,
         '今天天氣真好。'
@@ -319,6 +322,113 @@ describe('Orchestrator Pipelines & Interactions', () => {
       expect(options.onStreamEnd).toHaveBeenCalledWith(
         '今天天氣真好。下雨機率低。'
       );
+    });
+
+    it('should handle reasoning pipeline silently without starting speech, and crossfade to talking on answer chunk', () => {
+      const options = {
+        onReasoningStart: vi.fn(),
+        onReasoningChunk: vi.fn(),
+        onReasoningEnd: vi.fn(),
+        onStreamChunk: vi.fn(),
+        onStreamEnd: vi.fn()
+      };
+
+      const streamPipeline = createStreamPipeline({
+        getWidget,
+        options,
+        getEngines,
+        autoContinueState,
+        streamSpeechState
+      });
+
+      // 1. Stream starts - isThinkingState false, no speech started yet
+      streamPipeline.onStreamStart();
+      expect(mockEngines.speechEngine.isProcessing).toBe(true);
+      expect(mockEngines.speechEngine.beginSpeech).not.toHaveBeenCalled();
+      expect(streamPipeline.isThinking()).toBe(false);
+
+      // 2. Reasoning starts - avatar switches to thinking gesture and emotion
+      streamPipeline.onReasoningStart({ model: 'Hermes-3-8B', timestamp: 123456 });
+      expect(streamPipeline.isThinking()).toBe(true);
+      expect(mockEngines.skinEngine.gestureName).toBe('thinking');
+      expect(mockEngines.skinEngine.setEmotion).toHaveBeenCalledWith('thinking');
+      expect(mockEngines.speechEngine.beginSpeech).not.toHaveBeenCalled();
+      expect(options.onReasoningStart).toHaveBeenCalledWith({
+        model: 'Hermes-3-8B',
+        timestamp: 123456
+      });
+
+      // 3. Reasoning chunks arrive - silent track, speechEngine.pushSpeech is called 0 times
+      streamPipeline.onReasoningChunk({
+        chunkDelta: '思考中...',
+        accumulatedReasoning: '思考中...',
+        rawChunk: { rawId: 'c1' }
+      });
+      expect(mockEngines.speechEngine.pushSpeech).not.toHaveBeenCalled();
+      expect(mockEngines.speechEngine.beginSpeech).not.toHaveBeenCalled();
+      expect(options.onReasoningChunk).toHaveBeenCalledWith(
+        expect.objectContaining({ chunkDelta: '思考中...' }),
+        '思考中...',
+        '思考中...',
+        { rawId: 'c1' }
+      );
+
+      // 4. Reasoning ends - switches emotion to neutral and prepares answer
+      streamPipeline.onReasoningEnd({
+        fullReasoning: '思考完成。',
+        durationMs: 1500,
+        model: 'Hermes-3-8B'
+      });
+      expect(streamPipeline.isThinking()).toBe(false);
+      expect(mockEngines.skinEngine.setEmotion).toHaveBeenCalledWith('neutral');
+      expect(mockEngines.skinEngine.gestureName).toBe('talking');
+      expect(mockEngines.speechEngine.beginSpeech).not.toHaveBeenCalled();
+      expect(options.onReasoningEnd).toHaveBeenCalledWith(
+        expect.objectContaining({ fullReasoning: '思考完成。' }),
+        '思考完成。',
+        1500
+      );
+
+      // 5. Answer chunks start arriving - now speech begins and gesture is talking
+      const rawAnswerChunk = { choices: [{ delta: { content: '正式回答第一句。' } }] };
+      streamPipeline.onStreamChunk('正式回答第一句。', rawAnswerChunk);
+      expect(mockEngines.speechEngine.beginSpeech).toHaveBeenCalled();
+      expect(streamPipeline.getStreamSpeechId()).toBe(1);
+      expect(mockEngines.skinEngine.gestureName).toBe('talking');
+      expect(mockEngines.speechEngine.pushSpeech).toHaveBeenCalledWith(
+        1,
+        '正式回答第一句。'
+      );
+      expect(options.onStreamChunk).toHaveBeenCalledWith(
+        '正式回答第一句。',
+        rawAnswerChunk
+      );
+
+      // 6. Stream ends
+      streamPipeline.onStreamEnd('正式回答第一句。');
+      expect(mockEngines.speechEngine.endSpeech).toHaveBeenCalledWith(1);
+      expect(options.onStreamEnd).toHaveBeenCalledWith('正式回答第一句。');
+    });
+
+    it('should reset thinking state and gesture to neutral on interrupt during reasoning', () => {
+      const streamPipeline = createStreamPipeline({
+        getWidget,
+        options: {},
+        getEngines,
+        autoContinueState,
+        streamSpeechState
+      });
+
+      streamPipeline.onStreamStart();
+      streamPipeline.onReasoningStart({ model: 'Qwen' });
+      expect(streamPipeline.isThinking()).toBe(true);
+      expect(mockEngines.skinEngine.gestureName).toBe('thinking');
+
+      streamPipeline.onInterrupt();
+      expect(streamPipeline.isThinking()).toBe(false);
+      expect(mockEngines.skinEngine.gestureName).toBe('neutral');
+      expect(mockEngines.speechEngine.isProcessing).toBe(false);
+      expect(mockEngines.brainEngine.llm.controller.abort).toHaveBeenCalled();
     });
 
     it('should push remaining sentences on onStreamEnd when speechEngine matches sequence id', () => {
@@ -574,10 +684,12 @@ describe('Orchestrator Pipelines & Interactions', () => {
       });
 
       streamPipeline.onStreamStart();
-      expect(streamPipeline.getStreamSpeechId()).toBe(5);
+      expect(streamPipeline.getStreamSpeechId()).toBe(0);
 
-      // Chunk is discarded because speakSeq !== streamSpeechId
+      // Chunk is discarded because speakSeq (6) !== streamSpeechId (5)
       streamPipeline.onStreamChunk('忽略這句');
+      expect(speechEngine.beginSpeech).toHaveBeenCalled();
+      expect(streamPipeline.getStreamSpeechId()).toBe(5);
       expect(speechEngine.pushSpeech).not.toHaveBeenCalled();
 
       // onStreamEnd sequence mismatch -> does not call pushSpeech / endSpeech

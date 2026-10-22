@@ -51,6 +51,8 @@ export async function setupBrainEngine({
 }: SetupBrainParams): Promise<BrainEngine | null> {
   const {
     llmModel = DEFAULT_LLM_MODEL,
+    llmFallbackModel = options.llmFallbackModel,
+    enableOomFallback = options.enableOomFallback,
     llmMaxTokens,
     maxHistoryTurns,
     memoryKey,
@@ -86,6 +88,28 @@ export async function setupBrainEngine({
 
   const brainOptions: Record<string, unknown> = {
     llmModel,
+    llmFallbackModel,
+    enableOomFallback:
+      typeof enableOomFallback === 'boolean' ? enableOomFallback : true,
+    onLlmOomFallback: (
+      primaryModel: string,
+      fallbackModel: string,
+      error: unknown
+    ) => {
+      return callOptionEvent(
+        options,
+        widget,
+        'onLlmOomFallback',
+        {
+          failedModel: primaryModel,
+          fallbackModel,
+          error
+        },
+        primaryModel,
+        fallbackModel,
+        error
+      );
+    },
     llmMaxTokens: resolvedLlmMaxTokens,
     preloadWebLLM: rootStore.getState().preloadWebLLM,
     autoFallbackWebLLM: rootStore.getState().autoFallbackWebLLM,
@@ -513,6 +537,9 @@ export async function setupBrainEngine({
     onStreamStart: streamPipeline.onStreamStart,
     onStreamChunk: streamPipeline.onStreamChunk,
     onStreamEnd: streamPipeline.onStreamEnd,
+    onReasoningStart: streamPipeline.onReasoningStart,
+    onReasoningChunk: streamPipeline.onReasoningChunk,
+    onReasoningEnd: streamPipeline.onReasoningEnd,
     onAutoContinueStart: streamPipeline.onAutoContinueStart,
     onAutoContinueWait: streamPipeline.onAutoContinueWait,
     onAutoContinueResume: streamPipeline.onAutoContinueResume,

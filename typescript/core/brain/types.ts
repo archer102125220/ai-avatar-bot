@@ -314,7 +314,8 @@ export interface LLMEngine {
           chunkDelta: string,
           accumulatedText: string,
           llm?: unknown,
-          brain?: unknown
+          brain?: unknown,
+          rawChunk?: unknown
         ) => void)
       | null,
     tools?: ToolDefinition[]
@@ -490,7 +491,8 @@ export interface AiProviderEngine {
           chunkDelta: string,
           accumulatedText: string,
           engine?: unknown,
-          brain?: unknown
+          brain?: unknown,
+          rawChunk?: unknown
         ) => void)
       | unknown,
     tools?: ToolDefinition[]

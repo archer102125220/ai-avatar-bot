@@ -370,6 +370,12 @@ export interface AvatarBotOptions {
   onSpeaking?: (text: string, ...args: unknown[]) => void;
   /** Callback fired when speech synthesis finishes speaking. */
   onSpeakingEnd?: (...args: unknown[]) => void;
+  /** Callback fired when an answer chunk is streamed. */
+  onStreamChunk?: (
+    chunkDelta: string,
+    rawChunk?: unknown,
+    ...args: unknown[]
+  ) => void;
   /** Callback fired when LLM stream finishes. */
   onStreamEnd?: (fullText: string, ...args: unknown[]) => void;
   /** Callback fired when auto-continuation starts. */
@@ -540,6 +546,11 @@ export interface AiAvatarWidget {
   onReasoningStart?: (info: ReasoningStartInfo, ...args: unknown[]) => void;
   onReasoningChunk?: (info: ReasoningChunkInfo, ...args: unknown[]) => void;
   onReasoningEnd?: (info: ReasoningEndInfo, ...args: unknown[]) => void;
+  onStreamChunk?: (
+    chunkDelta: string,
+    rawChunk?: unknown,
+    ...args: unknown[]
+  ) => void;
 }
 
 /**

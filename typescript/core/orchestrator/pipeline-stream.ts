@@ -1,5 +1,10 @@
 import { callOptionEvent } from './options';
 import type { AiAvatarWidget, AvatarBotOptions, GetEnginesFn } from './types';
+import type {
+  ReasoningStartInfo,
+  ReasoningChunkInfo,
+  ReasoningEndInfo
+} from '@/core/types';
 
 export interface AutoContinueState {
   isActive: boolean;
@@ -25,9 +30,13 @@ export interface StreamPipelineParams {
 export interface StreamPipeline {
   getStreamSpeechId: () => number;
   setStreamSpeechId: (id: number) => void;
+  isThinking: () => boolean;
   onStreamStart: () => void;
-  onStreamChunk: (chunkDelta: string) => void;
+  onStreamChunk: (chunkDelta: string, rawChunk?: unknown) => void;
   onStreamEnd: (fullText: string) => void;
+  onReasoningStart: (info?: ReasoningStartInfo) => void;
+  onReasoningChunk: (info?: ReasoningChunkInfo) => void;
+  onReasoningEnd: (info?: ReasoningEndInfo) => void;
   onAutoContinueStart: (info: unknown) => void;
   onAutoContinueWait: (info: unknown) => void;
   onAutoContinueResume: (info: unknown) => void;
@@ -48,30 +57,116 @@ export function createStreamPipeline({
   streamSpeechState
 }: StreamPipelineParams): StreamPipeline {
   let streamSpeechId = 0;
+  let hasSpeechStarted = false;
+  let isThinkingState = false;
+
   const resolveWidget =
     typeof getWidget === 'function'
       ? getWidget
       : () => widget as AiAvatarWidget;
 
+  function ensureSpeechStarted(): void {
+    if (hasSpeechStarted === true) {
+      return;
+    }
+    hasSpeechStarted = true;
+    const { speechEngine, skinEngine } = getEngines();
+    if (speechEngine !== null && typeof speechEngine === 'object') {
+      streamSpeechId =
+        speechEngine.ttsMuted === true ? 0 : speechEngine.beginSpeech();
+    } else {
+      streamSpeechId = 0;
+    }
+    if (typeof skinEngine === 'object' && skinEngine !== null) {
+      if (skinEngine.gestureName === 'thinking') {
+        skinEngine.gestureName = 'talking';
+      }
+    }
+  }
+
   return {
     getStreamSpeechId: () => streamSpeechId,
     setStreamSpeechId: (id: number) => {
       streamSpeechId = id;
+      hasSpeechStarted = true;
     },
+    isThinking: () => isThinkingState,
 
     onStreamStart() {
       const { speechEngine } = getEngines();
       if (speechEngine !== null && typeof speechEngine === 'object') {
-        streamSpeechId =
-          speechEngine.ttsMuted === true ? 0 : speechEngine.beginSpeech();
-      } else {
-        streamSpeechId = 0;
+        speechEngine.isProcessing = true;
       }
+      isThinkingState = false;
+      hasSpeechStarted = false;
+      streamSpeechId = 0;
       streamSpeechState.sentenceBuffer = '';
       streamSpeechState.buf = '';
     },
 
-    onStreamChunk(chunkDelta: string) {
+    onReasoningStart(info?: ReasoningStartInfo) {
+      isThinkingState = true;
+      const { speechEngine, skinEngine } = getEngines();
+      if (speechEngine !== null && typeof speechEngine === 'object') {
+        speechEngine.isProcessing = true;
+      }
+      if (typeof skinEngine === 'object' && skinEngine !== null) {
+        if (skinEngine.gestureName !== undefined) {
+          skinEngine.gestureName = 'thinking';
+        }
+        if (typeof skinEngine.setEmotion === 'function') {
+          skinEngine.setEmotion('thinking');
+        }
+      }
+      const safeInfo =
+        typeof info === 'object' && info !== null ? info : {};
+      callOptionEvent(options, resolveWidget(), 'onReasoningStart', safeInfo);
+    },
+
+    onReasoningChunk(info?: ReasoningChunkInfo) {
+      const safeInfo =
+        typeof info === 'object' && info !== null
+          ? info
+          : { chunkDelta: '', accumulatedReasoning: '' };
+      callOptionEvent(
+        options,
+        resolveWidget(),
+        'onReasoningChunk',
+        safeInfo,
+        safeInfo.chunkDelta,
+        safeInfo.accumulatedReasoning,
+        safeInfo.rawChunk
+      );
+    },
+
+    onReasoningEnd(info?: ReasoningEndInfo) {
+      isThinkingState = false;
+      const { skinEngine } = getEngines();
+      if (typeof skinEngine === 'object' && skinEngine !== null) {
+        if (skinEngine.gestureName === 'thinking') {
+          skinEngine.gestureName = 'talking';
+        }
+        if (typeof skinEngine.setEmotion === 'function') {
+          skinEngine.setEmotion('neutral');
+        }
+      }
+      const safeInfo =
+        typeof info === 'object' && info !== null
+          ? info
+          : { fullReasoning: '', durationMs: 0 };
+      callOptionEvent(
+        options,
+        resolveWidget(),
+        'onReasoningEnd',
+        safeInfo,
+        safeInfo.fullReasoning,
+        safeInfo.durationMs
+      );
+    },
+
+    onStreamChunk(chunkDelta: string, rawChunk?: unknown) {
+      ensureSpeechStarted();
+
       const { speechEngine } = getEngines();
       if (
         streamSpeechId !== 0 &&
@@ -90,6 +185,14 @@ export function createStreamPipeline({
           speechEngine.pushSpeech(streamSpeechId, sentence);
         }
       }
+
+      callOptionEvent(
+        options,
+        resolveWidget(),
+        'onStreamChunk',
+        chunkDelta,
+        rawChunk
+      );
     },
 
     /**
@@ -97,21 +200,46 @@ export function createStreamPipeline({
      * Flushes any remaining text to the speech synthesis queue and emits the `onStreamEnd` event.
      */
     onStreamEnd(fullText: string) {
-      const { speechEngine } = getEngines();
+      const { speechEngine, skinEngine } = getEngines();
+
       if (
         speechEngine !== null &&
         typeof speechEngine === 'object' &&
-        streamSpeechId !== 0 &&
-        streamSpeechId === speechEngine.speakSeq
+        speechEngine.ttsMuted !== true
       ) {
-        const remainingSentences = speechEngine.drainSentences(
-          streamSpeechState,
-          true
-        );
-        for (const sentence of remainingSentences) {
-          speechEngine.pushSpeech(streamSpeechId, sentence);
+        if (hasSpeechStarted === false) {
+          const remainingSentences = speechEngine.drainSentences(
+            streamSpeechState,
+            true
+          );
+          if (remainingSentences.length > 0) {
+            streamSpeechId = speechEngine.beginSpeech();
+            hasSpeechStarted = true;
+            for (const sentence of remainingSentences) {
+              speechEngine.pushSpeech(streamSpeechId, sentence);
+            }
+            speechEngine.endSpeech(streamSpeechId);
+          } else if (typeof speechEngine?.onUtteranceEnd === 'function') {
+            speechEngine.onUtteranceEnd();
+          }
+        } else if (
+          streamSpeechId !== 0 &&
+          streamSpeechId === speechEngine.speakSeq
+        ) {
+          const remainingSentences = speechEngine.drainSentences(
+            streamSpeechState,
+            true
+          );
+          for (const sentence of remainingSentences) {
+            speechEngine.pushSpeech(streamSpeechId, sentence);
+          }
+          speechEngine.endSpeech(streamSpeechId);
+        } else if (
+          streamSpeechId === 0 &&
+          typeof speechEngine?.onUtteranceEnd === 'function'
+        ) {
+          speechEngine.onUtteranceEnd();
         }
-        speechEngine.endSpeech(streamSpeechId);
       } else if (
         streamSpeechId === 0 &&
         typeof speechEngine?.onUtteranceEnd === 'function'
@@ -119,6 +247,14 @@ export function createStreamPipeline({
         speechEngine.onUtteranceEnd();
       }
 
+      if (typeof skinEngine === 'object' && skinEngine !== null) {
+        if (skinEngine.gestureName === 'thinking') {
+          skinEngine.gestureName = 'neutral';
+        }
+      }
+
+      isThinkingState = false;
+      hasSpeechStarted = false;
       callOptionEvent(options, resolveWidget(), 'onStreamEnd', fullText);
     },
 
@@ -181,11 +317,22 @@ export function createStreamPipeline({
     },
 
     onInterrupt() {
-      const { brainEngine } = getEngines();
+      const { brainEngine, skinEngine, speechEngine } = getEngines();
+      isThinkingState = false;
+      hasSpeechStarted = false;
+      streamSpeechId = 0;
       autoContinueState.isActive = false;
       autoContinueState.continuationIndex = 0;
       autoContinueState.maxContinuations = 0;
       autoContinueState.accumulatedText = '';
+      if (typeof skinEngine === 'object' && skinEngine !== null) {
+        if (skinEngine.gestureName === 'thinking') {
+          skinEngine.gestureName = 'neutral';
+        }
+      }
+      if (speechEngine !== null && typeof speechEngine === 'object') {
+        speechEngine.isProcessing = false;
+      }
       const llmObj = brainEngine?.llm as Record<string, unknown> | undefined;
       const controller = llmObj?.controller as
         { abort?: () => void } | undefined;

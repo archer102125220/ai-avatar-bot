@@ -256,7 +256,8 @@ export async function initAiProvider(
             chunkDelta: string,
             accumulatedText: string,
             engine?: unknown,
-            brain?: unknown
+            brain?: unknown,
+            rawChunk?: unknown
           ) => void)
         | unknown,
       tools?: ToolDefinition[]
@@ -268,7 +269,8 @@ export async function initAiProvider(
                 chunkDelta: string,
                 accumulatedText: string,
                 engine?: unknown,
-                brain?: unknown
+                brain?: unknown,
+                rawChunk?: unknown
               ) => void)
             : null;
         const fetchSetting =
@@ -456,8 +458,8 @@ export async function initAiProvider(
             onReasoningStart: (info) => this.onReasoningStart?.(info),
             onReasoningChunk: (info) => this.onReasoningChunk?.(info),
             onReasoningEnd: (info) => this.onReasoningEnd?.(info),
-            onAnswerChunk: (chunkDelta, accumulatedAnswer) => {
-              onDelta(chunkDelta, accumulatedAnswer, this, brain);
+            onAnswerChunk: (chunkDelta, accumulatedAnswer, rawChunk) => {
+              onDelta(chunkDelta, accumulatedAnswer, this, brain, rawChunk);
               this.onStreamChatting(chunkDelta, accumulatedAnswer, brain);
             }
           });
@@ -760,7 +762,13 @@ export async function chatWithAiProvider(
 
     const onDeltaCallback =
       engine.aiProvider?.isStream === true
-        ? (chunkDelta: string, currentStreamText: string) => {
+        ? (
+            chunkDelta: string,
+            currentStreamText: string,
+            _engine?: unknown,
+            _brain?: unknown,
+            rawChunk?: unknown
+          ) => {
             if (typeof engine.onSpokenDisplayTextChange === 'function') {
               engine.onSpokenDisplayTextChange(currentStreamText);
             }
@@ -774,7 +782,7 @@ export async function chatWithAiProvider(
               engine.applyEmotionFromText(currentStreamText);
             }
             if (typeof engine.onStreamChunk === 'function') {
-              engine.onStreamChunk(chunkDelta);
+              engine.onStreamChunk(chunkDelta, rawChunk);
             }
           }
         : null;

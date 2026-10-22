@@ -857,4 +857,40 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     });
     expect(bot2?.uiDom.langButtonEl.textContent).toBe('中文');
   });
+
+  it('should expose reasoning, OOM fallback, and stream chunk callback getters', () => {
+    const onLlmOomFallback = vi.fn();
+    const onReasoningStart = vi.fn();
+    const onReasoningChunk = vi.fn();
+    const onReasoningEnd = vi.fn();
+    const onStreamChunk = vi.fn();
+
+    const widget = createAvatarWidget({
+      options: {
+        llmFallbackModel: 'Qwen2.5-1.5B',
+        enableOomFallback: true,
+        onLlmOomFallback,
+        onReasoningStart,
+        onReasoningChunk,
+        onReasoningEnd,
+        onStreamChunk
+      },
+      container,
+      rootStore,
+      i18nEngine,
+      initialMinimal: false,
+      getUiDom,
+      getEngines,
+      handleUser: mockHandleUser,
+      updateModelDropListeners: mockUpdateModelDropListeners
+    });
+
+    expect(widget.llmFallbackModel).toBe('Qwen2.5-1.5B');
+    expect(widget.enableOomFallback).toBe(true);
+    expect(widget.onLlmOomFallback).toBe(onLlmOomFallback);
+    expect(widget.onReasoningStart).toBe(onReasoningStart);
+    expect(widget.onReasoningChunk).toBe(onReasoningChunk);
+    expect(widget.onReasoningEnd).toBe(onReasoningEnd);
+    expect(widget.onStreamChunk).toBe(onStreamChunk);
+  });
 });

@@ -369,7 +369,8 @@ export function initWebLLM(
             chunkDelta: string,
             accumulatedText: string,
             llm?: unknown,
-            brain?: unknown
+            brain?: unknown,
+            rawChunk?: unknown
           ) => void)
         | null,
       tools?: ToolDefinition[]
@@ -579,8 +580,8 @@ export function initWebLLM(
           onReasoningStart: (info) => this.onReasoningStart?.(info),
           onReasoningChunk: (info) => this.onReasoningChunk?.(info),
           onReasoningEnd: (info) => this.onReasoningEnd?.(info),
-          onAnswerChunk: (chunkDelta, accumulatedAnswer) => {
-            onDelta(chunkDelta, accumulatedAnswer, llm, brain);
+          onAnswerChunk: (chunkDelta, accumulatedAnswer, rawChunk) => {
+            onDelta(chunkDelta, accumulatedAnswer, llm, brain, rawChunk);
             this.onStreamChatting(chunkDelta, accumulatedAnswer, brain);
           }
         });
@@ -781,7 +782,13 @@ export async function chatWithWebLLM(
     const streamMessageId = 'stream-' + Date.now();
     const chatResponse = (await engine.llm?.chat(
       messages,
-      (chunkDelta: string, accumulatedText: string) => {
+      (
+        chunkDelta: string,
+        accumulatedText: string,
+        _llm?: unknown,
+        _brain?: unknown,
+        rawChunk?: unknown
+      ) => {
         if (typeof engine.onSpokenDisplayTextChange === 'function') {
           engine.onSpokenDisplayTextChange(accumulatedText);
         }
@@ -793,7 +800,7 @@ export async function chatWithWebLLM(
         }
 
         if (typeof engine.onStreamChunk === 'function') {
-          engine.onStreamChunk(chunkDelta);
+          engine.onStreamChunk(chunkDelta, rawChunk);
         }
       },
       tools
@@ -910,7 +917,13 @@ export async function chatWithWebLLM(
         let chunkDeltaBuffer = '';
         const continueResponse = (await engine.llm?.chat(
           currentMessages,
-          (chunkDelta: string, currentStreamText: string) => {
+          (
+            chunkDelta: string,
+            currentStreamText: string,
+            _llm?: unknown,
+            _brain?: unknown,
+            rawChunk?: unknown
+          ) => {
             chunkDeltaBuffer = currentStreamText;
             const combinedText = accumulatedText + '\n' + currentStreamText;
             if (typeof engine.onSpokenDisplayTextChange === 'function') {
@@ -924,7 +937,7 @@ export async function chatWithWebLLM(
             }
 
             if (typeof engine.onStreamChunk === 'function') {
-              engine.onStreamChunk(chunkDelta);
+              engine.onStreamChunk(chunkDelta, rawChunk);
             }
           },
           []
