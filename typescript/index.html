@@ -37,13 +37,21 @@
       const app = document.getElementById('app');
       window.aiAvatarWidget = await initAvatarBot({
         container: app,
-        // llmModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 中文不錯、約 1.1GB、首次下載後會被快取
+        // 本地端 WebGPU WebLLM 旗艦模型與兩階段 OOM 降級設定
         // llmModel: 'gemma-2-2b-it-q4f32_1-MLC', // Google 公開模型
-        llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC', // 支援工具調用的模型
+        llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC', // 預設 8B 旗艦模型（支援完整 Function Calling 與推論思考鏈）
+        llmFallbackModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 低配備設備（如 8GB 記憶體）自動 OOM 降級保底模型
+        enableOomFallback: true, // 啟用 WebGPU 顯存不足自動降級
         // llmMaxTokens: 1024, // WebLLM 端側模型回應最大 Token 數（預設 1024）
+        // aiProviderModel: 'hermes3:latest', // 遠端伺服器預設旗艦模型 (Ollama / vLLM)
         // aiProviderModel: 'qwen2.5:latest',
         // aiProviderModel: 'gemma4:latest',
         // aiProviderBaseUrl: 'http://localhost:5173/api/ollama',
+        // 推論思考過程設定
+        reasoning: {
+          mode: 'auto', // 自動偵測模型推論標籤 (<think>, <thought>) 與 reasoning_content
+          showThinkingInBubble: true // 思考期間氣泡顯示動態「讓我想想…」
+        },
         knowledge: KNOWLEDGE,
         startMode: ENGINE_MODE_MAP.threeDimensional, // 預設以 3D 模式啟動方便測試 3D VRMA 動作
         fitMode: FIT_MODE_MAP.HALF, // FIT_MODE_MAP.HALF (半身特寫) | FIT_MODE_MAP.FULL (全身)
@@ -117,6 +125,24 @@
         },
         onSpeaking(text, aiAvatar) {
           console.log('[avatar] speaking:', text);
+        },
+        onStreamChunk(chunkDelta, rawChunk) {
+          console.log('[avatar] stream chunk (TTS active):', chunkDelta);
+        },
+        onReasoningStart(info) {
+          console.log('[avatar] 🧠 reasoning started (silent track):', info);
+        },
+        onReasoningChunk(info, chunkDelta, accumulated, rawChunk) {
+          console.log('[avatar] 💭 reasoning chunk:', chunkDelta);
+        },
+        onReasoningEnd(info, fullReasoning, durationMs) {
+          console.log(`[avatar] 💡 reasoning finished in ${durationMs}ms`);
+        },
+        onLlmOomFallback(info, primaryModel, fallbackModel, error) {
+          console.warn(
+            `[avatar] ⚠️ WebGPU OOM detected: Falling back from ${primaryModel} to ${fallbackModel}`,
+            error
+          );
         },
         onMinimalTrigger(newIsMinimal, aiAvatar) {
           console.log('[avatar] minimal toggled:', newIsMinimal);

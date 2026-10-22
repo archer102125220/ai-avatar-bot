@@ -34,11 +34,12 @@
 - [🧠 In-Depth Guides](#-in-depth-guides)
   - [1. Brain Engine & Three-Tier Fallback Inference](#1-brain-engine--three-tier-fallback-inference)
   - [2. Auto-Continue Response Mechanism](#2-auto-continue-response-mechanism)
-  - [3. Memory Management, Data Schema & Custom Storage Adapter](#3-memory-management-data-schema--custom-storage-adapter)
-  - [4. Function Calling & Custom Tools (Tools Engine)](#4-function-calling--custom-tools-tools-engine)
-  - [5. 2D (Live2D) & 3D (VRM) Dual Skin Engine](#5-2d-live2d--3d-vrm-dual-skin-engine)
-  - [6. Speech Recognition & Neural TTS (Speech Engine)](#6-speech-recognition--neural-tts-speech-engine)
-  - [7. Headless Mode & Custom UI Integration](#7-headless-mode--custom-ui-integration)
+  - [3. AI Reasoning (Chain-of-Thought) & WebLLM OOM Fallback Architecture](#3-ai-reasoning-chain-of-thought--webllm-oom-fallback-architecture)
+  - [4. Memory Management, Data Schema & Custom Storage Adapter](#4-memory-management-data-schema--custom-storage-adapter)
+  - [5. Function Calling & Custom Tools (Tools Engine)](#5-function-calling--custom-tools-tools-engine)
+  - [6. 2D (Live2D) & 3D (VRM) Dual Skin Engine](#6-2d-live2d--3d-vrm-dual-skin-engine)
+  - [7. Speech Recognition & Neural TTS (Speech Engine)](#7-speech-recognition--neural-tts-speech-engine)
+  - [8. Headless Mode & Custom UI Integration](#8-headless-mode--custom-ui-integration)
 - [📐 Exported TypeScript Types Reference](#-exported-typescript-types-reference)
 - [📚 Instance API & Methods (AiAvatarWidget)](#-instance-api--methods-aiavatarwidget)
 - [🌐 Internationalization (i18n)](#-internationalization-i18n)
@@ -430,14 +431,17 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | :--- | :--- | :--- | :--- |
 | `enableAiProvider` | `boolean` | `false` | Whether to enable remote AI server provider (Ollama / custom API). |
 | `aiProviderBaseUrl` | `string` | `''` | Base URL of the remote AI API server. |
-| `aiProviderModel` | `string` | `'qwen2.5:latest'` | Model identifier for remote AI provider. |
+| `aiProviderModel` | `string` | `'hermes3:latest'` | Model identifier for remote AI provider (defaults to flagship tool-calling/reasoning model). |
 | `aiProviderStream` | `boolean` | `true` | Whether to enable streaming for AI provider responses. |
 | `aiProviderMaxTokens` | `number` | `2048` | Max response tokens for remote AI provider. |
 | `aiProviderCreateFetchSetting` | `AiProviderFetchSettingFactory \| RequestInit` | `undefined` | Custom Fetch Header / RequestInit factory function. |
 | `aiProviderCreateFetchPayload` | `AiProviderFetchPayloadFactory \| Record<string, unknown> \| BodyInit` | `undefined` | Custom JSON payload factory function or object. |
 | `aiProviderResponseFormat` | `string \| Record<string, unknown>` | `undefined` | Custom AI provider response format (`'sse'`, `'json'`, etc.). |
 | `aiProviderExtractToolCalls` | `AiProviderToolCallExtractor` | `undefined` | Custom parser callback for extracting tool calls from streaming chunks. |
-| `llmModel` | `string` | `'Qwen2.5-1.5B...'` | In-browser WebLLM model name. |
+| `llmModel` | `string` | `'Hermes-3-Llama-3.1-8B-q4f32_1-MLC'` | Primary in-browser WebLLM model name (flagship tool calling & reasoning). |
+| `llmFallbackModel` | `string \| null \| false` | `'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'` | Fallback WebLLM model when WebGPU encounters OOM. Set to `null` to disallow fallback. |
+| `enableOomFallback` | `boolean` | `true` | Whether to automatically fallback to lightweight model on WebGPU OOM errors. |
+| `reasoning` | `ReasoningOptions` | `{}` | AI reasoning/thinking options (`mode: 'auto' \| 'always' \| 'never'`, `showThinkingInBubble: boolean`). |
 | `llmMaxTokens` | `number` | `1024` | Maximum response tokens limit for in-browser WebLLM. |
 | `preloadWebLLM` | `boolean` | `false` | Whether to preload WebLLM weights immediately upon initialization. |
 | `autoFallbackWebLLM` | `boolean` | `true` | Whether to auto-fallback to WebLLM if remote AI Provider fails. |
@@ -514,7 +518,12 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `onReady` | `(widget: AiAvatarWidget) => void` | Fired when all sub-engines are initialized and mounted. |
 | `onSpeaking` | `(text: string) => void` | Fired when TTS begins speaking. |
 | `onSpeakingEnd` | `() => void` | Fired when TTS finishes speaking. |
+| `onStreamChunk` | `(chunkDelta: string, rawChunk?: unknown) => void` | Fired on each incremental answer stream chunk with raw underlying chunk forwarded. |
 | `onStreamEnd` | `(fullText: string) => void` | Fired when brain LLM stream completes. |
+| `onReasoningStart` | `(info: ReasoningStartInfo) => void` | Fired when AI model reasoning/thinking process begins (silent track). |
+| `onReasoningChunk` | `(info: ReasoningChunkInfo, chunkDelta: string, accumulated: string, rawChunk?: unknown) => void` | Fired when reasoning stream text updates. |
+| `onReasoningEnd` | `(info: ReasoningEndInfo, fullReasoning: string, durationMs: number) => void` | Fired when reasoning process completes before answer begins. |
+| `onLlmOomFallback` | `(info: LlmOomFallbackInfo, primaryModel: string, fallbackModel: string, error: unknown) => void` | Fired when in-browser WebLLM encounters OOM and switches to fallback model. |
 | `onAutoContinueStart` | `(info: AutoContinueStartInfo) => void` | Fired when auto-continuation starts. |
 | `onAutoContinueWait` | `(info: AutoContinueStartInfo) => void` | Fired when waiting for next continuation chunk. |
 | `onAutoContinueResume` | `(info: AutoContinueResumeInfo) => void` | Fired when continuation chunk arrives. |
@@ -616,7 +625,69 @@ const widget = await initAvatarBot({
 
 ---
 
-### 3. Memory Management, Data Schema & Custom Storage Adapter
+### 3. AI Reasoning (Chain-of-Thought) & WebLLM OOM Fallback Architecture
+
+Modern reasoning models (such as DeepSeek-R1, Hermes 3, OpenAI o-series, Claude 3.7 Thinking, and QwQ) perform internal thinking before generating final spoken answers. `ai-avatar-bot-typescript` provides a native **Dual-Track Stream Architecture** and **Two-Tier WebGPU OOM Adaptive Fallback**:
+
+#### 🚀 Dual-Track Stream Architecture
+1. **Silent Thinking Track (`onReasoningStart`, `onReasoningChunk`, `onReasoningEnd`)**:
+   - Reasoning tokens (e.g. `<think>`, `<thought>`, or `delta.reasoning_content`) are isolated from the Speech TTS audio queue. The avatar remains completely silent and does not lip-sync during reasoning.
+   - Body gesture automatically switches to `thinking` (e.g. hand on chin in 3D VRM) with a focused emotional expression (`thinking`).
+   - The speech bubble displays a subtle breathing thinking indicator (`showThinkingInBubble: true`).
+   - The full reasoning chain is captured and stored with runtime duration (`reasoningTimeMs`) into conversation memory.
+2. **Answer Vocalization Track (`onStreamChunk`, `onStreamEnd`)**:
+   - Upon the first answer token, TTS audio synthesis starts lazily (`speechEngine.beginSpeech()`), and the avatar crossfades to `talking` gesture and neutral expression.
+   - Spoken sentence stream is pushed to audio playback and synchronized with 2D/3D lip-sync.
+3. **Collapsible Thought History UI**:
+   - The chat history panel renders native collapsible `<details class="history-item__thought">` cards displaying `🤔 Thought Process (X.Xs)` (or localized equivalents) for reviewing complete reasoning traces.
+
+#### 🛡️ Two-Tier WebGPU OOM Adaptive Fallback
+- **Tier 1 (Flagship Default)**: Loads `Hermes-3-Llama-3.1-8B-q4f32_1-MLC` for full Function Calling and deep reasoning capability.
+- **Tier 2 (Lightweight Fallback)**: If WebGPU allocation fails (OOM / out-of-memory), fires `onLlmOomFallback` and automatically falls back to `Qwen2.5-1.5B-Instruct-q4f16_1-MLC` (~1.1GB download, ~1.2GB VRAM).
+- **Fail-Fast**: If the fallback model also fails, immediately throws a typed error rather than entering an infinite retry loop.
+- **Customization**: Set `llmFallbackModel: null` to disallow fallback and strictly require the primary model.
+
+```typescript
+import { 
+  initAvatarBot, 
+  type ReasoningStartInfo, 
+  type ReasoningChunkInfo, 
+  type ReasoningEndInfo,
+  type LlmOomFallbackInfo 
+} from 'ai-avatar-bot-typescript';
+
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+  llmFallbackModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+  enableOomFallback: true,
+
+  reasoning: {
+    mode: 'auto',
+    showThinkingInBubble: true
+  },
+
+  onReasoningStart: (info: ReasoningStartInfo) => {
+    console.log('AI began thinking...', info.model);
+  },
+  onReasoningChunk: (info: ReasoningChunkInfo, delta: string) => {
+    console.log('Thinking delta:', delta);
+  },
+  onReasoningEnd: (info: ReasoningEndInfo, fullReasoning: string, durationMs: number) => {
+    console.log(`Thinking completed in ${durationMs}ms`);
+  },
+  onStreamChunk: (chunkDelta: string, rawChunk?: unknown) => {
+    console.log('Spoken answer chunk:', chunkDelta);
+  },
+  onLlmOomFallback: (info: LlmOomFallbackInfo, primary: string, fallback: string, err: unknown) => {
+    console.warn(`OOM fallback triggered: ${primary} -> ${fallback}`);
+  }
+});
+```
+
+---
+
+### 4. Memory Management, Data Schema & Custom Storage Adapter
 
 Implement the `MemoryAdapter` interface to store conversation memory in IndexedDB, Redis, or an external backend API:
 
@@ -668,7 +739,7 @@ if (memory) {
 
 ---
 
-### 4. Function Calling & Custom Tools (Tools Engine)
+### 5. Function Calling & Custom Tools (Tools Engine)
 
 Register custom tools with complete parameter schema validation:
 
@@ -717,7 +788,7 @@ const widget = await initAvatarBot({
 
 ---
 
-### 5. 2D (Live2D) & 3D (VRM) Dual Skin Engine
+### 6. 2D (Live2D) & 3D (VRM) Dual Skin Engine
 
 Control spatial coordinates, cameras, and animations with typed configurations:
 
@@ -882,7 +953,7 @@ When calling `widget.playGesture('greet')` or triggering 2D animations, the engi
 
 ---
 
-### 6. Speech Recognition & Neural TTS (Speech Engine)
+### 7. Speech Recognition & Neural TTS (Speech Engine)
 
 ```typescript
 // Speak arbitrary text programmatically
@@ -911,7 +982,7 @@ widget.speechEngine?.subscribe('spokenDisplayText', (subtitle: string) => {
 
 ---
 
-### 7. Headless Mode & Custom UI Integration
+### 8. Headless Mode & Custom UI Integration
 
 To build your own interface with React, Vue, Svelte, or Angular, enable minimal mode and subscribe to reactive stores:
 
@@ -951,7 +1022,7 @@ widget.speechEngine?.subscribe('isSpeaking', (speaking: boolean) => {
 * **Tools**: `ToolDefinition`, `ToolRouteCandidate`, `ToolExecutionParams`, `PendingToolState`
 * **Extensible Literal Unions**: `AvatarMode`, `Gender`, `FitMode`, `EngineMode`, `AutoContinueMode`, `ChatRole`
 * **Resolvers**: `LocalizableOrResolver<T, C>`, `DynamicTextOrResolver<C>`, `AutoContinuePromptResolver`
-* **Events**: `AutoContinueStartInfo`, `AutoContinueResumeInfo`, `AutoContinueEndInfo`, `ToolNotFoundErrorInfo`, `ToolErrorInfo`, `LlmLoadProgressInfo`
+* **Events & Reasoning**: `AutoContinueStartInfo`, `AutoContinueResumeInfo`, `AutoContinueEndInfo`, `ToolNotFoundErrorInfo`, `ToolErrorInfo`, `LlmLoadProgressInfo`, `ReasoningOptions`, `ReasoningStartInfo`, `ReasoningChunkInfo`, `ReasoningEndInfo`, `LlmOomFallbackInfo`
 
 ---
 

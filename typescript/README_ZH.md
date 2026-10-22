@@ -34,11 +34,12 @@
 - [🧠 進階功能指南](#-進階功能指南)
   - [1. 大腦引擎與三層降級推論 (型別化工廠)](#1-大腦引擎與三層降級推論-型別化工廠)
   - [2. 自動接續回答機制 (Auto-Continue Response)](#2-自動接續回答機制-auto-continue-response)
-  - [3. 記憶管理、資料結構與自訂儲存轉接器](#3-記憶管理資料結構與自訂儲存轉接器)
-  - [4. Function Calling 與自訂工具 (Tools Engine)](#4-function-calling-與自訂工具-tools-engine)
-  - [5. 2D (Live2D) 與 3D (VRM) 雙外觀引擎](#5-2d-live2d-與-3d-vrm-雙外觀引擎)
-  - [6. 語音辨識與神經語音 (Speech Engine)](#6-語音辨識與神經語音-speech-engine)
-  - [7. 無頭模式 (Headless Mode) 與自訂 UI](#7-無頭模式-headless-mode-與自訂-ui)
+  - [3. AI 模型推論過程 (Reasoning / Thinking) 與 WebLLM OOM 降級](#3-ai-模型推論過程-reasoning--thinking-與-webllm-oom-降級)
+  - [4. 記憶管理、資料結構與自訂儲存轉接器](#4-記憶管理資料結構與自訂儲存轉接器)
+  - [5. Function Calling 與自訂工具 (Tools Engine)](#5-function-calling-與自訂工具-tools-engine)
+  - [6. 2D (Live2D) 與 3D (VRM) 雙外觀引擎](#6-2d-live2d-與-3d-vrm-雙外觀引擎)
+  - [7. 語音辨識與神經語音 (Speech Engine)](#7-語音辨識與神經語音-speech-engine)
+  - [8. 無頭模式 (Headless Mode) 與自訂 UI](#8-無頭模式-headless-mode-與自訂-ui)
 - [📐 導出 TypeScript 型別速查表](#-導出-typescript-型別速查表)
 - [📚 實例 API 與方法 (AiAvatarWidget)](#-實例-api-與方法-aiavatarwidget)
 - [🌐 多語系支援 (i18n)](#-多語系支援-i18n)
@@ -433,14 +434,17 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | :--- | :--- | :--- | :--- |
 | `enableAiProvider` | `boolean` | `false` | 是否啟用遠端雲端 AI 服務提供者（Ollama / 自建 API）。 |
 | `aiProviderBaseUrl` | `string` | `''` | 遠端 AI 伺服器 API 基礎端點。 |
-| `aiProviderModel` | `string` | `'qwen2.5:latest'` | 遠端 AI 模型名稱識別碼。 |
+| `aiProviderModel` | `string` | `'hermes3:latest'` | 遠端 AI 模型名稱識別碼（預設為具備完整工具調用與推論之旗艦模型）。 |
 | `aiProviderStream` | `boolean` | `true` | 是否啟用 AI Provider 串流輸出模式。 |
 | `aiProviderMaxTokens` | `number` | `2048` | 遠端 AI 單次生成 Token 最大上限。 |
 | `aiProviderCreateFetchSetting` | `AiProviderFetchSettingFactory \| RequestInit` | `undefined` | 自訂 Fetch Header / RequestInit 配置工廠函式。 |
 | `aiProviderCreateFetchPayload` | `AiProviderFetchPayloadFactory \| Record<string, unknown> \| BodyInit` | `undefined` | 自訂 JSON 請求負載生成工廠函式。 |
 | `aiProviderResponseFormat` | `string \| Record<string, unknown>` | `undefined` | 遠端 AI 回應解析格式（`'sse'`, `'json'` 或自訂解析物件）。 |
 | `aiProviderExtractToolCalls` | `AiProviderToolCallExtractor` | `undefined` | 自串流 Chunk 中抽取 Tool Call 的型別化解析勾子。 |
-| `llmModel` | `string` | `'Qwen2.5-1.5B...'` | 瀏覽器端 WebLLM 模型名稱。 |
+| `llmModel` | `string` | `'Hermes-3-Llama-3.1-8B-q4f32_1-MLC'` | 瀏覽器端 WebLLM 主模型名稱（預設為旗艦 8B 模型）。 |
+| `llmFallbackModel` | `string \| null \| false` | `'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'` | WebGPU 記憶體不足（OOM）時的備選保底模型。設為 `null` 則關閉降級。 |
+| `enableOomFallback` | `boolean` | `true` | 是否啟用 WebGPU 顯存不足時的自動降級機制。 |
+| `reasoning` | `ReasoningOptions` | `{}` | AI 模型推論思考過程設定（`mode`, `showThinkingInBubble`）。 |
 | `llmMaxTokens` | `number` | `1024` | WebLLM 模型單次回應 Token 最大限制。 |
 | `preloadWebLLM` | `boolean` | `false` | 是否在初始化時即刻預載 WebLLM 權重。 |
 | `autoFallbackWebLLM` | `boolean` | `true` | 當遠端 AI 失敗時是否自動降級至本地 WebLLM。 |
@@ -517,7 +521,12 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `onReady` | `(widget: AiAvatarWidget) => void` | 所有子引擎初始化完成且掛載於 DOM 後觸發。 |
 | `onSpeaking` | `(text: string) => void` | 語音合成開始發聲時觸發。 |
 | `onSpeakingEnd` | `() => void` | 語音播放結束時觸發。 |
+| `onStreamChunk` | `(chunkDelta: string, rawChunk?: unknown) => void` | 正式回答文字串流增量抵達時觸發（透傳底層原生 Chunk）。 |
 | `onStreamEnd` | `(fullText: string) => void` | 大腦 LLM 串流生成文字完全結束時觸發。 |
+| `onReasoningStart` | `(info: ReasoningStartInfo) => void` | AI 模型推論思考過程開始時觸發（靜音軌）。 |
+| `onReasoningChunk` | `(info: ReasoningChunkInfo, chunkDelta: string, accumulated: string, rawChunk?: unknown) => void` | 推論串流增量抵達時觸發。 |
+| `onReasoningEnd` | `(info: ReasoningEndInfo, fullReasoning: string, durationMs: number) => void` | 推論過程完全結束時觸發。 |
+| `onLlmOomFallback` | `(info: LlmOomFallbackInfo, primaryModel: string, fallbackModel: string, error: unknown) => void` | 瀏覽器 WebLLM 發生 WebGPU 顯存不足並自動降級模型時觸發。 |
 | `onAutoContinueStart` | `(info: AutoContinueStartInfo) => void` | 自動接續回答開始時觸發。 |
 | `onAutoContinueWait` | `(info: AutoContinueStartInfo) => void` | 等待接續串流的空檔（切換至思考姿態）觸發。 |
 | `onAutoContinueResume` | `(info: AutoContinueResumeInfo) => void` | 接續串流抵達並恢復說話時觸發。 |
@@ -619,7 +628,69 @@ const widget = await initAvatarBot({
 
 ---
 
-### 3. 記憶管理、資料結構與自訂儲存轉接器
+### 3. AI 模型推論過程 (Reasoning / Thinking) 與 WebLLM OOM 降級架構
+
+現代推論型大語言模型（如 DeepSeek-R1、Hermes 3、OpenAI o-系列、Claude 3.7 Thinking、QwQ）在生成最終語音回覆前會先進行內心思維推導。`ai-avatar-bot-typescript` 原生提供 **雙軌串流架構 (Dual-Track Stream Architecture)** 與 **兩階段 WebGPU OOM 自適應降級**：
+
+#### 🚀 雙軌串流架構 (Dual-Track Stream Architecture)
+1. **靜默思考軌 (`onReasoningStart`, `onReasoningChunk`, `onReasoningEnd`)**：
+   - 推論 Token（例如 `<think>`、`<thought>` 標籤或 API 的 `delta.reasoning_content`）完全與 TTS 語音發聲隊列隔離。Avatar 在推論期間維持完全靜音，不會進行唇形同步。
+   - 身體動作自動切換至 `thinking` 沉思動作（例如 3D VRM 手扥下巴），並切換至專注沉思表情 (`thinking`)。
+   - 對話對話氣泡顯示呼吸思考動畫指示器 (`showThinkingInBubble: true`)。
+   - 完整的思維鏈內容會連同執行毫秒數 (`reasoningTimeMs`) 保存至對話歷史記憶中。
+2. **回覆發聲軌 (`onStreamChunk`, `onStreamEnd`)**：
+   - 接收到第一個回答 Token 時，TTS 語音合成才延遲啟動 (`speechEngine.beginSpeech()`)，Avatar 動作淡入切換至 `talking` 講話動作與中性自然表情。
+   - 口述句子串流推播至語音播放，並與 2D/3D 口型即時同步。
+3. **歷史面板折疊式思維卡片 (Collapsible Thought History UI)**：
+   - 對話歷史面板渲染原生 HTML5 `<details class="history-item__thought">` 折疊卡片，顯示 `🤔 思考過程 (X.Xs)`（支援多國語系），供使用者隨時展開查閱完整推論過程。
+
+#### 🛡️ 兩階段 WebGPU 記憶體超載自適應降級 (Two-Tier WebGPU OOM Fallback)
+- **第一階 (旗艦預設)**：預設載入 `Hermes-3-Llama-3.1-8B-q4f32_1-MLC`，提供完整的 Function Calling 工具調用與深度思考能力。
+- **第二階 (輕量備援)**：若使用者裝置 WebGPU 顯存不足 (OOM)，自動觸發 `onLlmOomFallback` 回呼並平滑降級至輕量級 `Qwen2.5-1.5B-Instruct-q4f16_1-MLC`（僅需 ~1.1GB 下載、~1.2GB VRAM）。
+- **快速失敗 (Fail-Fast)**：若備援模型依然初始化失敗，立即拋出標準型別錯誤，避免陷入無窮重試迴圈。
+- **自訂配置**：可設定 `llmFallbackModel: null` 停用自動降級，強制要求只使用主要模型。
+
+```typescript
+import { 
+  initAvatarBot, 
+  type ReasoningStartInfo, 
+  type ReasoningChunkInfo, 
+  type ReasoningEndInfo,
+  type LlmOomFallbackInfo 
+} from 'ai-avatar-bot-typescript';
+
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+  llmFallbackModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+  enableOomFallback: true,
+
+  reasoning: {
+    mode: 'auto',
+    showThinkingInBubble: true
+  },
+
+  onReasoningStart: (info: ReasoningStartInfo) => {
+    console.log('AI 開始思考...', info.model);
+  },
+  onReasoningChunk: (info: ReasoningChunkInfo, delta: string) => {
+    console.log('思考過程 Delta：', delta);
+  },
+  onReasoningEnd: (info: ReasoningEndInfo, fullReasoning: string, durationMs: number) => {
+    console.log(`思考完畢，耗時 ${durationMs}ms`);
+  },
+  onStreamChunk: (chunkDelta: string, rawChunk?: unknown) => {
+    console.log('口述回答 Chunk：', chunkDelta);
+  },
+  onLlmOomFallback: (info: LlmOomFallbackInfo, primary: string, fallback: string, err: unknown) => {
+    console.warn(`觸發 WebGPU OOM 降級：${primary} -> ${fallback}`);
+  }
+});
+```
+
+---
+
+### 4. 記憶管理、資料結構與自訂儲存轉接器
 
 實作 `MemoryAdapter` 介面，即可將記憶存入 IndexedDB、Redis 或自建後端 API：
 
@@ -671,7 +742,7 @@ if (memory) {
 
 ---
 
-### 4. Function Calling 與自訂工具 (Tools Engine)
+### 5. Function Calling 與自訂工具 (Tools Engine)
 
 註冊自訂工具並享有完整的 JSON Schema 與執行參數驗證：
 
@@ -720,7 +791,7 @@ const widget = await initAvatarBot({
 
 ---
 
-### 5. 2D (Live2D) 與 3D (VRM) 雙外觀引擎
+### 6. 2D (Live2D) 與 3D (VRM) 雙外觀引擎
 
 透過型別化配置控制空間座標、相機視角與表情手勢：
 
@@ -885,7 +956,7 @@ const widget = await initAvatarBot({
 
 ---
 
-### 6. 語音辨識與神經語音 (Speech Engine)
+### 7. 語音辨識與神經語音 (Speech Engine)
 
 ```typescript
 // 程式化觸發語音朗讀
@@ -914,7 +985,7 @@ widget.speechEngine?.subscribe('spokenDisplayText', (subtitle: string) => {
 
 ---
 
-### 7. 無頭模式 (Headless Mode) 與自訂 UI
+### 8. 無頭模式 (Headless Mode) 與自訂 UI
 
 若您希望以 Vue 3、React、Svelte 或原生 DOM 100% 自行構建介面，可開啟極簡模式：
 
@@ -954,7 +1025,7 @@ widget.speechEngine?.subscribe('isSpeaking', (speaking: boolean) => {
 * **工具管理**：`ToolDefinition`, `ToolRouteCandidate`, `ToolExecutionParams`, `PendingToolState`
 * **可擴充字面量聯集**：`AvatarMode`, `Gender`, `FitMode`, `EngineMode`, `AutoContinueMode`, `ChatRole`
 * **動態解析型別**：`LocalizableOrResolver<T, C>`, `DynamicTextOrResolver<C>`, `AutoContinuePromptResolver`
-* **事件 Payload**：`AutoContinueStartInfo`, `AutoContinueResumeInfo`, `AutoContinueEndInfo`, `ToolNotFoundErrorInfo`, `ToolErrorInfo`, `LlmLoadProgressInfo`
+* **事件 Payload 與推論**：`AutoContinueStartInfo`, `AutoContinueResumeInfo`, `AutoContinueEndInfo`, `ToolNotFoundErrorInfo`, `ToolErrorInfo`, `LlmLoadProgressInfo`, `ReasoningOptions`, `ReasoningStartInfo`, `ReasoningChunkInfo`, `ReasoningEndInfo`, `LlmOomFallbackInfo`
 
 ---
 
