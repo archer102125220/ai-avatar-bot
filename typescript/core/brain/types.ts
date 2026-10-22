@@ -252,6 +252,7 @@ export interface ParsedToolCall {
 export interface LLMEngineOptions {
   llmModel?: string;
   model?: string;
+  temperature?: number;
   llmFallbackModel?: string | null | false;
   fallbackModel?: string | null | false;
   enableOomFallback?: boolean;
@@ -290,6 +291,7 @@ export interface LLMEngine {
   progress: number;
   model: string;
   error?: string;
+  readonly temperature?: number;
   readonly reasoning?: ReasoningOptions;
   readonly maxTokens: number;
   readonly isStream: boolean;

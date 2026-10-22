@@ -683,6 +683,61 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       });
     });
 
+    it('should trigger reasoning callbacks exactly once without duplicate dispatch when both options and brainEngine are provided', async () => {
+      const mockSseStream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(
+            new TextEncoder().encode(
+              'data: {"choices":[{"delta":{"content":"<think>思考中"\\n\\n'
+            )
+          );
+          controller.enqueue(
+            new TextEncoder().encode(
+              'data: {"choices":[{"delta":{"content":"</think>回答"\\n\\n'
+            )
+          );
+          controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+          controller.close();
+        }
+      });
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        body: mockSseStream
+      } as unknown as Response);
+
+      const optionsOnStart = vi.fn();
+      const optionsOnChunk = vi.fn();
+      const optionsOnEnd = vi.fn();
+
+      const mockBrain = {
+        onReasoningStart: vi.fn(),
+        onReasoningChunk: vi.fn(),
+        onReasoningEnd: vi.fn()
+      };
+
+      const provider = await initAiProvider(
+        {
+          baseUrl: 'https://api.example.com',
+          providerIsStream: true,
+          onReasoningStart: optionsOnStart,
+          onReasoningChunk: optionsOnChunk,
+          onReasoningEnd: optionsOnEnd
+        },
+        mockBrain as unknown as Parameters<typeof initAiProvider>[1]
+      );
+
+      await provider.chat([{ role: 'user', content: 'test' }], vi.fn());
+
+      expect(optionsOnStart).toHaveBeenCalledTimes(1);
+      expect(optionsOnChunk).toHaveBeenCalledTimes(1);
+      expect(optionsOnEnd).toHaveBeenCalledTimes(1);
+
+      expect(mockBrain.onReasoningStart).not.toHaveBeenCalled();
+      expect(mockBrain.onReasoningChunk).not.toHaveBeenCalled();
+      expect(mockBrain.onReasoningEnd).not.toHaveBeenCalled();
+    });
+
     it('should extract reasoning from choices[0].message.reasoning_content in non-streaming mode', async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,

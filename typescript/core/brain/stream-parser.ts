@@ -145,6 +145,136 @@ function findPotentialTagPrefixLength(text: string, tags: string[]): number {
 }
 
 /**
+ * Detects repetitive looping degeneration patterns (e.g. repeated sentences, paragraphs, or blocks)
+ * and truncates the repetition while preserving the clean primary output.
+ *
+ * @param text - Candidate answer text string.
+ * @returns Detection status and truncated clean text.
+ */
+function detectSingleRepetitionLoop(text: string): {
+  hasLoop: boolean;
+  cleanText: string;
+} {
+  if (typeof text !== 'string' || text.length < 24) {
+    return { hasLoop: false, cleanText: text };
+  }
+
+  // 1. Paragraph-level repetition (split by newline boundaries)
+  const paragraphs = text
+    .split(/\r?\n+/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+
+  if (paragraphs.length >= 2) {
+    const lastP = paragraphs[paragraphs.length - 1];
+    const prevP = paragraphs[paragraphs.length - 2];
+
+    if (
+      lastP.length >= 15 &&
+      (lastP === prevP ||
+        (lastP.length >= prevP.length && lastP.startsWith(prevP)) ||
+        (prevP.length >= lastP.length && prevP.startsWith(lastP)))
+    ) {
+      const lastOccurrenceIndex = text.lastIndexOf(lastP);
+      if (lastOccurrenceIndex !== -1) {
+        return {
+          hasLoop: true,
+          cleanText: text.slice(0, lastOccurrenceIndex).trimEnd()
+        };
+      }
+    }
+  }
+
+  // 2. Sentence-level repetition (split by sentence-ending punctuation)
+  const sentenceDelimiters = /([。！？!?\n]+)/;
+  const tokens = text.split(sentenceDelimiters).filter(Boolean);
+  const sentences: string[] = [];
+  for (let i = 0; i < tokens.length; i += 2) {
+    const s = ((tokens[i] || '') + (tokens[i + 1] || '')).trim();
+    if (s.length > 0) {
+      sentences.push(s);
+    }
+  }
+
+  if (sentences.length >= 2) {
+    const lastS = sentences[sentences.length - 1];
+    const prevS = sentences[sentences.length - 2];
+    if (lastS.length >= 12 && lastS === prevS) {
+      const lastOccurrenceIndex = text.lastIndexOf(lastS);
+      if (lastOccurrenceIndex !== -1) {
+        return {
+          hasLoop: true,
+          cleanText: text.slice(0, lastOccurrenceIndex).trimEnd()
+        };
+      }
+    }
+  }
+
+  // 3. 2-Sentence cycle repetition: A B A B
+  if (sentences.length >= 4) {
+    const s1 = sentences[sentences.length - 4];
+    const s2 = sentences[sentences.length - 3];
+    const s3 = sentences[sentences.length - 2];
+    const s4 = sentences[sentences.length - 1];
+    if (s1.length >= 8 && s2.length >= 8 && s1 === s3 && s2 === s4) {
+      const lastOccurrenceIndex = text.lastIndexOf(s3);
+      if (lastOccurrenceIndex !== -1) {
+        return {
+          hasLoop: true,
+          cleanText: text.slice(0, lastOccurrenceIndex).trimEnd()
+        };
+      }
+    }
+  }
+
+  // 4. General suffix block repetition: S ends with Block + Block (15 <= Block.length <= 300)
+  const maxBlockLen = Math.min(300, Math.floor(text.length / 2));
+  for (let len = 15; len <= maxBlockLen; len++) {
+    const tail1 = text.slice(text.length - len);
+    const tail2 = text.slice(text.length - len * 2, text.length - len);
+    if (tail1 === tail2 && tail1.trim().length >= 15) {
+      return {
+        hasLoop: true,
+        cleanText: text.slice(0, text.length - len).trimEnd()
+      };
+    }
+  }
+
+  return { hasLoop: false, cleanText: text };
+}
+
+/**
+ * Detects repetitive looping degeneration patterns (e.g. repeated sentences, paragraphs, or blocks)
+ * and iteratively truncates all repetitions while preserving the clean primary output.
+ *
+ * @param text - Candidate answer text string.
+ * @returns Detection status and truncated clean text.
+ */
+export function detectRepetitionLoop(text: string): {
+  hasLoop: boolean;
+  cleanText: string;
+} {
+  if (typeof text !== 'string' || text.length < 24) {
+    return { hasLoop: false, cleanText: text };
+  }
+
+  let current = text;
+  let hasAnyLoop = false;
+
+  for (let iteration = 0; iteration < 10; iteration++) {
+    const singlePass = detectSingleRepetitionLoop(current);
+    if (singlePass.hasLoop === true) {
+      hasAnyLoop = true;
+      current = singlePass.cleanText;
+    } else {
+      break;
+    }
+  }
+
+  return { hasLoop: hasAnyLoop, cleanText: current };
+}
+
+/**
  * Helper function to extract structured reasoning and content deltas from diverse engine payloads.
  * Supports raw string deltas, OpenAI/WebLLM choices[0].delta, and Ollama message formats.
  *
@@ -300,6 +430,41 @@ export class StreamParser {
   }
 
   /**
+   * Returns true if stream has finalized or was terminated early due to loop guard.
+   */
+  public isFinished(): boolean {
+    return this.state === STREAM_PARSER_STATE.FINISHED;
+  }
+
+  /**
+   * Helper to safely append answer slices, run repetition loop detection, and dispatch events.
+   */
+  private emitAnswerSlice(slice: string, rawChunk?: unknown): void {
+    if (slice === '' || this.state === STREAM_PARSER_STATE.FINISHED) {
+      return;
+    }
+
+    this.accumulatedAnswer += slice;
+
+    const loopCheck = detectRepetitionLoop(this.accumulatedAnswer);
+    if (loopCheck.hasLoop === true) {
+      this.accumulatedAnswer = loopCheck.cleanText;
+      this.buffer = '';
+      this.state = STREAM_PARSER_STATE.FINISHED;
+      this.endTime = Date.now();
+      const totalTimeMs = Math.max(0, this.endTime - this.startTime);
+      if (typeof this.options.onAnswerEnd === 'function') {
+        this.options.onAnswerEnd(this.accumulatedAnswer, totalTimeMs);
+      }
+      return;
+    }
+
+    if (typeof this.options.onAnswerChunk === 'function') {
+      this.options.onAnswerChunk(slice, this.accumulatedAnswer, rawChunk);
+    }
+  }
+
+  /**
    * Feeds an incoming token chunk (text string or engine object delta) into the state machine.
    *
    * @param rawChunk - Incoming chunk payload.
@@ -324,14 +489,7 @@ export class StreamParser {
             this.options.onAnswerStart();
           }
         }
-        this.accumulatedAnswer += textChunk;
-        if (typeof this.options.onAnswerChunk === 'function') {
-          this.options.onAnswerChunk(
-            textChunk,
-            this.accumulatedAnswer,
-            rawChunk
-          );
-        }
+        this.emitAnswerSlice(textChunk, rawChunk);
       }
       return;
     }
@@ -418,14 +576,24 @@ export class StreamParser {
       }
     } else if (this.state === STREAM_PARSER_STATE.ANSWERING) {
       if (this.buffer !== '') {
-        this.accumulatedAnswer += this.buffer;
-        if (typeof this.options.onAnswerChunk === 'function') {
-          this.options.onAnswerChunk(
-            this.buffer,
-            this.accumulatedAnswer
-          );
+        for (let i = 0; i < this.endTags.length; i++) {
+          const tag = this.endTags[i];
+          if (tag !== '' && this.buffer.includes(tag) === true) {
+            this.buffer = this.buffer.split(tag).join('');
+          }
         }
-        this.buffer = '';
+        if (this.accumulatedAnswer === '') {
+          this.buffer = this.buffer.replace(/^[ \t]*(\r?\n)+/, '');
+        }
+        if (this.buffer !== '') {
+          this.emitAnswerSlice(this.buffer);
+          this.buffer = '';
+        }
+      }
+
+      const loopCheck = detectRepetitionLoop(this.accumulatedAnswer);
+      if (loopCheck.hasLoop === true) {
+        this.accumulatedAnswer = loopCheck.cleanText;
       }
 
       if (typeof this.options.onAnswerEnd === 'function') {
@@ -438,14 +606,23 @@ export class StreamParser {
       }
 
       if (this.buffer !== '') {
-        this.accumulatedAnswer += this.buffer;
-        if (typeof this.options.onAnswerChunk === 'function') {
-          this.options.onAnswerChunk(
-            this.buffer,
-            this.accumulatedAnswer
-          );
+        for (let i = 0; i < this.endTags.length; i++) {
+          const tag = this.endTags[i];
+          if (tag !== '' && this.buffer.includes(tag) === true) {
+            this.buffer = this.buffer.split(tag).join('');
+          }
         }
-        this.buffer = '';
+        this.buffer = this.buffer.replace(/^[ \t]*(\r?\n)+/, '');
+        if (this.buffer !== '') {
+          this.accumulatedAnswer += this.buffer;
+          if (typeof this.options.onAnswerChunk === 'function') {
+            this.options.onAnswerChunk(
+              this.buffer,
+              this.accumulatedAnswer
+            );
+          }
+          this.buffer = '';
+        }
       }
 
       if (typeof this.options.onAnswerEnd === 'function') {
@@ -456,8 +633,8 @@ export class StreamParser {
     this.state = STREAM_PARSER_STATE.FINISHED;
 
     return {
-      reasoning: this.accumulatedReasoning,
-      answer: this.accumulatedAnswer,
+      reasoning: this.accumulatedReasoning.trim(),
+      answer: this.accumulatedAnswer.replace(/^[ \t]*(\r?\n)+/, ''),
       reasoningTimeMs: this.reasoningDurationMs,
       totalTimeMs,
       hasReasoning: this.accumulatedReasoning !== '',
@@ -544,14 +721,7 @@ export class StreamParser {
             if (typeof this.options.onAnswerStart === 'function') {
               this.options.onAnswerStart();
             }
-            this.accumulatedAnswer += textBefore;
-            if (typeof this.options.onAnswerChunk === 'function') {
-              this.options.onAnswerChunk(
-                textBefore,
-                this.accumulatedAnswer,
-                rawChunk
-              );
-            }
+            this.emitAnswerSlice(textBefore, rawChunk);
           }
 
           this.transitionToThinking('tag');
@@ -590,6 +760,13 @@ export class StreamParser {
       }
 
       if (this.state === STREAM_PARSER_STATE.THINKING) {
+        if (this.accumulatedReasoning === '') {
+          this.buffer = this.buffer.replace(/^(\r?\n)+/, '');
+          if (this.buffer === '') {
+            break;
+          }
+        }
+
         const endTagMatch = findEarliestTag(this.buffer, this.endTags);
 
         if (endTagMatch !== null) {
@@ -608,7 +785,7 @@ export class StreamParser {
           // Advance past end tag and trim immediate newline right after end tag
           this.buffer = this.buffer
             .slice(endTagMatch.index + endTagMatch.tag.length)
-            .replace(/^(\r?\n)+/, '');
+            .replace(/^[ \t]*(\r?\n)+/, '');
 
           this.transitionToAnswering();
           continue;
@@ -652,20 +829,50 @@ export class StreamParser {
       }
 
       if (this.state === STREAM_PARSER_STATE.ANSWERING) {
-        // Check for multi-turn thinking start tag
         const startTagMatch = findEarliestTag(this.buffer, this.startTags);
+        const orphanEndTagMatch = findEarliestTag(this.buffer, this.endTags);
 
+        // 1. Strip and discard any orphaned end tags that appear before any start tag
+        if (
+          orphanEndTagMatch !== null &&
+          (startTagMatch === null || orphanEndTagMatch.index < startTagMatch.index)
+        ) {
+          const textBefore = this.buffer.slice(0, orphanEndTagMatch.index);
+          const textAfter = this.buffer.slice(
+            orphanEndTagMatch.index + orphanEndTagMatch.tag.length
+          );
+          if (this.accumulatedAnswer === '') {
+            this.buffer =
+              (textBefore.trim() === '' ? '' : textBefore) +
+              textAfter.replace(/^[ \t]*(\r?\n)+/, '');
+          } else {
+            this.buffer = textBefore + textAfter;
+          }
+          continue;
+        }
+
+        // 2. If at start of answer, check if buffer ends with a partial prefix of an end tag
+        if (this.accumulatedAnswer === '') {
+          const partialEndTagLen = findPotentialTagPrefixLength(
+            this.buffer,
+            this.endTags
+          );
+          if (partialEndTagLen > 0) {
+            break;
+          }
+
+          // Strip leading newlines before first answer chunk
+          this.buffer = this.buffer.replace(/^[ \t]*(\r?\n)+/, '');
+          if (this.buffer === '') {
+            break;
+          }
+        }
+
+        // 3. Check for multi-turn thinking start tag
         if (startTagMatch !== null) {
           const answerSlice = this.buffer.slice(0, startTagMatch.index);
           if (answerSlice !== '') {
-            this.accumulatedAnswer += answerSlice;
-            if (typeof this.options.onAnswerChunk === 'function') {
-              this.options.onAnswerChunk(
-                answerSlice,
-                this.accumulatedAnswer,
-                rawChunk
-              );
-            }
+            this.emitAnswerSlice(answerSlice, rawChunk);
           }
 
           this.transitionToThinking('tag');
@@ -675,7 +882,7 @@ export class StreamParser {
           continue;
         }
 
-        // Check if tail of buffer could be start of another think tag
+        // 4. Check if tail of buffer could be start of another think tag
         const partialLen = findPotentialTagPrefixLength(
           this.buffer,
           this.startTags
@@ -686,28 +893,14 @@ export class StreamParser {
             this.buffer.length - partialLen
           );
           if (safeAnswer !== '') {
-            this.accumulatedAnswer += safeAnswer;
-            if (typeof this.options.onAnswerChunk === 'function') {
-              this.options.onAnswerChunk(
-                safeAnswer,
-                this.accumulatedAnswer,
-                rawChunk
-              );
-            }
+            this.emitAnswerSlice(safeAnswer, rawChunk);
           }
           this.buffer = this.buffer.slice(this.buffer.length - partialLen);
           break;
         }
 
-        // Entire buffer is safe answer text
-        this.accumulatedAnswer += this.buffer;
-        if (typeof this.options.onAnswerChunk === 'function') {
-          this.options.onAnswerChunk(
-            this.buffer,
-            this.accumulatedAnswer,
-            rawChunk
-          );
-        }
+        // 5. Entire buffer is safe answer text
+        this.emitAnswerSlice(this.buffer, rawChunk);
         this.buffer = '';
         break;
       }

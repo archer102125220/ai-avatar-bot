@@ -1126,5 +1126,54 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       expect(result.content).toBe('乾淨回覆');
       expect(result.reasoning).toBe('非串流推論中');
     });
+
+    it('should trigger reasoning callbacks exactly once without duplicate dispatch when both options and brainEngine are provided', async () => {
+      vi.mocked(WebLLMModule.CreateMLCEngine).mockResolvedValueOnce(
+        asMLCEngine({
+          chat: {
+            completions: {
+              create: vi.fn().mockResolvedValue(
+                (async function* () {
+                  yield { choices: [{ delta: { content: '<think>思考中' } }] };
+                  yield { choices: [{ delta: { content: '</think>回答' } }] };
+                })()
+              )
+            }
+          }
+        })
+      );
+
+      const optionsOnStart = vi.fn();
+      const optionsOnChunk = vi.fn();
+      const optionsOnEnd = vi.fn();
+
+      const mockBrain = {
+        onReasoningStart: vi.fn(),
+        onReasoningChunk: vi.fn(),
+        onReasoningEnd: vi.fn()
+      };
+
+      const llm: WebLLMController = initWebLLM(
+        {
+          llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+          llmIsStream: true,
+          onReasoningStart: optionsOnStart,
+          onReasoningChunk: optionsOnChunk,
+          onReasoningEnd: optionsOnEnd
+        },
+        mockBrain as unknown as Parameters<typeof initWebLLM>[1]
+      );
+      await llm.load();
+
+      await llm.chat([{ role: 'user', content: '測試雙重呼叫防護' }], vi.fn());
+
+      expect(optionsOnStart).toHaveBeenCalledTimes(1);
+      expect(optionsOnChunk).toHaveBeenCalledTimes(1);
+      expect(optionsOnEnd).toHaveBeenCalledTimes(1);
+
+      expect(mockBrain.onReasoningStart).not.toHaveBeenCalled();
+      expect(mockBrain.onReasoningChunk).not.toHaveBeenCalled();
+      expect(mockBrain.onReasoningEnd).not.toHaveBeenCalled();
+    });
   });
 });

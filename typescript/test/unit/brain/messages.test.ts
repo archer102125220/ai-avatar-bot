@@ -624,5 +624,50 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
         resolveAutoContinuePrompt(mockBrainEngine as unknown as BrainEngine, 1, 'text')
       ).toContain('이전 문장을 반복하지 말고');
     });
+
+    it('should avoid duplicate trailing user question when memory history already ends with the question', async () => {
+      mockBrainEngine.memory.enabled = true;
+      mockBrainEngine.memory.data = {
+        history: [
+          { role: 'user', content: '哈囉你好' },
+          { role: 'assistant', content: '你好！很高興見到你。' },
+          { role: 'user', content: '1+1等於多少？' }
+        ]
+      };
+
+      const messages = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        '1+1等於多少？'
+      );
+
+      // Verify that '1+1等於多少？' is present exactly once, NOT duplicated consecutively
+      const userQuestions = messages.filter(
+        (m) => m.role === 'user' && m.content === '1+1等於多少？'
+      );
+      expect(userQuestions).toHaveLength(1);
+    });
+
+    it('should clean up repetition loops in past assistant history turns', async () => {
+      const repeatedAnswer = '1+1等於2，這是一個基礎數學常識。';
+      mockBrainEngine.memory.enabled = true;
+      mockBrainEngine.memory.data = {
+        history: [
+          { role: 'user', content: '1+1等於多少？' },
+          {
+            role: 'assistant',
+            content: `${repeatedAnswer}\n\n${repeatedAnswer}\n\n${repeatedAnswer}`
+          }
+        ]
+      };
+
+      const messages = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        '那2+2呢？'
+      );
+
+      const assistantMsg = messages.find((m) => m.role === 'assistant');
+      expect(assistantMsg).toBeDefined();
+      expect(assistantMsg?.content).toBe(repeatedAnswer);
+    });
   });
 });

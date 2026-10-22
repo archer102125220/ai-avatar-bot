@@ -184,8 +184,7 @@ export async function initAiProvider(
       return function _onReasoningStart(info: ReasoningStartInfo) {
         if (typeof onReasoningStart === 'function') {
           onReasoningStart(info);
-        }
-        if (
+        } else if (
           typeof (brain as Partial<BrainEngine>)?.onReasoningStart ===
           'function'
         ) {
@@ -197,8 +196,7 @@ export async function initAiProvider(
       return function _onReasoningChunk(info: ReasoningChunkInfo) {
         if (typeof onReasoningChunk === 'function') {
           onReasoningChunk(info);
-        }
-        if (
+        } else if (
           typeof (brain as Partial<BrainEngine>)?.onReasoningChunk ===
           'function'
         ) {
@@ -210,8 +208,7 @@ export async function initAiProvider(
       return function _onReasoningEnd(info: ReasoningEndInfo) {
         if (typeof onReasoningEnd === 'function') {
           onReasoningEnd(info);
-        }
-        if (
+        } else if (
           typeof (brain as Partial<BrainEngine>)?.onReasoningEnd ===
           'function'
         ) {

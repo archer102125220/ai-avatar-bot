@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   StreamParser,
-  STREAM_PARSER_STATE
+  STREAM_PARSER_STATE,
+  detectRepetitionLoop
 } from '@/core/brain/stream-parser';
 
 describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () => {
@@ -443,4 +444,111 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
     expect(result.reasoning).toBe('');
     expect(result.answer).toBe('Internal reasoning...Direct answer');
   });
+
+  it('Case 14: should cleanly strip leading newlines across chunk boundaries when </think> ends one chunk and \\n\\n begins the next chunk', () => {
+    const onAnswerChunk = vi.fn();
+    const parser = new StreamParser({ onAnswerChunk });
+
+    // Emulate DeepSeek-R1 token boundaries
+    parser.feed('<think>calculating');
+    parser.feed(' result</think>');
+    parser.feed('\n\n');
+    parser.feed('1');
+    parser.feed('+1=2');
+
+    // onAnswerChunk must NEVER be invoked with pure leading newlines
+    expect(onAnswerChunk).not.toHaveBeenCalledWith('\n\n', expect.anything(), expect.anything());
+    expect(onAnswerChunk).toHaveBeenCalledWith('1', '1', expect.anything());
+    expect(onAnswerChunk).toHaveBeenCalledWith('+1=2', '1+1=2', expect.anything());
+
+    const result = parser.finish();
+    expect(result.reasoning).toBe('calculating result');
+    expect(result.answer).toBe('1+1=2');
+  });
+
+  it('Case 15: should cleanly strip orphaned </think> and leading newlines in content when using structured reasoning', () => {
+    const onAnswerChunk = vi.fn();
+    const parser = new StreamParser({ onAnswerChunk });
+
+    // Emulate WebLLM / vLLM emitting reasoning_content, then content starting with </think>\n\n
+    parser.feed({ choices: [{ delta: { reasoning_content: 'step 1, step 2' } }] });
+    parser.feed({ choices: [{ delta: { content: '</think>\n\nFinal answer is 42.' } }] });
+
+    expect(onAnswerChunk).toHaveBeenCalledWith('Final answer is 42.', 'Final answer is 42.', expect.anything());
+
+    const result = parser.finish();
+    expect(result.reasoning).toBe('step 1, step 2');
+    expect(result.answer).toBe('Final answer is 42.');
+  });
+
+  it('Case 16: should strip duplicate closing tags and preserve legitimate paragraphs in answer text', () => {
+    const onAnswerChunk = vi.fn();
+    const parser = new StreamParser({ onAnswerChunk });
+
+    parser.feed('<think>brainstorm</think></think>\n\nParagraph 1.\n\nParagraph 2.');
+
+    expect(onAnswerChunk).toHaveBeenCalledWith('Paragraph 1.\n\nParagraph 2.', 'Paragraph 1.\n\nParagraph 2.', expect.anything());
+
+    const result = parser.finish();
+    expect(result.reasoning).toBe('brainstorm');
+    expect(result.answer).toBe('Paragraph 1.\n\nParagraph 2.');
+  });
+
+  it('Case 17: should detect and truncate repetition loops across paragraphs, sentences, and suffix blocks', () => {
+    // 1. Short text (< 24 chars)
+    expect(detectRepetitionLoop('Short text').hasLoop).toBe(false);
+
+    // 2. Paragraph repetition
+    const p1 = '這是第一段完整的說明內容，非常豐富且清楚。';
+    const pLoop = `${p1}\n\n${p1}`;
+    const pResult = detectRepetitionLoop(pLoop);
+    expect(pResult.hasLoop).toBe(true);
+    expect(pResult.cleanText).toBe(p1);
+
+    // 3. Sentence repetition
+    const s1 = '深度求索模型的推論過程非常迅速，答案清晰明瞭。';
+    const sLoop = `${s1}${s1}`;
+    const sResult = detectRepetitionLoop(sLoop);
+    expect(sResult.hasLoop).toBe(true);
+    expect(sResult.cleanText).toBe(s1);
+
+    // 4. 2-sentence cycle repetition: A B A B
+    const cycle = '第一句重點說明。第二句補充細節。第一句重點說明。第二句補充細節。';
+    const cycleResult = detectRepetitionLoop(cycle);
+    expect(cycleResult.hasLoop).toBe(true);
+    expect(cycleResult.cleanText).toBe('第一句重點說明。第二句補充細節。');
+
+    // 5. Clean text without repetition
+    const clean = '這是段落一。\n\n這是段落二，內容完全不同。\n\n這是段落三，結論也是獨立的。';
+    expect(detectRepetitionLoop(clean).hasLoop).toBe(false);
+  });
+
+  it('Case 18: StreamParser should halt and truncate immediately when repetition loop occurs during streaming', () => {
+    const onAnswerEnd = vi.fn();
+    const onAnswerChunk = vi.fn();
+    const parser = new StreamParser({
+      onAnswerEnd,
+      onAnswerChunk
+    });
+
+    const baseAnswer = '1+1等於2，這是一個基礎數學常識。';
+    parser.feed(`<think>計算中</think>${baseAnswer}`);
+
+    expect(parser.getState()).toBe(STREAM_PARSER_STATE.ANSWERING);
+    expect(parser.isFinished()).toBe(false);
+
+    // Feed duplicate loop block
+    parser.feed(`\n\n${baseAnswer}`);
+
+    // StreamParser should detect the loop, truncate to baseAnswer, and finish immediately
+    expect(parser.getState()).toBe(STREAM_PARSER_STATE.FINISHED);
+    expect(parser.isFinished()).toBe(true);
+    expect(parser.getAnswer()).toBe(baseAnswer);
+    expect(onAnswerEnd).toHaveBeenCalledWith(baseAnswer, expect.any(Number));
+
+    // Subsequent chunks fed after loop detection must be ignored
+    parser.feed(`\n\n${baseAnswer}`);
+    expect(parser.getAnswer()).toBe(baseAnswer);
+  });
 });
+

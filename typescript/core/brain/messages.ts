@@ -3,6 +3,7 @@ import { resolveLocalized, defaultLocales, formatParams } from '@/core/i18n';
 import type { BrainEngine, KnowledgeEntry, LLMMessage } from './types';
 import { getTopKnowledge } from './knowledge';
 import { compressContext } from './compression';
+import { detectRepetitionLoop } from './stream-parser';
 
 /**
  * Retrieves localized string for internal Brain messages.
@@ -449,16 +450,16 @@ export function buildDefaultLLMMessages(
     }
 
     let defaultCompanionTemplate =
-      '你是這個網站的陪伴型語音虛擬人，親切、口語、繁體中文、每次最多兩三句。你記得訪客先前的對話{{name_placeholder}}。{{RAG}}\n{{styleRule}}';
+      '你是這個網站的陪伴型語音虛擬人，親切、口語、繁體中文、每次最多兩三句。說完請直接結束，切勿重複說明。你記得訪客先前的對話{{name_placeholder}}。{{RAG}}\n{{styleRule}}';
     if (/en/i.test(locale)) {
       defaultCompanionTemplate =
-        'You are a friendly companion voice avatar for this website. Please respond warmly in natural, spoken English in 2-3 sentences. You remember previous conversations with the visitor{{name_placeholder}}.{{RAG}}\n{{styleRule}}';
+        'You are a friendly companion voice avatar for this website. Please respond warmly in natural, spoken English in 2-3 sentences. Stop immediately after answering; do not repeat. You remember previous conversations with the visitor{{name_placeholder}}.{{RAG}}\n{{styleRule}}';
     } else if (/ja/i.test(locale)) {
       defaultCompanionTemplate =
-        'あなたはこのWebサイトの親しみやすい音声対話アバターです。親切かつ口語的な日本語で、2〜3文程度で暖かく返答してください。訪問者との過去の会話を覚えています{{name_placeholder}}。{{RAG}}\n{{styleRule}}';
+        'あなたはこのWebサイトの親しみやすい音声対話アバターです。親切かつ口語的な日本語で、2〜3文程度で暖かく返答してください。回答後は直ちに終了し、同じ内容を繰り返さないでください。訪問者との過去の会話を覚えています{{name_placeholder}}。{{RAG}}\n{{styleRule}}';
     } else if (/ko/i.test(locale)) {
       defaultCompanionTemplate =
-        '당신은 이 웹사이트의 친근하고 다정한 대화형 음성 아바타입니다. 부드럽고 구어체적인 한국어로 2~3문장 이내로 따뜻하게 응답해 주세요. 방문자와의 이전 대화를 기억합니다{{name_placeholder}}.{{RAG}}\n{{styleRule}}';
+        '당신은 이 웹사이트의 친근하고 다정한 대화형 음성 아바타입니다. 부드럽고 구어체적인 한국어로 2~3문장 이내로 따뜻하게 응답해 주세요. 답변 후 즉시 종료하고 반복하지 마세요. 방문자와의 이전 대화를 기억합니다{{name_placeholder}}.{{RAG}}\n{{styleRule}}';
     }
 
     const rawCompanionTemplate = resolveLocalized<
@@ -481,16 +482,16 @@ export function buildDefaultLLMMessages(
     systemContext = companionTemplate;
   } else {
     let defaultAssistantTemplate =
-      '你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請口語、最多兩三句話簡短回答。{{RAG}}\n{{styleRule}}';
+      '你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請口語、最多兩三句話簡短回答，說完請直接結束，切勿重複說明或重頭再次解釋。{{RAG}}\n{{styleRule}}';
     if (/en/i.test(locale)) {
       defaultAssistantTemplate =
-        'You are a demo assistant for "an embeddable voice AI avatar widget". Your topic is teaching users "how to install this widget, how to customize the avatar character, and how to use it". Please answer concisely in natural, spoken English within 2-3 sentences.{{RAG}}\n{{styleRule}}';
+        'You are a demo assistant for "an embeddable voice AI avatar widget". Your topic is teaching users "how to install this widget, how to customize the avatar character, and how to use it". Please answer concisely in natural, spoken English within 2-3 sentences. Stop immediately after answering; do not repeat or restart the explanation.{{RAG}}\n{{styleRule}}';
     } else if (/ja/i.test(locale)) {
       defaultAssistantTemplate =
-        'あなたは「Webサイトに埋め込み可能な音声AIアバターウィジェット」のデモアシスタントです。テーマは「ウィジェットの導入方法、アバターのカスタマイズ方法、使い方」を教えることです。自然で簡潔な日本語で、2〜3文程度で回答してください。{{RAG}}\n{{styleRule}}';
+        'あなたは「Webサイトに埋め込み可能な音声AIアバターウィジェット」のデモアシスタントです。テーマは「ウィジェットの導入方法、アバターのカスタマイズ方法、使い方」を教えることです。自然で簡潔な日本語で、2〜3文程度で1回だけ回答し、回答後は直ちに終了してください。同じ説明を繰り返さないでください。{{RAG}}\n{{styleRule}}';
     } else if (/ko/i.test(locale)) {
       defaultAssistantTemplate =
-        '당신은 "웹사이트에 임베드 가능한 음성 AI 아바타 위젯"의 데모 어시스턴트입니다. 주제는 "위젯 설치 방법, 아바타 캐릭터 변경 방법, 사용법"을 알려주는 것입니다. 자연스럽고 간결한 한국어로 2~3문장 이내로 답변해 주세요.{{RAG}}\n{{styleRule}}';
+        '당신은 "웹사이트에 임베드 가능한 음성 AI 아바타 위젯"의 데모 어시스턴트입니다. 주제는 "위젯 설치 방법, 아바타 캐릭터 변경 방법, 사용법"을 알려주는 것입니다. 자연스럽고 간결한 한국어로 2~3문장 이내로 한 번만 답변하고 즉시 종료하세요. 동일한 설명을 반복하지 마세요.{{RAG}}\n{{styleRule}}';
     }
 
     const rawAssistantTemplate = resolveLocalized<
@@ -544,6 +545,16 @@ export function buildDefaultLLMMessages(
       ) {
         safeContent = String(rawItem.content);
       }
+      if (historyItem.role === 'assistant') {
+        safeContent = safeContent
+          .replace(/<think>[\s\S]*?<\/think>/g, '')
+          .replace(/<\/?(think|thought)>/g, '')
+          .replace(/^[ \t]*(\r?\n)+/, '');
+        const loopCheck = detectRepetitionLoop(safeContent);
+        if (loopCheck.hasLoop === true) {
+          safeContent = loopCheck.cleanText;
+        }
+      }
       rawMessages.push({
         role: historyItem.role === 'user' ? 'user' : 'assistant',
         content: safeContent
@@ -552,7 +563,35 @@ export function buildDefaultLLMMessages(
   }
   const safeQuestion =
     typeof question === 'string' ? question : String(question || '');
-  rawMessages.push({ role: 'user', content: safeQuestion });
+
+  const lastRawMsg = rawMessages[rawMessages.length - 1];
+  if (
+    safeQuestion.trim() !== '' &&
+    (!lastRawMsg ||
+      lastRawMsg.role !== 'user' ||
+      lastRawMsg.content !== safeQuestion)
+  ) {
+    rawMessages.push({ role: 'user', content: safeQuestion });
+  }
+
+  const cleanMessages: LLMMessage[] = [];
+  for (let i = 0; i < rawMessages.length; i++) {
+    const current = rawMessages[i];
+    const prev = cleanMessages[cleanMessages.length - 1];
+    if (prev && prev.role === current.role) {
+      if (prev.content === current.content) {
+        continue;
+      }
+      if (current.role === 'assistant') {
+        prev.content = `${prev.content}\n${current.content}`;
+        continue;
+      }
+    }
+    cleanMessages.push({
+      role: current.role as 'system' | 'user' | 'assistant',
+      content: current.content
+    });
+  }
 
   const isWebLLM = engineType === BRAIN_ENGINE_TYPE_MAP.WEB_LLM;
   const currentModel =
@@ -561,7 +600,7 @@ export function buildDefaultLLMMessages(
       : engine.aiProvider?.model || '';
 
   return compressContext({
-    messages: rawMessages,
+    messages: cleanMessages,
     systemPrompt: systemContext,
     history,
     latestQuestion: question,

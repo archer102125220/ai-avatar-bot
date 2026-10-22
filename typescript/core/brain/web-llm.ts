@@ -116,10 +116,15 @@ export function initWebLLM(
     onReasoningStart,
     onReasoningChunk,
     onReasoningEnd,
-    reasoning
+    reasoning,
+    temperature
   } = setting;
 
   const resolvedModel = llmModel || model || DEFAULT_LLM_MODEL;
+  const resolvedTemperature =
+    typeof temperature === 'number' && Number.isFinite(temperature) === true
+      ? temperature
+      : 0.6;
 
   const isFallbackExplicitlyDisabled =
     enableOomFallback === false ||
@@ -168,6 +173,9 @@ export function initWebLLM(
     progress: 0,
     model: resolvedModel,
 
+    get temperature(): number {
+      return resolvedTemperature;
+    },
     get maxTokens(): number {
       return resolvedMaxTokens;
     },
@@ -224,8 +232,7 @@ export function initWebLLM(
       return function _onLlmOomFallback(info: LlmOomFallbackInfo) {
         if (typeof onLlmOomFallback === 'function') {
           onLlmOomFallback(info);
-        }
-        if (
+        } else if (
           typeof (brain as Partial<BrainEngine>)?.onLlmOomFallback ===
           'function'
         ) {
@@ -237,8 +244,7 @@ export function initWebLLM(
       return function _onReasoningStart(info: ReasoningStartInfo) {
         if (typeof onReasoningStart === 'function') {
           onReasoningStart(info);
-        }
-        if (
+        } else if (
           typeof (brain as Partial<BrainEngine>)?.onReasoningStart ===
           'function'
         ) {
@@ -250,8 +256,7 @@ export function initWebLLM(
       return function _onReasoningChunk(info: ReasoningChunkInfo) {
         if (typeof onReasoningChunk === 'function') {
           onReasoningChunk(info);
-        }
-        if (
+        } else if (
           typeof (brain as Partial<BrainEngine>)?.onReasoningChunk ===
           'function'
         ) {
@@ -263,8 +268,7 @@ export function initWebLLM(
       return function _onReasoningEnd(info: ReasoningEndInfo) {
         if (typeof onReasoningEnd === 'function') {
           onReasoningEnd(info);
-        }
-        if (
+        } else if (
           typeof (brain as Partial<BrainEngine>)?.onReasoningEnd ===
           'function'
         ) {
@@ -328,8 +332,7 @@ export function initWebLLM(
             };
             if (typeof onLlmOomFallback === 'function') {
               onLlmOomFallback(oomInfo);
-            }
-            if (
+            } else if (
               typeof (brain as Partial<BrainEngine>)?.onLlmOomFallback ===
               'function'
             ) {
@@ -385,8 +388,16 @@ export function initWebLLM(
 
       const createOptions: Record<string, unknown> = {
         messages,
-        temperature: 0.4,
-        max_tokens: this.maxTokens
+        temperature:
+          typeof this.temperature === 'number' &&
+          Number.isFinite(this.temperature) === true
+            ? this.temperature
+            : 0.6,
+        repetition_penalty: 1.15,
+        frequency_penalty: 0.25,
+        presence_penalty: 0.15,
+        stop: ['<|im_end|>', '<|endoftext|>', '<|im_start|>', '\n\n\n'],
+        max_tokens: Math.min(this.maxTokens, 512)
       };
 
       const supportsFunctionCalling = isWebLLMFunctionCallingSupported(
@@ -593,6 +604,9 @@ export function initWebLLM(
         });
 
         for await (const chunk of stream) {
+          if (parser.isFinished() === true) {
+            break;
+          }
           const choice = chunk?.choices?.[0];
           const delta = choice?.delta;
           if (
@@ -635,6 +649,9 @@ export function initWebLLM(
             });
           } else {
             parser.feed(chunk);
+            if (parser.isFinished() === true) {
+              break;
+            }
           }
         }
 
