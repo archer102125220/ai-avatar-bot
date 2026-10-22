@@ -152,7 +152,8 @@ export function estimateChars(input: unknown): number {
 }
 
 /**
- * Ensures tool calls and tool responses remain paired in conversation messages to prevent 400 Bad Request errors.
+ * Ensures tool calls and tool responses remain paired in conversation messages to prevent 400 Bad Request errors,
+ * and strips internal reasoning traces from outgoing LLM prompt messages.
  *
  * @param messages - Message array to sanitize.
  * @returns Sanitized message array.
@@ -198,7 +199,15 @@ export function sanitizeToolCalls(messages: LLMMessage[]): LLMMessage[] {
       }
     }
 
-    sanitizedMessages.push(message);
+    const cleanMessage: LLMMessage = { ...message };
+    if ('reasoning' in cleanMessage) {
+      delete cleanMessage.reasoning;
+    }
+    if ('reasoningTimeMs' in cleanMessage) {
+      delete cleanMessage.reasoningTimeMs;
+    }
+
+    sanitizedMessages.push(cleanMessage);
   }
 
   return sanitizedMessages;

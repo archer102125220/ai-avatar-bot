@@ -124,6 +124,24 @@ describe('Unit Test: core/brain/compression.js', () => {
         false
       );
     });
+
+    it('should strip reasoning and reasoningTimeMs fields from outgoing LLM messages', () => {
+      const messages: LLMMessage[] = [
+        { role: 'user', content: 'Hello' },
+        {
+          role: 'assistant',
+          content: 'Hi there',
+          reasoning: 'Thinking process...',
+          reasoningTimeMs: 1200
+        }
+      ];
+
+      const sanitized = sanitizeToolCalls(messages);
+      expect(sanitized).toHaveLength(2);
+      expect(sanitized[1].content).toBe('Hi there');
+      expect(sanitized[1].reasoning).toBeUndefined();
+      expect(sanitized[1].reasoningTimeMs).toBeUndefined();
+    });
   });
 
   describe('groupMessagesIntoTurns', () => {
@@ -212,6 +230,7 @@ describe('Unit Test: core/brain/compression.js', () => {
       // Answer 1 should NOT be dropped because reasoning is not counted in estimateChars
       expect(result).toHaveLength(3);
       expect(result[1].content).toBe('Answer 1');
+      expect(result[1].reasoning).toBeUndefined();
     });
   });
 
