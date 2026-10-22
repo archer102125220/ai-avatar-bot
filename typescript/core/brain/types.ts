@@ -14,6 +14,7 @@ import type {
   ReasoningChunkInfo,
   ReasoningEndInfo,
   LlmOomFallbackInfo,
+  ReasoningOptions,
   ChatRole,
   AutoContinueMode,
   Gender,
@@ -34,6 +35,7 @@ export type {
   ReasoningChunkInfo,
   ReasoningEndInfo,
   LlmOomFallbackInfo,
+  ReasoningOptions,
   AutoContinueMode,
   Gender,
   DynamicTextOrResolver,
@@ -276,6 +278,7 @@ export interface LLMEngineOptions {
   onReasoningEnd?:
     | ((info: ReasoningEndInfo, ...args: unknown[]) => void)
     | null;
+  reasoning?: ReasoningOptions;
 }
 
 /**
@@ -287,6 +290,7 @@ export interface LLMEngine {
   progress: number;
   model: string;
   error?: string;
+  readonly reasoning?: ReasoningOptions;
   readonly maxTokens: number;
   readonly isStream: boolean;
   readonly onLoading: (...args: unknown[]) => unknown;
@@ -433,6 +437,7 @@ export interface AiProviderOptions {
   onReasoningEnd?:
     | ((info: ReasoningEndInfo, ...args: unknown[]) => void)
     | null;
+  reasoning?: ReasoningOptions;
 }
 
 export interface AiProviderChatResult {
@@ -453,6 +458,7 @@ export interface AiProviderEngine {
   baseUrl: string;
   pingUrl: string;
   chatUrl: string;
+  readonly reasoning?: ReasoningOptions;
   readonly createFetchSetting:
     | AiProviderFetchSettingFactory
     | RequestInit
@@ -642,6 +648,7 @@ export interface BrainEngineOptions {
   ) => unknown;
   onToolNotFound?: (info: ToolNotFoundErrorInfo, ...args: unknown[]) => unknown;
   onToolError?: (info: ToolErrorInfo, ...args: unknown[]) => unknown;
+  reasoning?: ReasoningOptions;
 }
 
 /**
@@ -827,6 +834,7 @@ export interface BrainEngine {
   customContext?: Record<string, unknown> | null;
   languageRule?: string | ((...args: unknown[]) => string);
   genderRule?: string | ((...args: unknown[]) => string);
+  reasoning?: ReasoningOptions;
   compression: BrainCompressionOptions;
   i18nEngine: I18nEngine | null;
   readonly llm: LLMEngine | null;

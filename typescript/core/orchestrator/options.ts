@@ -12,13 +12,15 @@ import {
   DEFAULT_MAX_AUTO_CONTINUATIONS,
   AUTO_CONTINUE_MODE_MAP,
   DEFAULT_AUTO_CONTINUE_MODE,
-  DEFAULT_ENABLE_MEMORY
+  DEFAULT_ENABLE_MEMORY,
+  DEFAULT_REASONING_OPTIONS
 } from '@/core/constants';
 import type {
   AvatarBotOptions,
   AvatarBotStore,
   AvatarBotStoreState,
-  I18nEngine
+  I18nEngine,
+  ReasoningOptions
 } from './types';
 import type { Gender } from '@/core/types';
 
@@ -161,6 +163,19 @@ export function normalizeOptions(
       ? enableEngineToggle
       : DEFAULT_ENABLE_ENGINE_TOGGLE;
 
+  const safeReasoning: Required<ReasoningOptions> = {
+    mode:
+      rawOptions.reasoning?.mode === 'always' ||
+      rawOptions.reasoning?.mode === 'never' ||
+      rawOptions.reasoning?.mode === 'auto'
+        ? rawOptions.reasoning.mode
+        : DEFAULT_REASONING_OPTIONS.mode,
+    showThinkingInBubble:
+      typeof rawOptions.reasoning?.showThinkingInBubble === 'boolean'
+        ? rawOptions.reasoning.showThinkingInBubble
+        : DEFAULT_REASONING_OPTIONS.showThinkingInBubble
+  };
+
   const rootStore: AvatarBotStore = createBaseStore<AvatarBotStoreState>({
     gender: safeGender,
     brainGender:
@@ -222,6 +237,7 @@ export function normalizeOptions(
           : 'zh-TW',
     enableModelDrop: isModelDropEnabled,
     enableEngineToggle: isEngineToggleEnabled,
+    reasoning: safeReasoning,
     suggestedQuestions: rawOptions.suggestedQuestions,
     companionSuggestedQuestions: rawOptions.companionSuggestedQuestions,
     assistantSuggestedQuestions: rawOptions.assistantSuggestedQuestions,
@@ -230,8 +246,13 @@ export function normalizeOptions(
     assistantSuggestedTitle: rawOptions.assistantSuggestedTitle
   });
 
+  const normalizedRawOptions: AvatarBotOptions = {
+    ...rawOptions,
+    reasoning: safeReasoning
+  };
+
   return {
-    rawOptions,
+    rawOptions: normalizedRawOptions,
     container,
     rootStore,
     i18nEngine,

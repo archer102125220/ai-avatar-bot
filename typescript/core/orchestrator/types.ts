@@ -579,6 +579,7 @@ export interface AvatarBotStoreState {
   locale: string;
   enableModelDrop: boolean;
   enableEngineToggle: boolean;
+  reasoning?: Required<ReasoningOptions>;
   suggestedQuestions?: LocalizableOrResolver<string[]>;
   companionSuggestedQuestions?: LocalizableOrResolver<string[]>;
   assistantSuggestedQuestions?: LocalizableOrResolver<string[]>;

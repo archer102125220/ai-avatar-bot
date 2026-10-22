@@ -115,7 +115,8 @@ export function initWebLLM(
     onStreamChatting,
     onReasoningStart,
     onReasoningChunk,
-    onReasoningEnd
+    onReasoningEnd,
+    reasoning
   } = setting;
 
   const resolvedModel = llmModel || model || DEFAULT_LLM_MODEL;
@@ -270,6 +271,9 @@ export function initWebLLM(
           (brain as Partial<BrainEngine>).onReasoningEnd!(info);
         }
       };
+    },
+    get reasoning() {
+      return reasoning;
     },
     async load(): Promise<unknown> {
       if (typeof engine === 'object' && engine !== null) {
@@ -508,6 +512,7 @@ export function initWebLLM(
           const rawContent = message?.content || '';
           const parser = new StreamParser({
             model: this.model,
+            mode: this.reasoning?.mode,
             onReasoningStart: (info) => this.onReasoningStart?.(info),
             onReasoningChunk: (info) => this.onReasoningChunk?.(info),
             onReasoningEnd: (info) => this.onReasoningEnd?.(info)
@@ -577,6 +582,7 @@ export function initWebLLM(
 
         const parser = new StreamParser({
           model: this.model,
+          mode: this.reasoning?.mode,
           onReasoningStart: (info) => this.onReasoningStart?.(info),
           onReasoningChunk: (info) => this.onReasoningChunk?.(info),
           onReasoningEnd: (info) => this.onReasoningEnd?.(info),

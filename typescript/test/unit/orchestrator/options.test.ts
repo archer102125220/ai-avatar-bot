@@ -103,6 +103,43 @@ describe('Orchestrator Options & Configuration', () => {
       expect(state.maxAutoContinuations).toBe(3);
       expect(state.autoContinueMode).toBe(DEFAULT_AUTO_CONTINUE_MODE);
       expect(state.locale).toBe('zh-TW');
+      expect(state.reasoning).toEqual({
+        mode: 'auto',
+        showThinkingInBubble: true
+      });
+      expect(normalized.rawOptions.reasoning).toEqual({
+        mode: 'auto',
+        showThinkingInBubble: true
+      });
+    });
+
+    it('should sanitize and normalize reasoning options correctly', () => {
+      const container = document.createElement('div');
+
+      const normCustom = normalizeOptions({
+        container,
+        reasoning: {
+          mode: 'never',
+          showThinkingInBubble: false
+        }
+      });
+      expect(normCustom.rawOptions.reasoning).toEqual({
+        mode: 'never',
+        showThinkingInBubble: false
+      });
+      expect(normCustom.rootStore.getState().reasoning).toEqual({
+        mode: 'never',
+        showThinkingInBubble: false
+      });
+
+      const normInvalid = normalizeOptions({
+        container,
+        reasoning: {
+          mode: 'invalid_mode' as unknown as 'auto',
+          showThinkingInBubble: true
+        }
+      });
+      expect(normInvalid.rawOptions.reasoning?.mode).toBe('auto');
     });
 
     it('should sanitize gender and derive default neural voice', () => {

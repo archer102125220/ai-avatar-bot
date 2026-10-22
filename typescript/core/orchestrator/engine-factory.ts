@@ -91,6 +91,7 @@ export async function setupBrainEngine({
     llmFallbackModel,
     enableOomFallback:
       typeof enableOomFallback === 'boolean' ? enableOomFallback : true,
+    reasoning: options.reasoning,
     onLlmOomFallback: (
       primaryModel: string,
       fallbackModel: string,

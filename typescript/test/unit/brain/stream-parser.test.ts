@@ -420,4 +420,27 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
     parser.feed('Ignored text');
     expect(parser.getAnswer()).toBe('Initial');
   });
+
+  it('Case 13: should bypass reasoning and emit all text directly as answer when mode is "never"', () => {
+    const onReasoningStart = vi.fn();
+    const onReasoningChunk = vi.fn();
+    const onAnswerChunk = vi.fn();
+
+    const parser = new StreamParser({
+      mode: 'never',
+      onReasoningStart,
+      onReasoningChunk,
+      onAnswerChunk
+    });
+
+    parser.feed({ reasoning_content: 'Internal reasoning...' });
+    parser.feed('Direct answer');
+    const result = parser.finish();
+
+    expect(onReasoningStart).not.toHaveBeenCalled();
+    expect(onReasoningChunk).not.toHaveBeenCalled();
+    expect(parser.hasReasoning()).toBe(false);
+    expect(result.reasoning).toBe('');
+    expect(result.answer).toBe('Internal reasoning...Direct answer');
+  });
 });

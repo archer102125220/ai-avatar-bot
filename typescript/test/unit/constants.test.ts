@@ -61,6 +61,8 @@ import {
   REASONING_END_TAG,
   REASONING_ALT_START_TAG,
   REASONING_ALT_END_TAG,
+  DEFAULT_REASONING_OPTIONS,
+  DEFAULT_REASONING_CONFIG,
   isReasoningSupported,
   DEFAULT_2D_FEMALE_EXPRESSION_MAP,
   DEFAULT_2D_MALE_EXPRESSION_MAP,
@@ -258,6 +260,11 @@ describe('Unit Test: core/constants.js (TypeScript)', () => {
       expect(REASONING_END_TAG).toBe('</think>');
       expect(REASONING_ALT_START_TAG).toBe('<thought>');
       expect(REASONING_ALT_END_TAG).toBe('</thought>');
+      expect(DEFAULT_REASONING_OPTIONS).toEqual({
+        mode: 'auto',
+        showThinkingInBubble: true
+      });
+      expect(DEFAULT_REASONING_CONFIG).toBe(DEFAULT_REASONING_OPTIONS);
     });
 
     it('isReasoningSupported should return true for reasoning/thinking models and false otherwise', () => {

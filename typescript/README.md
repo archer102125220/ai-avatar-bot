@@ -441,7 +441,7 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `llmModel` | `string` | `'Hermes-3-Llama-3.1-8B-q4f32_1-MLC'` | Primary in-browser WebLLM model name (flagship tool calling & reasoning). |
 | `llmFallbackModel` | `string \| null \| false` | `'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'` | Fallback WebLLM model when WebGPU encounters OOM. Set to `null` to disallow fallback. |
 | `enableOomFallback` | `boolean` | `true` | Whether to automatically fallback to lightweight model on WebGPU OOM errors. |
-| `reasoning` | `ReasoningOptions` | `{}` | AI reasoning/thinking options (`mode: 'auto' \| 'always' \| 'never'`, `showThinkingInBubble: boolean`). |
+| `reasoning` | `ReasoningOptions` | `{ mode: 'auto', showThinkingInBubble: true }` | AI reasoning/thinking options (`mode: 'auto' \| 'always' \| 'never'`, `showThinkingInBubble: boolean`). |
 | `llmMaxTokens` | `number` | `1024` | Maximum response tokens limit for in-browser WebLLM. |
 | `preloadWebLLM` | `boolean` | `false` | Whether to preload WebLLM weights immediately upon initialization. |
 | `autoFallbackWebLLM` | `boolean` | `true` | Whether to auto-fallback to WebLLM if remote AI Provider fails. |

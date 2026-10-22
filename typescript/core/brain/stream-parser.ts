@@ -33,6 +33,13 @@ export type StreamParserState =
 export interface StreamParserOptions {
   /** Model identifier string associated with this generation. */
   model?: string;
+  /**
+   * Reasoning capture mode:
+   * - 'auto': Automatically detect reasoning tags (<think>, <thought>) and reasoning_content fields (default)
+   * - 'always': Aggressively capture and stream reasoning tags
+   * - 'never': Disable reasoning track; emit all output directly as answer
+   */
+  mode?: 'auto' | 'always' | 'never';
   /** Supported reasoning start tags. Defaults to ['<think>', '<thought>']. */
   startTags?: string[];
   /** Supported reasoning end tags. Defaults to ['</think>', '</thought>']. */
@@ -227,6 +234,7 @@ export class StreamParser {
   private endTime = 0;
   private reasoningMode: 'tag' | 'structured' | null = null;
   private readonly model?: string;
+  private readonly mode: 'auto' | 'always' | 'never';
   private readonly startTags: string[];
   private readonly endTags: string[];
   private readonly options: StreamParserOptions;
@@ -234,6 +242,10 @@ export class StreamParser {
   constructor(options: StreamParserOptions = {}) {
     this.options = options;
     this.model = options.model;
+    this.mode =
+      options.mode === 'never' || options.mode === 'always'
+        ? options.mode
+        : 'auto';
     this.startTags =
       Array.isArray(options.startTags) && options.startTags.length > 0
         ? options.startTags
@@ -294,6 +306,33 @@ export class StreamParser {
    */
   public feed(rawChunk: unknown): void {
     if (this.state === STREAM_PARSER_STATE.FINISHED) {
+      return;
+    }
+
+    if (this.mode === 'never') {
+      const { reasoningDelta, contentDelta } = extractChunkPayload(rawChunk);
+      const textChunk =
+        typeof contentDelta === 'string' && contentDelta !== ''
+          ? contentDelta
+          : typeof reasoningDelta === 'string' && reasoningDelta !== ''
+            ? reasoningDelta
+            : '';
+      if (textChunk !== '') {
+        if (this.state === STREAM_PARSER_STATE.IDLE) {
+          this.state = STREAM_PARSER_STATE.ANSWERING;
+          if (typeof this.options.onAnswerStart === 'function') {
+            this.options.onAnswerStart();
+          }
+        }
+        this.accumulatedAnswer += textChunk;
+        if (typeof this.options.onAnswerChunk === 'function') {
+          this.options.onAnswerChunk(
+            textChunk,
+            this.accumulatedAnswer,
+            rawChunk
+          );
+        }
+      }
       return;
     }
 

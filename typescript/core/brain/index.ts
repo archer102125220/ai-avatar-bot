@@ -157,7 +157,8 @@ export async function initBrainEngine(
     genderRule,
     onBrainFallback = null,
     onToolNotFound = null,
-    onToolError = null
+    onToolError = null,
+    reasoning
   } = setting;
 
   let llm: LLMEngine | null = null;
@@ -272,6 +273,7 @@ export async function initBrainEngine(
     llmFallbackModel,
     enableOomFallback:
       typeof enableOomFallback === 'boolean' ? enableOomFallback : true,
+    reasoning,
 
     enableAutoContinue:
       typeof enableAutoContinue === 'boolean'
@@ -551,7 +553,8 @@ export async function initBrainEngine(
       },
       onReasoningEnd: (info: ReasoningEndInfo) => {
         return brainEngine.onReasoningEnd?.(info);
-      }
+      },
+      reasoning: brainEngine.reasoning
     },
     brainEngine
   );
@@ -567,6 +570,7 @@ export async function initBrainEngine(
     enableAiProvider,
     providerModel: aiProviderModel,
     providerBaseUrl: aiProviderBaseUrl,
+    reasoning: brainEngine.reasoning,
 
     providerCreateFetchSetting: aiProviderCreateFetchSetting,
     providerCreateFetchPayload: aiProviderCreateFetchPayload,

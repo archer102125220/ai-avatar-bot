@@ -76,7 +76,8 @@ export async function initAiProvider(
     onStreamChatting = null,
     onReasoningStart = null,
     onReasoningChunk = null,
-    onReasoningEnd = null
+    onReasoningEnd = null,
+    reasoning
   } = setting;
 
   const resolvedBaseUrl = providerBaseUrl || baseUrl || '';
@@ -217,6 +218,9 @@ export async function initAiProvider(
           (brain as Partial<BrainEngine>).onReasoningEnd!(info);
         }
       };
+    },
+    get reasoning() {
+      return reasoning;
     },
 
     model: resolvedModel,
@@ -455,6 +459,7 @@ export async function initAiProvider(
 
           const parser = new StreamParser({
             model: this.model,
+            mode: this.reasoning?.mode,
             onReasoningStart: (info) => this.onReasoningStart?.(info),
             onReasoningChunk: (info) => this.onReasoningChunk?.(info),
             onReasoningEnd: (info) => this.onReasoningEnd?.(info),
@@ -654,6 +659,7 @@ export async function initAiProvider(
         const rawContent = choice?.message?.content || '';
         const parser = new StreamParser({
           model: this.model,
+          mode: this.reasoning?.mode,
           onReasoningStart: (info) => this.onReasoningStart?.(info),
           onReasoningChunk: (info) => this.onReasoningChunk?.(info),
           onReasoningEnd: (info) => this.onReasoningEnd?.(info)

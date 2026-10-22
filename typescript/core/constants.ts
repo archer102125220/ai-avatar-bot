@@ -1,4 +1,4 @@
-import type { AvatarMode, Gender } from './types';
+import type { AvatarMode, Gender, ReasoningOptions } from './types';
 
 /**
  * Avatar lifecycle state mapping enum.
@@ -149,6 +149,19 @@ export const REASONING_ALT_START_TAG = '<thought>';
  * Fallback / alternative reasoning end tag (used by some models/templates).
  */
 export const REASONING_ALT_END_TAG = '</thought>';
+ 
+ /**
+  * Default configuration options for AI reasoning and thinking process.
+  */
+export const DEFAULT_REASONING_OPTIONS: Required<ReasoningOptions> = {
+  mode: 'auto',
+  showThinkingInBubble: true
+};
+
+/**
+  * Alias for DEFAULT_REASONING_OPTIONS for naming convenience.
+  */
+export const DEFAULT_REASONING_CONFIG = DEFAULT_REASONING_OPTIONS;
 
 /**
  * Default maximum generated tokens for in-browser WebLLM engine.

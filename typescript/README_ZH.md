@@ -444,7 +444,7 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `llmModel` | `string` | `'Hermes-3-Llama-3.1-8B-q4f32_1-MLC'` | 瀏覽器端 WebLLM 主模型名稱（預設為旗艦 8B 模型）。 |
 | `llmFallbackModel` | `string \| null \| false` | `'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'` | WebGPU 記憶體不足（OOM）時的備選保底模型。設為 `null` 則關閉降級。 |
 | `enableOomFallback` | `boolean` | `true` | 是否啟用 WebGPU 顯存不足時的自動降級機制。 |
-| `reasoning` | `ReasoningOptions` | `{}` | AI 模型推論思考過程設定（`mode`, `showThinkingInBubble`）。 |
+| `reasoning` | `ReasoningOptions` | `{ mode: 'auto', showThinkingInBubble: true }` | AI 模型推論思考過程設定（`mode`, `showThinkingInBubble`）。 |
 | `llmMaxTokens` | `number` | `1024` | WebLLM 模型單次回應 Token 最大限制。 |
 | `preloadWebLLM` | `boolean` | `false` | 是否在初始化時即刻預載 WebLLM 權重。 |
 | `autoFallbackWebLLM` | `boolean` | `true` | 當遠端 AI 失敗時是否自動降級至本地 WebLLM。 |
