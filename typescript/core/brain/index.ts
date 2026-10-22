@@ -51,6 +51,7 @@ export * from './messages';
 export * from './tool-calling';
 export * from './web-llm';
 export * from './ai-provider';
+export * from './stream-parser';
 
 /**
  * Creates and initializes the Brain cognitive engine instance (orchestrating AI Provider, WebLLM, RAG knowledge, and memory).
