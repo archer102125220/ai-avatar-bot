@@ -397,7 +397,12 @@ export function initWebLLM(
         frequency_penalty: 0.25,
         presence_penalty: 0.15,
         stop: ['<|im_end|>', '<|endoftext|>', '<|im_start|>', '\n\n\n'],
-        max_tokens: Math.min(this.maxTokens, 512)
+        max_tokens: Math.min(this.maxTokens, 512),
+        ...(this.reasoning?.mode === 'never'
+          ? { extra_body: { enable_thinking: false } }
+          : this.reasoning?.mode === 'always' || this.reasoning?.mode === 'auto'
+            ? { extra_body: { enable_thinking: true } }
+            : {})
       };
 
       const supportsFunctionCalling = isWebLLMFunctionCallingSupported(

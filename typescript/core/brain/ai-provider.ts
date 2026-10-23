@@ -326,7 +326,19 @@ export async function initAiProvider(
           messages: sanitizedMessages,
           temperature: 0.4,
           max_tokens: this.maxTokens,
-          stream: this.isStream
+          stream: this.isStream,
+          ...(this.reasoning?.mode === 'never'
+            ? {
+                extra_body: { enable_thinking: false },
+                enable_thinking: false
+              }
+            : this.reasoning?.mode === 'always' ||
+                this.reasoning?.mode === 'auto'
+              ? {
+                  extra_body: { enable_thinking: true },
+                  enable_thinking: true
+                }
+              : {})
         };
 
         if (Array.isArray(tools) === true && tools.length > 0) {
