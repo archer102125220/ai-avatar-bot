@@ -669,6 +669,7 @@ export async function setupSpeechEngine({
       if (uiDom?.bubbleEl instanceof HTMLElement) {
         uiDom.bubbleEl.textContent = newSpeakingLabel;
         uiDom.bubbleEl.setAttribute('css-is-show', 'true');
+        uiDom.bubbleEl.removeAttribute('css-is-thinking');
       }
       callOptionEvent(
         options,

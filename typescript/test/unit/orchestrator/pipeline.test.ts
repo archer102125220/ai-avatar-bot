@@ -512,6 +512,49 @@ describe('Orchestrator Pipelines & Interactions', () => {
       expect(mockBubbleEl.getAttribute('css-is-thinking')).toBeNull();
     });
 
+    it('should update bubble and spokenDisplayText with complete fullText on onStreamEnd', () => {
+      const mockBubbleEl = document.createElement('p');
+      const mockUiDom = {
+        bubbleEl: mockBubbleEl,
+        updateBubble: vi.fn((text?: string, show?: boolean, isThinking?: boolean) => {
+          if (typeof text === 'string') mockBubbleEl.textContent = text;
+          if (show === true) mockBubbleEl.setAttribute('css-is-show', 'true');
+          else if (show === false) mockBubbleEl.removeAttribute('css-is-show');
+          if (isThinking === true) mockBubbleEl.setAttribute('css-is-thinking', 'true');
+          else if (isThinking === false) mockBubbleEl.removeAttribute('css-is-thinking');
+        })
+      };
+
+      const customWidget = {
+        name: 'CustomWidget',
+        uiDom: mockUiDom,
+        i18nEngine
+      } as unknown as AiAvatarWidget;
+
+      const streamPipeline = createStreamPipeline({
+        getWidget: () => customWidget,
+        options: {},
+        getEngines,
+        autoContinueState,
+        streamSpeechState
+      });
+
+      streamPipeline.onStreamStart();
+      streamPipeline.onStreamEnd('這是完整的第一段。這是完整的第二段。');
+
+      expect(mockUiDom.updateBubble).toHaveBeenCalledWith(
+        '這是完整的第一段。這是完整的第二段。',
+        true,
+        false
+      );
+      expect(mockBubbleEl.textContent).toBe('這是完整的第一段。這是完整的第二段。');
+      expect(mockBubbleEl.getAttribute('css-is-show')).toBe('true');
+      expect(mockBubbleEl.getAttribute('css-is-thinking')).toBeNull();
+      expect(mockEngines.speechEngine.spokenDisplayText).toBe(
+        '這是完整的第一段。這是完整的第二段。'
+      );
+    });
+
     it('should push remaining sentences on onStreamEnd when speechEngine matches sequence id', () => {
       const getEnginesFn = () => mockEngines;
       const getWidgetFn = () => mockWidget;

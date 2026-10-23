@@ -171,6 +171,12 @@ export function createStreamPipeline({
           skinEngine.setEmotion('neutral');
         }
       }
+      const widgetInstance = resolveWidget();
+      if (typeof widgetInstance?.uiDom?.updateBubble === 'function') {
+        widgetInstance.uiDom.updateBubble(undefined, undefined, false);
+      } else if (widgetInstance?.uiDom?.bubbleEl instanceof HTMLElement) {
+        widgetInstance.uiDom.bubbleEl.removeAttribute('css-is-thinking');
+      }
       const safeInfo =
         typeof info === 'object' && info !== null
           ? info
@@ -205,6 +211,15 @@ export function createStreamPipeline({
         )) {
           speechEngine.pushSpeech(streamSpeechId, sentence);
         }
+      } else if (
+        speechEngine !== null &&
+        typeof speechEngine === 'object' &&
+        speechEngine.ttsMuted === true
+      ) {
+        streamSpeechState.sentenceBuffer += chunkDelta;
+        streamSpeechState.buf += chunkDelta;
+        speechEngine.drainSentences(streamSpeechState, false);
+        speechEngine.spokenDisplayText = streamSpeechState.buf;
       }
 
       callOptionEvent(
@@ -262,6 +277,16 @@ export function createStreamPipeline({
           speechEngine.onUtteranceEnd();
         }
       } else if (
+        speechEngine !== null &&
+        typeof speechEngine === 'object' &&
+        speechEngine.ttsMuted === true
+      ) {
+        speechEngine.drainSentences(streamSpeechState, true);
+        speechEngine.spokenDisplayText = fullText;
+        if (typeof speechEngine?.onUtteranceEnd === 'function') {
+          speechEngine.onUtteranceEnd();
+        }
+      } else if (
         streamSpeechId === 0 &&
         typeof speechEngine?.onUtteranceEnd === 'function'
       ) {
@@ -275,10 +300,36 @@ export function createStreamPipeline({
       }
 
       const widgetInstance = resolveWidget();
-      if (typeof widgetInstance?.uiDom?.updateBubble === 'function') {
-        widgetInstance.uiDom.updateBubble(undefined, undefined, false);
-      } else if (widgetInstance?.uiDom?.bubbleEl instanceof HTMLElement) {
-        widgetInstance.uiDom.bubbleEl.removeAttribute('css-is-thinking');
+      const safeFullText = typeof fullText === 'string' ? fullText.trim() : '';
+
+      if (safeFullText !== '') {
+        if (speechEngine !== null && typeof speechEngine === 'object') {
+          speechEngine.spokenDisplayText = safeFullText;
+        }
+        if (typeof widgetInstance?.uiDom?.updateBubble === 'function') {
+          widgetInstance.uiDom.updateBubble(safeFullText, true, false);
+        } else if (widgetInstance?.uiDom?.bubbleEl instanceof HTMLElement) {
+          widgetInstance.uiDom.bubbleEl.textContent = safeFullText;
+          widgetInstance.uiDom.bubbleEl.setAttribute('css-is-show', 'true');
+          widgetInstance.uiDom.bubbleEl.removeAttribute('css-is-thinking');
+        }
+      } else if (
+        hasSpeechStarted === false &&
+        (typeof speechEngine?.spokenDisplayText !== 'string' ||
+          speechEngine.spokenDisplayText === '')
+      ) {
+        if (typeof widgetInstance?.uiDom?.updateBubble === 'function') {
+          widgetInstance.uiDom.updateBubble('', false, false);
+        } else if (widgetInstance?.uiDom?.bubbleEl instanceof HTMLElement) {
+          widgetInstance.uiDom.bubbleEl.removeAttribute('css-is-thinking');
+          widgetInstance.uiDom.bubbleEl.removeAttribute('css-is-show');
+        }
+      } else {
+        if (typeof widgetInstance?.uiDom?.updateBubble === 'function') {
+          widgetInstance.uiDom.updateBubble(undefined, undefined, false);
+        } else if (widgetInstance?.uiDom?.bubbleEl instanceof HTMLElement) {
+          widgetInstance.uiDom.bubbleEl.removeAttribute('css-is-thinking');
+        }
       }
 
       isThinkingState = false;
