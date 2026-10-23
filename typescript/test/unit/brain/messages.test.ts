@@ -688,13 +688,17 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       const systemMsg = messages.find((m) => m.role === 'system');
       expect(systemMsg).toBeDefined();
       expect(systemMsg?.content).toContain('<think>...</think>');
-      expect(systemMsg?.content).toContain('在回答使用者問題前，請務必先在 <think>...</think> 標籤內進行詳細的步驟規劃與思考');
+      expect(systemMsg?.content).toContain('【思考格式規範】');
+      expect(systemMsg?.content).toContain('輸出規範格式：');
     });
 
     it('should support localized thinking directives for en, ja, ko in always mode', async () => {
-      expect(getReasoningPromptDirective('en')).toContain('Before providing your final response');
-      expect(getReasoningPromptDirective('ja')).toContain('<think>...</think> タグ内で思考過程');
-      expect(getReasoningPromptDirective('ko')).toContain('<think>...</think> 태그 내에서 단계별로 생각');
+      expect(getReasoningPromptDirective('en')).toContain('[Thinking Format Requirements]');
+      expect(getReasoningPromptDirective('en')).toContain('Output format:');
+      expect(getReasoningPromptDirective('ja')).toContain('【思考フォーマット規定】');
+      expect(getReasoningPromptDirective('ja')).toContain('出力形式：');
+      expect(getReasoningPromptDirective('ko')).toContain('【사고 형식 규정】');
+      expect(getReasoningPromptDirective('ko')).toContain('출력 형식:');
 
       mockBrainEngine.locale = 'en-US';
       (mockBrainEngine as unknown as { reasoning?: { mode: string } }).reasoning = {
@@ -706,7 +710,8 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
         'Explain gravity'
       );
       const systemEn = messagesEn.find((m) => m.role === 'system');
-      expect(systemEn?.content).toContain('Before providing your final response, you MUST first think and plan step-by-step inside <think>...</think> tags');
+      expect(systemEn?.content).toContain('[Thinking Format Requirements]');
+      expect(systemEn?.content).toContain('Output format:');
     });
 
     it('should NOT inject thinking instruction when reasoning.mode === "auto" or "never"', async () => {
@@ -746,7 +751,7 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       );
       const system = messages.find((m) => m.role === 'system');
       expect(system?.content).toContain('自訂思考指令：請務必在 <thought> 標籤內進行分析。');
-      expect(system?.content).not.toContain('在回答使用者問題前，請務必先在 <think>...</think>');
+      expect(system?.content).not.toContain('【思考格式規範】');
     });
 
     it('should support custom function promptDirective in always mode', async () => {

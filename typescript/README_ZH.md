@@ -657,7 +657,7 @@ const widget = await initAvatarBot({
 - **字串 (`string`)**：使用指定的客製化提示詞（如特定 XML 標籤 `<thought>`、`<thinking>`，或要求使用特定語言進行推論思考）。
 - **函式 (`(locale: string) => string`)**：依當前語系動態產出最適思考引導。
 - **停用注入 (`false`)**：若開發者已在 `systemContext` 或自訂角色中寫妥推論指引，設為 `false` 可完全交由開發者自主控制，避免 SDK 重複插入多餘字句。
-- **預設 (`undefined`)**：自動依當前語系注入標準多國語言思考引導。
+- **預設 (`undefined`)**：自動依當前語系注入強化版多國語言思考引導（包含明確的「不可省略 <think>」強約束與結構化輸出格式範例，確保通用 Instruct 模型在簡短對話或日常問答時亦能穩定觸發 `<think>` 推論過程）。
 
 #### 🛡️ 兩階段 WebGPU 記憶體超載自適應降級 (Two-Tier WebGPU OOM Fallback)
 - **第一階 (旗艦預設)**：預設載入 `Hermes-3-Llama-3.1-8B-q4f32_1-MLC`，提供完整的 Function Calling 工具調用與深度思考能力。

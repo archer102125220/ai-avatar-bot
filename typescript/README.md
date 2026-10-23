@@ -654,7 +654,7 @@ Configure `reasoning.mode` (type `ReasoningMode` / constant `REASONING_MODE_MAP`
 - **String (`string`)**: Inject custom thinking directives (e.g. customized XML tags like `<thought>` or language instructions).
 - **Function (`(locale: string) => string`)**: Dynamically resolves localized thinking guidance based on the active language.
 - **Disabled (`false`)**: Disables automatic prompt injection so developers can maintain full, uninhibited control within their own `systemContext`.
-- **Default (`undefined`)**: Automatically injects standard localized step-by-step thinking instructions.
+- **Default (`undefined`)**: Automatically injects reinforced localized step-by-step thinking directives with strict non-bypass constraints and structured output templates, ensuring general Instruct models reliably trigger reasoning `<think>` blocks even on brief queries.
 
 #### 🛡️ Two-Tier WebGPU OOM Adaptive Fallback
 - **Tier 1 (Flagship Default)**: Loads `Hermes-3-Llama-3.1-8B-q4f32_1-MLC` for full Function Calling and deep reasoning capability.

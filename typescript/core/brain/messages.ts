@@ -279,15 +279,51 @@ export function resolveAutoContinuePrompt(
  */
 export function getReasoningPromptDirective(locale = 'zh-TW'): string {
   if (/en/i.test(locale)) {
-    return 'Before providing your final response, you MUST first think and plan step-by-step inside <think>...</think> tags. After closing </think>, provide your concise, direct answer outside the tags.';
+    return [
+      '[Thinking Format Requirements]',
+      'Regardless of how brief, simple, or conversational the user question or greeting is, your response MUST ALWAYS begin immediately with <think>...</think> tags for internal planning and step-by-step reasoning. Never omit the <think> tags under any circumstance. After closing </think>, provide your concise final answer outside the tags.',
+      '',
+      'Output format:',
+      '<think>',
+      'Analyze user intent and key points...',
+      '</think>',
+      'Final response to the user.'
+    ].join('\n');
   }
   if (/ja/i.test(locale)) {
-    return '回答する前に、必ず <think>...</think> タグ内で思考過程とステップを整理してください。タグを閉じた後に、タグの外側で最終的な簡潔な回答を述べてください。';
+    return [
+      '【思考フォーマット規定】',
+      '質問がどれほど簡潔・日常的、あるいは単なる挨拶であっても、すべての返答は必ず最初に <think>...</think> タグで思考過程とステップを整理することから始めてください。いかなる場合もタグを省略してはいけません。タグを閉じた（</think>）後に、タグの外側で簡潔な最終回答を述べてください。',
+      '',
+      '出力形式：',
+      '<think>',
+      'ユーザーの意図と回答ポイントを分析...',
+      '</think>',
+      'ユーザーへの最終回答。'
+    ].join('\n');
   }
   if (/ko/i.test(locale)) {
-    return '답변을 제공하기 전에 반드시 <think>...</think> 태그 내에서 단계별로 생각하고 계획하세요. 태그를 닫은 후 태그 바깥에서 간결하고 명확한 최종 답변을 작성하세요.';
+    return [
+      '【사고 형식 규정】',
+      '사용자의 질문이 아무리 짧거나 일상적이거나 단순한 인사말이라 하더라도, 모든 답변은 반드시 먼저 <think>...</think> 태그 내에서 단계별 계획과 사고 과정을 거쳐야 하며 어떠한 경우에도 이를 생략할 수 없습니다. </think>로 태그를 닫은 후, 태그 바깥에 간결한 최종 답변을 작성하세요.',
+      '',
+      '출력 형식:',
+      '<think>',
+      '사용자 의도 및 핵심 요점 분석...',
+      '</think>',
+      '사용자에게 전달할 최종 답변.'
+    ].join('\n');
   }
-  return '在回答使用者問題前，請務必先在 <think>...</think> 標籤內進行詳細的步驟規劃與思考；思考完畢後，再於標籤外給出最終簡短回覆。';
+  return [
+    '【思考格式規範】',
+    '無論使用者問題多簡短、多日常或只是打招呼，每一則回覆都「必須」先以 <think>...</think> 標籤開頭進行詳細的步驟規劃與思考，在任何情況下皆不得省略 <think> 標籤；思考完畢並關閉 </think> 標籤後，再於標籤外給出最終簡短回覆。',
+    '',
+    '輸出規範格式：',
+    '<think>',
+    '分析使用者問題意圖與回答重點...',
+    '</think>',
+    '這是給使用者的最終回覆。'
+  ].join('\n');
 }
 
 /**
