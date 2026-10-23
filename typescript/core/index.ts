@@ -20,7 +20,8 @@ export type {
   EngineMode,
   FitMode,
   AutoContinueMode,
-  ChatRole
+  ChatRole,
+  ReasoningMode
 } from './types';
 
 export { initAvatarBot, initAvatarBot as createAvatarBot };

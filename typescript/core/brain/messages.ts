@@ -1,4 +1,8 @@
-import { AVATAR_MODE_MAP, BRAIN_ENGINE_TYPE_MAP } from '@/core/constants';
+import {
+  AVATAR_MODE_MAP,
+  BRAIN_ENGINE_TYPE_MAP,
+  REASONING_MODE_MAP
+} from '@/core/constants';
 import { resolveLocalized, defaultLocales, formatParams } from '@/core/i18n';
 import type { BrainEngine, KnowledgeEntry, LLMMessage } from './types';
 import { getTopKnowledge } from './knowledge';
@@ -268,6 +272,25 @@ export function resolveAutoContinuePrompt(
 }
 
 /**
+ * Resolves the explicit step-by-step thinking instruction for 'always' reasoning mode.
+ *
+ * @param locale - Locale identifier.
+ * @returns Localized thinking directive string.
+ */
+export function getReasoningPromptDirective(locale = 'zh-TW'): string {
+  if (/en/i.test(locale)) {
+    return 'Before providing your final response, you MUST first think and plan step-by-step inside <think>...</think> tags. After closing </think>, provide your concise, direct answer outside the tags.';
+  }
+  if (/ja/i.test(locale)) {
+    return '回答する前に、必ず <think>...</think> タグ内で思考過程とステップを整理してください。タグを閉じた後に、タグの外側で最終的な簡潔な回答を述べてください。';
+  }
+  if (/ko/i.test(locale)) {
+    return '답변을 제공하기 전에 반드시 <think>...</think> 태그 내에서 단계별로 생각하고 계획하세요. 태그를 닫은 후 태그 바깥에서 간결하고 명확한 최종 답변을 작성하세요.';
+  }
+  return '在回答使用者問題前，請務必先在 <think>...</think> 標籤內進行詳細的步驟規劃與思考；思考完畢後，再於標籤外給出最終簡短回覆。';
+}
+
+/**
  * Builds standard LLM chat messages array including RAG context, persona, and compression pipeline.
  *
  * @param brainEngine - Brain engine instance.
@@ -514,10 +537,34 @@ export function buildDefaultLLMMessages(
       ? [...engine.memory.data.history]
       : [];
 
-  const safeSystemContext =
+  let safeSystemContext =
     typeof systemContext === 'string'
       ? systemContext
       : String(systemContext || '');
+
+  if (engine?.reasoning?.mode === REASONING_MODE_MAP.always) {
+    const rawDirective = engine.reasoning.promptDirective;
+    let thinkingDirective = '';
+
+    if (typeof rawDirective === 'function') {
+      thinkingDirective = rawDirective(locale);
+    } else if (typeof rawDirective === 'string') {
+      thinkingDirective = rawDirective;
+    } else if (rawDirective !== false) {
+      if (safeSystemContext.includes('<think>') === false) {
+        thinkingDirective = getReasoningPromptDirective(locale);
+      }
+    }
+
+    if (
+      typeof thinkingDirective === 'string' &&
+      thinkingDirective.trim() !== '' &&
+      safeSystemContext.includes(thinkingDirective.trim()) === false
+    ) {
+      safeSystemContext = `${safeSystemContext}\n\n${thinkingDirective.trim()}`;
+    }
+  }
+
   const rawMessages = [{ role: 'system', content: safeSystemContext }];
   for (const historyItem of history) {
     if (typeof historyItem === 'object' && historyItem !== null) {
@@ -601,7 +648,7 @@ export function buildDefaultLLMMessages(
 
   return compressContext({
     messages: cleanMessages,
-    systemPrompt: systemContext,
+    systemPrompt: safeSystemContext,
     history,
     latestQuestion: question,
     memoryData: engine?.memory?.data || {},

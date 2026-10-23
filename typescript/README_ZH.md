@@ -444,7 +444,7 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `llmModel` | `string` | `'Hermes-3-Llama-3.1-8B-q4f32_1-MLC'` | 瀏覽器端 WebLLM 主模型名稱（預設為旗艦 8B 模型）。 |
 | `llmFallbackModel` | `string \| null \| false` | `'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'` | WebGPU 記憶體不足（OOM）時的備選保底模型。設為 `null` 則關閉降級。 |
 | `enableOomFallback` | `boolean` | `true` | 是否啟用 WebGPU 顯存不足時的自動降級機制。 |
-| `reasoning` | `ReasoningOptions` | `{ mode: 'auto', showThinkingInBubble: true }` | AI 模型推論思考過程設定（`mode`, `showThinkingInBubble`）。 |
+| `reasoning` | `ReasoningOptions` | `{ mode: 'auto', showThinkingInBubble: true }` | AI 模型推論思考過程設定（`mode`: `'auto' \| 'always' \| 'never'`, `showThinkingInBubble`: `boolean`, `promptDirective?`: `string \| ((locale: string) => string) \| false`）。 |
 | `llmMaxTokens` | `number` | `1024` | WebLLM 模型單次回應 Token 最大限制。 |
 | `preloadWebLLM` | `boolean` | `false` | 是否在初始化時即刻預載 WebLLM 權重。 |
 | `autoFallbackWebLLM` | `boolean` | `true` | 當遠端 AI 失敗時是否自動降級至本地 WebLLM。 |
@@ -644,6 +644,21 @@ const widget = await initAvatarBot({
 3. **歷史面板折疊式思維卡片 (Collapsible Thought History UI)**：
    - 對話歷史面板渲染原生 HTML5 `<details class="history-item__thought">` 折疊卡片，顯示 `🤔 思考過程 (X.Xs)`（支援多國語系），供使用者隨時展開查閱完整推論過程。
 
+#### 🧠 推論模式控制 (`REASONING_MODE_MAP`) 與自訂提示詞 (`promptDirective`)
+透過 `reasoning.mode`（型別 `ReasoningMode` / 常數 `REASONING_MODE_MAP`）與 `promptDirective`，開發者能精準掌控不同模型的推論行為與思考提示詞注入：
+
+| 模式 (`mode`) | 行為特性 | 適用模型情境 |
+| :--- | :--- | :--- |
+| **`REASONING_MODE_MAP.auto`** *(預設)* | **被動偵測**：不主動修改提示詞，自動抓取模型輸出的 `<think>`、`<thought>` 標籤或 API 的 `reasoning_content`。 | `DeepSeek-R1`、`QwQ-32B` 等原生推論模型 |
+| **`REASONING_MODE_MAP.always`** | **強制推論**：自動為 WebLLM 擴增 Token 上限（最多至 1024 Token），發送 `extra_body: { enable_thinking: true }`，並依 `promptDirective` 向 System Prompt 注入思考指引。 | `Hermes-3-Llama-3.1-8B`、`Qwen-2.5-Instruct` 等標準指令對話模型 |
+| **`REASONING_MODE_MAP.never`** | **關閉推論**：略過推論標籤解析，所有輸出直接視為最終口述回答，並向下發 `extra_body: { enable_thinking: false }`。 | 追求極速簡短回應的情境 |
+
+**自訂思考提示詞 (`promptDirective`) 彈性配置：**
+- **字串 (`string`)**：使用指定的客製化提示詞（如特定 XML 標籤 `<thought>`、`<thinking>`，或要求使用特定語言進行推論思考）。
+- **函式 (`(locale: string) => string`)**：依當前語系動態產出最適思考引導。
+- **停用注入 (`false`)**：若開發者已在 `systemContext` 或自訂角色中寫妥推論指引，設為 `false` 可完全交由開發者自主控制，避免 SDK 重複插入多餘字句。
+- **預設 (`undefined`)**：自動依當前語系注入標準多國語言思考引導。
+
 #### 🛡️ 兩階段 WebGPU 記憶體超載自適應降級 (Two-Tier WebGPU OOM Fallback)
 - **第一階 (旗艦預設)**：預設載入 `Hermes-3-Llama-3.1-8B-q4f32_1-MLC`，提供完整的 Function Calling 工具調用與深度思考能力。
 - **第二階 (輕量備援)**：若使用者裝置 WebGPU 顯存不足 (OOM)，自動觸發 `onLlmOomFallback` 回呼並平滑降級至輕量級 `Qwen2.5-1.5B-Instruct-q4f16_1-MLC`（僅需 ~1.1GB 下載、~1.2GB VRAM）。
@@ -653,6 +668,7 @@ const widget = await initAvatarBot({
 ```typescript
 import { 
   initAvatarBot, 
+  REASONING_MODE_MAP,
   type ReasoningStartInfo, 
   type ReasoningChunkInfo, 
   type ReasoningEndInfo,
@@ -666,8 +682,11 @@ const widget = await initAvatarBot({
   enableOomFallback: true,
 
   reasoning: {
-    mode: 'auto',
-    showThinkingInBubble: true
+    // 啟用強制推論模式，促使通用 Instruct 模型在回答前進行思考
+    mode: REASONING_MODE_MAP.always,
+    showThinkingInBubble: true,
+    // 自訂思考引導詞（亦可傳入函式 (locale) => ... 或傳入 false 自主在 systemContext 控制）
+    promptDirective: 'Think and plan step-by-step inside <think>...</think>, then reply in Traditional Chinese outside the tags.'
   },
 
   onReasoningStart: (info: ReasoningStartInfo) => {
@@ -1023,7 +1042,7 @@ widget.speechEngine?.subscribe('isSpeaking', (speaking: boolean) => {
 * **AI Provider**：`AiProviderFetchSettingFactory`, `AiProviderFetchPayloadFactory`, `AiProviderToolCallExtractor`, `AiProviderOptions`, `AiProviderEngine`
 * **外觀與幾何座標**：`Skin2DConfig`, `Skin3DConfig`, `Skin3DCameraConfig`, `Skin3DModelConfig`, `Renderer2D`, `Renderer3D`, `Point2D`, `Vector2Coord`, `Vector2Tuple`, `Vector2Input`, `Vector3Coord`, `Vector3Tuple`, `Vector3Input`, `Vector3Scale`
 * **工具管理**：`ToolDefinition`, `ToolRouteCandidate`, `ToolExecutionParams`, `PendingToolState`
-* **可擴充字面量聯集**：`AvatarMode`, `Gender`, `FitMode`, `EngineMode`, `AutoContinueMode`, `ChatRole`
+* **可擴充字面量聯集**：`AvatarMode`, `Gender`, `FitMode`, `EngineMode`, `AutoContinueMode`, `ChatRole`, `ReasoningMode`
 * **動態解析型別**：`LocalizableOrResolver<T, C>`, `DynamicTextOrResolver<C>`, `AutoContinuePromptResolver`
 * **事件 Payload 與推論**：`AutoContinueStartInfo`, `AutoContinueResumeInfo`, `AutoContinueEndInfo`, `ToolNotFoundErrorInfo`, `ToolErrorInfo`, `LlmLoadProgressInfo`, `ReasoningOptions`, `ReasoningStartInfo`, `ReasoningChunkInfo`, `ReasoningEndInfo`, `LlmOomFallbackInfo`
 

@@ -1,4 +1,4 @@
-import type { AvatarMode, Gender, ReasoningOptions } from './types';
+import type { AvatarMode, Gender, ReasoningMode, ReasoningOptions } from './types';
 
 /**
  * Avatar lifecycle state mapping enum.
@@ -149,18 +149,35 @@ export const REASONING_ALT_START_TAG = '<thought>';
  * Fallback / alternative reasoning end tag (used by some models/templates).
  */
 export const REASONING_ALT_END_TAG = '</thought>';
- 
- /**
-  * Default configuration options for AI reasoning and thinking process.
-  */
-export const DEFAULT_REASONING_OPTIONS: Required<ReasoningOptions> = {
-  mode: 'auto',
+
+/**
+ * AI reasoning / thinking capture and enforcement mode mapping enum.
+ */
+export const REASONING_MODE_MAP = {
+  /** Automatically detect native reasoning tags (<think>, <thought>, reasoning_content). Default mode. */
+  auto: 'auto',
+  /** Force reasoning by automatically injecting step-by-step thinking instructions into system prompt. */
+  always: 'always',
+  /** Disables reasoning capture and instructs engine to skip thinking. */
+  never: 'never'
+} as const;
+
+export type { ReasoningMode };
+
+/**
+ * Default configuration options for AI reasoning and thinking process.
+ */
+export const DEFAULT_REASONING_OPTIONS: ReasoningOptions & {
+  mode: ReasoningMode;
+  showThinkingInBubble: boolean;
+} = {
+  mode: REASONING_MODE_MAP.auto,
   showThinkingInBubble: true
 };
 
 /**
-  * Alias for DEFAULT_REASONING_OPTIONS for naming convenience.
-  */
+ * Alias for DEFAULT_REASONING_OPTIONS for naming convenience.
+ */
 export const DEFAULT_REASONING_CONFIG = DEFAULT_REASONING_OPTIONS;
 
 /**

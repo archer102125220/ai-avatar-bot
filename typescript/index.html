@@ -30,7 +30,8 @@
         GENDER_MAP,
         AVATAR_MODE_MAP,
         ENGINE_MODE_MAP,
-        FIT_MODE_MAP
+        FIT_MODE_MAP,
+        REASONING_MODE_MAP
       } from '@/core';
       import { KNOWLEDGE, COMPANION_KNOWLEDGE } from '@/example/knowledge';
 
@@ -52,8 +53,9 @@
         // aiProviderBaseUrl: 'http://localhost:5173/api/ollama',
         // 推論思考過程設定
         reasoning: {
-          mode: 'auto', // 自動偵測模型推論標籤 (<think>, <thought>) 與 reasoning_content
-          showThinkingInBubble: true // 思考期間氣泡顯示動態「讓我想想…」
+          mode: REASONING_MODE_MAP.always, // REASONING_MODE_MAP.auto (自動偵測) | REASONING_MODE_MAP.always (強制注入思考鏈指令) | REASONING_MODE_MAP.never (關閉)
+          showThinkingInBubble: true, // 思考期間氣泡顯示動態「讓我想想…」
+          // promptDirective: '自訂思考提示詞，或設為 false 完全由開發者在 systemContext 自主控制'
         },
         knowledge: KNOWLEDGE,
         startMode: ENGINE_MODE_MAP.threeDimensional, // 預設以 3D 模式啟動方便測試 3D VRMA 動作

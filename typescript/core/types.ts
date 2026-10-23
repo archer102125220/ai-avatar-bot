@@ -213,17 +213,32 @@ export interface LlmOomFallbackInfo {
   [key: string]: unknown;
 }
 
+/** AI reasoning / thinking capture and enforcement mode */
+export type ReasoningMode = 'auto' | 'always' | 'never';
+
 /** Configuration options for AI reasoning/thinking capture and display */
 export interface ReasoningOptions {
   /**
    * Whether to capture and display reasoning content.
-   * @default 'auto' Automatically detect if the model outputs reasoning
+   * - 'auto': Automatically detect if the model outputs reasoning (<think>, <thought>, reasoning_content).
+   * - 'always': Force reasoning by automatically injecting step-by-step thinking instructions into the system prompt.
+   * - 'never': Disable reasoning capture and instruct the engine to skip thinking.
+   * @default 'auto'
    */
-  mode?: 'auto' | 'always' | 'never';
+  mode?: ReasoningMode;
   /**
    * Whether to show brief thinking dynamic status in speech bubble.
    * @default true
    */
   showThinkingInBubble?: boolean;
+  /**
+   * Custom step-by-step thinking instruction/directive to inject in 'always' mode.
+   * - string: Custom prompt instruction text to inject.
+   * - (locale: string) => string: Function returning localized instruction.
+   * - false: Disables automatic injection (developer manages prompt manually).
+   * - undefined: Defaults to standard localized thinking instruction.
+   * @default undefined
+   */
+  promptDirective?: string | ((locale: string) => string) | false;
 }
 

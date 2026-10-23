@@ -441,7 +441,7 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `llmModel` | `string` | `'Hermes-3-Llama-3.1-8B-q4f32_1-MLC'` | Primary in-browser WebLLM model name (flagship tool calling & reasoning). |
 | `llmFallbackModel` | `string \| null \| false` | `'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'` | Fallback WebLLM model when WebGPU encounters OOM. Set to `null` to disallow fallback. |
 | `enableOomFallback` | `boolean` | `true` | Whether to automatically fallback to lightweight model on WebGPU OOM errors. |
-| `reasoning` | `ReasoningOptions` | `{ mode: 'auto', showThinkingInBubble: true }` | AI reasoning/thinking options (`mode: 'auto' \| 'always' \| 'never'`, `showThinkingInBubble: boolean`). |
+| `reasoning` | `ReasoningOptions` | `{ mode: 'auto', showThinkingInBubble: true }` | AI reasoning/thinking options (`mode`: `'auto' \| 'always' \| 'never'`, `showThinkingInBubble`: `boolean`, `promptDirective?`: `string \| ((locale: string) => string) \| false`). |
 | `llmMaxTokens` | `number` | `1024` | Maximum response tokens limit for in-browser WebLLM. |
 | `preloadWebLLM` | `boolean` | `false` | Whether to preload WebLLM weights immediately upon initialization. |
 | `autoFallbackWebLLM` | `boolean` | `true` | Whether to auto-fallback to WebLLM if remote AI Provider fails. |
@@ -641,6 +641,21 @@ Modern reasoning models (such as DeepSeek-R1, Hermes 3, OpenAI o-series, Claude 
 3. **Collapsible Thought History UI**:
    - The chat history panel renders native collapsible `<details class="history-item__thought">` cards displaying `🤔 Thought Process (X.Xs)` (or localized equivalents) for reviewing complete reasoning traces.
 
+#### 🧠 Reasoning Mode Control (`REASONING_MODE_MAP`) & Custom Directives (`promptDirective`)
+Configure `reasoning.mode` (type `ReasoningMode` / constant `REASONING_MODE_MAP`) and `promptDirective` to precisely tailor AI thinking across models:
+
+| Mode (`mode`) | Runtime Behavior | Recommended Model Scenarios |
+| :--- | :--- | :--- |
+| **`REASONING_MODE_MAP.auto`** *(Default)* | **Passive Detection**: Preserves system prompt untouched. Automatically captures `<think>`, `<thought>`, or provider `reasoning_content`. | Native reasoning models like `DeepSeek-R1`, `QwQ-32B` |
+| **`REASONING_MODE_MAP.always`** | **Forced Reasoning**: Scales WebLLM token budget (up to 1024 tokens), sets `extra_body: { enable_thinking: true }`, and injects step-by-step thinking directives according to `promptDirective`. | General instruct models like `Hermes-3-Llama-3.1-8B`, `Qwen-2.5-Instruct` |
+| **`REASONING_MODE_MAP.never`** | **Disabled**: Bypasses reasoning parsing and instructs the backend engine to disable thinking via `extra_body: { enable_thinking: false }`. | Scenarios requiring ultra-fast, direct answers |
+
+**Flexible `promptDirective` Configuration:**
+- **String (`string`)**: Inject custom thinking directives (e.g. customized XML tags like `<thought>` or language instructions).
+- **Function (`(locale: string) => string`)**: Dynamically resolves localized thinking guidance based on the active language.
+- **Disabled (`false`)**: Disables automatic prompt injection so developers can maintain full, uninhibited control within their own `systemContext`.
+- **Default (`undefined`)**: Automatically injects standard localized step-by-step thinking instructions.
+
 #### 🛡️ Two-Tier WebGPU OOM Adaptive Fallback
 - **Tier 1 (Flagship Default)**: Loads `Hermes-3-Llama-3.1-8B-q4f32_1-MLC` for full Function Calling and deep reasoning capability.
 - **Tier 2 (Lightweight Fallback)**: If WebGPU allocation fails (OOM / out-of-memory), fires `onLlmOomFallback` and automatically falls back to `Qwen2.5-1.5B-Instruct-q4f16_1-MLC` (~1.1GB download, ~1.2GB VRAM).
@@ -650,6 +665,7 @@ Modern reasoning models (such as DeepSeek-R1, Hermes 3, OpenAI o-series, Claude 
 ```typescript
 import { 
   initAvatarBot, 
+  REASONING_MODE_MAP,
   type ReasoningStartInfo, 
   type ReasoningChunkInfo, 
   type ReasoningEndInfo,
@@ -663,8 +679,11 @@ const widget = await initAvatarBot({
   enableOomFallback: true,
 
   reasoning: {
-    mode: 'auto',
-    showThinkingInBubble: true
+    // Force general instruct models to plan and reason before answering
+    mode: REASONING_MODE_MAP.always,
+    showThinkingInBubble: true,
+    // Custom thinking directive (or pass (locale) => ... or false to manage in systemContext)
+    promptDirective: 'Think and plan step-by-step inside <think>...</think>, then reply in natural spoken English outside the tags.'
   },
 
   onReasoningStart: (info: ReasoningStartInfo) => {
@@ -1020,7 +1039,7 @@ widget.speechEngine?.subscribe('isSpeaking', (speaking: boolean) => {
 * **AI Provider**: `AiProviderFetchSettingFactory`, `AiProviderFetchPayloadFactory`, `AiProviderToolCallExtractor`, `AiProviderOptions`, `AiProviderEngine`
 * **Skin & Spatial**: `Skin2DConfig`, `Skin3DConfig`, `Skin3DCameraConfig`, `Skin3DModelConfig`, `Renderer2D`, `Renderer3D`, `Point2D`, `Vector2Coord`, `Vector2Tuple`, `Vector2Input`, `Vector3Coord`, `Vector3Tuple`, `Vector3Input`, `Vector3Scale`
 * **Tools**: `ToolDefinition`, `ToolRouteCandidate`, `ToolExecutionParams`, `PendingToolState`
-* **Extensible Literal Unions**: `AvatarMode`, `Gender`, `FitMode`, `EngineMode`, `AutoContinueMode`, `ChatRole`
+* **Extensible Literal Unions**: `AvatarMode`, `Gender`, `FitMode`, `EngineMode`, `AutoContinueMode`, `ChatRole`, `ReasoningMode`
 * **Resolvers**: `LocalizableOrResolver<T, C>`, `DynamicTextOrResolver<C>`, `AutoContinuePromptResolver`
 * **Events & Reasoning**: `AutoContinueStartInfo`, `AutoContinueResumeInfo`, `AutoContinueEndInfo`, `ToolNotFoundErrorInfo`, `ToolErrorInfo`, `LlmLoadProgressInfo`, `ReasoningOptions`, `ReasoningStartInfo`, `ReasoningChunkInfo`, `ReasoningEndInfo`, `LlmOomFallbackInfo`
 

@@ -63,6 +63,7 @@ import {
   REASONING_ALT_END_TAG,
   DEFAULT_REASONING_OPTIONS,
   DEFAULT_REASONING_CONFIG,
+  REASONING_MODE_MAP,
   isReasoningSupported,
   DEFAULT_2D_FEMALE_EXPRESSION_MAP,
   DEFAULT_2D_MALE_EXPRESSION_MAP,
@@ -253,6 +254,9 @@ describe('Unit Test: core/constants.js (TypeScript)', () => {
     });
 
     it('should verify LLM model defaults and reasoning tags', () => {
+      expect(REASONING_MODE_MAP.auto).toBe('auto');
+      expect(REASONING_MODE_MAP.always).toBe('always');
+      expect(REASONING_MODE_MAP.never).toBe('never');
       expect(DEFAULT_LLM_MODEL).toBe('Hermes-3-Llama-3.1-8B-q4f32_1-MLC');
       expect(DEFAULT_LLM_FALLBACK_MODEL).toBe('Qwen2.5-1.5B-Instruct-q4f16_1-MLC');
       expect(DEFAULT_AI_PROVIDER_MODEL).toBe('hermes3:latest');

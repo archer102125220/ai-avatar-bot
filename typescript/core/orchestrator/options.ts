@@ -13,7 +13,8 @@ import {
   AUTO_CONTINUE_MODE_MAP,
   DEFAULT_AUTO_CONTINUE_MODE,
   DEFAULT_ENABLE_MEMORY,
-  DEFAULT_REASONING_OPTIONS
+  DEFAULT_REASONING_OPTIONS,
+  REASONING_MODE_MAP
 } from '@/core/constants';
 import type {
   AvatarBotOptions,
@@ -22,7 +23,7 @@ import type {
   I18nEngine,
   ReasoningOptions
 } from './types';
-import type { Gender } from '@/core/types';
+import type { Gender, ReasoningMode } from '@/core/types';
 
 /**
  * Safely invokes a user-defined event callback function with optional context and arguments.
@@ -163,17 +164,25 @@ export function normalizeOptions(
       ? enableEngineToggle
       : DEFAULT_ENABLE_ENGINE_TOGGLE;
 
-  const safeReasoning: Required<ReasoningOptions> = {
+  const safeReasoning: ReasoningOptions & {
+    mode: ReasoningMode;
+    showThinkingInBubble: boolean;
+  } = {
     mode:
-      rawOptions.reasoning?.mode === 'always' ||
-      rawOptions.reasoning?.mode === 'never' ||
-      rawOptions.reasoning?.mode === 'auto'
+      rawOptions.reasoning?.mode === REASONING_MODE_MAP.always ||
+      rawOptions.reasoning?.mode === REASONING_MODE_MAP.never ||
+      rawOptions.reasoning?.mode === REASONING_MODE_MAP.auto
         ? rawOptions.reasoning.mode
         : DEFAULT_REASONING_OPTIONS.mode,
     showThinkingInBubble:
       typeof rawOptions.reasoning?.showThinkingInBubble === 'boolean'
         ? rawOptions.reasoning.showThinkingInBubble
-        : DEFAULT_REASONING_OPTIONS.showThinkingInBubble
+        : DEFAULT_REASONING_OPTIONS.showThinkingInBubble,
+    ...(typeof rawOptions.reasoning?.promptDirective === 'string' ||
+    typeof rawOptions.reasoning?.promptDirective === 'function' ||
+    rawOptions.reasoning?.promptDirective === false
+      ? { promptDirective: rawOptions.reasoning.promptDirective }
+      : {})
   };
 
   const rootStore: AvatarBotStore = createBaseStore<AvatarBotStoreState>({

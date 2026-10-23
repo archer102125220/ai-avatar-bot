@@ -3,9 +3,14 @@ import {
   getBrainMessage,
   getWelcomeText,
   resolveAutoContinuePrompt,
+  getReasoningPromptDirective,
   buildDefaultLLMMessages
 } from '@/core/brain/messages';
-import { AVATAR_MODE_MAP, BRAIN_ENGINE_TYPE_MAP } from '@/core/constants';
+import {
+  AVATAR_MODE_MAP,
+  BRAIN_ENGINE_TYPE_MAP,
+  REASONING_MODE_MAP
+} from '@/core/constants';
 import type { BrainEngine } from '@core';
 
 interface MockBrainEngineType {
@@ -668,6 +673,123 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       const assistantMsg = messages.find((m) => m.role === 'assistant');
       expect(assistantMsg).toBeDefined();
       expect(assistantMsg?.content).toBe(repeatedAnswer);
+    });
+
+    it('should inject <think> step-by-step thinking instruction when reasoning.mode === "always"', async () => {
+      (mockBrainEngine as unknown as { reasoning?: { mode: string } }).reasoning = {
+        mode: REASONING_MODE_MAP.always
+      };
+
+      const messages = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        '什麼是量子力學？'
+      );
+
+      const systemMsg = messages.find((m) => m.role === 'system');
+      expect(systemMsg).toBeDefined();
+      expect(systemMsg?.content).toContain('<think>...</think>');
+      expect(systemMsg?.content).toContain('在回答使用者問題前，請務必先在 <think>...</think> 標籤內進行詳細的步驟規劃與思考');
+    });
+
+    it('should support localized thinking directives for en, ja, ko in always mode', async () => {
+      expect(getReasoningPromptDirective('en')).toContain('Before providing your final response');
+      expect(getReasoningPromptDirective('ja')).toContain('<think>...</think> タグ内で思考過程');
+      expect(getReasoningPromptDirective('ko')).toContain('<think>...</think> 태그 내에서 단계별로 생각');
+
+      mockBrainEngine.locale = 'en-US';
+      (mockBrainEngine as unknown as { reasoning?: { mode: string } }).reasoning = {
+        mode: REASONING_MODE_MAP.always
+      };
+
+      const messagesEn = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        'Explain gravity'
+      );
+      const systemEn = messagesEn.find((m) => m.role === 'system');
+      expect(systemEn?.content).toContain('Before providing your final response, you MUST first think and plan step-by-step inside <think>...</think> tags');
+    });
+
+    it('should NOT inject thinking instruction when reasoning.mode === "auto" or "never"', async () => {
+      mockBrainEngine.locale = 'zh-TW';
+      (mockBrainEngine as unknown as { reasoning?: { mode: string } }).reasoning = {
+        mode: REASONING_MODE_MAP.auto
+      };
+
+      const messagesAuto = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        '測試問題'
+      );
+      const systemAuto = messagesAuto.find((m) => m.role === 'system');
+      expect(systemAuto?.content).not.toContain('<think>...</think>');
+
+      (mockBrainEngine as unknown as { reasoning?: { mode: string } }).reasoning = {
+        mode: REASONING_MODE_MAP.never
+      };
+      const messagesNever = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        '測試問題2'
+      );
+      const systemNever = messagesNever.find((m) => m.role === 'system');
+      expect(systemNever?.content).not.toContain('<think>...</think>');
+    });
+
+    it('should support custom string promptDirective in always mode', async () => {
+      mockBrainEngine.locale = 'zh-TW';
+      (mockBrainEngine as unknown as { reasoning?: { mode: string; promptDirective?: unknown } }).reasoning = {
+        mode: REASONING_MODE_MAP.always,
+        promptDirective: '自訂思考指令：請務必在 <thought> 標籤內進行分析。'
+      };
+
+      const messages = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        '測試自訂指令'
+      );
+      const system = messages.find((m) => m.role === 'system');
+      expect(system?.content).toContain('自訂思考指令：請務必在 <thought> 標籤內進行分析。');
+      expect(system?.content).not.toContain('在回答使用者問題前，請務必先在 <think>...</think>');
+    });
+
+    it('should support custom function promptDirective in always mode', async () => {
+      mockBrainEngine.locale = 'en-US';
+      (mockBrainEngine as unknown as { reasoning?: { mode: string; promptDirective?: unknown } }).reasoning = {
+        mode: REASONING_MODE_MAP.always,
+        promptDirective: (loc: string) => `Dynamic prompt for locale: ${loc}`
+      };
+
+      const messages = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        'Test function directive'
+      );
+      const system = messages.find((m) => m.role === 'system');
+      expect(system?.content).toContain('Dynamic prompt for locale: en-US');
+    });
+
+    it('should NOT inject any directive when promptDirective is false or empty string', async () => {
+      mockBrainEngine.locale = 'zh-TW';
+      (mockBrainEngine as unknown as { reasoning?: { mode: string; promptDirective?: unknown } }).reasoning = {
+        mode: REASONING_MODE_MAP.always,
+        promptDirective: false
+      };
+
+      const messagesFalse = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        '測試 false'
+      );
+      const systemFalse = messagesFalse.find((m) => m.role === 'system');
+      expect(systemFalse?.content).not.toContain('<think>');
+      expect(systemFalse?.content).not.toContain('在回答使用者問題前');
+
+      (mockBrainEngine as unknown as { reasoning?: { mode: string; promptDirective?: unknown } }).reasoning = {
+        mode: REASONING_MODE_MAP.always,
+        promptDirective: ''
+      };
+      const messagesEmpty = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        '測試空字串'
+      );
+      const systemEmpty = messagesEmpty.find((m) => m.role === 'system');
+      expect(systemEmpty?.content).not.toContain('<think>');
+      expect(systemEmpty?.content).not.toContain('在回答使用者問題前');
     });
   });
 });

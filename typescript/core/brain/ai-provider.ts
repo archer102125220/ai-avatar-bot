@@ -6,7 +6,8 @@ import {
   BRAIN_ENGINE_TYPE_MAP,
   AUTO_CONTINUE_MODE_MAP,
   DEFAULT_AUTO_CONTINUE_MODE,
-  DEFAULT_MAX_AUTO_CONTINUATIONS
+  DEFAULT_MAX_AUTO_CONTINUATIONS,
+  REASONING_MODE_MAP
 } from '@/core/constants';
 import { toOpenAiTools, type ToolDefinition } from '@/core/tools';
 import type {
@@ -327,13 +328,13 @@ export async function initAiProvider(
           temperature: 0.4,
           max_tokens: this.maxTokens,
           stream: this.isStream,
-          ...(this.reasoning?.mode === 'never'
+          ...(this.reasoning?.mode === REASONING_MODE_MAP.never
             ? {
                 extra_body: { enable_thinking: false },
                 enable_thinking: false
               }
-            : this.reasoning?.mode === 'always' ||
-                this.reasoning?.mode === 'auto'
+            : this.reasoning?.mode === REASONING_MODE_MAP.always ||
+                this.reasoning?.mode === REASONING_MODE_MAP.auto
               ? {
                   extra_body: { enable_thinking: true },
                   enable_thinking: true

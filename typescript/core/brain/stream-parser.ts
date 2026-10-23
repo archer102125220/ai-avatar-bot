@@ -7,7 +7,8 @@ import {
 import type {
   ReasoningStartInfo,
   ReasoningChunkInfo,
-  ReasoningEndInfo
+  ReasoningEndInfo,
+  ReasoningMode
 } from '@/core/types';
 
 /**
@@ -39,7 +40,7 @@ export interface StreamParserOptions {
    * - 'always': Aggressively capture and stream reasoning tags
    * - 'never': Disable reasoning track; emit all output directly as answer
    */
-  mode?: 'auto' | 'always' | 'never';
+  mode?: ReasoningMode;
   /** Supported reasoning start tags. Defaults to ['<think>', '<thought>']. */
   startTags?: string[];
   /** Supported reasoning end tags. Defaults to ['</think>', '</thought>']. */
@@ -364,7 +365,7 @@ export class StreamParser {
   private endTime = 0;
   private reasoningMode: 'tag' | 'structured' | null = null;
   private readonly model?: string;
-  private readonly mode: 'auto' | 'always' | 'never';
+  private readonly mode: ReasoningMode;
   private readonly startTags: string[];
   private readonly endTags: string[];
   private readonly options: StreamParserOptions;

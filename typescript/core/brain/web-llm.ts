@@ -7,7 +7,8 @@ import {
   LLM_FINISH_REASON_MAP,
   BRAIN_ENGINE_TYPE_MAP,
   DEFAULT_MAX_AUTO_CONTINUATIONS,
-  isWebLLMFunctionCallingSupported
+  isWebLLMFunctionCallingSupported,
+  REASONING_MODE_MAP
 } from '@/core/constants';
 import { toOpenAiTools, type ToolDefinition } from '@/core/tools';
 import type {
@@ -397,10 +398,14 @@ export function initWebLLM(
         frequency_penalty: 0.25,
         presence_penalty: 0.15,
         stop: ['<|im_end|>', '<|endoftext|>', '<|im_start|>', '\n\n\n'],
-        max_tokens: Math.min(this.maxTokens, 512),
-        ...(this.reasoning?.mode === 'never'
+        max_tokens:
+          this.reasoning?.mode === REASONING_MODE_MAP.always
+            ? Math.min(this.maxTokens, 1024)
+            : Math.min(this.maxTokens, 512),
+        ...(this.reasoning?.mode === REASONING_MODE_MAP.never
           ? { extra_body: { enable_thinking: false } }
-          : this.reasoning?.mode === 'always' || this.reasoning?.mode === 'auto'
+          : this.reasoning?.mode === REASONING_MODE_MAP.always ||
+              this.reasoning?.mode === REASONING_MODE_MAP.auto
             ? { extra_body: { enable_thinking: true } }
             : {})
       };

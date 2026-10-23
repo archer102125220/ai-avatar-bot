@@ -140,6 +140,15 @@ describe('Orchestrator Options & Configuration', () => {
         }
       });
       expect(normInvalid.rawOptions.reasoning?.mode).toBe('auto');
+
+      const normDirective = normalizeOptions({
+        container,
+        reasoning: {
+          mode: 'always',
+          promptDirective: 'Custom directive'
+        }
+      });
+      expect(normDirective.rawOptions.reasoning?.promptDirective).toBe('Custom directive');
     });
 
     it('should sanitize gender and derive default neural voice', () => {
