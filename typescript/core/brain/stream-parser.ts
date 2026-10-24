@@ -403,324 +403,78 @@ function extractChunkPayload(chunk: unknown): {
  * Dispatches reasoning tokens silently to the thinking track while holding TTS speech,
  * and seamlessly emits answer tokens to the speech and UI pipeline upon completion.
  * Fully resilient against arbitrary chunk boundary slicing across network streams.
+ *
+ * @param options - Configuration options and stream callbacks.
+ * @returns Initialized stream parser instance controller.
  */
-export class StreamParser implements StreamParserInstance {
-  private state: StreamParserState = STREAM_PARSER_STATE.IDLE;
-  private buffer = '';
-  private accumulatedReasoning = '';
-  private accumulatedAnswer = '';
-  private reasoningStartTime = 0;
-  private reasoningDurationMs = 0;
-  private startTime: number = Date.now();
-  private endTime = 0;
-  private reasoningMode: 'tag' | 'structured' | null = null;
-  private readonly model?: string;
-  private readonly mode: ReasoningMode;
-  private readonly startTags: string[];
-  private readonly endTags: string[];
-  private readonly options: StreamParserOptions;
+export function createStreamParser(
+  options: StreamParserOptions = {}
+): StreamParserInstance {
+  let state: StreamParserState = STREAM_PARSER_STATE.IDLE;
+  let buffer = '';
+  let accumulatedReasoning = '';
+  let accumulatedAnswer = '';
+  let reasoningStartTime = 0;
+  let reasoningDurationMs = 0;
+  let startTime = Date.now();
+  let endTime = 0;
+  let reasoningMode: 'tag' | 'structured' | null = null;
 
-  constructor(options: StreamParserOptions = {}) {
-    this.options = options;
-    this.model = options.model;
-    this.mode =
-      options.mode === 'never' || options.mode === 'always'
-        ? options.mode
-        : 'auto';
-    this.startTags =
-      Array.isArray(options.startTags) && options.startTags.length > 0
-        ? options.startTags
-        : [REASONING_START_TAG, REASONING_ALT_START_TAG];
-    this.endTags =
-      Array.isArray(options.endTags) && options.endTags.length > 0
-        ? options.endTags
-        : [REASONING_END_TAG, REASONING_ALT_END_TAG];
-  }
-
-  /**
-   * Returns current active state of the parser.
-   */
-  public getState(): StreamParserState {
-    return this.state;
-  }
-
-  /**
-   * Returns accumulated reasoning text captured so far.
-   */
-  public getReasoning(): string {
-    return this.accumulatedReasoning;
-  }
-
-  /**
-   * Returns accumulated answer text captured so far.
-   */
-  public getAnswer(): string {
-    return this.accumulatedAnswer;
-  }
-
-  /**
-   * Returns the duration of the reasoning process in milliseconds.
-   */
-  public getReasoningDurationMs(): number {
-    return this.reasoningDurationMs;
-  }
-
-  /**
-   * Returns the total elapsed time of the generation in milliseconds.
-   */
-  public getTotalDurationMs(): number {
-    const end = this.endTime > 0 ? this.endTime : Date.now();
-    return Math.max(0, end - this.startTime);
-  }
-
-  /**
-   * Returns whether any reasoning tokens were encountered during generation.
-   */
-  public hasReasoning(): boolean {
-    return this.accumulatedReasoning !== '';
-  }
-
-  /**
-   * Returns true if stream has finalized or was terminated early due to loop guard.
-   */
-  public isFinished(): boolean {
-    return this.state === STREAM_PARSER_STATE.FINISHED;
-  }
+  const model = options.model;
+  const mode: ReasoningMode =
+    options.mode === 'never' || options.mode === 'always'
+      ? options.mode
+      : 'auto';
+  const startTags: string[] =
+    Array.isArray(options.startTags) && options.startTags.length > 0
+      ? options.startTags
+      : [REASONING_START_TAG, REASONING_ALT_START_TAG];
+  const endTags: string[] =
+    Array.isArray(options.endTags) && options.endTags.length > 0
+      ? options.endTags
+      : [REASONING_END_TAG, REASONING_ALT_END_TAG];
 
   /**
    * Helper to safely append answer slices, run repetition loop detection, and dispatch events.
    */
-  private emitAnswerSlice(slice: string, rawChunk?: unknown): void {
-    if (slice === '' || this.state === STREAM_PARSER_STATE.FINISHED) {
+  function emitAnswerSlice(slice: string, rawChunk?: unknown): void {
+    if (slice === '' || state === STREAM_PARSER_STATE.FINISHED) {
       return;
     }
 
-    this.accumulatedAnswer += slice;
+    accumulatedAnswer += slice;
 
-    const loopCheck = detectRepetitionLoop(this.accumulatedAnswer);
+    const loopCheck = detectRepetitionLoop(accumulatedAnswer);
     if (loopCheck.hasLoop === true) {
-      this.accumulatedAnswer = loopCheck.cleanText;
-      this.buffer = '';
-      this.state = STREAM_PARSER_STATE.FINISHED;
-      this.endTime = Date.now();
-      const totalTimeMs = Math.max(0, this.endTime - this.startTime);
-      if (typeof this.options.onAnswerEnd === 'function') {
-        this.options.onAnswerEnd(this.accumulatedAnswer, totalTimeMs);
+      accumulatedAnswer = loopCheck.cleanText;
+      buffer = '';
+      state = STREAM_PARSER_STATE.FINISHED;
+      endTime = Date.now();
+      const totalTimeMs = Math.max(0, endTime - startTime);
+      if (typeof options.onAnswerEnd === 'function') {
+        options.onAnswerEnd(accumulatedAnswer, totalTimeMs);
       }
       return;
     }
 
-    if (typeof this.options.onAnswerChunk === 'function') {
-      this.options.onAnswerChunk(slice, this.accumulatedAnswer, rawChunk);
+    if (typeof options.onAnswerChunk === 'function') {
+      options.onAnswerChunk(slice, accumulatedAnswer, rawChunk);
     }
-  }
-
-  /**
-   * Feeds an incoming token chunk (text string or engine object delta) into the state machine.
-   *
-   * @param rawChunk - Incoming chunk payload.
-   */
-  public feed(rawChunk: unknown): void {
-    if (this.state === STREAM_PARSER_STATE.FINISHED) {
-      return;
-    }
-
-    if (this.mode === 'never') {
-      const { reasoningDelta, contentDelta } = extractChunkPayload(rawChunk);
-      const textChunk =
-        typeof contentDelta === 'string' && contentDelta !== ''
-          ? contentDelta
-          : typeof reasoningDelta === 'string' && reasoningDelta !== ''
-            ? reasoningDelta
-            : '';
-      if (textChunk !== '') {
-        if (this.state === STREAM_PARSER_STATE.IDLE) {
-          this.state = STREAM_PARSER_STATE.ANSWERING;
-          if (typeof this.options.onAnswerStart === 'function') {
-            this.options.onAnswerStart();
-          }
-        }
-        this.emitAnswerSlice(textChunk, rawChunk);
-      }
-      return;
-    }
-
-    const { reasoningDelta, contentDelta } = extractChunkPayload(rawChunk);
-
-    // Handle structured reasoning field (e.g. delta.reasoning_content)
-    if (typeof reasoningDelta === 'string' && reasoningDelta !== '') {
-      if (this.state === STREAM_PARSER_STATE.IDLE) {
-        this.transitionToThinking('structured');
-      }
-
-      if (this.state === STREAM_PARSER_STATE.THINKING) {
-        this.accumulatedReasoning += reasoningDelta;
-        if (typeof this.options.onReasoningChunk === 'function') {
-          this.options.onReasoningChunk({
-            chunkDelta: reasoningDelta,
-            accumulatedReasoning: this.accumulatedReasoning,
-            rawChunk
-          });
-        }
-      }
-    }
-
-    // Handle content field
-    if (typeof contentDelta === 'string') {
-      // If we were in structured reasoning mode and now receive answer content
-      if (
-        this.state === STREAM_PARSER_STATE.THINKING &&
-        this.reasoningMode === 'structured' &&
-        contentDelta !== ''
-      ) {
-        // If contentDelta does not contain further reasoning start tags, close structured reasoning
-        const hasStartTag =
-          findEarliestTag(contentDelta, this.startTags) !== null;
-        if (hasStartTag === false && this.buffer === '') {
-          this.transitionToAnswering();
-        }
-      }
-
-      this.processTextChunk(contentDelta, rawChunk);
-    }
-  }
-
-  /**
-   * Finalizes the stream, flushing any pending buffers and computing final metrics.
-   *
-   * @returns Final parser result snapshot.
-   */
-  public finish(): StreamParserResult {
-    this.endTime = Date.now();
-    const totalTimeMs = Math.max(0, this.endTime - this.startTime);
-
-    if (this.state === STREAM_PARSER_STATE.THINKING) {
-      // Stream finished while still inside thinking phase
-      if (this.buffer !== '') {
-        this.accumulatedReasoning += this.buffer;
-        if (typeof this.options.onReasoningChunk === 'function') {
-          this.options.onReasoningChunk({
-            chunkDelta: this.buffer,
-            accumulatedReasoning: this.accumulatedReasoning
-          });
-        }
-        this.buffer = '';
-      }
-
-      this.reasoningDurationMs = Math.max(
-        0,
-        this.endTime - this.reasoningStartTime
-      );
-      if (typeof this.options.onReasoningEnd === 'function') {
-        this.options.onReasoningEnd({
-          fullReasoning: this.accumulatedReasoning,
-          durationMs: this.reasoningDurationMs,
-          model: this.model
-        });
-      }
-
-      if (typeof this.options.onAnswerStart === 'function') {
-        this.options.onAnswerStart();
-      }
-      if (typeof this.options.onAnswerEnd === 'function') {
-        this.options.onAnswerEnd(this.accumulatedAnswer, totalTimeMs);
-      }
-    } else if (this.state === STREAM_PARSER_STATE.ANSWERING) {
-      if (this.buffer !== '') {
-        for (let i = 0; i < this.endTags.length; i++) {
-          const tag = this.endTags[i];
-          if (tag !== '' && this.buffer.includes(tag) === true) {
-            this.buffer = this.buffer.split(tag).join('');
-          }
-        }
-        if (this.accumulatedAnswer === '') {
-          this.buffer = this.buffer.replace(/^[ \t]*(\r?\n)+/, '');
-        }
-        if (this.buffer !== '') {
-          this.emitAnswerSlice(this.buffer);
-          this.buffer = '';
-        }
-      }
-
-      const loopCheck = detectRepetitionLoop(this.accumulatedAnswer);
-      if (loopCheck.hasLoop === true) {
-        this.accumulatedAnswer = loopCheck.cleanText;
-      }
-
-      if (typeof this.options.onAnswerEnd === 'function') {
-        this.options.onAnswerEnd(this.accumulatedAnswer, totalTimeMs);
-      }
-    } else if (this.state === STREAM_PARSER_STATE.IDLE) {
-      // No tags detected and finished immediately
-      if (typeof this.options.onAnswerStart === 'function') {
-        this.options.onAnswerStart();
-      }
-
-      if (this.buffer !== '') {
-        for (let i = 0; i < this.endTags.length; i++) {
-          const tag = this.endTags[i];
-          if (tag !== '' && this.buffer.includes(tag) === true) {
-            this.buffer = this.buffer.split(tag).join('');
-          }
-        }
-        this.buffer = this.buffer.replace(/^[ \t]*(\r?\n)+/, '');
-        if (this.buffer !== '') {
-          this.accumulatedAnswer += this.buffer;
-          if (typeof this.options.onAnswerChunk === 'function') {
-            this.options.onAnswerChunk(
-              this.buffer,
-              this.accumulatedAnswer
-            );
-          }
-          this.buffer = '';
-        }
-      }
-
-      if (typeof this.options.onAnswerEnd === 'function') {
-        this.options.onAnswerEnd(this.accumulatedAnswer, totalTimeMs);
-      }
-    }
-
-    this.state = STREAM_PARSER_STATE.FINISHED;
-
-    return {
-      reasoning: this.accumulatedReasoning.trim(),
-      answer: this.accumulatedAnswer.replace(/^[ \t]*(\r?\n)+/, ''),
-      reasoningTimeMs: this.reasoningDurationMs,
-      totalTimeMs,
-      hasReasoning: this.accumulatedReasoning !== '',
-      model: this.model
-    };
-  }
-
-  /**
-   * Resets the parser instance for a new generation cycle.
-   */
-  public reset(): void {
-    this.state = STREAM_PARSER_STATE.IDLE;
-    this.buffer = '';
-    this.accumulatedReasoning = '';
-    this.accumulatedAnswer = '';
-    this.reasoningStartTime = 0;
-    this.reasoningDurationMs = 0;
-    this.startTime = Date.now();
-    this.endTime = 0;
-    this.reasoningMode = null;
   }
 
   /**
    * Internal transition from IDLE / ANSWERING to THINKING.
    *
-   * @param mode - Mode of reasoning detection: 'tag' or 'structured'.
+   * @param nextMode - Mode of reasoning detection: 'tag' or 'structured'.
    */
-  private transitionToThinking(mode: 'tag' | 'structured'): void {
-    this.reasoningMode = mode;
-    this.state = STREAM_PARSER_STATE.THINKING;
-    this.reasoningStartTime = Date.now();
-    if (typeof this.options.onReasoningStart === 'function') {
-      this.options.onReasoningStart({
-        model: this.model,
-        timestamp: this.reasoningStartTime
+  function transitionToThinking(nextMode: 'tag' | 'structured'): void {
+    reasoningMode = nextMode;
+    state = STREAM_PARSER_STATE.THINKING;
+    reasoningStartTime = Date.now();
+    if (typeof options.onReasoningStart === 'function') {
+      options.onReasoningStart({
+        model,
+        timestamp: reasoningStartTime
       });
     }
   }
@@ -728,25 +482,22 @@ export class StreamParser implements StreamParserInstance {
   /**
    * Internal transition from THINKING to ANSWERING.
    */
-  private transitionToAnswering(): void {
-    this.reasoningDurationMs = Math.max(
-      0,
-      Date.now() - this.reasoningStartTime
-    );
+  function transitionToAnswering(): void {
+    reasoningDurationMs = Math.max(0, Date.now() - reasoningStartTime);
 
-    if (typeof this.options.onReasoningEnd === 'function') {
-      this.options.onReasoningEnd({
-        fullReasoning: this.accumulatedReasoning,
-        durationMs: this.reasoningDurationMs,
-        model: this.model
+    if (typeof options.onReasoningEnd === 'function') {
+      options.onReasoningEnd({
+        fullReasoning: accumulatedReasoning,
+        durationMs: reasoningDurationMs,
+        model
       });
     }
 
-    this.state = STREAM_PARSER_STATE.ANSWERING;
-    this.reasoningMode = null;
+    state = STREAM_PARSER_STATE.ANSWERING;
+    reasoningMode = null;
 
-    if (typeof this.options.onAnswerStart === 'function') {
-      this.options.onAnswerStart();
+    if (typeof options.onAnswerStart === 'function') {
+      options.onAnswerStart();
     }
   }
 
@@ -756,42 +507,40 @@ export class StreamParser implements StreamParserInstance {
    * @param text - Text slice to feed.
    * @param rawChunk - Original chunk reference.
    */
-  private processTextChunk(text: string, rawChunk?: unknown): void {
-    this.buffer += text;
+  function processTextChunk(text: string, rawChunk?: unknown): void {
+    buffer += text;
 
-    while (this.buffer.length > 0) {
-      if (this.state === STREAM_PARSER_STATE.IDLE) {
-        const startTagMatch = findEarliestTag(this.buffer, this.startTags);
+    while (buffer.length > 0) {
+      if (state === STREAM_PARSER_STATE.IDLE) {
+        const startTagMatch = findEarliestTag(buffer, startTags);
 
         if (startTagMatch !== null) {
-          const textBefore = this.buffer.slice(0, startTagMatch.index);
+          const textBefore = buffer.slice(0, startTagMatch.index);
           const trimmedBefore = textBefore.trim();
 
           // If there was meaningful text before the start tag, emit as answer
           if (trimmedBefore !== '') {
-            if (typeof this.options.onAnswerStart === 'function') {
-              this.options.onAnswerStart();
+            if (typeof options.onAnswerStart === 'function') {
+              options.onAnswerStart();
             }
-            this.emitAnswerSlice(textBefore, rawChunk);
+            emitAnswerSlice(textBefore, rawChunk);
           }
 
-          this.transitionToThinking('tag');
-          this.buffer = this.buffer.slice(
-            startTagMatch.index + startTagMatch.tag.length
-          );
+          transitionToThinking('tag');
+          buffer = buffer.slice(startTagMatch.index + startTagMatch.tag.length);
           continue;
         }
 
         // Check if buffer starts with a partial prefix of any start tag
-        const trimmed = this.buffer.trimStart();
+        const trimmed = buffer.trimStart();
         if (trimmed === '') {
           // Pure leading whitespace: keep buffering until non-whitespace arrives
           break;
         }
 
         let isPotentialStartTag = false;
-        for (let i = 0; i < this.startTags.length; i++) {
-          if (this.startTags[i].startsWith(trimmed) === true) {
+        for (let i = 0; i < startTags.length; i++) {
+          if (startTags[i].startsWith(trimmed) === true) {
             isPotentialStartTag = true;
             break;
           }
@@ -803,160 +552,368 @@ export class StreamParser implements StreamParserInstance {
         }
 
         // Buffer cannot be a start tag: direct answer stream!
-        this.state = STREAM_PARSER_STATE.ANSWERING;
-        if (typeof this.options.onAnswerStart === 'function') {
-          this.options.onAnswerStart();
+        state = STREAM_PARSER_STATE.ANSWERING;
+        if (typeof options.onAnswerStart === 'function') {
+          options.onAnswerStart();
         }
         // Fallthrough to ANSWERING processing below
       }
 
-      if (this.state === STREAM_PARSER_STATE.THINKING) {
-        if (this.accumulatedReasoning === '') {
-          this.buffer = this.buffer.replace(/^(\r?\n)+/, '');
-          if (this.buffer === '') {
+      if (state === STREAM_PARSER_STATE.THINKING) {
+        if (accumulatedReasoning === '') {
+          buffer = buffer.replace(/^(\r?\n)+/, '');
+          if (buffer === '') {
             break;
           }
         }
 
-        const endTagMatch = findEarliestTag(this.buffer, this.endTags);
+        const endTagMatch = findEarliestTag(buffer, endTags);
 
         if (endTagMatch !== null) {
-          const reasoningSlice = this.buffer.slice(0, endTagMatch.index);
+          const reasoningSlice = buffer.slice(0, endTagMatch.index);
           if (reasoningSlice !== '') {
-            this.accumulatedReasoning += reasoningSlice;
-            if (typeof this.options.onReasoningChunk === 'function') {
-              this.options.onReasoningChunk({
+            accumulatedReasoning += reasoningSlice;
+            if (typeof options.onReasoningChunk === 'function') {
+              options.onReasoningChunk({
                 chunkDelta: reasoningSlice,
-                accumulatedReasoning: this.accumulatedReasoning,
+                accumulatedReasoning,
                 rawChunk
               });
             }
           }
 
           // Advance past end tag and trim immediate newline right after end tag
-          this.buffer = this.buffer
+          buffer = buffer
             .slice(endTagMatch.index + endTagMatch.tag.length)
             .replace(/^[ \t]*(\r?\n)+/, '');
 
-          this.transitionToAnswering();
+          transitionToAnswering();
           continue;
         }
 
         // No end tag yet: check if tail of buffer could be a partial end tag
-        const partialLen = findPotentialTagPrefixLength(
-          this.buffer,
-          this.endTags
-        );
+        const partialLen = findPotentialTagPrefixLength(buffer, endTags);
         if (partialLen > 0) {
-          const safeReasoning = this.buffer.slice(
-            0,
-            this.buffer.length - partialLen
-          );
+          const safeReasoning = buffer.slice(0, buffer.length - partialLen);
           if (safeReasoning !== '') {
-            this.accumulatedReasoning += safeReasoning;
-            if (typeof this.options.onReasoningChunk === 'function') {
-              this.options.onReasoningChunk({
+            accumulatedReasoning += safeReasoning;
+            if (typeof options.onReasoningChunk === 'function') {
+              options.onReasoningChunk({
                 chunkDelta: safeReasoning,
-                accumulatedReasoning: this.accumulatedReasoning,
+                accumulatedReasoning,
                 rawChunk
               });
             }
           }
-          this.buffer = this.buffer.slice(this.buffer.length - partialLen);
+          buffer = buffer.slice(buffer.length - partialLen);
           break;
         }
 
         // Entire buffer is safe reasoning
-        this.accumulatedReasoning += this.buffer;
-        if (typeof this.options.onReasoningChunk === 'function') {
-          this.options.onReasoningChunk({
-            chunkDelta: this.buffer,
-            accumulatedReasoning: this.accumulatedReasoning,
+        accumulatedReasoning += buffer;
+        if (typeof options.onReasoningChunk === 'function') {
+          options.onReasoningChunk({
+            chunkDelta: buffer,
+            accumulatedReasoning,
             rawChunk
           });
         }
-        this.buffer = '';
+        buffer = '';
         break;
       }
 
-      if (this.state === STREAM_PARSER_STATE.ANSWERING) {
-        const startTagMatch = findEarliestTag(this.buffer, this.startTags);
-        const orphanEndTagMatch = findEarliestTag(this.buffer, this.endTags);
+      if (state === STREAM_PARSER_STATE.ANSWERING) {
+        const startTagMatch = findEarliestTag(buffer, startTags);
+        const orphanEndTagMatch = findEarliestTag(buffer, endTags);
 
         // 1. Strip and discard any orphaned end tags that appear before any start tag
         if (
           orphanEndTagMatch !== null &&
-          (startTagMatch === null || orphanEndTagMatch.index < startTagMatch.index)
+          (startTagMatch === null ||
+            orphanEndTagMatch.index < startTagMatch.index)
         ) {
-          const textBefore = this.buffer.slice(0, orphanEndTagMatch.index);
-          const textAfter = this.buffer.slice(
+          const textBefore = buffer.slice(0, orphanEndTagMatch.index);
+          const textAfter = buffer.slice(
             orphanEndTagMatch.index + orphanEndTagMatch.tag.length
           );
-          if (this.accumulatedAnswer === '') {
-            this.buffer =
+          if (accumulatedAnswer === '') {
+            buffer =
               (textBefore.trim() === '' ? '' : textBefore) +
               textAfter.replace(/^[ \t]*(\r?\n)+/, '');
           } else {
-            this.buffer = textBefore + textAfter;
+            buffer = textBefore + textAfter;
           }
           continue;
         }
 
         // 2. If at start of answer, check if buffer ends with a partial prefix of an end tag
-        if (this.accumulatedAnswer === '') {
+        if (accumulatedAnswer === '') {
           const partialEndTagLen = findPotentialTagPrefixLength(
-            this.buffer,
-            this.endTags
+            buffer,
+            endTags
           );
           if (partialEndTagLen > 0) {
             break;
           }
 
           // Strip leading newlines before first answer chunk
-          this.buffer = this.buffer.replace(/^[ \t]*(\r?\n)+/, '');
-          if (this.buffer === '') {
+          buffer = buffer.replace(/^[ \t]*(\r?\n)+/, '');
+          if (buffer === '') {
             break;
           }
         }
 
         // 3. Check for multi-turn thinking start tag
         if (startTagMatch !== null) {
-          const answerSlice = this.buffer.slice(0, startTagMatch.index);
+          const answerSlice = buffer.slice(0, startTagMatch.index);
           if (answerSlice !== '') {
-            this.emitAnswerSlice(answerSlice, rawChunk);
+            emitAnswerSlice(answerSlice, rawChunk);
           }
 
-          this.transitionToThinking('tag');
-          this.buffer = this.buffer.slice(
-            startTagMatch.index + startTagMatch.tag.length
-          );
+          transitionToThinking('tag');
+          buffer = buffer.slice(startTagMatch.index + startTagMatch.tag.length);
           continue;
         }
 
         // 4. Check if tail of buffer could be start of another think tag
-        const partialLen = findPotentialTagPrefixLength(
-          this.buffer,
-          this.startTags
-        );
+        const partialLen = findPotentialTagPrefixLength(buffer, startTags);
         if (partialLen > 0) {
-          const safeAnswer = this.buffer.slice(
-            0,
-            this.buffer.length - partialLen
-          );
+          const safeAnswer = buffer.slice(0, buffer.length - partialLen);
           if (safeAnswer !== '') {
-            this.emitAnswerSlice(safeAnswer, rawChunk);
+            emitAnswerSlice(safeAnswer, rawChunk);
           }
-          this.buffer = this.buffer.slice(this.buffer.length - partialLen);
+          buffer = buffer.slice(buffer.length - partialLen);
           break;
         }
 
         // 5. Entire buffer is safe answer text
-        this.emitAnswerSlice(this.buffer, rawChunk);
-        this.buffer = '';
+        emitAnswerSlice(buffer, rawChunk);
+        buffer = '';
         break;
       }
 
       break;
     }
   }
+
+  /**
+   * Feeds an incoming token chunk (text string or engine object delta) into the state machine.
+   *
+   * @param rawChunk - Incoming chunk payload.
+   */
+  function feed(rawChunk: unknown): void {
+    if (state === STREAM_PARSER_STATE.FINISHED) {
+      return;
+    }
+
+    if (mode === 'never') {
+      const { reasoningDelta, contentDelta } = extractChunkPayload(rawChunk);
+      const textChunk =
+        typeof contentDelta === 'string' && contentDelta !== ''
+          ? contentDelta
+          : typeof reasoningDelta === 'string' && reasoningDelta !== ''
+            ? reasoningDelta
+            : '';
+      if (textChunk !== '') {
+        if (state === STREAM_PARSER_STATE.IDLE) {
+          state = STREAM_PARSER_STATE.ANSWERING;
+          if (typeof options.onAnswerStart === 'function') {
+            options.onAnswerStart();
+          }
+        }
+        emitAnswerSlice(textChunk, rawChunk);
+      }
+      return;
+    }
+
+    const { reasoningDelta, contentDelta } = extractChunkPayload(rawChunk);
+
+    // Handle structured reasoning field (e.g. delta.reasoning_content)
+    if (typeof reasoningDelta === 'string' && reasoningDelta !== '') {
+      if (state === STREAM_PARSER_STATE.IDLE) {
+        transitionToThinking('structured');
+      }
+
+      if (state === STREAM_PARSER_STATE.THINKING) {
+        accumulatedReasoning += reasoningDelta;
+        if (typeof options.onReasoningChunk === 'function') {
+          options.onReasoningChunk({
+            chunkDelta: reasoningDelta,
+            accumulatedReasoning,
+            rawChunk
+          });
+        }
+      }
+    }
+
+    // Handle content field
+    if (typeof contentDelta === 'string') {
+      // If we were in structured reasoning mode and now receive answer content
+      if (
+        state === STREAM_PARSER_STATE.THINKING &&
+        reasoningMode === 'structured' &&
+        contentDelta !== ''
+      ) {
+        // If contentDelta does not contain further reasoning start tags, close structured reasoning
+        const hasStartTag = findEarliestTag(contentDelta, startTags) !== null;
+        if (hasStartTag === false && buffer === '') {
+          transitionToAnswering();
+        }
+      }
+
+      processTextChunk(contentDelta, rawChunk);
+    }
+  }
+
+  /**
+   * Finalizes the stream, flushing any pending buffers and computing final metrics.
+   *
+   * @returns Final parser result snapshot.
+   */
+  function finish(): StreamParserResult {
+    endTime = Date.now();
+    const totalTimeMs = Math.max(0, endTime - startTime);
+
+    if (state === STREAM_PARSER_STATE.THINKING) {
+      // Stream finished while still inside thinking phase
+      if (buffer !== '') {
+        accumulatedReasoning += buffer;
+        if (typeof options.onReasoningChunk === 'function') {
+          options.onReasoningChunk({
+            chunkDelta: buffer,
+            accumulatedReasoning
+          });
+        }
+        buffer = '';
+      }
+
+      reasoningDurationMs = Math.max(0, endTime - reasoningStartTime);
+      if (typeof options.onReasoningEnd === 'function') {
+        options.onReasoningEnd({
+          fullReasoning: accumulatedReasoning,
+          durationMs: reasoningDurationMs,
+          model
+        });
+      }
+
+      if (typeof options.onAnswerStart === 'function') {
+        options.onAnswerStart();
+      }
+      if (typeof options.onAnswerEnd === 'function') {
+        options.onAnswerEnd(accumulatedAnswer, totalTimeMs);
+      }
+    } else if (state === STREAM_PARSER_STATE.ANSWERING) {
+      if (buffer !== '') {
+        for (let i = 0; i < endTags.length; i++) {
+          const tag = endTags[i];
+          if (tag !== '' && buffer.includes(tag) === true) {
+            buffer = buffer.split(tag).join('');
+          }
+        }
+        if (accumulatedAnswer === '') {
+          buffer = buffer.replace(/^[ \t]*(\r?\n)+/, '');
+        }
+        if (buffer !== '') {
+          emitAnswerSlice(buffer);
+          buffer = '';
+        }
+      }
+
+      const loopCheck = detectRepetitionLoop(accumulatedAnswer);
+      if (loopCheck.hasLoop === true) {
+        accumulatedAnswer = loopCheck.cleanText;
+      }
+
+      if (typeof options.onAnswerEnd === 'function') {
+        options.onAnswerEnd(accumulatedAnswer, totalTimeMs);
+      }
+    } else if (state === STREAM_PARSER_STATE.IDLE) {
+      // No tags detected and finished immediately
+      if (typeof options.onAnswerStart === 'function') {
+        options.onAnswerStart();
+      }
+
+      if (buffer !== '') {
+        for (let i = 0; i < endTags.length; i++) {
+          const tag = endTags[i];
+          if (tag !== '' && buffer.includes(tag) === true) {
+            buffer = buffer.split(tag).join('');
+          }
+        }
+        buffer = buffer.replace(/^[ \t]*(\r?\n)+/, '');
+        if (buffer !== '') {
+          accumulatedAnswer += buffer;
+          if (typeof options.onAnswerChunk === 'function') {
+            options.onAnswerChunk(buffer, accumulatedAnswer);
+          }
+          buffer = '';
+        }
+      }
+
+      if (typeof options.onAnswerEnd === 'function') {
+        options.onAnswerEnd(accumulatedAnswer, totalTimeMs);
+      }
+    }
+
+    state = STREAM_PARSER_STATE.FINISHED;
+
+    return {
+      reasoning: accumulatedReasoning.trim(),
+      answer: accumulatedAnswer.replace(/^[ \t]*(\r?\n)+/, ''),
+      reasoningTimeMs: reasoningDurationMs,
+      totalTimeMs,
+      hasReasoning: accumulatedReasoning !== '',
+      model
+    };
+  }
+
+  /**
+   * Resets the parser instance for a new generation cycle.
+   */
+  function reset(): void {
+    state = STREAM_PARSER_STATE.IDLE;
+    buffer = '';
+    accumulatedReasoning = '';
+    accumulatedAnswer = '';
+    reasoningStartTime = 0;
+    reasoningDurationMs = 0;
+    startTime = Date.now();
+    endTime = 0;
+    reasoningMode = null;
+  }
+
+  return {
+    feed,
+    finish,
+    reset,
+    getState: (): StreamParserState => state,
+    getReasoning: (): string => accumulatedReasoning,
+    getAnswer: (): string => accumulatedAnswer,
+    getReasoningDurationMs: (): number => reasoningDurationMs,
+    getTotalDurationMs: (): number => {
+      const end = endTime > 0 ? endTime : Date.now();
+      return Math.max(0, end - startTime);
+    },
+    hasReasoning: (): boolean => accumulatedReasoning !== '',
+    isFinished: (): boolean => state === STREAM_PARSER_STATE.FINISHED
+  };
 }
+
+/**
+ * Backward compatibility type alias for StreamParserInstance.
+ */
+export type StreamParser = StreamParserInstance;
+
+/**
+ * Backward compatibility constructor wrapper supporting both `createStreamParser()`
+ * and legacy `new StreamParser(options)`.
+ */
+export const StreamParser = function (
+  this: unknown,
+  options: StreamParserOptions = {}
+): StreamParserInstance {
+  return createStreamParser(options);
+} as unknown as {
+  new (options?: StreamParserOptions): StreamParserInstance;
+  (options?: StreamParserOptions): StreamParserInstance;
+};
