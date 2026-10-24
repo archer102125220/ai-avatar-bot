@@ -710,9 +710,14 @@ When integrating models for Reasoning (Chain-of-Thought) and Function Calling (T
    - **Output Behavior**: Natively produces direct responses without `<think>` tags. Prompt directives are required to enforce thinking structure prior to spoken replies.
    - **Tool Calling Compatibility**: Highly reliable structured Function Calling and strict JSON Schema adherence.
 
-> [!NOTE]
-> **Tool Calling vs. Reasoning in Current Model Landscapes**:  
-> Across in-browser WebLLM and local Ollama ecosystems, models that natively combine robust structured Tool Calling with autonomous `<think>` chain-of-thought are currently very rare. For tasks requiring Function Calling, general instruct models with prompt directives are well suited; for tasks focusing on deep pure reasoning, native reasoning models without complex external tools are appropriate.
+> [!WARNING]
+> **WebLLM In-Browser Model Stability & Reasoning Output Disclosure**:
+> 1. **Prompt-Induced Reasoning Stability**:  
+>    In in-browser WebLLM models, general instruct models (such as `Hermes-3-Llama-3.1-8B-q4f32_1-MLC`) generate chain-of-thought tokens via Prompt Directives. Due to 4-bit device quantization and learned conversational heuristics, **the model is not guaranteed to output `<think>` blocks on 100% of user turns** (it may occasionally bypass thinking on brief greetings or under dense background context).
+> 2. **Dual-Track Stream Resilience**:  
+>    If the model bypasses the thinking tags, the underlying `createStreamParser` state machine immediately and seamlessly transitions to the spoken answer track, triggering speech synthesis and bubble updates with zero latency and **no UI hanging or infinite thinking state**.
+> 3. **Tool Calling & Reasoning Coexistence**:  
+>    Across the current open-source WebLLM catalog, **no single model natively provides both 100% stable autonomous `<think>` output and 100% reliable structured Tool Calling**. This is a current technical property of open models and edge quantization, and developers should evaluate this trade-off during persona design.
 
 #### 🛡️ Two-Tier WebGPU OOM Adaptive Fallback
 - **Tier 1 (Flagship Default)**: Loads `Hermes-3-Llama-3.1-8B-q4f32_1-MLC` for full Function Calling and deep reasoning capability.
