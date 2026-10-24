@@ -15,7 +15,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
     const onAnswerChunk = vi.fn();
     const onAnswerEnd = vi.fn();
 
-    const parser = new StreamParser({
+    const parser = createStreamParser({
       model: 'deepseek-r1',
       onReasoningStart,
       onReasoningChunk,
@@ -84,7 +84,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
     const onReasoningChunk = vi.fn();
     const onAnswerChunk = vi.fn();
 
-    const parser = new StreamParser({
+    const parser = createStreamParser({
       onReasoningChunk,
       onAnswerChunk
     });
@@ -110,7 +110,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
     const onAnswerStart = vi.fn();
     const onAnswerChunk = vi.fn();
 
-    const parser = new StreamParser({
+    const parser = createStreamParser({
       model: 'o1-preview',
       onReasoningStart,
       onReasoningChunk,
@@ -154,7 +154,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
   });
 
   it('Case 3b: should parse Ollama message format (thinking and content)', () => {
-    const parser = new StreamParser();
+    const parser = createStreamParser();
 
     parser.feed({
       message: { thinking: 'Deep reasoning in Ollama...' }
@@ -179,7 +179,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
     const onAnswerChunk = vi.fn();
     const onAnswerEnd = vi.fn();
 
-    const parser = new StreamParser({
+    const parser = createStreamParser({
       onReasoningStart,
       onReasoningChunk,
       onReasoningEnd,
@@ -215,7 +215,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
   it('Case 5: should handle tags split across chunk boundaries (fine-grained micro chunks)', () => {
     const onReasoningStart = vi.fn();
     const onReasoningEnd = vi.fn();
-    const parser = new StreamParser({
+    const parser = createStreamParser({
       onReasoningStart,
       onReasoningEnd
     });
@@ -252,7 +252,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
   });
 
   it('Case 5b: should handle <thought> tag split into single characters', () => {
-    const parser = new StreamParser();
+    const parser = createStreamParser();
     const chunks = [
       '<',
       't',
@@ -295,7 +295,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
     const onAnswerStart = vi.fn();
     const onAnswerChunk = vi.fn();
 
-    const parser = new StreamParser({
+    const parser = createStreamParser({
       onReasoningStart,
       onReasoningEnd,
       onAnswerStart,
@@ -327,7 +327,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
     const onReasoningEnd = vi.fn();
     const onAnswerChunk = vi.fn();
 
-    const parser = new StreamParser({
+    const parser = createStreamParser({
       onReasoningStart,
       onReasoningEnd,
       onAnswerChunk
@@ -351,7 +351,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
 
   it('Case 8: should handle non-tag angle brackets < in normal answer text', () => {
     const onAnswerChunk = vi.fn();
-    const parser = new StreamParser({ onAnswerChunk });
+    const parser = createStreamParser({ onAnswerChunk });
 
     parser.feed('Notice that 3 < 5 and 10 > 2.');
     const result = parser.finish();
@@ -362,7 +362,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
   });
 
   it('Case 9: should handle leading whitespace before <think> tag', () => {
-    const parser = new StreamParser();
+    const parser = createStreamParser();
 
     parser.feed('  \n\n<think>Thinking with leading newlines</think>Hello!');
     const result = parser.finish();
@@ -375,7 +375,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
     const onReasoningEnd = vi.fn();
     const onAnswerEnd = vi.fn();
 
-    const parser = new StreamParser({
+    const parser = createStreamParser({
       onReasoningEnd,
       onAnswerEnd
     });
@@ -394,7 +394,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
   });
 
   it('Case 11: should support reset and re-execution on the same parser instance', () => {
-    const parser = new StreamParser();
+    const parser = createStreamParser();
 
     parser.feed('<think>First cycle</think>Answer 1');
     const r1 = parser.finish();
@@ -414,7 +414,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
   });
 
   it('Case 12: should ignore feed calls once finished', () => {
-    const parser = new StreamParser();
+    const parser = createStreamParser();
     parser.feed('Initial');
     parser.finish();
     expect(parser.getState()).toBe(STREAM_PARSER_STATE.FINISHED);
@@ -428,7 +428,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
     const onReasoningChunk = vi.fn();
     const onAnswerChunk = vi.fn();
 
-    const parser = new StreamParser({
+    const parser = createStreamParser({
       mode: 'never',
       onReasoningStart,
       onReasoningChunk,
@@ -448,7 +448,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
 
   it('Case 14: should cleanly strip leading newlines across chunk boundaries when </think> ends one chunk and \\n\\n begins the next chunk', () => {
     const onAnswerChunk = vi.fn();
-    const parser = new StreamParser({ onAnswerChunk });
+    const parser = createStreamParser({ onAnswerChunk });
 
     // Emulate DeepSeek-R1 token boundaries
     parser.feed('<think>calculating');
@@ -469,7 +469,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
 
   it('Case 15: should cleanly strip orphaned </think> and leading newlines in content when using structured reasoning', () => {
     const onAnswerChunk = vi.fn();
-    const parser = new StreamParser({ onAnswerChunk });
+    const parser = createStreamParser({ onAnswerChunk });
 
     // Emulate WebLLM / vLLM emitting reasoning_content, then content starting with </think>\n\n
     parser.feed({ choices: [{ delta: { reasoning_content: 'step 1, step 2' } }] });
@@ -484,7 +484,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
 
   it('Case 16: should strip duplicate closing tags and preserve legitimate paragraphs in answer text', () => {
     const onAnswerChunk = vi.fn();
-    const parser = new StreamParser({ onAnswerChunk });
+    const parser = createStreamParser({ onAnswerChunk });
 
     parser.feed('<think>brainstorm</think></think>\n\nParagraph 1.\n\nParagraph 2.');
 
@@ -527,7 +527,7 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
   it('Case 18: StreamParser should halt and truncate immediately when repetition loop occurs during streaming', () => {
     const onAnswerEnd = vi.fn();
     const onAnswerChunk = vi.fn();
-    const parser = new StreamParser({
+    const parser = createStreamParser({
       onAnswerEnd,
       onAnswerChunk
     });
