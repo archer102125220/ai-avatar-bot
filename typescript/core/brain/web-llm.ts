@@ -30,7 +30,7 @@ import {
   resolveAutoContinuePrompt,
   buildDefaultLLMMessages
 } from './messages';
-import { StreamParser } from './stream-parser';
+import { createStreamParser } from './stream-parser';
 
 export type { LLMEngineOptions, LLMEngine };
 
@@ -531,7 +531,7 @@ export function initWebLLM(
           }
 
           const rawContent = message?.content || '';
-          const parser = new StreamParser({
+          const parser = createStreamParser({
             model: this.model,
             mode: this.reasoning?.mode,
             onReasoningStart: (info) => this.onReasoningStart?.(info),
@@ -601,7 +601,7 @@ export function initWebLLM(
         > = {};
         let hasToolCalls = false;
 
-        const parser = new StreamParser({
+        const parser = createStreamParser({
           model: this.model,
           mode: this.reasoning?.mode,
           onReasoningStart: (info) => this.onReasoningStart?.(info),

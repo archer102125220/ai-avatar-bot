@@ -29,7 +29,7 @@ import {
   resolveAutoContinuePrompt,
   buildDefaultLLMMessages
 } from './messages';
-import { StreamParser } from './stream-parser';
+import { createStreamParser } from './stream-parser';
 
 export type { AiProviderOptions, AiProviderEngine };
 
@@ -467,7 +467,7 @@ export async function initAiProvider(
           > = {};
           let hasToolCalls = false;
 
-          const parser = new StreamParser({
+          const parser = createStreamParser({
             model: this.model,
             mode: this.reasoning?.mode,
             onReasoningStart: (info) => this.onReasoningStart?.(info),
@@ -667,7 +667,7 @@ export async function initAiProvider(
               : LLM_FINISH_REASON_MAP.STOP;
 
         const rawContent = choice?.message?.content || '';
-        const parser = new StreamParser({
+        const parser = createStreamParser({
           model: this.model,
           mode: this.reasoning?.mode,
           onReasoningStart: (info) => this.onReasoningStart?.(info),
