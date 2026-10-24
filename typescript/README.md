@@ -696,6 +696,24 @@ Configure `reasoning.mode` (type `ReasoningMode` / constant `REASONING_MODE_MAP`
 - **Disabled (`false`)**: Disables automatic prompt injection so developers can maintain full, uninhibited control within their own `systemContext`.
 - **Default (`undefined`)**: Automatically injects reinforced localized step-by-step thinking directives with strict non-bypass constraints and structured output templates, ensuring general Instruct models reliably trigger reasoning `<think>` blocks even on brief queries.
 
+#### 🧭 Model Characteristics & Compatibility Notice
+
+When integrating models for Reasoning (Chain-of-Thought) and Function Calling (Tools Engine), please consider the fundamental trade-offs between current model categories:
+
+1. **Native Reasoning Models**:
+   - **Representative Models**: `DeepSeek-R1` series, `QwQ-32B`, etc.
+   - **Output Behavior**: Natively emits `<think>...</think>` tags or API `reasoning_content` fields with autonomous self-reflection.
+   - **Tool Calling Compatibility**: Most native reasoning models currently lack alignment for structured Function Calling (Tool Calling). Supplying tools may cause models to output unparsed tool strings inside thinking tags or fail JSON Schema constraints.
+
+2. **General Instruct / Chat Models**:
+   - **Representative Models**: `Hermes-3-Llama-3.1-8B`, `Qwen-2.5-Instruct`, `Llama-3.1-Instruct`, etc.
+   - **Output Behavior**: Natively produces direct responses without `<think>` tags. Prompt directives are required to enforce thinking structure prior to spoken replies.
+   - **Tool Calling Compatibility**: Highly reliable structured Function Calling and strict JSON Schema adherence.
+
+> [!NOTE]
+> **Tool Calling vs. Reasoning in Current Model Landscapes**:  
+> Across in-browser WebLLM and local Ollama ecosystems, models that natively combine robust structured Tool Calling with autonomous `<think>` chain-of-thought are currently very rare. For tasks requiring Function Calling, general instruct models with prompt directives are well suited; for tasks focusing on deep pure reasoning, native reasoning models without complex external tools are appropriate.
+
 #### 🛡️ Two-Tier WebGPU OOM Adaptive Fallback
 - **Tier 1 (Flagship Default)**: Loads `Hermes-3-Llama-3.1-8B-q4f32_1-MLC` for full Function Calling and deep reasoning capability.
 - **Tier 2 (Lightweight Fallback)**: If WebGPU allocation fails (OOM / out-of-memory), fires `onLlmOomFallback` and automatically falls back to `Qwen2.5-1.5B-Instruct-q4f16_1-MLC` (~1.1GB download, ~1.2GB VRAM).

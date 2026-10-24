@@ -699,6 +699,24 @@ const widget = await initAvatarBot({
 - **停用注入 (`false`)**：若開發者已在 `systemContext` 或自訂角色中寫妥推論指引，設為 `false` 可完全交由開發者自主控制，避免 SDK 重複插入多餘字句。
 - **預設 (`undefined`)**：自動依當前語系注入強化版多國語言思考引導（包含明確的「不可省略 <think>」強約束與結構化輸出格式範例，確保通用 Instruct 模型在簡短對話或日常問答時亦能穩定觸發 `<think>` 推論過程）。
 
+#### 🧭 模型特性與能力相容性說明 (Model Characteristics & Compatibility)
+
+在整合推論思維鏈（Reasoning / Thinking）與工具調用（Function Calling）時，不同類型的模型具備不同的天然特性與邊界：
+
+1. **原生推論模型 (Native Reasoning Models)**：
+   - **代表模型**：`DeepSeek-R1` 系列、`QwQ-32B` 等。
+   - **輸出特性**：天然主動輸出 `<think>...</think>` 標籤或 API 專屬的 `reasoning_content` 欄位，具備強大的自主思維鏈分析。
+   - **工具調用相容性**：現階段多數開源原生推論模型**尚未對齊結構化 Function Calling (Tool Calling)**。若在請求中掛載 Tools 定義，模型往往容易將調用邏輯混雜在思考字串中，或無法產出合法之 JSON Schema 工具呼叫格式。
+
+2. **通用指令/對話模型 (General Instruct Models)**：
+   - **代表模型**：`Hermes-3-Llama-3.1-8B`、`Qwen-2.5-Instruct`、`Llama-3.1-Instruct` 等。
+   - **輸出特性**：原生預設**不會**主動輸出 `<think>` 思考標籤；收到問題後即直接給出最終回覆。若需思考過程，需在提示詞（Prompt Directive）中明確格式規範。
+   - **工具調用相容性**：天然支援極高可靠度的結構化 Tool Calling 與 JSON Schema 參數驗證。
+
+> [!NOTE]
+> **工具調用與推論輸出的市場現況**：  
+> 目前開源與輕量模型生態中，同時原生兼具「結構化工具調用 (Tool Calling)」與「原生 `<think>` 思維鏈輸出」的模型極為罕見。若您的業務需要使用 Function Calling，建議選用指令型對話模型並搭配提示詞引導思考；若專注於深度推論與長思考展示，則可選用原生推論模型並簡化或關閉工具調用。
+
 #### 🛡️ 兩階段 WebGPU 記憶體超載自適應降級 (Two-Tier WebGPU OOM Fallback)
 - **第一階 (旗艦預設)**：預設載入 `Hermes-3-Llama-3.1-8B-q4f32_1-MLC`，提供完整的 Function Calling 工具調用與深度思考能力。
 - **第二階 (輕量備援)**：若使用者裝置 WebGPU 顯存不足 (OOM)，自動觸發 `onLlmOomFallback` 回呼並平滑降級至輕量級 `Qwen2.5-1.5B-Instruct-q4f16_1-MLC`（僅需 ~1.1GB 下載、~1.2GB VRAM）。
