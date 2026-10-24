@@ -82,6 +82,56 @@ export interface StreamParserResult {
 }
 
 /**
+ * Stream parser instance interface returned by createStreamParser().
+ */
+export interface StreamParserInstance {
+  /**
+   * Feeds an incoming token chunk (text string or engine object delta) into the state machine.
+   *
+   * @param rawChunk - Incoming chunk payload.
+   */
+  feed(rawChunk: unknown): void;
+  /**
+   * Finalizes the stream, flushing any pending buffers and computing final metrics.
+   *
+   * @returns Final parser result snapshot.
+   */
+  finish(): StreamParserResult;
+  /**
+   * Resets the parser instance for a new generation cycle.
+   */
+  reset(): void;
+  /**
+   * Returns current active state of the parser.
+   */
+  getState(): StreamParserState;
+  /**
+   * Returns accumulated reasoning text captured so far.
+   */
+  getReasoning(): string;
+  /**
+   * Returns accumulated answer text captured so far.
+   */
+  getAnswer(): string;
+  /**
+   * Returns the duration of the reasoning process in milliseconds.
+   */
+  getReasoningDurationMs(): number;
+  /**
+   * Returns the total elapsed time of the generation in milliseconds.
+   */
+  getTotalDurationMs(): number;
+  /**
+   * Returns whether any reasoning tokens were encountered during generation.
+   */
+  hasReasoning(): boolean;
+  /**
+   * Returns true if stream has finalized or was terminated early due to loop guard.
+   */
+  isFinished(): boolean;
+}
+
+/**
  * Helper function to find the earliest occurring tag from a list of candidates.
  *
  * @param text - Source string to search.
@@ -354,7 +404,7 @@ function extractChunkPayload(chunk: unknown): {
  * and seamlessly emits answer tokens to the speech and UI pipeline upon completion.
  * Fully resilient against arbitrary chunk boundary slicing across network streams.
  */
-export class StreamParser {
+export class StreamParser implements StreamParserInstance {
   private state: StreamParserState = STREAM_PARSER_STATE.IDLE;
   private buffer = '';
   private accumulatedReasoning = '';
