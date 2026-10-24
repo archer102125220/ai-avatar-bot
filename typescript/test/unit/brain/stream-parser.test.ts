@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
+  createStreamParser,
   StreamParser,
   STREAM_PARSER_STATE,
   detectRepetitionLoop
@@ -549,6 +550,29 @@ describe('Unit Test: StreamParser Subsystem (Deep Coverage & Edge Cases)', () =>
     // Subsequent chunks fed after loop detection must be ignored
     parser.feed(`\n\n${baseAnswer}`);
     expect(parser.getAnswer()).toBe(baseAnswer);
+  });
+
+  it('Case 19: should support createStreamParser factory, new StreamParser, and callable StreamParser identically', () => {
+    // 1. Factory function
+    const parser1 = createStreamParser({ model: 'factory-test' });
+    parser1.feed('<think>thinking</think>answer');
+    const res1 = parser1.finish();
+    expect(res1.reasoning).toBe('thinking');
+    expect(res1.answer).toBe('answer');
+
+    // 2. Legacy new StreamParser constructor
+    const parser2 = new StreamParser({ model: 'constructor-test' });
+    parser2.feed('<think>thinking</think>answer');
+    const res2 = parser2.finish();
+    expect(res2.reasoning).toBe('thinking');
+    expect(res2.answer).toBe('answer');
+
+    // 3. Callable StreamParser without new
+    const parser3 = StreamParser({ model: 'callable-test' });
+    parser3.feed('<think>thinking</think>answer');
+    const res3 = parser3.finish();
+    expect(res3.reasoning).toBe('thinking');
+    expect(res3.answer).toBe('answer');
   });
 });
 
