@@ -28,7 +28,7 @@
 | 套件目錄 | 套件名稱 / 類型 | 狀態 | 定位與特點說明 | 快速連結 |
 | :--- | :--- | :---: | :--- | :---: |
 | [`/typescript`](./typescript) | `ai-avatar-bot-typescript` | 🟢 **核心主力 (推薦 / 發布就緒)** | **100% 原生 TypeScript 核心 SDK**。以現代開源規範發布就緒：支援 Subpath 按需導出 (`/brain`, `/skin` 等)、ESM/IIFE 雙 CDN 構建、可選 Peer 依賴極致輕量化 (核心僅 223KB)、CLI 資產同步工具與 6+ 框架生態外掛。亦完全支援純 JavaScript (ESM/CJS/IIFE) 專案。 | [📄 詳細文件](./typescript/README_ZH.md) |
-| [`/iframe`](./iframe) | `ai-avatar-bot-iframe` | 🟡 **經典重構** | **原版初步模組化重構**。保留原作者經典的 Iframe 與 `embed.js` 一行腳本嵌入設計，提供極致的 DOM / CSS 隔離與開箱即用的 Standalone Demo。 | [📄 詳細文件](./iframe/README_ZH.md) |
+| [`/iframe`](./iframe) | `ai-avatar-bot-iframe` | 🟡 **經典重構** | **原版初步模組化重構**。保留原作者經典的 Iframe 與 `embed.js` 一行腳本嵌入設計，提供極致的 DOM / CSS 隔離與開箱即用的 Standalone Demo。 | [📄 詳細文件](./iframe/README.md) |
 | [`/vue`](./vue) | `ai-avatar-bot-vue` | 🚧 **進行中** | 針對 **Vue 3** 封裝的專屬元件庫。提供 `<AiAvatarBot />` 元件與 `useAvatar` 組合式函式 (Composables)，支援響應式 Props 與自訂插槽。 | [📁 原始碼](./vue) |
 | [`/react`](./react) | `ai-avatar-bot-react` | 🚧 **進行中** | 針對 **React 18 / 19** 封裝的專屬元件庫。提供 `<AiAvatarBot />` 元件與 `useAvatar` Hooks，完美融入 React 狀態週期與 JSX 渲染。 | [📁 原始碼](./react) |
 
@@ -70,6 +70,8 @@
 
 1. 🧠 **大腦引擎 (Brain Engine)**：
    * **三層自動降級機制**：遠端 AI Provider (Ollama / OpenAI API) ➔ 本地 WebLLM (瀏覽器 WebGPU 端側模型) ➔ Bigram 關鍵字快速檢索。
+   * **思維鏈推論與雙軌串流 (`createStreamParser`)**：支援 DeepSeek-R1 / Hermes 3 推論思考過程分離，思考時靜音沉思，口述回答時延遲啟動語音對嘴。
+   * **智慧兩階段 WebGPU OOM 降級**：顯存不足時自動切換至輕量保底模型。
    * **智慧上下文壓縮 (Context Compression)**：滑動窗口與滾動摘要策略，雙軌預算保護 WebGPU 顯存與 Token 上限。
    * **自動接續回答 (Auto-Continue)**：突破單次輸出 Token 限制，無縫接續長篇回覆。
 2. 🗣️ **語音引擎 (Speech Engine)**：
@@ -77,12 +79,12 @@
    * 支援語音即時打斷 (Barge-in)、陪伴模式連續對話、音訊串流佇列與即時對嘴 (Lip Sync)。
 3. 🎭 **外觀引擎 (Skin Engine)**：
    * 同時支援 2D (Live2D via Pixi.js) 與 3D (VRM via Three.js)。
-   * 內建 8+ 種情緒手勢反應（喜悅、驚訝、思考、揮手、鞠躬等），並支援自訂模型載入與安全的拖曳換裝。
+   * 內建 8+ 種情緒手勢反應（喜悅、驚訝、思考、揮手、鞠躬等），並支援自訂模型載入、眼神追蹤配置與安全的拖曳換裝。
 4. 🛠️ **工具管理器 (Tools Engine)**：
    * 標準化 Function Calling，支援「純前端規則秒配」、「AI 語意調用」與「雙軌混合模式」。
    * 具備 Human-in-the-loop 人工授權確認機制與 JSON Schema 參數驗證。
 5. 🖥️ **介面引擎 (UI Engine)**：
-   * 內建開箱即用的現代化懸浮視窗、對話氣泡與設定抽屜。
+   * 內建開箱即用的現代化懸浮視窗、對話氣泡、折疊式思維卡片歷史面板與設定抽屜。
    * 支援 **Headless 模式**，允許開發者隱藏預設 UI，100% 自行以 Vue/React 刻劃介面。
 6. 🌐 **多語系引擎 (I18n Engine)**：
    * 內建繁中 (`zh-TW`)、簡中 (`zh-CN`)、英文 (`en-US`)、日文 (`ja-JP`)、韓文 (`ko-KR`) 介面與提示詞字典。
@@ -159,11 +161,21 @@ yarn dev:react
 # 啟動 Iframe 經典版開發伺服器
 yarn dev:iframe
 
+# 啟動各前端框架直連範例 (Vanilla TS / JS / React / Vue / Next / Nuxt / Angular / Analog)
+yarn dev:example:ts
+yarn dev:example:react
+yarn dev:example:vue
+yarn dev:example:next
+yarn dev:example:nuxt
+
 # 執行 TypeScript 版本完整檢驗 (型別檢查、單元測試、冒煙測試、代碼風格)
 yarn typecheck:ts
 yarn test:ts
 yarn test:ts:smoke
 yarn lint:ts
+
+# 執行跨框架端到端建構與相容性矩陣檢驗
+yarn test:matrix:all
 
 # 建構所有套件產物
 yarn build
@@ -185,8 +197,10 @@ yarn build
   - 支援模組化子路徑導出 (`/brain`, `/skin`, `/speech`, `/tools`, `/i18n`, `/constants`, `/types`)
   - 支援雙構建 CDN 生態（ESM `+esm` 與傳統 `<script>` IIFE `window.AiAvatarBot`）
   - 大型依賴外部化與可選 Peer 依賴（核心大幅瘦身至 223KB，降幅 -96.9%）
+  - AI 思維鏈推論過程 (Reasoning / Thinking) 與 `createStreamParser` 雙軌架構
+  - 兩階段 WebGPU OOM 自適應平滑降級機制
   - 內建靜態資產同步 CLI (`sync`) 與 6+ 主流前端/全端框架整合外掛 (Vite, Next, Nuxt, Webpack...)
-  - 跨平台自動化測試（Vitest 494 項測試、TypeScript 編譯檢查、Playwright E2E 冒煙測試）
+  - 跨平台自動化測試（Vitest 603 項測試、TypeScript 編譯檢查、Playwright E2E 冒煙測試，100% 通過）
 - [ ] **階段三：Vue 3 & React 官方封裝元件庫 (`/vue`, `/react`)**
   - 開發 `<AiAvatarBot />` 元件與響應式 Hooks / Composables
 - [ ] **階段四：npm 公開發布與多套件生態維護**

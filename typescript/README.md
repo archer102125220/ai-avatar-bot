@@ -146,30 +146,68 @@ pnpm add ai-avatar-bot-typescript
 The package leverages modern `package.json` `exports` subpaths, enabling fine-grained on-demand imports and dedicated TypeScript declaration files:
 
 ```typescript
-// 1. Full-Featured Entry (UI + Orchestrator)
-import { initAvatarBot } from 'ai-avatar-bot-typescript';
+// 1. Full-Featured Entry (UI + Orchestrator, alias: createAvatarBot)
+import { initAvatarBot, createAvatarBot } from 'ai-avatar-bot-typescript';
 import 'ai-avatar-bot-typescript/style.css';
 
-// 2. Brain & Memory Subsystems only
-import { BrainEngine, MemoryManager, WebLLMAdapter } from 'ai-avatar-bot-typescript/brain';
+// 2. Brain & Memory Subsystems only (Custom LLM, memory, and dual-track stream parser)
+import { 
+  initBrainEngine, 
+  initMemory, 
+  initWebLLM, 
+  initAiProvider, 
+  createStreamParser, 
+  type BrainEngine, 
+  type MemoryAdapter, 
+  type MemoryData,
+  type StreamParserInstance 
+} from 'ai-avatar-bot-typescript/brain';
 
-// 3. Speech Engine only (STT / Neural TTS)
-import { SpeechEngine, WebSpeechStt, EdgeNeuralTts } from 'ai-avatar-bot-typescript/speech';
+// 3. Speech Engine only (STT Speech Recognition / Neural TTS / Real-time Lip Sync)
+import { 
+  initSpeechEngine, 
+  initDefaultSTTEngine, 
+  initDefaultTTSEngine, 
+  drainSentences,
+  type SpeechEngine, 
+  type STTEngine, 
+  type TTSEngine 
+} from 'ai-avatar-bot-typescript/speech';
 
 // 4. Skin Engine only (2D Live2D / 3D VRM)
-import { SkinEngine } from 'ai-avatar-bot-typescript/skin';
+import { 
+  initSkinEngine, 
+  type SkinEngine, 
+  type Skin2DConfig, 
+  type Skin3DConfig 
+} from 'ai-avatar-bot-typescript/skin';
 
 // 5. Tools Engine only (Function Calling & Routing)
-import { ToolsEngine } from 'ai-avatar-bot-typescript/tools';
+import { 
+  initToolsEngine, 
+  type ToolsEngine, 
+  type ToolDefinition 
+} from 'ai-avatar-bot-typescript/tools';
 
 // 6. i18n Engine only
-import { I18nEngine } from 'ai-avatar-bot-typescript/i18n';
+import { initI18nEngine, type I18nEngine } from 'ai-avatar-bot-typescript/i18n';
 
 // 7. Constants and Maps
-import { GENDER_MAP, AVATAR_MODE_MAP, EmotionState } from 'ai-avatar-bot-typescript/constants';
+import { 
+  GENDER_MAP, 
+  AVATAR_MODE_MAP, 
+  REASONING_MODE_MAP, 
+  EMOTION_TARGET_MAP, 
+  STATE_MAP 
+} from 'ai-avatar-bot-typescript/constants';
 
 // 8. Type Definitions only
-import type { AvatarBotOptions, AiAvatarWidget, ToolDefinition } from 'ai-avatar-bot-typescript/types';
+import type { 
+  AvatarBotOptions, 
+  AiAvatarWidget, 
+  ReasoningOptions, 
+  ToolDefinition 
+} from 'ai-avatar-bot-typescript/types';
 ```
 
 ---
@@ -488,7 +526,7 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `enableModelDrop` | `boolean` | `false` | Allow drag-and-drop `.vrm` hot swapping (disabled by default). |
 | `enableEngineToggle` | `boolean` | `true` | Show 2D/3D toggle button when both models are available. |
 | `gesture` | `SkinUnifiedGestureHandler` | `undefined` | Global unified gesture interceptor `(engine, gestureName, context) => Promise<void> \| void`, allowing custom gesture routing and safe delegation via `context.gesture2D` / `context.gesture3D`. |
-| `tapGestures` | `string[]` | `['goodbye', 'bow', 'waiting']` (3D) | List of gestures picked randomly when the avatar is clicked/tapped. Available across both 2D and 3D. |
+| `tapGestures` | `string[] \| Skin3DActionItem[]` | `['goodbye', 'bow', 'waiting']` (3D) | List of gestures picked randomly when the avatar is clicked/tapped. Available across 2D/3D, supporting objects like `{ action: 'waiting', pointerLook: false }`. |
 | `tapMotions` | `string[]` | `undefined` | 2D Live2D specific list of motion group names triggered randomly on tap. |
 | `motionMap` | `Record<string, string>` | `{}` | 2D Live2D custom motion mapping dictionary (e.g. `{ wave: 'SpecialWave' }`). |
 | `expressionMap` | `Record<string, string>` | `{}` | Universal semantic expression mapping dictionary for 2D/3D (e.g. `{ happy: 'MyCustomSmile' }`). |
@@ -501,6 +539,8 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `companionSuggestedQuestions` | `LocalizableOrResolver<string[]>` | Built-in | Companion mode specific suggested questions. |
 | `assistantSuggestedQuestions` | `LocalizableOrResolver<string[]>` | Built-in | Assistant mode specific suggested questions. |
 | `suggestedTitle` | `LocalizableOrResolver<string>` | Built-in | Suggested questions header title. |
+| `companionSuggestedTitle` | `LocalizableOrResolver<string>` | Built-in | Companion mode suggested questions section title. |
+| `assistantSuggestedTitle` | `LocalizableOrResolver<string>` | Built-in | Assistant mode suggested questions section title. |
 | `greeting` / `welcomeText` | `string` | Built-in | Click greeting and launch welcome text. |
 
 ### Tools & Plugins
@@ -702,6 +742,51 @@ const widget = await initAvatarBot({
     console.warn(`OOM fallback triggered: ${primary} -> ${fallback}`);
   }
 });
+```
+
+#### 🧩 Core Engine: `createStreamParser` (Dual-Track Stream State Machine)
+
+If you are operating in **Headless Mode**, building a custom chatbot stream pipeline, or running in Node.js, you can directly import the `createStreamParser` factory function from `ai-avatar-bot-typescript/brain`:
+
+```typescript
+import { 
+  createStreamParser, 
+  STREAM_PARSER_STATE,
+  type StreamParserInstance,
+  type StreamParserResult 
+} from 'ai-avatar-bot-typescript/brain';
+
+const parser: StreamParserInstance = createStreamParser({
+  mode: 'auto', // 'auto' | 'always' | 'never'
+  onReasoningStart: (info) => {
+    console.log('Entered thinking phase (Silent Track):', info.model);
+  },
+  onReasoningChunk: (info) => {
+    // Incremental reasoning tokens (<think>...</think> or reasoning_content)
+    console.log('Thinking token:', info.chunkDelta);
+  },
+  onReasoningEnd: (info) => {
+    console.log(`Thinking completed in ${info.durationMs}ms`);
+  },
+  onAnswerStart: () => {
+    console.log('Entered answer phase (TTS Begins)');
+  },
+  onAnswerChunk: (chunkDelta, accumulatedAnswer) => {
+    console.log('Spoken chunk arrived:', chunkDelta);
+  },
+  onAnswerEnd: (fullAnswer, durationMs) => {
+    console.log('Answer generation completed');
+  }
+});
+
+// Feed incoming streaming LLM chunks into the state machine
+parser.feed(rawLlmChunk);
+
+// Finalize stream and extract segregated outputs
+const result: StreamParserResult = parser.finish();
+console.log('Reasoning chain:', result.reasoning);
+console.log('Spoken answer:', result.answer);
+console.log('Contained reasoning:', result.hasReasoning);
 ```
 
 ---
@@ -1065,6 +1150,8 @@ export interface AiAvatarWidget {
   answerQuestion?(question: string): Promise<string | void>;
   applyEmotionFromText?(text: string): void;
   classifyEmotion?(text: string): string;
+  playGesture?(gestureName: string): void;
+  tap?(): void;
   showMinimalEl(): void;
   hiddenMinimalEl(): void;
 
@@ -1092,6 +1179,9 @@ export interface AiAvatarWidget {
   autoContinueMode: AutoContinueMode;
   enableModelDrop: boolean;
   enableEngineToggle: boolean;
+  readonly reasoning?: ReasoningOptions;
+  llmFallbackModel?: string | null | false;
+  enableOomFallback?: boolean;
 }
 ```
 
@@ -1137,7 +1227,7 @@ The source code created in this package is licensed under the **[MIT License](LI
 # 1. Typecheck with strict TypeScript compiler
 yarn test:typecheck
 
-# 2. Run 490+ Vitest unit tests (Brain, Speech, Skin, Tools, Memory, Store)
+# 2. Run 600+ Vitest unit tests (Brain Reasoning, Speech, Skin, Tools, Memory, Store, 100% pass rate)
 yarn test:unit
 
 # 3. Vitest watch mode & UI dashboard

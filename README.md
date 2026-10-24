@@ -70,6 +70,8 @@ The entire SDK adopts a highly decoupled "Multi-Engine Architecture", allowing d
 
 1. 🧠 **Brain Engine**:
    * **Three-tier Auto-Fallback**: Remote AI Provider (Ollama / OpenAI API) ➔ Client-side WebLLM (browser WebGPU models) ➔ Bigram keyword instant retrieval.
+   * **Reasoning Chain-of-Thought & Dual-Track Streaming (`createStreamParser`)**: Full support for DeepSeek-R1 / Hermes 3 thinking process separation (silent thinking during reasoning, deferred speech playback on spoken answer arrival).
+   * **Two-Tier WebGPU OOM Fallback**: Gracefully and automatically switches to lightweight backup models when WebGPU memory overflows.
    * **Intelligent Context Compression**: Sliding window and rolling summary strategies with cascading dual-track budgets to prevent WebGPU VRAM overflow and token limits.
    * **Auto-Continue Responses**: Automatically bypasses single-response token truncation to produce seamless long answers.
 2. 🗣️ **Speech Engine**:
@@ -77,12 +79,12 @@ The entire SDK adopts a highly decoupled "Multi-Engine Architecture", allowing d
    * Supports real-time voice barge-in, companion continuous dialogue, audio streaming queue, and real-time lip sync.
 3. 🎭 **Skin Engine**:
    * Dual rendering support for 2D (Live2D via Pixi.js) and 3D (VRM via Three.js).
-   * Built-in 8+ emotional gestures (happy, surprised, thinking, wave, bow, relax, etc.), custom model loading, and secure drag-and-drop outfit swapping.
+   * Built-in 8+ emotional gestures (happy, surprised, thinking, wave, bow, relax, etc.), custom model loading, pointer look tracking configuration, and secure drag-and-drop outfit swapping.
 4. 🛠️ **Tools Engine**:
    * Standardized Function Calling supporting client rule matching, AI semantic invocation, and hybrid routing.
    * Built-in Human-in-the-loop authorization dialogs and JSON Schema parameter validation.
 5. 🖥️ **UI Engine**:
-   * Modern out-of-the-box floating dock, chat bubbles, and settings drawers.
+   * Modern out-of-the-box floating dock, chat bubbles, collapsible thought history panels, and settings drawers.
    * Supports **Headless Mode**, allowing developers to completely hide the default UI and build custom interfaces with Vue or React.
 6. 🌐 **I18n Engine**:
    * Built-in locale dictionaries for Traditional Chinese (`zh-TW`), Simplified Chinese (`zh-CN`), English (`en-US`), Japanese (`ja-JP`), and Korean (`ko-KR`).
@@ -159,11 +161,21 @@ yarn dev:react
 # Start Iframe classic version development server
 yarn dev:iframe
 
+# Start framework direct integration examples (Vanilla TS / JS / React / Vue / Next / Nuxt / Angular / Analog)
+yarn dev:example:ts
+yarn dev:example:react
+yarn dev:example:vue
+yarn dev:example:next
+yarn dev:example:nuxt
+
 # Run full TypeScript package verification (typecheck, unit tests, smoke test, lint)
 yarn typecheck:ts
 yarn test:ts
 yarn test:ts:smoke
 yarn lint:ts
+
+# Run cross-framework end-to-end build & verification matrix
+yarn test:matrix:all
 
 # Build all workspace packages
 yarn build
@@ -185,8 +197,10 @@ yarn build
   - Modular subpath exports (`/brain`, `/skin`, `/speech`, `/tools`, `/i18n`, `/constants`, `/types`)
   - Dual-build CDN ecosystem (ESM `+esm` and traditional `<script>` IIFE `window.AiAvatarBot`)
   - Externalized heavy dependencies & optional peerDependencies (core slimmed to 223KB, -96.9%)
+  - AI Reasoning (Chain-of-Thought) and `createStreamParser` dual-track architecture
+  - Two-tier WebGPU OOM adaptive fallback mechanism
   - Built-in static asset sync CLI (`sync`) and 6+ framework plugins (Vite, Next, Nuxt, Webpack...)
-  - Cross-platform automated test suite (Vitest 494 tests, TypeScript compile-time checks, Playwright E2E smoke test)
+  - Cross-platform automated test suite (Vitest 603 tests across 41 suites, TypeScript compile-time checks, Playwright E2E smoke test, 100% pass rate)
 - [ ] **Phase 3: Vue 3 & React Official Wrapper Component Libraries (`/vue`, `/react`)**
   - Develop `<AiAvatarBot />` components and reactive Hooks / Composables
 - [ ] **Phase 4: Public npm Release & Multi-Package Maintenance**

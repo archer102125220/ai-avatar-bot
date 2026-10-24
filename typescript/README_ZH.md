@@ -149,30 +149,68 @@ pnpm add ai-avatar-bot-typescript
 `ai-avatar-bot-typescript` 支援現代 `package.json` 的 `exports` 子路徑映射，允許您只載入所需模組並享有獨立的 TypeScript 宣告檔：
 
 ```typescript
-// 1. 全量整合入口 (包含預設 UI 與所有控制器)
-import { initAvatarBot } from 'ai-avatar-bot-typescript';
+// 1. 全量整合入口 (包含預設 UI 與所有控制器，支援 alias: createAvatarBot)
+import { initAvatarBot, createAvatarBot } from 'ai-avatar-bot-typescript';
 import 'ai-avatar-bot-typescript/style.css';
 
-// 2. 僅引入大腦與記憶子系統
-import { BrainEngine, MemoryManager, WebLLMAdapter } from 'ai-avatar-bot-typescript/brain';
+// 2. 僅引入大腦與記憶子系統 (支援自訂 LLM、記憶管理與雙軌推論串流解析器)
+import { 
+  initBrainEngine, 
+  initMemory, 
+  initWebLLM, 
+  initAiProvider, 
+  createStreamParser, 
+  type BrainEngine, 
+  type MemoryAdapter, 
+  type MemoryData,
+  type StreamParserInstance 
+} from 'ai-avatar-bot-typescript/brain';
 
-// 3. 僅引入語音引擎 (STT / Neural TTS)
-import { SpeechEngine, WebSpeechStt, EdgeNeuralTts } from 'ai-avatar-bot-typescript/speech';
+// 3. 僅引入語音引擎 (STT 語音辨識 / Neural TTS / 即時對嘴)
+import { 
+  initSpeechEngine, 
+  initDefaultSTTEngine, 
+  initDefaultTTSEngine, 
+  drainSentences,
+  type SpeechEngine, 
+  type STTEngine, 
+  type TTSEngine 
+} from 'ai-avatar-bot-typescript/speech';
 
-// 4. 僅引入 2D/3D 外觀渲染引擎
-import { SkinEngine } from 'ai-avatar-bot-typescript/skin';
+// 4. 僅引入 2D/3D 外觀渲染引擎 (Live2D / VRM)
+import { 
+  initSkinEngine, 
+  type SkinEngine, 
+  type Skin2DConfig, 
+  type Skin3DConfig 
+} from 'ai-avatar-bot-typescript/skin';
 
-// 5. 僅引入工具管理器 (Function Calling)
-import { ToolsEngine } from 'ai-avatar-bot-typescript/tools';
+// 5. 僅引入工具管理器 (Function Calling & Router)
+import { 
+  initToolsEngine, 
+  type ToolsEngine, 
+  type ToolDefinition 
+} from 'ai-avatar-bot-typescript/tools';
 
 // 6. 僅引入多語系模組
-import { I18nEngine } from 'ai-avatar-bot-typescript/i18n';
+import { initI18nEngine, type I18nEngine } from 'ai-avatar-bot-typescript/i18n';
 
 // 7. 僅引入常數與對應表
-import { GENDER_MAP, AVATAR_MODE_MAP, EmotionState } from 'ai-avatar-bot-typescript/constants';
+import { 
+  GENDER_MAP, 
+  AVATAR_MODE_MAP, 
+  REASONING_MODE_MAP, 
+  EMOTION_TARGET_MAP, 
+  STATE_MAP 
+} from 'ai-avatar-bot-typescript/constants';
 
 // 8. 僅引入型別定義
-import type { AvatarBotOptions, AiAvatarWidget, ToolDefinition } from 'ai-avatar-bot-typescript/types';
+import type { 
+  AvatarBotOptions, 
+  AiAvatarWidget, 
+  ReasoningOptions, 
+  ToolDefinition 
+} from 'ai-avatar-bot-typescript/types';
 ```
 
 ---
@@ -491,7 +529,7 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `enableModelDrop` | `boolean` | `false` | 是否允許拖曳 `.vrm` 檔案換裝（基於安全考量預設關閉）。 |
 | `enableEngineToggle` | `boolean` | `true` | 當同時具備 2D 與 3D 模型時是否顯示切換按鈕。 |
 | `gesture` | `SkinUnifiedGestureHandler` | `undefined` | 全域統一動作攔截器 `(engine, gestureName, context) => Promise<void> \| void`，可自訂動作邏輯或委派至 `context.gesture2D` / `context.gesture3D`。 |
-| `tapGestures` | `string[]` | `['goodbye', 'bow', 'waiting']` (3D) | 點擊虛擬人時隨機播放的動作清單。3D 與 2D 皆可作為點擊動作來源。 |
+| `tapGestures` | `string[] \| Skin3DActionItem[]` | `['goodbye', 'bow', 'waiting']` (3D) | 點擊虛擬人時隨機播放的動作清單。3D 與 2D 皆可作為點擊動作來源，亦支援物件設定如 `{ action: 'waiting', pointerLook: false }`。 |
 | `tapMotions` | `string[]` | `undefined` | Live2D 2D 專屬的隨機點擊動作群組名稱陣列。 |
 | `motionMap` | `Record<string, string>` | `{}` | Live2D 2D 自訂動作對照表（例如 `{ wave: 'SpecialWave' }`）。 |
 | `expressionMap` | `Record<string, string>` | `{}` | 2D/3D 通用自訂語意表情對照表（例如 `{ happy: 'MyCustomSmile' }`）。 |
@@ -504,6 +542,8 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `companionSuggestedQuestions` | `LocalizableOrResolver<string[]>` | 內建預設 | 陪伴模式專屬推薦問題清單。 |
 | `assistantSuggestedQuestions` | `LocalizableOrResolver<string[]>` | 內建預設 | 助理模式專屬推薦問題清單。 |
 | `suggestedTitle` | `LocalizableOrResolver<string>` | 內建預設 | 推薦問題區塊的標題文字。 |
+| `companionSuggestedTitle` | `LocalizableOrResolver<string>` | 內建預設 | 陪伴模式推薦問題區塊標題文字。 |
+| `assistantSuggestedTitle` | `LocalizableOrResolver<string>` | 內建預設 | 助理模式推薦問題區塊標題文字。 |
 | `greeting` / `welcomeText` | `string` | 內建預設 | 點擊問候語音與初次啟動歡迎訊息。 |
 
 ### 工具擴充與外掛
@@ -705,6 +745,51 @@ const widget = await initAvatarBot({
     console.warn(`觸發 WebGPU OOM 降級：${primary} -> ${fallback}`);
   }
 });
+```
+
+#### 🧩 核心解析器：`createStreamParser` (底層雙軌狀態機)
+
+若您在 **Headless 模式**、自建前端對話流或 Node.js 後端服務中需要獨立解析推論串流，可直接從 `ai-avatar-bot-typescript/brain` 導入工廠函式 `createStreamParser`：
+
+```typescript
+import { 
+  createStreamParser, 
+  STREAM_PARSER_STATE,
+  type StreamParserInstance,
+  type StreamParserResult 
+} from 'ai-avatar-bot-typescript/brain';
+
+const parser: StreamParserInstance = createStreamParser({
+  mode: 'auto', // 'auto' | 'always' | 'never'
+  onReasoningStart: (info) => {
+    console.log('進入思維推導階段 (靜音軌)', info.model);
+  },
+  onReasoningChunk: (info) => {
+    // 增量思維 Token (<think>...</think> 或 reasoning_content)
+    console.log('思考中:', info.chunkDelta);
+  },
+  onReasoningEnd: (info) => {
+    console.log(`推導完成，耗時 ${info.durationMs}ms`);
+  },
+  onAnswerStart: () => {
+    console.log('進入語音回答階段 (TTS 啟動)');
+  },
+  onAnswerChunk: (chunkDelta, accumulatedAnswer) => {
+    console.log('口述 Chunk 抵達:', chunkDelta);
+  },
+  onAnswerEnd: (fullAnswer, durationMs) => {
+    console.log('回答生成完畢');
+  }
+});
+
+// 將大語言模型串流 Chunk 餵入解析狀態機
+parser.feed(rawLlmChunk);
+
+// 串流結束時結算結果
+const result: StreamParserResult = parser.finish();
+console.log('完整推論：', result.reasoning);
+console.log('完整回答：', result.answer);
+console.log('是否包含思考過程：', result.hasReasoning);
 ```
 
 ---
@@ -1068,6 +1153,8 @@ export interface AiAvatarWidget {
   answerQuestion?(question: string): Promise<string | void>;
   applyEmotionFromText?(text: string): void;
   classifyEmotion?(text: string): string;
+  playGesture?(gestureName: string): void;
+  tap?(): void;
   showMinimalEl(): void;
   hiddenMinimalEl(): void;
 
@@ -1095,6 +1182,9 @@ export interface AiAvatarWidget {
   autoContinueMode: AutoContinueMode;
   enableModelDrop: boolean;
   enableEngineToggle: boolean;
+  readonly reasoning?: ReasoningOptions;
+  llmFallbackModel?: string | null | false;
+  enableOomFallback?: boolean;
 }
 ```
 
@@ -1140,7 +1230,7 @@ widget.i18nEngine.setLocale('zh-CN'); // 簡體中文
 # 1. 嚴格 TypeScript 編譯期型別檢查
 yarn test:typecheck
 
-# 2. 執行 490+ 項 Vitest 單元測試（大腦、語音、外觀、工具、記憶、Store）
+# 2. 執行 600+ 項 Vitest 單元測試（涵蓋大腦推論、語音、外觀、工具、記憶、Store，603 測試全數通過）
 yarn test:unit
 
 # 3. Vitest 監聽與視覺化 UI 儀表板
