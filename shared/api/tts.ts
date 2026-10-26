@@ -13,19 +13,22 @@ import { Buffer } from 'buffer';
  *    不是完整限流。自架者請務必在 Vercel 專案層開用量上限 / Firewall 限流，
  *    避免被當免費 TTS proxy 灌爆帳單。
  * ===================================================================== */
+// msedge-tts v2.1.1 支援微軟新版 WebSocket 鑑權與端點 (Sec-MS-GEC v2)
 let _mod: typeof import('msedge-tts') | undefined;
 async function lib() {
   if (!_mod) _mod = await import('msedge-tts');
   return _mod;
 }
 
-// 允許的聲線白名單（避免被拿去合成任意語言/聲音）
 const VOICES = new Set([
   'zh-TW-HsiaoChenNeural',
   'zh-TW-HsiaoYuNeural',
   'zh-TW-YunJheNeural',
   'zh-CN-XiaoxiaoNeural',
-  'en-US-AriaNeural'
+  'en-US-AriaNeural',
+  'en-US-JennyNeural',
+  'ja-JP-NanamiNeural',
+  'ko-KR-SunHiNeural'
 ]);
 
 function escapeXml(s: string) {
