@@ -470,7 +470,7 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `enableAiProvider` | `boolean` | `false` | Whether to enable remote AI server provider (Ollama / custom API). |
 | `aiProviderBaseUrl` | `string` | `''` | Base URL of the remote AI API server. |
 | `aiProviderModel` | `string` | `'hermes3:latest'` | Model identifier for remote AI provider (defaults to flagship tool-calling/reasoning model). |
-| `aiProviderStream` | `boolean` | `true` | Whether to enable streaming for AI provider responses. |
+| `aiProviderIsStream` | `boolean` | `true` | Whether to enable streaming for AI provider responses. |
 | `aiProviderMaxTokens` | `number` | `2048` | Max response tokens for remote AI provider. |
 | `aiProviderCreateFetchSetting` | `AiProviderFetchSettingFactory \| RequestInit` | `undefined` | Custom Fetch Header / RequestInit factory function. |
 | `aiProviderCreateFetchPayload` | `AiProviderFetchPayloadFactory \| Record<string, unknown> \| BodyInit` | `undefined` | Custom JSON payload factory function or object. |

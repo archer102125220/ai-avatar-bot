@@ -473,7 +473,7 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `enableAiProvider` | `boolean` | `false` | 是否啟用遠端雲端 AI 服務提供者（Ollama / 自建 API）。 |
 | `aiProviderBaseUrl` | `string` | `''` | 遠端 AI 伺服器 API 基礎端點。 |
 | `aiProviderModel` | `string` | `'hermes3:latest'` | 遠端 AI 模型名稱識別碼（預設為具備完整工具調用與推論之旗艦模型）。 |
-| `aiProviderStream` | `boolean` | `true` | 是否啟用 AI Provider 串流輸出模式。 |
+| `aiProviderIsStream` | `boolean` | `true` | 是否啟用 AI Provider 串流輸出模式。 |
 | `aiProviderMaxTokens` | `number` | `2048` | 遠端 AI 單次生成 Token 最大上限。 |
 | `aiProviderCreateFetchSetting` | `AiProviderFetchSettingFactory \| RequestInit` | `undefined` | 自訂 Fetch Header / RequestInit 配置工廠函式。 |
 | `aiProviderCreateFetchPayload` | `AiProviderFetchPayloadFactory \| Record<string, unknown> \| BodyInit` | `undefined` | 自訂 JSON 請求負載生成工廠函式。 |

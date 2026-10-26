@@ -68,7 +68,7 @@ export async function setupBrainEngine({
     aiProviderCreateFetchPayload,
     aiProviderResponseFormat,
     aiProviderMaxTokens,
-    aiProviderStream,
+    aiProviderIsStream,
     customEngines = {},
     compression = {},
     systemContextTemplate,
@@ -159,7 +159,7 @@ export async function setupBrainEngine({
       aiProviderMaxTokens > 0
         ? aiProviderMaxTokens
         : DEFAULT_AI_PROVIDER_MAX_TOKENS,
-    aiProviderStream,
+    aiProviderIsStream,
     aiProviderExtractToolCalls: options.aiProviderExtractToolCalls,
     getTools: () => {
       const { toolsEngine } = getEngines();

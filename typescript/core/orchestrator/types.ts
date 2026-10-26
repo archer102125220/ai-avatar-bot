@@ -137,7 +137,7 @@ export interface AvatarBotOptions {
   /** Maximum token limit for AI Provider responses. */
   aiProviderMaxTokens?: number;
   /** Whether AI Provider should use streaming response. */
-  aiProviderStream?: boolean;
+  aiProviderIsStream?: boolean;
   /** Custom extractor for tool calls from AI Provider chunks. */
   aiProviderExtractToolCalls?:
     | AiProviderToolCallExtractor
