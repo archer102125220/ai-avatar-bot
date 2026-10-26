@@ -132,26 +132,31 @@ export const DEFAULT_AI_PROVIDER_MODEL = 'hermes3:latest';
 
 /**
  * Default reasoning start tag.
+ * @experimental Reasoning output is currently experimental.
  */
 export const REASONING_START_TAG = '<think>';
 
 /**
  * Default reasoning end tag.
+ * @experimental Reasoning output is currently experimental.
  */
 export const REASONING_END_TAG = '</think>';
 
 /**
  * Fallback / alternative reasoning start tag (used by some models/templates).
+ * @experimental Reasoning output is currently experimental.
  */
 export const REASONING_ALT_START_TAG = '<thought>';
 
 /**
  * Fallback / alternative reasoning end tag (used by some models/templates).
+ * @experimental Reasoning output is currently experimental.
  */
 export const REASONING_ALT_END_TAG = '</thought>';
 
 /**
  * AI reasoning / thinking capture and enforcement mode mapping enum.
+ * @experimental AI reasoning output is currently experimental.
  */
 export const REASONING_MODE_MAP = {
   /** Automatically detect native reasoning tags (<think>, <thought>, reasoning_content). Default mode. */
@@ -166,6 +171,7 @@ export type { ReasoningMode };
 
 /**
  * Default configuration options for AI reasoning and thinking process.
+ * @experimental AI reasoning output is currently experimental.
  */
 export const DEFAULT_REASONING_OPTIONS: ReasoningOptions & {
   mode: ReasoningMode;
@@ -177,6 +183,7 @@ export const DEFAULT_REASONING_OPTIONS: ReasoningOptions & {
 
 /**
  * Alias for DEFAULT_REASONING_OPTIONS for naming convenience.
+ * @experimental AI reasoning output is currently experimental.
  */
 export const DEFAULT_REASONING_CONFIG = DEFAULT_REASONING_OPTIONS;
 

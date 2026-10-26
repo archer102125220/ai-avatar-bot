@@ -34,7 +34,7 @@
 - [🧠 進階功能指南](#-進階功能指南)
   - [1. 大腦引擎與三層降級推論 (型別化工廠)](#1-大腦引擎與三層降級推論-型別化工廠)
   - [2. 自動接續回答機制 (Auto-Continue Response)](#2-自動接續回答機制-auto-continue-response)
-  - [3. AI 模型推論過程 (Reasoning / Thinking) 與 WebLLM OOM 降級](#3-ai-模型推論過程-reasoning--thinking-與-webllm-oom-降級)
+  - [3. [實驗性 Experimental] AI 模型推論過程 (Reasoning / Thinking) 與 WebLLM OOM 降級](#3-實驗性-experimental-ai-模型推論過程-reasoning--thinking-與-webllm-oom-降級架構)
   - [4. 記憶管理、資料結構與自訂儲存轉接器](#4-記憶管理資料結構與自訂儲存轉接器)
   - [5. Function Calling 與自訂工具 (Tools Engine)](#5-function-calling-與自訂工具-tools-engine)
   - [6. 2D (Live2D) 與 3D (VRM) 雙外觀引擎](#6-2d-live2d-與-3d-vrm-雙外觀引擎)
@@ -482,7 +482,7 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `llmModel` | `string` | `'Hermes-3-Llama-3.1-8B-q4f32_1-MLC'` | 瀏覽器端 WebLLM 主模型名稱（預設為旗艦 8B 模型）。 |
 | `llmFallbackModel` | `string \| null \| false` | `'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'` | WebGPU 記憶體不足（OOM）時的備選保底模型。設為 `null` 則關閉降級。 |
 | `enableOomFallback` | `boolean` | `true` | 是否啟用 WebGPU 顯存不足時的自動降級機制。 |
-| `reasoning` | `ReasoningOptions` | `{ mode: 'auto', showThinkingInBubble: true }` | AI 模型推論思考過程設定（`mode`: `'auto' \| 'always' \| 'never'`, `showThinkingInBubble`: `boolean`, `promptDirective?`: `string \| ((locale: string) => string) \| false`）。 |
+| `reasoning` | `ReasoningOptions` | `{ mode: 'auto', showThinkingInBubble: true }` | ⚠️ **[實驗性 Experimental]** AI 模型推論思考過程設定（`mode`: `'auto' \| 'always' \| 'never'`, `showThinkingInBubble`: `boolean`, `promptDirective?`: `string \| ((locale: string) => string) \| false`）。推論輸出穩定度目前尚在驗證中。 |
 | `llmMaxTokens` | `number` | `1024` | WebLLM 模型單次回應 Token 最大限制。 |
 | `preloadWebLLM` | `boolean` | `false` | 是否在初始化時即刻預載 WebLLM 權重。 |
 | `autoFallbackWebLLM` | `boolean` | `true` | 當遠端 AI 失敗時是否自動降級至本地 WebLLM。 |
@@ -563,9 +563,9 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `onSpeakingEnd` | `() => void` | 語音播放結束時觸發。 |
 | `onStreamChunk` | `(chunkDelta: string, rawChunk?: unknown) => void` | 正式回答文字串流增量抵達時觸發（透傳底層原生 Chunk）。 |
 | `onStreamEnd` | `(fullText: string) => void` | 大腦 LLM 串流生成文字完全結束時觸發。 |
-| `onReasoningStart` | `(info: ReasoningStartInfo) => void` | AI 模型推論思考過程開始時觸發（靜音軌）。 |
-| `onReasoningChunk` | `(info: ReasoningChunkInfo, chunkDelta: string, accumulated: string, rawChunk?: unknown) => void` | 推論串流增量抵達時觸發。 |
-| `onReasoningEnd` | `(info: ReasoningEndInfo, fullReasoning: string, durationMs: number) => void` | 推論過程完全結束時觸發。 |
+| `onReasoningStart` | `(info: ReasoningStartInfo) => void` | ⚠️ **[實驗性 Experimental]** AI 模型推論思考過程開始時觸發（靜音軌）。 |
+| `onReasoningChunk` | `(info: ReasoningChunkInfo, chunkDelta: string, accumulated: string, rawChunk?: unknown) => void` | ⚠️ **[實驗性 Experimental]** 推論串流增量抵達時觸發。 |
+| `onReasoningEnd` | `(info: ReasoningEndInfo, fullReasoning: string, durationMs: number) => void` | ⚠️ **[實驗性 Experimental]** 推論過程完全結束時觸發。 |
 | `onLlmOomFallback` | `(info: LlmOomFallbackInfo, primaryModel: string, fallbackModel: string, error: unknown) => void` | 瀏覽器 WebLLM 發生 WebGPU 顯存不足並自動降級模型時觸發。 |
 | `onAutoContinueStart` | `(info: AutoContinueStartInfo) => void` | 自動接續回答開始時觸發。 |
 | `onAutoContinueWait` | `(info: AutoContinueStartInfo) => void` | 等待接續串流的空檔（切換至思考姿態）觸發。 |
@@ -668,7 +668,11 @@ const widget = await initAvatarBot({
 
 ---
 
-### 3. AI 模型推論過程 (Reasoning / Thinking) 與 WebLLM OOM 降級架構
+### 3. [實驗性 Experimental] AI 模型推論過程 (Reasoning / Thinking) 與 WebLLM OOM 降級架構
+
+> [!WARNING]
+> **⚠️ 實驗性功能標註 (Experimental Feature Notice)**：  
+> 推論思考過程（Reasoning / Thinking Output）與雙軌串流解析目前屬於**實驗性功能 (Experimental)**。由於各開源模型（如 DeepSeek-R1、Hermes 3、QwQ 等）在端側量化（4-bit）與伺服器端協議（OpenAI 相容 / Ollama / vLLM）對思考標籤（如 `<think>`）與 reasoning 欄位的支援程度與輸出穩定性存在差異，在部分模型或短文本情境下可能存在偶發跳過或格式不穩定之情況。在正式確認完全穩定前，建議評估業務情境後選用，或透過 `reasoning.mode = 'never'` 關閉推論輸出。
 
 現代推論型大語言模型（如 DeepSeek-R1、Hermes 3、OpenAI o-系列、Claude 3.7 Thinking、QwQ）在生成最終語音回覆前會先進行內心思維推導。`ai-avatar-bot-typescript` 原生提供 **雙軌串流架構 (Dual-Track Stream Architecture)** 與 **兩階段 WebGPU OOM 自適應降級**：
 

@@ -47,14 +47,14 @@
         enableOomFallback: true, // 啟用 WebGPU 顯存不足自動降級
         // llmMaxTokens: 1024, // WebLLM 端側模型回應最大 Token 數（預設 1024）
         // aiProviderModel: 'deepseek-r1:8b', // 或 8b 等 Ollama 原生推論模型
-        // aiProviderModel: 'hermes3:8b', // 遠端伺服器預設旗艦模型 (Ollama / vLLM)
+        aiProviderModel: 'hermes3:8b', // 遠端伺服器預設旗艦模型 (Ollama / vLLM)
         // aiProviderModel: 'qwen2.5:latest',
         // aiProviderModel: 'gemma4:latest',
-        // aiProviderBaseUrl: 'http://localhost:5173/api/ollama',
-        // 推論思考過程設定
+        aiProviderBaseUrl: 'http://localhost:5173/api/ollama',
+        // ⚠️ [實驗性 Experimental] 推論思考過程設定（目前推論輸出各模型穩定度尚在驗證中，可依情境評估使用）
         reasoning: {
           mode: REASONING_MODE_MAP.always, // REASONING_MODE_MAP.auto (自動偵測) | REASONING_MODE_MAP.always (強制注入思考鏈指令) | REASONING_MODE_MAP.never (關閉)
-          showThinkingInBubble: true, // 思考期間氣泡顯示動態「讓我想想…」
+          showThinkingInBubble: true // 思考期間氣泡顯示動態「讓我想想…」
           // promptDirective: '自訂思考提示詞，或設為 false 完全由開發者在 systemContext 自主控制'
         },
         knowledge: KNOWLEDGE,
@@ -135,13 +135,13 @@
           console.log('[avatar] stream chunk (TTS active):', chunkDelta);
         },
         onReasoningStart(info) {
-          console.log('[avatar] 🧠 reasoning started (silent track):', info);
+          console.log('[avatar] 🧠 [Experimental] reasoning started (silent track):', info);
         },
         onReasoningChunk(info, chunkDelta, accumulated, rawChunk) {
-          console.log('[avatar] 💭 reasoning chunk:', chunkDelta);
+          console.log('[avatar] 💭 [Experimental] reasoning chunk:', chunkDelta);
         },
         onReasoningEnd(info, fullReasoning, durationMs) {
-          console.log(`[avatar] 💡 reasoning finished in ${durationMs}ms`);
+          console.log(`[avatar] 💡 [Experimental] reasoning finished in ${durationMs}ms`);
         },
         onLlmOomFallback(info, primaryModel, fallbackModel, error) {
           console.warn(

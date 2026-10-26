@@ -167,7 +167,10 @@ export interface ToolErrorInfo {
 export type LlmLoadProgressInfo =
   number | { progress?: number; [key: string]: unknown };
 
-/** Payload emitted when AI reasoning/thinking process starts */
+/**
+ * Payload emitted when AI reasoning/thinking process starts.
+ * @experimental AI reasoning / thinking output is currently an experimental feature and stability may vary across models and runtimes.
+ */
 export interface ReasoningStartInfo {
   /** Optional model identifier used for reasoning. */
   model?: string;
@@ -177,7 +180,10 @@ export interface ReasoningStartInfo {
   [key: string]: unknown;
 }
 
-/** Payload emitted when a chunk of reasoning content is received */
+/**
+ * Payload emitted when a chunk of reasoning content is received.
+ * @experimental AI reasoning / thinking output is currently an experimental feature and stability may vary across models and runtimes.
+ */
 export interface ReasoningChunkInfo {
   /** Incremental reasoning text chunk. */
   chunkDelta: string;
@@ -189,7 +195,10 @@ export interface ReasoningChunkInfo {
   [key: string]: unknown;
 }
 
-/** Payload emitted when AI reasoning/thinking process completes */
+/**
+ * Payload emitted when AI reasoning/thinking process completes.
+ * @experimental AI reasoning / thinking output is currently an experimental feature and stability may vary across models and runtimes.
+ */
 export interface ReasoningEndInfo {
   /** Complete reasoning text generated. */
   fullReasoning: string;
@@ -213,10 +222,16 @@ export interface LlmOomFallbackInfo {
   [key: string]: unknown;
 }
 
-/** AI reasoning / thinking capture and enforcement mode */
+/**
+ * AI reasoning / thinking capture and enforcement mode.
+ * @experimental AI reasoning / thinking output is currently an experimental feature.
+ */
 export type ReasoningMode = 'auto' | 'always' | 'never';
 
-/** Configuration options for AI reasoning/thinking capture and display */
+/**
+ * Configuration options for AI reasoning/thinking capture and display.
+ * @experimental AI reasoning / thinking output is currently an experimental feature and stability may vary across models and runtimes.
+ */
 export interface ReasoningOptions {
   /**
    * Whether to capture and display reasoning content.

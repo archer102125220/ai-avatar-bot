@@ -30,6 +30,7 @@ export type StreamParserState =
 
 /**
  * Configuration options and event callbacks for StreamParser.
+ * @experimental AI reasoning output is currently an experimental feature.
  */
 export interface StreamParserOptions {
   /** Model identifier string associated with this generation. */
@@ -65,6 +66,7 @@ export interface StreamParserOptions {
 
 /**
  * Final execution result snapshot returned by StreamParser.finish().
+ * @experimental AI reasoning output is currently an experimental feature.
  */
 export interface StreamParserResult {
   /** Complete reasoning / thinking text extracted from stream. */
@@ -83,6 +85,7 @@ export interface StreamParserResult {
 
 /**
  * Stream parser instance interface returned by createStreamParser().
+ * @experimental AI reasoning output is currently an experimental feature.
  */
 export interface StreamParserInstance {
   /**
@@ -404,6 +407,7 @@ function extractChunkPayload(chunk: unknown): {
  * and seamlessly emits answer tokens to the speech and UI pipeline upon completion.
  * Fully resilient against arbitrary chunk boundary slicing across network streams.
  *
+ * @experimental AI reasoning output separation is currently an experimental feature.
  * @param options - Configuration options and stream callbacks.
  * @returns Initialized stream parser instance controller.
  */

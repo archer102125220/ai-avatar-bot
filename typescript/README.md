@@ -34,7 +34,7 @@
 - [🧠 In-Depth Guides](#-in-depth-guides)
   - [1. Brain Engine & Three-Tier Fallback Inference](#1-brain-engine--three-tier-fallback-inference)
   - [2. Auto-Continue Response Mechanism](#2-auto-continue-response-mechanism)
-  - [3. AI Reasoning (Chain-of-Thought) & WebLLM OOM Fallback Architecture](#3-ai-reasoning-chain-of-thought--webllm-oom-fallback-architecture)
+  - [3. [Experimental] AI Reasoning (Chain-of-Thought) & WebLLM OOM Fallback Architecture](#3-experimental-ai-reasoning-chain-of-thought--webllm-oom-fallback-architecture)
   - [4. Memory Management, Data Schema & Custom Storage Adapter](#4-memory-management-data-schema--custom-storage-adapter)
   - [5. Function Calling & Custom Tools (Tools Engine)](#5-function-calling--custom-tools-tools-engine)
   - [6. 2D (Live2D) & 3D (VRM) Dual Skin Engine](#6-2d-live2d--3d-vrm-dual-skin-engine)
@@ -479,7 +479,7 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `llmModel` | `string` | `'Hermes-3-Llama-3.1-8B-q4f32_1-MLC'` | Primary in-browser WebLLM model name (flagship tool calling & reasoning). |
 | `llmFallbackModel` | `string \| null \| false` | `'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'` | Fallback WebLLM model when WebGPU encounters OOM. Set to `null` to disallow fallback. |
 | `enableOomFallback` | `boolean` | `true` | Whether to automatically fallback to lightweight model on WebGPU OOM errors. |
-| `reasoning` | `ReasoningOptions` | `{ mode: 'auto', showThinkingInBubble: true }` | AI reasoning/thinking options (`mode`: `'auto' \| 'always' \| 'never'`, `showThinkingInBubble`: `boolean`, `promptDirective?`: `string \| ((locale: string) => string) \| false`). |
+| `reasoning` | `ReasoningOptions` | `{ mode: 'auto', showThinkingInBubble: true }` | ⚠️ **[Experimental]** AI reasoning/thinking options (`mode`: `'auto' \| 'always' \| 'never'`, `showThinkingInBubble`: `boolean`, `promptDirective?`: `string \| ((locale: string) => string) \| false`). Stability across models is currently under active validation. |
 | `llmMaxTokens` | `number` | `1024` | Maximum response tokens limit for in-browser WebLLM. |
 | `preloadWebLLM` | `boolean` | `false` | Whether to preload WebLLM weights immediately upon initialization. |
 | `autoFallbackWebLLM` | `boolean` | `true` | Whether to auto-fallback to WebLLM if remote AI Provider fails. |
@@ -560,9 +560,9 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `onSpeakingEnd` | `() => void` | Fired when TTS finishes speaking. |
 | `onStreamChunk` | `(chunkDelta: string, rawChunk?: unknown) => void` | Fired on each incremental answer stream chunk with raw underlying chunk forwarded. |
 | `onStreamEnd` | `(fullText: string) => void` | Fired when brain LLM stream completes. |
-| `onReasoningStart` | `(info: ReasoningStartInfo) => void` | Fired when AI model reasoning/thinking process begins (silent track). |
-| `onReasoningChunk` | `(info: ReasoningChunkInfo, chunkDelta: string, accumulated: string, rawChunk?: unknown) => void` | Fired when reasoning stream text updates. |
-| `onReasoningEnd` | `(info: ReasoningEndInfo, fullReasoning: string, durationMs: number) => void` | Fired when reasoning process completes before answer begins. |
+| `onReasoningStart` | `(info: ReasoningStartInfo) => void` | ⚠️ **[Experimental]** Fired when AI model reasoning/thinking process begins (silent track). |
+| `onReasoningChunk` | `(info: ReasoningChunkInfo, chunkDelta: string, accumulated: string, rawChunk?: unknown) => void` | ⚠️ **[Experimental]** Fired when reasoning stream text updates. |
+| `onReasoningEnd` | `(info: ReasoningEndInfo, fullReasoning: string, durationMs: number) => void` | ⚠️ **[Experimental]** Fired when reasoning process completes before answer begins. |
 | `onLlmOomFallback` | `(info: LlmOomFallbackInfo, primaryModel: string, fallbackModel: string, error: unknown) => void` | Fired when in-browser WebLLM encounters OOM and switches to fallback model. |
 | `onAutoContinueStart` | `(info: AutoContinueStartInfo) => void` | Fired when auto-continuation starts. |
 | `onAutoContinueWait` | `(info: AutoContinueStartInfo) => void` | Fired when waiting for next continuation chunk. |
@@ -665,7 +665,11 @@ const widget = await initAvatarBot({
 
 ---
 
-### 3. AI Reasoning (Chain-of-Thought) & WebLLM OOM Fallback Architecture
+### 3. [Experimental] AI Reasoning (Chain-of-Thought) & WebLLM OOM Fallback Architecture
+
+> [!WARNING]
+> **⚠️ Experimental Feature Notice**:  
+> AI reasoning and thinking process streaming (`ReasoningOptions`, `onReasoningStart`, `onReasoningChunk`, `onReasoningEnd`) is currently an **experimental feature**. Due to variances across open-source model architectures (such as DeepSeek-R1, Hermes 3, QwQ), 4-bit quantizations, and divergent backend protocols (OpenAI-compatible, Ollama, vLLM), reasoning tags (`<think>`) or dedicated `reasoning_content` fields may exhibit inconsistent behavior or occasional omissions in short-dialogue scenarios. Until full stability is achieved across all supported backends, evaluate according to your workload or disable it via `reasoning.mode = 'never'`.
 
 Modern reasoning models (such as DeepSeek-R1, Hermes 3, OpenAI o-series, Claude 3.7 Thinking, and QwQ) perform internal thinking before generating final spoken answers. `ai-avatar-bot-typescript` provides a native **Dual-Track Stream Architecture** and **Two-Tier WebGPU OOM Adaptive Fallback**:
 

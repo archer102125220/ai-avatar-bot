@@ -269,7 +269,10 @@ export interface AvatarBotOptions {
   genderRule?: DynamicTextOrResolver;
   /** List of registered tools for function calling. */
   tools?: ToolDefinition[];
-  /** Configuration for AI reasoning and thinking process. */
+  /**
+   * Configuration for AI reasoning and thinking process.
+   * @experimental AI reasoning output is currently an experimental feature and stability may vary across models and runtimes.
+   */
   reasoning?: ReasoningOptions;
   /** Alias for tools. */
   hostTools?: ToolDefinition[];
@@ -337,11 +340,20 @@ export interface AvatarBotOptions {
   onLlmLoadError?: (error: Error, ...args: unknown[]) => void;
   /** Callback fired when WebLLM encounters OOM and switches to fallback model. */
   onLlmOomFallback?: (info: LlmOomFallbackInfo, ...args: unknown[]) => void;
-  /** Callback fired when AI reasoning/thinking starts. */
+  /**
+   * Callback fired when AI reasoning/thinking starts (silent track).
+   * @experimental AI reasoning output is currently an experimental feature.
+   */
   onReasoningStart?: (info: ReasoningStartInfo, ...args: unknown[]) => void;
-  /** Callback fired when AI reasoning/thinking chunk is streamed. */
+  /**
+   * Callback fired when AI reasoning/thinking chunk is streamed.
+   * @experimental AI reasoning output is currently an experimental feature.
+   */
   onReasoningChunk?: (info: ReasoningChunkInfo, ...args: unknown[]) => void;
-  /** Callback fired when AI reasoning/thinking process ends. */
+  /**
+   * Callback fired when AI reasoning/thinking process ends.
+   * @experimental AI reasoning output is currently an experimental feature.
+   */
   onReasoningEnd?: (info: ReasoningEndInfo, ...args: unknown[]) => void;
   /** Callback fired when connecting to AI Provider. */
   onAiProviderConnecting?: (...args: unknown[]) => void;
@@ -546,15 +558,21 @@ export interface AiAvatarWidget {
   ) => void;
   onError?: (error: Error, widget: AiAvatarWidget, ...args: unknown[]) => void;
   onLlmOomFallback?: (info: LlmOomFallbackInfo, ...args: unknown[]) => void;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   onReasoningStart?: (info: ReasoningStartInfo, ...args: unknown[]) => void;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   onReasoningChunk?: (info: ReasoningChunkInfo, ...args: unknown[]) => void;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   onReasoningEnd?: (info: ReasoningEndInfo, ...args: unknown[]) => void;
   onStreamChunk?: (
     chunkDelta: string,
     rawChunk?: unknown,
     ...args: unknown[]
   ) => void;
-  /** Configuration for AI reasoning and thinking process. */
+  /**
+   * Configuration for AI reasoning and thinking process.
+   * @experimental AI reasoning output is currently an experimental feature.
+   */
   readonly reasoning?: ReasoningOptions;
 }
 
@@ -579,6 +597,7 @@ export interface AvatarBotStoreState {
   locale: string;
   enableModelDrop: boolean;
   enableEngineToggle: boolean;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   reasoning?: ReasoningOptions;
   suggestedQuestions?: LocalizableOrResolver<string[]>;
   companionSuggestedQuestions?: LocalizableOrResolver<string[]>;

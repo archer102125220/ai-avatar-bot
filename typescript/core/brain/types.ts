@@ -50,9 +50,15 @@ export interface ChatHistoryItem {
   role: ChatRole;
   /** Text content of the message. */
   content: string;
-  /** Optional reasoning/thinking thought trace generated during inference. */
+  /**
+   * Optional reasoning/thinking thought trace generated during inference.
+   * @experimental AI reasoning output is currently an experimental feature.
+   */
   reasoning?: string;
-  /** Optional reasoning elapsed duration in milliseconds. */
+  /**
+   * Optional reasoning elapsed duration in milliseconds.
+   * @experimental AI reasoning output is currently an experimental feature.
+   */
   reasoningTimeMs?: number;
   /** Optional metadata or timestamp. */
   [key: string]: unknown;
@@ -270,15 +276,19 @@ export interface LLMEngineOptions {
   onLlmOomFallback?:
     | ((info: LlmOomFallbackInfo, ...args: unknown[]) => void)
     | null;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   onReasoningStart?:
     | ((info: ReasoningStartInfo, ...args: unknown[]) => void)
     | null;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   onReasoningChunk?:
     | ((info: ReasoningChunkInfo, ...args: unknown[]) => void)
     | null;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   onReasoningEnd?:
     | ((info: ReasoningEndInfo, ...args: unknown[]) => void)
     | null;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   reasoning?: ReasoningOptions;
 }
 
@@ -292,6 +302,7 @@ export interface LLMEngine {
   model: string;
   error?: string;
   readonly temperature?: number;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   readonly reasoning?: ReasoningOptions;
   readonly maxTokens: number;
   readonly isStream: boolean;
@@ -302,8 +313,11 @@ export interface LLMEngine {
   readonly onChatting: (...args: unknown[]) => unknown;
   readonly onStreamChatting: (...args: unknown[]) => unknown;
   readonly onLlmOomFallback?: (info: LlmOomFallbackInfo) => void;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   readonly onReasoningStart?: (info: ReasoningStartInfo) => void;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   readonly onReasoningChunk?: (info: ReasoningChunkInfo) => void;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   readonly onReasoningEnd?: (info: ReasoningEndInfo) => void;
   readonly engine?: {
     chat?: {
@@ -430,22 +444,28 @@ export interface AiProviderOptions {
   onError?: ((error?: unknown, ...args: unknown[]) => void) | null;
   onChatting?: ((...args: unknown[]) => void) | null;
   onStreamChatting?: ((chunk?: unknown, ...args: unknown[]) => void) | null;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   onReasoningStart?:
     | ((info: ReasoningStartInfo, ...args: unknown[]) => void)
     | null;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   onReasoningChunk?:
     | ((info: ReasoningChunkInfo, ...args: unknown[]) => void)
     | null;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   onReasoningEnd?:
     | ((info: ReasoningEndInfo, ...args: unknown[]) => void)
     | null;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   reasoning?: ReasoningOptions;
 }
 
 export interface AiProviderChatResult {
   type?: 'text' | 'tool_calls' | (string & {});
   content?: string;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   reasoning?: string;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   reasoningTimeMs?: number;
   finishReason?: string;
   toolCalls?: ParsedToolCall[] | null;
@@ -460,6 +480,7 @@ export interface AiProviderEngine {
   baseUrl: string;
   pingUrl: string;
   chatUrl: string;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   readonly reasoning?: ReasoningOptions;
   readonly createFetchSetting:
     | AiProviderFetchSettingFactory
@@ -650,6 +671,7 @@ export interface BrainEngineOptions {
   ) => unknown;
   onToolNotFound?: (info: ToolNotFoundErrorInfo, ...args: unknown[]) => unknown;
   onToolError?: (info: ToolErrorInfo, ...args: unknown[]) => unknown;
+  /** @experimental AI reasoning output is currently an experimental feature. */
   reasoning?: ReasoningOptions;
 }
 
@@ -836,6 +858,7 @@ export interface BrainEngine {
   customContext?: Record<string, unknown> | null;
   languageRule?: string | ((...args: unknown[]) => string);
   genderRule?: string | ((...args: unknown[]) => string);
+  /** @experimental AI reasoning output is currently an experimental feature. */
   reasoning?: ReasoningOptions;
   compression: BrainCompressionOptions;
   i18nEngine: I18nEngine | null;
