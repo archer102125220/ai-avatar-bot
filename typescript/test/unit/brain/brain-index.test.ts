@@ -96,6 +96,27 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
       expect(brainEngine.assistantWelcomeText).toBe('靜態助理詞');
       expect(brainEngine.availableModes).toContain('doctor');
     });
+
+    it('should expose pingAiProvider and delegate to aiProvider.ping', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({})
+      } as unknown as Response);
+
+      const brainEngine: BrainEngine = await initBrainEngine({
+        enableAiProvider: true,
+        aiProviderBaseUrl: 'http://localhost:11434',
+        aiProviderAutoPing: 'manual'
+      });
+
+      expect(typeof brainEngine.pingAiProvider).toBe('function');
+      const pingResult = await brainEngine.pingAiProvider?.();
+      expect(pingResult).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:11434/api/tags',
+        null
+      );
+    });
   });
 
   describe('getRetrievalAnswer & getCompanionFallbackResponse', () => {

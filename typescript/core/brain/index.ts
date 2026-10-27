@@ -137,6 +137,7 @@ export async function initBrainEngine(
     aiProviderCreateFetchPayload = null,
     aiProviderResponseFormat = null,
     aiProviderPingUrl,
+    aiProviderAutoPing,
     aiProviderChatUrl,
     aiProviderMaxTokens,
     aiProviderIsStream,
@@ -430,6 +431,14 @@ export async function initBrainEngine(
     get aiProvider() {
       return aiProvider;
     },
+    pingAiProvider: async (
+      fetchSetting?: RequestInit | null
+    ): Promise<boolean> => {
+      if (aiProvider !== null && typeof aiProvider.ping === 'function') {
+        return aiProvider.ping(fetchSetting);
+      }
+      return false;
+    },
     modes: typeof modes === 'object' && modes !== null ? modes : {},
     get availableModes() {
       const customModeKeys =
@@ -566,51 +575,55 @@ export async function initBrainEngine(
     maxHistoryTurns,
     memoryAdapter
   });
-  aiProvider = await initAiProvider({
-    enableAiProvider,
-    providerModel: aiProviderModel,
-    providerBaseUrl: aiProviderBaseUrl,
-    reasoning: brainEngine.reasoning,
+  aiProvider = await initAiProvider(
+    {
+      enableAiProvider,
+      providerModel: aiProviderModel,
+      providerBaseUrl: aiProviderBaseUrl,
+      reasoning: brainEngine.reasoning,
 
-    providerCreateFetchSetting: aiProviderCreateFetchSetting,
-    providerCreateFetchPayload: aiProviderCreateFetchPayload,
-    providerResponseFormat: aiProviderResponseFormat,
+      providerCreateFetchSetting: aiProviderCreateFetchSetting,
+      providerCreateFetchPayload: aiProviderCreateFetchPayload,
+      providerResponseFormat: aiProviderResponseFormat,
 
-    providerPingUrl: aiProviderPingUrl,
-    providerChatUrl: aiProviderChatUrl,
-    providerMaxTokens: aiProviderMaxTokens,
-    providerIsStream: aiProviderIsStream,
-    providerExtractToolCalls: aiProviderExtractToolCalls,
+      providerPingUrl: aiProviderPingUrl,
+      providerAutoPing: aiProviderAutoPing,
+      providerChatUrl: aiProviderChatUrl,
+      providerMaxTokens: aiProviderMaxTokens,
+      providerIsStream: aiProviderIsStream,
+      providerExtractToolCalls: aiProviderExtractToolCalls,
 
-    onConnecting: (fetchSetting?: unknown, ...args: unknown[]) => {
-      return brainEngine.onAiProviderConnecting?.(fetchSetting, ...args);
+      onConnecting: (fetchSetting?: unknown, ...args: unknown[]) => {
+        return brainEngine.onAiProviderConnecting?.(fetchSetting, ...args);
+      },
+      onConnected: (response?: unknown, ...args: unknown[]) => {
+        return brainEngine.onAiProviderConnected?.(response, ...args);
+      },
+      onError: (error?: unknown, ...args: unknown[]) => {
+        const safeError =
+          error instanceof Error
+            ? error
+            : new Error(String(error ?? 'Unknown error'));
+        return brainEngine.onAiProviderError?.(safeError, ...args);
+      },
+      onChatting: (response?: unknown, ...args: unknown[]) => {
+        return brainEngine.onAiProviderChatting?.(response, ...args);
+      },
+      onStreamChatting: (chunk?: unknown, ...args: unknown[]) => {
+        return brainEngine.onAiProviderStreamChatting?.(chunk, ...args);
+      },
+      onReasoningStart: (info: ReasoningStartInfo) => {
+        return brainEngine.onReasoningStart?.(info);
+      },
+      onReasoningChunk: (info: ReasoningChunkInfo) => {
+        return brainEngine.onReasoningChunk?.(info);
+      },
+      onReasoningEnd: (info: ReasoningEndInfo) => {
+        return brainEngine.onReasoningEnd?.(info);
+      }
     },
-    onConnected: (response?: unknown, ...args: unknown[]) => {
-      return brainEngine.onAiProviderConnected?.(response, ...args);
-    },
-    onError: (error?: unknown, ...args: unknown[]) => {
-      const safeError =
-        error instanceof Error
-          ? error
-          : new Error(String(error ?? 'Unknown error'));
-      return brainEngine.onAiProviderError?.(safeError, ...args);
-    },
-    onChatting: (response?: unknown, ...args: unknown[]) => {
-      return brainEngine.onAiProviderChatting?.(response, ...args);
-    },
-    onStreamChatting: (chunk?: unknown, ...args: unknown[]) => {
-      return brainEngine.onAiProviderStreamChatting?.(chunk, ...args);
-    },
-    onReasoningStart: (info: ReasoningStartInfo) => {
-      return brainEngine.onReasoningStart?.(info);
-    },
-    onReasoningChunk: (info: ReasoningChunkInfo) => {
-      return brainEngine.onReasoningChunk?.(info);
-    },
-    onReasoningEnd: (info: ReasoningEndInfo) => {
-      return brainEngine.onReasoningEnd?.(info);
-    }
-  }, brainEngine);
+    brainEngine
+  );
 
   if (
     brainEngine.preloadWebLLM === true &&

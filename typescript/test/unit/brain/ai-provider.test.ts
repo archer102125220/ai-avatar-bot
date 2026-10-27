@@ -2,11 +2,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   initAiProvider,
   chatWithAiProvider,
+  resolveAiProviderPingUrl,
+  resolveAiProviderEndpoint,
   type AiProviderEngine
 } from '@/core/brain/ai-provider';
 import {
   LLM_FINISH_REASON_MAP,
-  AUTO_CONTINUE_MODE_MAP
+  AUTO_CONTINUE_MODE_MAP,
+  AI_PROVIDER_PING_STRATEGY_MAP,
+  AI_PROVIDER_STATUS_MAP
 } from '@/core/constants';
 import type { BrainEngine, LLMMessage } from '@/core/brain/types';
 import type { ToolDefinition } from '@/core/tools';
@@ -38,7 +42,9 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
 
       expect(provider.enabled).toBe(true);
       expect(provider.baseUrl).toBe('http://localhost:11434');
+      await provider.pendingPing;
       expect(provider.ready).toBe(true);
+      expect(provider.status).toBe(AI_PROVIDER_STATUS_MAP.CONNECTED);
       expect(global.fetch).toHaveBeenCalledWith(
         'http://localhost:11434/api/tags',
         null
@@ -52,6 +58,106 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
 
       expect(provider.enabled).toBe(false);
       expect(provider.ready).toBe(false);
+      expect(provider.status).toBe(AI_PROVIDER_STATUS_MAP.IDLE);
+    });
+
+    it('should respect autoPing strategies: eager, lazy, and manual', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({})
+      } as unknown as Response);
+      global.fetch = mockFetch;
+
+      // 1. eager: pings in background, returns immediately without waiting
+      const eagerProvider = await initAiProvider({
+        providerBaseUrl: 'http://localhost:11434',
+        providerAutoPing: AI_PROVIDER_PING_STRATEGY_MAP.EAGER
+      });
+      expect(eagerProvider.autoPing).toBe('eager');
+      expect(eagerProvider.status).toBe(AI_PROVIDER_STATUS_MAP.CONNECTING);
+      await eagerProvider.pendingPing;
+      expect(eagerProvider.status).toBe(AI_PROVIDER_STATUS_MAP.CONNECTED);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      mockFetch.mockClear();
+
+      // 2. lazy: does NOT ping on init
+      const lazyProvider = await initAiProvider({
+        providerBaseUrl: 'http://localhost:11434',
+        providerAutoPing: AI_PROVIDER_PING_STRATEGY_MAP.LAZY
+      });
+      expect(lazyProvider.autoPing).toBe('lazy');
+      expect(lazyProvider.status).toBe(AI_PROVIDER_STATUS_MAP.IDLE);
+      expect(mockFetch).not.toHaveBeenCalled();
+
+      // 3. manual / false: does NOT ping on init
+      const manualProvider = await initAiProvider({
+        providerBaseUrl: 'http://localhost:11434',
+        providerAutoPing: false
+      });
+      expect(manualProvider.autoPing).toBe(false);
+      expect(manualProvider.status).toBe(AI_PROVIDER_STATUS_MAP.IDLE);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resolveAiProviderPingUrl & resolveAiProviderEndpoint', () => {
+    it('should infer Ollama /api/tags or /tags depending on baseUrl', () => {
+      expect(resolveAiProviderPingUrl('http://localhost:11434')).toBe(
+        '/api/tags'
+      );
+      expect(resolveAiProviderPingUrl('http://127.0.0.1:11434/')).toBe(
+        '/api/tags'
+      );
+      expect(resolveAiProviderPingUrl('https://my-ollama.internal:11434')).toBe(
+        '/api/tags'
+      );
+      expect(resolveAiProviderPingUrl('http://localhost:11434/api')).toBe(
+        '/tags'
+      );
+      expect(resolveAiProviderPingUrl('http://localhost:11434/api/')).toBe(
+        '/tags'
+      );
+    });
+
+    it('should default to /models for standard OpenAI-compatible endpoints', () => {
+      expect(resolveAiProviderPingUrl('https://api.openai.com/v1')).toBe(
+        '/models'
+      );
+      expect(resolveAiProviderPingUrl('http://127.0.0.1:8000/v1')).toBe(
+        '/models'
+      );
+    });
+
+    it('should prioritize custom pingUrl if provided', () => {
+      expect(
+        resolveAiProviderPingUrl('http://localhost:11434', '/custom/health')
+      ).toBe('/custom/health');
+      expect(
+        resolveAiProviderPingUrl(
+          'https://api.openai.com/v1',
+          'https://external.health/ping'
+        )
+      ).toBe('https://external.health/ping');
+    });
+
+    it('should cleanly join baseUrl and endpoint without duplicate slashes', () => {
+      expect(
+        resolveAiProviderEndpoint('http://localhost:11434', '/api/tags')
+      ).toBe('http://localhost:11434/api/tags');
+      expect(
+        resolveAiProviderEndpoint('http://localhost:11434/', '/api/tags')
+      ).toBe('http://localhost:11434/api/tags');
+      expect(
+        resolveAiProviderEndpoint('http://localhost:11434/api/', 'tags')
+      ).toBe('http://localhost:11434/api/tags');
+      expect(
+        resolveAiProviderEndpoint(
+          'http://localhost:11434',
+          'https://override.com/ping'
+        )
+      ).toBe('https://override.com/ping');
+      expect(resolveAiProviderEndpoint('', '/api/tags')).toBe('/api/tags');
     });
   });
 
@@ -91,7 +197,35 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       const result = await provider.ping();
       expect(result).toBe(false);
       expect(provider.ready).toBe(false);
+      expect(provider.status).toBe(AI_PROVIDER_STATUS_MAP.ERROR);
       expect(onError).toHaveBeenCalled();
+    });
+
+    it('should return false and update status when HTTP response is not ok', async () => {
+      const onError = vi.fn();
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found'
+      } as unknown as Response);
+
+      const provider: AiProviderController = await initAiProvider({
+        enableAiProvider: true,
+        providerBaseUrl: 'https://api.example.com',
+        onError
+      });
+
+      const result = await provider.ping();
+      expect(result).toBe(false);
+      expect(provider.ready).toBe(false);
+      expect(provider.status).toBe(AI_PROVIDER_STATUS_MAP.ERROR);
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining('HTTP status 404')
+        }),
+        null,
+        provider
+      );
     });
   });
 
@@ -821,7 +955,12 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
 
       const result = await chatWithAiProvider(brainEngine, '問題');
       expect(result).toBe('AI回覆');
-      expect(addTurn).toHaveBeenCalledWith('assistant', 'AI回覆', '推論紀錄', 88);
+      expect(addTurn).toHaveBeenCalledWith(
+        'assistant',
+        'AI回覆',
+        '推論紀錄',
+        88
+      );
       expect(updateChatMessage).toHaveBeenCalledWith(
         'msg_ai_1',
         'AI回覆',

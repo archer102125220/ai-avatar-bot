@@ -7,7 +7,13 @@ import {
   AUTO_CONTINUE_MODE_MAP,
   DEFAULT_AUTO_CONTINUE_MODE,
   DEFAULT_MAX_AUTO_CONTINUATIONS,
-  REASONING_MODE_MAP
+  REASONING_MODE_MAP,
+  AI_PROVIDER_PING_STRATEGY_MAP,
+  DEFAULT_AI_PROVIDER_PING_STRATEGY,
+  AI_PROVIDER_STATUS_MAP,
+  DEFAULT_AI_PROVIDER_STATUS,
+  type AiProviderPingStrategy,
+  type AiProviderStatus
 } from '@/core/constants';
 import { toOpenAiTools, type ToolDefinition } from '@/core/tools';
 import type {
@@ -34,6 +40,64 @@ import { createStreamParser } from './stream-parser';
 export type { AiProviderOptions, AiProviderEngine };
 
 /**
+ * Resolves the default health-check ping endpoint based on provider base URL and custom override.
+ * - Ollama default port 11434 or host containing 'ollama' -> `/api/tags` (or `/tags` if baseUrl already ends with `/api`).
+ * - Standard OpenAI-compatible APIs -> `/models`.
+ * - Custom pingUrl override always takes priority.
+ *
+ * @param baseUrl - Base URL of AI provider.
+ * @param customPingUrl - Custom ping URL or path.
+ * @returns Resolved ping endpoint path or URL.
+ */
+export function resolveAiProviderPingUrl(
+  baseUrl: string = '',
+  customPingUrl: string = ''
+): string {
+  if (typeof customPingUrl === 'string' && customPingUrl.trim() !== '') {
+    return customPingUrl.trim();
+  }
+
+  const cleanBase =
+    typeof baseUrl === 'string' ? baseUrl.trim().toLowerCase() : '';
+
+  if (cleanBase.includes('11434') || cleanBase.includes('ollama')) {
+    if (cleanBase.endsWith('/api') || cleanBase.endsWith('/api/')) {
+      return '/tags';
+    }
+    return '/api/tags';
+  }
+
+  return '/models';
+}
+
+/**
+ * Safely resolves and concatenates a base URL and an endpoint path.
+ * Handles trailing slashes, leading slashes, and absolute URLs.
+ *
+ * @param baseUrl - Provider base URL.
+ * @param endpoint - Subpath or absolute URL.
+ * @returns Fully qualified endpoint URL.
+ */
+export function resolveAiProviderEndpoint(
+  baseUrl: string = '',
+  endpoint: string = ''
+): string {
+  const trimmedEndpoint = typeof endpoint === 'string' ? endpoint.trim() : '';
+  if (/^https?:\/\//i.test(trimmedEndpoint)) {
+    return trimmedEndpoint;
+  }
+  const cleanBase = (typeof baseUrl === 'string' ? baseUrl.trim() : '').replace(
+    /\/+$/,
+    ''
+  );
+  const cleanEndpoint = trimmedEndpoint.replace(/^\/+/, '');
+  if (cleanBase === '') {
+    return cleanEndpoint !== '' ? `/${cleanEndpoint}` : '';
+  }
+  return cleanEndpoint !== '' ? `${cleanBase}/${cleanEndpoint}` : cleanBase;
+}
+
+/**
  * Initializes the AI Provider backend connection and client interface.
  *
  * @param setting - AI Provider options.
@@ -52,6 +116,8 @@ export async function initAiProvider(
     baseUrl = '',
     providerPingUrl = '',
     pingUrl = '',
+    providerAutoPing,
+    autoPing,
     providerChatUrl = '',
     chatUrl = '',
     providerModel = DEFAULT_AI_PROVIDER_MODEL,
@@ -82,7 +148,22 @@ export async function initAiProvider(
   } = setting;
 
   const resolvedBaseUrl = providerBaseUrl || baseUrl || '';
-  const resolvedPingUrl = providerPingUrl || pingUrl || '';
+  const rawPingUrl = providerPingUrl || pingUrl || '';
+  const resolvedPingUrl = resolveAiProviderPingUrl(resolvedBaseUrl, rawPingUrl);
+  const resolvedAutoPing: AiProviderPingStrategy =
+    providerAutoPing === false || autoPing === false
+      ? false
+      : typeof providerAutoPing === 'string' &&
+          (Object.values(AI_PROVIDER_PING_STRATEGY_MAP) as string[]).includes(
+            providerAutoPing
+          ) === true
+        ? providerAutoPing
+        : typeof autoPing === 'string' &&
+            (Object.values(AI_PROVIDER_PING_STRATEGY_MAP) as string[]).includes(
+              autoPing
+            ) === true
+          ? autoPing
+          : DEFAULT_AI_PROVIDER_PING_STRATEGY;
   const resolvedChatUrl = providerChatUrl || chatUrl || '';
   const resolvedModel = providerModel || model || DEFAULT_AI_PROVIDER_MODEL;
   const resolvedCreateFetchSetting =
@@ -210,8 +291,7 @@ export async function initAiProvider(
         if (typeof onReasoningEnd === 'function') {
           onReasoningEnd(info);
         } else if (
-          typeof (brain as Partial<BrainEngine>)?.onReasoningEnd ===
-          'function'
+          typeof (brain as Partial<BrainEngine>)?.onReasoningEnd === 'function'
         ) {
           (brain as Partial<BrainEngine>).onReasoningEnd!(info);
         }
@@ -230,23 +310,41 @@ export async function initAiProvider(
         _enabled = value;
       }
     },
+    autoPing: resolvedAutoPing,
+    status: DEFAULT_AI_PROVIDER_STATUS as AiProviderStatus,
     ready: false,
+    pendingPing: null,
     async ping(fetchSetting: RequestInit | null = null): Promise<boolean> {
       if (this.enabled === false) {
+        this.status = AI_PROVIDER_STATUS_MAP.IDLE;
+        this.ready = false;
         return false;
       }
+      this.status = AI_PROVIDER_STATUS_MAP.CONNECTING;
       try {
         await this.onConnecting(fetchSetting, this);
-        const response = await fetch(
-          this.baseUrl + (this.pingUrl || '/api/tags'),
-          fetchSetting as RequestInit
+        const targetUrl = resolveAiProviderEndpoint(
+          this.baseUrl,
+          this.pingUrl || resolveAiProviderPingUrl(this.baseUrl)
         );
-        this.ready = response.ok;
-        await this.onConnected(response, fetchSetting, this);
-        return response.ok;
+        const response = await fetch(targetUrl, fetchSetting as RequestInit);
+        this.ready = response.ok === true;
+        this.status =
+          response.ok === true
+            ? AI_PROVIDER_STATUS_MAP.CONNECTED
+            : AI_PROVIDER_STATUS_MAP.ERROR;
+        if (response.ok === true) {
+          await this.onConnected(response, fetchSetting, this);
+        } else {
+          const statusError = new Error(
+            `[AiProvider] Ping failed with HTTP status ${response.status} (${response.statusText})`
+          );
+          await this.onError(statusError, fetchSetting, this);
+        }
+        return response.ok === true;
       } catch (error) {
-        console.error(error);
         this.ready = false;
+        this.status = AI_PROVIDER_STATUS_MAP.ERROR;
         await this.onError(error, fetchSetting, this);
         return false;
       }
@@ -265,6 +363,17 @@ export async function initAiProvider(
       tools?: ToolDefinition[]
     ): Promise<AiProviderChatResult> {
       try {
+        if (
+          this.autoPing === AI_PROVIDER_PING_STRATEGY_MAP.LAZY &&
+          this.status === AI_PROVIDER_STATUS_MAP.IDLE
+        ) {
+          await this.ping(
+            typeof onDeltaOrFetchSetting === 'object' &&
+              onDeltaOrFetchSetting !== null
+              ? (onDeltaOrFetchSetting as RequestInit)
+              : null
+          ).catch(() => false);
+        }
         const onDelta =
           typeof onDeltaOrFetchSetting === 'function'
             ? (onDeltaOrFetchSetting as (
@@ -412,10 +521,12 @@ export async function initAiProvider(
           resolvedSetting.body = JSON.stringify(defaultPayload);
         }
 
-        const response = await fetch(
-          this.baseUrl + (this.chatUrl || '/chat/completions'),
-          resolvedSetting
+        const targetChatUrl = resolveAiProviderEndpoint(
+          this.baseUrl,
+          this.chatUrl || '/chat/completions'
         );
+
+        const response = await fetch(targetChatUrl, resolvedSetting);
 
         if (response.ok !== true) {
           let errorMsg = `HTTP ${response.status} ${response.statusText}`;
@@ -721,7 +832,9 @@ export async function initAiProvider(
   };
 
   if (aiProvider?.enabled === true) {
-    await aiProvider.ping();
+    if (resolvedAutoPing === AI_PROVIDER_PING_STRATEGY_MAP.EAGER) {
+      aiProvider.pendingPing = aiProvider.ping().catch(() => false);
+    }
   }
 
   return aiProvider;
@@ -792,7 +905,11 @@ export async function chatWithAiProvider(
               typeof engine.updateChatMessage === 'function' &&
               typeof streamMessageId === 'string'
             ) {
-              engine.updateChatMessage(streamMessageId, currentStreamText, true);
+              engine.updateChatMessage(
+                streamMessageId,
+                currentStreamText,
+                true
+              );
             }
             if (typeof engine.applyEmotionFromText === 'function') {
               engine.applyEmotionFromText(currentStreamText);

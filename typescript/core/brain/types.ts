@@ -507,6 +507,8 @@ export interface AiProviderEngine {
   enabled: boolean;
   ready: boolean;
   status?: AiProviderStatus;
+  autoPing?: AiProviderPingStrategy;
+  pendingPing?: Promise<boolean> | null;
   ping(fetchSetting?: unknown): Promise<boolean>;
   chat(
     messages: LLMMessage[] | Array<Record<string, unknown>>,
