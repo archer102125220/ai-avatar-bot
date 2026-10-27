@@ -391,6 +391,13 @@ export interface AiProviderOptions {
   chatUrl?: string;
   providerModel?: string;
   model?: string;
+  /**
+   * Optional custom HTTP headers sent with AI Provider requests (e.g. Authorization, x-api-key).
+   * Automatically applied to both health-check ping and chat completion requests.
+   */
+  providerHeaders?: Record<string, string>;
+  /** Alias for `providerHeaders`. */
+  headers?: Record<string, string>;
   providerCreateFetchSetting?:
     | AiProviderFetchSettingFactory
     | ((...args: unknown[]) => RequestInit)
@@ -509,6 +516,12 @@ export interface AiProviderEngine {
   status?: AiProviderStatus;
   autoPing?: AiProviderPingStrategy;
   pendingPing?: Promise<boolean> | null;
+  /**
+   * Custom HTTP headers configured for this provider.
+   * Getter returns a frozen read-only record (`Object.freeze`).
+   * Setter accepts a new headers record to update internal configuration.
+   */
+  headers?: Readonly<Record<string, string>>;
   ping(fetchSetting?: unknown): Promise<boolean>;
   chat(
     messages: LLMMessage[] | Array<Record<string, unknown>>,
@@ -552,6 +565,14 @@ export interface BrainEngineOptions {
   enableAiProvider?: boolean;
   aiProviderModel?: string;
   aiProviderBaseUrl?: string;
+  /**
+   * Optional custom HTTP headers sent with AI Provider requests (e.g. Authorization, x-api-key).
+   */
+  aiProviderHeaders?: Record<string, string>;
+  /** Alias for `aiProviderHeaders`. */
+  providerHeaders?: Record<string, string>;
+  /** Alias for `aiProviderHeaders`. */
+  headers?: Record<string, string>;
   welcomeText?: string | ((context: unknown) => string) | null;
   companionWelcomeText?: string | ((context: unknown) => string) | null;
   assistantWelcomeText?: string | ((context: unknown) => string) | null;
@@ -854,5 +875,10 @@ export interface BrainEngine {
   readonly llm: LLMEngine | null;
   readonly memory: MemoryInstance | null;
   readonly aiProvider: AiProviderEngine | null;
+  /**
+   * Proxy getter / setter for AI Provider custom headers.
+   * Returns a frozen read-only record (`Object.freeze`).
+   */
+  aiProviderHeaders?: Readonly<Record<string, string>>;
   pingAiProvider?: (fetchSetting?: RequestInit | null) => Promise<boolean>;
 }

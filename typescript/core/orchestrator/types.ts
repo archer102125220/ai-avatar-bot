@@ -127,6 +127,11 @@ export interface AvatarBotOptions {
   aiProviderBaseUrl?: string;
   /** Model identifier for the AI Provider (e.g. 'qwen2.5:latest'). */
   aiProviderModel?: string;
+  /**
+   * Optional custom HTTP headers sent with AI Provider requests (e.g. Authorization, x-api-key).
+   * Automatically applied to both health-check ping and chat completion requests.
+   */
+  aiProviderHeaders?: Record<string, string>;
   /** Custom fetch configuration object or factory for AI Provider. */
   aiProviderCreateFetchSetting?:
     | AiProviderFetchSettingFactory
@@ -506,6 +511,16 @@ export interface AiAvatarWidget {
    * @returns Promise resolving to true if ping succeeded, false otherwise.
    */
   pingAiProvider: (fetchSetting?: RequestInit | null) => Promise<boolean>;
+  /**
+   * Custom HTTP headers for the AI Provider.
+   * Getter returns a frozen read-only record (`Object.freeze`).
+   */
+  aiProviderHeaders?: Readonly<Record<string, string>>;
+  /**
+   * Helper method to update AI Provider custom headers at runtime.
+   * @param newHeaders - New headers record to assign.
+   */
+  setAiProviderHeaders?: (newHeaders: Record<string, string>) => void;
   enableMemory: boolean;
   enableAiProvider: boolean;
   preloadWebLLM: boolean;
