@@ -475,6 +475,7 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `aiProviderPingUrl` | `string` | `undefined` | 自訂遠端 AI 伺服器探活健康檢查端點。若未提供則依據 `baseUrl` 自動推導（Ollama 自動使用 `/api/tags`，OpenAI 相容端點自動使用 `/models`）。 |
 | `aiProviderAutoPing` | `AiProviderPingStrategy` (`'eager' \| 'lazy' \| 'manual' \| false`) | `'eager'` | AI Provider 初始化探活策略：`'eager'`（背景非阻塞探活，首頁秒開不卡頓）、`'lazy'`（延遲至發送首個問題時探活）、`'manual'` 或 `false`（完全手動探活）。 |
 | `aiProviderModel` | `string` | `'hermes3:latest'` | 遠端 AI 模型名稱識別碼（預設為具備完整工具調用與推論之旗艦模型）。 |
+| `aiProviderHeaders` | `Record<string, string>` | `undefined` | 隨所有 AI Provider 請求發送之自訂 HTTP 標頭（例如 `Authorization`、`x-api-key`、代理或租戶辨識標頭等）。 |
 | `aiProviderIsStream` | `boolean` | `true` | 是否啟用 AI Provider 串流輸出模式。 |
 | `aiProviderMaxTokens` | `number` | `2048` | 遠端 AI 單次生成 Token 最大上限。 |
 | `aiProviderCreateFetchSetting` | `AiProviderFetchSettingFactory \| RequestInit` | `undefined` | 自訂 Fetch Header / RequestInit 配置工廠函式。 |
@@ -698,6 +699,93 @@ retryButton.addEventListener('click', async () => {
   }
 });
 ```
+
+#### 1.2 自訂 HTTP 標頭與多供應商認證 (`aiProviderHeaders`)
+
+SDK 採用通用且與供應商無關的標頭設定（`aiProviderHeaders`），能無縫對接主流 AI 雲端平台與自建 API 閘道：
+
+##### 🌐 主流 AI 供應商設定範例
+
+```typescript
+import { initAvatarBot } from 'ai-avatar-bot-typescript';
+
+// 1. OpenAI / DeepSeek (Bearer Token)
+const openAiBot = await initAvatarBot({
+  container: document.getElementById('avatar-openai'),
+  enableAiProvider: true,
+  aiProviderBaseUrl: 'https://api.openai.com/v1',
+  aiProviderModel: 'gpt-4o',
+  aiProviderHeaders: {
+    Authorization: `Bearer ${OPENAI_API_KEY}`
+  }
+});
+
+// 2. Anthropic Claude (x-api-key + anthropic-version)
+const anthropicBot = await initAvatarBot({
+  container: document.getElementById('avatar-anthropic'),
+  enableAiProvider: true,
+  aiProviderBaseUrl: 'https://api.anthropic.com/v1',
+  aiProviderModel: 'claude-3-5-sonnet-20241022',
+  aiProviderHeaders: {
+    'x-api-key': ANTHROPIC_API_KEY,
+    'anthropic-version': '2023-06-01'
+  }
+});
+
+// 3. OpenRouter (自訂路由與識別標頭)
+const openRouterBot = await initAvatarBot({
+  container: document.getElementById('avatar-openrouter'),
+  enableAiProvider: true,
+  aiProviderBaseUrl: 'https://openrouter.ai/api/v1',
+  aiProviderModel: 'meta-llama/llama-3.3-70b-instruct',
+  aiProviderHeaders: {
+    Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+    'HTTP-Referer': 'https://your-company.com',
+    'X-Title': 'My Interactive Avatar'
+  }
+});
+
+// 4. Azure OpenAI Service (api-key)
+const azureBot = await initAvatarBot({
+  container: document.getElementById('avatar-azure'),
+  enableAiProvider: true,
+  aiProviderBaseUrl: 'https://your-resource.openai.azure.com/openai/deployments/gpt-4o',
+  aiProviderHeaders: {
+    'api-key': AZURE_API_KEY
+  }
+});
+```
+
+##### 🔄 不可變標頭與動態金鑰輪替
+
+> [!IMPORTANT]
+> **不可變防護保證 (`Object.freeze`)**：`widget.aiProviderHeaders` 回傳之標頭物件皆為唯讀凍結快照。禁止就地修改屬性（例如 `widget.aiProviderHeaders.Authorization = '...'`），在嚴格模式下將拋出 `TypeError`，確保內部狀態不被幽靈賦值竄改。
+>
+> 若需在執行期動態換證（例如 Token 過期重刷或切換多租戶環境）：
+
+```typescript
+// 方式 A：使用專屬輔助方法（推薦）
+widget.setAiProviderHeaders({
+  Authorization: `Bearer ${refreshedToken}`,
+  'X-Tenant-Id': 'tenant-b'
+});
+
+// 方式 B：透過 Setter 展開賦值
+widget.aiProviderHeaders = {
+  ...widget.aiProviderHeaders,
+  Authorization: `Bearer ${refreshedToken}`
+};
+
+// 讀取當前標頭快照
+console.log(widget.aiProviderHeaders.Authorization);
+```
+
+##### 🛡️ 生產環境資安警語
+
+> [!WARNING]
+> **前端 API 金鑰外洩風險**：請勿將具有高計費額度或最高權限的生產環境 Master API Key 直接寫在公開的前端靜態程式碼中，終端使用者可輕易透過瀏覽器開發者工具或網路面板截獲。
+>
+> 在生產環境中，強烈建議將 `aiProviderBaseUrl` 指向您的**後端代理伺服器（Backend Proxy）**（如 Next.js API Routes、Express、Cloudflare Workers 等），由後端安全注入金鑰，或由驗證伺服器核發具備時效性的臨時短期 Token。
 
 ---
 
@@ -1249,6 +1337,12 @@ export interface AiAvatarWidget {
   tap?(): void;
   showMinimalEl(): void;
   hiddenMinimalEl(): void;
+
+  // AI Provider 與自訂標頭
+  readonly isAiProviderReady: boolean;
+  pingAiProvider(fetchSetting?: RequestInit | null): Promise<boolean>;
+  aiProviderHeaders: Readonly<Record<string, string>>;
+  setAiProviderHeaders(newHeaders: Record<string, string>): void;
 
   // 外觀與視口調整
   setSkin2d(config: Partial<Skin2DConfig>): void;

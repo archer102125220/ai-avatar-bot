@@ -472,6 +472,7 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `aiProviderPingUrl` | `string` | `undefined` | Custom health-check ping endpoint path. If omitted, smart inference is used (`/api/tags` for Ollama, `/models` for OpenAI-compatible). |
 | `aiProviderAutoPing` | `AiProviderPingStrategy` (`'eager' \| 'lazy' \| 'manual' \| false`) | `'eager'` | Auto-ping strategy on startup: `'eager'` (non-blocking background ping, fast page load), `'lazy'` (ping on first user query), `'manual'` or `false` (manual ping only). |
 | `aiProviderModel` | `string` | `'hermes3:latest'` | Model identifier for remote AI provider (defaults to flagship tool-calling/reasoning model). |
+| `aiProviderHeaders` | `Record<string, string>` | `undefined` | Custom HTTP headers sent with all AI Provider requests (e.g. `Authorization`, `x-api-key`, custom proxy tokens). |
 | `aiProviderIsStream` | `boolean` | `true` | Whether to enable streaming for AI provider responses. |
 | `aiProviderMaxTokens` | `number` | `2048` | Max response tokens for remote AI provider. |
 | `aiProviderCreateFetchSetting` | `AiProviderFetchSettingFactory \| RequestInit` | `undefined` | Custom Fetch Header / RequestInit factory function. |
@@ -695,6 +696,93 @@ retryButton.addEventListener('click', async () => {
   }
 });
 ```
+
+#### 1.2 Custom HTTP Headers & Multi-Vendor Authentication (`aiProviderHeaders`)
+
+The SDK provides a vendor-agnostic HTTP headers configuration (`aiProviderHeaders`) that works seamlessly across all major AI providers and custom backend gateways:
+
+##### 🌐 Multi-Vendor Authentication Examples
+
+```typescript
+import { initAvatarBot } from 'ai-avatar-bot-typescript';
+
+// 1. OpenAI / DeepSeek (Bearer Token)
+const openAiBot = await initAvatarBot({
+  container: document.getElementById('avatar-openai'),
+  enableAiProvider: true,
+  aiProviderBaseUrl: 'https://api.openai.com/v1',
+  aiProviderModel: 'gpt-4o',
+  aiProviderHeaders: {
+    Authorization: `Bearer ${OPENAI_API_KEY}`
+  }
+});
+
+// 2. Anthropic Claude (x-api-key + anthropic-version)
+const anthropicBot = await initAvatarBot({
+  container: document.getElementById('avatar-anthropic'),
+  enableAiProvider: true,
+  aiProviderBaseUrl: 'https://api.anthropic.com/v1',
+  aiProviderModel: 'claude-3-5-sonnet-20241022',
+  aiProviderHeaders: {
+    'x-api-key': ANTHROPIC_API_KEY,
+    'anthropic-version': '2023-06-01'
+  }
+});
+
+// 3. OpenRouter (Custom Headers & Routing)
+const openRouterBot = await initAvatarBot({
+  container: document.getElementById('avatar-openrouter'),
+  enableAiProvider: true,
+  aiProviderBaseUrl: 'https://openrouter.ai/api/v1',
+  aiProviderModel: 'meta-llama/llama-3.3-70b-instruct',
+  aiProviderHeaders: {
+    Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+    'HTTP-Referer': 'https://your-company.com',
+    'X-Title': 'My Interactive Avatar'
+  }
+});
+
+// 4. Azure OpenAI Service (api-key)
+const azureBot = await initAvatarBot({
+  container: document.getElementById('avatar-azure'),
+  enableAiProvider: true,
+  aiProviderBaseUrl: 'https://your-resource.openai.azure.com/openai/deployments/gpt-4o',
+  aiProviderHeaders: {
+    'api-key': AZURE_API_KEY
+  }
+});
+```
+
+##### 🔄 Immutable Headers & Dynamic Token Rotation
+
+> [!IMPORTANT]
+> **Immutability Guarantee (`Object.freeze`)**: `widget.aiProviderHeaders` always returns an immutable, frozen snapshot. Direct mutations in place (e.g. `widget.aiProviderHeaders.Authorization = '...'`) are disallowed and will throw a `TypeError` in strict mode to prevent accidental phantom state changes.
+>
+> To update headers dynamically at runtime (e.g. refreshing an expired session token or switching tenants):
+
+```typescript
+// Option A: Convenient helper method (Recommended)
+widget.setAiProviderHeaders({
+  Authorization: `Bearer ${refreshedToken}`,
+  'X-Tenant-Id': 'tenant-b'
+});
+
+// Option B: Immutable spread assignment via setter
+widget.aiProviderHeaders = {
+  ...widget.aiProviderHeaders,
+  Authorization: `Bearer ${refreshedToken}`
+};
+
+// Access the current headers snapshot
+console.log(widget.aiProviderHeaders.Authorization);
+```
+
+##### 🛡️ Production Security Warning
+
+> [!WARNING]
+> **Client-Side API Key Exposure**: Never hardcode production API keys with sensitive billing limits in client-facing frontend code, as end-users can inspect network payloads and developer console scripts.
+>
+> For production deployments, we strongly recommend pointing `aiProviderBaseUrl` to a **Backend Proxy Server** (e.g., Next.js API Routes, Express, Cloudflare Workers) which securely injects credentials before contacting the AI vendor, or issuing temporary, short-lived session tokens from your auth service.
 
 ---
 
@@ -1246,6 +1334,12 @@ export interface AiAvatarWidget {
   tap?(): void;
   showMinimalEl(): void;
   hiddenMinimalEl(): void;
+
+  // AI Provider & Headers
+  readonly isAiProviderReady: boolean;
+  pingAiProvider(fetchSetting?: RequestInit | null): Promise<boolean>;
+  aiProviderHeaders: Readonly<Record<string, string>>;
+  setAiProviderHeaders(newHeaders: Record<string, string>): void;
 
   // Skin & Viewport Control
   setSkin2d(config: Partial<Skin2DConfig>): void;
