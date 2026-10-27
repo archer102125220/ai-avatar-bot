@@ -133,6 +133,10 @@ export function createAvatarWidget({
       return container;
     },
 
+    get store(): AvatarBotStore {
+      return rootStore;
+    },
+
     get uiDom(): UiDom {
       return getUiDom();
     },
@@ -534,6 +538,15 @@ export function createAvatarWidget({
 
     get onLlmOomFallback() {
       return options?.onLlmOomFallback;
+    },
+    get onAiProviderConnecting() {
+      return options?.onAiProviderConnecting;
+    },
+    get onAiProviderConnected() {
+      return options?.onAiProviderConnected;
+    },
+    get onAiProviderError() {
+      return options?.onAiProviderError;
     },
     get onReasoningStart() {
       return options?.onReasoningStart;

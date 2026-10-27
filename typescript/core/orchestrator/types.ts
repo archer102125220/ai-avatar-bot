@@ -373,6 +373,8 @@ export interface AvatarBotOptions {
   onAiProviderConnecting?: (...args: unknown[]) => void;
   /** Callback fired when AI Provider connects successfully. */
   onAiProviderConnected?: (...args: unknown[]) => void;
+  /** Callback fired when AI Provider connection or ping fails. */
+  onAiProviderError?: (error: Error, ...args: unknown[]) => void;
   /** Callback fired when a new chat message is added. */
   onAddChatMessage?: (role: ChatRole, text: string, ...args: unknown[]) => void;
   /** Callback fired when an existing chat message is updated. */
@@ -518,6 +520,8 @@ export interface AiAvatarWidget {
   enableEngineToggle: boolean;
   /** Mounted root HTML container. */
   readonly container: HTMLElement;
+  /** Root reactive store instance for the AI Avatar Bot. */
+  readonly store: AvatarBotStore;
   /** UI DOM management helper. */
   readonly uiDom: UiDom;
   /** Internationalization engine instance. */
@@ -582,6 +586,9 @@ export interface AiAvatarWidget {
     ...args: unknown[]
   ) => void;
   onError?: (error: Error, widget: AiAvatarWidget, ...args: unknown[]) => void;
+  onAiProviderConnecting?: (...args: unknown[]) => void;
+  onAiProviderConnected?: (...args: unknown[]) => void;
+  onAiProviderError?: (error: Error, ...args: unknown[]) => void;
   onLlmOomFallback?: (info: LlmOomFallbackInfo, ...args: unknown[]) => void;
   /** @experimental AI reasoning output is currently an experimental feature. */
   onReasoningStart?: (info: ReasoningStartInfo, ...args: unknown[]) => void;

@@ -10,7 +10,8 @@ import {
   DEFAULT_AI_PROVIDER_MAX_TOKENS,
   DEFAULT_TTS_ENDPOINT,
   ENGINE_MODE_MAP,
-  AVATAR_MODE_MAP
+  AVATAR_MODE_MAP,
+  AI_PROVIDER_STATUS_MAP
 } from '@/core/constants';
 import { renderHistory, initSkinModeChangeButton, type UiDom } from '@/core/ui';
 import { callOptionEvent } from './options';
@@ -67,6 +68,8 @@ export async function setupBrainEngine({
     aiProviderCreateFetchSetting,
     aiProviderCreateFetchPayload,
     aiProviderResponseFormat,
+    aiProviderPingUrl = options.aiProviderPingUrl,
+    aiProviderAutoPing = options.aiProviderAutoPing,
     aiProviderMaxTokens,
     aiProviderIsStream,
     customEngines = {},
@@ -153,6 +156,8 @@ export async function setupBrainEngine({
     aiProviderCreateFetchSetting,
     aiProviderCreateFetchPayload,
     aiProviderResponseFormat,
+    aiProviderPingUrl,
+    aiProviderAutoPing,
     aiProviderMaxTokens:
       typeof aiProviderMaxTokens === 'number' &&
       Number.isFinite(aiProviderMaxTokens) === true &&
@@ -369,6 +374,10 @@ export async function setupBrainEngine({
       return callOptionEvent(options, widget, 'onLlmLoadError', error, ...args);
     },
     onAiProviderConnecting(...args: unknown[]) {
+      rootStore.setState({
+        aiProviderStatus: AI_PROVIDER_STATUS_MAP.CONNECTING,
+        aiProviderError: null
+      });
       const uiDom = getUiDom();
       const llmButtonEl = uiDom?.llmButtonEl;
       if (llmButtonEl instanceof HTMLElement) {
@@ -398,6 +407,18 @@ export async function setupBrainEngine({
         response !== null &&
         'ok' in response &&
         (response as { ok?: unknown }).ok === true;
+
+      rootStore.setState({
+        aiProviderStatus:
+          isConnectionSuccessful === true
+            ? AI_PROVIDER_STATUS_MAP.CONNECTED
+            : AI_PROVIDER_STATUS_MAP.ERROR,
+        aiProviderError:
+          isConnectionSuccessful === true
+            ? null
+            : 'AI Provider connection failed'
+      });
+
       const llmButtonEl = uiDom?.llmButtonEl;
 
       const aiProviderObj =
@@ -455,6 +476,33 @@ export async function setupBrainEngine({
         aiProvider,
         ...args
       );
+    },
+    onAiProviderError(error?: unknown, ...args: unknown[]) {
+      const errorMsg =
+        typeof error === 'object' &&
+        error !== null &&
+        'message' in error &&
+        typeof (error as { message?: unknown }).message === 'string'
+          ? (error as { message: string }).message
+          : String(error || 'AI Provider connection error');
+
+      rootStore.setState({
+        aiProviderStatus: AI_PROVIDER_STATUS_MAP.ERROR,
+        aiProviderError: errorMsg
+      });
+
+      const uiDom = getUiDom();
+      const llmButtonEl = uiDom?.llmButtonEl;
+      if (llmButtonEl instanceof HTMLElement) {
+        llmButtonEl.textContent = '🧠✗';
+        llmButtonEl.removeAttribute('css-llm-on');
+        llmButtonEl.setAttribute('aria-pressed', 'false');
+        llmButtonEl.title =
+          typeof i18nEngine?.t === 'function'
+            ? i18nEngine.t('brain.aiProvider.error')
+            : 'AI 伺服器連不上（檢查 AI 伺服器是否在跑 / CORS）';
+      }
+      return callOptionEvent(options, widget, 'onAiProviderError', error, ...args);
     },
     onSummaryUpdated(summary?: unknown, ...args: unknown[]) {
       return callOptionEvent(

@@ -897,4 +897,105 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     expect(widget.onReasoningEnd).toBe(onReasoningEnd);
     expect(widget.onStreamChunk).toBe(onStreamChunk);
   });
+
+  it('should expose store, AI provider status maps, readiness getter, and callbacks', () => {
+    const onAiProviderConnecting = vi.fn();
+    const onAiProviderConnected = vi.fn();
+    const onAiProviderError = vi.fn();
+
+    const widget = createAvatarWidget({
+      options: {
+        onAiProviderConnecting,
+        onAiProviderConnected,
+        onAiProviderError
+      },
+      container,
+      rootStore,
+      i18nEngine,
+      initialMinimal: false,
+      getUiDom,
+      getEngines,
+      handleUser: mockHandleUser,
+      updateModelDropListeners: mockUpdateModelDropListeners
+    });
+
+    expect(widget.store).toBe(rootStore);
+    expect(widget.AI_PROVIDER_STATUS_MAP).toBeDefined();
+    expect(widget.AI_PROVIDER_STATUS_MAP.IDLE).toBe('idle');
+    expect(widget.AI_PROVIDER_STATUS_MAP.CONNECTED).toBe('connected');
+    expect(widget.AI_PROVIDER_PING_STRATEGY_MAP).toBeDefined();
+    expect(widget.AI_PROVIDER_PING_STRATEGY_MAP.EAGER).toBe('eager');
+
+    expect(widget.onAiProviderConnecting).toBe(onAiProviderConnecting);
+    expect(widget.onAiProviderConnected).toBe(onAiProviderConnected);
+    expect(widget.onAiProviderError).toBe(onAiProviderError);
+
+    // Initial state: idle -> not ready
+    expect(widget.isAiProviderReady).toBe(false);
+
+    // Set to connected
+    rootStore.setState({ aiProviderStatus: widget.AI_PROVIDER_STATUS_MAP.CONNECTED });
+    expect(widget.isAiProviderReady).toBe(true);
+
+    // Set to error
+    rootStore.setState({ aiProviderStatus: widget.AI_PROVIDER_STATUS_MAP.ERROR });
+    expect(widget.isAiProviderReady).toBe(false);
+  });
+
+  it('should delegate pingAiProvider to brainEngine and return result', async () => {
+    const mockPingAiProvider = vi.fn().mockResolvedValue(true);
+    mockEngines.brainEngine.pingAiProvider = mockPingAiProvider;
+
+    const widget = createAvatarWidget({
+      options: {},
+      container,
+      rootStore,
+      i18nEngine,
+      initialMinimal: false,
+      getUiDom,
+      getEngines,
+      handleUser: mockHandleUser,
+      updateModelDropListeners: mockUpdateModelDropListeners
+    });
+
+    const fetchSetting = { headers: { Authorization: 'Bearer test' } };
+    const result = await widget.pingAiProvider(fetchSetting);
+
+    expect(mockPingAiProvider).toHaveBeenCalledWith(fetchSetting);
+    expect(result).toBe(true);
+
+    // When brainEngine has no pingAiProvider
+    delete mockEngines.brainEngine.pingAiProvider;
+    const fallbackResult = await widget.pingAiProvider();
+    expect(fallbackResult).toBe(false);
+  });
+
+  it('should support subscribing to store aiProviderStatus changes via widget.store', () => {
+    const widget = createAvatarWidget({
+      options: {},
+      container,
+      rootStore,
+      i18nEngine,
+      initialMinimal: false,
+      getUiDom,
+      getEngines,
+      handleUser: mockHandleUser,
+      updateModelDropListeners: mockUpdateModelDropListeners
+    });
+
+    const statusUpdates: string[] = [];
+    const unsubscribe = widget.store.subscribe('aiProviderStatus', (status) => {
+      statusUpdates.push(status as string);
+    });
+
+    widget.store.setState({ aiProviderStatus: 'connecting' });
+    widget.store.setState({ aiProviderStatus: 'connected' });
+    widget.store.setState({ aiProviderStatus: 'error' });
+
+    expect(statusUpdates).toEqual(['connecting', 'connected', 'error']);
+    unsubscribe();
+
+    widget.store.setState({ aiProviderStatus: 'idle' });
+    expect(statusUpdates).toEqual(['connecting', 'connected', 'error']);
+  });
 });

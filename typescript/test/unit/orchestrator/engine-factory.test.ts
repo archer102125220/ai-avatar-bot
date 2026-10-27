@@ -506,13 +506,17 @@ describe('Orchestrator Engine Factory', () => {
       const onBrainFallback = vi.fn();
       const onToolNotFound = vi.fn();
       const onToolError = vi.fn();
+      const onAiProviderError = vi.fn();
 
       await setupBrainEngine({
         options: {
           customEngines: { brain: customBrainFactory },
+          aiProviderPingUrl: 'http://custom/ping',
+          aiProviderAutoPing: 'manual',
           onBrainFallback,
           onToolNotFound,
-          onToolError
+          onToolError,
+          onAiProviderError
         },
         widget: mockWidget,
         rootStore,
@@ -522,8 +526,13 @@ describe('Orchestrator Engine Factory', () => {
         streamPipeline: mockStreamPipeline
       });
 
+      expect(capturedBrainOptions.aiProviderPingUrl).toBe('http://custom/ping');
+      expect(capturedBrainOptions.aiProviderAutoPing).toBe('manual');
+
       // onAiProviderConnecting
       capturedBrainOptions.onAiProviderConnecting();
+      expect(rootStore.getState().aiProviderStatus).toBe('connecting');
+      expect(rootStore.getState().aiProviderError).toBe(null);
       expect(mockUiDom.llmButtonEl.textContent).toBe('🧠…');
       expect(mockUiDom.llmButtonEl.title).toBe('AI 伺服器大腦（連線中）');
 
@@ -533,6 +542,8 @@ describe('Orchestrator Engine Factory', () => {
         {},
         { model: 'gpt-4o' }
       );
+      expect(rootStore.getState().aiProviderStatus).toBe('connected');
+      expect(rootStore.getState().aiProviderError).toBe(null);
       expect(mockUiDom.llmButtonEl.textContent).toBe('🧠✓');
       expect(mockUiDom.llmButtonEl.getAttribute('css-llm-on')).toBe('true');
       expect(mockUiDom.llmButtonEl.getAttribute('aria-pressed')).toBe('true');
@@ -549,10 +560,19 @@ describe('Orchestrator Engine Factory', () => {
         {},
         { model: 'gpt-4o' }
       );
+      expect(rootStore.getState().aiProviderStatus).toBe('error');
+      expect(rootStore.getState().aiProviderError).toBe('AI Provider connection failed');
       expect(mockUiDom.llmButtonEl.textContent).toBe('🧠✗');
       expect(mockUiDom.llmButtonEl.hasAttribute('css-llm-on')).toBe(false);
       expect(mockUiDom.llmButtonEl.getAttribute('aria-pressed')).toBe('false');
       expect(mockUiDom.llmButtonEl.title).toContain('AI 伺服器連不上');
+
+      // onAiProviderError
+      capturedBrainOptions.onAiProviderError?.(new Error('Network timeout'));
+      expect(rootStore.getState().aiProviderStatus).toBe('error');
+      expect(rootStore.getState().aiProviderError).toBe('Network timeout');
+      expect(onAiProviderError).toHaveBeenCalledWith(expect.any(Error));
+      expect(mockUiDom.llmButtonEl.textContent).toBe('🧠✗');
 
       // onSummaryUpdated, onChatHistoryChanged, onSpokenAudioPlayNow, onSpokenDisplayTextChange, onSpokenAudioTextChange
       capturedBrainOptions.onSummaryUpdated('New Summary');
