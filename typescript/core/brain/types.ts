@@ -396,8 +396,6 @@ export interface AiProviderOptions {
    * Automatically applied to both health-check ping and chat completion requests.
    */
   providerHeaders?: Record<string, string>;
-  /** Alias for `providerHeaders`. */
-  headers?: Record<string, string>;
   providerCreateFetchSetting?:
     | AiProviderFetchSettingFactory
     | ((...args: unknown[]) => RequestInit)
@@ -521,7 +519,7 @@ export interface AiProviderEngine {
    * Getter returns a frozen read-only record (`Object.freeze`).
    * Setter accepts a new headers record to update internal configuration.
    */
-  headers?: Readonly<Record<string, string>>;
+  headers: Readonly<Record<string, string>>;
   ping(fetchSetting?: unknown): Promise<boolean>;
   chat(
     messages: LLMMessage[] | Array<Record<string, unknown>>,

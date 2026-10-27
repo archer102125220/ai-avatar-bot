@@ -98,6 +98,33 @@ export function resolveAiProviderEndpoint(
 }
 
 /**
+ * Sanitizes and validates a record of custom HTTP headers.
+ * Ensures all keys and values are non-empty strings.
+ *
+ * @param raw - Candidate headers object.
+ * @returns Clean record of valid string headers.
+ */
+export function sanitizeAiProviderHeaders(
+  raw: unknown
+): Record<string, string> {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw) === true) {
+    return {};
+  }
+  return Object.entries(raw as Record<string, unknown>).reduce<
+    Record<string, string>
+  >((acc, [key, val]) => {
+    if (
+      typeof key === 'string' &&
+      key.trim() !== '' &&
+      typeof val === 'string'
+    ) {
+      acc[key.trim()] = val;
+    }
+    return acc;
+  }, {});
+}
+
+/**
  * Initializes the AI Provider backend connection and client interface.
  *
  * @param setting - AI Provider options.
@@ -122,6 +149,7 @@ export async function initAiProvider(
     chatUrl = '',
     providerModel = DEFAULT_AI_PROVIDER_MODEL,
     model = '',
+    providerHeaders,
     providerCreateFetchSetting = null,
     createFetchSetting = null,
     providerCreateFetchPayload = null,
@@ -202,6 +230,8 @@ export async function initAiProvider(
     isEnabled = typeof resolvedBaseUrl === 'string' && resolvedBaseUrl !== '';
   }
   let _enabled = isEnabled;
+  let _headers: Record<string, string> =
+    sanitizeAiProviderHeaders(providerHeaders);
 
   const aiProvider: AiProviderEngine = {
     baseUrl: resolvedBaseUrl,
@@ -302,6 +332,12 @@ export async function initAiProvider(
     },
 
     model: resolvedModel,
+    get headers(): Readonly<Record<string, string>> {
+      return Object.freeze({ ..._headers });
+    },
+    set headers(newHeaders: Record<string, string>) {
+      _headers = sanitizeAiProviderHeaders(newHeaders);
+    },
     get enabled() {
       return _enabled;
     },
@@ -327,7 +363,30 @@ export async function initAiProvider(
           this.baseUrl,
           this.pingUrl || resolveAiProviderPingUrl(this.baseUrl)
         );
-        const response = await fetch(targetUrl, fetchSetting as RequestInit);
+        const customHeaders =
+          typeof fetchSetting?.headers === 'object' &&
+          fetchSetting.headers !== null
+            ? (fetchSetting.headers as Record<string, string>)
+            : {};
+        const hasHeaders =
+          Object.keys(_headers).length > 0 ||
+          Object.keys(customHeaders).length > 0;
+        const resolvedPingSetting: RequestInit | null =
+          hasHeaders === true ||
+          (typeof fetchSetting === 'object' && fetchSetting !== null)
+            ? {
+                method: 'GET',
+                ...(fetchSetting || {}),
+                headers: {
+                  ..._headers,
+                  ...customHeaders
+                }
+              }
+            : fetchSetting;
+        const response = await fetch(
+          targetUrl,
+          resolvedPingSetting as RequestInit
+        );
         this.ready = response.ok === true;
         this.status =
           response.ok === true
@@ -391,7 +450,10 @@ export async function initAiProvider(
             : null;
         const defaultFetchSetting: RequestInit = {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
+          headers: {
+            'Content-Type': 'application/json',
+            ..._headers
+          }
         };
         const sanitizedMessages =
           Array.isArray(messages) === true
@@ -484,6 +546,14 @@ export async function initAiProvider(
 
         if (typeof resolvedSetting !== 'object' || resolvedSetting === null) {
           resolvedSetting = defaultFetchSetting;
+        } else {
+          resolvedSetting.headers = {
+            ...(defaultFetchSetting.headers as Record<string, string>),
+            ...((resolvedSetting.headers as Record<string, string>) || {})
+          };
+          if (!resolvedSetting.method) {
+            resolvedSetting.method = 'POST';
+          }
         }
 
         const createPayloadFn = this.createFetchPayload as

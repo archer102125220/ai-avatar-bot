@@ -4,6 +4,7 @@ import {
   chatWithAiProvider,
   resolveAiProviderPingUrl,
   resolveAiProviderEndpoint,
+  sanitizeAiProviderHeaders,
   type AiProviderEngine
 } from '@/core/brain/ai-provider';
 import {
@@ -967,6 +968,182 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         false,
         '推論紀錄',
         88
+      );
+    });
+  });
+
+  describe('custom headers & immutability', () => {
+    it('should sanitize raw headers accurately', () => {
+      expect(sanitizeAiProviderHeaders(null)).toEqual({});
+      expect(sanitizeAiProviderHeaders(undefined)).toEqual({});
+      expect(sanitizeAiProviderHeaders('not-an-object')).toEqual({});
+      expect(sanitizeAiProviderHeaders([1, 2, 3])).toEqual({});
+      expect(
+        sanitizeAiProviderHeaders({
+          ' Authorization ': 'Bearer sk-123',
+          'X-Valid': 'true',
+          '': 'invalid-empty-key',
+          '   ': 'invalid-whitespace-key',
+          invalidNum: 123 as unknown as string,
+          invalidNull: null as unknown as string
+        })
+      ).toEqual({
+        Authorization: 'Bearer sk-123',
+        'X-Valid': 'true'
+      });
+    });
+
+    it('should initialize with providerHeaders and freeze getter output', async () => {
+      const provider = await initAiProvider({
+        providerBaseUrl: 'https://api.example.com',
+        providerHeaders: {
+          Authorization: 'Bearer token-1',
+          'x-api-key': 'ant-123'
+        }
+      });
+
+      expect(provider.headers).toEqual({
+        Authorization: 'Bearer token-1',
+        'x-api-key': 'ant-123'
+      });
+      expect(Object.isFrozen(provider.headers)).toBe(true);
+
+      expect(() => {
+        (provider.headers as Record<string, string>).Authorization =
+          'Bearer hacked';
+      }).toThrow(TypeError);
+      expect(provider.headers.Authorization).toBe('Bearer token-1');
+    });
+
+    it('should support updating headers dynamically via setter and sanitize new values', async () => {
+      const provider = await initAiProvider({
+        providerBaseUrl: 'https://api.example.com',
+        providerHeaders: {
+          'X-Init': 'init'
+        }
+      });
+
+      expect(provider.headers).toEqual({ 'X-Init': 'init' });
+
+      provider.headers = {
+        Authorization: 'Bearer new-token',
+        'X-Tenant': 'tenant-42'
+      };
+
+      expect(provider.headers).toEqual({
+        Authorization: 'Bearer new-token',
+        'X-Tenant': 'tenant-42'
+      });
+      expect(Object.isFrozen(provider.headers)).toBe(true);
+
+      provider.headers = null as unknown as Record<string, string>;
+      expect(provider.headers).toEqual({});
+      expect(Object.isFrozen(provider.headers)).toBe(true);
+    });
+
+    it('should include custom headers when executing ping() and reflect setter updates', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({})
+      } as unknown as Response);
+
+      const provider = await initAiProvider({
+        enableAiProvider: true,
+        providerBaseUrl: 'https://api.example.com',
+        providerHeaders: {
+          Authorization: 'Bearer ping-token'
+        }
+      });
+
+      await provider.ping();
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.example.com/models',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer ping-token'
+          })
+        })
+      );
+
+      provider.headers = {
+        'x-api-key': 'anthropic-updated-key'
+      };
+
+      await provider.ping({ headers: { 'X-Custom-Ping': 'extra' } });
+      expect(global.fetch).toHaveBeenLastCalledWith(
+        'https://api.example.com/models',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            'x-api-key': 'anthropic-updated-key',
+            'X-Custom-Ping': 'extra'
+          })
+        })
+      );
+    });
+
+    it('should inject custom headers into chat() defaultFetchSetting and allow createFetchSetting to override', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: { role: 'assistant', content: 'Chat response' },
+              finish_reason: 'stop'
+            }
+          ]
+        })
+      } as unknown as Response);
+
+      let capturedDefaultSetting: RequestInit | null = null;
+      const createFetchSetting = vi.fn(
+        (_messages, _model, defaultFetchSetting, _engine) => {
+          capturedDefaultSetting = defaultFetchSetting;
+          return {
+            ...defaultFetchSetting,
+            headers: {
+              ...(defaultFetchSetting.headers as Record<string, string>),
+              'X-Overridden': 'hook-value'
+            }
+          };
+        }
+      );
+
+      const provider = await initAiProvider({
+        providerBaseUrl: 'https://api.example.com',
+        providerHeaders: {
+          Authorization: 'Bearer chat-token',
+          'HTTP-Referer': 'https://my-app.test'
+        },
+        createFetchSetting
+      });
+
+      await provider.chat([{ role: 'user', content: 'Hello' }]);
+
+      expect(createFetchSetting).toHaveBeenCalled();
+      expect(capturedDefaultSetting).toEqual(
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer chat-token',
+            'HTTP-Referer': 'https://my-app.test'
+          })
+        })
+      );
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.example.com/chat/completions',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer chat-token',
+            'HTTP-Referer': 'https://my-app.test',
+            'X-Overridden': 'hook-value'
+          })
+        })
       );
     });
   });
