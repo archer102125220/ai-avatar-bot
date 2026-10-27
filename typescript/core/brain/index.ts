@@ -142,6 +142,7 @@ export async function initBrainEngine(
     aiProviderMaxTokens,
     aiProviderIsStream,
     aiProviderExtractToolCalls,
+    aiProviderHeaders,
     getTools,
     getToolByName,
     offerToolConfirmation,
@@ -431,6 +432,14 @@ export async function initBrainEngine(
     get aiProvider() {
       return aiProvider;
     },
+    get aiProviderHeaders(): Readonly<Record<string, string>> {
+      return aiProvider?.headers ?? Object.freeze({});
+    },
+    set aiProviderHeaders(newHeaders: Record<string, string>) {
+      if (aiProvider !== null && typeof aiProvider === 'object') {
+        aiProvider.headers = newHeaders;
+      }
+    },
     pingAiProvider: async (
       fetchSetting?: RequestInit | null
     ): Promise<boolean> => {
@@ -580,6 +589,7 @@ export async function initBrainEngine(
       enableAiProvider,
       providerModel: aiProviderModel,
       providerBaseUrl: aiProviderBaseUrl,
+      providerHeaders: aiProviderHeaders,
       reasoning: brainEngine.reasoning,
 
       providerCreateFetchSetting: aiProviderCreateFetchSetting,

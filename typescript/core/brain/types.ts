@@ -877,6 +877,6 @@ export interface BrainEngine {
    * Proxy getter / setter for AI Provider custom headers.
    * Returns a frozen read-only record (`Object.freeze`).
    */
-  aiProviderHeaders?: Readonly<Record<string, string>>;
+  aiProviderHeaders: Readonly<Record<string, string>>;
   pingAiProvider?: (fetchSetting?: RequestInit | null) => Promise<boolean>;
 }

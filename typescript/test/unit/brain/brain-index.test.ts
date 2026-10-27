@@ -14,7 +14,7 @@ import {
   STATE_MAP,
   BRAIN_ENGINE_TYPE_MAP
 } from '@/core/constants';
-import type { BrainEngine } from '@core';
+import type { BrainEngine, AiProviderEngine } from '@core';
 
 describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', () => {
   beforeEach(() => {
@@ -116,6 +116,88 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
         'http://localhost:11434/api/tags',
         null
       );
+    });
+
+    it('should support aiProviderHeaders initialization, frozen getter, and dynamic setter update', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({})
+      } as unknown as Response);
+
+      const brainEngine: BrainEngine = await initBrainEngine({
+        enableAiProvider: true,
+        aiProviderBaseUrl: 'https://api.example.com',
+        aiProviderAutoPing: 'manual',
+        aiProviderHeaders: {
+          Authorization: 'Bearer brain-token-1',
+          'X-Init': 'true'
+        }
+      });
+
+      // Verify initial headers
+      expect(brainEngine.aiProviderHeaders).toEqual({
+        Authorization: 'Bearer brain-token-1',
+        'X-Init': 'true'
+      });
+      expect(Object.isFrozen(brainEngine.aiProviderHeaders)).toBe(true);
+
+      // Verify underlying aiProvider has the same headers
+      expect(brainEngine.aiProvider?.headers).toEqual({
+        Authorization: 'Bearer brain-token-1',
+        'X-Init': 'true'
+      });
+
+      // Dynamic update via setter
+      brainEngine.aiProviderHeaders = {
+        Authorization: 'Bearer brain-token-updated',
+        'X-Updated': 'yes'
+      };
+
+      expect(brainEngine.aiProviderHeaders).toEqual({
+        Authorization: 'Bearer brain-token-updated',
+        'X-Updated': 'yes'
+      });
+      expect(brainEngine.aiProvider?.headers).toEqual({
+        Authorization: 'Bearer brain-token-updated',
+        'X-Updated': 'yes'
+      });
+      expect(Object.isFrozen(brainEngine.aiProviderHeaders)).toBe(true);
+
+      // Verify pingAiProvider carries the updated headers
+      await brainEngine.pingAiProvider?.();
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.example.com/models',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer brain-token-updated',
+            'X-Updated': 'yes'
+          })
+        })
+      );
+    });
+
+    it('should safely return empty frozen headers when aiProvider is null', async () => {
+      const mockEngine = {
+        aiProvider: null,
+        get aiProviderHeaders(): Readonly<Record<string, string>> {
+          return (this.aiProvider as unknown as AiProviderEngine)?.headers ?? Object.freeze({});
+        },
+        set aiProviderHeaders(newHeaders: Record<string, string>) {
+          if (this.aiProvider !== null && typeof this.aiProvider === 'object') {
+            (this.aiProvider as unknown as AiProviderEngine).headers = newHeaders;
+          }
+        }
+      };
+
+      expect(mockEngine.aiProviderHeaders).toEqual({});
+      expect(Object.isFrozen(mockEngine.aiProviderHeaders)).toBe(true);
+
+      // Setter when aiProvider is null safely does nothing without throwing
+      expect(() => {
+        mockEngine.aiProviderHeaders = { Authorization: 'Bearer test' };
+      }).not.toThrow();
+      expect(mockEngine.aiProviderHeaders).toEqual({});
     });
   });
 
