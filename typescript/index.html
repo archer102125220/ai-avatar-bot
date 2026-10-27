@@ -31,7 +31,9 @@
         AVATAR_MODE_MAP,
         ENGINE_MODE_MAP,
         FIT_MODE_MAP,
-        REASONING_MODE_MAP
+        REASONING_MODE_MAP,
+        AI_PROVIDER_STATUS_MAP,
+        AI_PROVIDER_PING_STRATEGY_MAP
       } from '@/core';
       import { KNOWLEDGE, COMPANION_KNOWLEDGE } from '@/example/knowledge';
 
@@ -51,6 +53,9 @@
         // aiProviderModel: 'qwen2.5:latest',
         aiProviderModel: 'gemma4:12b',
         aiProviderBaseUrl: 'http://localhost:5173/api/ollama',
+        // AI Provider 探活策略與自訂端點（非阻塞背景探活，首頁秒開）
+        aiProviderAutoPing: AI_PROVIDER_PING_STRATEGY_MAP.EAGER, // 'eager' (預設非阻塞背景探活) | 'lazy' (延遲首問) | 'manual' (手動探活)
+        // aiProviderPingUrl: '/api/tags', // 可選自訂端點路徑（未設定時自動推導 Ollama: /api/tags 或 OpenAI: /models）
         // ⚠️ [實驗性 Experimental] 推論思考過程設定（目前推論輸出各模型穩定度尚在驗證中，可依情境評估使用）
         reasoning: {
           mode: REASONING_MODE_MAP.always, // REASONING_MODE_MAP.auto (自動偵測) | REASONING_MODE_MAP.always (強制注入思考鏈指令) | REASONING_MODE_MAP.never (關閉)
@@ -115,18 +120,24 @@
         onReady(aiAvatar) {
           console.log('[avatar] widget ready:', aiAvatar);
           console.log(
-            '%c[3D 動作測試指南]',
+            '%c[3D 動作與 AI 連線測試指南]',
             'color: #3b82f6; font-weight: bold; font-size: 14px;'
           );
-          console.log('可直接在 Console 執行下列任一動作進行測試：');
+          console.log('可直接在 Console 執行下列指令進行測試：');
           console.log(
-            '▶ playGesture("goodbye")    // goodbye.vrma (登場動作/揮手再見)'
+            '▶ playGesture("goodbye")    // 動作測試：goodbye.vrma (登場/揮手再見)'
           );
           console.log('▶ playGesture("appearing")  // appearing.vrma');
           console.log('▶ playGesture("liked")      // liked.vrma');
           console.log('▶ playGesture("waiting")    // waiting.vrma');
           console.log(
-            '其他既有動作：bow, thinking, look-around, relax, surprised'
+            '▶ await pingAiProvider()   // 探活/重試遠端 AI Provider 連線 (模式 A)'
+          );
+          console.log(
+            '▶ aiAvatarWidget.isAiProviderReady // 檢查 AI 是否在線就緒'
+          );
+          console.log(
+            '▶ aiAvatarWidget.store.getState().aiProviderStatus // 取得目前狀態 (idle/connecting/connected/error)'
           );
         },
         onSpeaking(text, aiAvatar) {
@@ -134,6 +145,18 @@
         },
         onStreamChunk(chunkDelta, rawChunk) {
           console.log('[avatar] stream chunk (TTS active):', chunkDelta);
+        },
+        onAiProviderConnecting() {
+          console.log('[avatar] 🧠 AI Provider 連線探活中 (connecting)...');
+        },
+        onAiProviderConnected(response, fetchSetting, aiProvider) {
+          console.log(
+            '[avatar] 🧠✓ AI Provider 連線成功 (connected):',
+            aiProvider?.model || ''
+          );
+        },
+        onAiProviderError(error) {
+          console.warn('[avatar] 🧠✗ AI Provider 連線失敗 (error):', error);
         },
         onReasoningStart(info) {
           console.log(
@@ -166,6 +189,11 @@
         }
       });
 
+      // 訂閱 Store 狀態變更（響應式廣播）
+      window.aiAvatarWidget?.store?.subscribe('aiProviderStatus', (status) => {
+        console.log(`[avatar] 📡 Store 狀態變更 (aiProviderStatus): ${status}`);
+      });
+
       // 掛載全域便捷函式供開發者工具直接呼叫
       window.playGesture = (gestureName) => {
         if (typeof window.aiAvatarWidget?.playGesture === 'function') {
@@ -176,6 +204,17 @@
             '[playGesture] aiAvatarWidget 尚未就緒或未提供 playGesture'
           );
         }
+      };
+
+      window.pingAiProvider = async (fetchSetting) => {
+        if (typeof window.aiAvatarWidget?.pingAiProvider === 'function') {
+          console.log('[pingAiProvider] 發起連線探活...');
+          const ok = await window.aiAvatarWidget.pingAiProvider(fetchSetting);
+          console.log(`[pingAiProvider] 探活結果: ${ok ? '成功' : '失敗'}`);
+          return ok;
+        }
+        console.warn('[pingAiProvider] aiAvatarWidget 尚未就緒');
+        return false;
       };
     </script>
   </body>

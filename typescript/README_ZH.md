@@ -472,6 +472,8 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | :--- | :--- | :--- | :--- |
 | `enableAiProvider` | `boolean` | `false` | 是否啟用遠端雲端 AI 服務提供者（Ollama / 自建 API）。 |
 | `aiProviderBaseUrl` | `string` | `''` | 遠端 AI 伺服器 API 基礎端點。 |
+| `aiProviderPingUrl` | `string` | `undefined` | 自訂遠端 AI 伺服器探活健康檢查端點。若未提供則依據 `baseUrl` 自動推導（Ollama 自動使用 `/api/tags`，OpenAI 相容端點自動使用 `/models`）。 |
+| `aiProviderAutoPing` | `AiProviderPingStrategy` (`'eager' \| 'lazy' \| 'manual' \| false`) | `'eager'` | AI Provider 初始化探活策略：`'eager'`（背景非阻塞探活，首頁秒開不卡頓）、`'lazy'`（延遲至發送首個問題時探活）、`'manual'` 或 `false`（完全手動探活）。 |
 | `aiProviderModel` | `string` | `'hermes3:latest'` | 遠端 AI 模型名稱識別碼（預設為具備完整工具調用與推論之旗艦模型）。 |
 | `aiProviderIsStream` | `boolean` | `true` | 是否啟用 AI Provider 串流輸出模式。 |
 | `aiProviderMaxTokens` | `number` | `2048` | 遠端 AI 單次生成 Token 最大上限。 |
@@ -577,6 +579,9 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `onToolNotFound` | `(info: ToolNotFoundErrorInfo, widget: AiAvatarWidget) => unknown` | 模型調用未註冊工具時觸發（可回傳自訂訊息給模型）。 |
 | `onToolError` | `(info: ToolErrorInfo, widget: AiAvatarWidget) => unknown` | 工具執行發生例外時觸發（可回傳自訂錯誤給模型）。 |
 | `onBrainFallback` | `(fromEngine: string, toEngine: string, error: unknown) => void` | 大腦引擎在層級之間降級切換時觸發。 |
+| `onAiProviderConnecting` | `(...args: unknown[]) => void` | AI 伺服器發起連線探活時觸發。 |
+| `onAiProviderConnected` | `(response: unknown, fetchSetting?: unknown, aiProvider?: unknown, ...args: unknown[]) => void` | AI 伺服器探活成功並確認連線時觸發。 |
+| `onAiProviderError` | `(error: Error, ...args: unknown[]) => void` | AI 伺服器探活失敗或連線異常時觸發。 |
 | `onError` | `(error: Error, widget: AiAvatarWidget) => void` | 發生未預期的運行時錯誤時觸發。 |
 
 ---
@@ -631,6 +636,66 @@ const widget = await initAvatarBot({
   aiProviderCreateFetchPayload: createOllamaPayload,
   aiProviderCreateFetchSetting: createOllamaFetchSetting,
   autoFallbackWebLLM: true
+});
+```
+
+#### 1.1 AI 伺服器健康探活與響應式連線狀態管理 (模式 A)
+
+SDK 採用 **模式 A（方法調用 + Store 響應式廣播）** 架構，具備非阻塞連線、智慧端點推導與完整的單向資料流狀態同步：
+
+- **非阻塞背景探活 (首頁秒開)**：預設 `aiProviderAutoPing: 'eager'` 會在背景非同步執行探活，初始化函式立即返回，避免首頁渲染被遠端伺服器網路延遲卡住。
+- **智慧端點推導**：若未特別指定 `aiProviderPingUrl`，系統會依 `baseUrl` 自動推導（Ollama 自動使用 `/api/tags`，OpenAI 相容端點自動使用 `/models`）。
+- **響應式狀態訂閱**：透過 `widget.store.subscribe('aiProviderStatus', callback)` 訂閱狀態變更，即時驅動前端 UI 燈號或狀態文字。
+- **手動探活 / 重試**：調用 `await widget.pingAiProvider()` 即可發起探活並同步 Store。
+
+```typescript
+import { 
+  initAvatarBot, 
+  AI_PROVIDER_STATUS_MAP, 
+  AI_PROVIDER_PING_STRATEGY_MAP 
+} from 'ai-avatar-bot-typescript';
+
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  enableAiProvider: true,
+  aiProviderBaseUrl: 'http://localhost:11434',
+  aiProviderAutoPing: AI_PROVIDER_PING_STRATEGY_MAP.EAGER, // 'eager' (非阻塞背景探活) | 'lazy' (延遲首問) | 'manual' (完全手動)
+  // aiProviderPingUrl: '/custom/healthz', // 可選：自訂健康檢查路徑
+  onAiProviderConnecting: () => console.log('AI 伺服器連線中...'),
+  onAiProviderConnected: () => console.log('AI 伺服器已連線！'),
+  onAiProviderError: (error) => console.warn('AI 伺服器連線失敗:', error)
+});
+
+// 1. 訂閱 Store 狀態變更 (響應式驅動 UI)
+const unsubscribe = widget.store.subscribe('aiProviderStatus', (status) => {
+  switch (status) {
+    case AI_PROVIDER_STATUS_MAP.CONNECTING:
+      updateStatusBadge('連線中...', 'badge-warning');
+      break;
+    case AI_PROVIDER_STATUS_MAP.CONNECTED:
+      updateStatusBadge('已就緒', 'badge-success');
+      break;
+    case AI_PROVIDER_STATUS_MAP.ERROR:
+      const errorMsg = widget.store.getState().aiProviderError;
+      updateStatusBadge(`離線 (${errorMsg})`, 'badge-danger');
+      showRetryButton();
+      break;
+  }
+});
+
+// 2. 隨時查詢是否在線就緒
+if (widget.isAiProviderReady) {
+  console.log('AI Provider 可立即處理請求');
+}
+
+// 3. 使用者點擊「重試連線」按鈕時
+retryButton.addEventListener('click', async () => {
+  retryButton.disabled = true;
+  const isOk = await widget.pingAiProvider();
+  retryButton.disabled = false;
+  if (!isOk) {
+    alert('重試連線失敗，請確認 AI 伺服器是否正常運行中');
+  }
 });
 ```
 

@@ -998,4 +998,32 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     widget.store.setState({ aiProviderStatus: 'idle' });
     expect(statusUpdates).toEqual(['connecting', 'connected', 'error']);
   });
+
+  it('should not ping on init when aiProviderAutoPing is manual, and allow manual pingAiProvider', async () => {
+    const originalFetch = global.fetch;
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ models: ['llama3'] })
+    } as unknown as Response);
+    global.fetch = mockFetch;
+
+    const botWidget = await initAvatarBot({
+      container,
+      enableAiProvider: true,
+      aiProviderBaseUrl: 'http://localhost:11434',
+      aiProviderAutoPing: 'manual'
+    });
+
+    expect(botWidget).toBeDefined();
+    expect(botWidget?.store.getState().aiProviderStatus).toBe('idle');
+    expect(mockFetch).not.toHaveBeenCalled();
+
+    const pingSuccess = await botWidget?.pingAiProvider();
+    expect(pingSuccess).toBe(true);
+    expect(botWidget?.store.getState().aiProviderStatus).toBe('connected');
+    expect(botWidget?.isAiProviderReady).toBe(true);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+
+    global.fetch = originalFetch;
+  });
 });

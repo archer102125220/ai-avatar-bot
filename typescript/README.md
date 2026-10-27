@@ -469,6 +469,8 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | :--- | :--- | :--- | :--- |
 | `enableAiProvider` | `boolean` | `false` | Whether to enable remote AI server provider (Ollama / custom API). |
 | `aiProviderBaseUrl` | `string` | `''` | Base URL of the remote AI API server. |
+| `aiProviderPingUrl` | `string` | `undefined` | Custom health-check ping endpoint path. If omitted, smart inference is used (`/api/tags` for Ollama, `/models` for OpenAI-compatible). |
+| `aiProviderAutoPing` | `AiProviderPingStrategy` (`'eager' \| 'lazy' \| 'manual' \| false`) | `'eager'` | Auto-ping strategy on startup: `'eager'` (non-blocking background ping, fast page load), `'lazy'` (ping on first user query), `'manual'` or `false` (manual ping only). |
 | `aiProviderModel` | `string` | `'hermes3:latest'` | Model identifier for remote AI provider (defaults to flagship tool-calling/reasoning model). |
 | `aiProviderIsStream` | `boolean` | `true` | Whether to enable streaming for AI provider responses. |
 | `aiProviderMaxTokens` | `number` | `2048` | Max response tokens for remote AI provider. |
@@ -574,6 +576,9 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `onToolNotFound` | `(info: ToolNotFoundErrorInfo, widget: AiAvatarWidget) => unknown` | Fired when AI calls an unregistered tool. |
 | `onToolError` | `(info: ToolErrorInfo, widget: AiAvatarWidget) => unknown` | Fired when tool execution fails. |
 | `onBrainFallback` | `(fromEngine: string, toEngine: string, error: unknown) => void` | Fired when brain engine falls back between tiers. |
+| `onAiProviderConnecting` | `(...args: unknown[]) => void` | Fired when AI provider initiates health-check connection. |
+| `onAiProviderConnected` | `(response: unknown, fetchSetting?: unknown, aiProvider?: unknown, ...args: unknown[]) => void` | Fired when AI provider connection ping succeeds. |
+| `onAiProviderError` | `(error: Error, ...args: unknown[]) => void` | Fired when AI provider connection ping or request fails. |
 | `onError` | `(error: Error, widget: AiAvatarWidget) => void` | Fired on unexpected runtime error. |
 
 ---
@@ -628,6 +633,66 @@ const widget = await initAvatarBot({
   aiProviderCreateFetchPayload: createOllamaPayload,
   aiProviderCreateFetchSetting: createOllamaFetchSetting,
   autoFallbackWebLLM: true
+});
+```
+
+#### 1.1 AI Provider Health Ping & Reactive Store State Management (Pattern A)
+
+The SDK employs **Pattern A (Command Method Trigger + Reactive Store State Broadcast)** with non-blocking connection checks, smart endpoint inference, and single-source-of-truth state reactivity:
+
+- **Non-blocking background ping (Instant startup)**: Default `aiProviderAutoPing: 'eager'` triggers background pinging without delaying `initAvatarBot()`, ensuring the avatar renders immediately.
+- **Smart endpoint inference**: In the absence of an explicit `aiProviderPingUrl`, endpoints are inferred automatically (`/api/tags` for Ollama, `/models` for OpenAI-compatible APIs).
+- **Reactive Store Subscription**: Track connection transitions in real time via `widget.store.subscribe('aiProviderStatus', callback)`.
+- **Manual Ping & Retry**: Call `await widget.pingAiProvider()` to trigger a health-check at any time, synchronizing the root store state automatically.
+
+```typescript
+import { 
+  initAvatarBot, 
+  AI_PROVIDER_STATUS_MAP, 
+  AI_PROVIDER_PING_STRATEGY_MAP 
+} from 'ai-avatar-bot-typescript';
+
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  enableAiProvider: true,
+  aiProviderBaseUrl: 'http://localhost:11434',
+  aiProviderAutoPing: AI_PROVIDER_PING_STRATEGY_MAP.EAGER, // 'eager' | 'lazy' | 'manual'
+  // aiProviderPingUrl: '/custom/healthz', // Optional: custom health-check path
+  onAiProviderConnecting: () => console.log('AI Provider connecting...'),
+  onAiProviderConnected: () => console.log('AI Provider ready!'),
+  onAiProviderError: (error) => console.warn('AI Provider connection error:', error)
+});
+
+// 1. Subscribe to reactive state updates (e.g. to update UI indicator lights)
+const unsubscribe = widget.store.subscribe('aiProviderStatus', (status) => {
+  switch (status) {
+    case AI_PROVIDER_STATUS_MAP.CONNECTING:
+      updateStatusBadge('Connecting...', 'badge-warning');
+      break;
+    case AI_PROVIDER_STATUS_MAP.CONNECTED:
+      updateStatusBadge('Online', 'badge-success');
+      break;
+    case AI_PROVIDER_STATUS_MAP.ERROR:
+      const errorMsg = widget.store.getState().aiProviderError;
+      updateStatusBadge(`Offline (${errorMsg})`, 'badge-danger');
+      showRetryButton();
+      break;
+  }
+});
+
+// 2. Query ready state at any time
+if (widget.isAiProviderReady) {
+  console.log('AI Provider is currently online');
+}
+
+// 3. Manual Retry Handler
+retryButton.addEventListener('click', async () => {
+  retryButton.disabled = true;
+  const isOk = await widget.pingAiProvider();
+  retryButton.disabled = false;
+  if (!isOk) {
+    alert('Failed to connect to AI server. Please verify the server is running.');
+  }
 });
 ```
 
