@@ -128,6 +128,19 @@ export function createAvatarWidget({
       }
       return false;
     },
+    get aiProviderHeaders(): Readonly<Record<string, string>> {
+      const brain = getEngines().brainEngine;
+      return brain?.aiProviderHeaders ?? Object.freeze({});
+    },
+    set aiProviderHeaders(newHeaders: Record<string, string>) {
+      const brain = getEngines().brainEngine;
+      if (brain !== null && typeof brain === 'object') {
+        brain.aiProviderHeaders = newHeaders;
+      }
+    },
+    setAiProviderHeaders(newHeaders: Record<string, string>): void {
+      this.aiProviderHeaders = newHeaders;
+    },
 
     get container(): HTMLElement {
       return container;

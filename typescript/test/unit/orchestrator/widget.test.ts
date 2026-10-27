@@ -1026,4 +1026,149 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
 
     global.fetch = originalFetch;
   });
+
+  it('should proxy aiProviderHeaders getter, setter, and setAiProviderHeaders to brainEngine', () => {
+    let internalHeaders: Record<string, string> = {
+      Authorization: 'Bearer mock-token'
+    };
+    mockEngines.brainEngine.aiProviderHeaders = internalHeaders;
+    Object.defineProperty(mockEngines.brainEngine, 'aiProviderHeaders', {
+      get() {
+        return Object.freeze({ ...internalHeaders });
+      },
+      set(newHeaders: Record<string, string>) {
+        internalHeaders = { ...newHeaders };
+      },
+      configurable: true
+    });
+
+    const widget = createAvatarWidget({
+      options: {},
+      container,
+      rootStore,
+      i18nEngine,
+      initialMinimal: false,
+      getUiDom,
+      getEngines,
+      handleUser: mockHandleUser,
+      updateModelDropListeners: mockUpdateModelDropListeners
+    });
+
+    // Test getter
+    expect(widget.aiProviderHeaders).toEqual({
+      Authorization: 'Bearer mock-token'
+    });
+    expect(Object.isFrozen(widget.aiProviderHeaders)).toBe(true);
+
+    // Test direct setter
+    widget.aiProviderHeaders = {
+      Authorization: 'Bearer new-token',
+      'X-Widget-Set': '1'
+    };
+    expect(widget.aiProviderHeaders).toEqual({
+      Authorization: 'Bearer new-token',
+      'X-Widget-Set': '1'
+    });
+    expect(Object.isFrozen(widget.aiProviderHeaders)).toBe(true);
+
+    // Test setAiProviderHeaders helper
+    widget.setAiProviderHeaders({
+      Authorization: 'Bearer helper-token'
+    });
+    expect(widget.aiProviderHeaders).toEqual({
+      Authorization: 'Bearer helper-token'
+    });
+    expect(Object.isFrozen(widget.aiProviderHeaders)).toBe(true);
+
+    // When brainEngine is null
+    const widgetWithNullBrain = createAvatarWidget({
+      options: {},
+      container,
+      rootStore,
+      i18nEngine,
+      initialMinimal: false,
+      getUiDom,
+      getEngines: () => ({
+        brainEngine: null,
+        speechEngine: null,
+        skinEngine: null,
+        toolsEngine: null
+      }),
+      handleUser: mockHandleUser,
+      updateModelDropListeners: mockUpdateModelDropListeners
+    });
+
+    expect(widgetWithNullBrain.aiProviderHeaders).toEqual({});
+    expect(Object.isFrozen(widgetWithNullBrain.aiProviderHeaders)).toBe(true);
+    expect(() => {
+      widgetWithNullBrain.aiProviderHeaders = { Authorization: 'Bearer test' };
+    }).not.toThrow();
+    expect(() => {
+      widgetWithNullBrain.setAiProviderHeaders({ Authorization: 'Bearer test' });
+    }).not.toThrow();
+    expect(widgetWithNullBrain.aiProviderHeaders).toEqual({});
+  });
+
+  it('should initialize aiProviderHeaders via initAvatarBot, support dynamic updates, and keep rootStore clean', async () => {
+    const originalFetch = global.fetch;
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ models: ['llama3'] })
+    } as unknown as Response);
+    global.fetch = mockFetch;
+
+    const botWidget = await initAvatarBot({
+      container,
+      enableAiProvider: true,
+      aiProviderBaseUrl: 'http://localhost:11434',
+      aiProviderAutoPing: 'manual',
+      aiProviderHeaders: {
+        Authorization: 'Bearer init-secret-key',
+        'X-Client-Id': 'avatar-123'
+      }
+    });
+
+    expect(botWidget).toBeDefined();
+    if (typeof botWidget !== 'object' || botWidget === null) {
+      throw new Error('botWidget is not an object');
+    }
+    expect(botWidget.aiProviderHeaders).toEqual({
+      Authorization: 'Bearer init-secret-key',
+      'X-Client-Id': 'avatar-123'
+    });
+    expect(Object.isFrozen(botWidget.aiProviderHeaders)).toBe(true);
+
+    // Update headers dynamically
+    botWidget.setAiProviderHeaders({
+      Authorization: 'Bearer updated-secret-key',
+      'X-Client-Id': 'avatar-456'
+    });
+
+    expect(botWidget.aiProviderHeaders).toEqual({
+      Authorization: 'Bearer updated-secret-key',
+      'X-Client-Id': 'avatar-456'
+    });
+    expect(Object.isFrozen(botWidget.aiProviderHeaders)).toBe(true);
+
+    // Verify ping carries updated headers
+    await botWidget.pingAiProvider();
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:11434/api/tags',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer updated-secret-key',
+          'X-Client-Id': 'avatar-456'
+        })
+      })
+    );
+
+    // Security check: rootStore must NOT contain headers or tokens
+    const storeState = botWidget.store.getState() as Record<string, unknown>;
+    expect(storeState.aiProviderHeaders).toBeUndefined();
+    const serializedStore = JSON.stringify(storeState);
+    expect(serializedStore).not.toContain('init-secret-key');
+    expect(serializedStore).not.toContain('updated-secret-key');
+
+    global.fetch = originalFetch;
+  });
 });

@@ -342,5 +342,30 @@ describe('Orchestrator Options & Configuration', () => {
       expect(state.brainGender).toBe('female');
       expect(state.speechGender).toBe('male');
     });
+
+    it('should sanitize aiProviderHeaders in normalizedRawOptions and never store them in rootStore', () => {
+      const container = document.createElement('div');
+      const dirtyHeaders: Record<string, unknown> = {
+        Authorization: 'Bearer secret-bot-token',
+        '  X-Custom-Key  ': 'custom-val',
+        '': 'empty-key-dropped',
+        InvalidNumber: 12345
+      };
+      const norm = normalizeOptions({
+        container,
+        aiProviderHeaders: dirtyHeaders as unknown as Record<string, string>
+      });
+
+      // Valid headers sanitized into normalizedRawOptions
+      expect(norm.rawOptions.aiProviderHeaders).toEqual({
+        Authorization: 'Bearer secret-bot-token',
+        'X-Custom-Key': 'custom-val'
+      });
+
+      // Security check: rootStore must NOT hold sensitive headers
+      const state = norm.rootStore.getState();
+      expect((state as Record<string, unknown>).aiProviderHeaders).toBeUndefined();
+      expect(JSON.stringify(state)).not.toContain('secret-bot-token');
+    });
   });
 });

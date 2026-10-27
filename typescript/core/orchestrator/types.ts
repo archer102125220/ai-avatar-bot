@@ -515,12 +515,12 @@ export interface AiAvatarWidget {
    * Custom HTTP headers for the AI Provider.
    * Getter returns a frozen read-only record (`Object.freeze`).
    */
-  aiProviderHeaders?: Readonly<Record<string, string>>;
+  aiProviderHeaders: Readonly<Record<string, string>>;
   /**
    * Helper method to update AI Provider custom headers at runtime.
    * @param newHeaders - New headers record to assign.
    */
-  setAiProviderHeaders?: (newHeaders: Record<string, string>) => void;
+  setAiProviderHeaders: (newHeaders: Record<string, string>) => void;
   enableMemory: boolean;
   enableAiProvider: boolean;
   preloadWebLLM: boolean;

@@ -1,4 +1,5 @@
 import { initI18nEngine } from '@/core/i18n';
+import { sanitizeAiProviderHeaders } from '@/core/brain';
 import { createBaseStore } from '@/core/store';
 import {
   AVATAR_MODE_MAP,
@@ -271,10 +272,15 @@ export function normalizeOptions(
         ? rawOptions.aiProviderAutoPing
         : DEFAULT_AI_PROVIDER_PING_STRATEGY;
 
+  const safeAiProviderHeaders = sanitizeAiProviderHeaders(
+    rawOptions.aiProviderHeaders
+  );
+
   const normalizedRawOptions: AvatarBotOptions = {
     ...rawOptions,
     reasoning: safeReasoning,
-    aiProviderAutoPing: safeAiProviderAutoPing
+    aiProviderAutoPing: safeAiProviderAutoPing,
+    aiProviderHeaders: safeAiProviderHeaders
   };
 
   return {
