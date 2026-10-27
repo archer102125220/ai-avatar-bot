@@ -567,10 +567,6 @@ export interface BrainEngineOptions {
    * Optional custom HTTP headers sent with AI Provider requests (e.g. Authorization, x-api-key).
    */
   aiProviderHeaders?: Record<string, string>;
-  /** Alias for `aiProviderHeaders`. */
-  providerHeaders?: Record<string, string>;
-  /** Alias for `aiProviderHeaders`. */
-  headers?: Record<string, string>;
   welcomeText?: string | ((context: unknown) => string) | null;
   companionWelcomeText?: string | ((context: unknown) => string) | null;
   assistantWelcomeText?: string | ((context: unknown) => string) | null;

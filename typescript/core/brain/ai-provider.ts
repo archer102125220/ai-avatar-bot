@@ -551,7 +551,10 @@ export async function initAiProvider(
             ...(defaultFetchSetting.headers as Record<string, string>),
             ...((resolvedSetting.headers as Record<string, string>) || {})
           };
-          if (!resolvedSetting.method) {
+          if (
+            typeof resolvedSetting.method !== 'string' ||
+            resolvedSetting.method === ''
+          ) {
             resolvedSetting.method = 'POST';
           }
         }
