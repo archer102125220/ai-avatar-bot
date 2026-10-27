@@ -40,6 +40,12 @@ import type {
 import type { UiDom, UiContext } from '@/core/ui';
 import type { BaseStore } from '@/core/store';
 import type { I18nEngine, I18nEngineOptions } from '@/core/i18n';
+import {
+  AI_PROVIDER_PING_STRATEGY_MAP,
+  AI_PROVIDER_STATUS_MAP,
+  type AiProviderPingStrategy,
+  type AiProviderStatus
+} from '@/core/constants';
 import type {
   AvatarMode,
   Gender,
@@ -138,10 +144,18 @@ export interface AvatarBotOptions {
   aiProviderMaxTokens?: number;
   /** Whether AI Provider should use streaming response. */
   aiProviderIsStream?: boolean;
+  /** Custom ping URL endpoint to verify AI Provider connectivity. */
+  aiProviderPingUrl?: string;
+  /**
+   * Health-check ping strategy for AI Provider ('eager' | 'lazy' | 'manual' | false).
+   * - 'eager' (default): pings in background during initialization (non-blocking).
+   * - 'lazy': pings on first question before dispatching inference.
+   * - 'manual' or false: disables automatic pinging; developer calls widget.pingAiProvider() manually.
+   */
+  aiProviderAutoPing?: AiProviderPingStrategy;
   /** Custom extractor for tool calls from AI Provider chunks. */
   aiProviderExtractToolCalls?:
-    | AiProviderToolCallExtractor
-    | ((chunk: string) => unknown);
+    AiProviderToolCallExtractor | ((chunk: string) => unknown);
   /** Neural voice model identifier for speech synthesis. */
   neuralVoice?: string;
   /** URL to knowledge base JSON for assistant persona. */
@@ -477,8 +491,19 @@ export interface AiAvatarWidget {
   readonly AUTO_CONTINUE_MODE_MAP: Record<string, string>;
   readonly LLM_FINISH_REASON_MAP: Record<string, string>;
   readonly FINISH_REASON_MAP: Record<string, string>;
+  readonly AI_PROVIDER_STATUS_MAP: typeof AI_PROVIDER_STATUS_MAP;
+  readonly AI_PROVIDER_PING_STRATEGY_MAP: typeof AI_PROVIDER_PING_STRATEGY_MAP;
   /** Available persona modes list. */
   readonly availableModes: string[];
+  /** Whether the AI Provider has been successfully verified and is ready for inference. */
+  readonly isAiProviderReady: boolean;
+  /**
+   * Manually pings the configured AI Provider to verify server health and model connectivity.
+   * Updates `aiProviderStatus` in the root store and returns boolean success.
+   * @param fetchSetting - Optional custom fetch options for the ping request.
+   * @returns Promise resolving to true if ping succeeded, false otherwise.
+   */
+  pingAiProvider: (fetchSetting?: RequestInit | null) => Promise<boolean>;
   enableMemory: boolean;
   enableAiProvider: boolean;
   preloadWebLLM: boolean;
@@ -593,6 +618,10 @@ export interface AvatarBotStoreState {
   maxAutoContinuations: number;
   autoContinueMode: AutoContinueMode;
   autoContinuePrompt: AutoContinuePromptResolver | null;
+  /** AI Provider connection health status ('idle' | 'connecting' | 'connected' | 'error'). */
+  aiProviderStatus: AiProviderStatus;
+  /** Error message if AI Provider ping or connection failed. */
+  aiProviderError: string | null;
   modes: Record<string, unknown>;
   locale: string;
   enableModelDrop: boolean;
@@ -635,5 +664,9 @@ export type {
   ReasoningChunkInfo,
   ReasoningEndInfo,
   ReasoningOptions,
-  LlmOomFallbackInfo
+  LlmOomFallbackInfo,
+  AiProviderPingStrategy,
+  AiProviderStatus
 };
+
+export { AI_PROVIDER_PING_STRATEGY_MAP, AI_PROVIDER_STATUS_MAP };

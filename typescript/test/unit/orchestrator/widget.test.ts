@@ -88,7 +88,9 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
       assistantSuggestedQuestions: ['AQ1'],
       suggestedTitle: 'Title1',
       companionSuggestedTitle: 'CTitle1',
-      assistantSuggestedTitle: 'ATitle1'
+      assistantSuggestedTitle: 'ATitle1',
+      aiProviderStatus: 'idle',
+      aiProviderError: null
     });
 
     i18nEngine = initI18nEngine({ locale: 'zh-TW' });
@@ -227,7 +229,9 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     expect(gesture2DMock).toHaveBeenCalledWith('liked');
 
     // Test skinEngine.playGesture priority and error catching
-    const playGestureMock = vi.fn().mockRejectedValue(new Error('Gesture failed'));
+    const playGestureMock = vi
+      .fn()
+      .mockRejectedValue(new Error('Gesture failed'));
     mockEngines.skinEngine.playGesture = playGestureMock;
     widget.playGesture?.('customGesture');
     expect(playGestureMock).toHaveBeenCalledWith('customGesture');

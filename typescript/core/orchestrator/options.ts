@@ -14,7 +14,11 @@ import {
   DEFAULT_AUTO_CONTINUE_MODE,
   DEFAULT_ENABLE_MEMORY,
   DEFAULT_REASONING_OPTIONS,
-  REASONING_MODE_MAP
+  REASONING_MODE_MAP,
+  DEFAULT_AI_PROVIDER_STATUS,
+  AI_PROVIDER_PING_STRATEGY_MAP,
+  DEFAULT_AI_PROVIDER_PING_STRATEGY,
+  type AiProviderPingStrategy
 } from '@/core/constants';
 import type {
   AvatarBotOptions,
@@ -247,6 +251,8 @@ export function normalizeOptions(
     enableModelDrop: isModelDropEnabled,
     enableEngineToggle: isEngineToggleEnabled,
     reasoning: safeReasoning,
+    aiProviderStatus: DEFAULT_AI_PROVIDER_STATUS,
+    aiProviderError: null,
     suggestedQuestions: rawOptions.suggestedQuestions,
     companionSuggestedQuestions: rawOptions.companionSuggestedQuestions,
     assistantSuggestedQuestions: rawOptions.assistantSuggestedQuestions,
@@ -255,9 +261,20 @@ export function normalizeOptions(
     assistantSuggestedTitle: rawOptions.assistantSuggestedTitle
   });
 
+  const safeAiProviderAutoPing: AiProviderPingStrategy =
+    rawOptions.aiProviderAutoPing === false
+      ? false
+      : typeof rawOptions.aiProviderAutoPing === 'string' &&
+          (Object.values(AI_PROVIDER_PING_STRATEGY_MAP) as string[]).includes(
+            rawOptions.aiProviderAutoPing
+          ) === true
+        ? rawOptions.aiProviderAutoPing
+        : DEFAULT_AI_PROVIDER_PING_STRATEGY;
+
   const normalizedRawOptions: AvatarBotOptions = {
     ...rawOptions,
-    reasoning: safeReasoning
+    reasoning: safeReasoning,
+    aiProviderAutoPing: safeAiProviderAutoPing
   };
 
   return {

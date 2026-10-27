@@ -1,6 +1,10 @@
 import type { ToolDefinition, ToolRouteCandidate } from '@/core/tools';
 import type { I18nEngine } from '@/core/i18n';
-import type { CompressionStrategy } from '@/core/constants';
+import type {
+  CompressionStrategy,
+  AiProviderPingStrategy,
+  AiProviderStatus
+} from '@/core/constants';
 import type {
   AvatarMode,
   PendingToolState,
@@ -39,7 +43,9 @@ export type {
   AutoContinueMode,
   Gender,
   DynamicTextOrResolver,
-  AutoContinuePromptResolver
+  AutoContinuePromptResolver,
+  AiProviderPingStrategy,
+  AiProviderStatus
 };
 
 /**
@@ -274,20 +280,16 @@ export interface LLMEngineOptions {
   onChatting?: ((...args: unknown[]) => unknown) | null;
   onStreamChatting?: ((...args: unknown[]) => unknown) | null;
   onLlmOomFallback?:
-    | ((info: LlmOomFallbackInfo, ...args: unknown[]) => void)
-    | null;
+    ((info: LlmOomFallbackInfo, ...args: unknown[]) => void) | null;
   /** @experimental AI reasoning output is currently an experimental feature. */
   onReasoningStart?:
-    | ((info: ReasoningStartInfo, ...args: unknown[]) => void)
-    | null;
+    ((info: ReasoningStartInfo, ...args: unknown[]) => void) | null;
   /** @experimental AI reasoning output is currently an experimental feature. */
   onReasoningChunk?:
-    | ((info: ReasoningChunkInfo, ...args: unknown[]) => void)
-    | null;
+    ((info: ReasoningChunkInfo, ...args: unknown[]) => void) | null;
   /** @experimental AI reasoning output is currently an experimental feature. */
   onReasoningEnd?:
-    | ((info: ReasoningEndInfo, ...args: unknown[]) => void)
-    | null;
+    ((info: ReasoningEndInfo, ...args: unknown[]) => void) | null;
   /** @experimental AI reasoning output is currently an experimental feature. */
   reasoning?: ReasoningOptions;
 }
@@ -383,6 +385,8 @@ export interface AiProviderOptions {
   baseUrl?: string;
   providerPingUrl?: string;
   pingUrl?: string;
+  providerAutoPing?: AiProviderPingStrategy;
+  autoPing?: AiProviderPingStrategy;
   providerChatUrl?: string;
   chatUrl?: string;
   providerModel?: string;
@@ -428,13 +432,9 @@ export interface AiProviderOptions {
   responseFormat?:
     ((...args: unknown[]) => unknown) | string | Record<string, unknown> | null;
   providerExtractToolCalls?:
-    | AiProviderToolCallExtractor
-    | ((...args: unknown[]) => unknown)
-    | null;
+    AiProviderToolCallExtractor | ((...args: unknown[]) => unknown) | null;
   extractToolCalls?:
-    | AiProviderToolCallExtractor
-    | ((...args: unknown[]) => unknown)
-    | null;
+    AiProviderToolCallExtractor | ((...args: unknown[]) => unknown) | null;
   providerMaxTokens?: number;
   maxTokens?: number;
   providerIsStream?: boolean;
@@ -446,16 +446,13 @@ export interface AiProviderOptions {
   onStreamChatting?: ((chunk?: unknown, ...args: unknown[]) => void) | null;
   /** @experimental AI reasoning output is currently an experimental feature. */
   onReasoningStart?:
-    | ((info: ReasoningStartInfo, ...args: unknown[]) => void)
-    | null;
+    ((info: ReasoningStartInfo, ...args: unknown[]) => void) | null;
   /** @experimental AI reasoning output is currently an experimental feature. */
   onReasoningChunk?:
-    | ((info: ReasoningChunkInfo, ...args: unknown[]) => void)
-    | null;
+    ((info: ReasoningChunkInfo, ...args: unknown[]) => void) | null;
   /** @experimental AI reasoning output is currently an experimental feature. */
   onReasoningEnd?:
-    | ((info: ReasoningEndInfo, ...args: unknown[]) => void)
-    | null;
+    ((info: ReasoningEndInfo, ...args: unknown[]) => void) | null;
   /** @experimental AI reasoning output is currently an experimental feature. */
   reasoning?: ReasoningOptions;
 }
@@ -483,10 +480,7 @@ export interface AiProviderEngine {
   /** @experimental AI reasoning output is currently an experimental feature. */
   readonly reasoning?: ReasoningOptions;
   readonly createFetchSetting:
-    | AiProviderFetchSettingFactory
-    | RequestInit
-    | null
-    | unknown;
+    AiProviderFetchSettingFactory | RequestInit | null | unknown;
   readonly createFetchPayload:
     | AiProviderFetchPayloadFactory
     | BodyInit
@@ -512,6 +506,7 @@ export interface AiProviderEngine {
   model: string;
   enabled: boolean;
   ready: boolean;
+  status?: AiProviderStatus;
   ping(fetchSetting?: unknown): Promise<boolean>;
   chat(
     messages: LLMMessage[] | Array<Record<string, unknown>>,
@@ -573,10 +568,7 @@ export interface BrainEngineOptions {
   onReasoningStart?: (info: ReasoningStartInfo, ...args: unknown[]) => void;
   onReasoningChunk?: (info: ReasoningChunkInfo, ...args: unknown[]) => void;
   onReasoningEnd?: (info: ReasoningEndInfo, ...args: unknown[]) => void;
-  onAiProviderConnecting?: (
-    fetchSetting?: unknown,
-    ...args: unknown[]
-  ) => void;
+  onAiProviderConnecting?: (fetchSetting?: unknown, ...args: unknown[]) => void;
   onAiProviderConnected?: (response?: unknown, ...args: unknown[]) => void;
   onAiProviderError?: (error: Error, ...args: unknown[]) => void;
   onAiProviderChatting?: (response?: unknown, ...args: unknown[]) => void;
@@ -633,6 +625,7 @@ export interface BrainEngineOptions {
     | null;
   aiProviderResponseFormat?: string | Record<string, unknown> | null;
   aiProviderPingUrl?: string;
+  aiProviderAutoPing?: AiProviderPingStrategy;
   aiProviderChatUrl?: string;
   aiProviderMaxTokens?: number;
   aiProviderIsStream?: boolean;
@@ -730,24 +723,18 @@ export interface BrainEngine {
   onLlmLoading: ((...args: unknown[]) => void) | null;
   onLlmLoadProgress:
     ((progress: LlmLoadProgressInfo, ...args: unknown[]) => void) | null;
-  onLlmLoaded:
-    ((engineInstance?: unknown, ...args: unknown[]) => void) | null;
+  onLlmLoaded: ((engineInstance?: unknown, ...args: unknown[]) => void) | null;
   onLlmLoadError: ((error: Error, ...args: unknown[]) => void) | null;
   onLlmOomFallback?:
-    | ((info: LlmOomFallbackInfo, ...args: unknown[]) => void)
-    | null;
+    ((info: LlmOomFallbackInfo, ...args: unknown[]) => void) | null;
   onLlmChatting: ((response?: unknown, ...args: unknown[]) => void) | null;
-  onLlmStreamChatting:
-    ((chunk?: unknown, ...args: unknown[]) => void) | null;
+  onLlmStreamChatting: ((chunk?: unknown, ...args: unknown[]) => void) | null;
   onReasoningStart?:
-    | ((info: ReasoningStartInfo, ...args: unknown[]) => void)
-    | null;
+    ((info: ReasoningStartInfo, ...args: unknown[]) => void) | null;
   onReasoningChunk?:
-    | ((info: ReasoningChunkInfo, ...args: unknown[]) => void)
-    | null;
+    ((info: ReasoningChunkInfo, ...args: unknown[]) => void) | null;
   onReasoningEnd?:
-    | ((info: ReasoningEndInfo, ...args: unknown[]) => void)
-    | null;
+    ((info: ReasoningEndInfo, ...args: unknown[]) => void) | null;
   onAiProviderConnecting:
     ((fetchSetting?: unknown, ...args: unknown[]) => void) | null;
   onAiProviderConnected:
@@ -865,4 +852,5 @@ export interface BrainEngine {
   readonly llm: LLMEngine | null;
   readonly memory: MemoryInstance | null;
   readonly aiProvider: AiProviderEngine | null;
+  pingAiProvider?: (fetchSetting?: RequestInit | null) => Promise<boolean>;
 }

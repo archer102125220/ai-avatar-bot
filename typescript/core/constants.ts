@@ -1,4 +1,9 @@
-import type { AvatarMode, Gender, ReasoningMode, ReasoningOptions } from './types';
+import type {
+  AvatarMode,
+  Gender,
+  ReasoningMode,
+  ReasoningOptions
+} from './types';
 
 /**
  * Avatar lifecycle state mapping enum.
@@ -129,6 +134,51 @@ export const DEFAULT_LLM_FALLBACK_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
  * Default AI Provider server model identifier (e.g. Ollama).
  */
 export const DEFAULT_AI_PROVIDER_MODEL = 'hermes3:latest';
+
+/**
+ * AI Provider health-check ping strategy mapping enum.
+ */
+export const AI_PROVIDER_PING_STRATEGY_MAP = {
+  /** Eager: ping immediately in background during initialization (non-blocking). */
+  EAGER: 'eager',
+  /** Lazy: defer first ping check until first user inference request. */
+  LAZY: 'lazy',
+  /** Manual: never ping automatically, developer triggers explicitly via widget.pingAiProvider(). */
+  MANUAL: 'manual'
+} as const;
+
+export type AiProviderPingStrategy =
+  | (typeof AI_PROVIDER_PING_STRATEGY_MAP)[keyof typeof AI_PROVIDER_PING_STRATEGY_MAP]
+  | false;
+
+/**
+ * Default AI Provider health-check ping strategy.
+ */
+export const DEFAULT_AI_PROVIDER_PING_STRATEGY: AiProviderPingStrategy =
+  AI_PROVIDER_PING_STRATEGY_MAP.EAGER;
+
+/**
+ * AI Provider connection status mapping enum.
+ */
+export const AI_PROVIDER_STATUS_MAP = {
+  /** Idle state before any ping attempt. */
+  IDLE: 'idle',
+  /** Actively pinging or connecting to AI provider. */
+  CONNECTING: 'connecting',
+  /** Successfully pinged and connected to AI provider. */
+  CONNECTED: 'connected',
+  /** Ping or connection failed. */
+  ERROR: 'error'
+} as const;
+
+export type AiProviderStatus =
+  (typeof AI_PROVIDER_STATUS_MAP)[keyof typeof AI_PROVIDER_STATUS_MAP];
+
+/**
+ * Default initial AI Provider connection status.
+ */
+export const DEFAULT_AI_PROVIDER_STATUS: AiProviderStatus =
+  AI_PROVIDER_STATUS_MAP.IDLE;
 
 /**
  * Default reasoning start tag.
@@ -947,7 +997,9 @@ export function isReasoningSupported(model?: string): boolean {
   if (typeof model !== 'string' || model === '') {
     return false;
   }
-  return /deepseek-r1|qwq|hermes-3|hermes3|^o[13]|reasoning|thinking/i.test(model);
+  return /deepseek-r1|qwq|hermes-3|hermes3|^o[13]|reasoning|thinking/i.test(
+    model
+  );
 }
 
 /**

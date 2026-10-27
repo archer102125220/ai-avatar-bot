@@ -179,7 +179,9 @@ describe('Orchestrator Engine Factory', () => {
       locale: 'zh-TW',
       enableEngineToggle: true,
       modes: {},
-      enableModelDrop: true
+      enableModelDrop: true,
+      aiProviderStatus: 'idle',
+      aiProviderError: null
     });
 
     i18nEngine = initI18nEngine({ locale: 'zh-TW' });
@@ -642,7 +644,11 @@ describe('Orchestrator Engine Factory', () => {
       let capturedBrainOptions!: Record<string, unknown> & {
         llmFallbackModel: string;
         enableOomFallback: boolean;
-        onLlmOomFallback: (primary: string, fallback: string, error: unknown) => unknown;
+        onLlmOomFallback: (
+          primary: string,
+          fallback: string,
+          error: unknown
+        ) => unknown;
         onReasoningStart: unknown;
         onReasoningChunk: unknown;
         onReasoningEnd: unknown;
@@ -683,11 +689,21 @@ describe('Orchestrator Engine Factory', () => {
 
       expect(capturedBrainOptions.llmFallbackModel).toBe('Qwen2.5-1.5B');
       expect(capturedBrainOptions.enableOomFallback).toBe(true);
-      expect(capturedBrainOptions.onReasoningStart).toBe(mockStreamPipeline.onReasoningStart);
-      expect(capturedBrainOptions.onReasoningChunk).toBe(mockStreamPipeline.onReasoningChunk);
-      expect(capturedBrainOptions.onReasoningEnd).toBe(mockStreamPipeline.onReasoningEnd);
+      expect(capturedBrainOptions.onReasoningStart).toBe(
+        mockStreamPipeline.onReasoningStart
+      );
+      expect(capturedBrainOptions.onReasoningChunk).toBe(
+        mockStreamPipeline.onReasoningChunk
+      );
+      expect(capturedBrainOptions.onReasoningEnd).toBe(
+        mockStreamPipeline.onReasoningEnd
+      );
 
-      capturedBrainOptions.onLlmOomFallback('Hermes-8B', 'Qwen-1.5B', new Error('OOM'));
+      capturedBrainOptions.onLlmOomFallback(
+        'Hermes-8B',
+        'Qwen-1.5B',
+        new Error('OOM')
+      );
       expect(onLlmOomFallback).toHaveBeenCalledWith(
         expect.objectContaining({
           failedModel: 'Hermes-8B',
@@ -1245,7 +1261,8 @@ describe('Orchestrator Engine Factory', () => {
       expect(mockEngines.speechEngine.triggerTap).toHaveBeenCalled();
 
       // simulate pointerdown when speechEngine is null -> falls back to widget.tap
-      mockEngines.speechEngine = null as unknown as typeof mockEngines.speechEngine;
+      mockEngines.speechEngine =
+        null as unknown as typeof mockEngines.speechEngine;
       const widgetTapSpy = vi.fn();
       mockWidget.tap = widgetTapSpy;
       mockEngines.skinEngine.renderer.canvas.dispatchEvent(

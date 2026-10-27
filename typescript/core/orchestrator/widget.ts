@@ -16,7 +16,9 @@ import {
   DEFAULT_MAX_AUTO_CONTINUATIONS,
   DEFAULT_AUTO_CONTINUE_MODE,
   DEFAULT_ENABLE_MODEL_DROP,
-  DEFAULT_ENABLE_ENGINE_TOGGLE
+  DEFAULT_ENABLE_ENGINE_TOGGLE,
+  AI_PROVIDER_STATUS_MAP,
+  AI_PROVIDER_PING_STRATEGY_MAP
 } from '@/core/constants';
 import {
   initSkinModeChangeButton,
@@ -106,6 +108,25 @@ export function createAvatarWidget({
     },
     get FINISH_REASON_MAP(): Record<string, string> {
       return FINISH_REASON_MAP;
+    },
+    get AI_PROVIDER_STATUS_MAP(): typeof AI_PROVIDER_STATUS_MAP {
+      return AI_PROVIDER_STATUS_MAP;
+    },
+    get AI_PROVIDER_PING_STRATEGY_MAP(): typeof AI_PROVIDER_PING_STRATEGY_MAP {
+      return AI_PROVIDER_PING_STRATEGY_MAP;
+    },
+    get isAiProviderReady(): boolean {
+      return (
+        rootStore.getState().aiProviderStatus ===
+        AI_PROVIDER_STATUS_MAP.CONNECTED
+      );
+    },
+    async pingAiProvider(fetchSetting?: RequestInit | null): Promise<boolean> {
+      const brain = getEngines().brainEngine;
+      if (typeof brain?.pingAiProvider === 'function') {
+        return brain.pingAiProvider(fetchSetting);
+      }
+      return false;
     },
 
     get container(): HTMLElement {
