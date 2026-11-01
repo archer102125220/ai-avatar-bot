@@ -440,7 +440,25 @@ export async function triggerRollingSummaryIfNeeded(
     return;
   }
 
-  engine._isSummarizing = true;
+  if (
+    typeof (engine as { _setSummarizing?: (val: boolean) => void })
+      ._setSummarizing === 'function'
+  ) {
+    (
+      engine as { _setSummarizing: (val: boolean) => void }
+    )._setSummarizing(true);
+  } else {
+    try {
+      (engine as Record<string, unknown>)._isSummarizing = true;
+      (engine as Record<string, unknown>).isSummarizing = true;
+    } catch {
+      // Ignored if readonly
+    }
+  }
+
+  if (typeof engine.onSummarizingChange === 'function') {
+    engine.onSummarizingChange(true);
+  }
 
   setTimeout(async () => {
     try {
@@ -531,7 +549,25 @@ export async function triggerRollingSummaryIfNeeded(
         summaryError
       );
     } finally {
-      engine._isSummarizing = false;
+      if (
+        typeof (engine as { _setSummarizing?: (val: boolean) => void })
+          ._setSummarizing === 'function'
+      ) {
+        (
+          engine as { _setSummarizing: (val: boolean) => void }
+        )._setSummarizing(false);
+      } else {
+        try {
+          (engine as Record<string, unknown>)._isSummarizing = false;
+          (engine as Record<string, unknown>).isSummarizing = false;
+        } catch {
+          // Ignored if readonly
+        }
+      }
+
+      if (typeof engine.onSummarizingChange === 'function') {
+        engine.onSummarizingChange(false);
+      }
     }
   }, 50);
 }

@@ -20,6 +20,7 @@ import {
   LLM_FINISH_REASON_MAP,
   FINISH_REASON_MAP
 } from '@/core/constants';
+import type { ToolDefinition } from '@/core/tools';
 import type {
   ReasoningStartInfo,
   ReasoningChunkInfo,
@@ -35,7 +36,8 @@ import type {
   LLMEngine,
   AiProviderEngine,
   ChatLogItem,
-  AddChatMessageOptions
+  AddChatMessageOptions,
+  UpdateChatMessageOptions
 } from './types';
 import { fetchKnowledge, findBestMatch } from './knowledge';
 import { classifyEmotion, applyEmotionFromText } from './emotion';
@@ -68,14 +70,17 @@ export * from './stream-parser';
 export async function initBrainEngine(
   setting: BrainEngineOptions = {}
 ): Promise<BrainEngine> {
+  const rawSetting = setting as Record<string, unknown>;
   const {
-    llmModel,
+    webLlmModel,
     preloadWebLLM = false,
     autoFallbackWebLLM = true,
     enableAutoContinue = DEFAULT_ENABLE_AUTO_CONTINUE,
     maxAutoContinuations = DEFAULT_MAX_AUTO_CONTINUATIONS,
     autoContinueMode = DEFAULT_AUTO_CONTINUE_MODE,
     autoContinuePrompt = null,
+    assistantKnowledge,
+    assistantKnowledgeUrl,
     knowledge = [],
     knowledgeUrl,
     companionKnowledge = [],
@@ -96,7 +101,7 @@ export async function initBrainEngine(
     companionWelcomeText = null,
     assistantWelcomeText = null,
 
-    llmFallbackModel = DEFAULT_LLM_FALLBACK_MODEL,
+    webLlmFallbackModel,
     enableOomFallback = true,
     llmMaxTokens,
     llmIsStream,
@@ -125,6 +130,7 @@ export async function initBrainEngine(
     onSpokenAudioTextChange,
     onEmotionChange,
     onSummaryUpdated,
+    onSummarizingChange,
     onStreamStart,
     onStreamChunk,
     onStreamEnd,
@@ -143,6 +149,7 @@ export async function initBrainEngine(
     aiProviderIsStream,
     aiProviderExtractToolCalls,
     aiProviderHeaders,
+    tools: staticTools,
     getTools,
     getToolByName,
     offerToolConfirmation,
@@ -163,21 +170,68 @@ export async function initBrainEngine(
     reasoning
   } = setting;
 
+  const resolvedWebLlmModel =
+    (typeof webLlmModel === 'string' && webLlmModel !== ''
+      ? webLlmModel
+      : undefined) ||
+    (typeof rawSetting.llmModel === 'string' && rawSetting.llmModel !== ''
+      ? (rawSetting.llmModel as string)
+      : undefined);
+
+  const resolvedWebLlmFallbackModel =
+    webLlmFallbackModel !== undefined
+      ? webLlmFallbackModel
+      : (rawSetting.llmFallbackModel as string | null | false | undefined) !==
+          undefined
+        ? (rawSetting.llmFallbackModel as string | null | false)
+        : DEFAULT_LLM_FALLBACK_MODEL;
+
+  const resolvedAssistantKnowledge =
+    assistantKnowledge !== undefined ? assistantKnowledge : knowledge;
+  const resolvedAssistantKnowledgeUrl =
+    typeof assistantKnowledgeUrl === 'string' && assistantKnowledgeUrl !== ''
+      ? assistantKnowledgeUrl
+      : knowledgeUrl;
+
   let llm: LLMEngine | null = null;
   let memory: MemoryInstance | null = null;
   let aiProvider: AiProviderEngine | null = null;
 
   const safeKnowledge: KnowledgeEntry[] =
-    Array.isArray(knowledge) && knowledge.length > 0
-      ? (knowledge as KnowledgeEntry[])
-      : await fetchKnowledge(knowledgeUrl);
+    Array.isArray(resolvedAssistantKnowledge) &&
+    resolvedAssistantKnowledge.length > 0
+      ? (resolvedAssistantKnowledge as KnowledgeEntry[])
+      : await fetchKnowledge(resolvedAssistantKnowledgeUrl);
   const safeCompanionKnowledge: KnowledgeEntry[] =
     Array.isArray(companionKnowledge) && companionKnowledge.length > 0
       ? (companionKnowledge as KnowledgeEntry[])
       : await fetchKnowledge(companionKnowledgeUrl);
 
+  const resolvedToolsList = Array.isArray(staticTools)
+    ? staticTools
+    : undefined;
+  const resolvedGetTools =
+    typeof getTools === 'function'
+      ? getTools
+      : resolvedToolsList !== undefined
+        ? () => resolvedToolsList
+        : () => [];
+  const resolvedGetToolByName =
+    typeof getToolByName === 'function'
+      ? getToolByName
+      : resolvedToolsList !== undefined
+        ? (name: string) =>
+            resolvedToolsList.find(
+              (t: ToolDefinition) => t.name === name
+            ) || null
+        : null;
+
   const _store = createBaseStore({});
   void _store;
+
+  let _isSummarizing = false;
+  let _companionFallbackIndex = 0;
+  let _chatSeq = 0;
 
   let _welcomeText: string | ((context: unknown) => string) | null = null;
   let _companionWelcomeText: string | ((context: unknown) => string) | null =
@@ -217,8 +271,24 @@ export async function initBrainEngine(
       return FINISH_REASON_MAP;
     },
 
+    get isSummarizing(): boolean {
+      return _isSummarizing;
+    },
+    get _isSummarizing(): boolean {
+      return _isSummarizing;
+    },
+    _setSummarizing(val: boolean) {
+      _isSummarizing = val;
+    },
+
+    get assistantKnowledgeUrl() {
+      return resolvedAssistantKnowledgeUrl;
+    },
+    get assistantKnowledge() {
+      return safeKnowledge;
+    },
     get knowledgeUrl() {
-      return knowledgeUrl;
+      return resolvedAssistantKnowledgeUrl;
     },
     knowledge: safeKnowledge,
     get companionKnowledgeUrl() {
@@ -228,10 +298,22 @@ export async function initBrainEngine(
       return companionFallback;
     },
     companionKnowledge: safeCompanionKnowledge,
-    companionFallbackIdx: 0,
+    get companionFallbackIndex() {
+      return _companionFallbackIndex;
+    },
+    get companionFallbackIdx() {
+      return _companionFallbackIndex;
+    },
+    resetCompanionFallback() {
+      _companionFallbackIndex = 0;
+    },
+    _advanceCompanionFallback() {
+      return _companionFallbackIndex++;
+    },
 
-    getTools: typeof getTools === 'function' ? getTools : () => [],
-    getToolByName: typeof getToolByName === 'function' ? getToolByName : null,
+    tools: resolvedToolsList,
+    getTools: resolvedGetTools,
+    getToolByName: resolvedGetToolByName,
     offerToolConfirmation:
       typeof offerToolConfirmation === 'function'
         ? offerToolConfirmation
@@ -259,6 +341,7 @@ export async function initBrainEngine(
     onSpokenAudioTextChange: onSpokenAudioTextChange || null,
     onEmotionChange: onEmotionChange || null,
     onSummaryUpdated: onSummaryUpdated || null,
+    onSummarizingChange: onSummarizingChange || null,
     onStreamStart: onStreamStart || null,
     onStreamChunk: onStreamChunk || null,
     onStreamEnd: onStreamEnd || null,
@@ -272,7 +355,8 @@ export async function initBrainEngine(
     onToolNotFound: onToolNotFound || null,
     onToolError: onToolError || null,
     onLlmOomFallback: onLlmOomFallback || null,
-    llmFallbackModel,
+    webLlmFallbackModel: resolvedWebLlmFallbackModel,
+    llmFallbackModel: resolvedWebLlmFallbackModel,
     enableOomFallback:
       typeof enableOomFallback === 'boolean' ? enableOomFallback : true,
     reasoning,
@@ -294,7 +378,12 @@ export async function initBrainEngine(
     autoContinuePrompt: autoContinuePrompt || null,
 
     chatLog: [],
-    chatSeq: 0,
+    get chatSeq(): number {
+      return _chatSeq;
+    },
+    _nextChatSeq(): number {
+      return ++_chatSeq;
+    },
 
     i18nEngine: i18nEngine || null,
     locale,
@@ -382,20 +471,32 @@ export async function initBrainEngine(
     updateChatMessage: (
       id: string,
       text: string,
-      streaming?: boolean,
+      optionsOrStreaming?: UpdateChatMessageOptions | boolean,
       reasoning?: string,
       reasoningTimeMs?: number,
       reasoningStreaming?: boolean
-    ) =>
-      updateChatMessage(
+    ) => {
+      if (
+        typeof optionsOrStreaming === 'object' &&
+        optionsOrStreaming !== null
+      ) {
+        return updateChatMessage(
+          brainEngine,
+          id,
+          text,
+          optionsOrStreaming as UpdateChatMessageOptions
+        );
+      }
+      return updateChatMessage(
         brainEngine,
         id,
         text,
-        streaming,
+        optionsOrStreaming as boolean,
         reasoning,
         reasoningTimeMs,
         reasoningStreaming
-      ),
+      );
+    },
 
     get llm() {
       return llm;
@@ -522,8 +623,9 @@ export async function initBrainEngine(
 
   llm = initWebLLM(
     {
-      llmModel,
-      llmFallbackModel,
+      webLlmModel: resolvedWebLlmModel,
+      webLlmFallbackModel: resolvedWebLlmFallbackModel,
+      fallbackModel: resolvedWebLlmFallbackModel,
       enableOomFallback: brainEngine.enableOomFallback,
       llmMaxTokens: resolvedLLMMaxTokens,
       llmIsStream,
@@ -725,10 +827,31 @@ export function getCompanionFallbackResponse(
       : defaultList;
 
   const currentIdx =
-    typeof engine.companionFallbackIdx === 'number'
-      ? engine.companionFallbackIdx
-      : 0;
-  engine.companionFallbackIdx = currentIdx + 1;
+    typeof (engine as { companionFallbackIndex?: number })
+      .companionFallbackIndex === 'number'
+      ? (engine as { companionFallbackIndex: number }).companionFallbackIndex
+      : typeof (engine as { companionFallbackIdx?: number })
+            .companionFallbackIdx === 'number'
+        ? (engine as { companionFallbackIdx: number }).companionFallbackIdx
+        : 0;
+
+  if (
+    typeof (engine as { _advanceCompanionFallback?: () => void })
+      ._advanceCompanionFallback === 'function'
+  ) {
+    (
+      engine as { _advanceCompanionFallback: () => void }
+    )._advanceCompanionFallback();
+  } else {
+    try {
+      (engine as Record<string, unknown>).companionFallbackIndex =
+        currentIdx + 1;
+      (engine as Record<string, unknown>).companionFallbackIdx =
+        currentIdx + 1;
+    } catch {
+      // Ignored if readonly
+    }
+  }
   return companionFallbackList[currentIdx % companionFallbackList.length];
 }
 
@@ -768,7 +891,16 @@ export function getRetrievalAnswer(
     Array.isArray(currentCustomMode?.knowledge) &&
     currentCustomMode.knowledge.length > 0
       ? currentCustomMode.knowledge
-      : engine.knowledge || [];
+      : Array.isArray(
+            (engine as { assistantKnowledge?: KnowledgeEntry[] })
+              .assistantKnowledge
+          ) &&
+          (
+            engine as { assistantKnowledge: KnowledgeEntry[] }
+          ).assistantKnowledge.length > 0
+        ? (engine as { assistantKnowledge: KnowledgeEntry[] })
+            .assistantKnowledge
+        : engine.knowledge || [];
 
   const site = findBestMatch(targetKnowledge, question);
   if (currentAvatarMode === AVATAR_MODE_MAP.companion) {
@@ -872,12 +1004,20 @@ export function addChatMessage(
   text: string,
   options: AddChatMessageOptions = {}
 ): string {
-  const engine = brainEngine as Partial<BrainEngine> & {
-    chatSeq: number;
-    chatLog: ChatLogItem[];
-  };
+  const engine = brainEngine as Partial<BrainEngine> & Record<string, unknown>;
+  const nextSeq =
+    typeof (engine as { _nextChatSeq?: () => number })._nextChatSeq ===
+    'function'
+      ? (engine as { _nextChatSeq: () => number })._nextChatSeq()
+      : typeof (engine as { chatSeq?: number }).chatSeq === 'number'
+        ? ++(engine as { chatSeq: number }).chatSeq
+        : 1;
+
+  if (Array.isArray(engine.chatLog) === false) {
+    engine.chatLog = [];
+  }
   const item: ChatLogItem = {
-    id: options.id || 'm' + ++engine.chatSeq,
+    id: options.id || 'm' + nextSeq,
     role: role === 'user' ? 'user' : 'assistant',
     text: String(text || '').slice(0, 4000),
     streaming: Boolean(options.streaming),
@@ -922,8 +1062,17 @@ export function addChatMessage(
  * @param brainEngine - Brain engine instance.
  * @param id - Target message ID.
  * @param text - Updated text content.
- * @param streaming - Whether message is still streaming.
+ * @param options - Message update options.
  * @returns Updated message ID.
+ */
+export function updateChatMessage(
+  brainEngine: BrainEngine | Record<string, unknown>,
+  id: string,
+  text: string,
+  options?: UpdateChatMessageOptions
+): string;
+/**
+ * @deprecated 請改用物件傳參形態 updateChatMessage(brainEngine, id, text, options)
  */
 export function updateChatMessage(
   brainEngine: BrainEngine | Record<string, unknown>,
@@ -933,11 +1082,38 @@ export function updateChatMessage(
   reasoning?: string,
   reasoningTimeMs?: number,
   reasoningStreaming?: boolean
+): string;
+export function updateChatMessage(
+  brainEngine: BrainEngine | Record<string, unknown>,
+  id: string,
+  text: string,
+  optionsOrStreaming?: UpdateChatMessageOptions | boolean,
+  reasoningArg?: string,
+  reasoningTimeMsArg?: number,
+  reasoningStreamingArg?: boolean
 ): string {
-  const engine = brainEngine as Partial<BrainEngine> & {
-    chatSeq: number;
-    chatLog: ChatLogItem[];
-  };
+  const engine = brainEngine as Partial<BrainEngine> & Record<string, unknown>;
+
+  const isOptionsObject =
+    typeof optionsOrStreaming === 'object' && optionsOrStreaming !== null;
+  const options: UpdateChatMessageOptions = isOptionsObject
+    ? (optionsOrStreaming as UpdateChatMessageOptions)
+    : {};
+
+  const streaming = isOptionsObject
+    ? Boolean(options.streaming)
+    : Boolean(optionsOrStreaming);
+  const reasoning = isOptionsObject ? options.reasoning : reasoningArg;
+  const reasoningTimeMs = isOptionsObject
+    ? options.reasoningTimeMs
+    : reasoningTimeMsArg;
+  const reasoningStreaming = isOptionsObject
+    ? options.reasoningStreaming
+    : reasoningStreamingArg;
+
+  if (Array.isArray(engine.chatLog) === false) {
+    engine.chatLog = [];
+  }
   const item = engine.chatLog.find((msg: ChatLogItem) => msg.id === id);
   if (item === undefined) {
     return addChatMessage(engine, 'assistant', text, {
@@ -1156,7 +1332,7 @@ export function validateBrainEngine(engine: unknown): {
     'classifyEmotion',
     'applyEmotionFromText'
   ];
-  const requiredProps = ['memory', 'llm', 'aiProvider', 'chatLog', 'chatSeq'];
+  const requiredProps = ['memory', 'llm', 'aiProvider', 'chatLog'];
   const missing: string[] = [];
   requiredMethods.forEach((methodName) => {
     if (typeof engineObj[methodName] !== 'function') {

@@ -97,16 +97,15 @@ export function initWebLLM(
   brain?: BrainEngine | Record<string, unknown>
 ): LLMEngine {
   const {
-    llmModel,
+    webLlmModel,
     model,
-    llmFallbackModel,
+    webLlmFallbackModel,
     fallbackModel,
     enableOomFallback = true,
     llmMaxTokens,
     maxTokens,
     llmIsStream,
     isStream,
-    LLMIsStream = true,
     onLoading,
     onLoadProgress,
     onLoaded,
@@ -121,26 +120,37 @@ export function initWebLLM(
     temperature
   } = setting;
 
-  const resolvedModel = llmModel || model || DEFAULT_LLM_MODEL;
+  const rawSetting = setting as Record<string, unknown>;
+  const resolvedModel =
+    (typeof webLlmModel === 'string' && webLlmModel !== '' ? webLlmModel : undefined) ||
+    (typeof rawSetting.llmModel === 'string' && rawSetting.llmModel !== ''
+      ? (rawSetting.llmModel as string)
+      : undefined) ||
+    (typeof model === 'string' && model !== '' ? model : undefined) ||
+    DEFAULT_LLM_MODEL;
+
   const resolvedTemperature =
     typeof temperature === 'number' && Number.isFinite(temperature) === true
       ? temperature
       : 0.6;
 
+  const resolvedFallbackInput =
+    webLlmFallbackModel !== undefined
+      ? webLlmFallbackModel
+      : (rawSetting.llmFallbackModel as string | null | false | undefined) !== undefined
+        ? (rawSetting.llmFallbackModel as string | null | false)
+        : fallbackModel;
+
   const isFallbackExplicitlyDisabled =
     enableOomFallback === false ||
-    llmFallbackModel === null ||
-    llmFallbackModel === false ||
-    fallbackModel === null ||
-    fallbackModel === false;
+    resolvedFallbackInput === null ||
+    resolvedFallbackInput === false;
 
   const resolvedFallbackModel =
     isFallbackExplicitlyDisabled === false
-      ? typeof llmFallbackModel === 'string' && llmFallbackModel !== ''
-        ? llmFallbackModel
-        : typeof fallbackModel === 'string' && fallbackModel !== ''
-          ? fallbackModel
-          : DEFAULT_LLM_FALLBACK_MODEL
+      ? typeof resolvedFallbackInput === 'string' && resolvedFallbackInput !== ''
+        ? resolvedFallbackInput
+        : DEFAULT_LLM_FALLBACK_MODEL
       : null;
 
   const resolvedMaxTokens =
@@ -159,8 +169,8 @@ export function initWebLLM(
       ? llmIsStream
       : typeof isStream === 'boolean'
         ? isStream
-        : typeof LLMIsStream === 'boolean'
-          ? LLMIsStream
+        : typeof rawSetting.LLMIsStream === 'boolean'
+          ? Boolean(rawSetting.LLMIsStream)
           : true;
 
   let engine: MLCEngineInstance | null = null;

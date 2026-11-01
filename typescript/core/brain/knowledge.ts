@@ -119,9 +119,14 @@ export function getTopKnowledge(
 ): KnowledgeEntry[] {
   const knowledge =
     brainEngine &&
-    Array.isArray((brainEngine as { knowledge?: KnowledgeEntry[] }).knowledge)
-      ? (brainEngine as { knowledge: KnowledgeEntry[] }).knowledge
-      : [];
+    Array.isArray(
+      (brainEngine as { assistantKnowledge?: KnowledgeEntry[] }).assistantKnowledge
+    )
+      ? (brainEngine as { assistantKnowledge: KnowledgeEntry[] }).assistantKnowledge
+      : brainEngine &&
+          Array.isArray((brainEngine as { knowledge?: KnowledgeEntry[] }).knowledge)
+        ? (brainEngine as { knowledge: KnowledgeEntry[] }).knowledge
+        : [];
 
   return knowledge
     .map((entry) => ({ entry, score: scoreKnowledgeEntry(question, entry) }))
