@@ -267,9 +267,6 @@ export async function initBrainEngine(
     get isSummarizing(): boolean {
       return _isSummarizing;
     },
-    get _isSummarizing(): boolean {
-      return _isSummarizing;
-    },
     _setSummarizing(val: boolean) {
       _isSummarizing = val;
     },

@@ -402,7 +402,7 @@ export async function triggerRollingSummaryIfNeeded(
     typeof engine.memory !== 'object' ||
     engine.memory === null ||
     engine.memory.enabled !== true ||
-    engine._isSummarizing === true
+    engine.isSummarizing === true
   ) {
     return;
   }
@@ -449,7 +449,6 @@ export async function triggerRollingSummaryIfNeeded(
     )._setSummarizing(true);
   } else {
     try {
-      (engine as Record<string, unknown>)._isSummarizing = true;
       (engine as Record<string, unknown>).isSummarizing = true;
     } catch {
       // Ignored if readonly
@@ -558,7 +557,6 @@ export async function triggerRollingSummaryIfNeeded(
         )._setSummarizing(false);
       } else {
         try {
-          (engine as Record<string, unknown>)._isSummarizing = false;
           (engine as Record<string, unknown>).isSummarizing = false;
         } catch {
           // Ignored if readonly

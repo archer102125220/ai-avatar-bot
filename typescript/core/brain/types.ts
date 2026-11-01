@@ -764,8 +764,6 @@ export interface BrainEngine {
   autoContinuePrompt: AutoContinuePromptResolver | null;
   /** Whether rolling summary is currently running in the background. */
   readonly isSummarizing: boolean;
-  /** @deprecated 內部屬性，請改用唯讀 isSummarizing */
-  readonly _isSummarizing?: boolean;
   /** Assistant 模式專屬知識庫遠端 URL。 */
   assistantKnowledgeUrl?: string;
   /** Assistant 模式專屬知識庫。 */

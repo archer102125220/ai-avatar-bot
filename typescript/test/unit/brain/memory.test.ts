@@ -333,13 +333,13 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
           chat: vi.fn(async () => ({ content: '最新精煉摘要：喜歡蘋果與香蕉' }))
         },
         onSummaryUpdated,
-        _isSummarizing: false
+        isSummarizing: false
       };
 
       await triggerRollingSummaryIfNeeded(
         mockBrainEngine as unknown as BrainEngine
       );
-      expect(mockBrainEngine._isSummarizing).toBe(true);
+      expect(mockBrainEngine.isSummarizing).toBe(true);
 
       // Fast-forward background timer
       await vi.advanceTimersByTimeAsync(100);
@@ -351,7 +351,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
       expect(onSummaryUpdated).toHaveBeenCalledWith(
         '最新精煉摘要：喜歡蘋果與香蕉'
       );
-      expect(mockBrainEngine._isSummarizing).toBe(false);
+      expect(mockBrainEngine.isSummarizing).toBe(false);
 
       // Trigger again with empty summary generated (should not update summary)
       mockBrainEngine.compression.summaryGenerator = vi.fn(async () => '');
@@ -401,7 +401,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
             }
           }
         },
-        _isSummarizing: false
+        isSummarizing: false
       };
 
       await triggerRollingSummaryIfNeeded(
@@ -420,7 +420,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
         mockBrainEngine as unknown as BrainEngine
       );
       await vi.advanceTimersByTimeAsync(100);
-      expect(mockBrainEngine._isSummarizing).toBe(false);
+      expect(mockBrainEngine.isSummarizing).toBe(false);
 
       // Test guard conditions
       expect(
@@ -434,7 +434,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
       expect(
         await triggerRollingSummaryIfNeeded({
           memory: { enabled: true },
-          _isSummarizing: true
+          isSummarizing: true
         } as unknown as BrainEngine)
       ).toBeUndefined();
       expect(
