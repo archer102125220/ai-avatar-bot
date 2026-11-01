@@ -755,6 +755,94 @@ describe('Orchestrator Engine Factory', () => {
       expect(brainEngine).toBeDefined();
       expect(typeof brainEngine?.answerQuestion).toBe('function');
     });
+
+    it('should support both item object and positional signatures for onAddChatMessage and onUpdateChatMessage', async () => {
+      const singleArgAdd = vi.fn((_item: unknown) => {});
+      const multiArgAdd = vi.fn((_role: string, _text: string) => {});
+      const singleArgUpdate = vi.fn((_item: unknown) => {});
+      const multiArgUpdate = vi.fn((_id: string, _text: string) => {});
+
+      let capturedBrainOptions!: MockCapturedBrainOptions;
+      const validBrain = {
+        addChatMessage: vi.fn(),
+        updateChatMessage: vi.fn(),
+        answerQuestion: vi.fn(),
+        getWelcomeText: vi.fn(),
+        buildLLMMessages: vi.fn(),
+        classifyEmotion: vi.fn(),
+        applyEmotionFromText: vi.fn(),
+        memory: {},
+        llm: {},
+        aiProvider: {},
+        chatLog: []
+      } as unknown as BrainEngine;
+
+      // 1. Test multi-arg positional invocation (fn.length > 1)
+      await setupBrainEngine({
+        options: {
+          customEngines: {
+            brain: (opts) => {
+              capturedBrainOptions = opts as unknown as MockCapturedBrainOptions;
+              return validBrain;
+            }
+          },
+          onAddChatMessage: multiArgAdd,
+          onUpdateChatMessage: multiArgUpdate
+        },
+        widget: mockWidget,
+        rootStore,
+        i18nEngine,
+        getEngines,
+        getUiDom,
+        streamPipeline: mockStreamPipeline
+      });
+
+      capturedBrainOptions.onAddChatMessage({ id: 'm1', role: 'user', text: '你好' });
+      expect(multiArgAdd).toHaveBeenCalledWith('user', '你好', {
+        id: 'm1',
+        role: 'user',
+        text: '你好'
+      });
+
+      capturedBrainOptions.onUpdateChatMessage({ id: 'm1', text: '更新你好' });
+      expect(multiArgUpdate).toHaveBeenCalledWith('m1', '更新你好', {
+        id: 'm1',
+        text: '更新你好'
+      });
+
+      // 2. Test single-arg object invocation (fn.length <= 1)
+      await setupBrainEngine({
+        options: {
+          customEngines: {
+            brain: (opts) => {
+              capturedBrainOptions = opts as unknown as MockCapturedBrainOptions;
+              return validBrain;
+            }
+          },
+          onAddChatMessage: singleArgAdd,
+          onUpdateChatMessage: singleArgUpdate
+        },
+        widget: mockWidget,
+        rootStore,
+        i18nEngine,
+        getEngines,
+        getUiDom,
+        streamPipeline: mockStreamPipeline
+      });
+
+      capturedBrainOptions.onAddChatMessage({ id: 'm2', role: 'assistant', text: '回覆' });
+      expect(singleArgAdd).toHaveBeenCalledWith({
+        id: 'm2',
+        role: 'assistant',
+        text: '回覆'
+      });
+
+      capturedBrainOptions.onUpdateChatMessage({ id: 'm2', text: '更新回覆' });
+      expect(singleArgUpdate).toHaveBeenCalledWith({
+        id: 'm2',
+        text: '更新回覆'
+      });
+    });
   });
 
   describe('setupSpeechEngine', () => {
@@ -1091,9 +1179,10 @@ describe('Orchestrator Engine Factory', () => {
       });
 
       const onAddChatMessage = vi.fn();
+      const onUpdateChatMessage = vi.fn();
       mockEngines.brainEngine = {
         addChatMessage: vi.fn().mockReturnValue('returned_message_id_999'),
-        updateChatMessage: vi.fn(),
+        updateChatMessage: vi.fn().mockReturnValue('returned_update_id_888'),
         chatLog: [],
         chatSeq: 0
       };
@@ -1101,14 +1190,15 @@ describe('Orchestrator Engine Factory', () => {
       setupToolsEngine({
         options: {
           customEngines: { tools: customToolsFactory },
-          onAddChatMessage
+          onAddChatMessage,
+          onUpdateChatMessage
         },
         widget: mockWidget,
         getEngines,
         getUiDom
       });
 
-      // 1. With brainEngine: must return messageId and not duplicate options.onAddChatMessage
+      // 1. With brainEngine: must return messageId and not duplicate options.onAddChatMessage / onUpdateChatMessage
       const resId = capturedToolsOptions.onAddChatMessage('assistant', 'Tool msg', {
         id: 'custom_id'
       });
@@ -1120,11 +1210,32 @@ describe('Orchestrator Engine Factory', () => {
       );
       expect(onAddChatMessage).not.toHaveBeenCalled();
 
-      // 2. Without brainEngine: triggers options.onAddChatMessage and returns undefined
+      const updateResId = capturedToolsOptions.onUpdateChatMessage(
+        'custom_id',
+        'Updated tool msg',
+        false
+      );
+      expect(updateResId).toBe('returned_update_id_888');
+      expect(mockEngines.brainEngine.updateChatMessage).toHaveBeenCalledWith(
+        'custom_id',
+        'Updated tool msg',
+        false
+      );
+      expect(onUpdateChatMessage).not.toHaveBeenCalled();
+
+      // 2. Without brainEngine: triggers options and returns undefined
       mockEngines.brainEngine = null as unknown as typeof mockEngines.brainEngine;
       const fallbackRes = capturedToolsOptions.onAddChatMessage('user', 'User msg', {});
       expect(fallbackRes).toBeUndefined();
       expect(onAddChatMessage).toHaveBeenCalledWith('user', 'User msg', {});
+
+      const fallbackUpdateRes = capturedToolsOptions.onUpdateChatMessage(
+        'm_1',
+        'Fallback update',
+        true
+      );
+      expect(fallbackUpdateRes).toBeUndefined();
+      expect(onUpdateChatMessage).toHaveBeenCalledWith('m_1', 'Fallback update', true);
     });
   });
 

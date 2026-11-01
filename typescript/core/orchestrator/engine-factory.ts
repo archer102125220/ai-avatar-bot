@@ -92,9 +92,7 @@ export async function setupBrainEngine({
     (typeof webLlmModel === 'string' && webLlmModel !== ''
       ? webLlmModel
       : undefined) ||
-    (typeof llmModel === 'string' && llmModel !== ''
-      ? llmModel
-      : undefined) ||
+    (typeof llmModel === 'string' && llmModel !== '' ? llmModel : undefined) ||
     (typeof rawOptions.llmModel === 'string' && rawOptions.llmModel !== ''
       ? (rawOptions.llmModel as string)
       : undefined) ||
@@ -362,8 +360,7 @@ export async function setupBrainEngine({
       const uiDom = getUiDom();
       const llmButtonEl = uiDom?.llmButtonEl;
       if (llmButtonEl instanceof HTMLElement) {
-        llmButtonEl.textContent =
-          '🧠 ' + Math.round(progressRatio * 100) + '%';
+        llmButtonEl.textContent = '🧠 ' + Math.round(progressRatio * 100) + '%';
       }
       return callOptionEvent(
         options,
@@ -472,7 +469,8 @@ export async function setupBrainEngine({
         typeof aiProviderObj?.model === 'string' ? aiProviderObj.model : '';
 
       if (llmButtonEl instanceof HTMLElement) {
-        llmButtonEl.textContent = isConnectionSuccessful === true ? '🧠✓' : '🧠✗';
+        llmButtonEl.textContent =
+          isConnectionSuccessful === true ? '🧠✓' : '🧠✗';
         if (isConnectionSuccessful === true) {
           llmButtonEl.setAttribute('css-llm-on', 'true');
         } else {
@@ -545,7 +543,13 @@ export async function setupBrainEngine({
             ? i18nEngine.t('brain.aiProvider.error')
             : 'AI 伺服器連不上（檢查 AI 伺服器是否在跑 / CORS）';
       }
-      return callOptionEvent(options, widget, 'onAiProviderError', error, ...args);
+      return callOptionEvent(
+        options,
+        widget,
+        'onAiProviderError',
+        error,
+        ...args
+      );
     },
     onSummaryUpdated(summary?: unknown, ...args: unknown[]) {
       return callOptionEvent(
@@ -570,6 +574,24 @@ export async function setupBrainEngine({
       if (uiDom?.historyPanelEl?.getAttribute('css-is-open') === 'true') {
         renderHistory(widget);
       }
+      const rawCallback = options.onAddChatMessage;
+      if (
+        typeof rawCallback === 'function' &&
+        rawCallback.length > 1 &&
+        typeof chatMessageItem === 'object' &&
+        chatMessageItem !== null
+      ) {
+        const item = chatMessageItem as { role?: string; text?: string };
+        return callOptionEvent(
+          options,
+          widget,
+          'onAddChatMessage',
+          item.role,
+          item.text,
+          chatMessageItem,
+          ...args
+        );
+      }
       return callOptionEvent(
         options,
         widget,
@@ -582,6 +604,24 @@ export async function setupBrainEngine({
       const uiDom = getUiDom();
       if (uiDom?.historyPanelEl?.getAttribute('css-is-open') === 'true') {
         renderHistory(widget);
+      }
+      const rawCallback = options.onUpdateChatMessage;
+      if (
+        typeof rawCallback === 'function' &&
+        rawCallback.length > 1 &&
+        typeof chatMessageItem === 'object' &&
+        chatMessageItem !== null
+      ) {
+        const item = chatMessageItem as { id?: string; text?: string };
+        return callOptionEvent(
+          options,
+          widget,
+          'onUpdateChatMessage',
+          item.id,
+          item.text,
+          chatMessageItem,
+          ...args
+        );
       }
       return callOptionEvent(
         options,
@@ -919,7 +959,7 @@ export function setupToolsEngine({
       ...args: unknown[]
     ) {
       const { brainEngine } = getEngines();
-      if (brainEngine) {
+      if (typeof brainEngine?.addChatMessage === 'function') {
         return brainEngine.addChatMessage(
           role,
           text,
@@ -946,6 +986,9 @@ export function setupToolsEngine({
       ...args: unknown[]
     ) {
       const { brainEngine } = getEngines();
+      if (typeof brainEngine?.updateChatMessage === 'function') {
+        return brainEngine.updateChatMessage(messageId, text, append);
+      }
       callOptionEvent(
         options,
         widget,
@@ -955,7 +998,7 @@ export function setupToolsEngine({
         append,
         ...args
       );
-      return brainEngine?.updateChatMessage(messageId, text, append);
+      return undefined;
     },
     onSetHistoryOpen(isOpen: boolean, ...args: unknown[]) {
       const uiDom = getUiDom();

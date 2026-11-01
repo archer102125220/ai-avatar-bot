@@ -393,9 +393,13 @@ export interface AvatarBotOptions {
   /** Callback fired when AI Provider connection or ping fails. */
   onAiProviderError?: (error: Error, ...args: unknown[]) => void;
   /** Callback fired when a new chat message is added. */
-  onAddChatMessage?: (role: ChatRole, text: string, ...args: unknown[]) => void;
+  onAddChatMessage?:
+    | ((item: ChatLogItem, ...args: unknown[]) => void)
+    | ((role: ChatRole, text: string, ...args: unknown[]) => void);
   /** Callback fired when an existing chat message is updated. */
-  onUpdateChatMessage?: (id: string, text: string, ...args: unknown[]) => void;
+  onUpdateChatMessage?:
+    | ((item: ChatLogItem, ...args: unknown[]) => void)
+    | ((id: string, text: string, ...args: unknown[]) => void);
   /** Callback fired when conversation history changes. */
   onChatHistoryChanged?: (history: ChatLogItem[], ...args: unknown[]) => void;
   /** Callback fired when spoken subtitle text changes. */
