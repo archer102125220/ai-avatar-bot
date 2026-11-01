@@ -164,10 +164,18 @@ export interface AvatarBotOptions {
   /** Neural voice model identifier for speech synthesis. */
   neuralVoice?: string;
   /** URL to knowledge base JSON for assistant persona. */
+  assistantKnowledgeUrl?: string;
+  /** @deprecated 請改用 assistantKnowledgeUrl */
   knowledgeUrl?: string;
   /** URL to knowledge base JSON for companion persona. */
   companionKnowledgeUrl?: string;
-  /** Preloaded knowledge base data. */
+  /** Preloaded knowledge base data for assistant persona. */
+  assistantKnowledge?:
+    | KnowledgeEntry[]
+    | Record<string, unknown>
+    | string
+    | null;
+  /** @deprecated 請改用 assistantKnowledge */
   knowledge?: KnowledgeEntry[] | Record<string, unknown> | string | null;
   /** Preloaded companion knowledge data. */
   companionKnowledge?:
@@ -176,9 +184,13 @@ export interface AvatarBotOptions {
   modelUrl?: string;
   /** Speech synthesis (TTS) API endpoint. */
   ttsEndpoint?: string;
-  /** In-browser WebLLM model identifier. */
+  /** In-browser WebGPU LLM model identifier (MLC format). */
+  webLlmModel?: string;
+  /** @deprecated 請改用 webLlmModel */
   llmModel?: string;
-  /** Fallback in-browser WebLLM model identifier when OOM occurs. Set to null or false to disable. */
+  /** Fallback in-browser WebGPU LLM model identifier when OOM occurs. Set to null or false to disable. */
+  webLlmFallbackModel?: string | null | false;
+  /** @deprecated 請改用 webLlmFallbackModel */
   llmFallbackModel?: string | null | false;
   /** Whether to enable automatic WebLLM OOM fallback. Defaults to true. */
   enableOomFallback?: boolean;
@@ -433,6 +445,8 @@ export interface AvatarBotOptions {
   onAutoContinueEnd?: (info: AutoContinueEndInfo, ...args: unknown[]) => void;
   /** Callback fired when rolling memory summary updates. */
   onSummaryUpdated?: (summary: string, ...args: unknown[]) => void;
+  /** Callback fired when background memory summarization state changes. */
+  onSummarizingChange?: (isSummarizing: boolean) => void;
   /** Callback fired when brain falls back between engines. */
   onBrainFallback?: (
     fromEngine: string,
@@ -525,12 +539,19 @@ export interface AiAvatarWidget {
   enableAiProvider: boolean;
   preloadWebLLM: boolean;
   autoFallbackWebLLM: boolean;
+  /** Fallback in-browser WebGPU LLM model identifier when OOM occurs. Set to null or false to disable. */
+  webLlmFallbackModel?: string | null | false;
+  /** @deprecated 請改用 webLlmFallbackModel */
   llmFallbackModel?: string | null | false;
   enableOomFallback?: boolean;
   enableAutoContinue: boolean;
   maxAutoContinuations: number;
   autoContinueMode: AutoContinueMode;
   autoContinuePrompt: AutoContinuePromptResolver | null;
+  /** Whether rolling summary is currently running in the background. */
+  readonly isSummarizing: boolean;
+  /** Resets companion fallback phrase counter to 0. */
+  resetCompanionFallback(): void;
   enableModelDrop: boolean;
   enableEngineToggle: boolean;
   /** Mounted root HTML container. */

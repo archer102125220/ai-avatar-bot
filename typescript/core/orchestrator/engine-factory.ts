@@ -50,16 +50,21 @@ export async function setupBrainEngine({
   getUiDom,
   streamPipeline
 }: SetupBrainParams): Promise<BrainEngine | null> {
+  const rawOptions = options as Record<string, unknown>;
   const {
-    llmModel = DEFAULT_LLM_MODEL,
-    llmFallbackModel = options.llmFallbackModel,
+    webLlmModel,
+    llmModel,
+    webLlmFallbackModel,
+    llmFallbackModel,
     enableOomFallback = options.enableOomFallback,
     llmMaxTokens,
     maxHistoryTurns,
     memoryKey,
     memoryAdapter,
+    assistantKnowledgeUrl = '',
     knowledgeUrl = '',
     companionKnowledgeUrl = '',
+    assistantKnowledge = null,
     knowledge = null,
     companionKnowledge = null,
     companionFallback = [],
@@ -83,6 +88,38 @@ export async function setupBrainEngine({
     genderRule
   } = options;
 
+  const resolvedWebLlmModel =
+    (typeof webLlmModel === 'string' && webLlmModel !== ''
+      ? webLlmModel
+      : undefined) ||
+    (typeof llmModel === 'string' && llmModel !== ''
+      ? llmModel
+      : undefined) ||
+    (typeof rawOptions.llmModel === 'string' && rawOptions.llmModel !== ''
+      ? (rawOptions.llmModel as string)
+      : undefined) ||
+    DEFAULT_LLM_MODEL;
+
+  const resolvedWebLlmFallbackModel =
+    webLlmFallbackModel !== undefined
+      ? webLlmFallbackModel
+      : llmFallbackModel !== undefined
+        ? llmFallbackModel
+        : (rawOptions.llmFallbackModel as string | null | false | undefined) !==
+            undefined
+          ? (rawOptions.llmFallbackModel as string | null | false)
+          : undefined;
+
+  const resolvedAssistantKnowledge =
+    assistantKnowledge !== null && assistantKnowledge !== undefined
+      ? assistantKnowledge
+      : knowledge;
+
+  const resolvedAssistantKnowledgeUrl =
+    typeof assistantKnowledgeUrl === 'string' && assistantKnowledgeUrl !== ''
+      ? assistantKnowledgeUrl
+      : knowledgeUrl;
+
   const resolvedLlmMaxTokens =
     typeof llmMaxTokens === 'number' &&
     Number.isFinite(llmMaxTokens) === true &&
@@ -91,8 +128,10 @@ export async function setupBrainEngine({
       : DEFAULT_LLM_MAX_TOKENS;
 
   const brainOptions: Record<string, unknown> = {
-    llmModel,
-    llmFallbackModel,
+    webLlmModel: resolvedWebLlmModel,
+    llmModel: resolvedWebLlmModel,
+    webLlmFallbackModel: resolvedWebLlmFallbackModel,
+    llmFallbackModel: resolvedWebLlmFallbackModel,
     enableOomFallback:
       typeof enableOomFallback === 'boolean' ? enableOomFallback : true,
     reasoning: options.reasoning,
@@ -147,9 +186,11 @@ export async function setupBrainEngine({
     memoryKey,
     memoryAdapter,
     modes: rootStore.getState().modes,
-    knowledgeUrl,
+    assistantKnowledgeUrl: resolvedAssistantKnowledgeUrl,
+    knowledgeUrl: resolvedAssistantKnowledgeUrl,
     companionKnowledgeUrl,
-    knowledge,
+    assistantKnowledge: resolvedAssistantKnowledge,
+    knowledge: resolvedAssistantKnowledge,
     companionKnowledge,
     companionFallback,
     aiProviderBaseUrl,
@@ -515,6 +556,15 @@ export async function setupBrainEngine({
         ...args
       );
     },
+    onSummarizingChange(isSummarizing: boolean, ...args: unknown[]) {
+      return callOptionEvent(
+        options,
+        widget,
+        'onSummarizingChange',
+        isSummarizing,
+        ...args
+      );
+    },
     onAddChatMessage(chatMessageItem?: unknown, ...args: unknown[]) {
       const uiDom = getUiDom();
       if (uiDom?.historyPanelEl?.getAttribute('css-is-open') === 'true') {
@@ -869,6 +919,15 @@ export function setupToolsEngine({
       ...args: unknown[]
     ) {
       const { brainEngine } = getEngines();
+      if (brainEngine) {
+        return brainEngine.addChatMessage(
+          role,
+          text,
+          messageOptions as Parameters<
+            NonNullable<typeof brainEngine>['addChatMessage']
+          >[2]
+        );
+      }
       callOptionEvent(
         options,
         widget,
@@ -878,13 +937,7 @@ export function setupToolsEngine({
         messageOptions,
         ...args
       );
-      return brainEngine?.addChatMessage(
-        role,
-        text,
-        messageOptions as Parameters<
-          NonNullable<typeof brainEngine>['addChatMessage']
-        >[2]
-      );
+      return undefined;
     },
     onUpdateChatMessage(
       messageId: string,

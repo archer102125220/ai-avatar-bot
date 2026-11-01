@@ -540,8 +540,15 @@ export function createAvatarWidget({
       }
     },
 
+    get webLlmFallbackModel(): string | null | false | undefined {
+      return (
+        options?.webLlmFallbackModel !== undefined
+          ? options.webLlmFallbackModel
+          : options?.llmFallbackModel
+      );
+    },
     get llmFallbackModel(): string | null | false | undefined {
-      return options?.llmFallbackModel;
+      return this.webLlmFallbackModel;
     },
     get enableOomFallback(): boolean {
       return typeof options?.enableOomFallback === 'boolean'
@@ -609,6 +616,12 @@ export function createAvatarWidget({
 
     get brainEngine(): BrainEngine {
       return getEngines().brainEngine as BrainEngine;
+    },
+    get isSummarizing(): boolean {
+      return getEngines().brainEngine?.isSummarizing ?? false;
+    },
+    resetCompanionFallback(): void {
+      getEngines().brainEngine?.resetCompanionFallback?.();
     },
     get speechEngine(): SpeechEngine {
       return getEngines().speechEngine as SpeechEngine;
