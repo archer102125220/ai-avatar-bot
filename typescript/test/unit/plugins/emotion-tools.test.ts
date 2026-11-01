@@ -26,6 +26,7 @@ describe('Emotion Tools Plugin', () => {
     expect(tool.name).toBe(DEFAULT_EMOTION_TOOL_NAME);
     expect(tool.routingMode).toBe(TOOL_ROUTING_MODE_MAP.AI);
     expect(tool.resultMode).toBe(TOOL_RESULT_MODE_MAP.AI_SUMMARY);
+    expect(tool.requiresConfirmation).toBe(false);
     expect(tool.inputSchema.type).toBe(TOOL_SCHEMA_TYPE_MAP.OBJECT);
     expect(tool.inputSchema.properties?.emotion?.enum).toEqual(
       DEFAULT_SUPPORTED_EMOTIONS
@@ -47,7 +48,16 @@ describe('Emotion Tools Plugin', () => {
     expect(tool.name).toBe('custom_emotion_tool');
     expect(tool.routingMode).toBe('client');
     expect(tool.resultMode).toBe('direct');
+    expect(tool.requiresConfirmation).toBe(false);
     expect(tool.inputSchema.properties?.emotion?.enum).toEqual(customEmotions);
+  });
+
+  it('should allow setting requiresConfirmation to true if explicitly configured', () => {
+    const tools = createEmotionToolsPlugin({
+      requiresConfirmation: true
+    });
+    const tool = tools[0] as ExecutableEmotionTool;
+    expect(tool.requiresConfirmation).toBe(true);
   });
 
   it('should execute successfully with targetSkinEngine.setEmotion and trigger callback', async () => {

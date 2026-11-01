@@ -24,6 +24,11 @@ export interface EmotionToolsPluginOptions {
   routingMode?: string;
   /** Result handling mode ('ai_summary' | 'direct'). */
   resultMode?: string;
+  /**
+   * 是否需要使用者點擊核准確認。
+   * 人像表情動作預設為 false（由 AI 直接驅動人像，不阻礙流暢對話）。
+   */
+  requiresConfirmation?: boolean;
   /** Optional callback fired when an emotion or gesture is triggered. */
   onEmotionTrigger?:
     ((emotionName: string, context?: Record<string, unknown>) => void) | null;
@@ -45,6 +50,7 @@ export function createEmotionToolsPlugin(
     description = '當對話情境需要表達情緒（如高興微笑、驚訝、悲傷、思考）或肢體動作（如揮手招呼、鞠躬、放鬆）時呼叫此工具。',
     routingMode = TOOL_ROUTING_MODE_MAP.AI,
     resultMode = TOOL_RESULT_MODE_MAP.AI_SUMMARY,
+    requiresConfirmation = false,
     onEmotionTrigger = null
   } = options;
 
@@ -64,6 +70,7 @@ export function createEmotionToolsPlugin(
       description,
       routingMode,
       resultMode,
+      requiresConfirmation,
       inputSchema: {
         type: TOOL_SCHEMA_TYPE_MAP.OBJECT,
         properties: {
