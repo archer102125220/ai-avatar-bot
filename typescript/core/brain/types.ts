@@ -247,6 +247,17 @@ export interface AddChatMessageOptions {
 }
 
 /**
+ * Options for updating an existing message in the chat log.
+ */
+export interface UpdateChatMessageOptions {
+  streaming?: boolean;
+  reasoning?: string;
+  reasoningTimeMs?: number;
+  reasoningStreaming?: boolean;
+  [key: string]: unknown;
+}
+
+/**
  * Tool call structure parsed from model output.
  */
 export interface ParsedToolCall {
@@ -262,17 +273,18 @@ export interface ParsedToolCall {
  * Options for in-browser WebLLM engine.
  */
 export interface LLMEngineOptions {
-  llmModel?: string;
+  /** In-browser WebGPU LLM model identifier (MLC format). */
+  webLlmModel?: string;
   model?: string;
   temperature?: number;
-  llmFallbackModel?: string | null | false;
+  /** Fallback model identifier for WebGPU OOM recovery. */
+  webLlmFallbackModel?: string | null | false;
   fallbackModel?: string | null | false;
   enableOomFallback?: boolean;
   llmMaxTokens?: number;
   maxTokens?: number;
   llmIsStream?: boolean;
   isStream?: boolean;
-  LLMIsStream?: boolean;
   onLoading?: ((...args: unknown[]) => unknown) | null;
   onLoadProgress?: ((...args: unknown[]) => unknown) | null;
   onLoaded?: ((...args: unknown[]) => unknown) | null;
@@ -379,6 +391,7 @@ export type AiProviderToolCallExtractor = (
  */
 export interface AiProviderOptions {
   enableAiProvider?: boolean;
+  /** @deprecated 請改用 enableAiProvider 或 enabled */
   providerEnabled?: boolean;
   enabled?: boolean;
   providerBaseUrl?: string;
@@ -546,12 +559,24 @@ export interface BrainEngineOptions {
   memoryAdapter?: MemoryAdapter | null;
   compression?: BrainCompressionOptions;
   modes?: Record<string, unknown>;
-  llmModel?: string;
-  llmFallbackModel?: string | null | false;
+  /** In-browser WebGPU LLM model identifier (MLC format). */
+  webLlmModel?: string;
+  /** Fallback model identifier for WebGPU OOM recovery. */
+  webLlmFallbackModel?: string | null | false;
   enableOomFallback?: boolean;
   preloadWebLLM?: boolean;
   autoFallbackWebLLM?: boolean;
+  /** Assistant 模式專屬知識庫。 */
+  assistantKnowledge?:
+    | KnowledgeEntry[]
+    | Record<string, unknown>
+    | string
+    | null;
+  /** Assistant 模式專屬知識庫遠端 URL。 */
+  assistantKnowledgeUrl?: string;
+  /** @deprecated 請改用 assistantKnowledge */
   knowledge?: KnowledgeEntry[] | Record<string, unknown> | string | null;
+  /** @deprecated 請改用 assistantKnowledgeUrl */
   knowledgeUrl?: string;
   companionKnowledge?:
     KnowledgeEntry[] | Record<string, unknown> | string | null;
@@ -615,6 +640,8 @@ export interface BrainEngineOptions {
   onSpokenAudioTextChange?: (text: string, ...args: unknown[]) => unknown;
   onEmotionChange?: (emotion: string, ...args: unknown[]) => unknown;
   onSummaryUpdated?: (summary: string, ...args: unknown[]) => unknown;
+  /** Callback fired when background memory summarization state changes. */
+  onSummarizingChange?: (isSummarizing: boolean) => void;
   onStreamStart?: (...args: unknown[]) => unknown;
   onStreamChunk?: (chunk: string, ...args: unknown[]) => unknown;
   onStreamEnd?: (fullText: string, ...args: unknown[]) => unknown;
@@ -647,6 +674,8 @@ export interface BrainEngineOptions {
   aiProviderMaxTokens?: number;
   aiProviderIsStream?: boolean;
   aiProviderExtractToolCalls?: ((...args: unknown[]) => unknown) | null;
+  /** Pre-registered static tool definitions provided to the brain engine directly. */
+  tools?: ToolDefinition[];
   getTools?: () => ToolDefinition[];
   getToolByName?: (name: string) => ToolDefinition | null;
   offerToolConfirmation?: (
@@ -706,21 +735,40 @@ export interface BrainEngine {
   enableAiProvider: boolean;
   preloadWebLLM: boolean;
   autoFallbackWebLLM: boolean;
+  /** Fallback model identifier for WebGPU OOM recovery. */
+  webLlmFallbackModel?: string | null | false;
+  /** @deprecated 請改用 webLlmFallbackModel */
   llmFallbackModel?: string | null | false;
   enableOomFallback?: boolean;
   enableAutoContinue: boolean;
   maxAutoContinuations: number;
   autoContinueMode: AutoContinueMode;
   autoContinuePrompt: AutoContinuePromptResolver | null;
-  _isSummarizing?: boolean;
+  /** Whether rolling summary is currently running in the background. */
+  readonly isSummarizing: boolean;
+  /** @deprecated 內部屬性，請改用唯讀 isSummarizing */
+  readonly _isSummarizing?: boolean;
+  /** Assistant 模式專屬知識庫遠端 URL。 */
+  assistantKnowledgeUrl?: string;
+  /** Assistant 模式專屬知識庫。 */
+  assistantKnowledge?: KnowledgeEntry[];
+  /** @deprecated 請改用 assistantKnowledgeUrl */
   knowledgeUrl?: string;
+  /** @deprecated 請改用 assistantKnowledge */
   knowledge: KnowledgeEntry[];
   companionKnowledgeUrl?: string;
   companionKnowledge: KnowledgeEntry[];
   companionFallback?: unknown;
-  companionFallbackIdx: number;
+  /** Pointer index of current fallback phrase in companion persona mode. */
+  readonly companionFallbackIndex: number;
+  /** @deprecated 請改用 companionFallbackIndex */
+  readonly companionFallbackIdx: number;
+  /** Resets companion fallback phrase counter to 0. */
+  resetCompanionFallback(): void;
   companionFallbackContext?: string | ((context: unknown) => string);
   assistantFallbackContext?: string | ((context: unknown) => string);
+  /** Pre-registered static tool definitions provided to the brain engine directly. */
+  tools?: ToolDefinition[];
   getTools: () => ToolDefinition[];
   getToolByName: ((name: string) => ToolDefinition | null) | null;
   offerToolConfirmation:
@@ -788,6 +836,8 @@ export interface BrainEngine {
     ((text: string, ...args: unknown[]) => unknown) | null;
   onEmotionChange: ((emotion: string, ...args: unknown[]) => unknown) | null;
   onSummaryUpdated: ((summary: string, ...args: unknown[]) => unknown) | null;
+  /** Callback fired when background memory summarization state changes. */
+  readonly onSummarizingChange?: ((isSummarizing: boolean) => void) | null;
   onStreamStart: ((...args: unknown[]) => unknown) | null;
   onStreamChunk: ((chunk: string, ...args: unknown[]) => unknown) | null;
   onStreamEnd: ((fullText: string, ...args: unknown[]) => unknown) | null;
@@ -811,7 +861,8 @@ export interface BrainEngine {
     ((info: ToolNotFoundErrorInfo, ...args: unknown[]) => unknown) | null;
   onToolError: ((info: ToolErrorInfo, ...args: unknown[]) => unknown) | null;
   chatLog: ChatLogItem[];
-  chatSeq: number;
+  /** Monotonically increasing message sequence ID counter. */
+  readonly chatSeq: number;
   welcomeText: string | ((context: unknown) => string) | null;
   companionWelcomeText: string | ((context: unknown) => string) | null;
   assistantWelcomeText: string | ((context: unknown) => string) | null;
@@ -844,6 +895,14 @@ export interface BrainEngine {
     text: string,
     options?: AddChatMessageOptions
   ): string;
+  updateChatMessage(
+    id: string,
+    text: string,
+    options?: UpdateChatMessageOptions
+  ): string;
+  /**
+   * @deprecated 請改用物件傳參形態 updateChatMessage(id, text, options)
+   */
   updateChatMessage(
     id: string,
     text: string,
