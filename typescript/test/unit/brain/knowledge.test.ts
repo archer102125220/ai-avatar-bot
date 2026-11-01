@@ -139,6 +139,27 @@ describe('Unit Test: core/brain/knowledge.js', () => {
       ).toEqual([]);
     });
 
+    it('should prioritize assistantKnowledge over deprecated knowledge', () => {
+      const assistantKnowledge: KnowledgeEntry[] = [
+        { q: '新版', kw: '新版', a: '來自 assistantKnowledge' }
+      ];
+      const legacyKnowledge: KnowledgeEntry[] = [
+        { q: '舊版', kw: '舊版', a: '來自 knowledge' }
+      ];
+
+      const brainEngine = {
+        assistantKnowledge,
+        knowledge: legacyKnowledge
+      };
+
+      const top = getTopKnowledge(
+        brainEngine as unknown as Parameters<typeof getTopKnowledge>[0],
+        '新版',
+        1
+      );
+      expect(top[0].a).toBe('來自 assistantKnowledge');
+    });
+
     it('should score knowledge entry with message array question and handle null findBestMatch', () => {
       const entry: KnowledgeEntry = {
         q: '如何安裝',

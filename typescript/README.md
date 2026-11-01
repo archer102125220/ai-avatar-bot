@@ -294,9 +294,9 @@ const options: AvatarBotOptions = {
   locale: 'en-US',
   
   // Brain Engine Configuration (WebLLM in-browser inference)
-  llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+  webLlmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
   welcomeText: 'Hello! I am your AI avatar assistant built with TypeScript.',
-  knowledge: knowledgeBase,
+  assistantKnowledge: knowledgeBase,
   
   // Context Compression & Memory Budget
   enableMemory: true,
@@ -479,8 +479,8 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `aiProviderCreateFetchPayload` | `AiProviderFetchPayloadFactory \| Record<string, unknown> \| BodyInit` | `undefined` | Custom JSON payload factory function or object. |
 | `aiProviderResponseFormat` | `string \| Record<string, unknown>` | `undefined` | Custom AI provider response format (`'sse'`, `'json'`, etc.). |
 | `aiProviderExtractToolCalls` | `AiProviderToolCallExtractor` | `undefined` | Custom parser callback for extracting tool calls from streaming chunks. |
-| `llmModel` | `string` | `'Hermes-3-Llama-3.1-8B-q4f32_1-MLC'` | Primary in-browser WebLLM model name (flagship tool calling & reasoning). |
-| `llmFallbackModel` | `string \| null \| false` | `'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'` | Fallback WebLLM model when WebGPU encounters OOM. Set to `null` to disallow fallback. |
+| `webLlmModel` | `string` | `'Hermes-3-Llama-3.1-8B-q4f32_1-MLC'` | Primary in-browser WebLLM model name (flagship tool calling & reasoning). |
+| `webLlmFallbackModel` | `string \| null \| false` | `'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'` | Fallback WebLLM model when WebGPU encounters OOM. Set to `null` to disallow fallback. |
 | `enableOomFallback` | `boolean` | `true` | Whether to automatically fallback to lightweight model on WebGPU OOM errors. |
 | `reasoning` | `ReasoningOptions` | `{ mode: 'auto', showThinkingInBubble: true }` | ⚠️ **[Experimental]** AI reasoning/thinking options (`mode`: `'auto' \| 'always' \| 'never'`, `showThinkingInBubble`: `boolean`, `promptDirective?`: `string \| ((locale: string) => string) \| false`). Stability across models is currently under active validation. |
 | `llmMaxTokens` | `number` | `1024` | Maximum response tokens limit for in-browser WebLLM. |
@@ -490,8 +490,11 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `maxAutoContinuations` | `number` | `3` | Maximum consecutive auto-continuation turns limit. |
 | `autoContinueMode` | `AutoContinueMode` (`'stream' \| 'buffered'`) | `'stream'` | Output mode for auto-continuation. |
 | `autoContinuePrompt` | `AutoContinuePromptResolver \| null` | `null` | Custom continuation prompt string or dynamic resolver function. |
-| `knowledge` | `KnowledgeEntry[] \| Record<string, unknown> \| string \| null` | `null` | Preloaded knowledge base for assistant mode. |
+| `assistantKnowledge` | `KnowledgeEntry[] \| Record<string, unknown> \| string \| null` | `null` | Preloaded knowledge base for assistant mode (replaces legacy `knowledge`). |
+| `assistantKnowledgeUrl` | `string \| null` | `null` | Remote JSON knowledge base URL for assistant mode. |
 | `companionKnowledge` | `KnowledgeEntry[] \| Record<string, unknown> \| string \| null` | `null` | Preloaded knowledge base for companion mode. |
+| `companionKnowledgeUrl` | `string \| null` | `null` | Remote JSON knowledge base URL for companion mode. |
+| `onSummarizingChange` | `(isSummarizing: boolean) => void` | `undefined` | Callback fired when memory background rolling summarization begins or ends. |
 | `modes` | `Record<string, unknown>` | `{}` | Declarative custom mode definitions. |
 
 ### Memory & Context Compression
@@ -880,7 +883,7 @@ When integrating models for Reasoning (Chain-of-Thought) and Function Calling (T
 - **Tier 1 (Flagship Default)**: Loads `Hermes-3-Llama-3.1-8B-q4f32_1-MLC` for full Function Calling and deep reasoning capability.
 - **Tier 2 (Lightweight Fallback)**: If WebGPU allocation fails (OOM / out-of-memory), fires `onLlmOomFallback` and automatically falls back to `Qwen2.5-1.5B-Instruct-q4f16_1-MLC` (~1.1GB download, ~1.2GB VRAM).
 - **Fail-Fast**: If the fallback model also fails, immediately throws a typed error rather than entering an infinite retry loop.
-- **Customization**: Set `llmFallbackModel: null` to disallow fallback and strictly require the primary model.
+- **Customization**: Set `webLlmFallbackModel: null` to disallow fallback and strictly require the primary model.
 
 ```typescript
 import { 
@@ -894,8 +897,8 @@ import {
 
 const widget = await initAvatarBot({
   container: document.getElementById('avatar-container'),
-  llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
-  llmFallbackModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+  webLlmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+  webLlmFallbackModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
   enableOomFallback: true,
 
   reasoning: {
@@ -1366,8 +1369,12 @@ export interface AiAvatarWidget {
   enableModelDrop: boolean;
   enableEngineToggle: boolean;
   readonly reasoning?: ReasoningOptions;
+  webLlmFallbackModel?: string | null | false;
+  /** @deprecated Use webLlmFallbackModel instead */
   llmFallbackModel?: string | null | false;
   enableOomFallback?: boolean;
+  readonly isSummarizing: boolean;
+  resetCompanionFallback(): void;
 }
 ```
 
@@ -1469,6 +1476,30 @@ yarn test:smoke
 
 ### Q3: How do I switch between 2D (Live2D) and 3D (VRM)?
 > **A:** Set `startMode: '2d'` or `'3d'` during initialization, or switch dynamically at runtime via `widget.skinEngine.engineMode = '3d'`.
+
+---
+
+## 🗺️ Future Architecture Roadmap (TODOs)
+
+To maintain stability and avoid scope creep during our current npm release, three future architectural improvements are officially tracked on our roadmap:
+
+### 📌 TODO 1: Domain-Neutral Callback Naming for Independent Brain Package
+- **Background**: Callbacks in `BrainEngineOptions` (`onSpokenAudioPlayNow`, `onSpokenDisplayTextChange`, `onEmotionChange`) borrow domain terms from the speech and skin engines.
+- **Future Plan**: When separating `@ai-avatar/brain` into a standalone cognitive reasoning package:
+  - `onSpokenAudioPlayNow` ➔ `onOutputTextReady` or `onFinalAnswer`
+  - `onSpokenDisplayTextChange` / `onSpokenAudioTextChange` ➔ `onStreamChunk` or `onStreamTextChange`
+  - `onEmotionChange` ➔ `onSentimentChange` or `onIntentChange`
+  - Bidirectional aliases will be maintained for smooth transition.
+
+### 📌 TODO 2: Multi-Knowledge RAG Weighted Retrieval
+- **Background**: The current RAG prompt builder indexes `assistantKnowledge` while `companionKnowledge` is queried separately in companion mode.
+- **Future Plan**:
+  - Introduce three-tier knowledge layers: `sharedKnowledge`, `assistantKnowledge`, and `companionKnowledge`.
+  - In `getTopKnowledge`: merge retrieval for the active mode (e.g. `[assistantKnowledge, sharedKnowledge]` with 1.2x weight on domain-specific entries).
+
+### 📌 TODO 3: `updateChatMessage` Signature Convergence to Pure Options Object
+- **Background**: Overloaded for 100% backward compatibility to support both `UpdateChatMessageOptions` and legacy 6-argument positional calls.
+- **Future Plan**: In the next major release (semver major bump), remove the long positional parameter overload, standardizing solely on `updateChatMessage(engine, id, text, options?: UpdateChatMessageOptions)`.
 
 ---
 

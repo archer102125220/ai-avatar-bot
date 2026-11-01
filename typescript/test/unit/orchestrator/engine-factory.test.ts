@@ -1069,6 +1069,63 @@ describe('Orchestrator Engine Factory', () => {
       });
       expect(toolsEngineThrows).toBeDefined();
     });
+
+    it('should protect onAddChatMessage lifeline returning messageId and prevent duplicate broadcast', () => {
+      let capturedToolsOptions!: MockCapturedToolsOptions;
+      const customToolsFactory = vi.fn((opts: unknown) => {
+        capturedToolsOptions = opts as MockCapturedToolsOptions;
+        return {
+          HOST_TOOLS: [],
+          routeHostTool: vi.fn(),
+          prepareTool: vi.fn(),
+          continueToolInput: vi.fn(),
+          offerToolChoices: vi.fn(),
+          continueToolChoice: vi.fn(),
+          chooseTool: vi.fn(),
+          offerHostTool: vi.fn(),
+          executePendingTool: vi.fn(),
+          cancelPendingTool: vi.fn(),
+          continueToolConfirmation: vi.fn(),
+          handleToolResult: vi.fn()
+        } as unknown as ToolsEngine;
+      });
+
+      const onAddChatMessage = vi.fn();
+      mockEngines.brainEngine = {
+        addChatMessage: vi.fn().mockReturnValue('returned_message_id_999'),
+        updateChatMessage: vi.fn(),
+        chatLog: [],
+        chatSeq: 0
+      };
+
+      setupToolsEngine({
+        options: {
+          customEngines: { tools: customToolsFactory },
+          onAddChatMessage
+        },
+        widget: mockWidget,
+        getEngines,
+        getUiDom
+      });
+
+      // 1. With brainEngine: must return messageId and not duplicate options.onAddChatMessage
+      const resId = capturedToolsOptions.onAddChatMessage('assistant', 'Tool msg', {
+        id: 'custom_id'
+      });
+      expect(resId).toBe('returned_message_id_999');
+      expect(mockEngines.brainEngine.addChatMessage).toHaveBeenCalledWith(
+        'assistant',
+        'Tool msg',
+        { id: 'custom_id' }
+      );
+      expect(onAddChatMessage).not.toHaveBeenCalled();
+
+      // 2. Without brainEngine: triggers options.onAddChatMessage and returns undefined
+      mockEngines.brainEngine = null as unknown as typeof mockEngines.brainEngine;
+      const fallbackRes = capturedToolsOptions.onAddChatMessage('user', 'User msg', {});
+      expect(fallbackRes).toBeUndefined();
+      expect(onAddChatMessage).toHaveBeenCalledWith('user', 'User msg', {});
+    });
   });
 
   describe('setupSkinEngine', () => {

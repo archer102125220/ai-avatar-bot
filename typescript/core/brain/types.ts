@@ -566,7 +566,16 @@ export interface BrainEngineOptions {
   enableOomFallback?: boolean;
   preloadWebLLM?: boolean;
   autoFallbackWebLLM?: boolean;
-  /** Assistant 模式專屬知識庫。 */
+  /**
+   * Assistant 模式專屬知識庫。
+   *
+   * @remarks
+   * TODO 2 (Architecture Roadmap): 在多角色或跨模式場景下，規劃引入三層 RAG 分類架構：
+   *   - sharedKnowledge / sharedKnowledgeUrl：跨模式通用共用知識庫（如公司 FAQ）。
+   *   - assistantKnowledge / assistantKnowledgeUrl：助理模式專業手冊。
+   *   - companionKnowledge / companionKnowledgeUrl：陪伴模式專屬人設背景。
+   * 於 getTopKnowledge 依當前模式合併檢索（專屬庫加權 1.2x、共用庫 1.0x）並重排序取 Top-K。
+   */
   assistantKnowledge?:
     | KnowledgeEntry[]
     | Record<string, unknown>
@@ -635,6 +644,15 @@ export interface BrainEngineOptions {
     history: ChatLogItem[],
     ...args: unknown[]
   ) => unknown;
+  /**
+   * 推論結果文字播放通知。
+   *
+   * @remarks
+   * TODO 1 (Architecture Roadmap): 未來大腦獨立拆包 (@ai-avatar/brain) 時，將回呼更名為中立名稱以解除領域強綁定：
+   *   - onSpokenAudioPlayNow ➔ onOutputTextReady 或 onFinalAnswer
+   *   - onSpokenDisplayTextChange / onSpokenAudioTextChange ➔ onStreamChunk 或 onStreamTextChange
+   *   - onEmotionChange ➔ onSentimentChange 或 onIntentChange
+   */
   onSpokenAudioPlayNow?: (text: string, ...args: unknown[]) => unknown;
   onSpokenDisplayTextChange?: (text: string, ...args: unknown[]) => unknown;
   onSpokenAudioTextChange?: (text: string, ...args: unknown[]) => unknown;

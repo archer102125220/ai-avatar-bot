@@ -297,9 +297,9 @@ const options: AvatarBotOptions = {
   locale: 'zh-TW',
   
   // 大腦引擎配置（以瀏覽器端 WebLLM 模型為例）
-  llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+  webLlmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
   welcomeText: '你好！我是以 TypeScript 重構的專屬 AI 虛擬助理。',
-  knowledge: knowledgeBase,
+  assistantKnowledge: knowledgeBase,
   
   // 上下文壓縮與記憶預算
   enableMemory: true,
@@ -482,8 +482,8 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `aiProviderCreateFetchPayload` | `AiProviderFetchPayloadFactory \| Record<string, unknown> \| BodyInit` | `undefined` | 自訂 JSON 請求負載生成工廠函式。 |
 | `aiProviderResponseFormat` | `string \| Record<string, unknown>` | `undefined` | 遠端 AI 回應解析格式（`'sse'`, `'json'` 或自訂解析物件）。 |
 | `aiProviderExtractToolCalls` | `AiProviderToolCallExtractor` | `undefined` | 自串流 Chunk 中抽取 Tool Call 的型別化解析勾子。 |
-| `llmModel` | `string` | `'Hermes-3-Llama-3.1-8B-q4f32_1-MLC'` | 瀏覽器端 WebLLM 主模型名稱（預設為旗艦 8B 模型）。 |
-| `llmFallbackModel` | `string \| null \| false` | `'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'` | WebGPU 記憶體不足（OOM）時的備選保底模型。設為 `null` 則關閉降級。 |
+| `webLlmModel` | `string` | `'Hermes-3-Llama-3.1-8B-q4f32_1-MLC'` | 瀏覽器端 WebLLM 主模型名稱（預設為旗艦 8B 模型）。 |
+| `webLlmFallbackModel` | `string \| null \| false` | `'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'` | WebGPU 記憶體不足（OOM）時的備選保底模型。設為 `null` 則關閉降級。 |
 | `enableOomFallback` | `boolean` | `true` | 是否啟用 WebGPU 顯存不足時的自動降級機制。 |
 | `reasoning` | `ReasoningOptions` | `{ mode: 'auto', showThinkingInBubble: true }` | ⚠️ **[實驗性 Experimental]** AI 模型推論思考過程設定（`mode`: `'auto' \| 'always' \| 'never'`, `showThinkingInBubble`: `boolean`, `promptDirective?`: `string \| ((locale: string) => string) \| false`）。推論輸出穩定度目前尚在驗證中。 |
 | `llmMaxTokens` | `number` | `1024` | WebLLM 模型單次回應 Token 最大限制。 |
@@ -493,8 +493,11 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `maxAutoContinuations` | `number` | `3` | 最大自動接續回合次數（防止無限迴圈）。 |
 | `autoContinueMode` | `AutoContinueMode` (`'stream' \| 'buffered'`) | `'stream'` | 接續輸出模式（串流邊講邊播或緩衝全收）。 |
 | `autoContinuePrompt` | `AutoContinuePromptResolver \| null` | `null` | 自訂接續提示詞字串或動態解析函式。 |
-| `knowledge` | `KnowledgeEntry[] \| Record<string, unknown> \| string \| null` | `null` | 助理模式預載知識庫陣列。 |
+| `assistantKnowledge` | `KnowledgeEntry[] \| Record<string, unknown> \| string \| null` | `null` | 助理模式預載知識庫陣列（取代舊稱 `knowledge`）。 |
+| `assistantKnowledgeUrl` | `string \| null` | `null` | 助理模式遠端 JSON 知識庫下載網址。 |
 | `companionKnowledge` | `KnowledgeEntry[] \| Record<string, unknown> \| string \| null` | `null` | 陪伴模式預載知識庫陣列。 |
+| `companionKnowledgeUrl` | `string \| null` | `null` | 陪伴模式遠端 JSON 知識庫下載網址。 |
+| `onSummarizingChange` | `(isSummarizing: boolean) => void` | `undefined` | 記憶背景滾動摘要開始或結束時觸發之事件回呼。 |
 | `modes` | `Record<string, unknown>` | `{}` | 聲明式自訂模式註冊表。 |
 
 ### 記憶管理與上下文壓縮
@@ -883,7 +886,7 @@ const widget = await initAvatarBot({
 - **第一階 (旗艦預設)**：預設載入 `Hermes-3-Llama-3.1-8B-q4f32_1-MLC`，提供完整的 Function Calling 工具調用與深度思考能力。
 - **第二階 (輕量備援)**：若使用者裝置 WebGPU 顯存不足 (OOM)，自動觸發 `onLlmOomFallback` 回呼並平滑降級至輕量級 `Qwen2.5-1.5B-Instruct-q4f16_1-MLC`（僅需 ~1.1GB 下載、~1.2GB VRAM）。
 - **快速失敗 (Fail-Fast)**：若備援模型依然初始化失敗，立即拋出標準型別錯誤，避免陷入無窮重試迴圈。
-- **自訂配置**：可設定 `llmFallbackModel: null` 停用自動降級，強制要求只使用主要模型。
+- **自訂配置**：可設定 `webLlmFallbackModel: null` 停用自動降級，強制要求只使用主要模型。
 
 ```typescript
 import { 
@@ -897,8 +900,8 @@ import {
 
 const widget = await initAvatarBot({
   container: document.getElementById('avatar-container'),
-  llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
-  llmFallbackModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+  webLlmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+  webLlmFallbackModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
   enableOomFallback: true,
 
   reasoning: {
@@ -1369,8 +1372,12 @@ export interface AiAvatarWidget {
   enableModelDrop: boolean;
   enableEngineToggle: boolean;
   readonly reasoning?: ReasoningOptions;
+  webLlmFallbackModel?: string | null | false;
+  /** @deprecated 請改用 webLlmFallbackModel */
   llmFallbackModel?: string | null | false;
   enableOomFallback?: boolean;
+  readonly isSummarizing: boolean;
+  resetCompanionFallback(): void;
 }
 ```
 
@@ -1472,6 +1479,30 @@ yarn test:smoke
 
 ### Q3: 如何動態切換 2D (Live2D) 與 3D (VRM)？
 > **A:** 可在初始化時設定 `startMode: '2d'` 或 `'3d'`，亦可在運行時透過 `widget.skinEngine.engineMode = '3d'` 即時切換。
+
+---
+
+## 🗺️ 未來架構演進待辦事項 (Future Architecture TODOs)
+
+為避免本次 npm 發布前之重構範圍無限制蔓延（Scope Creep）並守護核心穩定性，以下三項架構演進決策正式列入後續維護追蹤清單：
+
+### 📌 TODO 1：大腦獨立拆包時的中立化回呼名稱（語音與外觀領域解耦）
+- **背景**：目前 `BrainEngineOptions` 中的事件回呼（如 `onSpokenAudioPlayNow`、`onSpokenDisplayTextChange`、`onEmotionChange`）直接借用了語音引擎與皮膚外觀引擎的領域名詞（`Spoken` 與 `Emotion`）。
+- **未來規劃**：未來若將大腦模組獨立拆包為純認知推論套件（如 `@ai-avatar/brain`）時：
+  - `onSpokenAudioPlayNow` ➔ 更名為 `onOutputTextReady` 或 `onFinalAnswer`
+  - `onSpokenDisplayTextChange` / `onSpokenAudioTextChange` ➔ 更名為 `onStreamChunk` 或 `onStreamTextChange`
+  - `onEmotionChange` ➔ 更名為 `onSentimentChange` 或 `onIntentChange`
+  - 在大腦內部保留雙向別名轉接，兼顧獨立使用純淨性與既有整合包的平滑過渡。
+
+### 📌 TODO 2：多知識庫分類 RAG 權重合併檢索演算法（通用共用庫 + 模式專屬庫）
+- **背景**：原先系統在 RAG 提示詞組裝階段一律只讀取助手知識庫，未檢索陪伴知識庫。本次重構先將參數命名對稱化（`assistantKnowledge` 與 `companionKnowledge`），未更動底層 RAG 檢索邏輯。
+- **未來規劃**：
+  - 引入三層知識庫架構：`sharedKnowledge`（通用）、`assistantKnowledge`（助手專屬）、`companionKnowledge`（陪伴專屬）。
+  - 在 `getTopKnowledge` 中依據當前模式合併檢索（如 Assistant 模式檢索 `[assistantKnowledge, sharedKnowledge]`），並設定專屬權重因子（例如專屬庫 1.2 倍、共用庫 1.0 倍）進行加權重排序。
+
+### 📌 TODO 3：`updateChatMessage` 簽名最終統一收斂為純 Options 物件（移除長串位置參數多載）
+- **背景**：本次重構採取多載（Overload）設計，同時相容全新 `UpdateChatMessageOptions` 物件與舊版 6 個位置參數，確保既有呼叫端 100% 不壞。
+- **未來規劃**：在未來的 Major Version 發布時，正式移除長串位置參數多載，將函式簽名唯一收斂為 `updateChatMessage(engine, id, text, options?: UpdateChatMessageOptions)`。
 
 ---
 

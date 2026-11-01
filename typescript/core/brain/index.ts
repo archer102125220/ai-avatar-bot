@@ -1073,6 +1073,11 @@ export function updateChatMessage(
 ): string;
 /**
  * @deprecated 請改用物件傳參形態 updateChatMessage(brainEngine, id, text, options)
+ *
+ * @remarks
+ * TODO 3 (Architecture Roadmap): 未來發布主要大版本（Major Version Bump）時，
+ * 正式刪除此位置參數多載簽名，唯一收斂為物件傳參：
+ *   updateChatMessage(engine, id, text, options?: UpdateChatMessageOptions)
  */
 export function updateChatMessage(
   brainEngine: BrainEngine | Record<string, unknown>,

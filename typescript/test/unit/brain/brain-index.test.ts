@@ -12,7 +12,8 @@ import {
 import {
   AVATAR_MODE_MAP,
   STATE_MAP,
-  BRAIN_ENGINE_TYPE_MAP
+  BRAIN_ENGINE_TYPE_MAP,
+  COMPRESSION_STRATEGY_MAP
 } from '@/core/constants';
 import type { BrainEngine, AiProviderEngine } from '@core';
 
@@ -415,6 +416,38 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
       );
       expect(newId).toBeDefined();
     });
+
+    it('should support UpdateChatMessageOptions with streaming, reasoning, and reasoningStreaming', () => {
+      const brainEngine = {
+        chatLog: [] as Array<Record<string, unknown>>,
+        chatSeq: 0
+      };
+
+      const msgId = addChatMessage(brainEngine, 'assistant', '初始文字');
+      expect(brainEngine.chatLog[0].text).toBe('初始文字');
+
+      // 1. Update with options object (streaming, reasoning, reasoningTimeMs)
+      updateChatMessage(brainEngine, msgId, '更新文字', {
+        streaming: true,
+        reasoning: '思考過程...',
+        reasoningTimeMs: 120
+      });
+
+      expect(brainEngine.chatLog[0].text).toBe('更新文字');
+      expect(brainEngine.chatLog[0].streaming).toBe(true);
+      expect(brainEngine.chatLog[0].reasoning).toBe('思考過程...');
+      expect(brainEngine.chatLog[0].reasoningTimeMs).toBe(120);
+
+      // 2. Update with reasoningStreaming: false
+      updateChatMessage(brainEngine, msgId, '完整更新文字', {
+        streaming: false,
+        reasoningStreaming: false
+      });
+
+      expect(brainEngine.chatLog[0].text).toBe('完整更新文字');
+      expect(brainEngine.chatLog[0].streaming).toBe(false);
+      expect(brainEngine.chatLog[0].reasoningStreaming).toBe(false);
+    });
   });
 
   describe('emitAnswer', () => {
@@ -557,7 +590,7 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
       });
     });
 
-    it('should return isValid true when all required methods and properties are present', () => {
+    it('should return isValid true when all required methods and properties are present (chatSeq optional)', () => {
       const validEngine = {
         addChatMessage: () => {},
         updateChatMessage: () => {},
@@ -569,8 +602,7 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
         memory: {},
         llm: {},
         aiProvider: {},
-        chatLog: [],
-        chatSeq: 0
+        chatLog: []
       };
 
       const validation = validateBrainEngine(validEngine);
@@ -652,6 +684,101 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
       expect(loadMock).toHaveBeenCalled();
       expect(onBrainFallback).toHaveBeenCalled();
       expect(onSpokenAudioPlayNow).toHaveBeenCalled();
+    });
+  });
+
+  describe('BrainEngine state encapsulation & options', () => {
+    it('should protect isSummarizing, companionFallbackIndex, and chatSeq as readonly getters', async () => {
+      const onSummarizingChange = vi.fn();
+      const brainEngine: BrainEngine = await initBrainEngine({
+        onSummarizingChange,
+        assistantKnowledge: [{ q: '問題', a: '回答' }],
+        assistantKnowledgeUrl: 'https://example.com/assistant.json',
+        tools: [
+          {
+            name: 'calc',
+            description: 'Calculator',
+            inputSchema: { type: 'object', properties: {} }
+          }
+        ]
+      });
+
+      // 1. isSummarizing is readonly getter (getter exists, setter undefined)
+      expect(brainEngine.isSummarizing).toBe(false);
+      const isSummarizingDesc = Object.getOwnPropertyDescriptor(
+        brainEngine,
+        'isSummarizing'
+      );
+      expect(typeof isSummarizingDesc?.get).toBe('function');
+      expect(isSummarizingDesc?.set).toBeUndefined();
+
+      // 2. companionFallbackIndex is readonly getter and resets with resetCompanionFallback()
+      expect(brainEngine.companionFallbackIndex).toBe(0);
+      const companionFallbackDesc = Object.getOwnPropertyDescriptor(
+        brainEngine,
+        'companionFallbackIndex'
+      );
+      expect(typeof companionFallbackDesc?.get).toBe('function');
+      expect(companionFallbackDesc?.set).toBeUndefined();
+
+      const internalEngine = brainEngine as unknown as {
+        _advanceCompanionFallback?: () => void;
+      };
+      if (typeof internalEngine._advanceCompanionFallback === 'function') {
+        internalEngine._advanceCompanionFallback();
+        expect(brainEngine.companionFallbackIndex).toBe(1);
+        brainEngine.resetCompanionFallback();
+        expect(brainEngine.companionFallbackIndex).toBe(0);
+      }
+
+      // 3. chatSeq is readonly getter
+      expect(typeof brainEngine.chatSeq).toBe('number');
+      const chatSeqDesc = Object.getOwnPropertyDescriptor(
+        brainEngine,
+        'chatSeq'
+      );
+      expect(typeof chatSeqDesc?.get).toBe('function');
+      expect(chatSeqDesc?.set).toBeUndefined();
+
+      // 4. tools static configuration support
+      expect(brainEngine.getTools?.()).toHaveLength(1);
+      expect(brainEngine.getToolByName?.('calc')?.name).toBe('calc');
+
+      // 5. assistantKnowledge and assistantKnowledgeUrl initialization
+      expect(brainEngine.assistantKnowledge).toHaveLength(1);
+      expect(brainEngine.assistantKnowledgeUrl).toBe(
+        'https://example.com/assistant.json'
+      );
+    });
+
+    it('should fire onSummarizingChange during memory background rolling summarization', async () => {
+      const onSummarizingChange = vi.fn();
+      const brainEngine: BrainEngine = await initBrainEngine({
+        enableMemory: true,
+        compression: {
+          strategy: COMPRESSION_STRATEGY_MAP.ROLLING_SUMMARY,
+          summaryThresholdTurns: 1
+        },
+        onSummarizingChange
+      });
+
+      // Add enough turns to trigger rolling summarization threshold
+      expect(brainEngine.memory).not.toBeNull();
+      brainEngine.memory?.addTurn('user', '訊息1');
+      brainEngine.memory?.addTurn('assistant', '回覆1');
+      brainEngine.memory?.addTurn('user', '訊息2');
+      brainEngine.memory?.addTurn('assistant', '回覆2');
+
+      await brainEngine.triggerRollingSummaryIfNeeded();
+
+      expect(onSummarizingChange).toHaveBeenCalledWith(true);
+      expect(brainEngine.isSummarizing).toBe(true);
+
+      // Wait for background setTimeout(..., 50) to complete
+      await new Promise((resolve) => setTimeout(resolve, 80));
+
+      expect(onSummarizingChange).toHaveBeenCalledWith(false);
+      expect(brainEngine.isSummarizing).toBe(false);
     });
   });
 });

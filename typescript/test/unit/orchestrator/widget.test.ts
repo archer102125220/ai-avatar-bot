@@ -890,6 +890,10 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     });
 
     expect(widget.llmFallbackModel).toBe('Qwen2.5-1.5B');
+    expect(widget.webLlmFallbackModel).toBe('Qwen2.5-1.5B');
+    expect(widget.isSummarizing).toBe(false);
+    expect(typeof widget.resetCompanionFallback).toBe('function');
+    widget.resetCompanionFallback();
     expect(widget.enableOomFallback).toBe(true);
     expect(widget.onLlmOomFallback).toBe(onLlmOomFallback);
     expect(widget.onReasoningStart).toBe(onReasoningStart);

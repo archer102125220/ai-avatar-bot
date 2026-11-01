@@ -70,7 +70,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       const onStreamChatting = vi.fn();
 
       const llm: WebLLMController = initWebLLM({
-        llmModel: 'Llama-3-8B-Instruct-q4f32_1-MLC',
+        webLlmModel: 'Llama-3-8B-Instruct-q4f32_1-MLC',
         llmMaxTokens: 512,
         llmIsStream: true,
         onLoading,
@@ -114,7 +114,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
 
       const onLoadError = vi.fn();
       const llm: WebLLMController = initWebLLM({
-        llmModel: 'Llama-3-8B-Instruct',
+        webLlmModel: 'Llama-3-8B-Instruct',
         onLoadError
       });
 
@@ -139,8 +139,8 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       const onLlmOomFallback = vi.fn();
       const onLoaded = vi.fn();
       const llm: WebLLMController = initWebLLM({
-        llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
-        llmFallbackModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+        webLlmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+        webLlmFallbackModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
         enableOomFallback: true,
         onLlmOomFallback,
         onLoaded
@@ -168,8 +168,8 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       const onLlmOomFallback = vi.fn();
       const onLoadError = vi.fn();
       const llm: WebLLMController = initWebLLM({
-        llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
-        llmFallbackModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+        webLlmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+        webLlmFallbackModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
         enableOomFallback: true,
         onLlmOomFallback,
         onLoadError
@@ -189,7 +189,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       const onLlmOomFallback = vi.fn();
       const onLoadError = vi.fn();
       const llm: WebLLMController = initWebLLM({
-        llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+        webLlmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
         enableOomFallback: false,
         onLlmOomFallback,
         onLoadError
@@ -203,7 +203,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
 
     it('should be idempotent if load() is called multiple times while already loaded', async () => {
       const llm: WebLLMController = initWebLLM({
-        llmModel: 'Llama-3-8B-Instruct'
+        webLlmModel: 'Llama-3-8B-Instruct'
       });
       await llm.load();
       expect(llm.state).toBe(STATE_MAP.READY);
@@ -232,7 +232,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
   describe('chat', () => {
     it('should return null if engine is not loaded', async () => {
       const llm: WebLLMController = initWebLLM({
-        llmModel: 'Llama-3-8B-Instruct'
+        webLlmModel: 'Llama-3-8B-Instruct'
       });
       const res = await llm.chat([{ role: 'user', content: 'hi' }]);
       expect(res).toBeNull();
@@ -271,7 +271,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       );
 
       const llm: WebLLMController = initWebLLM({
-        llmModel: 'Hermes-2-Pro-Llama-3-8B-q4f32_1-MLC',
+        webLlmModel: 'Hermes-2-Pro-Llama-3-8B-q4f32_1-MLC',
         llmIsStream: false
       });
       await llm.load();
@@ -315,7 +315,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       );
 
       const llm: WebLLMController = initWebLLM({
-        llmModel: 'Non-Hermes-Model',
+        webLlmModel: 'Non-Hermes-Model',
         llmIsStream: false
       });
       await llm.load();
@@ -370,7 +370,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       );
 
       const llm: WebLLMController = initWebLLM({
-        llmModel: 'Hermes-2-Pro-Llama-3-8B-q4f32_1-MLC'
+        webLlmModel: 'Hermes-2-Pro-Llama-3-8B-q4f32_1-MLC'
       });
       await llm.load();
 
@@ -428,7 +428,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       );
 
       const llm: WebLLMController = initWebLLM({
-        llmModel: 'Llama-3-8B-Instruct',
+        webLlmModel: 'Llama-3-8B-Instruct',
         llmIsStream: false
       });
       await llm.load();
@@ -482,7 +482,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       );
 
       const llm: WebLLMController = initWebLLM({
-        llmModel: 'Llama-3-8B-Instruct',
+        webLlmModel: 'Llama-3-8B-Instruct',
         llmIsStream: true
       });
       await llm.load();
@@ -526,7 +526,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       );
 
       const llm: WebLLMController = initWebLLM({
-        llmModel: 'Hermes-2-Pro-Llama-3-8B-q4f32_1-MLC',
+        webLlmModel: 'Hermes-2-Pro-Llama-3-8B-q4f32_1-MLC',
         llmIsStream: false
       });
       await llm.load();
@@ -893,7 +893,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       const llm1: WebLLMController = initWebLLM({ isStream: false });
       expect(llm1.isStream).toBe(false);
 
-      const llm2: WebLLMController = initWebLLM({ LLMIsStream: false });
+      const llm2: WebLLMController = initWebLLM({ llmIsStream: false });
       expect(llm2.isStream).toBe(false);
 
       // 2. chatWithWebLLM with streaming auto-continue triggering stream callbacks
@@ -1050,7 +1050,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       const onDelta = vi.fn();
 
       const llm: WebLLMController = initWebLLM({
-        llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+        webLlmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
         llmIsStream: true,
         onReasoningStart,
         onReasoningChunk,
@@ -1111,7 +1111,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       );
 
       const llm: WebLLMController = initWebLLM({
-        llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+        webLlmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
         llmIsStream: false
       });
       await llm.load();
@@ -1155,7 +1155,7 @@ describe('Unit Test: core/brain/web-llm.js', () => {
 
       const llm: WebLLMController = initWebLLM(
         {
-          llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+          webLlmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
           llmIsStream: true,
           onReasoningStart: optionsOnStart,
           onReasoningChunk: optionsOnChunk,
