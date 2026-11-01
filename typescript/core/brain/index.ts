@@ -70,7 +70,6 @@ export * from './stream-parser';
 export async function initBrainEngine(
   setting: BrainEngineOptions = {}
 ): Promise<BrainEngine> {
-  const rawSetting = setting as Record<string, unknown>;
   const {
     webLlmModel,
     preloadWebLLM = false,
@@ -171,20 +170,14 @@ export async function initBrainEngine(
   } = setting;
 
   const resolvedWebLlmModel =
-    (typeof webLlmModel === 'string' && webLlmModel !== ''
+    typeof webLlmModel === 'string' && webLlmModel !== ''
       ? webLlmModel
-      : undefined) ||
-    (typeof rawSetting.llmModel === 'string' && rawSetting.llmModel !== ''
-      ? (rawSetting.llmModel as string)
-      : undefined);
+      : undefined;
 
   const resolvedWebLlmFallbackModel =
     webLlmFallbackModel !== undefined
       ? webLlmFallbackModel
-      : (rawSetting.llmFallbackModel as string | null | false | undefined) !==
-          undefined
-        ? (rawSetting.llmFallbackModel as string | null | false)
-        : DEFAULT_LLM_FALLBACK_MODEL;
+      : DEFAULT_LLM_FALLBACK_MODEL;
 
   const resolvedAssistantKnowledge =
     assistantKnowledge !== undefined ? assistantKnowledge : knowledge;

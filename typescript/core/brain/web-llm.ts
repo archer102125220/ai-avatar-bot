@@ -120,12 +120,8 @@ export function initWebLLM(
     temperature
   } = setting;
 
-  const rawSetting = setting as Record<string, unknown>;
   const resolvedModel =
     (typeof webLlmModel === 'string' && webLlmModel !== '' ? webLlmModel : undefined) ||
-    (typeof rawSetting.llmModel === 'string' && rawSetting.llmModel !== ''
-      ? (rawSetting.llmModel as string)
-      : undefined) ||
     (typeof model === 'string' && model !== '' ? model : undefined) ||
     DEFAULT_LLM_MODEL;
 
@@ -137,9 +133,7 @@ export function initWebLLM(
   const resolvedFallbackInput =
     webLlmFallbackModel !== undefined
       ? webLlmFallbackModel
-      : (rawSetting.llmFallbackModel as string | null | false | undefined) !== undefined
-        ? (rawSetting.llmFallbackModel as string | null | false)
-        : fallbackModel;
+      : fallbackModel;
 
   const isFallbackExplicitlyDisabled =
     enableOomFallback === false ||
@@ -169,9 +163,7 @@ export function initWebLLM(
       ? llmIsStream
       : typeof isStream === 'boolean'
         ? isStream
-        : typeof rawSetting.LLMIsStream === 'boolean'
-          ? Boolean(rawSetting.LLMIsStream)
-          : true;
+        : true;
 
   let engine: MLCEngineInstance | null = null;
   let loadingPromise: Promise<MLCEngineInstance> | null = null;

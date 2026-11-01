@@ -662,7 +662,7 @@ describe('Orchestrator Engine Factory', () => {
 
     it('should forward OOM fallback options and reasoning stream callbacks to brainOptions', async () => {
       let capturedBrainOptions!: Record<string, unknown> & {
-        llmFallbackModel: string;
+        webLlmFallbackModel: string;
         enableOomFallback: boolean;
         onLlmOomFallback: (
           primary: string,
@@ -694,7 +694,7 @@ describe('Orchestrator Engine Factory', () => {
       const onLlmOomFallback = vi.fn();
       await setupBrainEngine({
         options: {
-          llmFallbackModel: 'Qwen2.5-1.5B',
+          webLlmFallbackModel: 'Qwen2.5-1.5B',
           enableOomFallback: true,
           onLlmOomFallback,
           customEngines: { brain: customBrainFactory }
@@ -707,7 +707,7 @@ describe('Orchestrator Engine Factory', () => {
         streamPipeline: mockStreamPipeline
       });
 
-      expect(capturedBrainOptions.llmFallbackModel).toBe('Qwen2.5-1.5B');
+      expect(capturedBrainOptions.webLlmFallbackModel).toBe('Qwen2.5-1.5B');
       expect(capturedBrainOptions.enableOomFallback).toBe(true);
       expect(capturedBrainOptions.onReasoningStart).toBe(
         mockStreamPipeline.onReasoningStart

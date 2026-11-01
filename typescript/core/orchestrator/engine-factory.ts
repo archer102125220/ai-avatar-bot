@@ -50,7 +50,6 @@ export async function setupBrainEngine({
   getUiDom,
   streamPipeline
 }: SetupBrainParams): Promise<BrainEngine | null> {
-  const rawOptions = options as Record<string, unknown>;
   const {
     webLlmModel,
     llmModel,
@@ -93,9 +92,6 @@ export async function setupBrainEngine({
       ? webLlmModel
       : undefined) ||
     (typeof llmModel === 'string' && llmModel !== '' ? llmModel : undefined) ||
-    (typeof rawOptions.llmModel === 'string' && rawOptions.llmModel !== ''
-      ? (rawOptions.llmModel as string)
-      : undefined) ||
     DEFAULT_LLM_MODEL;
 
   const resolvedWebLlmFallbackModel =
@@ -103,10 +99,7 @@ export async function setupBrainEngine({
       ? webLlmFallbackModel
       : llmFallbackModel !== undefined
         ? llmFallbackModel
-        : (rawOptions.llmFallbackModel as string | null | false | undefined) !==
-            undefined
-          ? (rawOptions.llmFallbackModel as string | null | false)
-          : undefined;
+        : undefined;
 
   const resolvedAssistantKnowledge =
     assistantKnowledge !== null && assistantKnowledge !== undefined
@@ -127,9 +120,7 @@ export async function setupBrainEngine({
 
   const brainOptions: Record<string, unknown> = {
     webLlmModel: resolvedWebLlmModel,
-    llmModel: resolvedWebLlmModel,
     webLlmFallbackModel: resolvedWebLlmFallbackModel,
-    llmFallbackModel: resolvedWebLlmFallbackModel,
     enableOomFallback:
       typeof enableOomFallback === 'boolean' ? enableOomFallback : true,
     reasoning: options.reasoning,
@@ -933,14 +924,13 @@ export function setupToolsEngine({
   getUiDom
 }: SetupToolsParams): ToolsEngine | null {
   const { customEngines = {} } = options;
-  const rawOptions = options as Record<string, unknown>;
 
   const toolsOptions = {
     confirmationTimeoutMs:
       typeof options.confirmationTimeoutMs === 'number'
         ? options.confirmationTimeoutMs
-        : typeof rawOptions.toolConfirmationTimeoutMs === 'number'
-          ? (rawOptions.toolConfirmationTimeoutMs as number)
+        : typeof options.toolConfirmationTimeoutMs === 'number'
+          ? options.toolConfirmationTimeoutMs
           : undefined,
     onToolCall: (pendingToolCall: unknown, ...args: unknown[]) => {
       return callOptionEvent(
@@ -1094,9 +1084,8 @@ export function setupToolsEngine({
   const customTools =
     Array.isArray(options.tools) && options.tools.length > 0
       ? options.tools
-      : Array.isArray(rawOptions.hostTools) &&
-          (rawOptions.hostTools as unknown[]).length > 0
-        ? (rawOptions.hostTools as HostTool[])
+      : Array.isArray(options.hostTools) && options.hostTools.length > 0
+        ? options.hostTools
         : [];
 
   const emotionTools =
