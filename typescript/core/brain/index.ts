@@ -1,4 +1,4 @@
-import { createBaseStore } from '@/core/store';
+import { createBrainStore, registerBrainStore } from './internal-store';
 import { resolveLocalized } from '@/core/i18n';
 import {
   STATE_MAP,
@@ -219,12 +219,13 @@ export async function initBrainEngine(
             ) || null
         : null;
 
-  const _store = createBaseStore({});
-  void _store;
+  const brainStore = createBrainStore();
 
-  let _isSummarizing = false;
-  let _companionFallbackIndex = 0;
-  let _chatSeq = 0;
+  if (typeof onSummarizingChange === 'function') {
+    brainStore.subscribe('isSummarizing', (currentValue) => {
+      onSummarizingChange(currentValue);
+    });
+  }
 
   let _welcomeText: string | ((context: unknown) => string) | null = null;
   let _companionWelcomeText: string | ((context: unknown) => string) | null =
@@ -265,10 +266,10 @@ export async function initBrainEngine(
     },
 
     get isSummarizing(): boolean {
-      return _isSummarizing;
+      return brainStore.getState().isSummarizing;
     },
     _setSummarizing(val: boolean) {
-      _isSummarizing = val;
+      brainStore.setState({ isSummarizing: val });
     },
 
     get assistantKnowledgeUrl() {
@@ -288,17 +289,19 @@ export async function initBrainEngine(
       return companionFallback;
     },
     companionKnowledge: safeCompanionKnowledge,
-    get companionFallbackIndex() {
-      return _companionFallbackIndex;
+    get companionFallbackIndex(): number {
+      return brainStore.getState().companionFallbackIndex;
     },
-    get companionFallbackIdx() {
-      return _companionFallbackIndex;
+    get companionFallbackIdx(): number {
+      return brainStore.getState().companionFallbackIndex;
     },
-    resetCompanionFallback() {
-      _companionFallbackIndex = 0;
+    resetCompanionFallback(): void {
+      brainStore.setState({ companionFallbackIndex: 0 });
     },
-    _advanceCompanionFallback() {
-      return _companionFallbackIndex++;
+    _advanceCompanionFallback(): number {
+      const currentIndex = brainStore.getState().companionFallbackIndex;
+      brainStore.setState({ companionFallbackIndex: currentIndex + 1 });
+      return currentIndex;
     },
 
     tools: resolvedToolsList,
@@ -369,10 +372,12 @@ export async function initBrainEngine(
 
     chatLog: [],
     get chatSeq(): number {
-      return _chatSeq;
+      return brainStore.getState().chatSeq;
     },
     _nextChatSeq(): number {
-      return ++_chatSeq;
+      const nextSeq = brainStore.getState().chatSeq + 1;
+      brainStore.setState({ chatSeq: nextSeq });
+      return nextSeq;
     },
 
     i18nEngine: i18nEngine || null,
@@ -550,6 +555,8 @@ export async function initBrainEngine(
       );
     }
   } as unknown as BrainEngine;
+
+  registerBrainStore(brainEngine, brainStore);
 
   if (typeof welcomeText === 'function' || typeof welcomeText === 'string') {
     brainEngine.welcomeText = welcomeText;
