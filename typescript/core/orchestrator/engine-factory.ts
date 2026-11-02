@@ -60,13 +60,18 @@ export async function setupBrainEngine({
     maxHistoryTurns,
     memoryKey,
     memoryAdapter,
-    assistantKnowledgeUrl = '',
-    knowledgeUrl = '',
-    companionKnowledgeUrl = '',
-    assistantKnowledge = null,
-    knowledge = null,
-    companionKnowledge = null,
-    companionFallback = [],
+    sharedKnowledge = options.sharedKnowledge,
+    sharedKnowledgeUrl = options.sharedKnowledgeUrl,
+    assistantKnowledgeUrl = options.assistantKnowledgeUrl,
+    knowledgeUrl = options.knowledgeUrl,
+    companionKnowledgeUrl = options.companionKnowledgeUrl,
+    assistantKnowledge = options.assistantKnowledge,
+    knowledge = options.knowledge,
+    companionKnowledge = options.companionKnowledge,
+    companionFallback = options.companionFallback || [],
+    knowledgeLimit = options.knowledgeLimit,
+    ragTopK = options.ragTopK,
+    knowledgeFilter = options.knowledgeFilter,
     aiProviderBaseUrl = '',
     aiProviderModel = DEFAULT_AI_PROVIDER_MODEL,
     aiProviderHeaders,
@@ -100,16 +105,6 @@ export async function setupBrainEngine({
       : llmFallbackModel !== undefined
         ? llmFallbackModel
         : undefined;
-
-  const resolvedAssistantKnowledge =
-    assistantKnowledge !== null && assistantKnowledge !== undefined
-      ? assistantKnowledge
-      : knowledge;
-
-  const resolvedAssistantKnowledgeUrl =
-    typeof assistantKnowledgeUrl === 'string' && assistantKnowledgeUrl !== ''
-      ? assistantKnowledgeUrl
-      : knowledgeUrl;
 
   const resolvedLlmMaxTokens =
     typeof llmMaxTokens === 'number' &&
@@ -175,13 +170,18 @@ export async function setupBrainEngine({
     memoryKey,
     memoryAdapter,
     modes: rootStore.getState().modes,
-    assistantKnowledgeUrl: resolvedAssistantKnowledgeUrl,
-    knowledgeUrl: resolvedAssistantKnowledgeUrl,
+    assistantKnowledgeUrl,
+    knowledgeUrl,
+    sharedKnowledgeUrl,
     companionKnowledgeUrl,
-    assistantKnowledge: resolvedAssistantKnowledge,
-    knowledge: resolvedAssistantKnowledge,
+    assistantKnowledge,
+    knowledge,
+    sharedKnowledge,
     companionKnowledge,
     companionFallback,
+    knowledgeLimit,
+    ragTopK,
+    knowledgeFilter,
     aiProviderBaseUrl,
     aiProviderModel,
     aiProviderHeaders,
