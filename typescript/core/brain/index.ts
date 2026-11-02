@@ -218,9 +218,8 @@ export async function initBrainEngine(
       ? getToolByName
       : resolvedToolsList !== undefined
         ? (name: string) =>
-            resolvedToolsList.find(
-              (t: ToolDefinition) => t.name === name
-            ) || null
+            resolvedToolsList.find((t: ToolDefinition) => t.name === name) ||
+            null
         : null;
 
   const brainStore = createBrainStore();
@@ -271,9 +270,6 @@ export async function initBrainEngine(
 
     get isSummarizing(): boolean {
       return brainStore.getState().isSummarizing;
-    },
-    _setSummarizing(val: boolean) {
-      brainStore.setState({ isSummarizing: val });
     },
 
     get assistantKnowledgeUrl() {
@@ -837,8 +833,7 @@ export function getCompanionFallbackResponse(
     try {
       (engine as Record<string, unknown>).companionFallbackIndex =
         currentIdx + 1;
-      (engine as Record<string, unknown>).companionFallbackIdx =
-        currentIdx + 1;
+      (engine as Record<string, unknown>).companionFallbackIdx = currentIdx + 1;
     } catch {
       // Ignored if readonly
     }
@@ -886,9 +881,8 @@ export function getRetrievalAnswer(
             (engine as { assistantKnowledge?: KnowledgeEntry[] })
               .assistantKnowledge
           ) &&
-          (
-            engine as { assistantKnowledge: KnowledgeEntry[] }
-          ).assistantKnowledge.length > 0
+          (engine as { assistantKnowledge: KnowledgeEntry[] })
+            .assistantKnowledge.length > 0
         ? (engine as { assistantKnowledge: KnowledgeEntry[] })
             .assistantKnowledge
         : engine.knowledge || [];

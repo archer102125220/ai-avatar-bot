@@ -6,6 +6,10 @@ import {
   triggerRollingSummaryIfNeeded
 } from '@/core/brain/memory';
 import {
+  createBrainStore,
+  registerBrainStore
+} from '@/core/brain/internal-store';
+import {
   CURRENT_MEMORY_VERSION,
   DEFAULT_MEMORY_KEY,
   DEFAULT_MAX_HISTORY_TURNS,
@@ -89,7 +93,9 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
       expect(migrated.history[6].content).toBe('thoughtful answer');
       expect(migrated.history[6].reasoning).toBe('step 1, step 2');
       expect(migrated.history[6].reasoningTimeMs).toBe(1420);
-      expect(migrated.history[7].content).toBe('answer with invalid reasoning types');
+      expect(migrated.history[7].content).toBe(
+        'answer with invalid reasoning types'
+      );
       expect(migrated.history[7].reasoning).toBeUndefined();
       expect(migrated.history[7].reasoningTimeMs).toBeUndefined();
     });
@@ -304,6 +310,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
     it('should trigger rolling summary when unsummarized turns exceed threshold', async () => {
       vi.useFakeTimers();
 
+      const brainStore = createBrainStore();
       const onSummaryUpdated = vi.fn();
       const mockBrainEngine = {
         locale: 'zh-TW',
@@ -333,8 +340,11 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
           chat: vi.fn(async () => ({ content: '最新精煉摘要：喜歡蘋果與香蕉' }))
         },
         onSummaryUpdated,
-        isSummarizing: false
+        get isSummarizing() {
+          return brainStore.getState().isSummarizing;
+        }
       };
+      registerBrainStore(mockBrainEngine, brainStore);
 
       await triggerRollingSummaryIfNeeded(
         mockBrainEngine as unknown as BrainEngine
@@ -370,6 +380,7 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
     it('should support WebLLM engine for background summarization and handle errors', async () => {
       vi.useFakeTimers();
 
+      const brainStore = createBrainStore();
       const mockBrainEngine = {
         locale: 'zh-TW',
         memory: {
@@ -401,8 +412,11 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
             }
           }
         },
-        isSummarizing: false
+        get isSummarizing() {
+          return brainStore.getState().isSummarizing;
+        }
       };
+      registerBrainStore(mockBrainEngine, brainStore);
 
       await triggerRollingSummaryIfNeeded(
         mockBrainEngine as unknown as BrainEngine

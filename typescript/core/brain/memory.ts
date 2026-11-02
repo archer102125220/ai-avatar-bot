@@ -22,6 +22,7 @@ import {
   resolveCompressionLimits,
   generateRollingSummary
 } from './compression';
+import { getBrainStore } from './internal-store';
 
 /**
  * Creates default memory data conforming to the latest schema version.
@@ -440,22 +441,10 @@ export async function triggerRollingSummaryIfNeeded(
     return;
   }
 
-  if (
-    typeof (engine as { _setSummarizing?: (val: boolean) => void })
-      ._setSummarizing === 'function'
-  ) {
-    (
-      engine as { _setSummarizing: (val: boolean) => void }
-    )._setSummarizing(true);
-  } else {
-    try {
-      (engine as Record<string, unknown>).isSummarizing = true;
-    } catch {
-      // Ignored if readonly
-    }
-  }
-
-  if (typeof engine.onSummarizingChange === 'function') {
+  const store = getBrainStore(engine);
+  if (store !== undefined) {
+    store.setState({ isSummarizing: true });
+  } else if (typeof engine.onSummarizingChange === 'function') {
     engine.onSummarizingChange(true);
   }
 
@@ -548,22 +537,9 @@ export async function triggerRollingSummaryIfNeeded(
         summaryError
       );
     } finally {
-      if (
-        typeof (engine as { _setSummarizing?: (val: boolean) => void })
-          ._setSummarizing === 'function'
-      ) {
-        (
-          engine as { _setSummarizing: (val: boolean) => void }
-        )._setSummarizing(false);
-      } else {
-        try {
-          (engine as Record<string, unknown>).isSummarizing = false;
-        } catch {
-          // Ignored if readonly
-        }
-      }
-
-      if (typeof engine.onSummarizingChange === 'function') {
+      if (store !== undefined) {
+        store.setState({ isSummarizing: false });
+      } else if (typeof engine.onSummarizingChange === 'function') {
         engine.onSummarizingChange(false);
       }
     }
