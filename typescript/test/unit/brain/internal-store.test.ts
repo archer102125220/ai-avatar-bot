@@ -38,7 +38,11 @@ describe('Unit Test: core/brain/internal-store.ts (Internal Store Module)', () =
   it('should get snapshot of state or safe defaults when engine is not registered', () => {
     const engine = { id: 'engine-2' };
     const store = createBrainStore();
-    store.setState({ isSummarizing: true, companionFallbackIndex: 2, chatSeq: 42 });
+    store.setState({
+      isSummarizing: true,
+      companionFallbackIndex: 2,
+      chatSeq: 42
+    });
     registerBrainStore(engine, store);
 
     const state = getBrainStoreState(engine);
