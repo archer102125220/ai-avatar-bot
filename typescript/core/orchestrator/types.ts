@@ -2,6 +2,7 @@ import type {
   BrainEngine,
   BrainEngineOptions,
   KnowledgeEntry,
+  CustomModeConfig,
   MemoryAdapter,
   MemoryData,
   BrainCompressionOptions,
@@ -165,8 +166,12 @@ export interface AvatarBotOptions {
   neuralVoice?: string;
   /** URL to knowledge base JSON for assistant persona. */
   assistantKnowledgeUrl?: string;
-  /** @deprecated 請改用 assistantKnowledgeUrl */
+  /**
+   * 基礎通用知識庫遠端 URL（跨模式共用，與 sharedKnowledgeUrl 互為別名）。
+   */
   knowledgeUrl?: string;
+  /** 跨模式通用共用知識庫遠端 URL（等同於 knowledgeUrl）。 */
+  sharedKnowledgeUrl?: string;
   /** URL to knowledge base JSON for companion persona. */
   companionKnowledgeUrl?: string;
   /** Preloaded knowledge base data for assistant persona. */
@@ -175,11 +180,35 @@ export interface AvatarBotOptions {
     | Record<string, unknown>
     | string
     | null;
-  /** @deprecated 請改用 assistantKnowledge */
+  /**
+   * 基礎通用知識庫（跨模式共用，與 sharedKnowledge 互為別名）。
+   */
   knowledge?: KnowledgeEntry[] | Record<string, unknown> | string | null;
+  /** 跨模式通用共用知識庫（等同於 knowledge）。 */
+  sharedKnowledge?:
+    | KnowledgeEntry[]
+    | Record<string, unknown>
+    | string
+    | null;
   /** Preloaded companion knowledge data. */
   companionKnowledge?:
     KnowledgeEntry[] | Record<string, unknown> | string | null;
+  /**
+   * RAG 檢索最多注入 Prompt 的候選條目上限（預設 3）。
+   * 設為 0 時代表停用知識庫檢索，100% 由模型自主對話推理。
+   */
+  knowledgeLimit?: number;
+  /**
+   * `knowledgeLimit` 之語意別名（等同於 knowledgeLimit）。
+   */
+  ragTopK?: number;
+  /**
+   * 是否啟用前端相似度過濾，或傳入自訂過濾函數。預設 true。
+   * 設為 false 時將跳過前端相似度過濾，將知識庫全量注入 Prompt（全權由雲端大模型推論理解）。
+   */
+  knowledgeFilter?:
+    | boolean
+    | ((entry: KnowledgeEntry, question: string) => boolean);
   /** 2D or 3D avatar model URL. */
   modelUrl?: string;
   /** Speech synthesis (TTS) API endpoint. */
@@ -219,7 +248,7 @@ export interface AvatarBotOptions {
   /** Custom storage adapter for loading and persisting memory. */
   memoryAdapter?: MemoryAdapter;
   /** Declarative custom persona modes registry. */
-  modes?: Record<string, unknown>;
+  modes?: Record<string, CustomModeConfig>;
   /** Initial rendering start mode ('2d' | '3d'). */
   startMode?: EngineMode;
   /** Container fit mode ('half' | 'full'). */
@@ -669,7 +698,7 @@ export interface AvatarBotStoreState {
   aiProviderStatus: AiProviderStatus;
   /** Error message if AI Provider ping or connection failed. */
   aiProviderError: string | null;
-  modes: Record<string, unknown>;
+  modes: Record<string, CustomModeConfig>;
   locale: string;
   enableModelDrop: boolean;
   enableEngineToggle: boolean;
@@ -694,6 +723,7 @@ export type {
   MemoryAdapter,
   BrainEngine,
   BrainEngineOptions,
+  CustomModeConfig,
   SpeechEngine,
   SpeechEngineOptions as SpeechEngineSetting,
   SpeechEngineOptions,

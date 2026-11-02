@@ -165,6 +165,10 @@ export interface KnowledgeEntry {
     url?: string;
     [key: string]: unknown;
   };
+  /**
+   * RAG 條目來源層級：'mode' 為模式專屬庫，'shared' 為基礎通用常識庫。
+   */
+  tier?: 'mode' | 'shared';
   /** Optional metadata tags or category. */
   [key: string]: unknown;
 }
@@ -550,6 +554,38 @@ export interface AiProviderEngine {
 }
 
 /**
+ * Configuration schema for custom persona modes registered under `modes`.
+ */
+export interface CustomModeConfig {
+  /** Mode-specific system prompt string, localized mapping, or generator function. */
+  systemPrompt?:
+    | string
+    | Record<string, string>
+    | ((...args: unknown[]) => string);
+  /** Mode-specific system context template string, localized mapping, or generator function. */
+  systemContextTemplate?:
+    | string
+    | Record<string, string>
+    | ((...args: unknown[]) => string);
+  /** Mode-specific dynamic welcome text, localized mapping, or asynchronous resolver function. */
+  welcomeText?:
+    | string
+    | Record<string, string>
+    | (() => Promise<string> | string);
+  /** Mode-specific fallback response list or resolver function. */
+  fallback?:
+    | string[]
+    | Array<string | Record<string, unknown>>
+    | ((context: unknown) => string)
+    | Record<string, unknown>;
+  /** Mode-specific knowledge base entries. */
+  knowledge?: KnowledgeEntry[];
+  /** Mode-specific knowledge base JSON endpoint URL. */
+  knowledgeUrl?: string;
+  [key: string]: unknown;
+}
+
+/**
  * Options for initializing the BrainEngine.
  */
 export interface BrainEngineOptions {
@@ -558,7 +594,7 @@ export interface BrainEngineOptions {
   memoryKey?: string;
   memoryAdapter?: MemoryAdapter | null;
   compression?: BrainCompressionOptions;
-  modes?: Record<string, unknown>;
+  modes?: Record<string, CustomModeConfig>;
   /** In-browser WebGPU LLM model identifier (MLC format). */
   webLlmModel?: string;
   /** Fallback model identifier for WebGPU OOM recovery. */
@@ -567,14 +603,29 @@ export interface BrainEngineOptions {
   preloadWebLLM?: boolean;
   autoFallbackWebLLM?: boolean;
   /**
+   * 跨模式通用共用知識庫（如公司 FAQ、基礎常識）。
+   * 與 `knowledge` 為互通對稱別名（`sharedKnowledge ?? knowledge`）。
+   */
+  sharedKnowledge?:
+    | KnowledgeEntry[]
+    | Record<string, unknown>
+    | string
+    | null;
+  /**
+   * 跨模式通用共用知識庫遠端 URL。
+   * 與 `knowledgeUrl` 為互通對稱別名（`sharedKnowledgeUrl ?? knowledgeUrl`）。
+   */
+  sharedKnowledgeUrl?: string;
+  /**
    * Assistant 模式專屬知識庫。
    *
    * @remarks
-   * TODO 2 (Architecture Roadmap): 在多角色或跨模式場景下，規劃引入三層 RAG 分類架構：
-   *   - sharedKnowledge / sharedKnowledgeUrl：跨模式通用共用知識庫（如公司 FAQ）。
+   * 在多角色或跨模式場景下，支援分層 RAG 分類架構：
+   *   - sharedKnowledge / sharedKnowledgeUrl（或 knowledge / knowledgeUrl）：跨模式通用共用知識庫。
    *   - assistantKnowledge / assistantKnowledgeUrl：助理模式專業手冊。
    *   - companionKnowledge / companionKnowledgeUrl：陪伴模式專屬人設背景。
-   * 於 getTopKnowledge 依當前模式合併檢索（專屬庫加權 1.2x、共用庫 1.0x）並重排序取 Top-K。
+   *   - modes[customMode].knowledge / knowledgeUrl：自訂模式專屬知識庫。
+   * 於 getTopKnowledge 依當前模式分層檢索並附加語意標籤。
    */
   assistantKnowledge?:
     | KnowledgeEntry[]
@@ -583,13 +634,36 @@ export interface BrainEngineOptions {
     | null;
   /** Assistant 模式專屬知識庫遠端 URL。 */
   assistantKnowledgeUrl?: string;
-  /** @deprecated 請改用 assistantKnowledge */
+  /**
+   * 基礎通用知識庫（等同於 sharedKnowledge）。
+   */
   knowledge?: KnowledgeEntry[] | Record<string, unknown> | string | null;
-  /** @deprecated 請改用 assistantKnowledgeUrl */
+  /**
+   * 基礎通用知識庫遠端 URL（等同於 sharedKnowledgeUrl）。
+   */
   knowledgeUrl?: string;
   companionKnowledge?:
-    KnowledgeEntry[] | Record<string, unknown> | string | null;
+    | KnowledgeEntry[]
+    | Record<string, unknown>
+    | string
+    | null;
   companionKnowledgeUrl?: string;
+  /**
+   * RAG 檢索最多注入 Prompt 的候選條目上限（預設 3）。
+   * 設為 0 時代表停用知識庫檢索，100% 由模型自主對話推理。
+   */
+  knowledgeLimit?: number;
+  /**
+   * `knowledgeLimit` 之語意別名（等同於 knowledgeLimit）。
+   */
+  ragTopK?: number;
+  /**
+   * 是否啟用前端相似度過濾，或傳入自訂過濾函數。預設 true。
+   * 設為 false 時將跳過前端相似度過濾，將知識庫全量注入 Prompt（全權由雲端大模型推論理解）。
+   */
+  knowledgeFilter?:
+    | boolean
+    | ((entry: KnowledgeEntry, question: string) => boolean);
   companionFallback?:
     Array<string | Record<string, unknown>> | ((context: unknown) => string);
   companionFallbackContext?: string | ((context: unknown) => string);
@@ -760,7 +834,7 @@ export interface BrainEngine {
   readonly LLM_FINISH_REASON_MAP: Record<string, string>;
   readonly FINISH_REASON_MAP: Record<string, string>;
   avatarMode?: AvatarMode;
-  modes: Record<string, unknown>;
+  modes: Record<string, CustomModeConfig>;
   readonly availableModes: string[];
   enableMemory: boolean;
   enableAiProvider: boolean;
@@ -781,12 +855,22 @@ export interface BrainEngine {
   assistantKnowledgeUrl?: string;
   /** Assistant 模式專屬知識庫。 */
   assistantKnowledge?: KnowledgeEntry[];
-  /** @deprecated 請改用 assistantKnowledgeUrl */
+  /** 跨模式通用共用知識庫遠端 URL（等同於 knowledgeUrl）。 */
+  readonly sharedKnowledgeUrl?: string;
+  /** 跨模式通用共用知識庫（等同於 knowledge）。 */
+  sharedKnowledge?: KnowledgeEntry[];
+  /** 基礎通用知識庫遠端 URL（等同於 sharedKnowledgeUrl）。 */
   knowledgeUrl?: string;
-  /** @deprecated 請改用 assistantKnowledge */
+  /** 基礎通用知識庫（等同於 sharedKnowledge）。 */
   knowledge: KnowledgeEntry[];
   companionKnowledgeUrl?: string;
   companionKnowledge: KnowledgeEntry[];
+  /** RAG 候選條目上限（預設 3，設為 0 則關閉知識庫檢索）。 */
+  readonly knowledgeLimit?: number;
+  /** 是否啟用前端相似度過濾，或自訂過濾函數。預設 true。設為 false 時跳過過濾整包注入 Prompt。 */
+  readonly knowledgeFilter?:
+    | boolean
+    | ((entry: KnowledgeEntry, question: string) => boolean);
   companionFallback?: unknown;
   /** Pointer index of current fallback phrase in companion persona mode. */
   readonly companionFallbackIndex: number;
