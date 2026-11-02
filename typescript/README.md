@@ -490,12 +490,16 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `maxAutoContinuations` | `number` | `3` | Maximum consecutive auto-continuation turns limit. |
 | `autoContinueMode` | `AutoContinueMode` (`'stream' \| 'buffered'`) | `'stream'` | Output mode for auto-continuation. |
 | `autoContinuePrompt` | `AutoContinuePromptResolver \| null` | `null` | Custom continuation prompt string or dynamic resolver function. |
-| `assistantKnowledge` | `KnowledgeEntry[] \| Record<string, unknown> \| string \| null` | `null` | Preloaded knowledge base for assistant mode (replaces legacy `knowledge`). |
+| `knowledge` / `sharedKnowledge` | `KnowledgeEntry[] \| Record<string, unknown> \| string \| null` | `null` | Preloaded cross-mode general knowledge entries (backward-compatible with `knowledge`, advanced alias `sharedKnowledge`). |
+| `knowledgeUrl` / `sharedKnowledgeUrl` | `string \| null` | `null` | Remote JSON knowledge base URL for general cross-mode knowledge. |
+| `assistantKnowledge` | `KnowledgeEntry[] \| Record<string, unknown> \| string \| null` | `null` | Preloaded knowledge base for assistant mode. |
 | `assistantKnowledgeUrl` | `string \| null` | `null` | Remote JSON knowledge base URL for assistant mode. |
 | `companionKnowledge` | `KnowledgeEntry[] \| Record<string, unknown> \| string \| null` | `null` | Preloaded knowledge base for companion mode. |
 | `companionKnowledgeUrl` | `string \| null` | `null` | Remote JSON knowledge base URL for companion mode. |
+| `knowledgeLimit` | `number` | `3` | Maximum RAG candidate entries injected (alias `ragTopK`; set to `0` to disable retrieval for pure chat). |
+| `knowledgeFilter` | `boolean \| ((entry: KnowledgeEntry, question: string) => boolean)` | `true` | Frontend similarity filter switch or custom filter function; set to `false` for cloud LLM reasoning bypass mode. |
 | `onSummarizingChange` | `(isSummarizing: boolean) => void` | `undefined` | Callback fired when memory background rolling summarization begins or ends. |
-| `modes` | `Record<string, unknown>` | `{}` | Declarative custom mode definitions. |
+| `modes` | `Record<string, CustomModeConfig>` | `{}` | Declarative custom mode definitions (each mode supports independent `knowledge` and `knowledgeUrl`). |
 
 ### Memory & Context Compression
 
@@ -1540,11 +1544,11 @@ To maintain stability and avoid scope creep during our current npm release, thre
   - `onEmotionChange` ➔ `onSentimentChange` or `onIntentChange`
   - Bidirectional aliases will be maintained for smooth transition.
 
-### 📌 TODO 2: Multi-Knowledge RAG Weighted Retrieval
-- **Background**: The current RAG prompt builder indexes `assistantKnowledge` while `companionKnowledge` is queried separately in companion mode.
-- **Future Plan**:
-  - Introduce three-tier knowledge layers: `sharedKnowledge`, `assistantKnowledge`, and `companionKnowledge`.
-  - In `getTopKnowledge`: merge retrieval for the active mode (e.g. `[assistantKnowledge, sharedKnowledge]` with 1.2x weight on domain-specific entries).
+### ✅ TODO 2: Tiered Multi-Knowledge RAG Retrieval (Implemented)
+- **Delivered Architecture**:
+  - **Tiered Multi-Pool Architecture**: Comprehensive support for cross-mode general knowledge (`knowledge` / `sharedKnowledge`) and mode-specific pools (`assistantKnowledge`, `companionKnowledge`, and `modes[customMode].knowledge`).
+  - **Semantic Tagging & Conflict Directives**: Replaced arbitrary numerical multipliers with industry-standard semantic tagging (`[${currentMode} Mode]` / `[General Knowledge]`), stratified slot protection (mode-specific entries prioritized, general entries backfilling up to limit), and system prompt conflict directives ensuring LLMs and SLMs prioritize mode-specific guidelines.
+  - **Dual-Track Retrieval Controls**: Fully supports `knowledgeLimit` (candidate entry cap, set to `0` for pure conversation) and `knowledgeFilter: false` (skips similarity filtering and injects raw entries for cloud LLM reasoning).
 
 ### 📌 TODO 3: `updateChatMessage` Signature Convergence to Pure Options Object
 - **Background**: Overloaded for 100% backward compatibility to support both `UpdateChatMessageOptions` and legacy 6-argument positional calls.

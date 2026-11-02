@@ -493,12 +493,16 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `maxAutoContinuations` | `number` | `3` | 最大自動接續回合次數（防止無限迴圈）。 |
 | `autoContinueMode` | `AutoContinueMode` (`'stream' \| 'buffered'`) | `'stream'` | 接續輸出模式（串流邊講邊播或緩衝全收）。 |
 | `autoContinuePrompt` | `AutoContinuePromptResolver \| null` | `null` | 自訂接續提示詞字串或動態解析函式。 |
-| `assistantKnowledge` | `KnowledgeEntry[] \| Record<string, unknown> \| string \| null` | `null` | 助理模式預載知識庫陣列（取代舊稱 `knowledge`）。 |
+| `knowledge` / `sharedKnowledge` | `KnowledgeEntry[] \| Record<string, unknown> \| string \| null` | `null` | 跨模式通用知識庫陣列（相容舊稱 `knowledge`，進階別名 `sharedKnowledge`）。 |
+| `knowledgeUrl` / `sharedKnowledgeUrl` | `string \| null` | `null` | 跨模式通用知識庫遠端 JSON 下載網址。 |
+| `assistantKnowledge` | `KnowledgeEntry[] \| Record<string, unknown> \| string \| null` | `null` | 助理模式專屬預載知識庫陣列。 |
 | `assistantKnowledgeUrl` | `string \| null` | `null` | 助理模式遠端 JSON 知識庫下載網址。 |
-| `companionKnowledge` | `KnowledgeEntry[] \| Record<string, unknown> \| string \| null` | `null` | 陪伴模式預載知識庫陣列。 |
+| `companionKnowledge` | `KnowledgeEntry[] \| Record<string, unknown> \| string \| null` | `null` | 陪伴模式專屬預載知識庫陣列。 |
 | `companionKnowledgeUrl` | `string \| null` | `null` | 陪伴模式遠端 JSON 知識庫下載網址。 |
+| `knowledgeLimit` | `number` | `3` | RAG 候選條目注入上限（別名 `ragTopK`；設為 `0` 關閉檢索進行純自由聊天）。 |
+| `knowledgeFilter` | `boolean \| ((entry: KnowledgeEntry, question: string) => boolean)` | `true` | 前端相似度過濾開關或自訂過濾函數；設為 `false` 啟用雲端大模型全權推論 bypass 模式。 |
 | `onSummarizingChange` | `(isSummarizing: boolean) => void` | `undefined` | 記憶背景滾動摘要開始或結束時觸發之事件回呼。 |
-| `modes` | `Record<string, unknown>` | `{}` | 聲明式自訂模式註冊表。 |
+| `modes` | `Record<string, CustomModeConfig>` | `{}` | 聲明式自訂模式註冊表（各模式支援獨立 `knowledge` 與 `knowledgeUrl`）。 |
 
 ### 記憶管理與上下文壓縮
 
@@ -1543,11 +1547,11 @@ yarn test:smoke
   - `onEmotionChange` ➔ 更名為 `onSentimentChange` 或 `onIntentChange`
   - 在大腦內部保留雙向別名轉接，兼顧獨立使用純淨性與既有整合包的平滑過渡。
 
-### 📌 TODO 2：多知識庫分類 RAG 權重合併檢索演算法（通用共用庫 + 模式專屬庫）
-- **背景**：原先系統在 RAG 提示詞組裝階段一律只讀取助手知識庫，未檢索陪伴知識庫。本次重構先將參數命名對稱化（`assistantKnowledge` 與 `companionKnowledge`），未更動底層 RAG 檢索邏輯。
-- **未來規劃**：
-  - 引入三層知識庫架構：`sharedKnowledge`（通用）、`assistantKnowledge`（助手專屬）、`companionKnowledge`（陪伴專屬）。
-  - 在 `getTopKnowledge` 中依據當前模式合併檢索（如 Assistant 模式檢索 `[assistantKnowledge, sharedKnowledge]`），並設定專屬權重因子（例如專屬庫 1.2 倍、共用庫 1.0 倍）進行加權重排序。
+### ✅ TODO 2：多知識庫分層加權 RAG 檢索演算法（已落成 / Implemented）
+- **落成成果**：
+  - **分層雙軌架構**：完整支援跨模式通用知識庫（`knowledge` / `sharedKnowledge`）與各模式專屬庫（`assistantKnowledge`、`companionKnowledge` 及 `modes[customMode].knowledge`）。
+  - **語意標籤與衝突裁決**：揚棄純數值 Magic Number 乘數，改採業界標準「語意標籤（`[${currentMode}模式專屬]` / `[通用知識]`）+ 階梯式槽位保護（專屬合格優先，通用滿額補齊）+ 系統提示詞衝突裁決原則」，確保端側小模型與雲端 LLM 都能精準掌握專屬知識的最高約束力。
+  - **雙軌檢索控制**：支援 `knowledgeLimit`（候選條數上限，設為 `0` 時關閉檢索純自由推理）與 `knowledgeFilter: false`（跳過前端相似度過濾，整包資料原汁原味交由雲端 LLM 全權推論）。
 
 ### 📌 TODO 3：`updateChatMessage` 簽名最終統一收斂為純 Options 物件（移除長串位置參數多載）
 - **背景**：本次重構採取多載（Overload）設計，同時相容全新 `UpdateChatMessageOptions` 物件與舊版 6 個位置參數，確保既有呼叫端 100% 不壞。
