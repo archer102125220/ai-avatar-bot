@@ -182,11 +182,15 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
       const mockEngine = {
         aiProvider: null,
         get aiProviderHeaders(): Readonly<Record<string, string>> {
-          return (this.aiProvider as unknown as AiProviderEngine)?.headers ?? Object.freeze({});
+          return (
+            (this.aiProvider as unknown as AiProviderEngine)?.headers ??
+            Object.freeze({})
+          );
         },
         set aiProviderHeaders(newHeaders: Record<string, string>) {
           if (this.aiProvider !== null && typeof this.aiProvider === 'object') {
-            (this.aiProvider as unknown as AiProviderEngine).headers = newHeaders;
+            (this.aiProvider as unknown as AiProviderEngine).headers =
+              newHeaders;
           }
         }
       };
@@ -721,17 +725,20 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
       expect(typeof companionFallbackDesc?.get).toBe('function');
       expect(companionFallbackDesc?.set).toBeUndefined();
 
-      const internalEngine = brainEngine as unknown as {
-        _advanceCompanionFallback?: () => void;
-      };
-      if (typeof internalEngine._advanceCompanionFallback === 'function') {
-        internalEngine._advanceCompanionFallback();
-        expect(brainEngine.companionFallbackIndex).toBe(1);
-        brainEngine.resetCompanionFallback();
-        expect(brainEngine.companionFallbackIndex).toBe(0);
-      }
+      // Advancing fallback index via getCompanionFallbackResponse updates the internal store
+      getCompanionFallbackResponse(brainEngine, '測試問題');
+      expect(brainEngine.companionFallbackIndex).toBe(1);
+      brainEngine.resetCompanionFallback();
+      expect(brainEngine.companionFallbackIndex).toBe(0);
 
-      // 3. chatSeq is readonly getter
+      // Verify all legacy backdoor methods and store are not exposed on the instance
+      const rawEngine = brainEngine as unknown as Record<string, unknown>;
+      expect(rawEngine._advanceCompanionFallback).toBeUndefined();
+      expect(rawEngine._nextChatSeq).toBeUndefined();
+      expect(rawEngine._setSummarizing).toBeUndefined();
+      expect(rawEngine.store).toBeUndefined();
+
+      // 3. chatSeq is readonly getter and increments when addChatMessage is called
       expect(typeof brainEngine.chatSeq).toBe('number');
       const chatSeqDesc = Object.getOwnPropertyDescriptor(
         brainEngine,
@@ -739,6 +746,10 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
       );
       expect(typeof chatSeqDesc?.get).toBe('function');
       expect(chatSeqDesc?.set).toBeUndefined();
+
+      const initialSeq = brainEngine.chatSeq;
+      brainEngine.addChatMessage('user', '哈囉');
+      expect(brainEngine.chatSeq).toBe(initialSeq + 1);
 
       // 4. tools static configuration support
       expect(brainEngine.getTools?.()).toHaveLength(1);
