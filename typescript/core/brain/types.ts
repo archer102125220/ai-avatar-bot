@@ -733,6 +733,19 @@ export interface BrainEngineOptions {
 }
 
 /**
+ * Internal reactive state managed by the Brain cognitive engine store.
+ */
+export interface BrainStoreState {
+  /** Whether memory background summarization is running. */
+  isSummarizing: boolean;
+  /** Current cursor index for companion fallback responses. */
+  companionFallbackIndex: number;
+  /** Incrementing sequence number for chat log items. */
+  chatSeq: number;
+  [key: string]: unknown;
+}
+
+/**
  * AI Brain Engine instance managing WebLLM, AI Provider, Memory, and RAG.
  */
 export interface BrainEngine {
