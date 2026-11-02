@@ -74,6 +74,7 @@ The entire SDK adopts a highly decoupled "Multi-Engine Architecture", allowing d
    * **Two-Tier WebGPU OOM Fallback**: Gracefully and automatically switches to lightweight backup models when WebGPU memory overflows.
    * **Intelligent Context Compression**: Sliding window and rolling summary strategies with cascading dual-track budgets to prevent WebGPU VRAM overflow and token limits.
    * **Auto-Continue Responses**: Automatically bypasses single-response token truncation to produce seamless long answers.
+   * **Private Reactive State Store**: Mutex lock for background memory summarization (`isSummarizing`) and conversation sequencing (`chatSeq`, `companionFallbackIndex`) internally encapsulated via WeakMap reactive store, automatically triggering `onSummarizingChange` lifecycle events.
 2. 🗣️ **Speech Engine**:
    * Integrates browser Speech Recognition (STT) and Microsoft Neural TTS.
    * Supports real-time voice barge-in, companion continuous dialogue, audio streaming queue, and real-time lip sync.

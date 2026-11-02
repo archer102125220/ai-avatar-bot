@@ -1378,6 +1378,55 @@ export interface AiAvatarWidget {
 }
 ```
 
+### 🧠 Brain Engine API (`BrainEngine`)
+
+The cognitive engine accessible via `widget.brainEngine` or initialized independently via `initBrainEngine`:
+
+```typescript
+export interface BrainEngine {
+  // Mode & Capabilities
+  avatarMode?: AvatarMode;
+  modes: Record<string, unknown>;
+  readonly availableModes: string[];
+  enableMemory: boolean;
+  enableAiProvider: boolean;
+  preloadWebLLM: boolean;
+  autoFallbackWebLLM: boolean;
+  webLlmFallbackModel?: string | null | false;
+  enableOomFallback?: boolean;
+  enableAutoContinue: boolean;
+  maxAutoContinuations: number;
+  autoContinueMode: AutoContinueMode;
+
+  // Reactive State Getters (Readonly, internally managed via private WeakMap store)
+  readonly isSummarizing: boolean;
+  readonly companionFallbackIndex: number;
+  readonly chatSeq: number;
+  resetCompanionFallback(): void;
+
+  // Knowledge Bases
+  assistantKnowledge?: KnowledgeEntry[];
+  assistantKnowledgeUrl?: string;
+  companionKnowledge?: KnowledgeEntry[];
+  companionKnowledgeUrl?: string;
+
+  // Message & Cognitive Methods
+  addChatMessage(role: string, text: string, options?: AddChatMessageOptions): string;
+  updateChatMessage(id: string, text: string, options?: UpdateChatMessageOptions): void;
+  answerQuestion(question: string): Promise<string | void>;
+  classifyEmotion(text: string): string;
+  applyEmotionFromText(text: string): void;
+  getWelcomeText(): string;
+  buildLLMMessages(userPrompt?: string): Promise<Array<{ role: string; content: string }>>;
+}
+```
+
+#### Private Store Architecture
+- **Unified Clean API**: Follows the sub-engine design pattern (`SkinEngine`, `SpeechEngine`, `I18nEngine`) by not exposing `.store` or external `setState` on the instance, preventing accidental tampering with the background summarization mutex lock.
+- **Automatic Reactive Broadcasting**: When background rolling summary begins or finishes, the internal store automatically dispatches the `onSummarizingChange(isSummarizing: boolean)` callback for smooth UI indication without manual polling.
+- **Options-based Message Updates**: `updateChatMessage` supports both the modern options object (`{ streaming, reasoning, reasoningTimeMs, reasoningStreaming }`) and positional argument overloads.
+- **Zero Backdoor Methods**: Eradicated all legacy underscore methods (`_setSummarizing`, `_advanceCompanionFallback`, `_nextChatSeq`), delivering a pristine external contract.
+
 ---
 
 ## 🌐 Internationalization (i18n)

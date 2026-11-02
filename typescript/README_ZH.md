@@ -1381,6 +1381,55 @@ export interface AiAvatarWidget {
 }
 ```
 
+### 🧠 大腦引擎實例介面 (`BrainEngine`)
+
+透過 `widget.brainEngine` 存取，或獨立透過 `initBrainEngine` 初始化的認知推論核心實例：
+
+```typescript
+export interface BrainEngine {
+  // 模式切換與推論能力設定
+  avatarMode?: AvatarMode;
+  modes: Record<string, unknown>;
+  readonly availableModes: string[];
+  enableMemory: boolean;
+  enableAiProvider: boolean;
+  preloadWebLLM: boolean;
+  autoFallbackWebLLM: boolean;
+  webLlmFallbackModel?: string | null | false;
+  enableOomFallback?: boolean;
+  enableAutoContinue: boolean;
+  maxAutoContinuations: number;
+  autoContinueMode: AutoContinueMode;
+
+  // 響應式狀態 Getter（唯讀防護，由模組私有 WeakMap Store 管理）
+  readonly isSummarizing: boolean;
+  readonly companionFallbackIndex: number;
+  readonly chatSeq: number;
+  resetCompanionFallback(): void;
+
+  // 模式專屬知識庫
+  assistantKnowledge?: KnowledgeEntry[];
+  assistantKnowledgeUrl?: string;
+  companionKnowledge?: KnowledgeEntry[];
+  companionKnowledgeUrl?: string;
+
+  // 對話管理與認知方法
+  addChatMessage(role: string, text: string, options?: AddChatMessageOptions): string;
+  updateChatMessage(id: string, text: string, options?: UpdateChatMessageOptions): void;
+  answerQuestion(question: string): Promise<string | void>;
+  classifyEmotion(text: string): string;
+  applyEmotionFromText(text: string): void;
+  getWelcomeText(): string;
+  buildLLMMessages(userPrompt?: string): Promise<Array<{ role: string; content: string }>>;
+}
+```
+
+#### 私有 Store 響應式架構優勢
+- **統一乾淨的 API 風格**：貫徹所有子引擎（`SkinEngine`、`SpeechEngine`、`I18nEngine`）之設計規範，大腦實例對外**不暴露 `.store`** 與 `setState`，徹底杜絕外部竄改背景記憶提煉互斥鎖（`isSummarizing`）的風險。
+- **自動響應式廣播**：當背景記憶開始或結束滾動提煉時，內部 Store 會自動觸發 `onSummarizingChange(isSummarizing: boolean)` 事件回呼，利於 UI 即時展示「🧠 記憶整理中…」動態指示。
+- **現代化 Options 傳參**：`updateChatMessage` 支援現代化物件傳參（`{ streaming, reasoning, reasoningTimeMs, reasoningStreaming }`），並向下相容傳統多載。
+- **零後門方法**：徹底剷除過去帶底線的內部後門方法（`_setSummarizing`、`_advanceCompanionFallback`、`_nextChatSeq`），達成 100% 純淨的公開 API。
+
 ---
 
 ## 🌐 多語系支援 (i18n)
