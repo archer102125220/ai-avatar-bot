@@ -1,4 +1,5 @@
-import type { KnowledgeEntry, BrainEngine } from './types';
+import { AVATAR_MODE_MAP, DEFAULT_AVATAR_MODE } from '@/core/constants';
+import type { KnowledgeEntry, BrainEngine, CustomModeConfig } from './types';
 
 /**
  * Fetches knowledge base JSON entries from a URL.
@@ -105,35 +106,176 @@ export function scoreKnowledgeEntry(
 }
 
 /**
- * Retrieves top K relevant knowledge entries matching the user question.
+ * Retrieves top K relevant knowledge entries matching the user question using multi-knowledge tiered RAG.
  *
  * @param brainEngine - Brain engine instance.
  * @param question - User question text or messages array.
- * @param limit - Maximum number of knowledge items to return.
- * @returns Array of ranked matching knowledge entries.
+ * @param limit - Maximum number of knowledge items to return (defaults to engine.knowledgeLimit ?? 3).
+ * @returns Array of ranked matching knowledge entries tagged with tier attribution ('mode' | 'shared').
  */
 export function getTopKnowledge(
   brainEngine: BrainEngine | Record<string, unknown> | null | undefined,
   question: string | Array<{ content?: string }>,
-  limit: number
+  limit?: number
 ): KnowledgeEntry[] {
-  const knowledge =
-    brainEngine &&
-    Array.isArray(
-      (brainEngine as { assistantKnowledge?: KnowledgeEntry[] }).assistantKnowledge
-    )
-      ? (brainEngine as { assistantKnowledge: KnowledgeEntry[] }).assistantKnowledge
-      : brainEngine &&
-          Array.isArray((brainEngine as { knowledge?: KnowledgeEntry[] }).knowledge)
-        ? (brainEngine as { knowledge: KnowledgeEntry[] }).knowledge
-        : [];
+  if (typeof brainEngine !== 'object' || brainEngine === null) {
+    return [];
+  }
 
-  return knowledge
-    .map((entry) => ({ entry, score: scoreKnowledgeEntry(question, entry) }))
-    .sort((firstItem, secondItem) => secondItem.score - firstItem.score)
-    .slice(0, limit)
-    .filter((item) => item.score > 0.05)
-    .map((item) => item.entry);
+  const engine = brainEngine as Partial<BrainEngine> & Record<string, unknown>;
+
+  const resolvedLimit =
+    typeof limit === 'number' && Number.isFinite(limit) === true
+      ? Math.max(0, limit)
+      : typeof engine.knowledgeLimit === 'number' &&
+          Number.isFinite(engine.knowledgeLimit) === true
+        ? Math.max(0, engine.knowledgeLimit)
+        : typeof (engine as { ragTopK?: number }).ragTopK === 'number' &&
+            Number.isFinite((engine as { ragTopK: number }).ragTopK) === true
+          ? Math.max(0, (engine as { ragTopK: number }).ragTopK)
+          : 3;
+
+  if (resolvedLimit === 0) {
+    return [];
+  }
+
+  const currentMode =
+    typeof engine.avatarMode === 'string' && engine.avatarMode !== ''
+      ? engine.avatarMode
+      : DEFAULT_AVATAR_MODE;
+
+  // 1. 動態解析雙層知識庫
+  // 1.1 當前模式專屬庫 (Mode-Specific Knowledge)
+  let modeKnowledge: KnowledgeEntry[] = [];
+  if (currentMode === AVATAR_MODE_MAP.companion) {
+    if (Array.isArray(engine.companionKnowledge) === true) {
+      modeKnowledge = engine.companionKnowledge;
+    }
+  } else if (
+    typeof engine.modes === 'object' &&
+    engine.modes !== null &&
+    typeof (engine.modes as Record<string, CustomModeConfig>)[currentMode] ===
+      'object' &&
+    (engine.modes as Record<string, CustomModeConfig>)[currentMode] !== null
+  ) {
+    const customConfig = (
+      engine.modes as Record<string, CustomModeConfig>
+    )[currentMode];
+    if (Array.isArray(customConfig?.knowledge) === true) {
+      modeKnowledge = customConfig.knowledge as KnowledgeEntry[];
+    }
+  } else {
+    // Assistant 模式或預設
+    if (Array.isArray(engine.assistantKnowledge) === true) {
+      modeKnowledge = engine.assistantKnowledge as KnowledgeEntry[];
+    }
+  }
+
+  // 1.2 通用常識庫 (General / Shared Knowledge)
+  let sharedKnowledge: KnowledgeEntry[] = [];
+  if (Array.isArray(engine.sharedKnowledge) === true) {
+    sharedKnowledge = engine.sharedKnowledge as KnowledgeEntry[];
+  } else if (Array.isArray(engine.knowledge) === true) {
+    sharedKnowledge = engine.knowledge as KnowledgeEntry[];
+  }
+
+  const getEntryKey = (item: KnowledgeEntry): string => {
+    const q = typeof item.q === 'string' ? item.q : String(item.q || '');
+    const a = typeof item.a === 'string' ? item.a : String(item.a || '');
+    return `${q}:::${a}`;
+  };
+
+  // 2. 判斷過濾模式 (knowledgeFilter)
+  const filterSetting = engine.knowledgeFilter;
+  const isBypass = filterSetting === false;
+
+  // 若 knowledgeFilter === false (全權推論模式)：跳過相似度計算與門檻，直接合併專屬庫與通用庫
+  if (isBypass === true) {
+    const results: KnowledgeEntry[] = [];
+    const seenKeys = new Set<string>();
+
+    for (const entry of modeKnowledge) {
+      const key = getEntryKey(entry);
+      if (seenKeys.has(key) === false) {
+        seenKeys.add(key);
+        results.push({ ...entry, tier: 'mode' });
+        if (results.length >= resolvedLimit) {
+          return results;
+        }
+      }
+    }
+
+    for (const entry of sharedKnowledge) {
+      const key = getEntryKey(entry);
+      if (seenKeys.has(key) === false) {
+        seenKeys.add(key);
+        results.push({ ...entry, tier: 'shared' });
+        if (results.length >= resolvedLimit) {
+          return results;
+        }
+      }
+    }
+
+    return results;
+  }
+
+  // 3. 相似度排序模式 (knowledgeFilter === true 或自訂過濾函數)
+  const safeQuestion =
+    typeof question === 'string'
+      ? question
+      : Array.isArray(question) === true
+        ? question[question.length - 1]?.content || ''
+        : String(question || '');
+
+  const customFilterFn =
+    typeof filterSetting === 'function' ? filterSetting : null;
+
+  // 3.1 評分與合格篩選
+  const filterAndScore = (
+    entries: KnowledgeEntry[]
+  ): Array<{ entry: KnowledgeEntry; score: number }> => {
+    return entries
+      .filter((entry) => {
+        if (customFilterFn !== null) {
+          return customFilterFn(entry, safeQuestion) === true;
+        }
+        return true;
+      })
+      .map((entry) => ({ entry, score: scoreKnowledgeEntry(question, entry) }))
+      .filter((item) => (customFilterFn !== null ? true : item.score > 0.05))
+      .sort((a, b) => b.score - a.score);
+  };
+
+  const rankedMode = filterAndScore(modeKnowledge);
+  const rankedShared = filterAndScore(sharedKnowledge);
+
+  // 3.2 階梯式槽位保護 (專屬庫優先，未滿 limit 則由通用庫補齊)
+  const results: KnowledgeEntry[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const item of rankedMode) {
+    const key = getEntryKey(item.entry);
+    if (seenKeys.has(key) === false) {
+      seenKeys.add(key);
+      results.push({ ...item.entry, tier: 'mode' });
+      if (results.length >= resolvedLimit) {
+        return results;
+      }
+    }
+  }
+
+  for (const item of rankedShared) {
+    const key = getEntryKey(item.entry);
+    if (seenKeys.has(key) === false) {
+      seenKeys.add(key);
+      results.push({ ...item.entry, tier: 'shared' });
+      if (results.length >= resolvedLimit) {
+        return results;
+      }
+    }
+  }
+
+  return results;
 }
 
 /**

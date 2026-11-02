@@ -158,6 +158,109 @@ describe('Unit Test: core/brain/knowledge.js', () => {
         1
       );
       expect(top[0].a).toBe('來自 assistantKnowledge');
+      expect(top[0].tier).toBe('mode');
+    });
+
+    it('should return empty array when limit or knowledgeLimit is 0', () => {
+      const brainEngine = {
+        knowledge: [{ q: '問題', a: '回答' }],
+        knowledgeLimit: 0
+      };
+      expect(
+        getTopKnowledge(
+          brainEngine as unknown as Parameters<typeof getTopKnowledge>[0],
+          '問題'
+        )
+      ).toEqual([]);
+
+      expect(
+        getTopKnowledge(
+          { knowledge: [{ q: '問題', a: '回答' }] } as unknown as Parameters<
+            typeof getTopKnowledge
+          >[0],
+          '問題',
+          0
+        )
+      ).toEqual([]);
+    });
+
+    it('should support knowledgeFilter: false bypass mode without score filtering', () => {
+      const brainEngine = {
+        knowledgeFilter: false,
+        avatarMode: 'assistant',
+        assistantKnowledge: [
+          { q: '專屬A', a: '內容A' },
+          { q: '共用重複', a: '專屬版本' }
+        ],
+        sharedKnowledge: [
+          { q: '共用重複', a: '專屬版本' }, // duplicate, should be skipped
+          { q: '常識B', a: '內容B' }
+        ]
+      };
+
+      const top = getTopKnowledge(
+        brainEngine as unknown as Parameters<typeof getTopKnowledge>[0],
+        '隨便不相關的問題',
+        5
+      );
+
+      // Should bypass similarity filtering and retain all items deduplicated
+      expect(top).toHaveLength(3);
+      expect(top[0].q).toBe('專屬A');
+      expect(top[0].tier).toBe('mode');
+      expect(top[1].q).toBe('共用重複');
+      expect(top[1].tier).toBe('mode');
+      expect(top[2].q).toBe('常識B');
+      expect(top[2].tier).toBe('shared');
+    });
+
+    it('should support companion mode and custom mode knowledge pools with stratified slot allocation', () => {
+      // 1. Companion mode
+      const companionEngine = {
+        avatarMode: 'companion',
+        companionKnowledge: [{ q: '陪伴問題', kw: '陪伴', a: '陪伴回答' }],
+        sharedKnowledge: [{ q: '共用問題', kw: '共用', a: '共用回答' }]
+      };
+      const companionTop = getTopKnowledge(
+        companionEngine as unknown as Parameters<typeof getTopKnowledge>[0],
+        '陪伴'
+      );
+      expect(companionTop[0].a).toBe('陪伴回答');
+      expect(companionTop[0].tier).toBe('mode');
+
+      // 2. Custom mode
+      const customEngine = {
+        avatarMode: 'tour',
+        modes: {
+          tour: {
+            knowledge: [{ q: '景點在哪', kw: '景點 旅遊', a: '在台北市' }]
+          }
+        },
+        sharedKnowledge: [{ q: '通用常識', kw: '常識', a: '常識內容' }]
+      };
+      const customTop = getTopKnowledge(
+        customEngine as unknown as Parameters<typeof getTopKnowledge>[0],
+        '景點',
+        2
+      );
+      expect(customTop[0].a).toBe('在台北市');
+      expect(customTop[0].tier).toBe('mode');
+
+      // 3. Custom filter function
+      const filterEngine = {
+        knowledge: [
+          { q: '蘋果', kw: '蘋果', a: '紅色的' },
+          { q: '西瓜', kw: '西瓜', a: '綠色的' }
+        ],
+        knowledgeFilter: (entry: KnowledgeEntry) => entry.q !== '蘋果'
+      };
+      const filteredTop = getTopKnowledge(
+        filterEngine as unknown as Parameters<typeof getTopKnowledge>[0],
+        '我想吃蘋果和西瓜',
+        2
+      );
+      expect(filteredTop.some((item) => item.q === '蘋果')).toBe(false);
+      expect(filteredTop.some((item) => item.q === '西瓜')).toBe(true);
     });
 
     it('should score knowledge entry with message array question and handle null findBestMatch', () => {

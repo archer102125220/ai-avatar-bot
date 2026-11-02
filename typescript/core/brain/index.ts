@@ -989,37 +989,66 @@ export function getRetrievalAnswer(
     fallback?: unknown;
   };
 
-  const targetKnowledge =
+  // 1. 通用常識庫 (General / Shared Knowledge)
+  const sharedKnowledge: KnowledgeEntry[] =
+    Array.isArray(engine.sharedKnowledge) && engine.sharedKnowledge.length > 0
+      ? engine.sharedKnowledge
+      : Array.isArray(engine.knowledge)
+        ? engine.knowledge
+        : [];
+
+  // 2. 當前模式專屬庫 (Mode-Specific Knowledge)
+  let modeKnowledge: KnowledgeEntry[] = [];
+  if (currentAvatarMode === AVATAR_MODE_MAP.companion) {
+    if (Array.isArray(engine.companionKnowledge) === true) {
+      modeKnowledge = engine.companionKnowledge;
+    }
+  } else if (
     Array.isArray(currentCustomMode?.knowledge) &&
     currentCustomMode.knowledge.length > 0
-      ? currentCustomMode.knowledge
-      : Array.isArray(
-            (engine as { assistantKnowledge?: KnowledgeEntry[] })
-              .assistantKnowledge
-          ) &&
-          (engine as { assistantKnowledge: KnowledgeEntry[] })
-            .assistantKnowledge.length > 0
-        ? (engine as { assistantKnowledge: KnowledgeEntry[] })
-            .assistantKnowledge
-        : engine.knowledge || [];
+  ) {
+    modeKnowledge = currentCustomMode.knowledge;
+  } else if (
+    Array.isArray(
+      (engine as { assistantKnowledge?: KnowledgeEntry[] }).assistantKnowledge
+    ) &&
+    (engine as { assistantKnowledge: KnowledgeEntry[] }).assistantKnowledge
+      .length > 0
+  ) {
+    modeKnowledge = (engine as { assistantKnowledge: KnowledgeEntry[] })
+      .assistantKnowledge;
+  }
 
-  const site = findBestMatch(targetKnowledge, question);
+  const site = findBestMatch(sharedKnowledge, question);
+  const modeMatch = findBestMatch(modeKnowledge, question);
+
   if (currentAvatarMode === AVATAR_MODE_MAP.companion) {
-    const chat = findBestMatch(engine.companionKnowledge || [], question);
     if (
-      chat.entry !== null &&
-      chat.score >= 0.16 &&
-      chat.score + 0.05 >= site.score
+      modeMatch.entry !== null &&
+      modeMatch.score >= 0.16 &&
+      modeMatch.score + 0.05 >= site.score
     ) {
-      return chat.entry.a || '';
+      return modeMatch.entry.a || '';
     }
     if (site.entry !== null && site.score >= 0.16) {
       return site.entry.a || '';
     }
     return getCompanionFallbackResponse(engine, question);
   }
+
+  // Assistant 或自訂模式：專屬優先（+0.05 傾斜），未達則由通用常識庫補位
+  if (
+    modeMatch.entry !== null &&
+    modeMatch.score >= 0.16 &&
+    modeMatch.score + 0.05 >= site.score
+  ) {
+    return modeMatch.entry.a || '';
+  }
   if (site.entry !== null && site.score >= 0.16) {
     return site.entry.a || '';
+  }
+  if (modeMatch.entry !== null && modeMatch.score >= 0.16) {
+    return modeMatch.entry.a || '';
   }
 
   if (
