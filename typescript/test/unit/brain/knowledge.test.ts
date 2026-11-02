@@ -263,6 +263,127 @@ describe('Unit Test: core/brain/knowledge.js', () => {
       expect(filteredTop.some((item) => item.q === '西瓜')).toBe(true);
     });
 
+    it('should maintain backward compatibility when only knowledge is provided', () => {
+      const legacyEngine = {
+        knowledge: [
+          { q: '共用說明', kw: '說明', a: '這是單一舊式知識庫' }
+        ]
+      };
+
+      // Assistant mode
+      const assistantTop = getTopKnowledge(
+        { ...legacyEngine, avatarMode: 'assistant' } as unknown as Parameters<typeof getTopKnowledge>[0],
+        '說明',
+        1
+      );
+      expect(assistantTop).toHaveLength(1);
+      expect(assistantTop[0].a).toBe('這是單一舊式知識庫');
+      expect(assistantTop[0].tier).toBe('shared');
+
+      // Companion mode
+      const companionTop = getTopKnowledge(
+        { ...legacyEngine, avatarMode: 'companion' } as unknown as Parameters<typeof getTopKnowledge>[0],
+        '說明',
+        1
+      );
+      expect(companionTop).toHaveLength(1);
+      expect(companionTop[0].a).toBe('這是單一舊式知識庫');
+      expect(companionTop[0].tier).toBe('shared');
+
+      // Custom mode without custom knowledge
+      const customTop = getTopKnowledge(
+        { ...legacyEngine, avatarMode: 'customRole', modes: { customRole: {} } } as unknown as Parameters<typeof getTopKnowledge>[0],
+        '說明',
+        1
+      );
+      expect(customTop).toHaveLength(1);
+      expect(customTop[0].a).toBe('這是單一舊式知識庫');
+      expect(customTop[0].tier).toBe('shared');
+    });
+
+    it('should prioritize mode-specific pool and backfill remaining slots from shared pool', () => {
+      const stratifiedEngine = {
+        avatarMode: 'assistant',
+        assistantKnowledge: [
+          { q: '微軟系統', kw: '微軟', a: 'Windows 作業系統' }
+        ],
+        sharedKnowledge: [
+          { q: '微軟雲端', kw: '微軟', a: 'Azure 雲端服務' },
+          { q: '微軟辦公', kw: '微軟', a: 'Office 365 辦公軟體' },
+          { q: '微軟遊戲', kw: '微軟', a: 'Xbox 遊戲平台' }
+        ]
+      };
+
+      const top = getTopKnowledge(
+        stratifiedEngine as unknown as Parameters<typeof getTopKnowledge>[0],
+        '我想了解微軟',
+        3
+      );
+
+      expect(top).toHaveLength(3);
+      // Mode-specific slot takes priority
+      expect(top[0].q).toBe('微軟系統');
+      expect(top[0].tier).toBe('mode');
+      // Remaining slots backfilled from shared pool
+      expect(top[1].tier).toBe('shared');
+      expect(top[2].tier).toBe('shared');
+    });
+
+    it('should deduplicate identical questions between mode-specific and shared pools', () => {
+      const dedupeEngine = {
+        avatarMode: 'assistant',
+        assistantKnowledge: [
+          { q: '營業時間', kw: '時間', a: '專屬營業時間 09:00 - 22:00' }
+        ],
+        sharedKnowledge: [
+          { q: '營業時間', kw: '時間', a: '專屬營業時間 09:00 - 22:00' }, // exact duplicate
+          { q: '客服電話', kw: '電話', a: '0800-000-000' }
+        ]
+      };
+
+      const top = getTopKnowledge(
+        dedupeEngine as unknown as Parameters<typeof getTopKnowledge>[0],
+        '請問營業時間與電話',
+        3
+      );
+
+      // Should keep the mode-specific one and skip duplicate in shared pool
+      const businessTimeEntries = top.filter((item) => item.q === '營業時間');
+      expect(businessTimeEntries).toHaveLength(1);
+      expect(businessTimeEntries[0].tier).toBe('mode');
+      expect(top.some((item) => item.q === '客服電話')).toBe(true);
+    });
+
+    it('should handle completely empty pools, undefined entries, or malformed entries gracefully', () => {
+      const emptyEngine = {
+        assistantKnowledge: [],
+        sharedKnowledge: null as unknown as KnowledgeEntry[],
+        knowledge: undefined
+      };
+
+      expect(
+        getTopKnowledge(
+          emptyEngine as unknown as Parameters<typeof getTopKnowledge>[0],
+          '任何問題',
+          3
+        )
+      ).toEqual([]);
+
+      // Non-array knowledge
+      const malformedEngine = {
+        assistantKnowledge: 'not an array' as unknown as KnowledgeEntry[],
+        sharedKnowledge: { invalid: true } as unknown as KnowledgeEntry[]
+      };
+
+      expect(
+        getTopKnowledge(
+          malformedEngine as unknown as Parameters<typeof getTopKnowledge>[0],
+          '任何問題',
+          3
+        )
+      ).toEqual([]);
+    });
+
     it('should score knowledge entry with message array question and handle null findBestMatch', () => {
       const entry: KnowledgeEntry = {
         q: '如何安裝',

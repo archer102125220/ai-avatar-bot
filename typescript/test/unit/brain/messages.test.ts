@@ -11,7 +11,7 @@ import {
   BRAIN_ENGINE_TYPE_MAP,
   REASONING_MODE_MAP
 } from '@/core/constants';
-import type { BrainEngine } from '@core';
+import type { BrainEngine, KnowledgeEntry } from '@core';
 
 interface MockBrainEngineType {
   locale: string;
@@ -795,6 +795,92 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       const systemEmpty = messagesEmpty.find((m) => m.role === 'system');
       expect(systemEmpty?.content).not.toContain('<think>');
       expect(systemEmpty?.content).not.toContain('在回答使用者問題前');
+    });
+
+    it('should format RAG context with mode and shared tier semantic tags and conflict directive', async () => {
+      mockBrainEngine.locale = 'zh-TW';
+      mockBrainEngine.avatarMode = 'assistant';
+      (mockBrainEngine as unknown as { assistantKnowledge: KnowledgeEntry[]; sharedKnowledge: KnowledgeEntry[] }).assistantKnowledge = [
+        { q: '專屬題目', kw: '專屬', a: '專屬內容解答' }
+      ];
+      (mockBrainEngine as unknown as { assistantKnowledge: KnowledgeEntry[]; sharedKnowledge: KnowledgeEntry[] }).sharedKnowledge = [
+        { q: '共用題目', kw: '共用', a: '共用內容解答' }
+      ];
+
+      const messages = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        '我想問專屬與共用'
+      );
+      const system = messages.find((m) => m.role === 'system');
+
+      expect(system?.content).toContain('[assistant模式專屬] Q：專屬題目');
+      expect(system?.content).toContain('[通用知識] Q：共用題目');
+      expect(system?.content).toContain('若資料中同時存在【assistant模式專屬】與【通用知識】且內容衝突時，請以【assistant模式專屬】為最高優先。');
+    });
+
+    it('should localize RAG tier tags and conflict directive across en, ja, and ko', async () => {
+      // English
+      mockBrainEngine.locale = 'en-US';
+      mockBrainEngine.avatarMode = 'assistant';
+      (mockBrainEngine as unknown as { assistantKnowledge: KnowledgeEntry[]; sharedKnowledge: KnowledgeEntry[] }).assistantKnowledge = [
+        { q: 'Mode Query', kw: 'Query', a: 'Mode Answer' }
+      ];
+      (mockBrainEngine as unknown as { assistantKnowledge: KnowledgeEntry[]; sharedKnowledge: KnowledgeEntry[] }).sharedKnowledge = [
+        { q: 'Shared Query', kw: 'Query', a: 'Shared Answer' }
+      ];
+
+      const msgsEn = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        'Query'
+      );
+      const systemEn = msgsEn.find((m) => m.role === 'system');
+      expect(systemEn?.content).toContain('[assistant Mode] Q：Mode Query');
+      expect(systemEn?.content).toContain('[General Knowledge] Q：Shared Query');
+      expect(systemEn?.content).toContain(
+        'If there is a conflict between [assistant Mode] and [General Knowledge] entries, [assistant Mode] takes the highest precedence.'
+      );
+
+      // Japanese
+      mockBrainEngine.locale = 'ja-JP';
+      const msgsJa = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        'Query'
+      );
+      const systemJa = msgsJa.find((m) => m.role === 'system');
+      expect(systemJa?.content).toContain('[assistantモード専用] Q：Mode Query');
+      expect(systemJa?.content).toContain('[共通知識] Q：Shared Query');
+      expect(systemJa?.content).toContain(
+        '【assistantモード専用】と【共通知識】の情報が矛盾する場合は、【assistantモード専用】を最優先としてください。'
+      );
+
+      // Korean
+      mockBrainEngine.locale = 'ko-KR';
+      const msgsKo = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        'Query'
+      );
+      const systemKo = msgsKo.find((m) => m.role === 'system');
+      expect(systemKo?.content).toContain('[assistant 모드 전용] Q：Mode Query');
+      expect(systemKo?.content).toContain('[공통 지식] Q：Shared Query');
+      expect(systemKo?.content).toContain(
+        '만약 【assistant 모드 전용】과 【공통 지식】의 내용이 상충할 경우 【assistant 모드 전용】을 최우선으로 하세요.'
+      );
+    });
+
+    it('should output empty RAG context when knowledgeLimit is 0', async () => {
+      mockBrainEngine.locale = 'zh-TW';
+      (mockBrainEngine as unknown as { knowledgeLimit: number; knowledge: KnowledgeEntry[] }).knowledgeLimit = 0;
+      mockBrainEngine.knowledge = [
+        { q: '知識題目', kw: '知識', a: '這是不應該被注入的答案' }
+      ];
+
+      const messages = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        '我想問知識題目'
+      );
+      const system = messages.find((m) => m.role === 'system');
+      expect(system?.content).not.toContain('這是不應該被注入的答案');
+      expect(system?.content).toContain('【參考資料】\n（無）');
     });
   });
 });

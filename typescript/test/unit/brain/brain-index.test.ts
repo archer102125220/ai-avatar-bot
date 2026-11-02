@@ -318,6 +318,38 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
       expect(typeof fallback).toBe('string');
     });
 
+    it('should apply mode-specific pool +0.05 score bias and fallback to shared pool in getRetrievalAnswer', () => {
+      // 1. Bias test: Assistant mode with both assistantKnowledge and sharedKnowledge
+      const tieredEngine = {
+        locale: 'zh-TW',
+        avatarMode: 'assistant',
+        assistantKnowledge: [
+          { q: '服務費用怎麼算？', kw: '費用', a: '專屬助手報價：每月 500 元' }
+        ],
+        sharedKnowledge: [
+          { q: '服務費用怎麼算？', kw: '費用', a: '通用標準報價：每月 1000 元' }
+        ]
+      };
+
+      const answer = getRetrievalAnswer(tieredEngine, '請問服務費用怎麼算？');
+      // Due to +0.05 bias on assistant pool, mode-specific answer should win
+      expect(answer).toBe('專屬助手報價：每月 500 元');
+
+      // 2. Shared pool fallback when mode pool doesn't match
+      const fallbackSharedEngine = {
+        locale: 'zh-TW',
+        avatarMode: 'assistant',
+        assistantKnowledge: [
+          { q: '完全無關的問題', a: '完全無關的答案' }
+        ],
+        sharedKnowledge: [
+          { q: '退款政策', kw: '退款', a: '購買後 7 天內可全額退款。' }
+        ]
+      };
+      const refundAnswer = getRetrievalAnswer(fallbackSharedEngine, '請問有退款政策嗎？');
+      expect(refundAnswer).toBe('購買後 7 天內可全額退款。');
+    });
+
     it('should cycle through companion fallback responses across different locales and custom contexts', () => {
       const enEngine = {
         locale: 'en-US',

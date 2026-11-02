@@ -13,7 +13,8 @@ import type {
   BrainEngine,
   SpeechEngine,
   ToolsEngine,
-  SkinEngine
+  SkinEngine,
+  KnowledgeEntry
 } from '@/core';
 import type { UiDom } from '@/core/ui';
 import type {
@@ -288,6 +289,35 @@ describe('Orchestrator Engine Factory', () => {
       expect(brainEngine).toBeDefined();
       expect(brainEngine?.llm?.maxTokens).toBe(256);
       expect(typeof brainEngine?.answerQuestion).toBe('function');
+    });
+
+    it('should forward sharedKnowledge, knowledgeLimit, and knowledgeFilter to BrainEngine instance', async () => {
+      const customFilter = (entry: KnowledgeEntry) => entry.q !== '';
+      const testKnowledge = [{ q: '工廠提問', a: '工廠回答' }];
+
+      const brainEngine = await setupBrainEngine({
+        options: {
+          sharedKnowledge: testKnowledge,
+          sharedKnowledgeUrl: 'https://example.com/shared-factory.json',
+          knowledgeLimit: 7,
+          knowledgeFilter: customFilter
+        },
+        widget: mockWidget,
+        rootStore,
+        i18nEngine,
+        getEngines,
+        getUiDom,
+        streamPipeline: mockStreamPipeline
+      });
+
+      expect(brainEngine).toBeDefined();
+      expect(brainEngine?.sharedKnowledge).toEqual(testKnowledge);
+      expect(brainEngine?.knowledge).toEqual(testKnowledge);
+      expect(brainEngine?.sharedKnowledgeUrl).toBe(
+        'https://example.com/shared-factory.json'
+      );
+      expect(brainEngine?.knowledgeLimit).toBe(7);
+      expect(brainEngine?.knowledgeFilter).toBe(customFilter);
     });
 
     it('should accept valid custom brain engine', async () => {
