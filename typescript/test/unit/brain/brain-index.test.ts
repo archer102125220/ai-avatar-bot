@@ -15,7 +15,7 @@ import {
   BRAIN_ENGINE_TYPE_MAP,
   COMPRESSION_STRATEGY_MAP
 } from '@/core/constants';
-import type { BrainEngine, AiProviderEngine } from '@core';
+import type { BrainEngine, AiProviderEngine, KnowledgeEntry } from '@core';
 
 describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', () => {
   beforeEach(() => {
@@ -790,6 +790,63 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
 
       expect(onSummarizingChange).toHaveBeenCalledWith(false);
       expect(brainEngine.isSummarizing).toBe(false);
+    });
+
+    it('should support multi-knowledge tiered options, URL fetching for custom modes, and two-way sync', async () => {
+      const originalFetch = global.fetch;
+      try {
+        const customModeKb = [{ q: '自訂問題', a: '自訂回答' }];
+        global.fetch = vi.fn().mockImplementation(async (url: string) => {
+          if (typeof url === 'string' && url.includes('custom-kb.json')) {
+            return {
+              json: async () => customModeKb
+            } as unknown as Response;
+          }
+          return {
+            json: async () => []
+          } as unknown as Response;
+        });
+
+        const filterFn = (entry: KnowledgeEntry) => entry.q !== '';
+
+        const brainEngine: BrainEngine = await initBrainEngine({
+          sharedKnowledge: [{ q: '常識問題', a: '常識回答' }],
+          sharedKnowledgeUrl: 'https://example.com/shared.json',
+          knowledgeLimit: 5,
+          knowledgeFilter: filterFn,
+          modes: {
+            customDoc: {
+              knowledgeUrl: 'https://example.com/custom-kb.json'
+            }
+          }
+        });
+
+        // 1. sharedKnowledge and knowledge two-way sync
+        expect(brainEngine.sharedKnowledge).toHaveLength(1);
+        expect(brainEngine.knowledge).toHaveLength(1);
+        expect(brainEngine.sharedKnowledgeUrl).toBe(
+          'https://example.com/shared.json'
+        );
+        expect(brainEngine.knowledgeUrl).toBe(
+          'https://example.com/shared.json'
+        );
+
+        // Mutation sync
+        brainEngine.knowledge = [{ q: '更新常識', a: '更新回答' }];
+        expect(brainEngine.sharedKnowledge[0]?.q).toBe('更新常識');
+
+        brainEngine.sharedKnowledge = [{ q: '雙向更新', a: '雙向回答' }];
+        expect(brainEngine.knowledge[0]?.q).toBe('雙向更新');
+
+        // 2. knowledgeLimit & knowledgeFilter getters
+        expect(brainEngine.knowledgeLimit).toBe(5);
+        expect(brainEngine.knowledgeFilter).toBe(filterFn);
+
+        // 3. Custom mode knowledgeUrl remote fetch
+        expect(brainEngine.modes.customDoc?.knowledge).toEqual(customModeKb);
+      } finally {
+        global.fetch = originalFetch;
+      }
     });
   });
 });

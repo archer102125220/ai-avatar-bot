@@ -858,7 +858,7 @@ export interface BrainEngine {
   /** 跨模式通用共用知識庫遠端 URL（等同於 knowledgeUrl）。 */
   readonly sharedKnowledgeUrl?: string;
   /** 跨模式通用共用知識庫（等同於 knowledge）。 */
-  sharedKnowledge?: KnowledgeEntry[];
+  sharedKnowledge: KnowledgeEntry[];
   /** 基礎通用知識庫遠端 URL（等同於 sharedKnowledgeUrl）。 */
   knowledgeUrl?: string;
   /** 基礎通用知識庫（等同於 sharedKnowledge）。 */
@@ -866,9 +866,9 @@ export interface BrainEngine {
   companionKnowledgeUrl?: string;
   companionKnowledge: KnowledgeEntry[];
   /** RAG 候選條目上限（預設 3，設為 0 則關閉知識庫檢索）。 */
-  readonly knowledgeLimit?: number;
+  readonly knowledgeLimit: number;
   /** 是否啟用前端相似度過濾，或自訂過濾函數。預設 true。設為 false 時跳過過濾整包注入 Prompt。 */
-  readonly knowledgeFilter?:
+  readonly knowledgeFilter:
     | boolean
     | ((entry: KnowledgeEntry, question: string) => boolean);
   companionFallback?: unknown;

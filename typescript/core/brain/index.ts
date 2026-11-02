@@ -36,6 +36,7 @@ import type {
   BrainEngineOptions,
   AvatarMode,
   KnowledgeEntry,
+  CustomModeConfig,
   MemoryInstance,
   LLMEngine,
   AiProviderEngine,
@@ -82,6 +83,8 @@ export async function initBrainEngine(
     maxAutoContinuations = DEFAULT_MAX_AUTO_CONTINUATIONS,
     autoContinueMode = DEFAULT_AUTO_CONTINUE_MODE,
     autoContinuePrompt = null,
+    sharedKnowledge,
+    sharedKnowledgeUrl,
     assistantKnowledge,
     assistantKnowledgeUrl,
     knowledge = [],
@@ -89,6 +92,9 @@ export async function initBrainEngine(
     companionKnowledge = [],
     companionKnowledgeUrl,
     companionFallback,
+    knowledgeLimit,
+    ragTopK,
+    knowledgeFilter = true,
     enableAiProvider,
     aiProviderModel,
     aiProviderBaseUrl,
@@ -183,26 +189,101 @@ export async function initBrainEngine(
       ? webLlmFallbackModel
       : DEFAULT_LLM_FALLBACK_MODEL;
 
-  const resolvedAssistantKnowledge =
-    assistantKnowledge !== undefined ? assistantKnowledge : knowledge;
+  // 1. 通用常識庫 (General/Shared Knowledge) 解析與載入
+  const resolvedSharedKnowledge =
+    sharedKnowledge !== undefined ? sharedKnowledge : knowledge;
+  const resolvedSharedKnowledgeUrl =
+    typeof sharedKnowledgeUrl === 'string' && sharedKnowledgeUrl !== ''
+      ? sharedKnowledgeUrl
+      : typeof knowledgeUrl === 'string' && knowledgeUrl !== ''
+        ? knowledgeUrl
+        : undefined;
+
+  const safeKnowledge: KnowledgeEntry[] =
+    Array.isArray(resolvedSharedKnowledge) &&
+    resolvedSharedKnowledge.length > 0
+      ? (resolvedSharedKnowledge as KnowledgeEntry[])
+      : typeof resolvedSharedKnowledgeUrl === 'string' &&
+          resolvedSharedKnowledgeUrl !== ''
+        ? await fetchKnowledge(resolvedSharedKnowledgeUrl)
+        : [];
+
+  // 2. 模式專屬庫解析與載入
+  // 2.1 Assistant 模式專屬庫
   const resolvedAssistantKnowledgeUrl =
     typeof assistantKnowledgeUrl === 'string' && assistantKnowledgeUrl !== ''
       ? assistantKnowledgeUrl
-      : knowledgeUrl;
+      : undefined;
+
+  const safeAssistantKnowledge: KnowledgeEntry[] | undefined =
+    Array.isArray(assistantKnowledge) && assistantKnowledge.length > 0
+      ? (assistantKnowledge as KnowledgeEntry[])
+      : typeof resolvedAssistantKnowledgeUrl === 'string' &&
+          resolvedAssistantKnowledgeUrl !== ''
+        ? await fetchKnowledge(resolvedAssistantKnowledgeUrl)
+        : undefined;
+
+  // 2.2 Companion 模式專屬庫
+  const resolvedCompanionKnowledgeUrl =
+    typeof companionKnowledgeUrl === 'string' && companionKnowledgeUrl !== ''
+      ? companionKnowledgeUrl
+      : undefined;
+
+  const safeCompanionKnowledge: KnowledgeEntry[] =
+    Array.isArray(companionKnowledge) && companionKnowledge.length > 0
+      ? (companionKnowledge as KnowledgeEntry[])
+      : typeof resolvedCompanionKnowledgeUrl === 'string' &&
+          resolvedCompanionKnowledgeUrl !== ''
+        ? await fetchKnowledge(resolvedCompanionKnowledgeUrl)
+        : [];
+
+  // 2.3 自訂模式專屬庫 (支援 modes[modeKey].knowledgeUrl 非同步載入)
+  const resolvedModes: Record<string, CustomModeConfig> =
+    typeof modes === 'object' && modes !== null
+      ? { ...(modes as Record<string, CustomModeConfig>) }
+      : {};
+
+  await Promise.all(
+    Object.entries(resolvedModes).map(async ([modeKey, modeConfig]) => {
+      if (
+        typeof modeConfig === 'object' &&
+        modeConfig !== null &&
+        typeof modeConfig.knowledgeUrl === 'string' &&
+        modeConfig.knowledgeUrl !== '' &&
+        (!Array.isArray(modeConfig.knowledge) ||
+          modeConfig.knowledge.length === 0)
+      ) {
+        const fetchedCustomKnowledge = await fetchKnowledge(
+          modeConfig.knowledgeUrl
+        );
+        resolvedModes[modeKey] = {
+          ...modeConfig,
+          knowledge: fetchedCustomKnowledge
+        };
+      }
+    })
+  );
+
+  // 3. RAG 條目上限與過濾開關解析
+  const resolvedLimit =
+    typeof knowledgeLimit === 'number' && Number.isFinite(knowledgeLimit) === true
+      ? Math.max(0, knowledgeLimit)
+      : typeof ragTopK === 'number' && Number.isFinite(ragTopK) === true
+        ? Math.max(0, ragTopK)
+        : 3;
+
+  const resolvedFilter:
+    | boolean
+    | ((entry: KnowledgeEntry, question: string) => boolean) =
+    typeof knowledgeFilter === 'function'
+      ? knowledgeFilter
+      : typeof knowledgeFilter === 'boolean'
+        ? knowledgeFilter
+        : true;
 
   let llm: LLMEngine | null = null;
   let memory: MemoryInstance | null = null;
   let aiProvider: AiProviderEngine | null = null;
-
-  const safeKnowledge: KnowledgeEntry[] =
-    Array.isArray(resolvedAssistantKnowledge) &&
-    resolvedAssistantKnowledge.length > 0
-      ? (resolvedAssistantKnowledge as KnowledgeEntry[])
-      : await fetchKnowledge(resolvedAssistantKnowledgeUrl);
-  const safeCompanionKnowledge: KnowledgeEntry[] =
-    Array.isArray(companionKnowledge) && companionKnowledge.length > 0
-      ? (companionKnowledge as KnowledgeEntry[])
-      : await fetchKnowledge(companionKnowledgeUrl);
 
   const resolvedToolsList = Array.isArray(staticTools)
     ? staticTools
@@ -235,6 +316,11 @@ export async function initBrainEngine(
     null;
   let _assistantWelcomeText: string | ((context: unknown) => string) | null =
     null;
+
+  let _knowledge: KnowledgeEntry[] = safeKnowledge;
+  let _assistantKnowledge: KnowledgeEntry[] | undefined =
+    safeAssistantKnowledge;
+  let _companionKnowledge: KnowledgeEntry[] = safeCompanionKnowledge;
 
   const brainEngine: BrainEngine = {
     get STATE_MAP() {
@@ -272,23 +358,53 @@ export async function initBrainEngine(
       return brainStore.getState().isSummarizing;
     },
 
-    get assistantKnowledgeUrl() {
+    get assistantKnowledgeUrl(): string | undefined {
       return resolvedAssistantKnowledgeUrl;
     },
-    get assistantKnowledge() {
-      return safeKnowledge;
+    get assistantKnowledge(): KnowledgeEntry[] | undefined {
+      return _assistantKnowledge;
     },
-    get knowledgeUrl() {
-      return resolvedAssistantKnowledgeUrl;
+    set assistantKnowledge(entries: KnowledgeEntry[] | undefined) {
+      _assistantKnowledge = Array.isArray(entries) ? entries : undefined;
     },
-    knowledge: safeKnowledge,
-    get companionKnowledgeUrl() {
-      return companionKnowledgeUrl;
+    get sharedKnowledgeUrl(): string | undefined {
+      return resolvedSharedKnowledgeUrl;
+    },
+    get knowledgeUrl(): string | undefined {
+      return resolvedSharedKnowledgeUrl;
+    },
+    get sharedKnowledge(): KnowledgeEntry[] {
+      return _knowledge;
+    },
+    set sharedKnowledge(entries: KnowledgeEntry[]) {
+      _knowledge = Array.isArray(entries) ? entries : [];
+    },
+    get knowledge(): KnowledgeEntry[] {
+      return _knowledge;
+    },
+    set knowledge(entries: KnowledgeEntry[]) {
+      _knowledge = Array.isArray(entries) ? entries : [];
+    },
+    get companionKnowledgeUrl(): string | undefined {
+      return resolvedCompanionKnowledgeUrl;
+    },
+    get companionKnowledge(): KnowledgeEntry[] {
+      return _companionKnowledge;
+    },
+    set companionKnowledge(entries: KnowledgeEntry[]) {
+      _companionKnowledge = Array.isArray(entries) ? entries : [];
+    },
+    get knowledgeLimit(): number {
+      return resolvedLimit;
+    },
+    get knowledgeFilter():
+      | boolean
+      | ((entry: KnowledgeEntry, question: string) => boolean) {
+      return resolvedFilter;
     },
     get companionFallback() {
       return companionFallback;
     },
-    companionKnowledge: safeCompanionKnowledge,
     get companionFallbackIndex(): number {
       return brainStore.getState().companionFallbackIndex;
     },
@@ -534,7 +650,7 @@ export async function initBrainEngine(
       }
       return false;
     },
-    modes: typeof modes === 'object' && modes !== null ? modes : {},
+    modes: resolvedModes,
     get availableModes() {
       const customModeKeys =
         typeof brainEngine.modes === 'object' && brainEngine.modes !== null
