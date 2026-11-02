@@ -1,4 +1,8 @@
-import { createBrainStore, registerBrainStore } from './internal-store';
+import {
+  createBrainStore,
+  registerBrainStore,
+  getBrainStore
+} from './internal-store';
 import { resolveLocalized } from '@/core/i18n';
 import {
   STATE_MAP,
@@ -298,11 +302,6 @@ export async function initBrainEngine(
     resetCompanionFallback(): void {
       brainStore.setState({ companionFallbackIndex: 0 });
     },
-    _advanceCompanionFallback(): number {
-      const currentIndex = brainStore.getState().companionFallbackIndex;
-      brainStore.setState({ companionFallbackIndex: currentIndex + 1 });
-      return currentIndex;
-    },
 
     tools: resolvedToolsList,
     getTools: resolvedGetTools,
@@ -373,11 +372,6 @@ export async function initBrainEngine(
     chatLog: [],
     get chatSeq(): number {
       return brainStore.getState().chatSeq;
-    },
-    _nextChatSeq(): number {
-      const nextSeq = brainStore.getState().chatSeq + 1;
-      brainStore.setState({ chatSeq: nextSeq });
-      return nextSeq;
     },
 
     i18nEngine: i18nEngine || null,
@@ -823,22 +817,22 @@ export function getCompanionFallbackResponse(
       ? (rawList as string[])
       : defaultList;
 
+  const store = getBrainStore(engine);
   const currentIdx =
-    typeof (engine as { companionFallbackIndex?: number })
-      .companionFallbackIndex === 'number'
-      ? (engine as { companionFallbackIndex: number }).companionFallbackIndex
-      : typeof (engine as { companionFallbackIdx?: number })
-            .companionFallbackIdx === 'number'
-        ? (engine as { companionFallbackIdx: number }).companionFallbackIdx
-        : 0;
+    store !== undefined
+      ? store.getState().companionFallbackIndex
+      : typeof (engine as { companionFallbackIndex?: number })
+            .companionFallbackIndex === 'number'
+        ? (engine as { companionFallbackIndex: number }).companionFallbackIndex
+        : typeof (engine as { companionFallbackIdx?: number })
+              .companionFallbackIdx === 'number'
+          ? (engine as { companionFallbackIdx: number }).companionFallbackIdx
+          : 0;
 
-  if (
-    typeof (engine as { _advanceCompanionFallback?: () => void })
-      ._advanceCompanionFallback === 'function'
-  ) {
-    (
-      engine as { _advanceCompanionFallback: () => void }
-    )._advanceCompanionFallback();
+  if (store !== undefined) {
+    store.setState((prev) => ({
+      companionFallbackIndex: prev.companionFallbackIndex + 1
+    }));
   } else {
     try {
       (engine as Record<string, unknown>).companionFallbackIndex =
@@ -1002,13 +996,14 @@ export function addChatMessage(
   options: AddChatMessageOptions = {}
 ): string {
   const engine = brainEngine as Partial<BrainEngine> & Record<string, unknown>;
-  const nextSeq =
-    typeof (engine as { _nextChatSeq?: () => number })._nextChatSeq ===
-    'function'
-      ? (engine as { _nextChatSeq: () => number })._nextChatSeq()
-      : typeof (engine as { chatSeq?: number }).chatSeq === 'number'
-        ? ++(engine as { chatSeq: number }).chatSeq
-        : 1;
+  const store = getBrainStore(engine);
+  let nextSeq = 1;
+  if (store !== undefined) {
+    nextSeq = store.getState().chatSeq + 1;
+    store.setState({ chatSeq: nextSeq });
+  } else if (typeof (engine as { chatSeq?: number }).chatSeq === 'number') {
+    nextSeq = ++(engine as { chatSeq: number }).chatSeq;
+  }
 
   if (Array.isArray(engine.chatLog) === false) {
     engine.chatLog = [];
