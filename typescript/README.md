@@ -36,10 +36,11 @@
   - [2. Auto-Continue Response Mechanism](#2-auto-continue-response-mechanism)
   - [3. [Experimental] AI Reasoning (Chain-of-Thought) & WebLLM OOM Fallback Architecture](#3-experimental-ai-reasoning-chain-of-thought--webllm-oom-fallback-architecture)
   - [4. Memory Management, Data Schema & Custom Storage Adapter](#4-memory-management-data-schema--custom-storage-adapter)
-  - [5. Function Calling & Custom Tools (Tools Engine)](#5-function-calling--custom-tools-tools-engine)
-  - [6. 2D (Live2D) & 3D (VRM) Dual Skin Engine](#6-2d-live2d--3d-vrm-dual-skin-engine)
-  - [7. Speech Recognition & Neural TTS (Speech Engine)](#7-speech-recognition--neural-tts-speech-engine)
-  - [8. Headless Mode & Custom UI Integration](#8-headless-mode--custom-ui-integration)
+  - [5. Declarative Modes, Persona Compiler & Prompt Security Architecture](#5-declarative-modes-persona-compiler--prompt-security-architecture)
+  - [6. Function Calling & Custom Tools (Tools Engine)](#6-function-calling--custom-tools-tools-engine)
+  - [7. 2D (Live2D) & 3D (VRM) Dual Skin Engine](#7-2d-live2d--3d-vrm-dual-skin-engine)
+  - [8. Speech Recognition & Neural TTS (Speech Engine)](#8-speech-recognition--neural-tts-speech-engine)
+  - [9. Headless Mode & Custom UI Integration](#9-headless-mode--custom-ui-integration)
 - [📐 Exported TypeScript Types Reference](#-exported-typescript-types-reference)
 - [📚 Instance API & Methods (AiAvatarWidget)](#-instance-api--methods-aiavatarwidget)
 - [🌐 Internationalization (i18n)](#-internationalization-i18n)
@@ -499,13 +500,14 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `knowledgeLimit` | `number` | `3` | Maximum RAG candidate entries injected (alias `ragTopK`; set to `0` to disable retrieval for pure chat). |
 | `knowledgeFilter` | `boolean \| ((entry: KnowledgeEntry, question: string) => boolean)` | `true` | Frontend similarity filter switch or custom filter function; set to `false` for cloud LLM reasoning bypass mode. |
 | `onSummarizingChange` | `(isSummarizing: boolean) => void` | `undefined` | Callback fired when memory background rolling summarization begins or ends. |
-| `modes` | `Record<string, CustomModeConfig>` | `{}` | Declarative custom mode definitions (each mode supports independent `knowledge` and `knowledgeUrl`). |
+| `modes` | `Record<string, CustomModeConfig>` | `{}` | Declarative custom mode definitions supporting `name` (localized display name & exclusive tag), `voice` (mode-specific TTS voice), `persona` (`PersonaProfile` declarative definition), `systemPrompt`, `promptTemplate`, and independent `knowledge`/`knowledgeUrl`. |
 
 ### Memory & Context Compression
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `enableMemory` | `boolean` | `true` | Whether to enable conversation memory across turns. |
+| `isolateModeHistory` | `boolean` | `false` | Whether to isolate conversation history and rolling summaries per mode (`CURRENT_MODE_MEMORY_VERSION = 1`). Smoothly inherits global history on first mode access; switching modes dynamically refreshes the UI history drawer. |
 | `maxHistoryTurns` | `number` | `6` | Maximum conversation turns retained (1 turn = 1 user msg + 1 AI reply). |
 | `memoryKey` | `string` | `'avatar-widget-memory'` | Key name for browser LocalStorage persistence. |
 | `memoryAdapter` | `MemoryAdapter` | `null` | Custom storage adapter instance implementing `MemoryAdapter`. |
@@ -1028,9 +1030,99 @@ if (memory) {
 }
 ```
 
+#### Multi-Mode History Isolation (`isolateModeHistory`)
+
+By default (`isolateModeHistory: false`), all avatar modes share a unified conversation pool. When `isolateModeHistory: true` is enabled:
+- **Smooth Initial Inheritance**: When a custom or preset mode is accessed for the first time, `ensureModeBucket` automatically clones existing global history and rolling summary as its baseline, preventing awkward conversation amnesia upon mode switching.
+- **Independent History & Rolling Summary**: Subsequent messages and background rolling summaries are stored in dedicated mode buckets (`ModeMemoryBucket`, version `1` via `CURRENT_MODE_MEMORY_VERSION`).
+- **Dynamic UI History Refresh**: Switching `widget.avatarMode` immediately re-renders the open conversation history drawer (`renderHistory`) to reflect the active mode's isolated dialogue.
+
+```typescript
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  isolateModeHistory: true, // Enable isolated conversation history per mode
+  modes: {
+    sales: {
+      name: { 'zh-TW': '汽車導購', 'en-US': 'Car Sales Specialist' },
+      voice: 'zh-TW-YunJheNeural',
+      persona: {
+        characterName: 'Alex',
+        role: 'Automotive Consultant',
+        personality: 'Enthusiastic, courteous, and knowledgeable'
+      }
+    }
+  }
+});
+```
+
+#### Granular Memory Clearing (`memory.clear`)
+
+The `clear()` method accepts targeted clearing directives via `MEMORY_CLEAR_TARGET_MAP`:
+- `memory.clear('all')` / `MEMORY_CLEAR_TARGET_MAP.ALL`: Wipes all global history, rolling summaries, and every mode-specific bucket.
+- `memory.clear('current')` / `MEMORY_CLEAR_TARGET_MAP.CURRENT`: Clears only the active avatar mode's history and summary.
+- `memory.clear('global')` / `MEMORY_CLEAR_TARGET_MAP.GLOBAL`: Clears only the shared global history, preserving mode-specific buckets.
+- `memory.clear('sales')`: Clears the specified mode's bucket.
+
 ---
 
-### 5. Function Calling & Custom Tools (Tools Engine)
+### 5. Declarative Modes, Persona Compiler & Prompt Security Architecture
+
+#### Declarative Persona Definition (`PersonaProfile`)
+
+Instead of writing monolithic, fragile prompt strings, define character personas declaratively using the structured `PersonaProfile` interface:
+
+```typescript
+import { 
+  initAvatarBot, 
+  type CustomModeConfig, 
+  type PersonaProfile 
+} from 'ai-avatar-bot-typescript';
+
+const customModes: Record<string, CustomModeConfig> = {
+  sales: {
+    // Mode display name (also generates exclusive RAG tags like [Car Sales Specialist])
+    name: { 'zh-TW': '汽車導購', 'en-US': 'Car Sales Specialist' },
+    // Mode-specific TTS voice (automatically switches speechEngine voice on mode change)
+    voice: 'zh-TW-YunJheNeural',
+    persona: {
+      characterName: 'Alex',
+      role: { 'zh-TW': '資深新能源汽車顧問', 'en-US': 'Senior EV Consultant' },
+      background: '10+ years of automotive engineering and electric vehicle financing experience.',
+      personality: 'Enthusiastic, analytical, courteous, and highly objective.',
+      speakingStyle: 'Clear, structured with bullet points, using approachable technical analogies.',
+      guidelines: [
+        'Focus on battery health, charging convenience, and total cost of ownership.',
+        'Ask at most 1 clarifying question regarding customer budget and commute distance before recommending models.'
+      ],
+      restrictions: [
+        'Do not provide binding financial promises or guarantee loan approval.',
+        'Never disparage competing automotive brands.'
+      ]
+    }
+  }
+};
+```
+
+#### Automatic Persona Compilation & System Prompt Assembly
+
+- **Zero-Config Markdown Generation**: When `systemPrompt` is omitted in `CustomModeConfig`, `compilePersonaProfile` automatically compiles the `PersonaProfile` into clean, structured Markdown instructions.
+- **Standardized Placeholders (`PROMPT_PLACEHOLDER_MAP`)**: For fully customized prompts, use standardized template placeholders:
+  - `{{persona}}`: The compiled persona Markdown block.
+  - `{{rag}}`: Retrieved RAG knowledge entries.
+  - `{{memory}}`: User name and conversational profile context.
+  - `{{style}}`: Speaking style and persona guidelines.
+  - `{{summary}}`: Background rolling summary of past conversations.
+  - `{{custom}}`: Custom context values injected via `customContext`.
+
+#### Prompt Injection Defense & Data Fencing (`DATA_FENCE_TAG_MAP`)
+
+External and untrusted data sources are strictly isolated inside semantic boundary fences:
+- **RAG Knowledge Fencing**: All retrieved knowledge entries are enclosed within `<reference_data type="rag_knowledge">...</reference_data>`, preceded by localized defensive system instructions warning the LLM that the enclosed text is untrusted reference material and instructions inside MUST NOT override system constraints.
+- **Custom Context Fencing**: Custom metadata is wrapped inside `<custom_context>...</custom_context>`.
+
+---
+
+### 6. Function Calling & Custom Tools (Tools Engine)
 
 Register custom tools with complete parameter schema validation:
 
@@ -1079,7 +1171,7 @@ const widget = await initAvatarBot({
 
 ---
 
-### 6. 2D (Live2D) & 3D (VRM) Dual Skin Engine
+### 7. 2D (Live2D) & 3D (VRM) Dual Skin Engine
 
 Control spatial coordinates, cameras, and animations with typed configurations:
 
@@ -1244,7 +1336,7 @@ When calling `widget.playGesture('greet')` or triggering 2D animations, the engi
 
 ---
 
-### 7. Speech Recognition & Neural TTS (Speech Engine)
+### 8. Speech Recognition & Neural TTS (Speech Engine)
 
 ```typescript
 // Speak arbitrary text programmatically
@@ -1273,7 +1365,7 @@ widget.speechEngine?.subscribe('spokenDisplayText', (subtitle: string) => {
 
 ---
 
-### 8. Headless Mode & Custom UI Integration
+### 9. Headless Mode & Custom UI Integration
 
 To build your own interface with React, Vue, Svelte, or Angular, enable minimal mode and subscribe to reactive stores:
 
@@ -1307,7 +1399,7 @@ widget.speechEngine?.subscribe('isSpeaking', (speaking: boolean) => {
 
 * **Orchestrator**: `AvatarBotOptions`, `AiAvatarWidget`, `AvatarBotStore`, `AvatarBotStoreState`, `CustomEnginesConfig`, `OrchestratorEngines`
 * **Sub-Engines**: `BrainEngine`, `BrainEngineOptions`, `SpeechEngine`, `SpeechEngineOptions`, `SkinEngine`, `SkinEngineOptions`, `ToolsEngine`, `ToolsEngineSetting`, `I18nEngine`, `I18nEngineOptions`, `UiDom`, `UiContext`
-* **Brain & Memory**: `LLMMessage<TContent>`, `BrainCompressionOptions`, `MemoryData`, `MemoryAdapter`, `KnowledgeEntry`, `ChatLogItem`, `ParsedToolCall`, `ChatHistoryItem`, `MemoryInstance`
+* **Brain & Memory**: `LLMMessage<TContent>`, `BrainCompressionOptions`, `MemoryData`, `MemoryAdapter`, `KnowledgeEntry`, `ChatLogItem`, `ParsedToolCall`, `ChatHistoryItem`, `MemoryInstance`, `PersonaProfile`, `CustomModeConfig`, `ModeMemoryBucket`, `MemoryClearTarget`, `PromptPlaceholder`, `DataFenceTag`, `PROMPT_PLACEHOLDER_MAP`, `DATA_FENCE_TAG_MAP`, `MEMORY_CLEAR_TARGET_MAP`, `CURRENT_MODE_MEMORY_VERSION`, `DEFAULT_ISOLATE_MODE_HISTORY`
 * **AI Provider**: `AiProviderFetchSettingFactory`, `AiProviderFetchPayloadFactory`, `AiProviderToolCallExtractor`, `AiProviderOptions`, `AiProviderEngine`
 * **Skin & Spatial**: `Skin2DConfig`, `Skin3DConfig`, `Skin3DCameraConfig`, `Skin3DModelConfig`, `Renderer2D`, `Renderer3D`, `Point2D`, `Vector2Coord`, `Vector2Tuple`, `Vector2Input`, `Vector3Coord`, `Vector3Tuple`, `Vector3Input`, `Vector3Scale`
 * **Tools**: `ToolDefinition`, `ToolRouteCandidate`, `ToolExecutionParams`, `PendingToolState`

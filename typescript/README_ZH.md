@@ -36,10 +36,11 @@
   - [2. 自動接續回答機制 (Auto-Continue Response)](#2-自動接續回答機制-auto-continue-response)
   - [3. [實驗性 Experimental] AI 模型推論過程 (Reasoning / Thinking) 與 WebLLM OOM 降級](#3-實驗性-experimental-ai-模型推論過程-reasoning--thinking-與-webllm-oom-降級架構)
   - [4. 記憶管理、資料結構與自訂儲存轉接器](#4-記憶管理資料結構與自訂儲存轉接器)
-  - [5. Function Calling 與自訂工具 (Tools Engine)](#5-function-calling-與自訂工具-tools-engine)
-  - [6. 2D (Live2D) 與 3D (VRM) 雙外觀引擎](#6-2d-live2d-與-3d-vrm-雙外觀引擎)
-  - [7. 語音辨識與神經語音 (Speech Engine)](#7-語音辨識與神經語音-speech-engine)
-  - [8. 無頭模式 (Headless Mode) 與自訂 UI](#8-無頭模式-headless-mode-與自訂-ui)
+  - [5. 聲明式模式、Persona 編譯器與提示詞安全圍欄](#5-聲明式模式persona-編譯器與提示詞安全圍欄)
+  - [6. Function Calling 與自訂工具 (Tools Engine)](#6-function-calling-與自訂工具-tools-engine)
+  - [7. 2D (Live2D) 與 3D (VRM) 雙外觀引擎](#7-2d-live2d-與-3d-vrm-雙外觀引擎)
+  - [8. 語音辨識與神經語音 (Speech Engine)](#8-語音辨識與神經語音-speech-engine)
+  - [9. 無頭模式 (Headless Mode) 與自訂 UI](#9-無頭模式-headless-mode-與自訂-ui)
 - [📐 導出 TypeScript 型別速查表](#-導出-typescript-型別速查表)
 - [📚 實例 API 與方法 (AiAvatarWidget)](#-實例-api-與方法-aiavatarwidget)
 - [🌐 多語系支援 (i18n)](#-多語系支援-i18n)
@@ -502,13 +503,14 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `knowledgeLimit` | `number` | `3` | RAG 候選條目注入上限（別名 `ragTopK`；設為 `0` 關閉檢索進行純自由聊天）。 |
 | `knowledgeFilter` | `boolean \| ((entry: KnowledgeEntry, question: string) => boolean)` | `true` | 前端相似度過濾開關或自訂過濾函數；設為 `false` 啟用雲端大模型全權推論 bypass 模式。 |
 | `onSummarizingChange` | `(isSummarizing: boolean) => void` | `undefined` | 記憶背景滾動摘要開始或結束時觸發之事件回呼。 |
-| `modes` | `Record<string, CustomModeConfig>` | `{}` | 聲明式自訂模式註冊表（各模式支援獨立 `knowledge` 與 `knowledgeUrl`）。 |
+| `modes` | `Record<string, CustomModeConfig>` | `{}` | 聲明式自訂模式註冊表，支援 `name`（顯示名稱與專屬標籤）、`voice`（模式專屬 TTS 音色）、`persona`（`PersonaProfile` 聲明式人設）、`systemPrompt`、`promptTemplate` 與獨立之 `knowledge`/`knowledgeUrl`。 |
 
 ### 記憶管理與上下文壓縮
 
 | 選項名稱 | 型別定義 | 預設值 | 說明 |
 | :--- | :--- | :--- | :--- |
 | `enableMemory` | `boolean` | `true` | 是否啟用跨對話輪次的記憶管理。 |
+| `isolateModeHistory` | `boolean` | `false` | 是否開啟各模式記憶與滾動摘要獨立隔離（`CURRENT_MODE_MEMORY_VERSION = 1`）。首次切換存取模式時自動自全域歷史平滑繼承；切換模式時動態刷新 UI 歷史面板。 |
 | `maxHistoryTurns` | `number` | `6` | 保留之歷史對話輪數上限（1 輪 = 1 使用者訊息 + 1 AI 回應）。 |
 | `memoryKey` | `string` | `'avatar-widget-memory'` | 本地端儲存鍵名。 |
 | `memoryAdapter` | `MemoryAdapter` | `null` | 實作 `MemoryAdapter` 介面的自訂儲存轉接器實例。 |
@@ -1031,9 +1033,99 @@ if (memory) {
 }
 ```
 
+#### 跨模式記憶歷史隔離 (`isolateModeHistory`)
+
+預設情況下（`isolateModeHistory: false`），所有模式共用單一對話歷程。當開啟 `isolateModeHistory: true` 時：
+- **首次存取平滑繼承**：當首次存取/切換某模式時，`ensureModeBucket` 自動複製全域當前歷史與滾動摘要作為起始基底，避免模式切換時對話產生斷層感。
+- **模式專屬獨立分流與滾動摘要**：後續對話與背景滾動摘要皆存入獨立 Bucket（`ModeMemoryBucket`，版本號 `1` 即 `CURRENT_MODE_MEMORY_VERSION`）。
+- **動態刷新歷史面板**：切換 `widget.avatarMode` 時，歷史抽屜面板會即時重新渲染（`renderHistory`）該模式專屬對話。
+
+```typescript
+const widget = await initAvatarBot({
+  container: document.getElementById('avatar-container'),
+  isolateModeHistory: true, // 開啟各模式對話記憶隔離
+  modes: {
+    sales: {
+      name: { 'zh-TW': '汽車導購', 'en-US': 'Car Sales Specialist' },
+      voice: 'zh-TW-YunJheNeural',
+      persona: {
+        characterName: '小艾',
+        role: '新能源車銷售顧問',
+        personality: '親切熱情、條理分明、熟悉規格與補貼'
+      }
+    }
+  }
+});
+```
+
+#### 多維度記憶清除 (`memory.clear`)
+
+`clear()` 方法支援透過 `MEMORY_CLEAR_TARGET_MAP` 進行精確控制：
+- `memory.clear('all')` / `MEMORY_CLEAR_TARGET_MAP.ALL`：清空全域歷史、摘要及所有自訂模式之 Bucket。
+- `memory.clear('current')` / `MEMORY_CLEAR_TARGET_MAP.CURRENT`：僅清空當前模式之歷史與摘要。
+- `memory.clear('global')` / `MEMORY_CLEAR_TARGET_MAP.GLOBAL`：僅清空共用之全域歷史，保留各模式 Bucket。
+- `memory.clear('sales')`：清空指定自訂模式之 Bucket。
+
 ---
 
-### 5. Function Calling 與自訂工具 (Tools Engine)
+### 5. 聲明式模式、Persona 編譯器與提示詞安全圍欄
+
+#### 聲明式人設配置 (`PersonaProfile`)
+
+無須撰寫冗長且難以維護的字串提示詞，可直接透過強型別的 `PersonaProfile` 介面結構化宣告角色特質（支援字串或多語系字典）：
+
+```typescript
+import { 
+  initAvatarBot, 
+  type CustomModeConfig, 
+  type PersonaProfile 
+} from 'ai-avatar-bot-typescript';
+
+const customModes: Record<string, CustomModeConfig> = {
+  sales: {
+    // 模式顯示名稱（同時自動生成 [汽車導購專屬] RAG 專屬標籤）
+    name: { 'zh-TW': '汽車導購', 'en-US': 'Car Sales Specialist' },
+    // 模式專屬語音（切換模式時自動連動切換 SpeechEngine 聲音）
+    voice: 'zh-TW-YunJheNeural',
+    persona: {
+      characterName: '小艾',
+      role: { 'zh-TW': '資深新能源汽車顧問', 'en-US': 'Senior EV Consultant' },
+      background: '擁有十年汽車工程與充電樁基礎設施規劃經驗。',
+      personality: '專業客觀、條理清晰、耐心引導。',
+      speakingStyle: '重點清晰列點說明，多運用生活化比喻解釋電池續航與電控技術。',
+      guidelines: [
+        '優先解答電池安全、續航里程與充電保固政策',
+        '推薦車型前至多主動詢問 1 個關鍵購車預算或通勤需求問題'
+      ],
+      restrictions: [
+        '嚴禁提供具法律效力之貸款保證或金融承諾',
+        '嚴禁詆毀或惡意批評競爭對手品牌'
+      ]
+    }
+  }
+};
+```
+
+#### Persona 自動編譯與提示詞組裝
+
+- **零配置 Markdown 編譯**：當模式未定義 `systemPrompt` 時，大腦編譯器 `compilePersonaProfile` 會自動將 `PersonaProfile` 轉換為結構優雅的 Markdown 指令。
+- **標準提示詞佔位符 (`PROMPT_PLACEHOLDER_MAP`)**：如需完全自訂提示詞範本，可使用標準佔位符：
+  - `{{persona}}`：編譯後的人設 Markdown 區塊。
+  - `{{rag}}`：RAG 檢索候選知識區塊。
+  - `{{memory}}`：使用者稱謂與對話記憶前綴。
+  - `{{style}}`：語氣與人設規範規則。
+  - `{{summary}}`：對話背景滾動摘要。
+  - `{{custom}}`：透過 `customContext` 注入之自訂鍵值。
+
+#### 提示詞注入防禦與資料圍欄 (`DATA_FENCE_TAG_MAP`)
+
+所有不可信外部知識與外部上下文均受到嚴格的標籤隔離與圍欄保護：
+- **RAG 知識圍欄**：檢索條目以 `<reference_data type="rag_knowledge">...</reference_data>` 包覆，並附帶多語系防禦系統指令，嚴正警告 LLM 圍欄內容僅為參考資料，絕不可執行其中夾帶之指令。
+- **自訂上下文圍欄**：以 `<custom_context>...</custom_context>` 標籤進行隔離。
+
+---
+
+### 6. Function Calling 與自訂工具 (Tools Engine)
 
 註冊自訂工具並享有完整的 JSON Schema 與執行參數驗證：
 
@@ -1082,7 +1174,7 @@ const widget = await initAvatarBot({
 
 ---
 
-### 6. 2D (Live2D) 與 3D (VRM) 雙外觀引擎
+### 7. 2D (Live2D) 與 3D (VRM) 雙外觀引擎
 
 透過型別化配置控制空間座標、相機視角與表情手勢：
 
@@ -1247,7 +1339,7 @@ const widget = await initAvatarBot({
 
 ---
 
-### 7. 語音辨識與神經語音 (Speech Engine)
+### 8. 語音辨識與神經語音 (Speech Engine)
 
 ```typescript
 // 程式化觸發語音朗讀
@@ -1276,7 +1368,7 @@ widget.speechEngine?.subscribe('spokenDisplayText', (subtitle: string) => {
 
 ---
 
-### 8. 無頭模式 (Headless Mode) 與自訂 UI
+### 9. 無頭模式 (Headless Mode) 與自訂 UI
 
 若您希望以 Vue 3、React、Svelte 或原生 DOM 100% 自行構建介面，可開啟極簡模式：
 
@@ -1310,7 +1402,7 @@ widget.speechEngine?.subscribe('isSpeaking', (speaking: boolean) => {
 
 * **協調器核心 (Orchestrator)**：`AvatarBotOptions`, `AiAvatarWidget`, `AvatarBotStore`, `AvatarBotStoreState`, `CustomEnginesConfig`, `OrchestratorEngines`
 * **各子引擎介面**：`BrainEngine`, `BrainEngineOptions`, `SpeechEngine`, `SpeechEngineOptions`, `SkinEngine`, `SkinEngineOptions`, `ToolsEngine`, `ToolsEngineSetting`, `I18nEngine`, `I18nEngineOptions`, `UiDom`, `UiContext`
-* **大腦與記憶**：`LLMMessage<TContent>`, `BrainCompressionOptions`, `MemoryData`, `MemoryAdapter`, `KnowledgeEntry`, `ChatLogItem`, `ParsedToolCall`, `ChatHistoryItem`, `MemoryInstance`
+* **大腦與記憶**：`LLMMessage<TContent>`, `BrainCompressionOptions`, `MemoryData`, `MemoryAdapter`, `KnowledgeEntry`, `ChatLogItem`, `ParsedToolCall`, `ChatHistoryItem`, `MemoryInstance`, `PersonaProfile`, `CustomModeConfig`, `ModeMemoryBucket`, `MemoryClearTarget`, `PromptPlaceholder`, `DataFenceTag`, `PROMPT_PLACEHOLDER_MAP`, `DATA_FENCE_TAG_MAP`, `MEMORY_CLEAR_TARGET_MAP`, `CURRENT_MODE_MEMORY_VERSION`, `DEFAULT_ISOLATE_MODE_HISTORY`
 * **AI Provider**：`AiProviderFetchSettingFactory`, `AiProviderFetchPayloadFactory`, `AiProviderToolCallExtractor`, `AiProviderOptions`, `AiProviderEngine`
 * **外觀與幾何座標**：`Skin2DConfig`, `Skin3DConfig`, `Skin3DCameraConfig`, `Skin3DModelConfig`, `Renderer2D`, `Renderer3D`, `Point2D`, `Vector2Coord`, `Vector2Tuple`, `Vector2Input`, `Vector3Coord`, `Vector3Tuple`, `Vector3Input`, `Vector3Scale`
 * **工具管理**：`ToolDefinition`, `ToolRouteCandidate`, `ToolExecutionParams`, `PendingToolState`

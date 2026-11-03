@@ -68,7 +68,12 @@ import {
   DEFAULT_2D_FEMALE_EXPRESSION_MAP,
   DEFAULT_2D_MALE_EXPRESSION_MAP,
   DEFAULT_3D_EXPRESSION_ALIASES,
-  DEFAULT_2D_MOTION_ALIASES
+  DEFAULT_2D_MOTION_ALIASES,
+  CURRENT_MODE_MEMORY_VERSION,
+  DEFAULT_ISOLATE_MODE_HISTORY,
+  MEMORY_CLEAR_TARGET_MAP,
+  PROMPT_PLACEHOLDER_MAP,
+  DATA_FENCE_TAG_MAP
 } from '@/core/constants';
 import { GestureNotFoundError } from '@/core/skin';
 
@@ -156,6 +161,31 @@ describe('Unit Test: core/constants.js (TypeScript)', () => {
         CONSENT_DECLINED: 'consent_declined'
       });
       expect(DEFAULT_TOOL_CONFIRMATION_TIMEOUT_MS).toBe(60000);
+    });
+
+    it('should have correct memory isolation constants and clear target map', () => {
+      expect(CURRENT_MODE_MEMORY_VERSION).toBe(1);
+      expect(DEFAULT_ISOLATE_MODE_HISTORY).toBe(false);
+      expect(MEMORY_CLEAR_TARGET_MAP).toEqual({
+        ALL: 'all',
+        CURRENT: 'current',
+        GLOBAL: 'global'
+      });
+    });
+
+    it('should have correct prompt placeholder and data fence tag maps', () => {
+      expect(PROMPT_PLACEHOLDER_MAP).toEqual({
+        RAG: '{{rag}}',
+        PERSONA: '{{persona}}',
+        STYLE: '{{style}}',
+        MEMORY: '{{memory}}',
+        SUMMARY: '{{summary}}',
+        CUSTOM: '{{custom}}'
+      });
+      expect(DATA_FENCE_TAG_MAP).toEqual({
+        RAG: 'reference_data',
+        CUSTOM: 'custom_context'
+      });
     });
   });
 

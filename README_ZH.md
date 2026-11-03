@@ -74,6 +74,7 @@
    * **智慧兩階段 WebGPU OOM 降級**：顯存不足時自動切換至輕量保底模型。
    * **智慧上下文壓縮 (Context Compression)**：滑動窗口與滾動摘要策略，雙軌預算保護 WebGPU 顯存與 Token 上限。
    * **自動接續回答 (Auto-Continue)**：突破單次輸出 Token 限制，無縫接續長篇回覆。
+   * **聲明式 Persona 編譯器與跨模式記憶隔離**：支援 `PersonaProfile` 聲明式人設編譯、`<reference_data>` 提示詞注入防禦、切換模式自動連動切換神經語音，以及模式專屬對話記憶隔離（`isolateModeHistory`）與平滑繼承。
    * **私有響應式狀態 Store**：背景記憶滾動提煉互斥鎖（`isSummarizing`）與對話序號/游標（`chatSeq`, `companionFallbackIndex`）透過 WeakMap 私有 Store 集中響應式管理，自動連動 `onSummarizingChange` 生命週期事件。
 2. 🗣️ **語音引擎 (Speech Engine)**：
    * 整合瀏覽器語音辨識 (STT) 與微軟神經網路語音合成 (TTS)。
