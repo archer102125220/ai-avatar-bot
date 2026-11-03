@@ -3,6 +3,8 @@ import type {
   BrainEngineOptions,
   KnowledgeEntry,
   CustomModeConfig,
+  PersonaProfile,
+  ModeMemoryBucket,
   MemoryAdapter,
   MemoryData,
   BrainCompressionOptions,
@@ -239,6 +241,12 @@ export interface AvatarBotOptions {
   autoContinuePrompt?: AutoContinuePromptResolver | null;
   /** Avatar persona mode ('assistant' | 'companion' | custom). */
   avatarMode?: AvatarMode;
+  /**
+   * 是否在切換模式時隔離各模式的對話歷史紀錄。
+   * - `false`（預設）：所有模式共用同一份歷史紀錄（跨模式上下文連貫）。
+   * - `true`：各模式開闢獨立的對話歷史，訪客基本資料（姓名/造訪次數）仍維持共享，避免跨人設污染。
+   */
+  isolateModeHistory?: boolean;
   /** Whether to enable multi-turn persistent conversation memory. */
   enableMemory?: boolean;
   /** Maximum number of history conversation turns retained. */
@@ -724,6 +732,8 @@ export type {
   BrainEngine,
   BrainEngineOptions,
   CustomModeConfig,
+  PersonaProfile,
+  ModeMemoryBucket,
   SpeechEngine,
   SpeechEngineOptions as SpeechEngineSetting,
   SpeechEngineOptions,

@@ -882,5 +882,85 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
       expect(system?.content).not.toContain('這是不應該被注入的答案');
       expect(system?.content).toContain('【參考資料】\n（無）');
     });
+
+    it('should format RAG tags and conflict directive using custom mode name when provided', async () => {
+      // 1. Traditional Chinese with string name (only appends 專屬)
+      mockBrainEngine.locale = 'zh-TW';
+      mockBrainEngine.avatarMode = 'sales';
+      (mockBrainEngine as unknown as { modes: Record<string, unknown> }).modes = {
+        sales: {
+          name: '汽車導購',
+          knowledge: [{ q: '車款推薦', kw: '車款', a: '推薦電動車款' }]
+        }
+      };
+      (mockBrainEngine as unknown as { sharedKnowledge: KnowledgeEntry[] }).sharedKnowledge = [
+        { q: '營業時間', kw: '時間', a: '早上九點到下午六點' }
+      ];
+
+      const messagesZh = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        '車款與時間'
+      );
+      const systemZh = messagesZh.find((m) => m.role === 'system');
+      expect(systemZh?.content).toContain('[汽車導購專屬] Q：車款推薦');
+      expect(systemZh?.content).toContain('[通用知識] Q：營業時間');
+      expect(systemZh?.content).toContain(
+        '若資料中同時存在【汽車導購專屬】與【通用知識】且內容衝突時，請以【汽車導購專屬】為最高優先。'
+      );
+
+      // 2. English with localized name dictionary (appends Exclusive)
+      mockBrainEngine.locale = 'en-US';
+      (mockBrainEngine as unknown as { modes: Record<string, unknown> }).modes = {
+        sales: {
+          name: { 'zh-TW': '汽車導購', 'en-US': 'Car Consultant' },
+          knowledge: [{ q: 'Car Recommendation', kw: 'Car', a: 'EV models' }]
+        }
+      };
+      const messagesEn = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        'Car'
+      );
+      const systemEn = messagesEn.find((m) => m.role === 'system');
+      expect(systemEn?.content).toContain('[Car Consultant Exclusive] Q：Car Recommendation');
+      expect(systemEn?.content).toContain(
+        'If there is a conflict between [Car Consultant Exclusive] and [General Knowledge] entries, [Car Consultant Exclusive] takes the highest precedence.'
+      );
+
+      // 3. Japanese with string name (appends 専用)
+      mockBrainEngine.locale = 'ja-JP';
+      (mockBrainEngine as unknown as { modes: Record<string, unknown> }).modes = {
+        sales: {
+          name: '自動車案内',
+          knowledge: [{ q: 'オススメ', kw: '車', a: 'EVモデル' }]
+        }
+      };
+      const messagesJa = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        '車'
+      );
+      const systemJa = messagesJa.find((m) => m.role === 'system');
+      expect(systemJa?.content).toContain('[自動車案内専用] Q：オススメ');
+      expect(systemJa?.content).toContain(
+        '【自動車案内専用】と【共通知識】の情報が矛盾する場合は、【自動車案内専用】を最優先としてください。'
+      );
+
+      // 4. Korean with string name (appends 전용)
+      mockBrainEngine.locale = 'ko-KR';
+      (mockBrainEngine as unknown as { modes: Record<string, unknown> }).modes = {
+        sales: {
+          name: '자동차 안내',
+          knowledge: [{ q: '추천', kw: '차', a: 'EV 모델' }]
+        }
+      };
+      const messagesKo = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        '차'
+      );
+      const systemKo = messagesKo.find((m) => m.role === 'system');
+      expect(systemKo?.content).toContain('[자동차 안내 전용] Q：추천');
+      expect(systemKo?.content).toContain(
+        '만약 【자동차 안내 전용】과 【공통 지식】의 내용이 상충할 경우 【자동차 안내 전용】을 최우선으로 하세요.'
+      );
+    });
   });
 });
