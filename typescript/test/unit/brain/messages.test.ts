@@ -962,5 +962,77 @@ describe('Brain Messages & Prompt Building (Deep Branch Coverage)', () => {
         '만약 【자동차 안내 전용】과 【공통 지식】의 내용이 상충할 경우 【자동차 안내 전용】을 최우선으로 하세요.'
       );
     });
+
+    it('should use clean base assistant template across locales and allow custom localized systemContextTemplate override', async () => {
+      // 1. Traditional Chinese clean base
+      mockBrainEngine.locale = 'zh-TW';
+      mockBrainEngine.avatarMode = 'assistant';
+      delete (mockBrainEngine as { systemContextTemplate?: unknown }).systemContextTemplate;
+
+      const msgsZh = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        '你好'
+      );
+      const systemZh = msgsZh.find((m) => m.role === 'system');
+      expect(systemZh?.content).toContain('你是本網站的智慧語音虛擬人助理。');
+      expect(systemZh?.content).not.toContain('教人「怎麼把這個元件裝到自己的網站');
+
+      // 2. English clean base
+      mockBrainEngine.locale = 'en-US';
+      const msgsEn = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        'Hello'
+      );
+      const systemEn = msgsEn.find((m) => m.role === 'system');
+      expect(systemEn?.content).toContain(
+        'You are the AI voice avatar assistant for this website.'
+      );
+      expect(systemEn?.content).not.toContain('demo assistant');
+
+      // 3. Japanese clean base
+      mockBrainEngine.locale = 'ja-JP';
+      const msgsJa = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        'こんにちは'
+      );
+      const systemJa = msgsJa.find((m) => m.role === 'system');
+      expect(systemJa?.content).toContain(
+        'あなたはこのWebサイトのAI音声アバターアシスタントです。'
+      );
+
+      // 4. Korean clean base
+      mockBrainEngine.locale = 'ko-KR';
+      const msgsKo = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        '안녕하세요'
+      );
+      const systemKo = msgsKo.find((m) => m.role === 'system');
+      expect(systemKo?.content).toContain(
+        '당신은 이 웹사이트의 AI 음성 아바타 어시스턴트입니다.'
+      );
+
+      // 5. Custom localized systemContextTemplate (as used in demo index.html)
+      mockBrainEngine.locale = 'zh-TW';
+      (mockBrainEngine as { systemContextTemplate?: Record<string, string> }).systemContextTemplate = {
+        'zh-TW': '你是示範教學助手。{{RAG}}\n{{styleRule}}',
+        'en-US': 'You are a demo tutorial assistant.{{RAG}}\n{{styleRule}}'
+      };
+      const msgsCustomZh = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        '問題'
+      );
+      expect(msgsCustomZh.find((m) => m.role === 'system')?.content).toContain(
+        '你是示範教學助手。'
+      );
+
+      mockBrainEngine.locale = 'en-US';
+      const msgsCustomEn = await buildDefaultLLMMessages(
+        mockBrainEngine as unknown as BrainEngine,
+        'Question'
+      );
+      expect(msgsCustomEn.find((m) => m.role === 'system')?.content).toContain(
+        'You are a demo tutorial assistant.'
+      );
+    });
   });
 });
