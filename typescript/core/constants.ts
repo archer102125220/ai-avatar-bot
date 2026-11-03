@@ -238,6 +238,40 @@ export const DEFAULT_REASONING_OPTIONS: ReasoningOptions & {
 export const DEFAULT_REASONING_CONFIG = DEFAULT_REASONING_OPTIONS;
 
 /**
+ * 提示詞範本占位符常數映射 (Prompt Template Placeholders)
+ */
+export const PROMPT_PLACEHOLDER_MAP = {
+  /** 分層 RAG 外部知識庫參考區塊占位符 */
+  RAG: '{{rag}}',
+  /** 結構化人設編譯區塊占位符 */
+  PERSONA: '{{persona}}',
+  /** 語言規則與性格語氣占位符 */
+  STYLE: '{{style}}',
+  /** 訪客記憶稱呼占位符 */
+  MEMORY: '{{memory}}',
+  /** 長期滾動摘要占位符 */
+  SUMMARY: '{{summary}}',
+  /** 自訂外部上下文占位符 */
+  CUSTOM: '{{custom}}'
+} as const;
+
+export type PromptPlaceholder =
+  (typeof PROMPT_PLACEHOLDER_MAP)[keyof typeof PROMPT_PLACEHOLDER_MAP];
+
+/**
+ * 外部不可信資料圍欄標籤常數映射 (Data Fence Tags)
+ */
+export const DATA_FENCE_TAG_MAP = {
+  /** 知識庫外部資料圍欄標籤 */
+  RAG: 'reference_data',
+  /** 自訂上下文外部資料圍欄標籤 */
+  CUSTOM: 'custom_context'
+} as const;
+
+export type DataFenceTag =
+  (typeof DATA_FENCE_TAG_MAP)[keyof typeof DATA_FENCE_TAG_MAP];
+
+/**
  * Default maximum generated tokens for in-browser WebLLM engine.
  */
 export const DEFAULT_LLM_MAX_TOKENS = 1024;

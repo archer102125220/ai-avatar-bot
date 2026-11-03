@@ -24,7 +24,12 @@ export type {
   ReasoningMode
 } from './types';
 
-export type { AiProviderPingStrategy, AiProviderStatus } from './constants';
+export type {
+  AiProviderPingStrategy,
+  AiProviderStatus,
+  PromptPlaceholder,
+  DataFenceTag
+} from './constants';
 
 export { initAvatarBot, initAvatarBot as createAvatarBot };
 export default initAvatarBot;
