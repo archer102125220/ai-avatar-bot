@@ -3,7 +3,8 @@ import type { I18nEngine } from '@/core/i18n';
 import type {
   CompressionStrategy,
   AiProviderPingStrategy,
-  AiProviderStatus
+  AiProviderStatus,
+  MemoryClearTarget
 } from '@/core/constants';
 import type {
   AvatarMode,
@@ -131,6 +132,8 @@ export interface MemoryAdapter {
 export interface MemoryInstance {
   /** Whether memory is currently enabled. */
   enabled: boolean;
+  /** Whether mode-scoped memory isolation is enabled. */
+  isolateModeHistory?: boolean;
   /** Current memory data payload. */
   data: MemoryData;
   /** Storage key used in storage adapter. */
@@ -143,15 +146,25 @@ export interface MemoryInstance {
   load(): Promise<MemoryData> | void;
   /** Saves current memory data to adapter. */
   save(): Promise<void> | void;
-  /** Clears memory data from adapter. */
-  clear(): Promise<void> | void;
+  /**
+   * Clears memory data according to target parameter.
+   * @param target - 'all' (clears global & all modes), 'current' (clears active mode or global), 'global' (clears global only), or specific modeKey.
+   */
+  clear(target?: MemoryClearTarget): Promise<void> | void;
   /** Adds a turn to conversation history. */
   addTurn(
     role: string,
     content: string,
     reasoning?: string,
-    reasoningTimeMs?: number
+    reasoningTimeMs?: number,
+    mode?: string
   ): Promise<void> | void;
+  /** Ensures a mode-scoped bucket exists, smoothly inheriting from global history if created. */
+  ensureModeBucket(targetMode: string): ModeMemoryBucket;
+  /** Gets conversation history for current or specified mode. */
+  getHistory(mode?: string): ChatHistoryItem[];
+  /** Gets summary text for current or specified mode. */
+  getSummary(mode?: string): string;
   /** Captures visitor name from user input. */
   captureName(text: string): void;
   /** Updates user visitor name in memory. */
@@ -668,6 +681,7 @@ export interface CustomModeConfig {
  * Options for initializing the BrainEngine.
  */
 export interface BrainEngineOptions {
+  avatarMode?: AvatarMode;
   enableMemory?: boolean;
   /**
    * 是否在切換模式時隔離各模式的對話歷史紀錄。
@@ -922,6 +936,8 @@ export interface BrainEngine {
   modes: Record<string, CustomModeConfig>;
   readonly availableModes: string[];
   enableMemory: boolean;
+  /** Whether mode-scoped memory history isolation is active. */
+  isolateModeHistory: boolean;
   enableAiProvider: boolean;
   preloadWebLLM: boolean;
   autoFallbackWebLLM: boolean;

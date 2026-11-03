@@ -28,7 +28,8 @@ export type {
   AiProviderPingStrategy,
   AiProviderStatus,
   PromptPlaceholder,
-  DataFenceTag
+  DataFenceTag,
+  MemoryClearTarget
 } from './constants';
 
 export { initAvatarBot, initAvatarBot as createAvatarBot };

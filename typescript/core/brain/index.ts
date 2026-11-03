@@ -13,6 +13,7 @@ import {
   DEFAULT_LLM_MAX_TOKENS,
   DEFAULT_AI_PROVIDER_MODEL,
   DEFAULT_ENABLE_MEMORY,
+  DEFAULT_ISOLATE_MODE_HISTORY,
   DEFAULT_MAX_HISTORY_TURNS,
   DEFAULT_MEMORY_KEY,
   BRAIN_ENGINE_TYPE_MAP,
@@ -100,6 +101,7 @@ export async function initBrainEngine(
     aiProviderBaseUrl,
 
     enableMemory = DEFAULT_ENABLE_MEMORY,
+    isolateModeHistory = DEFAULT_ISOLATE_MODE_HISTORY,
     maxHistoryTurns = DEFAULT_MAX_HISTORY_TURNS,
     memoryKey = DEFAULT_MEMORY_KEY,
     memoryAdapter = null,
@@ -321,6 +323,13 @@ export async function initBrainEngine(
   let _assistantKnowledge: KnowledgeEntry[] | undefined =
     safeAssistantKnowledge;
   let _companionKnowledge: KnowledgeEntry[] = safeCompanionKnowledge;
+  let _isolateModeHistory =
+    typeof isolateModeHistory === 'boolean'
+      ? isolateModeHistory
+      : DEFAULT_ISOLATE_MODE_HISTORY;
+  let _avatarMode: AvatarMode = (setting.avatarMode ||
+    DEFAULT_AVATAR_MODE) as AvatarMode;
+  const _modeChatLogs: Record<string, ChatLogItem[]> = {};
 
   const brainEngine: BrainEngine = {
     get STATE_MAP() {
@@ -331,6 +340,32 @@ export async function initBrainEngine(
     },
     get DEFAULT_AVATAR_MODE() {
       return DEFAULT_AVATAR_MODE;
+    },
+    get avatarMode(): AvatarMode {
+      return _avatarMode;
+    },
+    set avatarMode(newMode: AvatarMode) {
+      const oldMode = _avatarMode;
+      _avatarMode = newMode;
+
+      if (
+        _isolateModeHistory === true &&
+        typeof newMode === 'string' &&
+        newMode !== oldMode
+      ) {
+        if (typeof oldMode === 'string' && oldMode !== '') {
+          _modeChatLogs[oldMode] = brainEngine.chatLog;
+        }
+        if (!Array.isArray(_modeChatLogs[newMode])) {
+          _modeChatLogs[newMode] = brainEngine.chatLog.map((item) => ({
+            ...item
+          }));
+        }
+        brainEngine.chatLog = _modeChatLogs[newMode];
+        if (typeof brainEngine.onChatHistoryChanged === 'function') {
+          brainEngine.onChatHistoryChanged(brainEngine.chatLog);
+        }
+      }
     },
     get DEFAULT_LLM_MODEL() {
       return DEFAULT_LLM_MODEL;
@@ -613,6 +648,15 @@ export async function initBrainEngine(
         memory.enabled = enabled;
       }
     },
+    get isolateModeHistory(): boolean {
+      return _isolateModeHistory;
+    },
+    set isolateModeHistory(val: boolean) {
+      _isolateModeHistory = Boolean(val);
+      if (memory !== null && typeof memory === 'object') {
+        memory.isolateModeHistory = _isolateModeHistory;
+      }
+    },
     get enableAiProvider() {
       return (
         aiProvider?.enabled ??
@@ -785,9 +829,11 @@ export async function initBrainEngine(
     avatarMode: brainEngine.avatarMode as AvatarMode,
     enableMemory:
       typeof enableMemory === 'boolean' ? enableMemory : DEFAULT_ENABLE_MEMORY,
+    isolateModeHistory: _isolateModeHistory,
     memoryKey,
     maxHistoryTurns,
-    memoryAdapter
+    memoryAdapter,
+    getAvatarMode: () => brainEngine.avatarMode || DEFAULT_AVATAR_MODE
   });
   aiProvider = await initAiProvider(
     {
@@ -1413,11 +1459,21 @@ export function emitAnswer(
     return;
   }
   if (engine.memory?.addTurn) {
+    const currentMode =
+      typeof engine.avatarMode === 'string' && engine.avatarMode !== ''
+        ? engine.avatarMode
+        : DEFAULT_AVATAR_MODE;
     if (
       typeof reasoning === 'string' ||
       (typeof reasoningTimeMs === 'number' && Number.isFinite(reasoningTimeMs))
     ) {
-      engine.memory.addTurn('assistant', text, reasoning, reasoningTimeMs);
+      engine.memory.addTurn(
+        'assistant',
+        text,
+        reasoning,
+        reasoningTimeMs,
+        currentMode
+      );
     } else {
       engine.memory.addTurn('assistant', text);
     }

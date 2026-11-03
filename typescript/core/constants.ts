@@ -121,6 +121,32 @@ export const DEFAULT_MEMORY_KEY = 'avatar-widget-memory';
 export const CURRENT_MEMORY_VERSION = 1;
 
 /**
+ * Current mode-scoped memory bucket schema version.
+ */
+export const CURRENT_MODE_MEMORY_VERSION = 1;
+
+/**
+ * Default flag indicating whether to isolate memory history per mode.
+ */
+export const DEFAULT_ISOLATE_MODE_HISTORY = false;
+
+/**
+ * 對話記憶清除目標常數映射 (Memory Clear Targets)
+ */
+export const MEMORY_CLEAR_TARGET_MAP = {
+  /** 清除全域歷史、摘要及所有模式獨立記憶 Bucket */
+  ALL: 'all',
+  /** 清除當前運作模式之歷史與摘要（若未啟用模式隔離則清除全域） */
+  CURRENT: 'current',
+  /** 僅清除全域歷史與摘要，保留各模式之獨立記憶 */
+  GLOBAL: 'global'
+} as const;
+
+export type MemoryClearTarget =
+  | (typeof MEMORY_CLEAR_TARGET_MAP)[keyof typeof MEMORY_CLEAR_TARGET_MAP]
+  | string;
+
+/**
  * Default in-browser LLM model identifier (WebLLM).
  */
 export const DEFAULT_LLM_MODEL = 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC';

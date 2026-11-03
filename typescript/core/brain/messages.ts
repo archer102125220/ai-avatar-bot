@@ -853,10 +853,13 @@ export function buildDefaultLLMMessages(
     }
   }
 
+  const rawSummary =
+    typeof engine?.memory?.getSummary === 'function'
+      ? engine.memory.getSummary(currentAvatarMode)
+      : engine?.memory?.data?.summary;
   const summaryStr =
-    typeof engine?.memory?.data?.summary === 'string' &&
-    engine.memory.data.summary.trim() !== ''
-      ? engine.memory.data.summary.trim()
+    typeof rawSummary === 'string' && rawSummary.trim() !== ''
+      ? rawSummary.trim()
       : '';
 
   const compiledPersona = compilePersonaProfile(
@@ -973,9 +976,12 @@ export function buildDefaultLLMMessages(
   }
 
   const history =
-    engine?.memory?.enabled === true &&
-    Array.isArray(engine.memory.data?.history)
-      ? [...engine.memory.data.history]
+    engine?.memory?.enabled === true
+      ? (typeof engine.memory.getHistory === 'function'
+          ? engine.memory.getHistory(currentAvatarMode)
+          : Array.isArray(engine.memory.data?.history)
+            ? [...engine.memory.data.history]
+            : [])
       : [];
 
   let safeSystemContext =

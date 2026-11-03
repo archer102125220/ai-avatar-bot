@@ -1,5 +1,5 @@
 import { AVATAR_MODE_MAP } from '@/core/constants';
-import { renderSuggestions, updateUIStrings } from '@/core/ui';
+import { renderSuggestions, renderHistory, updateUIStrings } from '@/core/ui';
 import { callOptionEvent } from './options';
 import type {
   AiAvatarWidget,
@@ -42,8 +42,36 @@ export function setupStoreSubscribers({
     ) {
       brainEngine.avatarMode =
         newAvatarMode as import('@/core/brain').AvatarMode;
+
+      // 1. 模式專屬語音角色 (voice) 連動切換
+      if (
+        typeof brainEngine.modes === 'object' &&
+        brainEngine.modes !== null
+      ) {
+        const modeConfig = brainEngine.modes[newAvatarMode];
+        if (
+          typeof modeConfig === 'object' &&
+          modeConfig !== null &&
+          typeof modeConfig.voice === 'string' &&
+          modeConfig.voice.trim() !== ''
+        ) {
+          if (
+            typeof speechEngine === 'object' &&
+            speechEngine !== null
+          ) {
+            speechEngine.neuralVoice = modeConfig.voice.trim();
+          }
+        }
+      }
     }
+
     renderSuggestions(widget);
+
+    // 2. 歷史紀錄面板即時刷新
+    if (uiDom?.historyPanelEl?.getAttribute('css-is-open') === 'true') {
+      renderHistory(widget);
+    }
+
     if (typeof uiDom?.updateMicState === 'function') {
       const isCompanion = newAvatarMode === AVATAR_MODE_MAP.companion;
       uiDom.updateMicState(

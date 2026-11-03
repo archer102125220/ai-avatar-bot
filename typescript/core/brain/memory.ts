@@ -4,8 +4,11 @@ import {
   DEFAULT_ENABLE_MEMORY,
   DEFAULT_MEMORY_KEY,
   CURRENT_MEMORY_VERSION,
+  CURRENT_MODE_MEMORY_VERSION,
+  DEFAULT_ISOLATE_MODE_HISTORY,
   DEFAULT_MAX_HISTORY_TURNS,
   DEFAULT_SUMMARY_THRESHOLD_TURNS,
+  MEMORY_CLEAR_TARGET_MAP,
   COMPRESSION_STRATEGY_MAP,
   BRAIN_ENGINE_TYPE_MAP,
   STATE_MAP
@@ -16,8 +19,10 @@ import type {
   MemoryInstance,
   AvatarMode,
   BrainEngine,
-  ChatHistoryItem
+  ChatHistoryItem,
+  ModeMemoryBucket
 } from './types';
+import type { MemoryClearTarget } from '@/core/constants';
 import {
   resolveCompressionLimits,
   generateRollingSummary
@@ -38,6 +43,7 @@ export function createDefaultMemoryData(): MemoryData {
     history: [],
     summary: '',
     lastSummarizedTurnIndex: 0,
+    modes: {},
     metadata: {}
   };
 }
@@ -183,6 +189,10 @@ export function migrateMemoryData(rawData: unknown): MemoryData {
       Number.isFinite(migratedData.lastSummarizedTurnIndex) === true
         ? migratedData.lastSummarizedTurnIndex
         : 0,
+    modes:
+      typeof migratedData.modes === 'object' && migratedData.modes !== null
+        ? (migratedData.modes as Record<string, ModeMemoryBucket>)
+        : {},
     metadata:
       typeof migratedData.metadata === 'object' &&
       migratedData.metadata !== null
@@ -202,15 +212,19 @@ export function migrateMemoryData(rawData: unknown): MemoryData {
 export function initMemory({
   avatarMode = DEFAULT_AVATAR_MODE as AvatarMode,
   enableMemory = DEFAULT_ENABLE_MEMORY,
+  isolateModeHistory = DEFAULT_ISOLATE_MODE_HISTORY,
   memoryKey = DEFAULT_MEMORY_KEY,
   maxHistoryTurns = DEFAULT_MAX_HISTORY_TURNS,
-  memoryAdapter = null
+  memoryAdapter = null,
+  getAvatarMode
 }: {
   avatarMode?: AvatarMode;
   enableMemory?: boolean;
+  isolateModeHistory?: boolean;
   memoryKey?: string;
   maxHistoryTurns?: number;
   memoryAdapter?: MemoryAdapter | null;
+  getAvatarMode?: () => string;
 } = {}): MemoryInstance {
   const isEnabled =
     typeof enableMemory === 'boolean'
@@ -260,6 +274,10 @@ export function initMemory({
         ? memoryKey
         : DEFAULT_MEMORY_KEY,
     enabled: isEnabled,
+    isolateModeHistory:
+      typeof isolateModeHistory === 'boolean'
+        ? isolateModeHistory
+        : DEFAULT_ISOLATE_MODE_HISTORY,
     maxHistoryTurns:
       typeof maxHistoryTurns === 'number' && maxHistoryTurns > 0
         ? maxHistoryTurns
@@ -293,11 +311,67 @@ export function initMemory({
       }
     },
 
+    ensureModeBucket(targetMode: string): ModeMemoryBucket {
+      if (typeof this.data.modes !== 'object' || this.data.modes === null) {
+        this.data.modes = {};
+      }
+      const resolvedMode =
+        typeof targetMode === 'string' && targetMode.trim() !== ''
+          ? targetMode.trim()
+          : DEFAULT_AVATAR_MODE;
+
+      let bucket = this.data.modes[resolvedMode];
+      if (typeof bucket !== 'object' || bucket === null) {
+        const inheritedHistory = Array.isArray(this.data.history)
+          ? [...this.data.history]
+          : [];
+        bucket = {
+          version: CURRENT_MODE_MEMORY_VERSION,
+          history: inheritedHistory,
+          summary: typeof this.data.summary === 'string' ? this.data.summary : '',
+          lastSummarizedTurnIndex:
+            typeof this.data.lastSummarizedTurnIndex === 'number' &&
+            Number.isFinite(this.data.lastSummarizedTurnIndex) === true
+              ? this.data.lastSummarizedTurnIndex
+              : 0,
+          lastActive: Date.now()
+        };
+        this.data.modes[resolvedMode] = bucket;
+        this.save();
+      }
+      return bucket;
+    },
+
+    getHistory(mode?: string): ChatHistoryItem[] {
+      if (this.isolateModeHistory === true) {
+        const targetMode =
+          (typeof mode === 'string' && mode !== '' ? mode : undefined) ||
+          (typeof getAvatarMode === 'function' ? getAvatarMode() : undefined) ||
+          avatarMode ||
+          DEFAULT_AVATAR_MODE;
+        return this.ensureModeBucket(targetMode).history;
+      }
+      return Array.isArray(this.data.history) ? this.data.history : [];
+    },
+
+    getSummary(mode?: string): string {
+      if (this.isolateModeHistory === true) {
+        const targetMode =
+          (typeof mode === 'string' && mode !== '' ? mode : undefined) ||
+          (typeof getAvatarMode === 'function' ? getAvatarMode() : undefined) ||
+          avatarMode ||
+          DEFAULT_AVATAR_MODE;
+        return this.ensureModeBucket(targetMode).summary || '';
+      }
+      return typeof this.data.summary === 'string' ? this.data.summary : '';
+    },
+
     addTurn(
       role: string,
       content: string,
       reasoning?: string,
-      reasoningTimeMs?: number
+      reasoningTimeMs?: number,
+      mode?: string
     ): void {
       if (
         this.enabled === false ||
@@ -316,9 +390,27 @@ export function initMemory({
       ) {
         turnItem.reasoningTimeMs = reasoningTimeMs;
       }
-      this.data.history.push(turnItem);
-      if (this.data.history.length > 100) {
-        this.data.history.splice(0, this.data.history.length - 100);
+
+      if (this.isolateModeHistory === true) {
+        const targetMode =
+          (typeof mode === 'string' && mode !== '' ? mode : undefined) ||
+          (typeof getAvatarMode === 'function' ? getAvatarMode() : undefined) ||
+          avatarMode ||
+          DEFAULT_AVATAR_MODE;
+        const bucket = this.ensureModeBucket(targetMode);
+        bucket.history.push(turnItem);
+        if (bucket.history.length > 100) {
+          bucket.history.splice(0, bucket.history.length - 100);
+        }
+        bucket.lastActive = Date.now();
+      } else {
+        if (Array.isArray(this.data.history) === false) {
+          this.data.history = [];
+        }
+        this.data.history.push(turnItem);
+        if (this.data.history.length > 100) {
+          this.data.history.splice(0, this.data.history.length - 100);
+        }
       }
       this.save();
     },
@@ -370,15 +462,92 @@ export function initMemory({
       this.save();
     },
 
-    clear(): Promise<void> | void {
-      this.data = createDefaultMemoryData();
-      this.data.visits = 1;
-      try {
-        if (typeof this.adapter.clear === 'function') {
-          return this.adapter.clear(this.key);
+    clear(target?: MemoryClearTarget): Promise<void> | void {
+      const activeMode =
+        (typeof getAvatarMode === 'function' ? getAvatarMode() : undefined) ||
+        avatarMode ||
+        DEFAULT_AVATAR_MODE;
+
+      // 1. 全部清除 ('all')
+      if (target === MEMORY_CLEAR_TARGET_MAP.ALL) {
+        this.data = createDefaultMemoryData();
+        this.data.visits = 1;
+        try {
+          if (typeof this.adapter.clear === 'function') {
+            return this.adapter.clear(this.key);
+          }
+        } catch (_error) {
+          // Ignore clear error
         }
-      } catch (_error) {
-        // Ignore clear error
+        return this.save();
+      }
+
+      // 2. 全域清除 ('global')
+      if (target === MEMORY_CLEAR_TARGET_MAP.GLOBAL) {
+        this.data.history = [];
+        this.data.summary = '';
+        this.data.lastSummarizedTurnIndex = 0;
+        return this.save();
+      }
+
+      // 3. 當前模式清除 ('current')
+      if (target === MEMORY_CLEAR_TARGET_MAP.CURRENT) {
+        if (this.isolateModeHistory === true) {
+          if (
+            typeof this.data.modes === 'object' &&
+            this.data.modes !== null &&
+            this.data.modes[activeMode]
+          ) {
+            this.data.modes[activeMode].history = [];
+            this.data.modes[activeMode].summary = '';
+            this.data.modes[activeMode].lastSummarizedTurnIndex = 0;
+          }
+        } else {
+          this.data.history = [];
+          this.data.summary = '';
+          this.data.lastSummarizedTurnIndex = 0;
+        }
+        return this.save();
+      }
+
+      // 4. 無參數傳入時：若為隔離模式清除 current；非隔離模式重置全部（保持完全向後相容）
+      if (typeof target === 'undefined') {
+        if (this.isolateModeHistory === true) {
+          if (
+            typeof this.data.modes === 'object' &&
+            this.data.modes !== null &&
+            this.data.modes[activeMode]
+          ) {
+            this.data.modes[activeMode].history = [];
+            this.data.modes[activeMode].summary = '';
+            this.data.modes[activeMode].lastSummarizedTurnIndex = 0;
+          }
+          return this.save();
+        }
+        this.data = createDefaultMemoryData();
+        this.data.visits = 1;
+        try {
+          if (typeof this.adapter.clear === 'function') {
+            return this.adapter.clear(this.key);
+          }
+        } catch (_error) {
+          // Ignore clear error
+        }
+        return this.save();
+      }
+
+      // 5. 指定模式清除 (如 'companion', 自訂 modeKey)
+      if (typeof target === 'string' && target !== '') {
+        if (
+          typeof this.data.modes === 'object' &&
+          this.data.modes !== null &&
+          this.data.modes[target]
+        ) {
+          this.data.modes[target].history = [];
+          this.data.modes[target].summary = '';
+          this.data.modes[target].lastSummarizedTurnIndex = 0;
+        }
+        return this.save();
       }
     }
   };
@@ -423,7 +592,17 @@ export async function triggerRollingSummaryIfNeeded(
     return;
   }
 
-  const history = memory.data.history || [];
+  const isIsolated = engine.isolateModeHistory === true;
+  const activeMode = engine.avatarMode || DEFAULT_AVATAR_MODE;
+  const currentBucket =
+    isIsolated === true && typeof memory.ensureModeBucket === 'function'
+      ? memory.ensureModeBucket(activeMode)
+      : null;
+
+  const history =
+    currentBucket !== null
+      ? currentBucket.history || []
+      : memory.data.history || [];
   const threshold =
     typeof compressionOptions.summaryThresholdTurns === 'number' &&
     compressionOptions.summaryThresholdTurns > 0
@@ -431,9 +610,13 @@ export async function triggerRollingSummaryIfNeeded(
       : DEFAULT_SUMMARY_THRESHOLD_TURNS;
 
   const lastIndex =
-    typeof memory.data.lastSummarizedTurnIndex === 'number'
-      ? memory.data.lastSummarizedTurnIndex
-      : 0;
+    currentBucket !== null
+      ? typeof currentBucket.lastSummarizedTurnIndex === 'number'
+        ? currentBucket.lastSummarizedTurnIndex
+        : 0
+      : typeof memory.data.lastSummarizedTurnIndex === 'number'
+        ? memory.data.lastSummarizedTurnIndex
+        : 0;
   const unsummarizedCount = history.length - lastIndex;
 
   const unsummarizedTurns = Math.floor(unsummarizedCount / 2);
@@ -454,7 +637,10 @@ export async function triggerRollingSummaryIfNeeded(
       if (typeof activeMemory !== 'object' || activeMemory === null) {
         return;
       }
-      const oldSummary = activeMemory.data.summary || '';
+      const oldSummary =
+        currentBucket !== null
+          ? currentBucket.summary || ''
+          : activeMemory.data.summary || '';
       const newTurns = history.slice(lastIndex);
 
       let llmChat:
@@ -523,8 +709,13 @@ export async function triggerRollingSummaryIfNeeded(
       });
 
       if (typeof newSummary === 'string' && newSummary.trim() !== '') {
-        activeMemory.data.summary = newSummary.trim();
-        activeMemory.data.lastSummarizedTurnIndex = history.length;
+        if (currentBucket !== null) {
+          currentBucket.summary = newSummary.trim();
+          currentBucket.lastSummarizedTurnIndex = history.length;
+        } else {
+          activeMemory.data.summary = newSummary.trim();
+          activeMemory.data.lastSummarizedTurnIndex = history.length;
+        }
         activeMemory.save();
 
         if (typeof engine.onSummaryUpdated === 'function') {

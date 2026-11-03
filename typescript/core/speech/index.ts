@@ -223,6 +223,12 @@ export async function initSpeechEngine(
     }
   });
 
+  store.subscribe('neuralVoice', (newVoice?: string) => {
+    if (ttsEngine !== null && typeof ttsEngine.setState === 'function') {
+      ttsEngine.setState({ neuralVoice: newVoice || '' });
+    }
+  });
+
   store.subscribe('spokenAudioState', (audioState: SpokenAudioState) => {
     if (typeof audioState?.text === 'string' && audioState.text.trim() !== '') {
       store.setState({ spokenDisplayText: audioState.text });

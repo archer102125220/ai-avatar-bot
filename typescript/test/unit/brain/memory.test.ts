@@ -11,8 +11,11 @@ import {
 } from '@/core/brain/internal-store';
 import {
   CURRENT_MEMORY_VERSION,
+  CURRENT_MODE_MEMORY_VERSION,
+  DEFAULT_ISOLATE_MODE_HISTORY,
   DEFAULT_MEMORY_KEY,
   DEFAULT_MAX_HISTORY_TURNS,
+  MEMORY_CLEAR_TARGET_MAP,
   COMPRESSION_STRATEGY_MAP,
   STATE_MAP
 } from '@/core/constants';
@@ -462,6 +465,238 @@ describe('Brain Memory Subsystem (Deep Branch Coverage)', () => {
       ).toBeUndefined();
 
       vi.useRealTimers();
+    });
+  });
+
+  describe('Phase 4: Mode-Scoped Memory History Isolation & Synchronization', () => {
+    describe('Constants and Defaults', () => {
+      it('should export correct version numbers and clear target maps', () => {
+        expect(CURRENT_MODE_MEMORY_VERSION).toBe(1);
+        expect(DEFAULT_ISOLATE_MODE_HISTORY).toBe(false);
+        expect(MEMORY_CLEAR_TARGET_MAP.ALL).toBe('all');
+        expect(MEMORY_CLEAR_TARGET_MAP.CURRENT).toBe('current');
+        expect(MEMORY_CLEAR_TARGET_MAP.GLOBAL).toBe('global');
+      });
+    });
+
+    describe('Mode Bucket Creation & Smooth Inheritance', () => {
+      it('should inherit global history and summary on first access to a mode', () => {
+        const memory = initMemory({
+          enableMemory: true,
+          isolateModeHistory: true,
+          avatarMode: 'assistant'
+        });
+
+        // Seed initial global history before switching
+        memory.isolateModeHistory = false;
+        memory.addTurn('user', 'Global question');
+        memory.addTurn('assistant', 'Global answer');
+        memory.data.summary = 'User asked about global topic';
+        memory.isolateModeHistory = true;
+
+        // Ensure mode bucket for 'financial' mode
+        const bucket = memory.ensureModeBucket('financial');
+
+        expect(bucket.version).toBe(1);
+        expect(bucket.history).toHaveLength(2);
+        expect(bucket.history[0].content).toBe('Global question');
+        expect(bucket.history[1].content).toBe('Global answer');
+        expect(bucket.summary).toBe('User asked about global topic');
+        expect(typeof bucket.lastActive).toBe('number');
+      });
+
+      it('should return existing bucket without overwriting if already initialized', () => {
+        const memory = initMemory({
+          enableMemory: true,
+          isolateModeHistory: true,
+          avatarMode: 'assistant'
+        });
+
+        const bucket1 = memory.ensureModeBucket('sales');
+        bucket1.history.push({ role: 'user', content: 'Car inquiry' });
+
+        const bucket2 = memory.ensureModeBucket('sales');
+        expect(bucket2.history).toHaveLength(1);
+        expect(bucket2.history[0].content).toBe('Car inquiry');
+      });
+    });
+
+    describe('Isolated History Read & Write', () => {
+      it('should isolate history writes between modes and preserve global history', () => {
+        let currentMode = 'assistant';
+        const memory = initMemory({
+          enableMemory: true,
+          isolateModeHistory: true,
+          getAvatarMode: () => currentMode
+        });
+
+        // Add turn to assistant
+        currentMode = 'assistant';
+        memory.addTurn('user', 'Assistant message');
+
+        // Switch to companion
+        currentMode = 'companion';
+        memory.addTurn('user', 'Companion message');
+
+        // Check assistant mode history
+        const assistantHistory = memory.getHistory('assistant');
+        expect(assistantHistory.map((h) => h.content)).toContain('Assistant message');
+        expect(assistantHistory.map((h) => h.content)).not.toContain('Companion message');
+
+        // Check companion mode history
+        const companionHistory = memory.getHistory('companion');
+        expect(companionHistory.map((h) => h.content)).toContain('Companion message');
+
+        // Check active mode getter
+        expect(memory.getHistory()).toEqual(companionHistory);
+      });
+
+      it('should isolate summary reads between modes', () => {
+        const memory = initMemory({
+          enableMemory: true,
+          isolateModeHistory: true
+        });
+
+        const bucketA = memory.ensureModeBucket('mode_a');
+        bucketA.summary = 'Summary A';
+
+        const bucketB = memory.ensureModeBucket('mode_b');
+        bucketB.summary = 'Summary B';
+
+        expect(memory.getSummary('mode_a')).toBe('Summary A');
+        expect(memory.getSummary('mode_b')).toBe('Summary B');
+      });
+    });
+
+    describe('Granular Clear Operations', () => {
+      it('should clear specific mode bucket when target is specified modeKey', () => {
+        const memory = initMemory({
+          enableMemory: true,
+          isolateModeHistory: true
+        });
+
+        const bucketA = memory.ensureModeBucket('mode_a');
+        bucketA.history.push({ role: 'user', content: 'Msg A' });
+        bucketA.summary = 'Summary A';
+
+        const bucketB = memory.ensureModeBucket('mode_b');
+        bucketB.history.push({ role: 'user', content: 'Msg B' });
+        bucketB.summary = 'Summary B';
+
+        memory.clear('mode_a');
+
+        expect(memory.getHistory('mode_a')).toEqual([]);
+        expect(memory.getSummary('mode_a')).toBe('');
+        expect(memory.getHistory('mode_b')).toHaveLength(1);
+        expect(memory.getSummary('mode_b')).toBe('Summary B');
+      });
+
+      it('should clear only active mode when target is current', () => {
+        let currentMode = 'mode_x';
+        const memory = initMemory({
+          enableMemory: true,
+          isolateModeHistory: true,
+          getAvatarMode: () => currentMode
+        });
+
+        const bucketX = memory.ensureModeBucket('mode_x');
+        bucketX.history.push({ role: 'user', content: 'Msg X' });
+        bucketX.summary = 'Summary X';
+
+        const bucketY = memory.ensureModeBucket('mode_y');
+        bucketY.history.push({ role: 'user', content: 'Msg Y' });
+
+        memory.clear(MEMORY_CLEAR_TARGET_MAP.CURRENT);
+
+        expect(memory.getHistory('mode_x')).toEqual([]);
+        expect(memory.getHistory('mode_y')).toHaveLength(1);
+      });
+
+      it('should clear only global history and summary when target is global', () => {
+        const memory = initMemory({
+          enableMemory: true,
+          isolateModeHistory: true
+        });
+
+        memory.data.history.push({ role: 'user', content: 'Global msg' });
+        memory.data.summary = 'Global summary';
+
+        const bucket = memory.ensureModeBucket('mode_m');
+        bucket.history.push({ role: 'user', content: 'Mode M msg' });
+
+        memory.clear(MEMORY_CLEAR_TARGET_MAP.GLOBAL);
+
+        expect(memory.data.history).toEqual([]);
+        expect(memory.data.summary).toBe('');
+        expect(memory.getHistory('mode_m')).toHaveLength(2);
+        expect(memory.getHistory('mode_m')[0].content).toBe('Global msg');
+        expect(memory.getHistory('mode_m')[1].content).toBe('Mode M msg');
+      });
+
+      it('should clear everything when target is all', () => {
+        const memory = initMemory({
+          enableMemory: true,
+          isolateModeHistory: true
+        });
+
+        memory.data.history.push({ role: 'user', content: 'Global msg' });
+        const bucket = memory.ensureModeBucket('mode_n');
+        bucket.history.push({ role: 'user', content: 'Mode N msg' });
+
+        memory.clear(MEMORY_CLEAR_TARGET_MAP.ALL);
+
+        expect(memory.data.history).toEqual([]);
+        expect(memory.data.modes).toEqual({});
+        expect(memory.data.visits).toBe(1);
+      });
+    });
+
+    describe('Rolling Summary Mode Perception', () => {
+      it('should summarize and update mode bucket without contaminating global summary when isolated', async () => {
+        vi.useFakeTimers();
+
+        const fakeBrainEngine = {
+          avatarMode: 'support',
+          isolateModeHistory: true,
+          locale: 'zh-TW',
+          isSummarizing: false,
+          compression: {
+            strategy: COMPRESSION_STRATEGY_MAP.ROLLING_SUMMARY,
+            summaryThresholdTurns: 2
+          },
+          aiProvider: {
+            enabled: true,
+            ready: true,
+            chat: vi.fn().mockResolvedValue('支援模式對話摘要')
+          },
+          memory: initMemory({
+            enableMemory: true,
+            isolateModeHistory: true,
+            avatarMode: 'support'
+          }),
+          onSummaryUpdated: vi.fn(),
+          onSummarizingChange: vi.fn()
+        };
+
+        const bucket = fakeBrainEngine.memory.ensureModeBucket('support');
+        // Add 4 turns (2 unsummarized turns >= threshold 2)
+        bucket.history.push({ role: 'user', content: 'Q1' });
+        bucket.history.push({ role: 'assistant', content: 'A1' });
+        bucket.history.push({ role: 'user', content: 'Q2' });
+        bucket.history.push({ role: 'assistant', content: 'A2' });
+
+        await triggerRollingSummaryIfNeeded(
+          fakeBrainEngine as unknown as BrainEngine
+        );
+        await vi.advanceTimersByTimeAsync(100);
+
+        expect(bucket.summary).toBe('支援模式對話摘要');
+        expect(bucket.lastSummarizedTurnIndex).toBe(4);
+        expect(fakeBrainEngine.memory.data.summary).toBe(''); // Global summary remains untouched!
+        expect(fakeBrainEngine.onSummaryUpdated).toHaveBeenCalledWith('支援模式對話摘要');
+
+        vi.useRealTimers();
+      });
     });
   });
 });

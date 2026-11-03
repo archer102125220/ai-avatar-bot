@@ -24,6 +24,7 @@ interface MockUiDom {
 interface MockEngines {
   brainEngine: {
     avatarMode: string;
+    modes?: Record<string, unknown>;
     enableAiProvider: boolean;
     preloadWebLLM: boolean;
     autoFallbackWebLLM: boolean;
@@ -38,6 +39,7 @@ interface MockEngines {
   speechEngine: {
     isListening: boolean;
     convoOn: boolean;
+    neuralVoice?: string;
     setGender: ReturnType<typeof vi.fn>;
     setLocale: ReturnType<typeof vi.fn>;
   };
@@ -103,6 +105,7 @@ describe('Orchestrator Store & i18n Subscribers', () => {
       speechEngine: {
         isListening: false,
         convoOn: false,
+        neuralVoice: '',
         setGender: vi.fn(),
         setLocale: vi.fn()
       },
@@ -141,6 +144,29 @@ describe('Orchestrator Store & i18n Subscribers', () => {
 
       expect(mockEngines.brainEngine.avatarMode).toBe('companion');
       expect(mockUiDom.updateMicState).toHaveBeenCalled();
+    });
+
+    it('should synchronize mode-specific voice and refresh history panel if open', () => {
+      mockEngines.brainEngine.modes = {
+        sales: {
+          name: '銷售代表',
+          voice: 'zh-TW-YunJheNeural'
+        }
+      };
+      mockUiDom.historyPanelEl.setAttribute('css-is-open', 'true');
+
+      setupStoreSubscribers({
+        widget: mockWidget,
+        rootStore,
+        i18nEngine,
+        getUiDom,
+        getEngines
+      });
+
+      rootStore.setState({ avatarMode: 'sales' });
+
+      expect(mockEngines.brainEngine.avatarMode).toBe('sales');
+      expect(mockEngines.speechEngine.neuralVoice).toBe('zh-TW-YunJheNeural');
     });
 
     it('should synchronize memory, AI provider, and auto-continue store flags', () => {
