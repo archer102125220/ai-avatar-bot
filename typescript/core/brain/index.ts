@@ -607,32 +607,8 @@ export async function initBrainEngine(
     updateChatMessage: (
       id: string,
       text: string,
-      optionsOrStreaming?: UpdateChatMessageOptions | boolean,
-      reasoning?: string,
-      reasoningTimeMs?: number,
-      reasoningStreaming?: boolean
-    ) => {
-      if (
-        typeof optionsOrStreaming === 'object' &&
-        optionsOrStreaming !== null
-      ) {
-        return updateChatMessage(
-          brainEngine,
-          id,
-          text,
-          optionsOrStreaming as UpdateChatMessageOptions
-        );
-      }
-      return updateChatMessage(
-        brainEngine,
-        id,
-        text,
-        optionsOrStreaming as boolean,
-        reasoning,
-        reasoningTimeMs,
-        reasoningStreaming
-      );
-    },
+      options?: UpdateChatMessageOptions
+    ) => updateChatMessage(brainEngine, id, text, options),
 
     get llm() {
       return llm;
@@ -1214,6 +1190,9 @@ export function addChatMessage(
         ? options.reasoningTimeMs
         : undefined
   };
+  if (typeof options.metadata === 'object' && options.metadata !== null) {
+    item.metadata = { ...options.metadata };
+  }
   engine.chatLog.push(item);
   if (engine.chatLog.length > 80) {
     engine.chatLog.shift();
@@ -1247,51 +1226,17 @@ export function updateChatMessage(
   id: string,
   text: string,
   options?: UpdateChatMessageOptions
-): string;
-/**
- * @deprecated 請改用物件傳參形態 updateChatMessage(brainEngine, id, text, options)
- *
- * @remarks
- * TODO 3 (Architecture Roadmap): 未來發布主要大版本（Major Version Bump）時，
- * 正式刪除此位置參數多載簽名，唯一收斂為物件傳參：
- *   updateChatMessage(engine, id, text, options?: UpdateChatMessageOptions)
- */
-export function updateChatMessage(
-  brainEngine: BrainEngine | Record<string, unknown>,
-  id: string,
-  text: string,
-  streaming?: boolean,
-  reasoning?: string,
-  reasoningTimeMs?: number,
-  reasoningStreaming?: boolean
-): string;
-export function updateChatMessage(
-  brainEngine: BrainEngine | Record<string, unknown>,
-  id: string,
-  text: string,
-  optionsOrStreaming?: UpdateChatMessageOptions | boolean,
-  reasoningArg?: string,
-  reasoningTimeMsArg?: number,
-  reasoningStreamingArg?: boolean
 ): string {
   const engine = brainEngine as Partial<BrainEngine> & Record<string, unknown>;
-
-  const isOptionsObject =
-    typeof optionsOrStreaming === 'object' && optionsOrStreaming !== null;
-  const options: UpdateChatMessageOptions = isOptionsObject
-    ? (optionsOrStreaming as UpdateChatMessageOptions)
-    : {};
-
-  const streaming = isOptionsObject
-    ? Boolean(options.streaming)
-    : Boolean(optionsOrStreaming);
-  const reasoning = isOptionsObject ? options.reasoning : reasoningArg;
-  const reasoningTimeMs = isOptionsObject
-    ? options.reasoningTimeMs
-    : reasoningTimeMsArg;
-  const reasoningStreaming = isOptionsObject
-    ? options.reasoningStreaming
-    : reasoningStreamingArg;
+  const safeOptions =
+    typeof options === 'object' && options !== null ? options : {};
+  const {
+    streaming = false,
+    reasoning,
+    reasoningTimeMs,
+    reasoningStreaming,
+    metadata
+  } = safeOptions;
 
   if (Array.isArray(engine.chatLog) === false) {
     engine.chatLog = [];
@@ -1303,7 +1248,8 @@ export function updateChatMessage(
       streaming,
       reasoning,
       reasoningTimeMs,
-      reasoningStreaming
+      reasoningStreaming,
+      metadata
     });
   }
   item.text = String(text || '').slice(0, 4000);
@@ -1319,6 +1265,14 @@ export function updateChatMessage(
   }
   if (typeof reasoningStreaming === 'boolean') {
     item.reasoningStreaming = reasoningStreaming;
+  }
+  if (typeof metadata === 'object' && metadata !== null) {
+    item.metadata = {
+      ...(typeof item.metadata === 'object' && item.metadata !== null
+        ? item.metadata
+        : {}),
+      ...metadata
+    };
   }
   if (typeof engine.onUpdateChatMessage === 'function') {
     const callback = engine.onUpdateChatMessage as (

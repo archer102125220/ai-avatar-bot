@@ -262,6 +262,8 @@ export interface ChatLogItem {
   reasoningStreaming?: boolean;
   /** Duration of reasoning process in milliseconds. */
   reasoningTimeMs?: number;
+  /** 自訂業務中繼資料 */
+  metadata?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -279,6 +281,8 @@ export interface AddChatMessageOptions {
   reasoningStreaming?: boolean;
   /** Duration of reasoning process in milliseconds. */
   reasoningTimeMs?: number;
+  /** 自訂業務中繼資料 */
+  metadata?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
