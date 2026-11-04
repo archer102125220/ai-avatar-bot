@@ -286,10 +286,16 @@ export interface AddChatMessageOptions {
  * Options for updating an existing message in the chat log.
  */
 export interface UpdateChatMessageOptions {
+  /** 是否處於串流輸出狀態 */
   streaming?: boolean;
+  /** 思維鏈推論過程文字 (Thinking / Reasoning) */
   reasoning?: string;
+  /** 思維鏈推論耗時（毫秒） */
   reasoningTimeMs?: number;
+  /** 思維鏈推論過程是否處於串流中 */
   reasoningStreaming?: boolean;
+  /** 自訂業務中繼資料（與 ChatLogItem.metadata 對齊） */
+  metadata?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -1113,17 +1119,6 @@ export interface BrainEngine {
     id: string,
     text: string,
     options?: UpdateChatMessageOptions
-  ): string;
-  /**
-   * @deprecated 請改用物件傳參形態 updateChatMessage(id, text, options)
-   */
-  updateChatMessage(
-    id: string,
-    text: string,
-    streaming?: boolean,
-    reasoning?: string,
-    reasoningTimeMs?: number,
-    reasoningStreaming?: boolean
   ): string;
   locale: string;
   setLocale(locale: string): void;
