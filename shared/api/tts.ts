@@ -128,32 +128,36 @@ export default async (req: IncomingMessage, res: ServerResponse) => {
 
     const { MsEdgeTTS, OUTPUT_FORMAT } = await lib();
     const tts = new MsEdgeTTS();
-    await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
-    const { audioStream } = await tts.toStream(escapeXml(text)); // escape 防 SSML 注入
+    try {
+      await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+      const { audioStream } = await tts.toStream(escapeXml(text)); // escape 防 SSML 注入
 
-    const buf = await new Promise<Buffer>((resolve, reject) => {
-      const chunks: Uint8Array[] = [];
-      const timer = setTimeout(() => {
-        try {
-          audioStream.destroy?.();
-        } catch (_e) {}
-        reject(new Error('tts timeout'));
-      }, 20000);
-      audioStream.on('data', (c: Buffer) => chunks.push(c));
-      audioStream.on('end', () => {
-        clearTimeout(timer);
-        resolve(Buffer.concat(chunks));
+      const buf = await new Promise<Buffer>((resolve, reject) => {
+        const chunks: Uint8Array[] = [];
+        const timer = setTimeout(() => {
+          try {
+            audioStream.destroy?.();
+          } catch (_e) {}
+          reject(new Error('tts timeout'));
+        }, 20000);
+        audioStream.on('data', (c: Buffer) => chunks.push(c));
+        audioStream.on('end', () => {
+          clearTimeout(timer);
+          resolve(Buffer.concat(chunks));
+        });
+        audioStream.on('error', (e: Error) => {
+          clearTimeout(timer);
+          reject(e);
+        });
       });
-      audioStream.on('error', (e: Error) => {
-        clearTimeout(timer);
-        reject(e);
-      });
-    });
 
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'audio/mpeg');
-    res.setHeader('Cache-Control', 'public, max-age=86400'); // 同句快取一天
-    res.end(buf);
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Cache-Control', 'public, max-age=86400'); // 同句快取一天
+      res.end(buf);
+    } finally {
+      tts.close();
+    }
   } catch (e: unknown) {
     res.statusCode = 502;
     res.end('tts error: ' + (e instanceof Error ? e.message : String(e)));
