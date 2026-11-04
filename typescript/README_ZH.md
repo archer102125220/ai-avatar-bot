@@ -1366,6 +1366,17 @@ widget.speechEngine?.subscribe('spokenDisplayText', (subtitle: string) => {
 });
 ```
 
+#### 🛡️ 智慧降級與跨平台音色保證 (Fallback & Cross-Platform Alignment)
+
+當未設定 `ttsEndpoint` 或後端神經網路 API 遇短暫網路抖動/限流時，SDK 會自動無縫降級至瀏覽器原生語音（`window.speechSynthesis`），並具備高可靠度架構：
+
+1. **嚴格事件驅動佇列（杜絕語句截斷）**：
+   - 與 Web Audio 神經語音完全對齊，以語音發音結束信號（`utterance.onend`）作為唯一正常的換句判定，搭配防卡死超時看門狗（Watchdog）。同一次長回覆即使切分成多個短句，第 1 句未完整講完前絕對不會被第 2 句強制掐斷。
+2. **跨平台性別音色匹配階梯（跨作業系統性別一致）**：
+   - **繁體中文男聲**：優先匹配 Windows 專屬之 `YunJhe (雲哲)`、`Zhiwei (志偉)` 或 macOS `Danny`。
+   - **簡體中文男聲平滑過渡**：在缺乏繁中男聲的環境（如 macOS / iOS），自動平滑命中 Apple 系統內建之 **`Liang (梁)`**、**`Bowen (博文)`**，朗讀繁體字完全正常，保證男角色在全平台上絕不變性為女聲。
+   - **Android 行動端相容**：智慧容納 Android 系統內建之 Google TTS 音色，確保行動裝置發聲正常。
+
 ---
 
 ### 9. 無頭模式 (Headless Mode) 與自訂 UI
@@ -1568,7 +1579,7 @@ widget.i18nEngine.setLocale('zh-CN'); // 簡體中文
 # 1. 嚴格 TypeScript 編譯期型別檢查
 yarn test:typecheck
 
-# 2. 執行 600+ 項 Vitest 單元測試（涵蓋大腦推論、語音、外觀、工具、記憶、Store，603 測試全數通過）
+# 2. 執行 680+ 項 Vitest 單元測試（涵蓋大腦推論、語音、外觀、工具、記憶、Store，688 測試全數通過）
 yarn test:unit
 
 # 3. Vitest 監聽與視覺化 UI 儀表板

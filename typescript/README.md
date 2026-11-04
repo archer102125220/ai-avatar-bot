@@ -1363,6 +1363,17 @@ widget.speechEngine?.subscribe('spokenDisplayText', (subtitle: string) => {
 });
 ```
 
+#### 🛡️ Robust Fallback & Cross-Platform Alignment
+
+When no `ttsEndpoint` is provided or remote neural synthesis experiences network errors/rate limits, the SDK smoothly falls back to native Web Speech API (`window.speechSynthesis`) with hardened enterprise reliability:
+
+1. **Strict Event-Driven Queuing (Zero Utterance Truncation)**:
+   - Aligned directly with Web Audio behavior, chunk transitions rely purely on `utterance.onend` rather than premature timing heuristics, coupled with a generous watchdog timeout. Multi-sentence streaming replies are never cut off by subsequent sentences.
+2. **Cross-Platform Gender & Voice Hierarchy**:
+   - **Traditional Chinese Male**: Prioritizes Windows native `YunJhe (雲哲)`, `Zhiwei (志偉)`, or macOS `Danny`.
+   - **Smooth Transition to Simplified Male**: When running on platforms without built-in Traditional Chinese male voices (such as macOS or iOS), automatically maps to Apple's native **`Liang (梁)`** or **`Bowen (博文)`**, preventing male avatars from unexpectedly speaking with a female voice.
+   - **Mobile Android Readiness**: Intelligently allows built-in Google TTS voices on mobile devices, avoiding silent failures.
+
 ---
 
 ### 9. Headless Mode & Custom UI Integration
@@ -1565,7 +1576,7 @@ The source code created in this package is licensed under the **[MIT License](LI
 # 1. Typecheck with strict TypeScript compiler
 yarn test:typecheck
 
-# 2. Run 600+ Vitest unit tests (Brain Reasoning, Speech, Skin, Tools, Memory, Store, 100% pass rate)
+# 2. Run 680+ Vitest unit tests (Brain Reasoning, Speech, Skin, Tools, Memory, Store, 688 passed, 100% pass rate)
 yarn test:unit
 
 # 3. Vitest watch mode & UI dashboard
