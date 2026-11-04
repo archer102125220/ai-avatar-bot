@@ -981,7 +981,7 @@ export async function chatWithAiProvider(
               engine.updateChatMessage(
                 streamMessageId,
                 currentStreamText,
-                true
+                { streaming: true }
               );
             }
             if (typeof engine.applyEmotionFromText === 'function') {
@@ -1019,7 +1019,7 @@ export async function chatWithAiProvider(
         typeof engine.updateChatMessage === 'function' &&
         typeof streamMessageId === 'string'
       ) {
-        engine.updateChatMessage(streamMessageId, '', false);
+        engine.updateChatMessage(streamMessageId, '', { streaming: false });
       }
       return await executeToolCallsLoop(
         engine as BrainEngine,
@@ -1169,7 +1169,7 @@ export async function chatWithAiProvider(
             engine.updateChatMessage(
               typeof chatMessageId === 'string' ? chatMessageId : '',
               accumulatedText,
-              false
+              { streaming: false }
             );
           }
           if (typeof engine.applyEmotionFromText === 'function') {
@@ -1248,13 +1248,11 @@ export async function chatWithAiProvider(
         typeof engine.updateChatMessage === 'function' &&
         typeof streamMessageId === 'string'
       ) {
-        engine.updateChatMessage(
-          streamMessageId,
-          accumulatedText,
-          false,
-          initialReasoning,
-          initialReasoningTimeMs
-        );
+        engine.updateChatMessage(streamMessageId, accumulatedText, {
+          streaming: false,
+          reasoning: initialReasoning,
+          reasoningTimeMs: initialReasoningTimeMs
+        });
       }
       if (typeof engine.applyEmotionFromText === 'function') {
         engine.applyEmotionFromText(accumulatedText);

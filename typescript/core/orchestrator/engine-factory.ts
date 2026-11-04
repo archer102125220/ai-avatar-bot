@@ -977,7 +977,9 @@ export function setupToolsEngine({
     ) {
       const { brainEngine } = getEngines();
       if (typeof brainEngine?.updateChatMessage === 'function') {
-        return brainEngine.updateChatMessage(messageId, text, append);
+        return brainEngine.updateChatMessage(messageId, text, {
+          streaming: append
+        });
       }
       callOptionEvent(
         options,

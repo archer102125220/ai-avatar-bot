@@ -304,7 +304,9 @@ export async function executeToolCallsLoop(
             engine.onSpokenDisplayTextChange(accumulatedText);
           }
           if (typeof engine.updateChatMessage === 'function') {
-            engine.updateChatMessage(streamMessageId, accumulatedText, true);
+            engine.updateChatMessage(streamMessageId, accumulatedText, {
+              streaming: true
+            });
           }
           if (typeof engine.applyEmotionFromText === 'function') {
             engine.applyEmotionFromText(accumulatedText);
@@ -364,7 +366,9 @@ export async function executeToolCallsLoop(
           engine.memory.addTurn('assistant', finalText);
         }
         if (typeof engine.updateChatMessage === 'function') {
-          engine.updateChatMessage(streamMessageId, finalText, false);
+          engine.updateChatMessage(streamMessageId, finalText, {
+            streaming: false
+          });
         }
         if (typeof engine.onStreamEnd === 'function') {
           engine.onStreamEnd(finalText);

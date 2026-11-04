@@ -828,7 +828,9 @@ export async function chatWithWebLLM(
           engine.onSpokenDisplayTextChange(accumulatedText);
         }
         if (typeof engine.updateChatMessage === 'function') {
-          engine.updateChatMessage(streamMessageId, accumulatedText, true);
+          engine.updateChatMessage(streamMessageId, accumulatedText, {
+            streaming: true
+          });
         }
         if (typeof engine.applyEmotionFromText === 'function') {
           engine.applyEmotionFromText(accumulatedText);
@@ -858,7 +860,7 @@ export async function chatWithWebLLM(
       chatResponse.type === 'tool_calls'
     ) {
       if (typeof engine.updateChatMessage === 'function') {
-        engine.updateChatMessage(streamMessageId, '', false);
+        engine.updateChatMessage(streamMessageId, '', { streaming: false });
       }
       return await executeToolCallsLoop(
         engine as BrainEngine,
@@ -965,7 +967,9 @@ export async function chatWithWebLLM(
               engine.onSpokenDisplayTextChange(combinedText);
             }
             if (typeof engine.updateChatMessage === 'function') {
-              engine.updateChatMessage(streamMessageId, combinedText, true);
+              engine.updateChatMessage(streamMessageId, combinedText, {
+                streaming: true
+              });
             }
             if (typeof engine.applyEmotionFromText === 'function') {
               engine.applyEmotionFromText(currentStreamText);
@@ -1040,13 +1044,11 @@ export async function chatWithWebLLM(
       }
     }
     if (typeof engine.updateChatMessage === 'function') {
-      engine.updateChatMessage(
-        streamMessageId,
-        accumulatedText,
-        false,
-        initialReasoning,
-        initialReasoningTimeMs
-      );
+      engine.updateChatMessage(streamMessageId, accumulatedText, {
+        streaming: false,
+        reasoning: initialReasoning,
+        reasoningTimeMs: initialReasoningTimeMs
+      });
     }
 
     if (typeof engine.onStreamEnd === 'function') {
