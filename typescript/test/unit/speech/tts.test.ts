@@ -670,5 +670,54 @@ describe('Unit Test: core/speech/tts.js', () => {
         expect(tts.getState().browserVoice).toBeDefined();
       }
     });
+
+    it('should queue consecutive browser fallback chunks without canceling active utterance until onend', async () => {
+      class TestUtterance {
+        static latest: TestUtterance | null = null;
+        text: string;
+        onstart: (() => void) | null = null;
+        onend: (() => void) | null = null;
+        onerror: (() => void) | null = null;
+        onboundary: (() => void) | null = null;
+        constructor(text: string) {
+          this.text = text;
+          TestUtterance.latest = this;
+        }
+      }
+      (
+        window as unknown as { SpeechSynthesisUtterance: unknown }
+      ).SpeechSynthesisUtterance = TestUtterance;
+
+      const cancelSpy = vi.spyOn(window.speechSynthesis, 'cancel');
+      const speakSpy = vi.spyOn(window.speechSynthesis, 'speak');
+
+      const tts: TTSEngine = initDefaultTTSEngine({
+        ttsEndpoint: ''
+      });
+
+      const seq = tts.beginSpeech?.() ?? 1;
+      cancelSpy.mockClear();
+
+      tts.pushSpeech?.(seq, '第一句長語句正在朗讀。');
+      tts.pushSpeech?.(seq, '第二句接續語句。');
+      tts.endSpeech?.(seq);
+
+      await new Promise((r) => setTimeout(r, 60));
+      expect(speakSpy).toHaveBeenCalledTimes(1);
+      expect(cancelSpy).not.toHaveBeenCalled();
+
+      if (typeof TestUtterance.latest?.onend === 'function') {
+        TestUtterance.latest.onend();
+      }
+
+      await new Promise((r) => setTimeout(r, 60));
+      expect(speakSpy).toHaveBeenCalledTimes(2);
+      expect(cancelSpy).not.toHaveBeenCalled();
+
+      if (typeof TestUtterance.latest?.onend === 'function') {
+        TestUtterance.latest.onend();
+      }
+      expect(tts.isSpeaking).toBe(false);
+    });
   });
 });

@@ -129,7 +129,10 @@ export default async (req: IncomingMessage, res: ServerResponse) => {
     const { MsEdgeTTS, OUTPUT_FORMAT } = await lib();
     const tts = new MsEdgeTTS();
     try {
-      await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+      await tts.setMetadata(
+        voice,
+        OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3
+      );
       const { audioStream } = await tts.toStream(escapeXml(text)); // escape 防 SSML 注入
 
       const buf = await new Promise<Buffer>((resolve, reject) => {

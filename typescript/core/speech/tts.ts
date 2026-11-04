@@ -304,6 +304,7 @@ export function initDefaultTTSEngine(
 
   const state = store.getState();
   const activeTTSAbortControllers = new Set<AbortController>();
+  let activeUtterance: SpeechSynthesisUtterance | null = null;
 
   const engine: TTSEngine = {
     subscribe: store.subscribe,
@@ -433,10 +434,17 @@ export function initDefaultTTSEngine(
         }
       } catch (_error) {}
       try {
-        if (state.speakBrowserTimer !== null) {
+        if (state.speakBrowserTimer !== null && state.speakBrowserTimer !== 0) {
           clearTimeout(state.speakBrowserTimer);
+          state.speakBrowserTimer = null;
         }
       } catch (_error) {}
+      if (activeUtterance !== null) {
+        activeUtterance.onend = null;
+        activeUtterance.onerror = null;
+        activeUtterance.onboundary = null;
+        activeUtterance = null;
+      }
       if (state.currentFps > 0) {
         cancelAnimationFrame(state.currentFps);
         state.currentFps = 0;
@@ -745,6 +753,8 @@ export function initDefaultTTSEngine(
       return;
     }
     const utterance = new SpeechSynthesisUtterance(text);
+    activeUtterance = utterance;
+
     const currentState = store.getState();
     if (currentState.browserVoice === null) {
       store.setState({ browserVoice: loadVoice(currentState.gender) });
@@ -762,29 +772,54 @@ export function initDefaultTTSEngine(
     utterance.onboundary = () => {
       currentState.mouthTarget = 0.5 + Math.random() * 0.5;
     };
+
     let isFinished = false;
+    const cleanup = (): void => {
+      if (
+        currentState.speakBrowserTimer !== null &&
+        currentState.speakBrowserTimer !== 0
+      ) {
+        clearTimeout(currentState.speakBrowserTimer);
+        currentState.speakBrowserTimer = null;
+      }
+      if (activeUtterance === utterance) {
+        activeUtterance = null;
+      }
+      utterance.onend = null;
+      utterance.onerror = null;
+      utterance.onboundary = null;
+    };
+
     const handleFinish = (): void => {
       if (isFinished === true) {
         return;
       }
       isFinished = true;
+      cleanup();
       store.setState({ isSpeaking: false });
       if (typeof onChunkCompleted === 'function') {
         onChunkCompleted();
       }
     };
+
     utterance.onend = handleFinish;
+    utterance.onerror = () => {
+      handleFinish();
+    };
+
     const effectiveRate =
       typeof currentState.ttsRate === 'number' && currentState.ttsRate > 0
         ? currentState.ttsRate
         : 1.0;
-    const estimatedDurationMs = Math.min(
-      16000,
-      Math.max(1200, (text.length * 130) / effectiveRate)
+    const baseDurationMs = Math.max(1200, (text.length * 200) / effectiveRate);
+    const watchdogDurationMs = Math.min(
+      60000,
+      Math.max(6000, baseDurationMs * 2.5 + 3000)
     );
 
     const playUtterance = (): void => {
       if (speechSequenceId !== state.speakSeq) {
+        cleanup();
         return;
       }
       try {
@@ -799,14 +834,18 @@ export function initDefaultTTSEngine(
           onSpeakStart();
         }
       }
-      currentState.speakBrowserTimer = setTimeout(
-        handleFinish,
-        estimatedDurationMs
-      );
+      currentState.speakBrowserTimer = setTimeout(() => {
+        try {
+          window.speechSynthesis.cancel();
+        } catch (_error) {}
+        handleFinish();
+      }, watchdogDurationMs);
     };
+
     if (
-      window.speechSynthesis.speaking === true ||
-      window.speechSynthesis.pending === true
+      window.speechSynthesis.pending === true ||
+      (window.speechSynthesis.speaking === true &&
+        state.isSpeechPlaying === false)
     ) {
       window.speechSynthesis.cancel();
       setTimeout(playUtterance, 120);
