@@ -1215,6 +1215,10 @@ export function addChatMessage(
 /**
  * Updates an existing message in conversation history log.
  *
+ * @remarks
+ * [TODO 3 Resolved]: 函式簽名唯一收斂為純 Options 物件（移除長串位置參數多載），
+ * 完整支援串流、思維鏈推論與 metadata 淺層合併。
+ *
  * @param brainEngine - Brain engine instance.
  * @param id - Target message ID.
  * @param text - Updated text content.

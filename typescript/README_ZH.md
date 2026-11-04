@@ -1645,9 +1645,12 @@ yarn test:smoke
   - **語意標籤與衝突裁決**：揚棄純數值 Magic Number 乘數，改採業界標準「語意標籤（`[${currentMode}模式專屬]` / `[通用知識]`）+ 階梯式槽位保護（專屬合格優先，通用滿額補齊）+ 系統提示詞衝突裁決原則」，確保端側小模型與雲端 LLM 都能精準掌握專屬知識的最高約束力。
   - **雙軌檢索控制**：支援 `knowledgeLimit`（候選條數上限，設為 `0` 時關閉檢索純自由推理）與 `knowledgeFilter: false`（跳過前端相似度過濾，整包資料原汁原味交由雲端 LLM 全權推論）。
 
-### 📌 TODO 3：`updateChatMessage` 簽名最終統一收斂為純 Options 物件（移除長串位置參數多載）
-- **背景**：本次重構採取多載（Overload）設計，同時相容全新 `UpdateChatMessageOptions` 物件與舊版 6 個位置參數，確保既有呼叫端 100% 不壞。
-- **未來規劃**：在未來的 Major Version 發布時，正式移除長串位置參數多載，將函式簽名唯一收斂為 `updateChatMessage(engine, id, text, options?: UpdateChatMessageOptions)`。
+### ✅ TODO 3：`updateChatMessage` 簽名最終統一收斂為純 Options 物件（已落成 / Implemented）
+- **落成成果**：
+  - **移除位置參數多載**：徹底移除舊版 6 個位置參數的多載宣告與 `@deprecated` 註解，根除大腦內部 `isOptionsObject` 分支判斷邏輯。
+  - **唯一收斂純 Options 簽名**：大腦實例方法與獨立函式全面收斂為 `updateChatMessage(engine, id, text, options?: UpdateChatMessageOptions)`（支援 `streaming`、`reasoning`、`reasoningTimeMs`、`reasoningStreaming` 與 `metadata`）。
+  - **中繼資料合併與 Fallback 透傳**：更新既有訊息時支援 `metadata` 淺層合併；找不到目標訊息 fallback 至 `addChatMessage` 時同步透傳中繼資料。
+  - **全專案調用點與單元測試升級**：專案內部 11 處調用點與所有單元測試全數遷移為 Options 物件傳參。
 
 ---
 

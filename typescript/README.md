@@ -1642,9 +1642,12 @@ To maintain stability and avoid scope creep during our current npm release, thre
   - **Semantic Tagging & Conflict Directives**: Replaced arbitrary numerical multipliers with industry-standard semantic tagging (`[${currentMode} Mode]` / `[General Knowledge]`), stratified slot protection (mode-specific entries prioritized, general entries backfilling up to limit), and system prompt conflict directives ensuring LLMs and SLMs prioritize mode-specific guidelines.
   - **Dual-Track Retrieval Controls**: Fully supports `knowledgeLimit` (candidate entry cap, set to `0` for pure conversation) and `knowledgeFilter: false` (skips similarity filtering and injects raw entries for cloud LLM reasoning).
 
-### 📌 TODO 3: `updateChatMessage` Signature Convergence to Pure Options Object
-- **Background**: Overloaded for 100% backward compatibility to support both `UpdateChatMessageOptions` and legacy 6-argument positional calls.
-- **Future Plan**: In the next major release (semver major bump), remove the long positional parameter overload, standardizing solely on `updateChatMessage(engine, id, text, options?: UpdateChatMessageOptions)`.
+### ✅ TODO 3: `updateChatMessage` Signature Convergence to Pure Options Object (Implemented)
+- **Delivered Architecture**:
+  - **Eliminated Positional Overloads**: Completely eliminated the 6-positional argument overload signatures and `@deprecated` annotations, removing runtime `isOptionsObject` branching.
+  - **Pure Options Signature Standard**: Unified both brain instance methods and standalone functions to `updateChatMessage(engine, id, text, options?: UpdateChatMessageOptions)` (supporting `streaming`, `reasoning`, `reasoningTimeMs`, `reasoningStreaming`, and `metadata`).
+  - **Metadata Merging & Fallback Propagation**: Full support for shallow merging `metadata` on existing messages and transparently passing `metadata` when creating new messages via `addChatMessage` fallback.
+  - **Comprehensive Call Site & Test Migration**: Upgraded all 11 internal caller sites and all unit test assertions to options objects.
 
 ---
 
