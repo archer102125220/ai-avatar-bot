@@ -425,7 +425,9 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
       expect(onAddChatMessage).toHaveBeenCalledOnce();
       expect(onChatHistoryChanged).toHaveBeenCalledOnce();
 
-      updateChatMessage(brainEngine, messageId, '哈囉～更新版！', false);
+      updateChatMessage(brainEngine, messageId, '哈囉～更新版！', {
+        streaming: false
+      });
       expect(brainEngine.chatLog[0].text).toBe('哈囉～更新版！');
       expect(brainEngine.chatLog[0].streaming).toBe(false);
     });
@@ -448,7 +450,7 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
         brainEngine,
         'non_existent_id',
         '新加入的訊息',
-        false
+        { streaming: false }
       );
       expect(newId).toBeDefined();
     });
@@ -483,6 +485,53 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
       expect(brainEngine.chatLog[0].text).toBe('完整更新文字');
       expect(brainEngine.chatLog[0].streaming).toBe(false);
       expect(brainEngine.chatLog[0].reasoningStreaming).toBe(false);
+    });
+
+    it('should support metadata shallow merge on existing message and carry metadata on fallback addChatMessage', () => {
+      const brainEngine = {
+        chatLog: [] as Array<Record<string, unknown>>,
+        chatSeq: 0
+      };
+
+      // 1. Existing message with initial metadata
+      const msgId = addChatMessage(brainEngine, 'assistant', '訊息一', {
+        metadata: { category: 'qa', source: 'faq' }
+      });
+      expect(brainEngine.chatLog[0].metadata).toEqual({
+        category: 'qa',
+        source: 'faq'
+      });
+
+      // Update existing message: shallow merge new metadata
+      updateChatMessage(brainEngine, msgId, '訊息一更新', {
+        metadata: { source: 'docs', verified: true }
+      });
+      expect(brainEngine.chatLog[0].text).toBe('訊息一更新');
+      expect(brainEngine.chatLog[0].metadata).toEqual({
+        category: 'qa',
+        source: 'docs',
+        verified: true
+      });
+
+      // 2. Unknown message ID -> fallback adds new assistant message with metadata
+      const fallbackId = updateChatMessage(
+        brainEngine,
+        'non_existent_fallback_id',
+        'Fallback 訊息',
+        {
+          metadata: { fallback: true, intent: 'fallback_test' }
+        }
+      );
+      expect(fallbackId).toBe('non_existent_fallback_id');
+      const fallbackItem = brainEngine.chatLog.find(
+        (m) => m.id === 'non_existent_fallback_id'
+      );
+      expect(fallbackItem).toBeDefined();
+      expect(fallbackItem?.text).toBe('Fallback 訊息');
+      expect(fallbackItem?.metadata).toEqual({
+        fallback: true,
+        intent: 'fallback_test'
+      });
     });
   });
 

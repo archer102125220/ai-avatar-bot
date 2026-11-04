@@ -1003,9 +1003,11 @@ describe('Unit Test: core/brain/web-llm.js', () => {
       expect(updateChatMessage).toHaveBeenCalledWith(
         expect.stringMatching(/^stream-/),
         '回答內容',
-        false,
-        '推論過程思考中',
-        125
+        {
+          streaming: false,
+          reasoning: '推論過程思考中',
+          reasoningTimeMs: 125
+        }
       );
     });
   });

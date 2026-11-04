@@ -1125,7 +1125,7 @@ describe('Orchestrator Engine Factory', () => {
       expect(mockEngines.brainEngine.updateChatMessage).toHaveBeenCalledWith(
         'msg_1',
         'New Text',
-        false
+        { streaming: false }
       );
 
       // onSetHistoryOpen true / false
@@ -1249,7 +1249,7 @@ describe('Orchestrator Engine Factory', () => {
       expect(mockEngines.brainEngine.updateChatMessage).toHaveBeenCalledWith(
         'custom_id',
         'Updated tool msg',
-        false
+        { streaming: false }
       );
       expect(onUpdateChatMessage).not.toHaveBeenCalled();
 

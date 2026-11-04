@@ -680,7 +680,7 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       expect(updateChatMessage).toHaveBeenCalledWith(
         'msg_stream_1',
         expect.stringContaining('這是第二段文字結束'),
-        false
+        { streaming: false }
       );
       expect(onSpokenAudioPlayNow).toHaveBeenCalled();
       expect(triggerRollingSummaryIfNeeded).toHaveBeenCalled();
@@ -965,9 +965,11 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
       expect(updateChatMessage).toHaveBeenCalledWith(
         'msg_ai_1',
         'AI回覆',
-        false,
-        '推論紀錄',
-        88
+        {
+          streaming: false,
+          reasoning: '推論紀錄',
+          reasoningTimeMs: 88
+        }
       );
     });
   });
