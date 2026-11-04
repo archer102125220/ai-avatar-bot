@@ -207,6 +207,43 @@ describe('Unit Test: core/speech/tts.js', () => {
       const femaleVoice = loadVoice(GENDER_MAP.female, 'zh-TW');
       expect(femaleVoice?.name).toContain('HsiaoChen');
     });
+
+    it('should fallback to simplified Chinese male voice (e.g. Liang on macOS/iOS) when traditional male voice is unavailable', () => {
+      const mockVoices = [
+        {
+          name: 'Mei-Jia',
+          lang: 'zh-TW'
+        },
+        {
+          name: 'Liang',
+          lang: 'zh-CN'
+        }
+      ];
+      vi.spyOn(speechSynthesis, 'getVoices').mockReturnValue(
+        mockVoices as unknown as SpeechSynthesisVoice[]
+      );
+
+      const maleVoice = loadVoice(GENDER_MAP.male, 'zh-TW');
+      expect(maleVoice?.name).toBe('Liang');
+
+      const femaleVoice = loadVoice(GENDER_MAP.female, 'zh-TW');
+      expect(femaleVoice?.name).toBe('Mei-Jia');
+    });
+
+    it('should match Google voice on Android or mobile when only Google voices are available', () => {
+      const mockVoices = [
+        {
+          name: 'Google 國語（台灣）',
+          lang: 'zh-TW'
+        }
+      ];
+      vi.spyOn(speechSynthesis, 'getVoices').mockReturnValue(
+        mockVoices as unknown as SpeechSynthesisVoice[]
+      );
+
+      const voice = loadVoice(GENDER_MAP.female, 'zh-TW');
+      expect(voice?.name).toContain('Google');
+    });
   });
 
   describe('initDefaultTTSEngine', () => {

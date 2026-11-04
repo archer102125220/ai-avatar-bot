@@ -83,12 +83,21 @@ export function loadVoice(
   const voices = window.speechSynthesis.getVoices();
   const findMatchingVoice = (
     voicePattern: RegExp
-  ): SpeechSynthesisVoice | undefined =>
-    voices.find(
+  ): SpeechSynthesisVoice | undefined => {
+    // 優先挑選非 Google 遠端語音（避免桌機 Chrome 遠端連線問題）
+    const preferredVoice = voices.find(
       (voice) =>
         voicePattern.test(`${voice.name} ${voice.lang}`) === true &&
         !/Google/i.test(voice.name)
     );
+    if (preferredVoice !== undefined) {
+      return preferredVoice;
+    }
+    // 若無非 Google 語音（如 Android 裝置），允許選用 Google 語音
+    return voices.find(
+      (voice) => voicePattern.test(`${voice.name} ${voice.lang}`) === true
+    );
+  };
 
   const normalizedLocale =
     typeof locale === 'string' && locale !== ''
@@ -98,9 +107,13 @@ export function loadVoice(
 
   if (normalizedLocale.startsWith('en') === true) {
     if (gender === GENDER_MAP.male) {
-      matchedVoice = findMatchingVoice(/(Guy|Christopher|Eric|Davis).*en/i);
+      matchedVoice = findMatchingVoice(
+        /(Guy|Christopher|Eric|Davis|Alex|Daniel|Fred|Oliver|Aaron).*en/i
+      );
     } else if (gender === GENDER_MAP.female) {
-      matchedVoice = findMatchingVoice(/(Jenny|Aria|Sara|Zira).*en/i);
+      matchedVoice = findMatchingVoice(
+        /(Jenny|Aria|Sara|Zira|Samantha|Victoria|Karen).*en/i
+      );
     }
     return (
       matchedVoice ||
@@ -114,9 +127,11 @@ export function loadVoice(
 
   if (normalizedLocale.startsWith('ja') === true) {
     if (gender === GENDER_MAP.male) {
-      matchedVoice = findMatchingVoice(/(Keita|Daichi|Ichiro).*ja/i);
+      matchedVoice = findMatchingVoice(
+        /(Keita|Daichi|Ichiro|Otoya|Takumi).*ja/i
+      );
     } else if (gender === GENDER_MAP.female) {
-      matchedVoice = findMatchingVoice(/(Nanami|Ayumi|Haruka).*ja/i);
+      matchedVoice = findMatchingVoice(/(Nanami|Ayumi|Haruka|Kyoko).*ja/i);
     }
     return (
       matchedVoice ||
@@ -130,9 +145,9 @@ export function loadVoice(
 
   if (normalizedLocale.startsWith('ko') === true) {
     if (gender === GENDER_MAP.male) {
-      matchedVoice = findMatchingVoice(/(InJoon|GookMin).*ko/i);
+      matchedVoice = findMatchingVoice(/(InJoon|GookMin|Minsu).*ko/i);
     } else if (gender === GENDER_MAP.female) {
-      matchedVoice = findMatchingVoice(/(SunHi|Heami).*ko/i);
+      matchedVoice = findMatchingVoice(/(SunHi|Heami|Yuna).*ko/i);
     }
     return (
       matchedVoice ||
@@ -145,17 +160,63 @@ export function loadVoice(
   }
 
   if (gender === GENDER_MAP.male) {
-    matchedVoice = findMatchingVoice(
-      /(YunJhe|YunJian|YunXia|雲哲|雲健|雲夏|Zhiwei|志偉).*zh/i
-    );
-  } else if (gender === GENDER_MAP.female) {
+    // 階梯 1：優先繁體中文男聲 (zh-TW / zh-HK，例如 Windows 雲哲、志偉；macOS/iOS Danny)
     matchedVoice =
-      findMatchingVoice(/(HsiaoChen|HsiaoYu|曉臻|曉雨).*zh/i) ||
-      findMatchingVoice(/(Yating|Hanhan|雅婷|涵涵).*zh[-_]TW/i);
+      findMatchingVoice(
+        /(YunJhe|YunJian|YunXia|雲哲|雲健|雲夏|Zhiwei|志偉|Danny).*zh[-_](TW|HK)/i
+      ) || findMatchingVoice(/(YunJhe|雲哲|Zhiwei|志偉|Danny)/i);
+
+    // 階梯 2：次選簡體中文男聲 (例如 macOS/iOS 內建之 Liang 梁、Bowen 博文；Windows 之 Yunxi 雲希、Kangkang 康康)
+    if (matchedVoice === undefined) {
+      matchedVoice = findMatchingVoice(
+        /(Liang|Bowen|Dawei|Yunxi|Yunyang|Kangkang|梁|博文|大衛|雲希|雲揚|康康).*zh/i
+      );
+    }
+
+    // 階梯 3：泛用男聲標籤 (如包含 'Male' 或 '男' 之中文語音)
+    if (matchedVoice === undefined) {
+      matchedVoice = findMatchingVoice(/(Male|男).*zh/i);
+    }
+
+    // 階梯 4（保底）：若設備完全無男聲，先排除已知女聲再尋找，若無才退回任何中文語音
+    if (matchedVoice === undefined) {
+      matchedVoice =
+        voices.find(
+          (voice) =>
+            /zh/i.test(voice.lang) === true &&
+            !/(HsiaoChen|HsiaoYu|Mei-Jia|Ting-Ting|Sin-ji|Yating|Hanhan|曉臻|曉雨|美佳|婷婷|善知|雅婷|涵涵|Female|女)/i.test(
+              voice.name
+            )
+        ) ||
+        findMatchingVoice(/Microsoft.*zh[-_]TW/i) ||
+        findMatchingVoice(/zh[-_]TW/i) ||
+        findMatchingVoice(/^zh/i) ||
+        voices.find((voice) => /zh/i.test(voice.lang) === true);
+    }
+
+    return matchedVoice || null;
+  } else if (gender === GENDER_MAP.female) {
+    // 繁體中文女聲 (Windows: HsiaoChen, HsiaoYu, Yating; macOS/iOS: Mei-Jia)
+    matchedVoice =
+      findMatchingVoice(
+        /(HsiaoChen|HsiaoYu|Mei-Jia|Yating|Hanhan|曉臻|曉雨|美佳|雅婷|涵涵).*zh/i
+      ) ||
+      findMatchingVoice(
+        /(Xiaoxiao|Xiaoyi|Ting-Ting|Sin-ji|曉曉|曉伊|婷婷|善知).*zh/i
+      ) ||
+      findMatchingVoice(/(Female|女).*zh/i);
+
+    return (
+      matchedVoice ||
+      findMatchingVoice(/Microsoft.*zh[-_]TW/i) ||
+      findMatchingVoice(/zh[-_]TW/i) ||
+      findMatchingVoice(/^zh/i) ||
+      voices.find((voice) => /zh/i.test(voice.lang) === true) ||
+      null
+    );
   }
 
   return (
-    matchedVoice ||
     findMatchingVoice(/Microsoft.*zh[-_]TW/i) ||
     findMatchingVoice(/zh[-_]TW/i) ||
     findMatchingVoice(/^zh/i) ||
@@ -757,7 +818,9 @@ export function initDefaultTTSEngine(
 
     const currentState = store.getState();
     if (currentState.browserVoice === null) {
-      store.setState({ browserVoice: loadVoice(currentState.gender) });
+      store.setState({
+        browserVoice: loadVoice(currentState.gender, currentState.locale)
+      });
     }
     const currentVoice = store.getState().browserVoice;
     if (currentVoice !== null && currentVoice !== undefined) {
@@ -933,10 +996,10 @@ export function initDefaultTTSEngine(
   ) {
     window.speechSynthesis.onvoiceschanged = () => {
       if (state.browserVoice === null) {
-        state.browserVoice = loadVoice(state.gender);
+        state.browserVoice = loadVoice(state.gender, state.locale);
       }
     };
-    state.browserVoice = loadVoice(state.gender);
+    state.browserVoice = loadVoice(state.gender, state.locale);
   }
 
   return engine;
