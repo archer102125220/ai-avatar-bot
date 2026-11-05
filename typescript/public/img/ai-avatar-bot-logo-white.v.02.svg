@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="b46g" x1="14" y1="14" x2="106" y2="106" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
+  <clipPath id="b46L"><rect width="60" height="120"/></clipPath>
+  <clipPath id="b46R"><rect x="60" width="60" height="120"/></clipPath>
+  <mask id="b46m" maskUnits="userSpaceOnUse" x="0" y="0" width="120" height="120">
+    <path d="M44 14H76A30 30 0 0 1 106 44V99A7 7 0 0 1 99 106H44A30 30 0 0 1 14 76V44A30 30 0 0 1 44 14Z" fill="#fff" stroke="#fff" stroke-width="7" stroke-linejoin="round"/>
+    <rect x="28" y="38" width="64" height="26" rx="13" fill="#000"/>
+    <path d="M60 74C61.2 80.6 63.4 82.8 70 84C63.4 85.2 61.2 87.4 60 94C58.8 87.4 56.6 85.2 50 84C56.6 82.8 58.8 80.6 60 74Z" fill="#000" stroke="#000" stroke-width="7" stroke-linejoin="round"/>
+  </mask></defs>
+  <g mask="url(#b46m)">
+    <rect width="60" height="120" fill="#ffffff" opacity="0.75"/>
+    <g clip-path="url(#b46R)">
+      <rect width="120" height="120" fill="url(#b46g)"/>
+      <polygon points="60,0 120,0 120,30 60,38" fill="#fff" opacity=".18"/>
+      <polygon points="60,64 120,58 120,120 60,120" fill="#5B54E8" opacity=".22"/>
+    </g>
+  </g>
+  <circle cx="45" cy="51" r="5.5" fill="none" stroke="url(#b46g)" stroke-width="3.5"/>
+  <circle cx="75" cy="51" r="7" fill="url(#b46g)"/>
+  <path d="M60 74C61.2 80.6 63.4 82.8 70 84C63.4 85.2 61.2 87.4 60 94C58.8 87.4 56.6 85.2 50 84C56.6 82.8 58.8 80.6 60 74Z" fill="#72D4A8"/>
+  </svg>

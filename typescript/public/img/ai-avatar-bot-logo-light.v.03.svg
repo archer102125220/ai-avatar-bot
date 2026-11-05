@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="c52g" x1="16" y1="16" x2="104" y2="104" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5B54E8"/><stop offset="1" stop-color="#7D78F0"/></linearGradient>
+  <clipPath id="c52L"><polygon points="0,0 120,0 0,120"/></clipPath>
+  <clipPath id="c52R"><polygon points="120,0 120,120 0,120"/></clipPath>
+  <mask id="c52m" maskUnits="userSpaceOnUse" x="0" y="0" width="120" height="120">
+    <path d="M101.35 75.05L106 106L75.05 101.35A44 44 0 1 1 101.35 75.05Z" fill="#fff" stroke="#fff" stroke-width="7" stroke-linejoin="round"/>
+    <rect x="71.5" y="42" width="7" height="15" rx="3.5" fill="#000"/>
+    <rect x="38" y="68.5" width="12" height="15" rx="6" fill="#000" /><rect x="46" y="64.5" width="12" height="23" rx="6" fill="#000" /><rect x="54" y="60.5" width="12" height="31" rx="6" fill="#000" /><rect x="62" y="64.5" width="12" height="23" rx="6" fill="#000" /><rect x="70" y="68.5" width="12" height="15" rx="6" fill="#000" />
+  </mask></defs>
+  <path d="M101.35 75.05L106 106L75.05 101.35A44 44 0 1 1 101.35 75.05Z" fill="none" stroke="url(#c52g)" stroke-width="7" stroke-linejoin="round" clip-path="url(#c52L)"/>
+  <g clip-path="url(#c52R)"><g mask="url(#c52m)">
+    <rect width="120" height="120" fill="url(#c52g)"/>
+    <polygon points="120,0 120,120 70,70" fill="#fff" opacity=".16"/>
+    <polygon points="0,120 120,120 70,70" fill="#1d1870" opacity=".24"/>
+  </g></g>
+  <rect x="38.5" y="42" width="7" height="15" rx="3.5" fill="url(#c52g)"/>
+  <rect x="41.5" y="72" width="5" height="8" rx="2.5" fill="#72D4A8" /><rect x="49.5" y="68" width="5" height="16" rx="2.5" fill="#72D4A8" /><rect x="57.5" y="64" width="5" height="24" rx="2.5" fill="#72D4A8" /><rect x="65.5" y="68" width="5" height="16" rx="2.5" fill="#72D4A8" /><rect x="73.5" y="72" width="5" height="8" rx="2.5" fill="#72D4A8" />
+  </svg>
