@@ -1,14 +1,17 @@
-# AI Avatar Bot (TypeScript)
+# AI Avatar Bot (`@ai-avatar-bot/sdk`)
 
-[![npm version](https://img.shields.io/npm/v/ai-avatar-bot-typescript.svg)](https://www.npmjs.com/package/ai-avatar-bot-typescript)
+[![npm version](https://img.shields.io/npm/v/@ai-avatar-bot/sdk/beta.svg?label=npm%20%40beta)](https://www.npmjs.com/package/@ai-avatar-bot/sdk)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 [繁體中文](./README_ZH.md) | English
 
+> [!IMPORTANT]
+> **🚧 Public Beta Notice (`v1.0.0-beta.x`)**: `@ai-avatar-bot/sdk` is currently in **Public Beta**. Core rendering (Live2D/VRM), Speech (STT/TTS), Memory Compression, and Tool Calling pipelines are fully tested (688+ unit tests), while **Domain-Neutral Brain Decoupling** ([RFC & Roadmap](./docs/TODO-1-DOMAIN-NEUTRAL-BRAIN-DECOUPLING.md)) is actively underway to decouple cognitive inference callbacks from speech/avatar terminology before `v1.0.0` GA. During the Beta phase, install via the `@beta` dist-tag: `npm install @ai-avatar-bot/sdk@beta`.
+
 > Lightweight, strictly typed, modular, and framework-agnostic interactive SDK for Web AI Digital Avatars (2D Live2D / 3D VRM).
 
-`ai-avatar-bot-typescript` is the **100% native TypeScript implementation** of the AI Avatar Bot ecosystem. Engineered for high-reliability web applications, it provides complete compile-time type safety, rich generic abstractions, first-class IDE autocompletion, and bundled declaration files (`.d.ts`). Effortlessly embed interactive 2D/3D digital avatars featuring **Voice Interaction (STT/TTS)**, **Multi-Tier AI Brain Inference (Cloud AI / In-Browser WebGPU WebLLM)**, **Context Compression & Conversation Memory**, **Function Calling (Tools Management)**, and **Expressive Emotional Gestures**.
+`@ai-avatar-bot/sdk` is the **100% native TypeScript implementation** of the AI Avatar Bot ecosystem. Engineered for high-reliability web applications, it provides complete compile-time type safety, rich generic abstractions, first-class IDE autocompletion, and bundled declaration files (`.d.ts`). Effortlessly embed interactive 2D/3D digital avatars featuring **Voice Interaction (STT/TTS)**, **Multi-Tier AI Brain Inference (Cloud AI / In-Browser WebGPU WebLLM)**, **Context Compression & Conversation Memory**, **Function Calling (Tools Management)**, and **Expressive Emotional Gestures**.
 
 ---
 
@@ -104,36 +107,37 @@
 ### Package Managers
 
 ```bash
-# yarn (recommended)
-yarn add ai-avatar-bot-typescript
+# Public Beta channel (current pre-v1.0.0 GA)
+yarn add @ai-avatar-bot/sdk@beta
+npm install @ai-avatar-bot/sdk@beta
+pnpm add @ai-avatar-bot/sdk@beta
 
-# npm
-npm install ai-avatar-bot-typescript
-
-# pnpm
-pnpm add ai-avatar-bot-typescript
+# Official Stable channel (after v1.0.0 graduation)
+yarn add @ai-avatar-bot/sdk
+npm install @ai-avatar-bot/sdk
+pnpm add @ai-avatar-bot/sdk
 ```
 
 ### CDN Usage (ESM / Traditional `<script>` Tag)
 
-`ai-avatar-bot-typescript` provides a dual-build architecture supporting both modern module bundlers and CDN script tags:
+`@ai-avatar-bot/sdk` provides a dual-build architecture supporting both modern module bundlers and CDN script tags:
 
 #### 1. ES Module CDN (`+esm`)
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ai-avatar-bot-typescript/dist/ai-avatar-bot.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ai-avatar-bot/sdk/dist/ai-avatar-bot.css" />
 
 <script type="module">
-  import { initAvatarBot } from 'https://cdn.jsdelivr.net/npm/ai-avatar-bot-typescript/+esm';
-  // Or via unpkg: https://unpkg.com/ai-avatar-bot-typescript?module
+  import { initAvatarBot } from 'https://cdn.jsdelivr.net/npm/@ai-avatar-bot/sdk/+esm';
+  // Or via unpkg: https://unpkg.com/@ai-avatar-bot/sdk?module
 </script>
 ```
 
 #### 2. Traditional `<script>` Tag (IIFE, attached to `window.AiAvatarBot`)
 ```html
-<link rel="stylesheet" href="https://unpkg.com/ai-avatar-bot-typescript/dist/ai-avatar-bot.css" />
+<link rel="stylesheet" href="https://unpkg.com/@ai-avatar-bot/sdk/dist/ai-avatar-bot.css" />
 
 <!-- Load standalone IIFE bundle -->
-<script src="https://unpkg.com/ai-avatar-bot-typescript/dist/ai-avatar-bot.iife.js"></script>
+<script src="https://unpkg.com/@ai-avatar-bot/sdk/dist/ai-avatar-bot.iife.js"></script>
 <script>
   // All exported functions are mounted globally on window.AiAvatarBot
   const { initAvatarBot, GENDER_MAP, AVATAR_MODE_MAP } = window.AiAvatarBot;
@@ -148,8 +152,8 @@ The package leverages modern `package.json` `exports` subpaths, enabling fine-gr
 
 ```typescript
 // 1. Full-Featured Entry (UI + Orchestrator, alias: createAvatarBot)
-import { initAvatarBot, createAvatarBot } from 'ai-avatar-bot-typescript';
-import 'ai-avatar-bot-typescript/style.css';
+import { initAvatarBot, createAvatarBot } from '@ai-avatar-bot/sdk';
+import '@ai-avatar-bot/sdk/style.css';
 
 // 2. Brain & Memory Subsystems only (Custom LLM, memory, and dual-track stream parser)
 import { 
@@ -162,7 +166,7 @@ import {
   type MemoryAdapter, 
   type MemoryData,
   type StreamParserInstance 
-} from 'ai-avatar-bot-typescript/brain';
+} from '@ai-avatar-bot/sdk/brain';
 
 // 3. Speech Engine only (STT Speech Recognition / Neural TTS / Real-time Lip Sync)
 import { 
@@ -173,7 +177,7 @@ import {
   type SpeechEngine, 
   type STTEngine, 
   type TTSEngine 
-} from 'ai-avatar-bot-typescript/speech';
+} from '@ai-avatar-bot/sdk/speech';
 
 // 4. Skin Engine only (2D Live2D / 3D VRM)
 import { 
@@ -181,17 +185,17 @@ import {
   type SkinEngine, 
   type Skin2DConfig, 
   type Skin3DConfig 
-} from 'ai-avatar-bot-typescript/skin';
+} from '@ai-avatar-bot/sdk/skin';
 
 // 5. Tools Engine only (Function Calling & Routing)
 import { 
   initToolsEngine, 
   type ToolsEngine, 
   type ToolDefinition 
-} from 'ai-avatar-bot-typescript/tools';
+} from '@ai-avatar-bot/sdk/tools';
 
 // 6. i18n Engine only
-import { initI18nEngine, type I18nEngine } from 'ai-avatar-bot-typescript/i18n';
+import { initI18nEngine, type I18nEngine } from '@ai-avatar-bot/sdk/i18n';
 
 // 7. Constants and Maps
 import { 
@@ -200,7 +204,7 @@ import {
   REASONING_MODE_MAP, 
   EMOTION_TARGET_MAP, 
   STATE_MAP 
-} from 'ai-avatar-bot-typescript/constants';
+} from '@ai-avatar-bot/sdk/constants';
 
 // 8. Type Definitions only
 import type { 
@@ -208,7 +212,7 @@ import type {
   AiAvatarWidget, 
   ReasoningOptions, 
   ToolDefinition 
-} from 'ai-avatar-bot-typescript/types';
+} from '@ai-avatar-bot/sdk/types';
 ```
 
 ---
@@ -273,8 +277,8 @@ import {
   type AvatarBotOptions, 
   type AiAvatarWidget,
   type KnowledgeEntry 
-} from 'ai-avatar-bot-typescript';
-import 'ai-avatar-bot-typescript/style.css';
+} from '@ai-avatar-bot/sdk';
+import '@ai-avatar-bot/sdk/style.css';
 
 // 1. Prepare typed knowledge entries
 const knowledgeBase: KnowledgeEntry[] = [
@@ -365,7 +369,7 @@ In addition to the CLI, the package provides zero-config build plugins with nati
 ```typescript
 // vite.config.ts
 import { defineConfig } from 'vite';
-import { avatarBotVitePlugin } from 'ai-avatar-bot-typescript/vite';
+import { avatarBotVitePlugin } from '@ai-avatar-bot/sdk/vite';
 
 export default defineConfig({
   plugins: [
@@ -378,7 +382,7 @@ export default defineConfig({
 
 ```typescript
 // next.config.mjs or next.config.ts
-import { withAvatarBot } from 'ai-avatar-bot-typescript/next';
+import { withAvatarBot } from '@ai-avatar-bot/sdk/next';
 
 const nextConfig = {
   // Your Next.js configuration
@@ -395,7 +399,7 @@ export default withAvatarBot(nextConfig);
 // nuxt.config.ts
 export default defineNuxtConfig({
   modules: [
-    'ai-avatar-bot-typescript/nuxt' // Zero-copy Nitro dev streaming & automatic build output
+    '@ai-avatar-bot/sdk/nuxt' // Zero-copy Nitro dev streaming & automatic build output
   ]
 });
 ```
@@ -404,7 +408,7 @@ export default defineNuxtConfig({
 
 ```typescript
 // webpack.config.js
-import { AvatarBotWebpackPlugin } from 'ai-avatar-bot-typescript/webpack';
+import { AvatarBotWebpackPlugin } from '@ai-avatar-bot/sdk/webpack';
 
 export default {
   plugins: [
@@ -419,7 +423,7 @@ export default {
 // vite.config.ts (AnalogJS)
 import { defineConfig } from 'vite';
 import analog from '@analogjs/platform';
-import { avatarBotAnalogPlugin, getAnalogNitroConfig } from 'ai-avatar-bot-typescript/analog';
+import { avatarBotAnalogPlugin, getAnalogNitroConfig } from '@ai-avatar-bot/sdk/analog';
 
 export default defineConfig(() => ({
   plugins: [
@@ -436,7 +440,7 @@ export default defineConfig(() => ({
 For custom build scripts or CI/CD pipelines:
 
 ```typescript
-import { getAvatarSkinPath, copyAvatarSkin } from 'ai-avatar-bot-typescript/node';
+import { getAvatarSkinPath, copyAvatarSkin } from '@ai-avatar-bot/sdk/node';
 
 // Resolves absolute path to packaged avatar-skin folder
 const skinPath: string = getAvatarSkinPath();
@@ -605,7 +609,7 @@ import {
   type AiProviderFetchSettingFactory, 
   type AiProviderFetchPayloadFactory,
   type LLMMessage 
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 // Strongly typed payload factory for Ollama
 const createOllamaPayload: AiProviderFetchPayloadFactory = (
@@ -660,7 +664,7 @@ import {
   initAvatarBot, 
   AI_PROVIDER_STATUS_MAP, 
   AI_PROVIDER_PING_STRATEGY_MAP 
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 const widget = await initAvatarBot({
   container: document.getElementById('avatar-container'),
@@ -713,7 +717,7 @@ The SDK provides a vendor-agnostic HTTP headers configuration (`aiProviderHeader
 ##### 🌐 Multi-Vendor Authentication Examples
 
 ```typescript
-import { initAvatarBot } from 'ai-avatar-bot-typescript';
+import { initAvatarBot } from '@ai-avatar-bot/sdk';
 
 // 1. OpenAI / DeepSeek (Bearer Token)
 const openAiBot = await initAvatarBot({
@@ -805,7 +809,7 @@ import {
   type AutoContinueStartInfo, 
   type AutoContinueResumeInfo, 
   type AutoContinueEndInfo 
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 const widget = await initAvatarBot({
   container: document.getElementById('avatar-container'),
@@ -833,7 +837,7 @@ const widget = await initAvatarBot({
 > **⚠️ Experimental Feature Notice**:  
 > AI reasoning and thinking process streaming (`ReasoningOptions`, `onReasoningStart`, `onReasoningChunk`, `onReasoningEnd`) is currently an **experimental feature**. Due to variances across open-source model architectures (such as DeepSeek-R1, Hermes 3, QwQ), 4-bit quantizations, and divergent backend protocols (OpenAI-compatible, Ollama, vLLM), reasoning tags (`<think>`) or dedicated `reasoning_content` fields may exhibit inconsistent behavior or occasional omissions in short-dialogue scenarios. Until full stability is achieved across all supported backends, evaluate according to your workload or disable it via `reasoning.mode = 'never'`.
 
-Modern reasoning models (such as DeepSeek-R1, Hermes 3, OpenAI o-series, Claude 3.7 Thinking, and QwQ) perform internal thinking before generating final spoken answers. `ai-avatar-bot-typescript` provides a native **Dual-Track Stream Architecture** and **Two-Tier WebGPU OOM Adaptive Fallback**:
+Modern reasoning models (such as DeepSeek-R1, Hermes 3, OpenAI o-series, Claude 3.7 Thinking, and QwQ) perform internal thinking before generating final spoken answers. `@ai-avatar-bot/sdk` provides a native **Dual-Track Stream Architecture** and **Two-Tier WebGPU OOM Adaptive Fallback**:
 
 #### 🚀 Dual-Track Stream Architecture
 1. **Silent Thinking Track (`onReasoningStart`, `onReasoningChunk`, `onReasoningEnd`)**:
@@ -899,7 +903,7 @@ import {
   type ReasoningChunkInfo, 
   type ReasoningEndInfo,
   type LlmOomFallbackInfo 
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 const widget = await initAvatarBot({
   container: document.getElementById('avatar-container'),
@@ -935,7 +939,7 @@ const widget = await initAvatarBot({
 
 #### 🧩 Core Engine: `createStreamParser` (Dual-Track Stream State Machine)
 
-If you are operating in **Headless Mode**, building a custom chatbot stream pipeline, or running in Node.js, you can directly import the `createStreamParser` factory function from `ai-avatar-bot-typescript/brain`:
+If you are operating in **Headless Mode**, building a custom chatbot stream pipeline, or running in Node.js, you can directly import the `createStreamParser` factory function from `@ai-avatar-bot/sdk/brain`:
 
 ```typescript
 import { 
@@ -943,7 +947,7 @@ import {
   STREAM_PARSER_STATE,
   type StreamParserInstance,
   type StreamParserResult 
-} from 'ai-avatar-bot-typescript/brain';
+} from '@ai-avatar-bot/sdk/brain';
 
 const parser: StreamParserInstance = createStreamParser({
   mode: 'auto', // 'auto' | 'always' | 'never'
@@ -989,7 +993,7 @@ import {
   initAvatarBot, 
   type MemoryAdapter, 
   type MemoryData 
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 class SessionStorageMemoryAdapter implements MemoryAdapter {
   load(key: string): MemoryData | null {
@@ -1076,7 +1080,7 @@ import {
   initAvatarBot, 
   type CustomModeConfig, 
   type PersonaProfile 
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 const customModes: Record<string, CustomModeConfig> = {
   sales: {
@@ -1131,7 +1135,7 @@ import {
   initAvatarBot, 
   type ToolDefinition, 
   type ToolExecutionParams 
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 interface WeatherArgs {
   city: string;
@@ -1180,7 +1184,7 @@ import {
   initAvatarBot, 
   type Skin2DConfig, 
   type Skin3DConfig 
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 const widget = await initAvatarBot({
   container: document.getElementById('avatar-container'),
@@ -1381,7 +1385,7 @@ When no `ttsEndpoint` is provided or remote neural synthesis experiences network
 To build your own interface with React, Vue, Svelte, or Angular, enable minimal mode and subscribe to reactive stores:
 
 ```typescript
-import { initAvatarBot } from 'ai-avatar-bot-typescript';
+import { initAvatarBot } from '@ai-avatar-bot/sdk';
 
 const widget = await initAvatarBot({
   container: document.getElementById('canvas-wrapper'),
@@ -1404,9 +1408,9 @@ widget.speechEngine?.subscribe('isSpeaking', (speaking: boolean) => {
 
 ## 📐 Exported TypeScript Types Reference
 
-`ai-avatar-bot-typescript` exports rich types across all submodules:
+`@ai-avatar-bot/sdk` exports rich types across all submodules:
 
-### Root Exports (`ai-avatar-bot-typescript`)
+### Root Exports (`@ai-avatar-bot/sdk`)
 
 * **Orchestrator**: `AvatarBotOptions`, `AiAvatarWidget`, `AvatarBotStore`, `AvatarBotStoreState`, `CustomEnginesConfig`, `OrchestratorEngines`
 * **Sub-Engines**: `BrainEngine`, `BrainEngineOptions`, `SpeechEngine`, `SpeechEngineOptions`, `SkinEngine`, `SkinEngineOptions`, `ToolsEngine`, `ToolsEngineSetting`, `I18nEngine`, `I18nEngineOptions`, `UiDom`, `UiContext`
@@ -1570,7 +1574,7 @@ The source code created in this package is licensed under the **[MIT License](LI
 
 ## 🧪 Testing & Quality Assurance
 
-`ai-avatar-bot-typescript` includes a comprehensive test suite across unit algorithms, typechecking, and Playwright E2E tests:
+`@ai-avatar-bot/sdk` includes a comprehensive test suite across unit algorithms, typechecking, and Playwright E2E tests:
 
 ```bash
 # 1. Typecheck with strict TypeScript compiler
@@ -1624,8 +1628,8 @@ yarn test:smoke
 
 ## ❓ Frequently Asked Questions (FAQ)
 
-### Q1: What is the relationship and evolution between `ai-avatar-bot-typescript` and the earlier `vanilla-js` prototype?
-> **A:** The project originally validated multi-engine architecture with a pure JavaScript prototype (`vanilla-js`). Following complete feature and integration validation, that prototype was officially archived at Commit [`2e4cb12a4c689d8dc98a814211279ce0cb3ebf59`](https://github.com/archer102125220/ai-avatar-bot/commit/2e4cb12a4c689d8dc98a814211279ce0cb3ebf59) (Tag: `archive/vanilla-js-baseline`). Today, `ai-avatar-bot-typescript` serves as the Single Source of Truth—offering 100% native TypeScript type safety, a compact 223KB core, subpath exports, and standard ESM/CJS/IIFE builds that can be seamlessly consumed in pure JavaScript projects as well.
+### Q1: What is the relationship and evolution between `@ai-avatar-bot/sdk` and the earlier `vanilla-js` prototype?
+> **A:** The project originally validated multi-engine architecture with a pure JavaScript prototype (`vanilla-js`). Following complete feature and integration validation, that prototype was officially archived at Commit [`2e4cb12a4c689d8dc98a814211279ce0cb3ebf59`](https://github.com/archer102125220/ai-avatar-bot/commit/2e4cb12a4c689d8dc98a814211279ce0cb3ebf59) (Tag: `archive/vanilla-js-baseline`). Today, `@ai-avatar-bot/sdk` serves as the Single Source of Truth—offering 100% native TypeScript type safety, a compact 223KB core, subpath exports, and standard ESM/CJS/IIFE builds that can be seamlessly consumed in pure JavaScript projects as well.
 
 ### Q2: Can I use this package without any UI (Headless)?
 > **A:** Yes! Pass `isMinimal: true` during initialization to hide the built-in UI dock and bubbles. You can then render your own UI using React, Vue, Svelte, or native DOM while interacting with `widget.handleUser()` and subscribing to `widget.speechEngine`.

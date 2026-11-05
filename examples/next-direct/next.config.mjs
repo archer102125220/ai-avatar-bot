@@ -1,6 +1,6 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
-import withAiAvatarBot from 'ai-avatar-bot-typescript/next';
+import withAiAvatarBot from '@ai-avatar-bot/sdk/next';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

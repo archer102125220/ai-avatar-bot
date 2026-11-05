@@ -1,14 +1,17 @@
-# AI Avatar Bot (TypeScript)
+# AI Avatar Bot (`@ai-avatar-bot/sdk`)
 
-[![npm version](https://img.shields.io/npm/v/ai-avatar-bot-typescript.svg)](https://www.npmjs.com/package/ai-avatar-bot-typescript)
+[![npm version](https://img.shields.io/npm/v/@ai-avatar-bot/sdk/beta.svg?label=npm%20%40beta)](https://www.npmjs.com/package/@ai-avatar-bot/sdk)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 繁體中文 | [English](./README.md)
 
+> [!IMPORTANT]
+> **🚧 公開預覽版公告 (`Public Beta - v1.0.0-beta.x`)**：`@ai-avatar-bot/sdk` 目前處於**公開 Beta 測試階段**。雙外觀渲染（Live2D/VRM）、語音互動（STT/TTS）、長對話記憶壓縮與工具調用管線均已完成完整自動化驗證（688+ 項單元測試），同時團隊正在推進**大腦引擎領域中立化解耦重構**（詳見 [規格書與藍圖](./docs/TODO-1-DOMAIN-NEUTRAL-BRAIN-DECOUPLING.md)），旨在 `v1.0.0` 正式版前完成認知推論回呼與語音/外觀名詞的純淨解耦。Beta 預覽期間請指定 `@beta` 標籤安裝：`npm install @ai-avatar-bot/sdk@beta`。
+
 > 輕量、嚴格型別約束、模組化且零框架依賴的網頁端 AI 虛擬數位人（2D Live2D / 3D VRM）互動 SDK。
 
-`ai-avatar-bot-typescript` 是 AI Avatar Bot 生態系中的 **100% 原生 TypeScript 嚴格實作版**。專為現代高可靠度企業級網頁應用設計，具備完整的編譯期型別安全（Compile-time Type Safety）、豐富的泛型介面約束（Generics）、極致流暢的 IDE 自動補全體驗，以及完整輸出的型別定義檔（`.d.ts`）。輕鬆在各前端專案中嵌入具備**語音互動（STT/TTS）**、**AI 大腦推論（雲端 AI / 端側 WebGPU WebLLM）**、**長對話記憶與上下文壓縮**、**外部工具調用（Function Calling）**以及**生動表情動作**的 2D/3D 虛擬數位人。
+`@ai-avatar-bot/sdk` 是 AI Avatar Bot 生態系中的 **100% 原生 TypeScript 嚴格實作版**。專為現代高可靠度企業級網頁應用設計，具備完整的編譯期型別安全（Compile-time Type Safety）、豐富的泛型介面約束（Generics）、極致流暢的 IDE 自動補全體驗，以及完整輸出的型別定義檔（`.d.ts`）。輕鬆在各前端專案中嵌入具備**語音互動（STT/TTS）**、**AI 大腦推論（雲端 AI / 端側 WebGPU WebLLM）**、**長對話記憶與上下文壓縮**、**外部工具調用（Function Calling）**以及**生動表情動作**的 2D/3D 虛擬數位人。
 
 ---
 
@@ -104,14 +107,15 @@
 ### 透過套件管理器安裝
 
 ```bash
-# yarn (推薦)
-yarn add ai-avatar-bot-typescript
+# 公開預覽通道 (Public Beta - 目前預覽階段推薦)
+yarn add @ai-avatar-bot/sdk@beta
+npm install @ai-avatar-bot/sdk@beta
+pnpm add @ai-avatar-bot/sdk@beta
 
-# npm
-npm install ai-avatar-bot-typescript
-
-# pnpm
-pnpm add ai-avatar-bot-typescript
+# 官方穩定通道 (v1.0.0 畢業轉正後)
+yarn add @ai-avatar-bot/sdk
+npm install @ai-avatar-bot/sdk
+pnpm add @ai-avatar-bot/sdk
 ```
 
 ### 透過 CDN 引入 (ESM / 傳統 `<script>` 標籤)
@@ -121,22 +125,22 @@ pnpm add ai-avatar-bot-typescript
 #### 1. ES Module CDN (`+esm`)
 ```html
 <!-- 引入樣式 -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ai-avatar-bot-typescript/dist/ai-avatar-bot.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ai-avatar-bot/sdk/dist/ai-avatar-bot.css" />
 
 <!-- 透過現代瀏覽器原生 import 使用 -->
 <script type="module">
-  import { initAvatarBot } from 'https://cdn.jsdelivr.net/npm/ai-avatar-bot-typescript/+esm';
-  // 或使用 unpkg: https://unpkg.com/ai-avatar-bot-typescript?module
+  import { initAvatarBot } from 'https://cdn.jsdelivr.net/npm/@ai-avatar-bot/sdk/+esm';
+  // 或使用 unpkg: https://unpkg.com/@ai-avatar-bot/sdk?module
 </script>
 ```
 
 #### 2. 傳統 `<script>` 標籤 (IIFE，掛載於 `window.AiAvatarBot`)
 ```html
 <!-- 引入樣式 -->
-<link rel="stylesheet" href="https://unpkg.com/ai-avatar-bot-typescript/dist/ai-avatar-bot.css" />
+<link rel="stylesheet" href="https://unpkg.com/@ai-avatar-bot/sdk/dist/ai-avatar-bot.css" />
 
 <!-- 引入獨立 IIFE Bundle -->
-<script src="https://unpkg.com/ai-avatar-bot-typescript/dist/ai-avatar-bot.iife.js"></script>
+<script src="https://unpkg.com/@ai-avatar-bot/sdk/dist/ai-avatar-bot.iife.js"></script>
 <script>
   // 所有導出方法皆自動掛載於全域物件 window.AiAvatarBot
   const { initAvatarBot, GENDER_MAP, AVATAR_MODE_MAP } = window.AiAvatarBot;
@@ -147,12 +151,12 @@ pnpm add ai-avatar-bot-typescript
 
 ### 模組化子路徑按需引入 (Subpath Imports)
 
-`ai-avatar-bot-typescript` 支援現代 `package.json` 的 `exports` 子路徑映射，允許您只載入所需模組並享有獨立的 TypeScript 宣告檔：
+`@ai-avatar-bot/sdk` 支援現代 `package.json` 的 `exports` 子路徑映射，允許您只載入所需模組並享有獨立的 TypeScript 宣告檔：
 
 ```typescript
 // 1. 全量整合入口 (包含預設 UI 與所有控制器，支援 alias: createAvatarBot)
-import { initAvatarBot, createAvatarBot } from 'ai-avatar-bot-typescript';
-import 'ai-avatar-bot-typescript/style.css';
+import { initAvatarBot, createAvatarBot } from '@ai-avatar-bot/sdk';
+import '@ai-avatar-bot/sdk/style.css';
 
 // 2. 僅引入大腦與記憶子系統 (支援自訂 LLM、記憶管理與雙軌推論串流解析器)
 import { 
@@ -165,7 +169,7 @@ import {
   type MemoryAdapter, 
   type MemoryData,
   type StreamParserInstance 
-} from 'ai-avatar-bot-typescript/brain';
+} from '@ai-avatar-bot/sdk/brain';
 
 // 3. 僅引入語音引擎 (STT 語音辨識 / Neural TTS / 即時對嘴)
 import { 
@@ -176,7 +180,7 @@ import {
   type SpeechEngine, 
   type STTEngine, 
   type TTSEngine 
-} from 'ai-avatar-bot-typescript/speech';
+} from '@ai-avatar-bot/sdk/speech';
 
 // 4. 僅引入 2D/3D 外觀渲染引擎 (Live2D / VRM)
 import { 
@@ -184,17 +188,17 @@ import {
   type SkinEngine, 
   type Skin2DConfig, 
   type Skin3DConfig 
-} from 'ai-avatar-bot-typescript/skin';
+} from '@ai-avatar-bot/sdk/skin';
 
 // 5. 僅引入工具管理器 (Function Calling & Router)
 import { 
   initToolsEngine, 
   type ToolsEngine, 
   type ToolDefinition 
-} from 'ai-avatar-bot-typescript/tools';
+} from '@ai-avatar-bot/sdk/tools';
 
 // 6. 僅引入多語系模組
-import { initI18nEngine, type I18nEngine } from 'ai-avatar-bot-typescript/i18n';
+import { initI18nEngine, type I18nEngine } from '@ai-avatar-bot/sdk/i18n';
 
 // 7. 僅引入常數與對應表
 import { 
@@ -203,7 +207,7 @@ import {
   REASONING_MODE_MAP, 
   EMOTION_TARGET_MAP, 
   STATE_MAP 
-} from 'ai-avatar-bot-typescript/constants';
+} from '@ai-avatar-bot/sdk/constants';
 
 // 8. 僅引入型別定義
 import type { 
@@ -211,7 +215,7 @@ import type {
   AiAvatarWidget, 
   ReasoningOptions, 
   ToolDefinition 
-} from 'ai-avatar-bot-typescript/types';
+} from '@ai-avatar-bot/sdk/types';
 ```
 
 ---
@@ -276,8 +280,8 @@ import {
   type AvatarBotOptions, 
   type AiAvatarWidget,
   type KnowledgeEntry 
-} from 'ai-avatar-bot-typescript';
-import 'ai-avatar-bot-typescript/style.css';
+} from '@ai-avatar-bot/sdk';
+import '@ai-avatar-bot/sdk/style.css';
 
 // 1. 定義型別化的檢索知識庫
 const knowledgeBase: KnowledgeEntry[] = [
@@ -368,7 +372,7 @@ npx ai-avatar-bot sync --no-overwrite
 ```typescript
 // vite.config.ts
 import { defineConfig } from 'vite';
-import { avatarBotVitePlugin } from 'ai-avatar-bot-typescript/vite';
+import { avatarBotVitePlugin } from '@ai-avatar-bot/sdk/vite';
 
 export default defineConfig({
   plugins: [
@@ -381,7 +385,7 @@ export default defineConfig({
 
 ```typescript
 // next.config.mjs 或 next.config.ts
-import { withAvatarBot } from 'ai-avatar-bot-typescript/next';
+import { withAvatarBot } from '@ai-avatar-bot/sdk/next';
 
 const nextConfig = {
   // 原有的 Next.js 設定
@@ -398,7 +402,7 @@ export default withAvatarBot(nextConfig);
 // nuxt.config.ts
 export default defineNuxtConfig({
   modules: [
-    'ai-avatar-bot-typescript/nuxt' // 基於 Nitro 引擎，開發期 0 拷貝串流，生產構建自動複製
+    '@ai-avatar-bot/sdk/nuxt' // 基於 Nitro 引擎，開發期 0 拷貝串流，生產構建自動複製
   ]
 });
 ```
@@ -407,7 +411,7 @@ export default defineNuxtConfig({
 
 ```typescript
 // webpack.config.js
-import { AvatarBotWebpackPlugin } from 'ai-avatar-bot-typescript/webpack';
+import { AvatarBotWebpackPlugin } from '@ai-avatar-bot/sdk/webpack';
 
 export default {
   plugins: [
@@ -422,7 +426,7 @@ export default {
 // vite.config.ts (AnalogJS)
 import { defineConfig } from 'vite';
 import analog from '@analogjs/platform';
-import { avatarBotAnalogPlugin, getAnalogNitroConfig } from 'ai-avatar-bot-typescript/analog';
+import { avatarBotAnalogPlugin, getAnalogNitroConfig } from '@ai-avatar-bot/sdk/analog';
 
 export default defineConfig(() => ({
   plugins: [
@@ -439,7 +443,7 @@ export default defineConfig(() => ({
 如果您的專案有自定義的部署腳本或 CI/CD 管線，可直接調用 Node.js 輔助函式：
 
 ```typescript
-import { getAvatarSkinPath, copyAvatarSkin } from 'ai-avatar-bot-typescript/node';
+import { getAvatarSkinPath, copyAvatarSkin } from '@ai-avatar-bot/sdk/node';
 
 // 取得本套件 avatar-skin 模型庫的實體絕對路徑
 const skinPath: string = getAvatarSkinPath();
@@ -608,7 +612,7 @@ import {
   type AiProviderFetchSettingFactory, 
   type AiProviderFetchPayloadFactory,
   type LLMMessage 
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 // 1. 強型別的 Ollama Payload 生成工廠
 const createOllamaPayload: AiProviderFetchPayloadFactory = (
@@ -663,7 +667,7 @@ import {
   initAvatarBot, 
   AI_PROVIDER_STATUS_MAP, 
   AI_PROVIDER_PING_STRATEGY_MAP 
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 const widget = await initAvatarBot({
   container: document.getElementById('avatar-container'),
@@ -716,7 +720,7 @@ SDK 採用通用且與供應商無關的標頭設定（`aiProviderHeaders`），
 ##### 🌐 主流 AI 供應商設定範例
 
 ```typescript
-import { initAvatarBot } from 'ai-avatar-bot-typescript';
+import { initAvatarBot } from '@ai-avatar-bot/sdk';
 
 // 1. OpenAI / DeepSeek (Bearer Token)
 const openAiBot = await initAvatarBot({
@@ -808,7 +812,7 @@ import {
   type AutoContinueStartInfo, 
   type AutoContinueResumeInfo, 
   type AutoContinueEndInfo 
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 const widget = await initAvatarBot({
   container: document.getElementById('avatar-container'),
@@ -836,7 +840,7 @@ const widget = await initAvatarBot({
 > **⚠️ 實驗性功能標註 (Experimental Feature Notice)**：  
 > 推論思考過程（Reasoning / Thinking Output）與雙軌串流解析目前屬於**實驗性功能 (Experimental)**。由於各開源模型（如 DeepSeek-R1、Hermes 3、QwQ 等）在端側量化（4-bit）與伺服器端協議（OpenAI 相容 / Ollama / vLLM）對思考標籤（如 `<think>`）與 reasoning 欄位的支援程度與輸出穩定性存在差異，在部分模型或短文本情境下可能存在偶發跳過或格式不穩定之情況。在正式確認完全穩定前，建議評估業務情境後選用，或透過 `reasoning.mode = 'never'` 關閉推論輸出。
 
-現代推論型大語言模型（如 DeepSeek-R1、Hermes 3、OpenAI o-系列、Claude 3.7 Thinking、QwQ）在生成最終語音回覆前會先進行內心思維推導。`ai-avatar-bot-typescript` 原生提供 **雙軌串流架構 (Dual-Track Stream Architecture)** 與 **兩階段 WebGPU OOM 自適應降級**：
+現代推論型大語言模型（如 DeepSeek-R1、Hermes 3、OpenAI o-系列、Claude 3.7 Thinking、QwQ）在生成最終語音回覆前會先進行內心思維推導。`@ai-avatar-bot/sdk` 原生提供 **雙軌串流架構 (Dual-Track Stream Architecture)** 與 **兩階段 WebGPU OOM 自適應降級**：
 
 #### 🚀 雙軌串流架構 (Dual-Track Stream Architecture)
 1. **靜默思考軌 (`onReasoningStart`, `onReasoningChunk`, `onReasoningEnd`)**：
@@ -902,7 +906,7 @@ import {
   type ReasoningChunkInfo, 
   type ReasoningEndInfo,
   type LlmOomFallbackInfo 
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 const widget = await initAvatarBot({
   container: document.getElementById('avatar-container'),
@@ -938,7 +942,7 @@ const widget = await initAvatarBot({
 
 #### 🧩 核心解析器：`createStreamParser` (底層雙軌狀態機)
 
-若您在 **Headless 模式**、自建前端對話流或 Node.js 後端服務中需要獨立解析推論串流，可直接從 `ai-avatar-bot-typescript/brain` 導入工廠函式 `createStreamParser`：
+若您在 **Headless 模式**、自建前端對話流或 Node.js 後端服務中需要獨立解析推論串流，可直接從 `@ai-avatar-bot/sdk/brain` 導入工廠函式 `createStreamParser`：
 
 ```typescript
 import { 
@@ -946,7 +950,7 @@ import {
   STREAM_PARSER_STATE,
   type StreamParserInstance,
   type StreamParserResult 
-} from 'ai-avatar-bot-typescript/brain';
+} from '@ai-avatar-bot/sdk/brain';
 
 const parser: StreamParserInstance = createStreamParser({
   mode: 'auto', // 'auto' | 'always' | 'never'
@@ -992,7 +996,7 @@ import {
   initAvatarBot, 
   type MemoryAdapter, 
   type MemoryData 
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 class SessionStorageMemoryAdapter implements MemoryAdapter {
   load(key: string): MemoryData | null {
@@ -1079,7 +1083,7 @@ import {
   initAvatarBot, 
   type CustomModeConfig, 
   type PersonaProfile 
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 const customModes: Record<string, CustomModeConfig> = {
   sales: {
@@ -1134,7 +1138,7 @@ import {
   initAvatarBot, 
   type ToolDefinition, 
   type ToolExecutionParams 
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 interface WeatherArgs {
   city: string;
@@ -1183,7 +1187,7 @@ import {
   initAvatarBot, 
   type Skin2DConfig, 
   type Skin3DConfig 
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 const widget = await initAvatarBot({
   container: document.getElementById('avatar-container'),
@@ -1384,7 +1388,7 @@ widget.speechEngine?.subscribe('spokenDisplayText', (subtitle: string) => {
 若您希望以 Vue 3、React、Svelte 或原生 DOM 100% 自行構建介面，可開啟極簡模式：
 
 ```typescript
-import { initAvatarBot } from 'ai-avatar-bot-typescript';
+import { initAvatarBot } from '@ai-avatar-bot/sdk';
 
 const widget = await initAvatarBot({
   container: document.getElementById('canvas-wrapper'),
@@ -1407,9 +1411,9 @@ widget.speechEngine?.subscribe('isSpeaking', (speaking: boolean) => {
 
 ## 📐 導出 TypeScript 型別速查表
 
-`ai-avatar-bot-typescript` 完整導出各子模組的核心型別：
+`@ai-avatar-bot/sdk` 完整導出各子模組的核心型別：
 
-### 核心導出 (`ai-avatar-bot-typescript`)
+### 核心導出 (`@ai-avatar-bot/sdk`)
 
 * **協調器核心 (Orchestrator)**：`AvatarBotOptions`, `AiAvatarWidget`, `AvatarBotStore`, `AvatarBotStoreState`, `CustomEnginesConfig`, `OrchestratorEngines`
 * **各子引擎介面**：`BrainEngine`, `BrainEngineOptions`, `SpeechEngine`, `SpeechEngineOptions`, `SkinEngine`, `SkinEngineOptions`, `ToolsEngine`, `ToolsEngineSetting`, `I18nEngine`, `I18nEngineOptions`, `UiDom`, `UiContext`
@@ -1573,7 +1577,7 @@ widget.i18nEngine.setLocale('zh-CN'); // 簡體中文
 
 ## 🧪 測試體系與品質保證 (Testing)
 
-`ai-avatar-bot-typescript` 擁有完整的自動化驗證體系，涵蓋型別檢查、單元演算法與 Playwright 端到端驗證：
+`@ai-avatar-bot/sdk` 擁有完整的自動化驗證體系，涵蓋型別檢查、單元演算法與 Playwright 端到端驗證：
 
 ```bash
 # 1. 嚴格 TypeScript 編譯期型別檢查
@@ -1627,8 +1631,8 @@ yarn test:smoke
 
 ## ❓ 常見問題 (FAQ)
 
-### Q1: `ai-avatar-bot-typescript` 與早期 `vanilla-js` 原型的關係與演進？
-> **A:** 本專案早期曾以純 JavaScript（`vanilla-js`）進行多引擎架構驗證，在確認功能成熟健全後，該原型已於 Commit [`2e4cb12a4c689d8dc98a814211279ce0cb3ebf59`](https://github.com/archer102125220/ai-avatar-bot/commit/2e4cb12a4c689d8dc98a814211279ce0cb3ebf59)（Tag: `archive/vanilla-js-baseline`）完成階段性使命並封存歸檔。目前的 `ai-avatar-bot-typescript` 為單一核心事實來源（Single Source of Truth），採用 100% 原生 TypeScript 撰寫，具備更極致的輕量化（核心 223KB）、完善的型別約束與 Subpath 導出，且編譯出的標準 ESM/CJS/IIFE 產物可讓純 JavaScript 專案無縫直接使用。
+### Q1: `@ai-avatar-bot/sdk` 與早期 `vanilla-js` 原型的關係與演進？
+> **A:** 本專案早期曾以純 JavaScript（`vanilla-js`）進行多引擎架構驗證，在確認功能成熟健全後，該原型已於 Commit [`2e4cb12a4c689d8dc98a814211279ce0cb3ebf59`](https://github.com/archer102125220/ai-avatar-bot/commit/2e4cb12a4c689d8dc98a814211279ce0cb3ebf59)（Tag: `archive/vanilla-js-baseline`）完成階段性使命並封存歸檔。目前的 `@ai-avatar-bot/sdk` 為單一核心事實來源（Single Source of Truth），採用 100% 原生 TypeScript 撰寫，具備更極致的輕量化（核心 223KB）、完善的型別約束與 Subpath 導出，且編譯出的標準 ESM/CJS/IIFE 產物可讓純 JavaScript 專案無縫直接使用。
 
 ### Q2: 是否能在無預設 UI（無頭模式 Headless）下使用？
 > **A:** 可以！初始化時傳入 `isMinimal: true` 即可隱藏預設懸浮窗與氣泡，接著可完全使用 React、Vue、Svelte 繪製專屬介面，並透過 `widget.handleUser()` 及訂閱 `widget.speechEngine` 與之互動。

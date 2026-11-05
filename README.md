@@ -2,6 +2,9 @@
 
 [繁體中文](./README_ZH.md) | English
 
+> [!IMPORTANT]
+> **🚧 Public Beta Notice (`@ai-avatar-bot/sdk@beta`)**: The flagship TypeScript SDK is currently in **Public Beta** as we finalize [Domain-Neutral Brain Decoupling](./typescript/docs/TODO-1-DOMAIN-NEUTRAL-BRAIN-DECOUPLING.md) ahead of `v1.0.0` GA. For branch governance, CI/CD pipelines, and release graduation SOPs, see [CONTRIBUTING.md](./CONTRIBUTING.md).
+
 > A lightweight, modular, and extensible Web AI Avatar (2D Live2D / 3D VRM) SDK ecosystem.
 
 This project originated from the open-source exploration by [YuriCrystal/ai-avatar-bot](https://github.com/YuriCrystal/ai-avatar-bot). We have performed extensive modular decomposition, architectural refactoring, and engineering standardizations to build a modern Web AI Avatar package ecosystem ready for npm distribution.
@@ -25,12 +28,12 @@ This project originated from the open-source exploration by [YuriCrystal/ai-avat
 
 This Monorepo is organized into dedicated sub-packages for various usage scenarios and frontend technology stacks. The core SDK is crafted in **100% Native TypeScript** (compiled bundles cover ESM, CJS, and IIFE, seamlessly supporting both TypeScript and pure JavaScript projects):
 
-| Package Directory | Package Name / Type | Status | Role & Characteristics | Quick Link |
-| :--- | :--- | :---: | :--- | :---: |
-| [`/typescript`](./typescript) | `ai-avatar-bot-typescript` | 🟢 **Core Baseline (Recommended / Ready)** | **100% native TypeScript core SDK**. Release-ready with modern standards: modular subpath exports (`/brain`, `/skin`, etc.), dual ESM/IIFE CDN builds, optional peer dependencies (compact 223KB core), CLI asset sync tool, and 6+ framework plugins. Fully supports pure JavaScript (ESM/CJS/IIFE) projects. | [📄 Documentation](./typescript/README.md) |
-| [`/iframe`](./iframe) | `ai-avatar-bot-iframe` | 🟡 **Classic Refactor** | **Initial modular refactor of the original version**. Preserves the original author's classic iframe and `embed.js` one-line script embedding design, offering maximum DOM/CSS isolation and standalone demo pages. | [📄 Documentation](./iframe/README.en.md) |
-| [`/vue`](./vue) | `ai-avatar-bot-vue` | 🚧 **In Progress** | Dedicated component library for **Vue 3**. Provides `<AiAvatarBot />` components and `useAvatar` composables, supporting reactive props and custom slots. | [📁 Source Code](./vue) |
-| [`/react`](./react) | `ai-avatar-bot-react` | 🚧 **In Progress** | Dedicated component library for **React 18 / 19**. Provides `<AiAvatarBot />` components and `useAvatar` hooks, seamlessly integrating with React lifecycle and JSX rendering. | [📁 Source Code](./react) |
+| Package Directory | NPM Package | CI/CD & Release | Live Demo (Vercel) | Role & Characteristics | Quick Link |
+| :--- | :--- | :---: | :--- | :--- | :---: |
+| [`/typescript`](./typescript) | **`@ai-avatar-bot/sdk`** | ✅ Full CI + Auto CD (`@beta` / `@latest`) | [Stable Demo](https://ai-avatar-bot-sdk-demo.vercel.app)<br>[Beta Demo](https://beta.ai-avatar-bot-sdk-demo.vercel.app) | **100% native TypeScript flagship SDK**. Modular subpath exports (`/brain`, `/skin`, etc.), dual ESM/IIFE CDN builds, optional peer dependencies (compact 223KB core), CLI asset sync tool, and 6+ framework plugins. | [📄 Docs](./typescript/README.md) |
+| [`/iframe`](./iframe) | ❌ **Not Published** | ❌ **No CI/CD** (Demo Only) | [Classic Demo](https://ai-avatar-bot-iframe-demo.vercel.app) | **Classic standalone demo deployment**. Preserves the original iframe and `embed.js` one-line script embedding design for maximum DOM/CSS isolation and historical showcase. | [📄 Docs](./iframe/README.en.md) |
+| [`/vue`](./vue) | **`@ai-avatar-bot/vue`** | 🚧 In Progress | `ai-avatar-bot-vue-demo` | Dedicated component library for **Vue 3**. Provides `<AiAvatarBot />` components and `useAvatar` composables. | [📁 Source](./vue) |
+| [`/react`](./react) | **`@ai-avatar-bot/react`** | 🚧 In Progress | `ai-avatar-bot-react-demo` | Dedicated component library for **React 18 / 19**. Provides `<AiAvatarBot />` components and `useAvatar` hooks. | [📁 Source](./react) |
 
 ---
 
@@ -98,11 +101,13 @@ The entire SDK adopts a highly decoupled "Multi-Engine Architecture", allowing d
 ### 1. Installation
 
 ```bash
-# yarn (recommended)
-yarn add ai-avatar-bot-typescript
+# Public Beta channel (current pre-v1.0.0 GA)
+yarn add @ai-avatar-bot/sdk@beta
+npm install @ai-avatar-bot/sdk@beta
 
-# npm
-npm install ai-avatar-bot-typescript
+# Official Stable channel (after v1.0.0 graduation)
+yarn add @ai-avatar-bot/sdk
+npm install @ai-avatar-bot/sdk
 ```
 
 ### 2. TypeScript / Modern Frontend Project
@@ -112,8 +117,8 @@ import {
   initAvatarBot, 
   type AvatarBotOptions, 
   type AiAvatarWidget 
-} from 'ai-avatar-bot-typescript';
-import 'ai-avatar-bot-typescript/style.css';
+} from '@ai-avatar-bot/sdk';
+import '@ai-avatar-bot/sdk/style.css';
 
 const options: AvatarBotOptions = {
   container: document.getElementById('avatar-container'),
@@ -131,8 +136,8 @@ const widget: AiAvatarWidget = await initAvatarBot(options);
 This package compiles to standard ESM and CJS bundles, ready to be used directly in pure JavaScript projects:
 
 ```javascript
-import { initAvatarBot } from 'ai-avatar-bot-typescript';
-import 'ai-avatar-bot-typescript/style.css';
+import { initAvatarBot } from '@ai-avatar-bot/sdk';
+import '@ai-avatar-bot/sdk/style.css';
 
 const widget = await initAvatarBot({
   container: document.getElementById('avatar-container'),

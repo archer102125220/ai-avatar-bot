@@ -6,7 +6,7 @@
  * 【核心用途】：
  * 1. 統一建置 monorepo 內 8 個範例專案（涵蓋 SPA、SSR、Fullstack 跨框架）。
  * 2. 解決 npm 本地快取痛點：自動將當前最新編譯的 SDK (`typescript/dist` 與 `avatar-skin`)
- *    熱同步至各範例的 `node_modules/ai-avatar-bot-typescript`，防止因版本號未更新而導致吃舊代碼。
+ *    熱同步至各範例的 `node_modules/@ai-avatar-bot/sdk`，防止因版本號未更新而導致吃舊代碼。
  * 3. 作為 CI/CD 生產打包發布的第一道防線，確保零回歸 (Zero Regression)。
  *
  * 【使用方式 (CLI)】：
@@ -120,7 +120,7 @@ const EXAMPLES = [
  * `npm install` 會因為 package-lock 判定版本相同而忽略更新，導致範例仍引用舊版代碼或資產。
  * 
  * 【解決方案】：
- * 此函式在建置前，主動檢查各範例的 `node_modules/ai-avatar-bot-typescript`，
+ * 此函式在建置前，主動檢查各範例的 `node_modules/@ai-avatar-bot/sdk`，
  * 並將最新編譯出的 `dist/`、`avatar-skin/` 與 `package.json` 強制覆蓋同步進去。
  */
 function autoSyncSdkLocal() {
@@ -133,7 +133,7 @@ function autoSyncSdkLocal() {
   if (!fs.existsSync(srcDist)) return;
 
   for (const example of EXAMPLES) {
-    const destDir = path.join(examplesRoot, example.dir, 'node_modules', 'ai-avatar-bot-typescript');
+    const destDir = path.join(examplesRoot, example.dir, 'node_modules', '@ai-avatar-bot', 'sdk');
     if (fs.existsSync(destDir)) {
       try {
         // 同步最新的 JS/DTS 編譯產物

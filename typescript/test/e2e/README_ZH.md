@@ -2,7 +2,7 @@
 
 繁體中文 | [English](./README.md)
 
-> 本目錄包含 `ai-avatar-bot-typescript` 專案的端到端（E2E）測試體系。本架構採用**「分軌分層設計」**，兼顧「底層引擎（WebGL/3D、Web Audio、大腦串流）真實健全度」與「跨框架（Vanilla JS、TypeScript、React、Vue）UI 行為合約同構驗收」。
+> 本目錄包含 `@ai-avatar-bot/sdk` 專案的端到端（E2E）測試體系。本架構採用**「分軌分層設計」**，兼顧「底層引擎（WebGL/3D、Web Audio、大腦串流）真實健全度」與「跨框架（Vanilla JS、TypeScript、React、Vue）UI 行為合約同構驗收」。
 
 ---
 

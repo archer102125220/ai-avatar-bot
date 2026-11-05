@@ -1,7 +1,7 @@
 /**
  * @file main.js
  * Pure JavaScript entry point for AI Avatar Bot consumer example.
- * Demonstrates consuming ai-avatar-bot-typescript in a non-TypeScript environment.
+ * Demonstrates consuming @ai-avatar-bot/sdk in a non-TypeScript environment.
  */
 
 import { 
@@ -9,8 +9,8 @@ import {
   AVATAR_MODE_MAP, 
   GENDER_MAP, 
   ENGINE_MODE_MAP 
-} from 'ai-avatar-bot-typescript';
-import 'ai-avatar-bot-typescript/style.css';
+} from '@ai-avatar-bot/sdk';
+import '@ai-avatar-bot/sdk/style.css';
 import './style.css';
 
 async function bootstrap() {

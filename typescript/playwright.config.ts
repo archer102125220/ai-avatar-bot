@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright E2E configuration for ai-avatar-bot-typescript.
+ * Playwright E2E configuration for @ai-avatar-bot/sdk.
  * Supports Track A (UI Contract Parity) and Track B (Real Engine Smoke).
  */
 const reportDir =

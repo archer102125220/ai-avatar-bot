@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import { avatarBotVitePlugin } from 'ai-avatar-bot-typescript/vite';
+import { avatarBotVitePlugin } from '@ai-avatar-bot/sdk/vite';
 
 export default defineConfig({
   plugins: [

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import 'ai-avatar-bot-typescript/style.css';
+import '@ai-avatar-bot/sdk/style.css';
 
 export const metadata: Metadata = {
   title: 'AI Avatar Bot - Next.js Direct Example',

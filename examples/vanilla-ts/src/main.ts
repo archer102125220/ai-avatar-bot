@@ -5,8 +5,8 @@ import {
   ENGINE_MODE_MAP,
   type AiAvatarWidget,
   type AvatarBotOptions
-} from 'ai-avatar-bot-typescript';
-import 'ai-avatar-bot-typescript/style.css';
+} from '@ai-avatar-bot/sdk';
+import '@ai-avatar-bot/sdk/style.css';
 import './style.css';
 
 async function bootstrap() {

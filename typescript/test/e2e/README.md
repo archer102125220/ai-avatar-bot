@@ -2,7 +2,7 @@
 
 [繁體中文](./README_ZH.md) | English
 
-> This directory contains the End-to-End (E2E) testing suite for `ai-avatar-bot-typescript`. It adopts a **dual-track layered design**, balancing **real underlying engine sanity** (WebGL/3D, Web Audio API, Brain stream parsing) with **cross-framework UI behavior contract parity** (Vanilla JS, TypeScript, React, Vue).
+> This directory contains the End-to-End (E2E) testing suite for `@ai-avatar-bot/sdk`. It adopts a **dual-track layered design**, balancing **real underlying engine sanity** (WebGL/3D, Web Audio API, Brain stream parsing) with **cross-framework UI behavior contract parity** (Vanilla JS, TypeScript, React, Vue).
 
 ---
 

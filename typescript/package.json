@@ -1,6 +1,10 @@
 {
-  "name": "ai-avatar-bot-typescript",
-  "version": "1.0.0",
+  "name": "@ai-avatar-bot/sdk",
+  "version": "1.0.0-beta.0",
+  "publishConfig": {
+    "access": "public",
+    "tag": "beta"
+  },
   "description": "100% Native TypeScript SDK for interactive 2D (Live2D) and 3D (VRM) AI Avatar Bot with Voice STT/TTS, WebGPU WebLLM, Cloud AI Brain, Conversation Memory, and Function Calling",
   "type": "module",
   "bin": {
@@ -125,7 +129,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/archer102125220/ai-avatar-bot.git",
-    "directory": "package/typescript"
+    "directory": "typescript"
   },
   "bugs": {
     "url": "https://github.com/archer102125220/ai-avatar-bot/issues"
@@ -137,6 +141,7 @@
     "build:core": "vite build",
     "build:iife": "vite build --config vite.iife.config.ts",
     "build:plugins": "vite build --config vite.plugins.config.ts",
+    "build:demo": "vite build --config vite.demo.config.ts",
     "prepublishOnly": "yarn test:typecheck && yarn test:unit && yarn build",
     "pack:dry-run": "npm pack --dry-run",
     "test:unit": "vitest run",

@@ -89,7 +89,7 @@ const TARGET_REGISTRY = {
   typescript: {
     name: 'TypeScript SDK (Core)',
     dirName: 'typescript',
-    pkgName: 'ai-avatar-bot-typescript',
+    pkgName: '@ai-avatar-bot/sdk',
     buildArgs: ['yarn', ['build']],
     // 為沙盒動態生成的測試腳本：涵蓋所有 subpath exports 與型別定義
     generateTestCode: (pkgName) => `import { 
@@ -194,9 +194,10 @@ function prepareTarball(targetConfig) {
   // 2. 執行 npm pack 打包成 .tgz
   runCmd('npm', ['pack'], targetDir);
 
-  // 3. 搜尋並取得產生的 .tgz 檔案路徑
+  // 3. 搜尋並取得產生的 .tgz 檔案路徑（處理 @scope/pkg 轉為 scope-pkg 格式）
   const files = fs.readdirSync(targetDir);
-  const tgzFile = files.find(f => f.startsWith(`${targetConfig.pkgName}-`) && f.endsWith('.tgz'));
+  const tgzPrefix = targetConfig.pkgName.replace(/^@/, '').replace('/', '-');
+  const tgzFile = files.find(f => f.startsWith(`${tgzPrefix}-`) && f.endsWith('.tgz'));
   if (!tgzFile) {
     throw new Error(`Failed to find generated tarball for ${targetConfig.pkgName} in package/${targetConfig.dirName}`);
   }
@@ -258,7 +259,7 @@ function prepareSandbox(targetDir, pmName, targetConfig) {
   // 4. 生成 vite.config.ts (若測試 TypeScript 核心套件，掛載 avatarBotVitePlugin 驗證)
   if (targetConfig.dirName === 'typescript') {
     const viteConfig = `import { defineConfig } from 'vite';
-import avatarBotVitePlugin from 'ai-avatar-bot-typescript/vite';
+import avatarBotVitePlugin from '@ai-avatar-bot/sdk/vite';
 
 export default defineConfig({
   plugins: [avatarBotVitePlugin()]

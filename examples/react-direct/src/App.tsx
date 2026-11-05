@@ -6,7 +6,7 @@ import {
   ENGINE_MODE_MAP,
   type AiAvatarWidget,
   type AvatarBotOptions
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 export default function App() {
   const containerRef = useRef<HTMLDivElement | null>(null);

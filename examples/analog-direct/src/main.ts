@@ -1,5 +1,5 @@
 import 'zone.js';
-import 'ai-avatar-bot-typescript/style.css';
+import '@ai-avatar-bot/sdk/style.css';
 import './styles.css';
 
 import { bootstrapApplication } from '@angular/platform-browser';

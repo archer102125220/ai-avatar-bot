@@ -23,13 +23,13 @@
             "assets": [
               {
                 "glob": "**/*",
-                "input": "node_modules/ai-avatar-bot-typescript/avatar-skin",
+                "input": "node_modules/@ai-avatar-bot/sdk/avatar-skin",
                 "output": "avatar-skin"
               }
             ],
             "styles": [
               "src/styles.css",
-              "node_modules/ai-avatar-bot-typescript/dist/ai-avatar-bot.css"
+              "node_modules/@ai-avatar-bot/sdk/dist/ai-avatar-bot.css"
             ],
             "scripts": []
           },

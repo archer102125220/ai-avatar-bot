@@ -64,7 +64,7 @@ export function avatarBotNuxtModule(
 }
 
 avatarBotNuxtModule.meta = {
-  name: 'ai-avatar-bot-typescript/nuxt',
+  name: '@ai-avatar-bot/sdk/nuxt',
   configKey: 'avatarBot',
   compatibility: {
     nuxt: '>=3.0.0'

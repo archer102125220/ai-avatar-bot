@@ -1,0 +1,58 @@
+name: CI Gatekeeper
+
+on:
+  push:
+    branches:
+      - staging
+      - preview
+      - main
+  pull_request:
+    branches:
+      - staging
+      - preview
+      - main
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify SDK (Version Guard, Lint, Typecheck, Unit Tests, Build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository (with full tag history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enable Corepack for Yarn 4
+        run: corepack enable
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Run Branch & SemVer Version Guard
+        run: node scripts/verify-branch-version.mjs
+
+      - name: Lint (@ai-avatar-bot/sdk)
+        run: yarn lint:ts
+
+      - name: Typecheck (@ai-avatar-bot/sdk)
+        run: yarn typecheck:ts
+
+      - name: Unit Tests - Vitest (@ai-avatar-bot/sdk)
+        run: yarn test:ts
+
+      - name: Build Library & Demo SPA (@ai-avatar-bot/sdk)
+        run: |
+          yarn build:ts
+          yarn build:ts:demo
+

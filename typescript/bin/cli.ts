@@ -87,7 +87,7 @@ function detectProjectTarget(cwd: string): ProjectTargetInfo {
       return {
         targetDir: 'public/avatar-skin',
         projectType: 'Next.js',
-        tip: '亦可使用 "ai-avatar-bot-typescript/next" 插件在打包時自動同步。'
+        tip: '亦可使用 "@ai-avatar-bot/sdk/next" 插件在打包時自動同步。'
       };
     }
   }
@@ -99,7 +99,7 @@ function detectProjectTarget(cwd: string): ProjectTargetInfo {
       return {
         targetDir: 'public/avatar-skin',
         projectType: 'Nuxt',
-        tip: '亦可於 nuxt.config.ts 的 modules 加入 "ai-avatar-bot-typescript/nuxt" 達成 0 複製開發。'
+        tip: '亦可於 nuxt.config.ts 的 modules 加入 "@ai-avatar-bot/sdk/nuxt" 達成 0 複製開發。'
       };
     }
   }

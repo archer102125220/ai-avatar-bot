@@ -14,7 +14,7 @@ import {
   ENGINE_MODE_MAP,
   type AiAvatarWidget,
   type AvatarBotOptions
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 @Component({
   selector: 'app-root',

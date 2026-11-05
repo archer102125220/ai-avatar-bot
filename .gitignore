@@ -1,6 +1,8 @@
 # dependencies (install from package.json / package-lock.json instead)
 node_modules/
 ai-avatar-bot-typescript-*.tgz
+ai-avatar-bot-sdk-*.tgz
+dist-demo
 
 .temp-sandbox/
 

@@ -1,0 +1,99 @@
+name: Release @ai-avatar-bot/sdk
+
+on:
+  push:
+    branches:
+      - preview
+      - main
+    paths:
+      - 'typescript/**'
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release-sdk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish-sdk:
+    name: Publish @ai-avatar-bot/sdk to NPM & GitHub Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository (with full tag history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enable Corepack for Yarn 4
+        run: corepack enable
+
+      - name: Setup Node.js 22 & NPM Registry Auth
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Verify Branch & SemVer Compliance
+        run: node scripts/verify-branch-version.mjs
+
+      - name: Extract SDK Version & Check Existing Tag
+        id: meta
+        run: |
+          VERSION=$(node -p "JSON.parse(require('node:fs').readFileSync('./typescript/package.json', 'utf8')).version")
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF_NAME}" = "preview" ]; then
+            echo "npm_tag=beta" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "npm_tag=latest" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+          if git rev-parse "refs/tags/v${VERSION}" >/dev/null 2>&1; then
+            echo "already_tagged=true" >> "$GITHUB_OUTPUT"
+            echo "Tag v${VERSION} already exists. Skipping duplicate publish."
+          else
+            echo "already_tagged=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Lint Gate
+        if: steps.meta.outputs.already_tagged == 'false'
+        run: yarn lint:ts
+
+      - name: Publish @ai-avatar-bot/sdk to NPM (${{ steps.meta.outputs.npm_tag }})
+        if: steps.meta.outputs.already_tagged == 'false'
+        working-directory: typescript
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --tag "${{ steps.meta.outputs.npm_tag }}" --access public
+
+      - name: Create & Push Git Tag (v${{ steps.meta.outputs.version }})
+        if: steps.meta.outputs.already_tagged == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ steps.meta.outputs.version }}" -m "chore(release): @ai-avatar-bot/sdk v${{ steps.meta.outputs.version }}"
+          git push origin "v${{ steps.meta.outputs.version }}"
+
+      - name: Create GitHub Release
+        if: steps.meta.outputs.already_tagged == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ steps.meta.outputs.is_prerelease }}" = "true" ]; then
+            gh release create "v${{ steps.meta.outputs.version }}" \
+              --title "@ai-avatar-bot/sdk v${{ steps.meta.outputs.version }}" \
+              --generate-notes \
+              --prerelease
+          else
+            gh release create "v${{ steps.meta.outputs.version }}" \
+              --title "@ai-avatar-bot/sdk v${{ steps.meta.outputs.version }}" \
+              --generate-notes \
+              --latest
+          fi

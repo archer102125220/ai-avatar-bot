@@ -7,7 +7,7 @@ import {
   ENGINE_MODE_MAP,
   type AiAvatarWidget,
   type AvatarBotOptions
-} from 'ai-avatar-bot-typescript';
+} from '@ai-avatar-bot/sdk';
 
 const containerRef = ref<HTMLDivElement | null>(null);
 const widgetRef = ref<AiAvatarWidget | null>(null);

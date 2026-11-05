@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { avatarBotVitePlugin } from 'ai-avatar-bot-typescript/vite';
+import { avatarBotVitePlugin } from '@ai-avatar-bot/sdk/vite';
 
 export default defineConfig({
   plugins: [
