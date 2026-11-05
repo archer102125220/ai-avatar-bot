@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - 'typescript/**'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -27,15 +28,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Enable Corepack for Yarn 4
-        run: corepack enable
-
-      - name: Setup Node.js 22 & NPM Registry Auth
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
-          cache: 'yarn'
+
+      - name: Enable Corepack for Yarn 4
+        run: corepack enable && yarn --version
+
+      - name: Cache Yarn Berry dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .yarn/cache
+            ~/.cache/node/corepack
+          key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            yarn-${{ runner.os }}-
 
       - name: Install dependencies
         run: yarn install --immutable
@@ -65,6 +74,17 @@ jobs:
       - name: Run Lint Gate
         if: steps.meta.outputs.already_tagged == 'false'
         run: yarn lint:ts
+
+      - name: Configure NPM Registry Authentication
+        if: steps.meta.outputs.already_tagged == 'false'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Re-enable Corepack after Registry Setup
+        if: steps.meta.outputs.already_tagged == 'false'
+        run: corepack enable
 
       - name: Publish @ai-avatar-bot/sdk to NPM (${{ steps.meta.outputs.npm_tag }})
         if: steps.meta.outputs.already_tagged == 'false'
