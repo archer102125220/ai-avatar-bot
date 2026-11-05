@@ -1,9 +1,10 @@
 # 🚀 AI Avatar Bot 發布與部署分步驟實施手冊
 *(Step-by-Step Implementation Guide for New Session)*
 
-> **文件狀態**：定案準備執行 (Ready for Execution - v2.0 已更新)  
+> **文件狀態**：執行上線中 (In Execution - v2.1 已對齊實際 Git 倉庫根目錄路徑)  
 > **制定日期**：2026-11-05  
 > **適用場景**：專門為**開立新 Session 進行純淨實作**所設計之自包含（Self-contained）執行指南。新 Session 中的 AI 助理可直接依序執行以下 7 個具體步驟，無需重構或重新討論決策。
+> **路徑備註**：遠端 GitHub 倉庫（`archer102125220/ai-avatar-bot`）之根目錄對應本地工作區之 `package/`，故 GitHub Actions 路徑過濾為 `typescript/**`，Vercel 之 `Root Directory` 分別為 `typescript` 與 `iframe`。
 
 ---
 
@@ -165,13 +166,15 @@ flowchart TD
 * **執行任務**：
   1. 在 Vercel 控制台新增 **SDK Demo 專案**：
      * **Project Name**：設為 **`ai-avatar-bot-sdk-demo`**。
-     * **Root Directory**：設為 `package/typescript`。
+     * **Root Directory**：設為 `typescript`（對應遠端倉庫根目錄下之 `typescript/`）。
      * **Build Command**：設為 `yarn build:demo`。
      * **Output Directory**：設為 `dist-demo`。
+     * **Ignored Build Step**（選配）：`git diff --quiet HEAD^ HEAD ./`
      * 域名對應：正式 `https://ai-avatar-bot-sdk-demo.vercel.app`，預覽 `https://beta.ai-avatar-bot-sdk-demo.vercel.app`。
   2. 在 Vercel 控制台新增 **Iframe 經典版 Demo 專案**：
      * **Project Name**：設為 **`ai-avatar-bot-iframe-demo`**。
-     * **Root Directory**：設為 `package/iframe`。
+     * **Root Directory**：設為 `iframe`（對應遠端倉庫根目錄下之 `iframe/`）。
+     * **Ignored Build Step**（選配）：`git diff --quiet HEAD^ HEAD ./`
      * 域名對應：`https://ai-avatar-bot-iframe-demo.vercel.app`。
   3. 推送最新代碼至 `preview` 分支，觀察 GitHub Actions 自動執行發布。
   4. 驗證 NPM 上已成功上架 `@ai-avatar-bot/sdk@1.0.0-beta.0`。
