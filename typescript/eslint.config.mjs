@@ -55,7 +55,8 @@ export default tseslint.config(
       'tests/**/*.spec.js',
       'tests/**/*.spec.ts',
       '**/__tests__/**',
-      'dist/**'
+      'dist/**',
+      'dist-demo/**'
     ]
   },
   prettier

@@ -3,242 +3,1397 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Avatar Bot - TypeScript Demo</title>
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      try {
+        const savedScheme = window.localStorage.getItem('color-scheme');
+        if (savedScheme === 'light' || savedScheme === 'dark') {
+          const schemeMeta = document.querySelector(
+            'meta[name="color-scheme"]'
+          );
+          if (schemeMeta !== null) {
+            schemeMeta.content = savedScheme;
+          }
+        }
+      } catch (err) {
+        console.warn('[theme] color-scheme storage read skipped:', err);
+      }
+    </script>
+    <title>
+      @ai-avatar-bot/sdk — 2D / 3D 語音 AI 虛擬人 TypeScript SDK 互動展示
+    </title>
+    <meta
+      name="description"
+      content="100% 原生 TypeScript 網頁端 2D (Live2D) 與 3D (VRM) 語音 AI 虛擬人互動 SDK 線上試玩站。支援全雙工語音對嘴、WebGPU WebLLM 端側推論、雲端 AI Provider、長對話記憶壓縮與 Function Calling 工具調用。"
+    />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
-
-    <style>
-      html,
-      body {
-        width: 100%;
-        height: 100%;
-        margin: 0;
-        overflow: hidden;
-      }
-
-      #app {
-        width: 50%;
-        height: 60%;
-      }
-    </style>
   </head>
 
-  <body>
-    <div id="app"></div>
-    <script type="module">
-      import {
-        initAvatarBot,
-        GENDER_MAP,
-        AVATAR_MODE_MAP,
-        ENGINE_MODE_MAP,
-        FIT_MODE_MAP,
-        REASONING_MODE_MAP,
-        AI_PROVIDER_STATUS_MAP,
-        AI_PROVIDER_PING_STRATEGY_MAP
-      } from '@/core';
-      import { KNOWLEDGE, COMPANION_KNOWLEDGE } from '@/example/knowledge';
+  <body class="demo-page">
+    <a href="#main-title" class="demo-skip-link">跳至主要內容</a>
 
-      const currentHostname = window.location.hostname;
-      const isLocalLoopback =
-        currentHostname === 'localhost' ||
-        currentHostname === '127.0.0.1' ||
-        currentHostname === '[::1]';
+    <div
+      id="demo-live-region"
+      class="demo-sr-only"
+      role="status"
+      aria-live="polite"
+    ></div>
 
-      const app = document.getElementById('app');
-      window.aiAvatarWidget = await initAvatarBot({
-        container: app,
-        // 本地端 WebGPU WebLLM 旗艦模型與兩階段 OOM 降級設定
-        // webLlmModel: 'gemma-2-2b-it-q4f32_1-MLC', // Google 公開模型
-        // webLlmModel: 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC', // 支援推論模型
-        // webLlmModel: 'Qwen3-8B-q4f16_1-MLC', // 支援推論模型
-        webLlmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC', // 預設 8B 旗艦模型（支援完整 Function Calling 與推論思考鏈）
-        webLlmFallbackModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 低配備設備（如 8GB 記憶體）自動 OOM 降級保底模型
-        enableOomFallback: true, // 啟用 WebGPU 顯存不足自動降級
-        // llmMaxTokens: 1024, // WebLLM 端側模型回應最大 Token 數（預設 1024）
-        // aiProviderModel: 'deepseek-r1:8b', // 或 8b 等 Ollama 原生推論模型
-        // aiProviderModel: 'hermes3:8b', // 遠端伺服器預設旗艦模型 (Ollama / vLLM)
-        // aiProviderModel: 'qwen2.5:latest',
-        aiProviderModel: 'gemma4:12b',
-        // 本地開發時透過 Vite 代理連本機 Ollama；部署至公開網域（如 Vercel Demo）時停用預設本地端點，避免觸發瀏覽器 Loopback 權限提示或連線錯誤
-        aiProviderBaseUrl:
-          isLocalLoopback === true ? `${window.location.origin}/api/ollama` : '',
-        // AI Provider 探活策略與自訂端點（非阻塞背景探活，首頁秒開；公開線上環境改為 manual 優先走內建知識庫與純前端 WebLLM）
-        aiProviderAutoPing:
-          isLocalLoopback === true
-            ? AI_PROVIDER_PING_STRATEGY_MAP.EAGER
-            : AI_PROVIDER_PING_STRATEGY_MAP.MANUAL, // 'eager' (預設非阻塞背景探活) | 'lazy' (延遲首問) | 'manual' (手動探活)
-        // aiProviderPingUrl: '/api/tags', // 可選自訂端點路徑（未設定時自動推導 Ollama: /api/tags 或 OpenAI: /models）
-        // ⚠️ [實驗性 Experimental] 推論思考過程設定（目前推論輸出各模型穩定度尚在驗證中，可依情境評估使用）
-        reasoning: {
-          mode: REASONING_MODE_MAP.always, // REASONING_MODE_MAP.auto (自動偵測) | REASONING_MODE_MAP.always (強制注入思考鏈指令) | REASONING_MODE_MAP.never (關閉)
-          showThinkingInBubble: true // 思考期間氣泡顯示動態「讓我想想…」
-          // promptDirective: '自訂思考提示詞，或設為 false 完全由開發者在 systemContext 自主控制'
-        },
-        aiProviderIsStream: true,
-        assistantKnowledge: KNOWLEDGE,
-        companionKnowledge: COMPANION_KNOWLEDGE,
-        startMode: ENGINE_MODE_MAP.threeDimensional, // 預設以 3D 模式啟動方便測試 3D VRMA 動作
-        fitMode: FIT_MODE_MAP.HALF, // FIT_MODE_MAP.HALF (半身特寫) | FIT_MODE_MAP.FULL (全身)
-        // 2D Live2D 縮放與位置客製化 (支援通用設定與 half/full 雙模式專屬設定)
-        // skin2d: {
-        //   offsetX: 0,
-        //   offsetY: 0,
-        //   half: { zoom: 1.9, anchor: { x: 0.5, y: 1.0 } },
-        //   full: { zoom: 1.0, anchor: { x: 0.5, y: 3.0 } }
-        // },
-        // 3D VRM 攝影機與模型變換客製化 (支援通用設定與 half/full 雙模式專屬設定)
-        // skin3d: {
-        //   pointerLook: true,
-        //   half: {
-        //     camera: { fov: 26, position: { x: 0, y: 1.4, z: 2.5 }, lookAt: { x: 0, y: 1.2, z: 0 } },
-        //     model: { scale: { x: 1, y: 1, z: 1 } }
-        //   },
-        //   full: {
-        //     camera: { fov: 30, position: { x: 0, y: 1.0, z: 3.5 }, lookAt: { x: 0, y: 0.9, z: 0 } },
-        //     model: { scale: { x: 1, y: 1, z: 1 } }
-        //   }
-        // },
-        companionKnowledge: COMPANION_KNOWLEDGE,
-        gender: GENDER_MAP.male,
-        // gender: GENDER_MAP.female,
-        enableMemory: true, // 預設全面啟用多輪對話記憶（可在這設為 false 關閉）
-        // 上下文壓縮與記憶預算控制 (Compression Options)
-        // compression: {
-        //   strategy: 'sliding-window', // 'sliding-window' | 'rolling-summary' | 'none'
-        //   maxTurns: 6,                // 全域預設保留輪數 (1 輪 = 1 問 + 1 答)
-        //   maxTotalChars: 4000,        // 全域字元預算上限
-        //   webLlm: {                   // 針對前端 WebLLM 端側模型個別覆寫 (節省顯存)
-        //     maxTurns: 3,
-        //     maxTotalChars: 1500
-        //   },
-        //   aiProvider: {               // 針對遠端 AI Provider 個別覆寫
-        //     maxTurns: 8,
-        //     maxTotalChars: 6000
-        //   },
-        //   // 自訂壓縮器 Hook (可自訂演算法或非同步摘要)
-        //   // customCompressor: async ({ messages, systemPrompt, history, latestQuestion, limits }) => {
-        //   //   return messages;
-        //   // }
-        // },
-        // avatarMode: AVATAR_MODE_MAP.companion,
-        // avatarMode: AVATAR_MODE_MAP.assistant,
-        // 示範教學提示詞（支援多語系物件，教導訪客如何安裝與自訂元件）
-        systemContextTemplate: {
-          'zh-TW':
-            '你是「可嵌入任何網站的語音虛擬人元件」的示範助手。主題是教人「怎麼把這個元件裝到自己的網站、怎麼換成自己的角色、怎麼使用」。請口語、最多兩三句話簡短回答，說完請直接結束，切勿重複說明或重頭再次解釋。{{RAG}}\n{{styleRule}}',
-          'en-US':
-            'You are a demo assistant for "an embeddable voice AI avatar widget". Your topic is teaching users "how to install this widget, how to customize the avatar character, and how to use it". Please answer concisely in natural, spoken English within 2-3 sentences. Stop immediately after answering; do not repeat or restart the explanation.{{RAG}}\n{{styleRule}}',
-          'ja-JP':
-            'あなたは「Webサイトに埋め込み可能な音声AIアバターウィジェット」のデモアシスタントです。テーマは「ウィジェットの導入方法、アバターのカスタマイズ方法、使い方」を教えることです。自然で簡潔な日本語で、2〜3文程度で1回だけ回答し、回答後は直ちに終了してください。同じ説明を繰り返さないでください。{{RAG}}\n{{styleRule}}',
-          'ko-KR':
-            '당신은 "웹사이트에 임베드 가능한 음성 AI 아바타 위젯"의 데모 어시스턴트입니다. 주제는 "위젯 설치 방법, 아바타 캐릭터 변경 방법, 사용법"을 알려주는 것입니다. 자연스럽고 간결한 한국어로 2~3문장 이내로 한 번만 답변하고 즉시 종료하세요. 동일한 설명을 반복하지 마세요.{{RAG}}\n{{styleRule}}'
-        },
-        // modes: {
-        //   mentor: {
-        //     systemPrompt: '你是程式導師，以簡潔、條理清晰的方式指導架構設計。{{RAG}}\n{{styleRule}}',
-        //     welcomeText: '嗨！我是程式導師，有任何架構或開發問題隨時問我！',
-        //     greeting: '你好！今天想討論什麼技術主題呢？'
-        //   }
-        // },
+    <!-- 頂部導覽列 -->
+    <header class="demo-header">
+      <div class="demo-header__inner">
+        <a href="#" class="demo-header__brand">
+          <img
+            src="img/ai-avatar-bot-logo-light.v.01.svg"
+            alt=""
+            width="36"
+            height="36"
+            fetchpriority="high"
+            class="demo-header__logo demo-header__logo--light"
+          />
+          <img
+            src="img/ai-avatar-bot-logo-dark.v.01.svg"
+            alt=""
+            width="36"
+            height="36"
+            fetchpriority="high"
+            class="demo-header__logo demo-header__logo--dark"
+          />
+          <span class="demo-header__title-group">
+            <span class="demo-header__name">@ai-avatar-bot/sdk</span>
+            <span id="demo-sdk-version" class="demo-header__badge"
+              >v1.0.0-beta.0</span
+            >
+          </span>
+        </a>
 
-        onReady(aiAvatar) {
-          console.log('[avatar] widget ready:', aiAvatar);
-          console.log(
-            '%c[3D 動作與 AI 連線測試指南]',
-            'color: #3b82f6; font-weight: bold; font-size: 14px;'
-          );
-          console.log('可直接在 Console 執行下列指令進行測試：');
-          console.log(
-            '▶ playGesture("goodbye")    // 動作測試：goodbye.vrma (登場/揮手再見)'
-          );
-          console.log('▶ playGesture("appearing")  // appearing.vrma');
-          console.log('▶ playGesture("liked")      // liked.vrma');
-          console.log('▶ playGesture("waiting")    // waiting.vrma');
-          console.log(
-            '▶ await pingAiProvider()   // 探活/重試遠端 AI Provider 連線 (模式 A)'
-          );
-          console.log(
-            '▶ aiAvatarWidget.isAiProviderReady // 檢查 AI 是否在線就緒'
-          );
-          console.log(
-            '▶ aiAvatarWidget.store.getState().aiProviderStatus // 取得目前狀態 (idle/connecting/connected/error)'
-          );
-        },
-        onSpeaking(text, aiAvatar) {
-          console.log('[avatar] speaking:', text);
-        },
-        onStreamChunk(chunkDelta, rawChunk) {
-          console.log('[avatar] stream chunk (TTS active):', chunkDelta);
-        },
-        onAiProviderConnecting() {
-          console.log('[avatar] 🧠 AI Provider 連線探活中 (connecting)...');
-        },
-        onAiProviderConnected(response, fetchSetting, aiProvider) {
-          console.log(
-            '[avatar] 🧠✓ AI Provider 連線成功 (connected):',
-            aiProvider?.model || ''
-          );
-        },
-        onAiProviderError(error) {
-          console.warn('[avatar] 🧠✗ AI Provider 連線失敗 (error):', error);
-        },
-        onReasoningStart(info) {
-          console.log(
-            '[avatar] 🧠 [Experimental] reasoning started (silent track):',
-            info
-          );
-        },
-        onReasoningChunk(info, chunkDelta, accumulated, rawChunk) {
-          console.log(
-            '[avatar] 💭 [Experimental] reasoning chunk:',
-            chunkDelta
-          );
-        },
-        onReasoningEnd(info, fullReasoning, durationMs) {
-          console.log(
-            `[avatar] 💡 [Experimental] reasoning finished in ${durationMs}ms`
-          );
-        },
-        onLlmOomFallback(info, primaryModel, fallbackModel, error) {
-          console.warn(
-            `[avatar] ⚠️ WebGPU OOM detected: Falling back from ${primaryModel} to ${fallbackModel}`,
-            error
-          );
-        },
-        onMinimalTrigger(newIsMinimal, aiAvatar) {
-          console.log('[avatar] minimal toggled:', newIsMinimal);
-        },
-        onError(error) {
-          console.warn('[avatar] widget error:', error);
-        }
-      });
+        <nav class="demo-header__nav" aria-label="頁面區塊導覽">
+          <ul class="demo-header__nav-list">
+            <li>
+              <a href="#playground" class="demo-header__nav-link">互動控制台</a>
+            </li>
+            <li>
+              <a href="#tools-demo" class="demo-header__nav-link">工具調用</a>
+            </li>
+            <li>
+              <a href="#quick-start" class="demo-header__nav-link">快速開始</a>
+            </li>
+            <li>
+              <a href="#architecture" class="demo-header__nav-link"
+                >多引擎架構</a
+              >
+            </li>
+            <li>
+              <a href="#licenses" class="demo-header__nav-link">授權與 FAQ</a>
+            </li>
+          </ul>
+        </nav>
 
-      // 訂閱 Store 狀態變更（響應式廣播）
-      window.aiAvatarWidget?.store?.subscribe('aiProviderStatus', (status) => {
-        console.log(`[avatar] 📡 Store 狀態變更 (aiProviderStatus): ${status}`);
-      });
+        <div class="demo-header__actions">
+          <button
+            id="btn-theme-toggle"
+            type="button"
+            class="demo-header__action-btn"
+          >
+            <span
+              class="demo-header__theme-label demo-header__theme-label--to-dark"
+              >🌙 深色</span
+            >
+            <span
+              class="demo-header__theme-label demo-header__theme-label--to-light"
+              >☀️ 淺色</span
+            >
+          </button>
+          <a
+            href="https://www.npmjs.com/package/@ai-avatar-bot/sdk"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="demo-header__action-btn"
+            >📦 NPM</a
+          >
+          <a
+            href="https://github.com/archer102125220/ai-avatar-bot"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="demo-header__action-btn"
+            >GitHub ↗</a
+          >
+        </div>
+      </div>
+    </header>
 
-      // 掛載全域便捷函式供開發者工具直接呼叫
-      window.playGesture = (gestureName) => {
-        if (typeof window.aiAvatarWidget?.playGesture === 'function') {
-          window.aiAvatarWidget.playGesture(gestureName);
-          console.log(`[playGesture] 播放動作: ${gestureName}`);
-        } else {
-          console.warn(
-            '[playGesture] aiAvatarWidget 尚未就緒或未提供 playGesture'
-          );
-        }
-      };
+    <!-- 主內容區（寬螢幕右側預留專屬虛擬人舞台走道，零遮擋） -->
+    <div class="demo-layout">
+      <main class="demo-layout__main">
+        <!-- Hero 主視覺與三步上手指南 -->
+        <section class="demo-hero">
+          <div class="demo-hero__eyebrow">
+            <span class="demo-hero__tag demo-hero__tag--accent">
+              <img
+                src="img/typescript-icon.svg"
+                alt=""
+                width="14"
+                height="14"
+                class="demo-hero__tag-icon"
+              />
+              100% Native TypeScript
+            </span>
+            <span class="demo-hero__tag">⚡ 核心僅 223 KB (-96.9%)</span>
+            <span class="demo-hero__tag">🧪 688 單元測試通過</span>
+            <span class="demo-hero__tag">🔌 零框架綁定・支援 Headless</span>
+          </div>
 
-      window.pingAiProvider = async (fetchSetting) => {
-        if (typeof window.aiAvatarWidget?.pingAiProvider === 'function') {
-          console.log('[pingAiProvider] 發起連線探活...');
-          const ok = await window.aiAvatarWidget.pingAiProvider(fetchSetting);
-          console.log(`[pingAiProvider] 探活結果: ${ok ? '成功' : '失敗'}`);
-          return ok;
-        }
-        console.warn('[pingAiProvider] aiAvatarWidget 尚未就緒');
-        return false;
-      };
-    </script>
+          <h1 id="main-title" tabindex="-1" class="demo-hero__title">
+            可嵌入任何網站的
+            <span class="demo-hero__title-highlight"
+              >2D / 3D 語音 AI 虛擬人 SDK</span
+            >
+          </h1>
+
+          <p class="demo-hero__lead">
+            右下角那位虛擬人正在真實運行
+            <code>@ai-avatar-bot/sdk</code> —— 整合
+            <strong>Live2D / Three.js VRM 雙渲染</strong
+            >、<strong>全雙工語音打斷與對嘴</strong>、<strong
+              >雲端 AI / 瀏覽器 WebGPU WebLLM / 知識庫三層降級大腦</strong
+            >、<strong>上下文記憶壓縮</strong>與<strong>型別安全工具調用</strong>。
+          </p>
+
+          <!-- 一鍵複製安裝列 -->
+          <div class="demo-hero__install">
+            <div
+              class="demo-hero__pm-bar"
+              role="group"
+              aria-label="選擇套件管理工具指令"
+            >
+              <button
+                type="button"
+                class="demo-hero__pm-btn"
+                data-pm-tab="npm"
+                css-is-active="true"
+                aria-pressed="true"
+              >
+                npm
+              </button>
+              <button
+                type="button"
+                class="demo-hero__pm-btn"
+                data-pm-tab="yarn"
+                aria-pressed="false"
+              >
+                yarn
+              </button>
+              <button
+                type="button"
+                class="demo-hero__pm-btn"
+                data-pm-tab="pnpm"
+                aria-pressed="false"
+              >
+                pnpm
+              </button>
+              <button
+                type="button"
+                class="demo-hero__pm-btn"
+                data-pm-tab="sync"
+                aria-pressed="false"
+              >
+                CLI 資產同步
+              </button>
+            </div>
+            <div class="demo-hero__cmd-box">
+              <div class="demo-hero__cmd-line">
+                <span class="demo-hero__cmd-prompt" aria-hidden="true">$</span>
+                <code id="install-cmd-code" class="demo-hero__cmd-code"
+                  >npm install @ai-avatar-bot/sdk@beta</code
+                >
+              </div>
+              <button
+                id="btn-copy-install"
+                type="button"
+                class="demo-hero__copy-btn"
+              >
+                複製指令
+              </button>
+            </div>
+          </div>
+
+          <div class="demo-hero__cta-row">
+            <button
+              id="btn-hero-summon"
+              type="button"
+              class="demo-hero__cta-btn demo-hero__cta-btn--primary"
+            >
+              👋 召喚虛擬人打招呼
+            </button>
+            <a
+              href="#playground"
+              class="demo-hero__cta-btn demo-hero__cta-btn--secondary"
+            >
+              🎛️ 開啟即時互動控制台
+            </a>
+            <a
+              href="https://github.com/archer102125220/ai-avatar-bot/blob/preview/typescript/README_ZH.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="demo-hero__cta-btn demo-hero__cta-btn--secondary"
+            >
+              📖 完整中文文件 ↗
+            </a>
+          </div>
+
+          <!-- 怎麼玩三步驟（傳承自原版試玩引導並全面升級） -->
+          <ol class="demo-hero__steps" role="list">
+            <li class="demo-hero__step">
+              <div class="demo-hero__step-head">
+                <span class="demo-hero__step-num" aria-hidden="true">1</span>
+                <h2 class="demo-hero__step-title">點擊角色或打字提問</h2>
+              </div>
+              <p class="demo-hero__step-desc">
+                點擊右下角虛擬人聽他開口問候，或在輸入框問他「怎麼安裝到我的專案」、「支援
+                3D 嗎」——他的知識庫就是自己的說明書！
+              </p>
+            </li>
+            <li class="demo-hero__step">
+              <div class="demo-hero__step-head">
+                <span class="demo-hero__step-num" aria-hidden="true">2</span>
+                <h2 class="demo-hero__step-title">🎙️ 全雙工語音與插話打斷</h2>
+              </div>
+              <p class="demo-hero__step-desc">
+                點擊控制列「🎙️
+                即時」並允許麥克風即可開口對話；當他正在說話時，你隨時開口或點麥克風都能即時打斷（Barge-in）。
+              </p>
+            </li>
+            <li class="demo-hero__step">
+              <div class="demo-hero__step-head">
+                <span class="demo-hero__step-num" aria-hidden="true">3</span>
+                <h2 class="demo-hero__step-title">🧠 啟動瀏覽器 WebGPU 大腦</h2>
+              </div>
+              <p class="demo-hero__step-desc">
+                不開 🧠 即可秒速檢索回答；點擊「🧠」可在瀏覽器本機載入 WebLLM
+                端側模型（低配設備遇顯存不足會自動降級輕量模型）。
+              </p>
+            </li>
+          </ol>
+        </section>
+
+        <!-- 即時 SDK 互動控制台 (Live Playground) -->
+        <section id="playground" class="demo-section">
+          <div class="demo-section__head">
+            <p class="demo-section__eyebrow">Live SDK Playground</p>
+            <h2 class="demo-section__title">即時 API 互動控制台</h2>
+            <p class="demo-section__desc">
+              以下按鈕直接綁定
+              <code>window.aiAvatarWidget</code>
+              公開實例與響應式
+              <code>BaseStore</code>，可即時測試雙渲染切換、VRMA
+              動作庫、語音對嘴、多語系與自訂人格模式。
+            </p>
+          </div>
+
+          <div class="demo-playground">
+            <!-- 狀態遙測指標 -->
+            <div class="demo-playground__telemetry">
+              <div class="demo-playground__stat">
+                <span class="demo-playground__stat-label">Widget 狀態</span>
+                <span class="demo-playground__stat-value">
+                  <span
+                    id="stat-widget-dot"
+                    class="demo-playground__dot"
+                    css-status="loading"
+                    aria-hidden="true"
+                  ></span>
+                  <span id="stat-widget-text">Loading…</span>
+                </span>
+              </div>
+              <div class="demo-playground__stat">
+                <span class="demo-playground__stat-label">渲染引擎</span>
+                <span id="stat-engine-text" class="demo-playground__stat-value"
+                  >3D VRM</span
+                >
+              </div>
+              <div class="demo-playground__stat">
+                <span class="demo-playground__stat-label">當前人格模式</span>
+                <span id="stat-mode-text" class="demo-playground__stat-value"
+                  >assistant</span
+                >
+              </div>
+              <div class="demo-playground__stat">
+                <span class="demo-playground__stat-label">AI Provider</span>
+                <span class="demo-playground__stat-value">
+                  <span
+                    id="stat-provider-dot"
+                    class="demo-playground__dot"
+                    css-status="idle"
+                    aria-hidden="true"
+                  ></span>
+                  <span id="stat-provider-text">Manual / RAG</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="demo-playground__grid">
+              <!-- 外觀與角色 -->
+              <div class="demo-playground__panel">
+                <div class="demo-playground__panel-head">
+                  <h3 class="demo-playground__panel-title">
+                    🎭 渲染引擎與角色性別
+                  </h3>
+                  <span class="demo-playground__panel-hint"
+                    >skinEngine.engineMode / gender</span
+                  >
+                </div>
+                <div class="demo-playground__controls">
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-engine-mode
+                    data-value="3d"
+                    css-is-active="true"
+                    aria-pressed="true"
+                  >
+                    🧊 3D VRM
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-engine-mode
+                    data-value="2d"
+                    aria-pressed="false"
+                  >
+                    🖼️ 2D Live2D
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-gender
+                    data-value="male"
+                    css-is-active="true"
+                    aria-pressed="true"
+                  >
+                    👦 男角 (Rockman / Natori)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-gender
+                    data-value="female"
+                    aria-pressed="false"
+                  >
+                    👧 女角 (Miku / Haru)
+                  </button>
+                </div>
+              </div>
+
+              <!-- 鏡頭構圖與舞台設定 -->
+              <div class="demo-playground__panel">
+                <div class="demo-playground__panel-head">
+                  <h3 class="demo-playground__panel-title">
+                    📐 構圖、拖放換裝與舞台視窗
+                  </h3>
+                  <span class="demo-playground__panel-hint"
+                    >setFitMode / enableModelDrop</span
+                  >
+                </div>
+                <div class="demo-playground__controls">
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-fit-mode
+                    data-value="half"
+                    css-is-active="true"
+                    aria-pressed="true"
+                  >
+                    👤 半身特寫 (Half)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-fit-mode
+                    data-value="full"
+                    aria-pressed="false"
+                  >
+                    🧍 全身舞台 (Full)
+                  </button>
+                  <button
+                    id="btn-toggle-vrm-drop"
+                    type="button"
+                    class="demo-playground__chip"
+                    aria-pressed="false"
+                  >
+                    📦 允許拖入 .vrm 換裝
+                  </button>
+                  <button
+                    id="btn-toggle-backdrop"
+                    type="button"
+                    class="demo-playground__chip"
+                    css-is-active="true"
+                    aria-pressed="true"
+                  >
+                    ✨ 舞台背板模式
+                  </button>
+                  <button
+                    id="btn-toggle-minimal"
+                    type="button"
+                    class="demo-playground__chip demo-playground__chip--action"
+                  >
+                    ↘ 收合為懸浮泡泡
+                  </button>
+                </div>
+              </div>
+
+              <!-- 人格模式與多語系 -->
+              <div class="demo-playground__panel">
+                <div class="demo-playground__panel-head">
+                  <h3 class="demo-playground__panel-title">
+                    🧠 宣告式人格模式 (Modes)
+                  </h3>
+                  <span class="demo-playground__panel-hint"
+                    >widget.avatarMode</span
+                  >
+                </div>
+                <div class="demo-playground__controls">
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-avatar-mode
+                    data-value="assistant"
+                    css-is-active="true"
+                    aria-pressed="true"
+                  >
+                    💼 導覽助理 (Assistant)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-avatar-mode
+                    data-value="companion"
+                    aria-pressed="false"
+                  >
+                    ☕ 連續陪聊 (Companion)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-avatar-mode
+                    data-value="mentor"
+                    aria-pressed="false"
+                  >
+                    🧑‍💻 架構導師 (Custom Mode)
+                  </button>
+                </div>
+              </div>
+
+              <!-- 多語系即時切換 -->
+              <div class="demo-playground__panel">
+                <div class="demo-playground__panel-head">
+                  <h3 class="demo-playground__panel-title">
+                    🌐 介面與語音語系 (i18n)
+                  </h3>
+                  <span class="demo-playground__panel-hint"
+                    >i18nEngine.setLocale()</span
+                  >
+                </div>
+                <div class="demo-playground__controls">
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-locale
+                    data-value="zh-TW"
+                    css-is-active="true"
+                    aria-pressed="true"
+                  >
+                    繁體中文
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-locale
+                    data-value="en-US"
+                    aria-pressed="false"
+                  >
+                    English
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-locale
+                    data-value="ja-JP"
+                    aria-pressed="false"
+                  >
+                    日本語
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-locale
+                    data-value="ko-KR"
+                    aria-pressed="false"
+                  >
+                    한국어
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-locale
+                    data-value="zh-CN"
+                    aria-pressed="false"
+                  >
+                    简体中文
+                  </button>
+                </div>
+              </div>
+
+              <!-- 動作庫與表情對嘴測試 -->
+              <div class="demo-playground__panel demo-playground__panel--wide">
+                <div class="demo-playground__panel-head">
+                  <h3 class="demo-playground__panel-title">
+                    🎬 3D VRMA 動作庫、語意表情與遠端探活
+                  </h3>
+                  <span class="demo-playground__panel-hint"
+                    >widget.playGesture() / setEmotion() /
+                    pingAiProvider()</span
+                  >
+                </div>
+                <div class="demo-playground__controls">
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-gesture="goodbye"
+                  >
+                    👋 揮手 (goodbye)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-gesture="appearing"
+                  >
+                    ✨ 登場 (appearing)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-gesture="bow"
+                  >
+                    🙇 鞠躬 (bow)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-gesture="liked"
+                  >
+                    👍 按讚 (liked)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-gesture="thinking"
+                  >
+                    🤔 思考 (thinking)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-gesture="surprised"
+                  >
+                    😮 驚訝 (surprised)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-gesture="relax"
+                  >
+                    😌 放鬆 (relax)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-gesture="thankful"
+                  >
+                    🙏 感謝 (thankful)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-gesture="look-around"
+                  >
+                    👀 張望 (look-around)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-gesture="waiting"
+                  >
+                    ⏳ 等待 (waiting)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip demo-playground__chip--action"
+                    data-emotion="happy"
+                  >
+                    😊 開心表情
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip demo-playground__chip--action"
+                    data-emotion="sad"
+                  >
+                    😢 難過表情
+                  </button>
+                  <button
+                    id="btn-test-speak"
+                    type="button"
+                    class="demo-playground__chip demo-playground__chip--action"
+                  >
+                    🗣️ 測試開口對嘴
+                  </button>
+                  <button
+                    id="btn-ping-provider"
+                    type="button"
+                    class="demo-playground__chip demo-playground__chip--action"
+                  >
+                    📡 探活 AI Provider
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 即時事件輸出列 -->
+            <div class="demo-playground__log">
+              <span class="demo-playground__log-label">EVENT ▸</span>
+              <span id="playground-log-text" class="demo-playground__log-text"
+                >正在初始化 @ai-avatar-bot/sdk 虛擬人引擎…</span
+              >
+            </div>
+          </div>
+        </section>
+
+        <!-- Function Calling 工具調用與人工授權示範 -->
+        <section id="tools-demo" class="demo-section">
+          <div class="demo-section__head">
+            <p class="demo-section__eyebrow">Type-Safe Function Calling</p>
+            <h2 class="demo-section__title">
+              宿主網頁工具調用與 Human-in-the-Loop 授權確認
+            </h2>
+            <p class="demo-section__desc">
+              本頁已透過
+              <code>tools: ToolDefinition[]</code>
+              註冊三支真實宿主工具。無需開啟 LLM
+              也能透過前端規則秒配觸發，開啟大腦後更支援自然語言語意調用與參數抽取：
+            </p>
+          </div>
+
+          <div class="demo-tools__grid">
+            <article class="demo-tools__card">
+              <div class="demo-tools__card-head">
+                <code class="demo-tools__name">show_quick_start</code>
+                <span class="demo-tools__badge demo-tools__badge--instant"
+                  >直接執行</span
+                >
+              </div>
+              <h3 class="demo-tools__card-title">頁面區塊導覽捲動</h3>
+              <p class="demo-tools__card-desc">
+                示範無需確認的安全查詢／導覽型工具，觸發後自動平滑捲動至本頁的「快速開始」程式碼區塊。
+              </p>
+              <button
+                type="button"
+                class="demo-tools__prompt-btn"
+                data-tool-prompt="帶我看快速開始"
+              >
+                💬 發送：「帶我看快速開始」
+              </button>
+            </article>
+
+            <article class="demo-tools__card">
+              <div class="demo-tools__card-head">
+                <code class="demo-tools__name">change_demo_accent</code>
+                <span class="demo-tools__badge demo-tools__badge--confirm"
+                  >需人工確認</span
+                >
+              </div>
+              <h3 class="demo-tools__card-title">JSON Schema 參數＋授權彈窗</h3>
+              <p class="demo-tools__card-desc">
+                支援
+                <code>靛藍 / 薄荷綠 / 琥珀金 / 櫻花粉</code>
+                列舉驗證，觸發時自動展開歷史面板請求使用者點擊「確認」才變更主題色。
+              </p>
+              <button
+                type="button"
+                class="demo-tools__prompt-btn"
+                data-tool-prompt="把主題色換成薄荷綠"
+              >
+                💬 發送：「把主題色換成薄荷綠」
+              </button>
+            </article>
+
+            <article class="demo-tools__card">
+              <div class="demo-tools__card-head">
+                <code class="demo-tools__name">perform_avatar_bow</code>
+                <span class="demo-tools__badge demo-tools__badge--instant"
+                  >動作連動</span
+                >
+              </div>
+              <h3 class="demo-tools__card-title">工具與虛擬人肢體協同</h3>
+              <p class="demo-tools__card-desc">
+                在工具回呼內連動呼叫
+                <code>widget.playGesture('bow')</code
+                >，讓外部業務邏輯與角色肢體動作自然結合。
+              </p>
+              <button
+                type="button"
+                class="demo-tools__prompt-btn"
+                data-tool-prompt="請幫我鞠躬致意"
+              >
+                💬 發送：「請幫我鞠躬致意」
+              </button>
+            </article>
+          </div>
+        </section>
+
+        <!-- 快速開始與多環境程式碼範例 (Accessible Tablist) -->
+        <section id="quick-start" class="demo-section">
+          <div class="demo-section__head">
+            <p class="demo-section__eyebrow">Quick Start &amp; Integration</p>
+            <h2 class="demo-section__title">三分鐘嵌入你的專案</h2>
+            <p class="demo-section__desc">
+              同時提供完整 TypeScript 模組、按需 Tree-shaking 子路徑導出、免建置
+              ESM / IIFE 雙 CDN，以及 6 大主流前端框架零配置資產外掛。
+            </p>
+          </div>
+
+          <div class="demo-code">
+            <div
+              class="demo-code__tabs"
+              role="tablist"
+              aria-label="整合方式程式碼範例"
+            >
+              <button
+                id="tab-ts"
+                type="button"
+                role="tab"
+                class="demo-code__tab"
+                aria-selected="true"
+                aria-controls="panel-ts"
+              >
+                TypeScript / ESM
+              </button>
+              <button
+                id="tab-subpath"
+                type="button"
+                role="tab"
+                class="demo-code__tab"
+                aria-selected="false"
+                aria-controls="panel-subpath"
+                tabindex="-1"
+              >
+                Subpath 按需載入
+              </button>
+              <button
+                id="tab-cdn"
+                type="button"
+                role="tab"
+                class="demo-code__tab"
+                aria-selected="false"
+                aria-controls="panel-cdn"
+                tabindex="-1"
+              >
+                CDN 免建置引入
+              </button>
+              <button
+                id="tab-plugins"
+                type="button"
+                role="tab"
+                class="demo-code__tab"
+                aria-selected="false"
+                aria-controls="panel-plugins"
+                tabindex="-1"
+              >
+                Vite / Next / Nuxt 外掛
+              </button>
+            </div>
+
+            <!-- Panel 1: TypeScript -->
+            <div
+              id="panel-ts"
+              role="tabpanel"
+              aria-labelledby="tab-ts"
+              class="demo-code__panel"
+            >
+              <div class="demo-code__panel-bar">
+                <span class="demo-code__filename">src/main.ts</span>
+                <button
+                  type="button"
+                  class="demo-code__copy-btn"
+                  data-copy-target="code-ts"
+                >
+                  複製程式碼
+                </button>
+              </div>
+              <pre
+                tabindex="0"
+                class="demo-code__pre"
+              ><code id="code-ts">import {
+  initAvatarBot,
+  type AvatarBotOptions,
+  type AiAvatarWidget
+} from '@ai-avatar-bot/sdk';
+import '@ai-avatar-bot/sdk/style.css';
+
+const options: AvatarBotOptions = {
+  container: document.getElementById('avatar-container'),
+  startMode: '3d',          // '2d' (Live2D) | '3d' (VRM)
+  fitMode: 'half',          // 'half' (半身特寫) | 'full' (全身)
+  gender: 'female',
+  avatarMode: 'assistant',  // 'assistant' | 'companion' | 自訂模式鍵名
+  webLlmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+  webLlmFallbackModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+  enableOomFallback: true,
+  enableMemory: true
+};
+
+const widget: AiAvatarWidget = await initAvatarBot(options);</code></pre>
+            </div>
+
+            <!-- Panel 2: Subpaths -->
+            <div
+              id="panel-subpath"
+              role="tabpanel"
+              aria-labelledby="tab-subpath"
+              class="demo-code__panel"
+              hidden
+            >
+              <div class="demo-code__panel-bar">
+                <span class="demo-code__filename"
+                  >獨立子引擎與可選 Peer 依賴 (核心僅 223 KB)</span
+                >
+                <button
+                  type="button"
+                  class="demo-code__copy-btn"
+                  data-copy-target="code-subpath"
+                >
+                  複製程式碼
+                </button>
+              </div>
+              <pre
+                tabindex="0"
+                class="demo-code__pre"
+              ><code id="code-subpath">// 僅在需要時安裝對應渲染或推論 Peer 依賴：
+// 3D VRM  : yarn add three @pixiv/three-vrm @pixiv/three-vrm-animation
+// 2D Live2D: yarn add pixi.js pixi-live2d-display
+// WebLLM  : yarn add @mlc-ai/web-llm
+
+import { initBrainEngine, createStreamParser } from '@ai-avatar-bot/sdk/brain';
+import { initSpeechEngine, drainSentences } from '@ai-avatar-bot/sdk/speech';
+import { initSkinEngine } from '@ai-avatar-bot/sdk/skin';
+import { initToolsEngine, type ToolDefinition } from '@ai-avatar-bot/sdk/tools';
+import { GENDER_MAP, AVATAR_MODE_MAP } from '@ai-avatar-bot/sdk/constants';</code></pre>
+            </div>
+
+            <!-- Panel 3: CDN -->
+            <div
+              id="panel-cdn"
+              role="tabpanel"
+              aria-labelledby="tab-cdn"
+              class="demo-code__panel"
+              hidden
+            >
+              <div class="demo-code__panel-bar">
+                <span class="demo-code__filename"
+                  >index.html (ESM CDN / 傳統 IIFE 雙支援)</span
+                >
+                <button
+                  type="button"
+                  class="demo-code__copy-btn"
+                  data-copy-target="code-cdn"
+                >
+                  複製程式碼
+                </button>
+              </div>
+              <pre
+                tabindex="0"
+                class="demo-code__pre"
+              ><code id="code-cdn">&lt;link
+  rel="stylesheet"
+  href="https://cdn.jsdelivr.net/npm/@ai-avatar-bot/sdk@beta/dist/ai-avatar-bot.css"
+/&gt;
+&lt;div id="avatar-root"&gt;&lt;/div&gt;
+
+&lt;script type="module"&gt;
+  import { initAvatarBot } from 'https://cdn.jsdelivr.net/npm/@ai-avatar-bot/sdk@beta/+esm';
+
+  await initAvatarBot({
+    container: document.getElementById('avatar-root'),
+    welcomeText: '嗨！我是透過 CDN 載入的語音虛擬助理。'
+  });
+&lt;/script&gt;</code></pre>
+            </div>
+
+            <!-- Panel 4: Framework Build Plugins -->
+            <div
+              id="panel-plugins"
+              role="tabpanel"
+              aria-labelledby="tab-plugins"
+              class="demo-code__panel"
+              hidden
+            >
+              <div class="demo-code__panel-bar">
+                <span class="demo-code__filename"
+                  >零複製開發代理 &amp; 建構自動同步外掛</span
+                >
+                <button
+                  type="button"
+                  class="demo-code__copy-btn"
+                  data-copy-target="code-plugins"
+                >
+                  複製程式碼
+                </button>
+              </div>
+              <pre
+                tabindex="0"
+                class="demo-code__pre"
+              ><code id="code-plugins">// 1. Vite (Vue 3 / React / Svelte) — vite.config.ts
+import { avatarBotVitePlugin } from '@ai-avatar-bot/sdk/vite';
+export default { plugins: [avatarBotVitePlugin()] };
+
+// 2. Next.js (App / Pages Router, Turbopack &amp; Webpack) — next.config.mjs
+import { withAvatarBot } from '@ai-avatar-bot/sdk/next';
+export default withAvatarBot({});
+
+// 3. Nuxt 3 — nuxt.config.ts
+export default defineNuxtConfig({ modules: ['@ai-avatar-bot/sdk/nuxt'] });
+
+// 4. 或使用跨框架 CLI 自動偵測並同步 2D/3D 模型資產：
+// npx ai-avatar-bot sync</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- 六大解耦引擎架構 -->
+        <section id="architecture" class="demo-section">
+          <div class="demo-section__head">
+            <p class="demo-section__eyebrow">Modular Multi-Engine Design</p>
+            <h2 class="demo-section__title">六大高內聚、低耦合引擎架構</h2>
+            <p class="demo-section__desc">
+              從原版單體腳本全面重構為嚴格型別化的多引擎管線，任何子系統皆可獨立替換或以無頭模式（Headless
+              Mode）整合至既有設計系統。
+            </p>
+          </div>
+
+          <div class="demo-arch__grid">
+            <article class="demo-arch__card">
+              <div class="demo-arch__card-head">
+                <span class="demo-arch__icon" aria-hidden="true">🧠</span>
+                <div>
+                  <h3 class="demo-arch__card-title">大腦與記憶引擎</h3>
+                  <span class="demo-arch__card-sub"
+                    >@ai-avatar-bot/sdk/brain</span
+                  >
+                </div>
+              </div>
+              <ul class="demo-arch__list">
+                <li>
+                  遠端 AI Provider ➔ 瀏覽器 WebGPU WebLLM ➔ Bigram
+                  關鍵字檢索三層自動降級
+                </li>
+                <li>
+                  支援 <code>&lt;think&gt;</code>
+                  雙軌思考鏈串流解析與顯存不足（OOM）兩階段平滑保底
+                </li>
+                <li>
+                  滑動視窗與背景滾動摘要壓縮，內建
+                  <code>&lt;reference_data&gt;</code> 提示詞資料圍欄防禦
+                </li>
+              </ul>
+            </article>
+
+            <article class="demo-arch__card">
+              <div class="demo-arch__card-head">
+                <span class="demo-arch__icon" aria-hidden="true">🗣️</span>
+                <div>
+                  <h3 class="demo-arch__card-title">全雙工語音與對嘴引擎</h3>
+                  <span class="demo-arch__card-sub"
+                    >@ai-avatar-bot/sdk/speech</span
+                  >
+                </div>
+              </div>
+              <ul class="demo-arch__list">
+                <li>
+                  整合 Web Speech STT 與微軟神經網路
+                  TTS（異常時無縫降級跨平台原生語音）
+                </li>
+                <li>
+                  支援說話中即時語音插話打斷（Barge-in）與陪伴模式連續對話迴圈
+                </li>
+                <li>
+                  即時計算音訊頻譜振幅驅動模型嘴型開合（Real-time Lip Sync）
+                </li>
+              </ul>
+            </article>
+
+            <article class="demo-arch__card">
+              <div class="demo-arch__card-head">
+                <span class="demo-arch__icon" aria-hidden="true">🎭</span>
+                <div>
+                  <h3 class="demo-arch__card-title">2D / 3D 雙外觀渲染引擎</h3>
+                  <span class="demo-arch__card-sub"
+                    >@ai-avatar-bot/sdk/skin</span
+                  >
+                </div>
+              </div>
+              <ul class="demo-arch__list">
+                <li>
+                  同時支援 Pixi.js Live2D 與 Three.js VRM，運行時可一鍵熱切換
+                </li>
+                <li>
+                  內建 3D VRMA
+                  呼吸待機池、性別偶發小動作、說話動作池與游標視線追蹤
+                </li>
+                <li>
+                  支援四層語意動作解析與本地 <code>.vrm</code> 拖放即時換裝
+                </li>
+              </ul>
+            </article>
+
+            <article class="demo-arch__card">
+              <div class="demo-arch__card-head">
+                <span class="demo-arch__icon" aria-hidden="true">🛠️</span>
+                <div>
+                  <h3 class="demo-arch__card-title">
+                    Function Calling 工具引擎
+                  </h3>
+                  <span class="demo-arch__card-sub"
+                    >@ai-avatar-bot/sdk/tools</span
+                  >
+                </div>
+              </div>
+              <ul class="demo-arch__list">
+                <li>
+                  支援純前端規則秒配（<code>client</code>）、AI
+                  語意調用（<code>ai</code>）與雙軌混合（<code>hybrid</code>）
+                </li>
+                <li>內建 JSON Schema 必填參數追問補齊與型別驗證</li>
+                <li>敏感操作支援 Human-in-the-loop 授權確認卡片與逾時保護</li>
+              </ul>
+            </article>
+
+            <article class="demo-arch__card">
+              <div class="demo-arch__card-head">
+                <span class="demo-arch__icon" aria-hidden="true">🖥️</span>
+                <div>
+                  <h3 class="demo-arch__card-title">
+                    毛玻璃 UI 與響應式 Store
+                  </h3>
+                  <span class="demo-arch__card-sub"
+                    >BaseStore&lt;T&gt; &amp; Headless Ready</span
+                  >
+                </div>
+              </div>
+              <ul class="demo-arch__list">
+                <li>
+                  開箱即用的懸浮控制列、動態音量條、摺疊式思考鏈歷史抽屜與推薦問題膠囊
+                </li>
+                <li>
+                  採用型別安全單向資料流 Store（Pattern A
+                  非阻塞背景探活與狀態廣播）
+                </li>
+                <li>
+                  設定 <code>isMinimal: true</code> 即可由 React / Vue / Svelte
+                  完全接管自訂介面
+                </li>
+              </ul>
+            </article>
+
+            <article class="demo-arch__card">
+              <div class="demo-arch__card-head">
+                <span class="demo-arch__icon" aria-hidden="true">🌐</span>
+                <div>
+                  <h3 class="demo-arch__card-title">多語系與跨框架建構生態</h3>
+                  <span class="demo-arch__card-sub"
+                    >@ai-avatar-bot/sdk/i18n &amp; plugins</span
+                  >
+                </div>
+              </div>
+              <ul class="demo-arch__list">
+                <li>
+                  內建
+                  <code>zh-TW</code
+                  >、<code>en-US</code>、<code>ja-JP</code>、<code>ko-KR</code>、<code
+                    >zh-CN</code
+                  >
+                  五語系介面與提示詞字典
+                </li>
+                <li>
+                  提供 Vite、Next.js、Nuxt 3、Webpack 5、AnalogJS 與 Node.js
+                  資產輔助工具
+                </li>
+                <li>
+                  倉庫內附 8 套前端與全端框架直連範例（React / Vue / Next / Nuxt
+                  / Angular）
+                </li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <!-- 環境提醒 FAQ 與第三方資產授權揭露 -->
+        <section id="licenses" class="demo-section">
+          <div class="demo-section__head">
+            <p class="demo-section__eyebrow">FAQ &amp; Asset Licensing</p>
+            <h2 class="demo-section__title">
+              環境提醒、隱私流向與第三方資產授權
+            </h2>
+            <p class="demo-section__desc">
+              正式導入商業專案前，請詳閱瀏覽器環境建議、資料隱私邊界以及內建範例模型之版權規範。
+            </p>
+          </div>
+
+          <!-- 原生互斥手風琴 (<details name="demo-faq"> 支援頁面搜尋自動展開) -->
+          <div class="demo-faq">
+            <details class="demo-faq__item" name="demo-faq" open>
+              <summary class="demo-faq__summary">
+                💻 瀏覽器與硬體環境建議（推薦 Chrome / Edge 桌機版）
+              </summary>
+              <div class="demo-faq__content">
+                <p>
+                  建議使用最新版桌面端 <code>Chrome</code> 或
+                  <code>Edge</code> 瀏覽器以獲得最完整的 Web Speech 語音辨識與
+                  WebGPU 端側模型加速體驗；Safari 18+ 與行動裝置瀏覽器亦支援
+                  2D/3D 渲染與文字／知識庫對話。
+                </p>
+                <p>
+                  即使不點擊控制列的「🧠」下載 WebLLM 模型（首次約需快取
+                  1GB～4GB
+                  權重），虛擬人依然能透過內建高速檢索大腦秒速回答問題！
+                </p>
+              </div>
+            </details>
+
+            <details class="demo-faq__item" name="demo-faq">
+              <summary class="demo-faq__summary">
+                🔐 隱私保護與資料流向說明
+              </summary>
+              <div class="demo-faq__content">
+                <p>
+                  <strong>100% 留在本機：</strong>WebLLM
+                  端側推論與多輪對話記憶（<code>localStorage</code>）全程在您的瀏覽器記憶體中運算與儲存，絕不主動上傳外部伺服器；對麥克風說「忘記我」或點擊歷史面板「清除」即可清空紀錄。
+                </p>
+                <p>
+                  <strong>外部服務邊界：</strong
+                  >瀏覽器原生語音辨識（STT）會將音訊交由瀏覽器廠商雲端（如
+                  Google）辨識；語音合成（TTS）優先經由輕量 Serverless
+                  Proxy（<code>/api/tts</code>），離線或未配置時自動降級為 100%
+                  本機原生語音合成。
+                </p>
+              </div>
+            </details>
+
+            <details class="demo-faq__item" name="demo-faq">
+              <summary class="demo-faq__summary">
+                🔌 如何在本地開發串接 Ollama / OpenAI / Claude 等遠端 AI？
+              </summary>
+              <div class="demo-faq__content">
+                <p>
+                  在公開的 Vercel
+                  展示站中，為避免觸發瀏覽器區域網路（Loopback）權限彈窗，預設將
+                  <code>aiProviderAutoPing</code> 設為
+                  <code>'manual'</code>。若您在本地執行
+                  <code>yarn dev</code>，展示頁會自動透過 Vite 代理探活本機
+                  Ollama。
+                </p>
+                <p>
+                  在自有專案中只需設定
+                  <code>enableAiProvider: true</code>、<code
+                    >aiProviderBaseUrl</code
+                  >
+                  與不可變標頭
+                  <code>aiProviderHeaders</code>，即可無縫對接
+                  Ollama、vLLM、OpenAI、Anthropic 或自建 API Gateway。
+                </p>
+              </div>
+            </details>
+          </div>
+
+          <!-- 第三方資產授權聲明表格 -->
+          <div class="demo-license">
+            <p class="demo-license__notice">
+              ⚠️
+              <strong>商業部署重要提醒：</strong><code>@ai-avatar-bot/sdk</code>
+              之自有原始程式碼採用
+              <strong>MIT License</strong>
+              開源；但套件內附帶供技術展示用的<strong
+                >第三方運行時核心與範例角色模型不屬於 MIT 授權範圍</strong
+              >。商業上線前請務必透過 <code>modelUrl</code> 或
+              <code>vrmUrl</code> 替換為您自有或合法取得授權的模型資產。
+            </p>
+
+            <div class="demo-license__table-wrap">
+              <table class="demo-license__table">
+                <caption class="demo-license__caption">
+                  第三方運行庫、範例模型與動作資產授權對照表
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col" class="demo-license__th">項目 / 資產</th>
+                    <th scope="col" class="demo-license__th">授權協議</th>
+                    <th scope="col" class="demo-license__th">
+                      使用與商業散布規範
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="demo-license__row">
+                    <th scope="row" class="demo-license__th">
+                      SDK 核心原始碼 &amp; VRMA 動作庫
+                    </th>
+                    <td class="demo-license__td">
+                      <span class="demo-license__tag demo-license__tag--mit"
+                        >MIT / CC-BY 4.0</span
+                      >
+                    </td>
+                    <td class="demo-license__td">
+                      核心 TypeScript 程式碼（MIT）與內建 3D VRMA
+                      通用動作素材可自由用於個人與商業專案。
+                    </td>
+                  </tr>
+                  <tr class="demo-license__row">
+                    <th scope="row" class="demo-license__th">
+                      Pixi.js / Three.js / WebLLM
+                    </th>
+                    <td class="demo-license__td">
+                      <span class="demo-license__tag demo-license__tag--mit"
+                        >MIT / Apache-2.0</span
+                      >
+                    </td>
+                    <td class="demo-license__td">
+                      開源 WebGL 2D/3D 渲染器與瀏覽器 WebGPU
+                      端側推論引擎，透過可選 Peer Dependencies 按需引入。
+                    </td>
+                  </tr>
+                  <tr class="demo-license__row">
+                    <th scope="row" class="demo-license__th">
+                      Live2D Cubism Core
+                    </th>
+                    <td class="demo-license__td">
+                      <span class="demo-license__tag demo-license__tag--caution"
+                        >Proprietary</span
+                      >
+                    </td>
+                    <td class="demo-license__td">
+                      Live2D
+                      官方專有執行環境（非開源），用於商業產品發布時請確認符合
+                      Live2D 官方授權條款。
+                    </td>
+                  </tr>
+                  <tr class="demo-license__row">
+                    <th scope="row" class="demo-license__th">
+                      Haru / Natori 2D 範例模型
+                    </th>
+                    <td class="demo-license__td">
+                      <span
+                        class="demo-license__tag demo-license__tag--restricted"
+                        >Free Material</span
+                      >
+                    </td>
+                    <td class="demo-license__td">
+                      僅供技術展示與開發測試，不可直接部署於商業產品。
+                    </td>
+                  </tr>
+                  <tr class="demo-license__row">
+                    <th scope="row" class="demo-license__th">
+                      初音未來 / 洛克人 EXE VRM
+                    </th>
+                    <td class="demo-license__td">
+                      <span
+                        class="demo-license__tag demo-license__tag--restricted"
+                        >PCL / Capcom</span
+                      >
+                    </td>
+                    <td class="demo-license__td">
+                      角色 IP 分屬 Crypton Future Media 與
+                      CAPCOM，嚴格限於個人非商業技術展示使用。
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- 頁尾與致謝 -->
+    <footer class="demo-footer">
+      <div class="demo-footer__inner">
+        <div class="demo-footer__content">
+          <p class="demo-footer__credit">
+            本套件架構與核心靈感源自原作者
+            <a
+              href="https://github.com/YuriCrystal/ai-avatar-bot"
+              target="_blank"
+              rel="noopener noreferrer"
+              >YuriCrystal / ai-avatar-bot</a
+            >
+            的開源探索，並經大規模模組化拆分與 100% 原生 TypeScript 工程化重構為
+            <code>@ai-avatar-bot/sdk</code>。
+          </p>
+          <ul class="demo-footer__links" role="list">
+            <li>
+              <a
+                href="https://www.npmjs.com/package/@ai-avatar-bot/sdk"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="demo-footer__link"
+                >📦 NPM (@ai-avatar-bot/sdk)</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://github.com/archer102125220/ai-avatar-bot"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="demo-footer__link"
+                >🐙 GitHub Monorepo</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://github.com/archer102125220/ai-avatar-bot/tree/preview/examples"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="demo-footer__link"
+                >🧩 8 大框架整合範例</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://ai-avatar-bot-iframe-demo.vercel.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="demo-footer__link"
+                >🖼️ 經典 Iframe 展示站</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://github.com/archer102125220/ai-avatar-bot/issues"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="demo-footer__link"
+                >💬 問題回報 (Issues)</a
+              >
+            </li>
+          </ul>
+        </div>
+      </div>
+    </footer>
+
+    <!-- 右下角 / 右側舞台虛擬人掛載容器 -->
+    <div
+      id="app"
+      class="demo-stage"
+      css-stage-backdrop="card"
+      css-is-minimal="false"
+    ></div>
+
+    <script type="module" src="/example/demo.ts"></script>
   </body>
 </html>

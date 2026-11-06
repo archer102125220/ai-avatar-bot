@@ -2,12 +2,14 @@
   "extends": "./tsconfig.json",
   "include": [
     "core/**/*",
+    "example/**/*",
     "test/**/*",
     "*.config.ts",
     "*.d.ts"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "dist-demo"
   ]
 }
