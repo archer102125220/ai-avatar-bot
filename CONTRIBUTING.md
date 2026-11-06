@@ -2,6 +2,8 @@
 
 本文件規範 `ai-avatar-bot` Monorepo 的**五階分支策略**、**套件與 Vercel Demo 對照矩陣**、**跨平台版本號防呆機制**，以及從 `@beta` 晉升至 `@latest` 正式版的**手動畢業與反向同步（Back-merge）SOP**。
 
+> 📘 **跨專案通用部署教學手冊**：若欲在其他新專案複製本倉庫的 NPM 自動發布與 Vercel 多專案部署管線（含完整設定範本與 11 項實戰除錯速查），請參閱 [`docs/NPM_AND_VERCEL_DEPLOYMENT_GUIDE.md`](./docs/NPM_AND_VERCEL_DEPLOYMENT_GUIDE.md)。
+
 ---
 
 ## 📦 一、Monorepo 套件與 Vercel Demo 對照矩陣
@@ -11,7 +13,7 @@
 
 | 倉庫目錄路徑 | NPM 套件名稱 | GitHub Actions CI/CD | Vercel 專案名稱 | Vercel 網域 (正式 / 預覽) | 定位說明 |
 | :--- | :---: | :---: | :--- | :--- | :--- |
-| [`typescript`](./typescript) | **`@ai-avatar-bot/sdk`** | ✅ 全量 CI + 自動 CD | `ai-avatar-bot-sdk-demo` | `https://ai-avatar-bot-sdk-demo.vercel.app`<br>`https://beta.ai-avatar-bot-sdk-demo.vercel.app` | 原生 TypeScript 旗艦核心 SDK（含完整 UI Widget、2D/3D 雙渲染、語音與大腦引擎） |
+| [`typescript`](./typescript) | **`@ai-avatar-bot/sdk`** | ✅ 全量 CI + 自動 CD | `ai-avatar-bot-sdk-demo` | `https://ai-avatar-bot-sdk-demo.vercel.app`<br>`https://ai-avatar-bot-sdk-demo-beta.vercel.app` | 原生 TypeScript 旗艦核心 SDK（含完整 UI Widget、2D/3D 雙渲染、語音與大腦引擎） |
 | [`iframe`](./iframe) | ❌ **不發布** | ❌ **不跑 CI/CD** | `ai-avatar-bot-iframe-demo` | `https://ai-avatar-bot-iframe-demo.vercel.app` | **經典純 Demo 部署**：展示 `embed.js` 一行腳本嵌入與 Serverless TTS，不發布 NPM 套件 |
 | [`vue`](./vue) | **`@ai-avatar-bot/vue`** | 🚧 進行中 | `ai-avatar-bot-vue-demo` | `https://ai-avatar-bot-vue-demo.vercel.app` | Vue 3 官方封裝元件庫 |
 | [`react`](./react) | **`@ai-avatar-bot/react`** | 🚧 進行中 | `ai-avatar-bot-react-demo` | `https://ai-avatar-bot-react-demo.vercel.app` | React 18 / 19 官方封裝元件庫 |

@@ -30,7 +30,7 @@
 
 | 套件目錄 | NPM 套件名稱 | CI/CD 與發布策略 | 線上展示站 (Vercel Demo) | 定位與特點說明 | 快速連結 |
 | :--- | :--- | :---: | :--- | :--- | :---: |
-| [`/typescript`](./typescript) | **`@ai-avatar-bot/sdk`** | ✅ 全量 CI + 自動 CD (`@beta` / `@latest`) | [正式站](https://ai-avatar-bot-sdk-demo.vercel.app)<br>[Beta 試玩站](https://beta.ai-avatar-bot-sdk-demo.vercel.app) | **100% 原生 TypeScript 旗艦核心 SDK**。支援 Subpath 按需導出 (`/brain`, `/skin` 等)、ESM/IIFE 雙 CDN 構建、可選 Peer 依賴極致輕量化 (核心僅 223KB)、CLI 資產同步工具與 6+ 框架外掛。 | [📄 詳細文件](./typescript/README_ZH.md) |
+| [`/typescript`](./typescript) | **`@ai-avatar-bot/sdk`** | ✅ 全量 CI + 自動 CD (`@beta` / `@latest`) | [正式站](https://ai-avatar-bot-sdk-demo.vercel.app)<br>[Beta 試玩站](https://ai-avatar-bot-sdk-demo-beta.vercel.app) | **100% 原生 TypeScript 旗艦核心 SDK**。支援 Subpath 按需導出 (`/brain`, `/skin` 等)、ESM/IIFE 雙 CDN 構建、可選 Peer 依賴極致輕量化 (核心僅 223KB)、CLI 資產同步工具與 6+ 框架外掛。 | [📄 詳細文件](./typescript/README_ZH.md) |
 | [`/iframe`](./iframe) | ❌ **不發布 NPM** | ❌ **不跑 CI/CD**（純 Demo） | [經典展示站](https://ai-avatar-bot-iframe-demo.vercel.app) | **經典純 Demo 靜態與 Serverless 部署**。保留原作者經典 Iframe 與 `embed.js` 一行腳本嵌入設計，作為歷史演進與極致 DOM/CSS 隔離展示。 | [📄 詳細文件](./iframe/README.md) |
 | [`/vue`](./vue) | **`@ai-avatar-bot/vue`** | 🚧 進行中 | `ai-avatar-bot-vue-demo` | 針對 **Vue 3** 封裝的專屬元件庫。提供 `<AiAvatarBot />` 元件與 `useAvatar` 組合式函式 (Composables)。 | [📁 原始碼](./vue) |
 | [`/react`](./react) | **`@ai-avatar-bot/react`** | 🚧 進行中 | `ai-avatar-bot-react-demo` | 針對 **React 18 / 19** 封裝的專屬元件庫。提供 `<AiAvatarBot />` 元件與 `useAvatar` Hooks。 | [📁 原始碼](./react) |
