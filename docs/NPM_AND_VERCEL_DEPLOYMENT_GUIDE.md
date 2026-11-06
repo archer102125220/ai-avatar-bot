@@ -322,7 +322,7 @@ on:
 | **Node.js Version** | **`24.x`**（或 `22.x`，切勿盲用預設超新版如 `26.x`） | **`24.x`** |
 | **Build Command** | **`yarn build:demo`** | 留空（預設） |
 | **Output Directory** | **`dist-demo`** | 留空（預設） |
-| **Ignored Build Step** | **`git diff --quiet HEAD^ HEAD ./`** | **`git diff --quiet HEAD^ HEAD ./`** |
+| **Ignored Build Step** | **`git diff --quiet HEAD^ HEAD ./ ../shared`** *(若有跨目錄共用程式碼)* | **`git diff --quiet HEAD^ HEAD ./`** |
 | **Environment Variables** | **`ENABLE_EXPERIMENTAL_COREPACK=1`** *(Yarn 4 必設！)* | 依專案需求設定 |
 | **Production 網域** | `<project>.vercel.app`（綁定 `main`） | `<project>.vercel.app`（綁定 `main`） |
 | **Beta 預覽網域** | **`<project>-beta.vercel.app`**（綁定 `preview` 分支） | 選配 |
@@ -399,6 +399,32 @@ Vercel 新專案預設開啟 **Vercel Authentication (`Standard Protection`)**�
 * **本機開發者免關保護快速測試**：執行 `npx vercel curl https://<project>-beta.vercel.app/`。
 * **對外公開作為社群試玩站**：前往 Vercel 專案後台 **Settings ➔ Deployment Protection ➔ Vercel Authentication**，將保護切換為 **Disabled**（或透過 API 將 `ssoProtection` 設為 `null`）並儲存，外部訪客即可直接點開網址體驗。
 
+### 7.3 Monorepo 共用 API 轉接為 Vercel Serverless Function 與公開環境防呆
+
+本地開發時若在 `vite.config.ts` 透過自訂 Plugin（`configureServer`）攔截 `/api/*`，該伺服器中介層**不會**在靜態打包（`vite build` 輸出 `dist-demo/`）後自動生效。上線至 Vercel 時請依 API 性質分流處理：
+
+1. **無狀態雲端可執行 API（如 `/api/tts` 語音合成）**：
+   * 在子專案建立 `api/tts.ts` 單行轉發 Monorepo 共用實作：
+     ```ts
+     // typescript/api/tts.ts
+     // ⚠️ 若 package.json 設有 "type": "module"，Node 24 原生 ESM 執行期強制要求明確寫出 .js 副檔名！
+     export { default } from '../../shared/api/tts.js';
+     ```
+   * 只要 `package.json` 已設定 `"files": ["dist", ...]` 白名單，`api/` 目錄就只會服務 Vercel Demo，**絕不會混入 NPM 發布套件**（可用 `npm pack --dry-run` 驗證）。
+   * 同步將 Vercel 的 **Ignored Build Step** 擴充為 `git diff --quiet HEAD^ HEAD ./ ../shared`，確保修改共用 API 時也會觸發重新部署。
+2. **僅限本機硬體的本地代理 API（如 `/api/ollama` 連本機 `127.0.0.1:11434`）**：
+   * 雲端容器沒有本機 Ollama，且現代瀏覽器對公開 HTTPS 網站主動探測 Loopback 位址設有嚴格權限提示。請在 Demo `index.html` 判斷是否為本機 Loopback，僅在本地開發開啟自動探活：
+     ```js
+     const currentHostname = window.location.hostname;
+     const isLocalLoopback =
+       currentHostname === 'localhost' ||
+       currentHostname === '127.0.0.1' ||
+       currentHostname === '[::1]';
+
+     // 公開線上環境停用預設本地端點並改為手動探活，優先走純前端 WebGPU / 內建知識庫
+     const aiProviderBaseUrl = isLocalLoopback === true ? `${window.location.origin}/api/ollama` : '';
+     ```
+
 ---
 
 ## 🎓 八、階段七：日常維運 SOP
@@ -457,7 +483,7 @@ git checkout ai-agent && git merge staging && git push origin ai-agent
 
 ---
 
-## 🧯 附錄 A：11 個真實踩坑與秒解速查表
+## 🧯 附錄 A：12 個真實踩坑與秒解速查表
 
 | # | 現象 / 報錯訊息 | 根本原因 | 秒解方案 |
 | :-: | :--- | :--- | :--- |
@@ -472,6 +498,7 @@ git checkout ai-agent && git merge staging && git push origin ai-agent
 | **9** | Monorepo 子專案在 Vercel 構建時跑成 `yarn install v1.22.19` 而非 Yarn 4 | `Root Directory` 指向子目錄時，Vercel 預設未自動啟動根目錄的 Corepack | 在 Vercel 專案新增環境變數 **`ENABLE_EXPERIMENTAL_COREPACK=1`**（全環境勾選） |
 | **10** | Vercel 新增網域 `beta.<project>.vercel.app` 報 `403 Forbidden` | `*.vercel.app` 公用萬用憑證不允許四層子網域 | 改用三層連字號網域 **`<project>-beta.vercel.app`** 並綁定至 `preview` 分支 |
 | **11** | 無痕視窗打開 `<project>-beta.vercel.app` 被跳轉到 Vercel 登入畫面 | Vercel 新專案預設對 Preview 環境開啟 `Standard Protection` (SSO) | 至 Vercel 專案 **Settings ➔ Deployment Protection** 將 **Vercel Authentication** 改為 `Disabled`（若欲公開給所有人試玩） |
+| **12** | Vercel Serverless Function 執行時報 `ERR_MODULE_NOT_FOUND` | 子專案設有 `"type": "module"` 時，`@vercel/node` 以原生 ESM 編譯，Node 24 要求相對匯入必帶 `.js` 副檔名 | 將 `api/*.ts` 中的轉發路徑明確加上 `.js`（例如 `export { default } from '../../shared/api/tts.js'`） |
 
 ---
 

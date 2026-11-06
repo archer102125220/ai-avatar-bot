@@ -37,6 +37,12 @@
       } from '@/core';
       import { KNOWLEDGE, COMPANION_KNOWLEDGE } from '@/example/knowledge';
 
+      const currentHostname = window.location.hostname;
+      const isLocalLoopback =
+        currentHostname === 'localhost' ||
+        currentHostname === '127.0.0.1' ||
+        currentHostname === '[::1]';
+
       const app = document.getElementById('app');
       window.aiAvatarWidget = await initAvatarBot({
         container: app,
@@ -52,9 +58,14 @@
         // aiProviderModel: 'hermes3:8b', // 遠端伺服器預設旗艦模型 (Ollama / vLLM)
         // aiProviderModel: 'qwen2.5:latest',
         aiProviderModel: 'gemma4:12b',
-        aiProviderBaseUrl: 'http://localhost:5173/api/ollama',
-        // AI Provider 探活策略與自訂端點（非阻塞背景探活，首頁秒開）
-        aiProviderAutoPing: AI_PROVIDER_PING_STRATEGY_MAP.EAGER, // 'eager' (預設非阻塞背景探活) | 'lazy' (延遲首問) | 'manual' (手動探活)
+        // 本地開發時透過 Vite 代理連本機 Ollama；部署至公開網域（如 Vercel Demo）時停用預設本地端點，避免觸發瀏覽器 Loopback 權限提示或連線錯誤
+        aiProviderBaseUrl:
+          isLocalLoopback === true ? `${window.location.origin}/api/ollama` : '',
+        // AI Provider 探活策略與自訂端點（非阻塞背景探活，首頁秒開；公開線上環境改為 manual 優先走內建知識庫與純前端 WebLLM）
+        aiProviderAutoPing:
+          isLocalLoopback === true
+            ? AI_PROVIDER_PING_STRATEGY_MAP.EAGER
+            : AI_PROVIDER_PING_STRATEGY_MAP.MANUAL, // 'eager' (預設非阻塞背景探活) | 'lazy' (延遲首問) | 'manual' (手動探活)
         // aiProviderPingUrl: '/api/tags', // 可選自訂端點路徑（未設定時自動推導 Ollama: /api/tags 或 OpenAI: /models）
         // ⚠️ [實驗性 Experimental] 推論思考過程設定（目前推論輸出各模型穩定度尚在驗證中，可依情境評估使用）
         reasoning: {
