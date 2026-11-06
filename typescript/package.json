@@ -16,7 +16,9 @@
   ],
   "sideEffects": [
     "*.css",
+    "**/*.css",
     "*.scss",
+    "**/*.scss",
     "./dist/*.css"
   ],
   "main": "./dist/ai-avatar-bot.cjs",

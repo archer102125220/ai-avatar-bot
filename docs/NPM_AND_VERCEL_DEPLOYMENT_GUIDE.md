@@ -16,7 +16,7 @@
 6. [階段五：GitHub Actions 雙工作流（CI 守門 + 路徑過濾自動 CD）](#-六階段五github-actions-雙工作流ci-守門--路徑過濾自動-cd)
 7. [階段六：Vercel 多專案連接、網域綁定與 CLI 自動化檢修](#-七階段六vercel-多專案連接網域綁定與-cli-自動化檢修)
 8. [階段七：日常維運 SOP（Beta 迭代、未改版號觸發規則、正式版畢業、反向同步）](#-八階段七日常維運-sop)
-9. [附錄 A：13 個真實踩坑與秒解速查表（Troubleshooting）](#-附錄-a13-個真實踩坑與秒解速查表)
+9. [附錄 A：14 個真實踩坑與秒解速查表（Troubleshooting）](#-附錄-a14-個真實踩坑與秒解速查表)
 10. [附錄 B：新專案一鍵套用之 AI 啟動 Prompt 範本](#-附錄-b新專案一鍵套用之-ai-啟動-prompt-範本)
 
 ---
@@ -505,7 +505,7 @@ git checkout ai-agent && git merge staging && git push origin ai-agent
 
 ---
 
-## 🧯 附錄 A：13 個真實踩坑與秒解速查表
+## 🧯 附錄 A：14 個真實踩坑與秒解速查表
 
 | # | 現象 / 報錯訊息 | 根本原因 | 秒解方案 |
 | :-: | :--- | :--- | :--- |
@@ -522,6 +522,7 @@ git checkout ai-agent && git merge staging && git push origin ai-agent
 | **11** | 無痕視窗打開 `<project>-beta.vercel.app` 被跳轉到 Vercel 登入畫面 | Vercel 新專案預設對 Preview 環境開啟 `Standard Protection` (SSO) | 至 Vercel 專案 **Settings ➔ Deployment Protection** 將 **Vercel Authentication** 改為 `Disabled`（若欲公開給所有人試玩） |
 | **12** | Vercel Serverless Function 執行時報 `ERR_MODULE_NOT_FOUND` | 子專案設有 `"type": "module"` 時，`@vercel/node` 以原生 ESM 編譯，Node 24 要求相對匯入必帶 `.js` 副檔名 | 將 `api/*.ts` 中的轉發路徑明確加上 `.js`（例如 `export { default } from '../../shared/api/tts.js'`） |
 | **13** | 跨目錄轉發 `shared/api/*.ts` 在本機沒事，上 Vercel 雲端報 `SyntaxError: Cannot use import statement outside a module` | Vercel AWS Lambda 啟動器（`/opt/rust/nodejs.js`）跨出子專案後，因上層根目錄 `package.json` 未設 `"type": "module"` 而將共用檔強制視為 CommonJS | 在 `shared/api/package.json` 新增 `{"type": "module"}`（限縮於該子目錄內，不影響外層 Vite 插件使用 `__dirname`） |
+| **14** | 本地 `yarn dev` 有樣式，但 `build:demo` 部署上 Vercel 後整頁樣式消失 | `package.json` 宣告 `"sideEffects": ["*.css", "*.scss"]` 後，純轉發檔 `core/index.ts` 被視為無副作用，Vite 8 / Rolldown 啟動 Barrel Optimization 直接繞過 `core/index.ts`，切斷裡面的 `import '@/style/style.scss'` | 將 `import '@/style/style.scss'` 移至實際掛載 DOM 的 `core/ui/dom.ts`，並將 `sideEffects` 擴充為 `["*.css", "**/*.css", "*.scss", "**/*.scss", "./dist/*.css"]` |
 
 ---
 

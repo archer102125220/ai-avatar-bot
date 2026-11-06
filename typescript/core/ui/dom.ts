@@ -1,3 +1,4 @@
+import '@/style/style.scss';
 import type { I18nEngine } from '@/core/i18n';
 import type { UiDom } from './types';
 
