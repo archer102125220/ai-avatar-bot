@@ -15,8 +15,8 @@
 5. [階段四：五階分支體系與 CI 額度精算策略](#-五階段四五階分支體系與-ci-額度精算策略)
 6. [階段五：GitHub Actions 雙工作流（CI 守門 + 路徑過濾自動 CD）](#-六階段五github-actions-雙工作流ci-守門--路徑過濾自動-cd)
 7. [階段六：Vercel 多專案連接、網域綁定與 CLI 自動化檢修](#-七階段六vercel-多專案連接網域綁定與-cli-自動化檢修)
-8. [階段七：日常維運 SOP（Beta 迭代、正式版畢業 4 步曲、反向同步）](#-八階段七日常維運-sop)
-9. [附錄 A：11 個真實踩坑與秒解速查表（Troubleshooting）](#-附錄-a11-個真實踩坑與秒解速查表)
+8. [階段七：日常維運 SOP（Beta 迭代、未改版號觸發規則、正式版畢業、反向同步）](#-八階段七日常維運-sop)
+9. [附錄 A：13 個真實踩坑與秒解速查表（Troubleshooting）](#-附錄-a13-個真實踩坑與秒解速查表)
 10. [附錄 B：新專案一鍵套用之 AI 啟動 Prompt 範本](#-附錄-b新專案一鍵套用之-ai-啟動-prompt-範本)
 
 ---
@@ -57,6 +57,7 @@ flowchart TD
 | **Monorepo 根配置** | [`../package.json`](../package.json) | 宣告 `workspaces`、`packageManager` (`yarn@4.17.0`)、Husky `prepare` 與統一構建/測試指令 |
 | **SDK 發布配置** | [`../typescript/package.json`](../typescript/package.json) | Scoped 名稱 `@ai-avatar-bot/sdk`、`publishConfig`、`exports`、`files`、`prepublishOnly` |
 | **Demo 獨立打包配置** | [`../typescript/vite.demo.config.ts`](../typescript/vite.demo.config.ts) | 將 `index.html` 與靜態資產獨立打包至 `dist-demo/` 供 Vercel 部署 |
+| **Demo Serverless 轉接** | [`../typescript/api/tts.ts`](../typescript/api/tts.ts)、[`../shared/api/package.json`](../shared/api/package.json) | 將 Monorepo 共用 API 轉發為 Vercel Node 24 Serverless Function 且不污染 NPM 套件 |
 | **純靜態/Serverless 配置** | [`../iframe/vercel.json`](../iframe/vercel.json) | 不發 NPM、純做 Vercel Demo 與 Serverless API 的輕量配置範例 |
 | **跨平台版本守門腳本** | [`../scripts/verify-branch-version.mjs`](../scripts/verify-branch-version.mjs) | 同時支援本地 Husky `pre-push` 與雲端 GitHub Actions 的 SemVer 分支防呆腳本 |
 | **Husky Pre-push Hook** | [`../.husky/pre-push`](../.husky/pre-push) | 內建 `fnm` / `nvm` / Homebrew PATH 偵測保護，確保 GUI Git 工具也能找到 `node` |
@@ -410,7 +411,14 @@ Vercel 新專案預設開啟 **Vercel Authentication (`Standard Protection`)**�
      // ⚠️ 若 package.json 設有 "type": "module"，Node 24 原生 ESM 執行期強制要求明確寫出 .js 副檔名！
      export { default } from '../../shared/api/tts.js';
      ```
-   * 只要 `package.json` 已設定 `"files": ["dist", ...]` 白名單，`api/` 目錄就只會服務 Vercel Demo，**絕不會混入 NPM 發布套件**（可用 `npm pack --dry-run` 驗證）。
+   * **在共用 API 目錄補上獨立的 ESM 宣告（`shared/api/package.json`）**：
+     ```json
+     {
+       "type": "module"
+     }
+     ```
+     > **為什麼本機沒事、雲端卻必加？** 本機 Node 24 具備自動語法偵測，但 Vercel 雲端 AWS Lambda 啟動器（`/opt/rust/nodejs.js`）在跨出 `typescript/` 後會往上尋找最近的 `package.json`；若 Monorepo 根目錄未設 `"type": "module"`，雲端會將 `/var/task/shared/api/tts.js` 當成 CommonJS 載入而崩潰。將 `{"type": "module"}` 精準放在 `shared/api/` 內，`@vercel/nft` 打包時會自動一併帶上，且不會影響外層 `shared/vite-api-plugin.ts` 使用 CommonJS 的 `__dirname`。
+   * 只要子專案 `package.json` 已設定 `"files": ["dist", ...]` 白名單，`api/` 目錄就只會服務 Vercel Demo，**絕不會混入 NPM 發布套件**（可用 `npm pack --dry-run` 驗證）。
    * 同步將 Vercel 的 **Ignored Build Step** 擴充為 `git diff --quiet HEAD^ HEAD ./ ../shared`，確保修改共用 API 時也會觸發重新部署。
 2. **僅限本機硬體的本地代理 API（如 `/api/ollama` 連本機 `127.0.0.1:11434`）**：
    * 雲端容器沒有本機 Ollama，且現代瀏覽器對公開 HTTPS 網站主動探測 Loopback 位址設有嚴格權限提示。請在 Demo `index.html` 判斷是否為本機 Loopback，僅在本地開發開啟自動探活：
@@ -443,7 +451,21 @@ Vercel 新專案預設開啟 **Vercel Authentication (`Standard Protection`)**�
    ```
 3. 合併至 `staging` 確認 `CI Gatekeeper` 全綠 ➔ 合併並推送至 `preview` ➔ 自動上架 `@your-org/sdk@1.0.0-beta.1` (`@beta`) 並更新 Vercel Beta 站！
 
-### 8.2 從 `@beta` 畢業轉正至 `@latest` 正式版的 4 步曲
+### 8.2 只更新 Demo 或文件但「未改版號」推送時，各管線觸發行為對照表
+
+當你只修改了線上 Demo 頁面（如 `typescript/index.html`、`typescript/api/tts.ts`）或專案文件，**沒有改動 `package.json` 的 `version`（例如維持已發過的 `1.0.0-beta.0`）**直接推送時，各分支與管線的實際行為如下：
+
+| 推送目標分支 | 本地 `pre-push` 防呆 | GitHub `CI Gatekeeper` | GitHub `Release SDK`（NPM 發布） | Vercel Demo 部署 |
+| :--- | :--- | :--- | :--- | :--- |
+| **`dev` / `ai-agent`** | ✅ 直接放行 | ⏭️ 不觸發（省額度） | ⏭️ 不觸發 | 僅當監聽目錄有變更時建立分支專屬預覽網址 |
+| **`staging`** | ✅ 直接放行 | ✅ **會跑**（Lint / Typecheck / Test / Build） | ⏭️ 不觸發 | 僅當監聽目錄有變更時建立分支專屬預覽網址 |
+| **`preview`** *(維持既有 `-beta.x`)* | ✅ **放行**（規則 A 僅要求含 `-beta.` 後綴） | ✅ **會跑**（完整品質守門） | • 未改 `typescript/**`：⏭️ **不觸發**<br>• 有改 `typescript/**`：✅ **會觸發，但偵測到既有 Git Tag（`already_tagged=true`）後自動 `Skipped` 安全跳過 `npm publish` 與打 Tag，全綠結束不報錯！** | ✅ 若 `typescript/` 或 `shared/` 有變更，**自動更新 `<project>-beta.vercel.app`** |
+| **`main`** *(未遞增正式版號)* | 🛑 **直接攔截！**（規則 B 強制要求版號嚴格 `>` 最新 SemVer Tag） | 🛑 若繞過本地直接發 PR 也會被雲端攔截 | 🔒 受規則 B 保護，強制每次進 `main` 皆須明確遞增正式版號 | 隨正式發版同步更新正式站 |
+
+> [!TIP]
+> **實戰結論**：在 Beta 階段若只想單純熱修補線上 `<project>-beta.vercel.app` 試玩站（如調整 Demo 參數或 `/api/tts`）而不想發新的 NPM 版本，**直接維持原 `-beta` 版號合併推上 `preview` 即可**——Vercel 會自動更新網站，而 NPM 發布管線會自動安全略過！
+
+### 8.3 從 `@beta` 畢業轉正至 `@latest` 正式版的 4 步曲
 
 當 Beta 驗證穩定、準備正式發布 `1.0.0` 時：
 
@@ -469,7 +491,7 @@ Vercel 新專案預設開啟 **Vercel Authentication (`Standard Protection`)**�
 4. **合併進入 `main`**：
    Merge PR 後，GitHub Actions 自動發布 `@your-org/sdk@1.0.0` (`@latest`)、打上 `v1.0.0` Git Tag 與正式版 Release，且 Vercel 自動點亮正式站 `https://<project>.vercel.app`！
 
-### 8.3 正式版發布後的反向同步（Back-merge SOP）
+### 8.4 正式版發布後的反向同步（Back-merge SOP）
 
 每次 `main` 發布完成後，**務必將 `main` 反向合併回下游分支**，避免分支歷史分岔或下次版號倒退：
 
@@ -483,7 +505,7 @@ git checkout ai-agent && git merge staging && git push origin ai-agent
 
 ---
 
-## 🧯 附錄 A：12 個真實踩坑與秒解速查表
+## 🧯 附錄 A：13 個真實踩坑與秒解速查表
 
 | # | 現象 / 報錯訊息 | 根本原因 | 秒解方案 |
 | :-: | :--- | :--- | :--- |
@@ -499,6 +521,7 @@ git checkout ai-agent && git merge staging && git push origin ai-agent
 | **10** | Vercel 新增網域 `beta.<project>.vercel.app` 報 `403 Forbidden` | `*.vercel.app` 公用萬用憑證不允許四層子網域 | 改用三層連字號網域 **`<project>-beta.vercel.app`** 並綁定至 `preview` 分支 |
 | **11** | 無痕視窗打開 `<project>-beta.vercel.app` 被跳轉到 Vercel 登入畫面 | Vercel 新專案預設對 Preview 環境開啟 `Standard Protection` (SSO) | 至 Vercel 專案 **Settings ➔ Deployment Protection** 將 **Vercel Authentication** 改為 `Disabled`（若欲公開給所有人試玩） |
 | **12** | Vercel Serverless Function 執行時報 `ERR_MODULE_NOT_FOUND` | 子專案設有 `"type": "module"` 時，`@vercel/node` 以原生 ESM 編譯，Node 24 要求相對匯入必帶 `.js` 副檔名 | 將 `api/*.ts` 中的轉發路徑明確加上 `.js`（例如 `export { default } from '../../shared/api/tts.js'`） |
+| **13** | 跨目錄轉發 `shared/api/*.ts` 在本機沒事，上 Vercel 雲端報 `SyntaxError: Cannot use import statement outside a module` | Vercel AWS Lambda 啟動器（`/opt/rust/nodejs.js`）跨出子專案後，因上層根目錄 `package.json` 未設 `"type": "module"` 而將共用檔強制視為 CommonJS | 在 `shared/api/package.json` 新增 `{"type": "module"}`（限縮於該子目錄內，不影響外層 Vite 插件使用 `__dirname`） |
 
 ---
 
