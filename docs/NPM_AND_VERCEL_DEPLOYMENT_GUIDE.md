@@ -396,9 +396,29 @@ npx vercel inspect <deployment-id> --scope <your-team-slug> --logs
 ```
 
 #### 6. 開放外部訪客免登入瀏覽 Beta 預覽站（Deployment Protection 設定）
-Vercel 新專案預設開啟 **Vercel Authentication (`Standard Protection`)**，這會讓所有非 `main` 分支的部署（包含 `<project>-beta.vercel.app`）對未登入外部訪客顯示 Vercel 登入頁：
-* **本機開發者免關保護快速測試**：執行 `npx vercel curl https://<project>-beta.vercel.app/`。
-* **對外公開作為社群試玩站**：前往 Vercel 專案後台 **Settings ➔ Deployment Protection ➔ Vercel Authentication**，將保護切換為 **Disabled**（或透過 API 將 `ssoProtection` 設為 `null`）並儲存，外部訪客即可直接點開網址體驗。
+Vercel 新專案預設開啟 **Vercel Authentication (`Standard Protection`，即 `ssoProtection: { "deploymentType": "all_except_custom_domains" }`)**，這會讓所有非 `main` 正式分支的 `.vercel.app` 網址（包含 `<project>-beta.vercel.app`）對未登入外部訪客回傳 `HTTP 302` 並導向 `vercel.com/sso-api` 登入頁。
+
+若要將 Beta 預覽站對外公開給社群或外部訪客免登入試玩，可任選以下兩種方式關閉保護：
+
+* **方式 A：透過 Vercel 網頁後台手動調整**
+  1. 進入 Vercel 目標專案（如 `ai-avatar-bot-sdk-demo`）➔ 點選上方 **Settings**。
+  2. 左側選單進入 **Deployment Protection**。
+  3. 找到 **Vercel Authentication** 區塊，將下拉選單從 `Standard Protection` 切換為 **`Disabled`**，點擊 **Save** 儲存（立即生效，無須重新構建）。
+
+* **方式 B：透過 Vercel CLI + REST API 一鍵關閉與驗證**
+  ```bash
+  # 1. 將 ssoProtection 設為 null（開放公開免登入瀏覽）
+  npx vercel api /v9/projects/<project-name> -X PATCH \
+    --scope <your-team-slug> \
+    --input - --raw <<'EOF'
+  {"ssoProtection":null}
+  EOF
+
+  # 2. 驗證專案狀態（確認 ssoProtection 為 null）與無憑證外部連線（確認回傳 HTTP/2 200 而非 302）
+  npx vercel api /v9/projects/<project-name> --scope <your-team-slug> --raw | jq '.ssoProtection'
+  curl -sS -I https://<project-name>-beta.vercel.app/
+  ```
+  *(註：若日後想維持內部保護、僅供本機開發者在終端機免關保護測試，可保留預設設定並改跑 `npx vercel curl https://<project-name>-beta.vercel.app/`。)*
 
 ### 7.3 Monorepo 共用 API 轉接為 Vercel Serverless Function 與公開環境防呆
 
@@ -519,7 +539,7 @@ git checkout ai-agent && git merge staging && git push origin ai-agent
 | **8** | Vercel 構建在 `install` 階段報 `The engine "node" is incompatible... Got "26.x"` | Vercel 新建專案預設選到過新的 Node 版本，超出依賴套件 `engines.node` 範圍 | 將 Vercel 專案的 Node.js Version 明確鎖定為 `24.x` 或 `22.x` |
 | **9** | Monorepo 子專案在 Vercel 構建時跑成 `yarn install v1.22.19` 而非 Yarn 4 | `Root Directory` 指向子目錄時，Vercel 預設未自動啟動根目錄的 Corepack | 在 Vercel 專案新增環境變數 **`ENABLE_EXPERIMENTAL_COREPACK=1`**（全環境勾選） |
 | **10** | Vercel 新增網域 `beta.<project>.vercel.app` 報 `403 Forbidden` | `*.vercel.app` 公用萬用憑證不允許四層子網域 | 改用三層連字號網域 **`<project>-beta.vercel.app`** 並綁定至 `preview` 分支 |
-| **11** | 無痕視窗打開 `<project>-beta.vercel.app` 被跳轉到 Vercel 登入畫面 | Vercel 新專案預設對 Preview 環境開啟 `Standard Protection` (SSO) | 至 Vercel 專案 **Settings ➔ Deployment Protection** 將 **Vercel Authentication** 改為 `Disabled`（若欲公開給所有人試玩） |
+| **11** | 無痕視窗打開 `<project>-beta.vercel.app` 被跳轉到 Vercel 登入畫面 (`HTTP 302`) | Vercel 新專案預設對 Preview 環境開啟 `Standard Protection` (SSO) | 網頁後台 **Settings ➔ Deployment Protection ➔ Vercel Authentication** 改為 `Disabled`，或執行 API `PATCH /v9/projects/<name>` 傳入 `{"ssoProtection":null}`（詳見 7.2 第 6 點） |
 | **12** | Vercel Serverless Function 執行時報 `ERR_MODULE_NOT_FOUND` | 子專案設有 `"type": "module"` 時，`@vercel/node` 以原生 ESM 編譯，Node 24 要求相對匯入必帶 `.js` 副檔名 | 將 `api/*.ts` 中的轉發路徑明確加上 `.js`（例如 `export { default } from '../../shared/api/tts.js'`） |
 | **13** | 跨目錄轉發 `shared/api/*.ts` 在本機沒事，上 Vercel 雲端報 `SyntaxError: Cannot use import statement outside a module` | Vercel AWS Lambda 啟動器（`/opt/rust/nodejs.js`）跨出子專案後，因上層根目錄 `package.json` 未設 `"type": "module"` 而將共用檔強制視為 CommonJS | 在 `shared/api/package.json` 新增 `{"type": "module"}`（限縮於該子目錄內，不影響外層 Vite 插件使用 `__dirname`） |
 | **14** | 本地 `yarn dev` 有樣式，但 `build:demo` 部署上 Vercel 後整頁樣式消失 | `package.json` 宣告 `"sideEffects": ["*.css", "*.scss"]` 後，純轉發檔 `core/index.ts` 被視為無副作用，Vite 8 / Rolldown 啟動 Barrel Optimization 直接繞過 `core/index.ts`，切斷裡面的 `import '@/style/style.scss'` | 將 `import '@/style/style.scss'` 移至實際掛載 DOM 的 `core/ui/dom.ts`，並將 `sideEffects` 擴充為 `["*.css", "**/*.css", "*.scss", "**/*.scss", "./dist/*.css"]` |
