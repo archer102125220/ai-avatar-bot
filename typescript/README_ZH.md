@@ -1,13 +1,14 @@
 # AI Avatar Bot (`@ai-avatar-bot/sdk`)
 
 [![npm version](https://img.shields.io/npm/v/@ai-avatar-bot/sdk/beta.svg?label=npm%20%40beta)](https://www.npmjs.com/package/@ai-avatar-bot/sdk)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+[![Live Beta Demo](https://img.shields.io/badge/demo-Vercel%20Beta-000000?logo=vercel)](https://ai-avatar-bot-sdk-demo-beta.vercel.app)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+%20%7C%206.0-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-繁體中文 | [English](./README.md)
+繁體中文 | [English](./README.md) | [🎮 線上 Beta 試玩站](https://ai-avatar-bot-sdk-demo-beta.vercel.app) | [📦 NPM 套件頁](https://www.npmjs.com/package/@ai-avatar-bot/sdk)
 
 > [!IMPORTANT]
-> **🚧 公開預覽版公告 (`Public Beta - v1.0.0-beta.x`)**：`@ai-avatar-bot/sdk` 目前處於**公開 Beta 測試階段**。雙外觀渲染（Live2D/VRM）、語音互動（STT/TTS）、長對話記憶壓縮與工具調用管線均已完成完整自動化驗證（688+ 項單元測試），同時團隊正在推進**大腦引擎領域中立化解耦重構**（詳見 [規格書與藍圖](./docs/TODO-1-DOMAIN-NEUTRAL-BRAIN-DECOUPLING.md)），旨在 `v1.0.0` 正式版前完成認知推論回呼與語音/外觀名詞的純淨解耦。Beta 預覽期間請指定 `@beta` 標籤安裝：`npm install @ai-avatar-bot/sdk@beta`。
+> **🚧 公開預覽版公告 (`Public Beta - v1.0.0-beta.x`)**：`@ai-avatar-bot/sdk` 現已於 npm 發布**公開 Beta 測試版**，並提供[線上互動試玩站](https://ai-avatar-bot-sdk-demo-beta.vercel.app)。雙外觀渲染（Live2D/VRM）、語音互動（STT/TTS）、長對話記憶壓縮與工具調用管線均已完成完整自動化驗證（42 個測試套件共 688 項單元測試），同時持續推進**大腦引擎領域中立化解耦重構**（詳見 [規格書與藍圖](./docs/TODO-1-DOMAIN-NEUTRAL-BRAIN-DECOUPLING.md)），旨在 `v1.0.0` 正式版前完成認知推論回呼與語音/外觀名詞的純淨解耦。Beta 預覽期間請指定 `@beta` 標籤安裝：`npm install @ai-avatar-bot/sdk@beta`。
 
 > 輕量、嚴格型別約束、模組化且零框架依賴的網頁端 AI 虛擬數位人（2D Live2D / 3D VRM）互動 SDK。
 
@@ -124,23 +125,23 @@ pnpm add @ai-avatar-bot/sdk
 
 #### 1. ES Module CDN (`+esm`)
 ```html
-<!-- 引入樣式 -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ai-avatar-bot/sdk/dist/ai-avatar-bot.css" />
+<!-- 引入樣式（Beta 預覽期間請指定 @beta；v1.0.0 畢業轉正後可改鎖定具體版本號如 @1.0.0） -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ai-avatar-bot/sdk@beta/dist/ai-avatar-bot.css" />
 
 <!-- 透過現代瀏覽器原生 import 使用 -->
 <script type="module">
-  import { initAvatarBot } from 'https://cdn.jsdelivr.net/npm/@ai-avatar-bot/sdk/+esm';
-  // 或使用 unpkg: https://unpkg.com/@ai-avatar-bot/sdk?module
+  import { initAvatarBot } from 'https://cdn.jsdelivr.net/npm/@ai-avatar-bot/sdk@beta/+esm';
+  // 或使用 unpkg: https://unpkg.com/@ai-avatar-bot/sdk@beta?module
 </script>
 ```
 
 #### 2. 傳統 `<script>` 標籤 (IIFE，掛載於 `window.AiAvatarBot`)
 ```html
 <!-- 引入樣式 -->
-<link rel="stylesheet" href="https://unpkg.com/@ai-avatar-bot/sdk/dist/ai-avatar-bot.css" />
+<link rel="stylesheet" href="https://unpkg.com/@ai-avatar-bot/sdk@beta/dist/ai-avatar-bot.css" />
 
 <!-- 引入獨立 IIFE Bundle -->
-<script src="https://unpkg.com/@ai-avatar-bot/sdk/dist/ai-avatar-bot.iife.js"></script>
+<script src="https://unpkg.com/@ai-avatar-bot/sdk@beta/dist/ai-avatar-bot.iife.js"></script>
 <script>
   // 所有導出方法皆自動掛載於全域物件 window.AiAvatarBot
   const { initAvatarBot, GENDER_MAP, AVATAR_MODE_MAP } = window.AiAvatarBot;
@@ -339,11 +340,14 @@ const widget: AiAvatarWidget = await initAvatarBot(options);
 為了讓前端專案能直接以本機 HTTP 伺服器讀取模型資產，無需手動尋找套件目錄或繁瑣拷貝，本套件內建 **全自動 CLI 同步工具**：
 
 ```bash
-# 🎯 自動偵測當前專案框架結構（Next.js / Nuxt / Angular / Vite）並同步至目標 public/ 目錄
+# 🎯 已於專案本地安裝 @ai-avatar-bot/sdk 後：自動偵測框架結構（Next.js / Nuxt / Angular / Vite）並同步至 public/
 npx ai-avatar-bot sync
 
 # 🎯 若使用 Yarn
 yarn ai-avatar-bot sync
+
+# 🎯 尚未本地安裝時一次性直接執行（透過 --package 指定 Scoped 套件名）
+npx --package=@ai-avatar-bot/sdk@beta ai-avatar-bot sync
 
 # 🎯 僅模擬執行，不實際寫入（檢驗即將複製的檔案清單）
 npx ai-avatar-bot sync --dry-run
@@ -1538,7 +1542,7 @@ export interface BrainEngine {
 #### 私有 Store 響應式架構優勢
 - **統一乾淨的 API 風格**：貫徹所有子引擎（`SkinEngine`、`SpeechEngine`、`I18nEngine`）之設計規範，大腦實例對外**不暴露 `.store`** 與 `setState`，徹底杜絕外部竄改背景記憶提煉互斥鎖（`isSummarizing`）的風險。
 - **自動響應式廣播**：當背景記憶開始或結束滾動提煉時，內部 Store 會自動觸發 `onSummarizingChange(isSummarizing: boolean)` 事件回呼，利於 UI 即時展示「🧠 記憶整理中…」動態指示。
-- **現代化 Options 傳參**：`updateChatMessage` 支援現代化物件傳參（`{ streaming, reasoning, reasoningTimeMs, reasoningStreaming }`），並向下相容傳統多載。
+- **純淨統一 Options 傳參**：`updateChatMessage` 全面收斂為純 Options 物件簽名（`{ streaming, reasoning, reasoningTimeMs, reasoningStreaming, metadata }`），支援既有訊息中繼資料淺層合併與 fallback 自動透傳。
 - **零後門方法**：徹底剷除過去帶底線的內部後門方法（`_setSummarizing`、`_advanceCompanionFallback`、`_nextChatSeq`），達成 100% 純淨的公開 API。
 
 ---
@@ -1580,10 +1584,11 @@ widget.i18nEngine.setLocale('zh-CN'); // 簡體中文
 `@ai-avatar-bot/sdk` 擁有完整的自動化驗證體系，涵蓋型別檢查、單元演算法與 Playwright 端到端驗證：
 
 ```bash
-# 1. 嚴格 TypeScript 編譯期型別檢查
+# 1. 嚴格 TypeScript 編譯期型別檢查與 ESLint 規範檢查
 yarn test:typecheck
+yarn lint
 
-# 2. 執行 680+ 項 Vitest 單元測試（涵蓋大腦推論、語音、外觀、工具、記憶、Store，688 測試全數通過）
+# 2. 執行 Vitest 單元測試（42 個測試套件共 688 項測試，涵蓋大腦推論、語音、外觀、工具、記憶、Store，100% 通過）
 yarn test:unit
 
 # 3. Vitest 監聽與視覺化 UI 儀表板
@@ -1598,7 +1603,9 @@ yarn test:e2e:contract
 yarn test:e2e:engine
 yarn test:e2e
 
-# 6. 生產環境 Bundle 冒煙測試
+# 6. 建構 SDK 發行產物 (`dist/`)、獨立展示站 (`dist-demo/`) 與生產環境 Bundle 冒煙測試
+yarn build
+yarn build:demo
 yarn test:smoke
 ```
 
@@ -1607,7 +1614,7 @@ yarn test:smoke
 ## ⚠️ 風險與限制揭露
 
 1. **TTS 語音服務與後端端點**：
-   - 本套件為純前端 SDK。支援對接自建神經網路 TTS 端點（`ttsEndpoint`）或自動降級至瀏覽器原生 Web Speech API（`window.speechSynthesis`）。
+   - 本套件為純前端 SDK。支援對接自建神經網路 TTS 端點（`ttsEndpoint`）或自動降級至瀏覽器原生 Web Speech API（`window.speechSynthesis`）。Monorepo 內附有可直接部署於 Node.js / Vercel Serverless Function 的參考實作（`shared/api/tts.ts` 與 `typescript/api/tts.ts`，內建來源白名單與速率限制防護，亦為線上展示站 `/api/tts` 實際運行之端點）。
 2. **語音辨識 (STT) 雲端處理**：
    - 瀏覽器原生 Web Speech API（`webkitSpeechRecognition`）通常會將麥克風音訊上傳至瀏覽器廠商（如 Google）伺服器處理，非純本地辨識。
 3. **WebLLM 顯卡硬體與下載門檻**：
@@ -1647,6 +1654,7 @@ yarn test:smoke
 為避免本次 npm 發布前之重構範圍無限制蔓延（Scope Creep）並守護核心穩定性，以下三項架構演進決策正式列入後續維護追蹤清單：
 
 ### 📌 TODO 1：大腦獨立拆包時的中立化回呼名稱（語音與外觀領域解耦）
+- **規格書追蹤**：詳見 [領域中立化解耦規格書 (RFC)](./docs/TODO-1-DOMAIN-NEUTRAL-BRAIN-DECOUPLING.md)。
 - **背景**：目前 `BrainEngineOptions` 中的事件回呼（如 `onSpokenAudioPlayNow`、`onSpokenDisplayTextChange`、`onEmotionChange`）直接借用了語音引擎與皮膚外觀引擎的領域名詞（`Spoken` 與 `Emotion`）。
 - **未來規劃**：未來若將大腦模組獨立拆包為純認知推論套件（如 `@ai-avatar/brain`）時：
   - `onSpokenAudioPlayNow` ➔ 更名為 `onOutputTextReady` 或 `onFinalAnswer`

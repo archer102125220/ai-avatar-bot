@@ -1,13 +1,18 @@
 # AI Avatar Bot
 
+[![npm @beta](https://img.shields.io/npm/v/@ai-avatar-bot/sdk/beta.svg?label=npm%20%40beta)](https://www.npmjs.com/package/@ai-avatar-bot/sdk)
+[![Beta Live Demo](https://img.shields.io/badge/demo-SDK%20Beta%20(Vercel)-000000?logo=vercel)](https://ai-avatar-bot-sdk-demo-beta.vercel.app)
+[![Classic Demo](https://img.shields.io/badge/demo-Classic%20Iframe-000000?logo=vercel)](https://ai-avatar-bot-iframe-demo.vercel.app)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 [繁體中文](./README_ZH.md) | English
 
 > [!IMPORTANT]
-> **🚧 Public Beta Notice (`@ai-avatar-bot/sdk@beta`)**: The flagship TypeScript SDK is currently in **Public Beta** as we finalize [Domain-Neutral Brain Decoupling](./typescript/docs/TODO-1-DOMAIN-NEUTRAL-BRAIN-DECOUPLING.md) ahead of `v1.0.0` GA. For branch governance, CI/CD pipelines, and release graduation SOPs, see [CONTRIBUTING.md](./CONTRIBUTING.md).
+> **🚧 Public Beta Notice (`@ai-avatar-bot/sdk@beta`)**: The flagship TypeScript SDK is currently in **Public Beta** (`v1.0.0-beta.x`) on npm while [Domain-Neutral Brain Decoupling](./typescript/docs/TODO-1-DOMAIN-NEUTRAL-BRAIN-DECOUPLING.md) is being finalized ahead of `v1.0.0` GA. For 5-stage branch governance, CI/CD pipelines, and release graduation SOPs, see [CONTRIBUTING.md](./CONTRIBUTING.md) and the [NPM & Vercel Deployment Playbook](./docs/NPM_AND_VERCEL_DEPLOYMENT_GUIDE.md).
 
 > A lightweight, modular, and extensible Web AI Avatar (2D Live2D / 3D VRM) SDK ecosystem.
 
-This project originated from the open-source exploration by [YuriCrystal/ai-avatar-bot](https://github.com/YuriCrystal/ai-avatar-bot). We have performed extensive modular decomposition, architectural refactoring, and engineering standardizations to build a modern Web AI Avatar package ecosystem ready for npm distribution.
+This project originated from the open-source exploration by [YuriCrystal/ai-avatar-bot](https://github.com/YuriCrystal/ai-avatar-bot), and has undergone extensive modular decomposition, architectural refactoring, and engineering standardization to form a modern Web AI Avatar package ecosystem ready for npm distribution.
 
 ---
 
@@ -30,7 +35,7 @@ This Monorepo is organized into dedicated sub-packages for various usage scenari
 
 | Package Directory | NPM Package | CI/CD & Release | Live Demo (Vercel) | Role & Characteristics | Quick Link |
 | :--- | :--- | :---: | :--- | :--- | :---: |
-| [`/typescript`](./typescript) | **`@ai-avatar-bot/sdk`** | ✅ Full CI + Auto CD (`@beta` / `@latest`) | [Stable Demo](https://ai-avatar-bot-sdk-demo.vercel.app)<br>[Beta Demo](https://ai-avatar-bot-sdk-demo-beta.vercel.app) | **100% native TypeScript flagship SDK**. Modular subpath exports (`/brain`, `/skin`, etc.), dual ESM/IIFE CDN builds, optional peer dependencies (compact 223KB core), CLI asset sync tool, and 6+ framework plugins. | [📄 Docs](./typescript/README.md) |
+| [`/typescript`](./typescript) | **`@ai-avatar-bot/sdk`** | ✅ Full CI + Auto CD (`@beta` / `@latest`) | [Beta Demo (Live)](https://ai-avatar-bot-sdk-demo-beta.vercel.app)<br>[Stable Demo (`main`)](https://ai-avatar-bot-sdk-demo.vercel.app) | **100% native TypeScript flagship SDK**. Modular subpath exports (`/brain`, `/skin`, etc.), dual ESM/IIFE CDN builds, optional peer dependencies (compact 223KB core), Serverless Edge Neural `/api/tts` demo integration, CLI asset sync tool, and 6+ framework plugins. | [📄 Docs](./typescript/README.md) |
 | [`/iframe`](./iframe) | ❌ **Not Published** | ❌ **No CI/CD** (Demo Only) | [Classic Demo](https://ai-avatar-bot-iframe-demo.vercel.app) | **Classic standalone demo deployment**. Preserves the original iframe and `embed.js` one-line script embedding design for maximum DOM/CSS isolation and historical showcase. | [📄 Docs](./iframe/README.en.md) |
 | [`/vue`](./vue) | **`@ai-avatar-bot/vue`** | 🚧 In Progress | `ai-avatar-bot-vue-demo` | Dedicated component library for **Vue 3**. Provides `<AiAvatarBot />` components and `useAvatar` composables. | [📁 Source](./vue) |
 | [`/react`](./react) | **`@ai-avatar-bot/react`** | 🚧 In Progress | `ai-avatar-bot-react-demo` | Dedicated component library for **React 18 / 19**. Provides `<AiAvatarBot />` components and `useAvatar` hooks. | [📁 Source](./react) |
@@ -124,7 +129,7 @@ const options: AvatarBotOptions = {
   container: document.getElementById('avatar-container'),
   avatarMode: 'assistant',
   gender: 'female',
-  llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+  webLlmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
   welcomeText: 'Hello! I am your AI Avatar assistant.'
 };
 
@@ -170,12 +175,16 @@ yarn dev:iframe
 
 # Start framework direct integration examples (Vanilla TS / JS / React / Vue / Next / Nuxt / Angular / Analog)
 yarn dev:example:ts
+yarn dev:example:js
 yarn dev:example:react
 yarn dev:example:vue
 yarn dev:example:next
 yarn dev:example:nuxt
+yarn dev:example:angular
+yarn dev:example:analog
 
-# Run full TypeScript package verification (typecheck, unit tests, smoke test, lint)
+# Run full TypeScript package verification (branch/SemVer guard, typecheck, unit tests, smoke test, lint)
+yarn verify:version
 yarn typecheck:ts
 yarn test:ts
 yarn test:ts:smoke
@@ -184,7 +193,9 @@ yarn lint:ts
 # Run cross-framework end-to-end build & verification matrix
 yarn test:matrix:all
 
-# Build all workspace packages
+# Build core SDK library (`typescript/dist`), standalone Vercel SPA demo (`typescript/dist-demo`), or all workspaces
+yarn build:ts
+yarn build:ts:demo
 yarn build
 ```
 
@@ -207,11 +218,12 @@ yarn build
   - AI Reasoning (Chain-of-Thought) and `createStreamParser` dual-track architecture
   - Two-tier WebGPU OOM adaptive fallback mechanism
   - Built-in static asset sync CLI (`sync`) and 6+ framework plugins (Vite, Next, Nuxt, Webpack...)
-  - Cross-platform automated test suite (Vitest 603 tests across 41 suites, TypeScript compile-time checks, Playwright E2E smoke test, 100% pass rate)
+  - Cross-platform automated test suite (Vitest 688 tests across 42 suites, TypeScript compile-time checks, Playwright E2E smoke test, 100% pass rate)
 - [ ] **Phase 3: Vue 3 & React Official Wrapper Component Libraries (`/vue`, `/react`)**
   - Develop `<AiAvatarBot />` components and reactive Hooks / Composables
 - [ ] **Phase 4: Public npm Release & Multi-Package Maintenance**
-  - Officially publish all packages to the npm registry
+  - [x] Publish `@ai-avatar-bot/sdk` Public Beta (`@beta`) to npm with 5-stage GitHub Actions CI/CD, Husky SemVer branch guards, and live Vercel Demo deployments (with Serverless Edge Neural `/api/tts`)
+  - [ ] Graduate `@ai-avatar-bot/sdk` to `v1.0.0` (`@latest`) after Domain-Neutral Brain Decoupling, followed by `@ai-avatar-bot/vue` and `@ai-avatar-bot/react` releases
 
 ---
 
@@ -219,7 +231,7 @@ yarn build
 
 The architecture and core inspiration of this project originate from **[YuriCrystal](https://github.com/YuriCrystal)** and the open-source repository [ai-avatar-bot](https://github.com/YuriCrystal/ai-avatar-bot).
 
-We express our sincere gratitude to the original author for the pioneering exploration and open-source contributions in Web digital human interaction, Live2D/VRM integration, WebGPU client-side inference, and voice lip-sync design!
+Sincere gratitude to the original author for the pioneering exploration and open-source contributions in Web digital human interaction, Live2D/VRM integration, WebGPU client-side inference, and voice lip-sync design!
 
 ---
 

@@ -1,13 +1,18 @@
 # AI Avatar Bot
 
+[![npm @beta](https://img.shields.io/npm/v/@ai-avatar-bot/sdk/beta.svg?label=npm%20%40beta)](https://www.npmjs.com/package/@ai-avatar-bot/sdk)
+[![Beta Live Demo](https://img.shields.io/badge/demo-SDK%20Beta%20(Vercel)-000000?logo=vercel)](https://ai-avatar-bot-sdk-demo-beta.vercel.app)
+[![Classic Demo](https://img.shields.io/badge/demo-Classic%20Iframe-000000?logo=vercel)](https://ai-avatar-bot-iframe-demo.vercel.app)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 繁體中文 | [English](./README.md)
 
 > [!IMPORTANT]
-> **🚧 公開預覽版公告 (`@ai-avatar-bot/sdk@beta`)**：旗艦原生 TypeScript SDK 目前處於**公開 Beta 測試階段**，團隊正在推進 `v1.0.0` 正式版前的[大腦領域中立化解耦重構](./typescript/docs/TODO-1-DOMAIN-NEUTRAL-BRAIN-DECOUPLING.md)。關於五階分支治理、CI/CD 路徑過濾與正式版畢業 SOP，請參閱 [CONTRIBUTING.md](./CONTRIBUTING.md)。
+> **🚧 公開預覽版公告 (`@ai-avatar-bot/sdk@beta`)**：旗艦原生 TypeScript SDK 現已於 npm 發布**公開 Beta 測試版** (`v1.0.0-beta.x`)，並持續推進 `v1.0.0` 正式版前的[大腦領域中立化解耦重構](./typescript/docs/TODO-1-DOMAIN-NEUTRAL-BRAIN-DECOUPLING.md)。關於五階分支治理、CI/CD 路徑過濾與正式版畢業 SOP，請參閱 [CONTRIBUTING.md](./CONTRIBUTING.md) 與 [NPM 與 Vercel 部署實戰教學手冊](./docs/NPM_AND_VERCEL_DEPLOYMENT_GUIDE.md)。
 
 > 輕量、模組化、可擴充的網頁端 AI 虛擬數位人（2D Live2D / 3D VRM）互動 SDK 專案生態系。
 
-本專案源自於 [YuriCrystal/ai-avatar-bot](https://github.com/YuriCrystal/ai-avatar-bot) 的開源探索，我們將其進行大規模模組化拆分、架構重構與工程化規範，旨在打造一套可發布至 npm 的現代化 Web AI 虛擬人套件生態。
+本專案源自於 [YuriCrystal/ai-avatar-bot](https://github.com/YuriCrystal/ai-avatar-bot) 的開源探索，經大規模模組化拆分、架構重構與工程化規範，旨在打造一套可發布至 npm 的現代化 Web AI 虛擬人套件生態。
 
 ---
 
@@ -30,7 +35,7 @@
 
 | 套件目錄 | NPM 套件名稱 | CI/CD 與發布策略 | 線上展示站 (Vercel Demo) | 定位與特點說明 | 快速連結 |
 | :--- | :--- | :---: | :--- | :--- | :---: |
-| [`/typescript`](./typescript) | **`@ai-avatar-bot/sdk`** | ✅ 全量 CI + 自動 CD (`@beta` / `@latest`) | [正式站](https://ai-avatar-bot-sdk-demo.vercel.app)<br>[Beta 試玩站](https://ai-avatar-bot-sdk-demo-beta.vercel.app) | **100% 原生 TypeScript 旗艦核心 SDK**。支援 Subpath 按需導出 (`/brain`, `/skin` 等)、ESM/IIFE 雙 CDN 構建、可選 Peer 依賴極致輕量化 (核心僅 223KB)、CLI 資產同步工具與 6+ 框架外掛。 | [📄 詳細文件](./typescript/README_ZH.md) |
+| [`/typescript`](./typescript) | **`@ai-avatar-bot/sdk`** | ✅ 全量 CI + 自動 CD (`@beta` / `@latest`) | [Beta 試玩站 (Live)](https://ai-avatar-bot-sdk-demo-beta.vercel.app)<br>[正式站 (`main`)](https://ai-avatar-bot-sdk-demo.vercel.app) | **100% 原生 TypeScript 旗艦核心 SDK**。支援 Subpath 按需導出 (`/brain`, `/skin` 等)、ESM/IIFE 雙 CDN 構建、可選 Peer 依賴極致輕量化 (核心僅 223KB)、Serverless Edge 神經語音 `/api/tts` 展示整合、CLI 資產同步工具與 6+ 框架外掛。 | [📄 詳細文件](./typescript/README_ZH.md) |
 | [`/iframe`](./iframe) | ❌ **不發布 NPM** | ❌ **不跑 CI/CD**（純 Demo） | [經典展示站](https://ai-avatar-bot-iframe-demo.vercel.app) | **經典純 Demo 靜態與 Serverless 部署**。保留原作者經典 Iframe 與 `embed.js` 一行腳本嵌入設計，作為歷史演進與極致 DOM/CSS 隔離展示。 | [📄 詳細文件](./iframe/README.md) |
 | [`/vue`](./vue) | **`@ai-avatar-bot/vue`** | 🚧 進行中 | `ai-avatar-bot-vue-demo` | 針對 **Vue 3** 封裝的專屬元件庫。提供 `<AiAvatarBot />` 元件與 `useAvatar` 組合式函式 (Composables)。 | [📁 原始碼](./vue) |
 | [`/react`](./react) | **`@ai-avatar-bot/react`** | 🚧 進行中 | `ai-avatar-bot-react-demo` | 針對 **React 18 / 19** 封裝的專屬元件庫。提供 `<AiAvatarBot />` 元件與 `useAvatar` Hooks。 | [📁 原始碼](./react) |
@@ -39,7 +44,7 @@
 
 ## 📜 歷史演進與封存說明 (History & Archive)
 
-本專案早期以 JavaScript 原型進行模組化驗證（目錄 `/vanilla-js`），在完成多引擎架構、記憶壓縮、Tool Call 與跨框架構建驗證後，我們將其全面重構並升級為原生 TypeScript 核心（`/typescript`）。
+本專案早期以 JavaScript 原型進行模組化驗證（目錄 `/vanilla-js`），在完成多引擎架構、記憶壓縮、Tool Call 與跨框架構建驗證後，已全面重構並升級為原生 TypeScript 核心（`/typescript`）。
 
 - **原 Vanilla JS 原型封存基準點**：
   - **Git Commit ID**：[`2e4cb12a4c689d8dc98a814211279ce0cb3ebf59`](https://github.com/archer102125220/ai-avatar-bot/commit/2e4cb12a4c689d8dc98a814211279ce0cb3ebf59)
@@ -124,7 +129,7 @@ const options: AvatarBotOptions = {
   container: document.getElementById('avatar-container'),
   avatarMode: 'assistant',
   gender: 'female',
-  llmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
+  webLlmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC',
   welcomeText: '你好！我是你的專屬 AI 虛擬助理。'
 };
 
@@ -170,12 +175,16 @@ yarn dev:iframe
 
 # 啟動各前端框架直連範例 (Vanilla TS / JS / React / Vue / Next / Nuxt / Angular / Analog)
 yarn dev:example:ts
+yarn dev:example:js
 yarn dev:example:react
 yarn dev:example:vue
 yarn dev:example:next
 yarn dev:example:nuxt
+yarn dev:example:angular
+yarn dev:example:analog
 
-# 執行 TypeScript 版本完整檢驗 (型別檢查、單元測試、冒煙測試、代碼風格)
+# 執行 TypeScript 版本完整檢驗 (分支與 SemVer 防呆、型別檢查、單元測試、冒煙測試、代碼風格)
+yarn verify:version
 yarn typecheck:ts
 yarn test:ts
 yarn test:ts:smoke
@@ -184,7 +193,9 @@ yarn lint:ts
 # 執行跨框架端到端建構與相容性矩陣檢驗
 yarn test:matrix:all
 
-# 建構所有套件產物
+# 建構核心 SDK 套件庫 (`typescript/dist`)、獨立 Vercel SPA 展示站 (`typescript/dist-demo`) 或所有工作區產物
+yarn build:ts
+yarn build:ts:demo
 yarn build
 ```
 
@@ -207,11 +218,12 @@ yarn build
   - AI 思維鏈推論過程 (Reasoning / Thinking) 與 `createStreamParser` 雙軌架構
   - 兩階段 WebGPU OOM 自適應平滑降級機制
   - 內建靜態資產同步 CLI (`sync`) 與 6+ 主流前端/全端框架整合外掛 (Vite, Next, Nuxt, Webpack...)
-  - 跨平台自動化測試（Vitest 603 項測試、TypeScript 編譯檢查、Playwright E2E 冒煙測試，100% 通過）
+  - 跨平台自動化測試（Vitest 42 個測試套件共 688 項單元測試、TypeScript 編譯檢查、Playwright E2E 冒煙測試，100% 通過）
 - [ ] **階段三：Vue 3 & React 官方封裝元件庫 (`/vue`, `/react`)**
   - 開發 `<AiAvatarBot />` 元件與響應式 Hooks / Composables
 - [ ] **階段四：npm 公開發布與多套件生態維護**
-  - 正式發布各版本至 npm 註冊表
+  - [x] 發布 `@ai-avatar-bot/sdk` 公開預覽版 (`@beta`) 至 npm，建置五階分支 GitHub Actions CI/CD、Husky SemVer 分支防呆檢查，並上線公開 Vercel 展示站（整合 Serverless Edge 神經語音 `/api/tts`）
+  - [ ] 完成大腦領域中立化解耦後畢業轉正 `@ai-avatar-bot/sdk` 至 `v1.0.0` (`@latest`)，並陸續發布 `@ai-avatar-bot/vue` 與 `@ai-avatar-bot/react`
 
 ---
 

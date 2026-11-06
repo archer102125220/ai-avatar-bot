@@ -1,13 +1,14 @@
 # AI Avatar Bot (`@ai-avatar-bot/sdk`)
 
 [![npm version](https://img.shields.io/npm/v/@ai-avatar-bot/sdk/beta.svg?label=npm%20%40beta)](https://www.npmjs.com/package/@ai-avatar-bot/sdk)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+[![Live Beta Demo](https://img.shields.io/badge/demo-Vercel%20Beta-000000?logo=vercel)](https://ai-avatar-bot-sdk-demo-beta.vercel.app)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+%20%7C%206.0-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-[繁體中文](./README_ZH.md) | English
+[繁體中文](./README_ZH.md) | English | [🎮 Live Beta Demo](https://ai-avatar-bot-sdk-demo-beta.vercel.app) | [📦 NPM Package](https://www.npmjs.com/package/@ai-avatar-bot/sdk)
 
 > [!IMPORTANT]
-> **🚧 Public Beta Notice (`v1.0.0-beta.x`)**: `@ai-avatar-bot/sdk` is currently in **Public Beta**. Core rendering (Live2D/VRM), Speech (STT/TTS), Memory Compression, and Tool Calling pipelines are fully tested (688+ unit tests), while **Domain-Neutral Brain Decoupling** ([RFC & Roadmap](./docs/TODO-1-DOMAIN-NEUTRAL-BRAIN-DECOUPLING.md)) is actively underway to decouple cognitive inference callbacks from speech/avatar terminology before `v1.0.0` GA. During the Beta phase, install via the `@beta` dist-tag: `npm install @ai-avatar-bot/sdk@beta`.
+> **🚧 Public Beta Notice (`v1.0.0-beta.x`)**: `@ai-avatar-bot/sdk` is currently live on npm in **Public Beta**, accompanied by an [interactive Live Beta Demo](https://ai-avatar-bot-sdk-demo-beta.vercel.app). Core rendering (Live2D/VRM), Speech (STT/TTS), Memory Compression, and Tool Calling pipelines are fully verified (688 unit tests across 42 suites), while **Domain-Neutral Brain Decoupling** ([RFC & Roadmap](./docs/TODO-1-DOMAIN-NEUTRAL-BRAIN-DECOUPLING.md)) is actively underway to decouple cognitive inference callbacks from speech/avatar terminology before `v1.0.0` GA. During the Beta phase, install via the `@beta` dist-tag: `npm install @ai-avatar-bot/sdk@beta`.
 
 > Lightweight, strictly typed, modular, and framework-agnostic interactive SDK for Web AI Digital Avatars (2D Live2D / 3D VRM).
 
@@ -124,20 +125,21 @@ pnpm add @ai-avatar-bot/sdk
 
 #### 1. ES Module CDN (`+esm`)
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ai-avatar-bot/sdk/dist/ai-avatar-bot.css" />
+<!-- Specify @beta during Public Beta; pin to an exact version such as @1.0.0 after v1.0.0 GA -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ai-avatar-bot/sdk@beta/dist/ai-avatar-bot.css" />
 
 <script type="module">
-  import { initAvatarBot } from 'https://cdn.jsdelivr.net/npm/@ai-avatar-bot/sdk/+esm';
-  // Or via unpkg: https://unpkg.com/@ai-avatar-bot/sdk?module
+  import { initAvatarBot } from 'https://cdn.jsdelivr.net/npm/@ai-avatar-bot/sdk@beta/+esm';
+  // Or via unpkg: https://unpkg.com/@ai-avatar-bot/sdk@beta?module
 </script>
 ```
 
 #### 2. Traditional `<script>` Tag (IIFE, attached to `window.AiAvatarBot`)
 ```html
-<link rel="stylesheet" href="https://unpkg.com/@ai-avatar-bot/sdk/dist/ai-avatar-bot.css" />
+<link rel="stylesheet" href="https://unpkg.com/@ai-avatar-bot/sdk@beta/dist/ai-avatar-bot.css" />
 
 <!-- Load standalone IIFE bundle -->
-<script src="https://unpkg.com/@ai-avatar-bot/sdk/dist/ai-avatar-bot.iife.js"></script>
+<script src="https://unpkg.com/@ai-avatar-bot/sdk@beta/dist/ai-avatar-bot.iife.js"></script>
 <script>
   // All exported functions are mounted globally on window.AiAvatarBot
   const { initAvatarBot, GENDER_MAP, AVATAR_MODE_MAP } = window.AiAvatarBot;
@@ -336,11 +338,14 @@ The package includes complete 2D (Live2D) and 3D (VRM) model assets located unde
 To allow local development servers to serve model assets without manual file copying or path searching, the package provides an **automated CLI sync tool**:
 
 ```bash
-# 🎯 Automatically detect host project framework (Next.js / Nuxt / Angular / Vite) and sync assets
+# 🎯 After installing @ai-avatar-bot/sdk locally: detect framework (Next.js / Nuxt / Angular / Vite) and sync assets
 npx ai-avatar-bot sync
 
 # 🎯 When using Yarn
 yarn ai-avatar-bot sync
+
+# 🎯 One-off execution without prior local installation (specify scoped package via --package)
+npx --package=@ai-avatar-bot/sdk@beta ai-avatar-bot sync
 
 # 🎯 Dry run simulation (lists target files without modifying disk)
 npx ai-avatar-bot sync --dry-run
@@ -795,7 +800,7 @@ console.log(widget.aiProviderHeaders.Authorization);
 > [!WARNING]
 > **Client-Side API Key Exposure**: Never hardcode production API keys with sensitive billing limits in client-facing frontend code, as end-users can inspect network payloads and developer console scripts.
 >
-> For production deployments, we strongly recommend pointing `aiProviderBaseUrl` to a **Backend Proxy Server** (e.g., Next.js API Routes, Express, Cloudflare Workers) which securely injects credentials before contacting the AI vendor, or issuing temporary, short-lived session tokens from your auth service.
+> For production deployments, it is strongly recommended to point `aiProviderBaseUrl` to a **Backend Proxy Server** (e.g., Next.js API Routes, Express, Cloudflare Workers) which securely injects credentials before contacting the AI vendor, or to issue temporary, short-lived session tokens from your auth service.
 
 ---
 
@@ -1535,7 +1540,7 @@ export interface BrainEngine {
 #### Private Store Architecture
 - **Unified Clean API**: Follows the sub-engine design pattern (`SkinEngine`, `SpeechEngine`, `I18nEngine`) by not exposing `.store` or external `setState` on the instance, preventing accidental tampering with the background summarization mutex lock.
 - **Automatic Reactive Broadcasting**: When background rolling summary begins or finishes, the internal store automatically dispatches the `onSummarizingChange(isSummarizing: boolean)` callback for smooth UI indication without manual polling.
-- **Options-based Message Updates**: `updateChatMessage` supports both the modern options object (`{ streaming, reasoning, reasoningTimeMs, reasoningStreaming }`) and positional argument overloads.
+- **Pure Options-based Message Updates**: `updateChatMessage` is unified around a pure options object signature (`{ streaming, reasoning, reasoningTimeMs, reasoningStreaming, metadata }`), supporting shallow `metadata` merging on existing messages and automatic propagation on `addChatMessage` fallbacks.
 - **Zero Backdoor Methods**: Eradicated all legacy underscore methods (`_setSummarizing`, `_advanceCompanionFallback`, `_nextChatSeq`), delivering a pristine external contract.
 
 ---
@@ -1577,10 +1582,11 @@ The source code created in this package is licensed under the **[MIT License](LI
 `@ai-avatar-bot/sdk` includes a comprehensive test suite across unit algorithms, typechecking, and Playwright E2E tests:
 
 ```bash
-# 1. Typecheck with strict TypeScript compiler
+# 1. Typecheck with strict TypeScript compiler & run ESLint rules
 yarn test:typecheck
+yarn lint
 
-# 2. Run 680+ Vitest unit tests (Brain Reasoning, Speech, Skin, Tools, Memory, Store, 688 passed, 100% pass rate)
+# 2. Run Vitest unit tests (688 tests across 42 suites covering Brain, Speech, Skin, Tools, Memory, Store — 100% pass rate)
 yarn test:unit
 
 # 3. Vitest watch mode & UI dashboard
@@ -1595,7 +1601,9 @@ yarn test:e2e:contract
 yarn test:e2e:engine
 yarn test:e2e
 
-# 6. Production bundle smoke test
+# 6. Build SDK distribution (`dist/`), standalone SPA demo (`dist-demo/`), & run production bundle smoke test
+yarn build
+yarn build:demo
 yarn test:smoke
 ```
 
@@ -1604,7 +1612,7 @@ yarn test:smoke
 ## ⚠️ Risk & Limitations Disclosure
 
 1. **TTS Voice Service & Custom Endpoints**:
-   - This package is a pure client-side SDK. It supports connecting to custom neural TTS backend endpoints (`ttsEndpoint`) or falling back to browser native Web Speech API (`window.speechSynthesis`).
+   - This package is a pure client-side SDK. It supports connecting to custom neural TTS backend endpoints (`ttsEndpoint`) or falling back to browser native Web Speech API (`window.speechSynthesis`). A ready-to-deploy Node.js / Vercel Serverless Function reference implementation (`shared/api/tts.ts` & `typescript/api/tts.ts`, with origin allowlisting and rate limiting) is included in the monorepo and powers `/api/tts` on the live Demo.
 2. **Speech Recognition (STT) Cloud Processing**:
    - Browser Web Speech API (`webkitSpeechRecognition`) typically uploads microphone audio to browser vendor servers (e.g. Google) for speech recognition.
 3. **WebLLM Hardware & Compute Requirements**:
@@ -1641,9 +1649,10 @@ yarn test:smoke
 
 ## 🗺️ Future Architecture Roadmap (TODOs)
 
-To maintain stability and avoid scope creep during our current npm release, three future architectural improvements are officially tracked on our roadmap:
+To maintain stability and avoid scope creep ahead of the `v1.0.0` release, three architectural milestones are tracked on the project roadmap:
 
 ### 📌 TODO 1: Domain-Neutral Callback Naming for Independent Brain Package
+- **Specification**: Tracked in [Domain-Neutral Brain Decoupling RFC](./docs/TODO-1-DOMAIN-NEUTRAL-BRAIN-DECOUPLING.md).
 - **Background**: Callbacks in `BrainEngineOptions` (`onSpokenAudioPlayNow`, `onSpokenDisplayTextChange`, `onEmotionChange`) borrow domain terms from the speech and skin engines.
 - **Future Plan**: When separating `@ai-avatar/brain` into a standalone cognitive reasoning package:
   - `onSpokenAudioPlayNow` ➔ `onOutputTextReady` or `onFinalAnswer`
@@ -1670,7 +1679,7 @@ To maintain stability and avoid scope creep during our current npm release, thre
 
 The foundational architecture and core design of this package are based on the open-source project [ai-avatar-bot](https://github.com/YuriCrystal/ai-avatar-bot) by **[YuriCrystal](https://github.com/YuriCrystal)**.
 
-We express our sincere gratitude to the original author for the pioneering exploration and open-source contributions in Web digital human interaction, Live2D/VRM integration, WebGPU client-side inference, and voice lip-sync design!
+Sincere gratitude to the original author for the pioneering exploration and open-source contributions in Web digital human interaction, Live2D/VRM integration, WebGPU client-side inference, and voice lip-sync design!
 
 ---
 
