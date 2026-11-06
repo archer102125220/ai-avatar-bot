@@ -2,9 +2,10 @@
 *(Step-by-Step Implementation Guide for New Session)*
 
 > **文件狀態**：執行上線中 (In Execution - v2.1 已對齊實際 Git 倉庫根目錄路徑)  
-> **制定日期**：2026-11-05  
-> **適用場景**：專門為**開立新 Session 進行純淨實作**所設計之自包含（Self-contained）執行指南。新 Session 中的 AI 助理可直接依序執行以下 7 個具體步驟，無需重構或重新討論決策。
-> **路徑備註**：遠端 GitHub 倉庫（`archer102125220/ai-avatar-bot`）之根目錄對應本地工作區之 `package/`，故 GitHub Actions 路徑過濾為 `typescript/**`，Vercel 之 `Root Directory` 分別為 `typescript` 與 `iframe`。
+> **制定日期**：2026-11-05 (2026-11-06 增補術語備忘)  
+> **適用場景**：專門為**開立新 Session 進行純淨實作**所設計之自包含（Self-contained）執行指南。新 Session 中的 AI 助理可直接依序執行以下 7 個具體步驟，無需重構或重新討論決策。  
+> **路徑備註**：遠端 GitHub 倉庫（`archer102125220/ai-avatar-bot`）之根目錄對應本地工作區之 `package/`，故 GitHub Actions 路徑過濾為 `typescript/**`，Vercel 之 `Root Directory` 分別為 `typescript` 與 `iframe`。  
+> **術語備忘**：文件中的 **GA** 代表軟體工程專有名詞 **General Availability（正式公開發布版 / 穩定生產版）**，非 Google Analytics。
 
 ---
 
@@ -155,6 +156,7 @@ flowchart TD
   1. 更新 `package/typescript/README.md` 與 `package/typescript/README_ZH.md`：
      * 頂部加入 Alert 標記：目前處於公開 Beta 階段，正在進行大腦領域中立化解耦。
   2. 在根目錄 `package/README.md` 或新設 `CONTRIBUTING.md`：
+     * 關聯參考專屬手冊：[`package/typescript/docs/BRANCHING_AND_CICD_WORKFLOW.md`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/docs/BRANCHING_AND_CICD_WORKFLOW.md)
      * 記錄五階分支管線規範。
      * 記錄各套件與 Demo 矩陣（含 Iframe 純 Demo 說明）。
      * 記錄畢業手動拔除 `-beta` 的 4 步 SOP 與 Back-merge 規範。
