@@ -863,6 +863,9 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         renderer.playGesture('special_dance')
       ).resolves.not.toThrow();
 
+      // Neutral expression/gesture fallback
+      await expect(renderer.playGesture('neutral')).resolves.not.toThrow();
+
       // 3. Expression fallback: standard preset alias
       if (vrm?.expressionManager) {
         vrm.expressionManager.setValue = vi.fn();

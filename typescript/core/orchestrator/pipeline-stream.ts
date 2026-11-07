@@ -79,7 +79,7 @@ export function createStreamPipeline({
     }
     if (typeof skinEngine === 'object' && skinEngine !== null) {
       if (skinEngine.gestureName === 'thinking') {
-        skinEngine.gestureName = 'talking';
+        skinEngine.gestureName = 'neutral';
       }
     }
     const widgetInstance = resolveWidget();
@@ -165,7 +165,7 @@ export function createStreamPipeline({
       const { skinEngine } = getEngines();
       if (typeof skinEngine === 'object' && skinEngine !== null) {
         if (skinEngine.gestureName === 'thinking') {
-          skinEngine.gestureName = 'talking';
+          skinEngine.gestureName = 'neutral';
         }
         if (typeof skinEngine.setEmotion === 'function') {
           skinEngine.setEmotion('neutral');

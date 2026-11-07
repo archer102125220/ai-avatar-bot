@@ -149,7 +149,7 @@ function dispatchOutputTextReady(engine: BrainEngine, text: string) {
   - **面部表情 (Expression) 與肢體動作 (Gesture) 通道混雜**：大腦輸出的 `onEmotionChange`（中立化後為 `onSentimentChange`）傳入 `skinEngine.setEmotion` 時，目前皮膚引擎內部會強制執行 `gestureName = emotion`，把情緒當作動作檔名播放，造成面部表情與肢體動作混亂、容易打斷 normal idle/speaking 動作或觸發警告。大腦解耦後，Orchestrator 應將 `onSentimentChange` 純粹映射至模型的面部表情（Expression/Blendshape），僅在明確有動作映射時才觸發肢體動畫。
   - **`model` 參數名相撞與歧義**：大腦引擎使用 `model`（LLM 名稱），而皮膚引擎頂層配置使用 `modelUrl`（2D 模型網址）與 `modelTransform`（3D 空間變換），在上層 `WidgetOptions` 容易產生認知衝突與配置混淆。
 - [x] **耦合點 04 (Orchestrator 推理狀態硬編碼)**：
-  - 在 `pipeline-stream.ts` 與 `pipeline-user.ts` 中，當大腦開始思考時，Orchestrator 硬編碼呼叫 `skinEngine.gestureName = 'thinking'` 與 `skinEngine.setEmotion('thinking')`。大腦解耦時，應將思考狀態正規化至標準推論生命週期事件（如 `onReasoningStart` / `onReasoningEnd`），由協調層監聽後再主動指示皮膚引擎展現思考動作，而非直接綁死狀態名。
+  - 在 `pipeline-stream.ts` 與 `pipeline-user.ts` 中，當大腦開始思考時，Orchestrator 硬編碼呼叫 `skinEngine.gestureName = 'thinking'` 與 `skinEngine.setEmotion('thinking')`；而在思考結束時，原先硬編碼呼叫 `skinEngine.gestureName = 'talking'`，但皮膚引擎並無單一 `talking` 手勢（說話由 `isSpeaking` 驅動動作池），導致無此手勢的模型拋出 `GestureNotFoundError`。現已將思考結束修正為平滑回歸 `neutral`。未來大腦徹底獨立拆包時，應將思考狀態正規化至標準推論生命週期事件（如 `onReasoningStart` / `onReasoningEnd`），由協調層或使用者自訂映射動作，而非直接在核心流程綁死特定字串。
 
 ---
 

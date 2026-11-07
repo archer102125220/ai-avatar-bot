@@ -1012,12 +1012,15 @@ export async function bootVRM(
 
       if (candidateExpressions.length > 0) {
         const targetExpression = candidateExpressions[0];
+        if (targetExpression === 'neutral') {
+          crossfadeToBaseIdle();
+        }
         if (
           typeof skinEngine.emotionBlend === 'object' &&
           skinEngine.emotionBlend !== null
         ) {
           skinEngine.emotionBlend.name = targetExpression;
-          skinEngine.emotionBlend.target = 1;
+          skinEngine.emotionBlend.target = targetExpression === 'neutral' ? 0 : 1;
         }
         if (
           typeof vrm === 'object' &&

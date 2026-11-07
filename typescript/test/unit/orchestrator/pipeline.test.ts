@@ -381,7 +381,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
       });
       expect(streamPipeline.isThinking()).toBe(false);
       expect(mockEngines.skinEngine.setEmotion).toHaveBeenCalledWith('neutral');
-      expect(mockEngines.skinEngine.gestureName).toBe('talking');
+      expect(mockEngines.skinEngine.gestureName).toBe('neutral');
       expect(mockEngines.speechEngine.beginSpeech).not.toHaveBeenCalled();
       expect(options.onReasoningEnd).toHaveBeenCalledWith(
         expect.objectContaining({ fullReasoning: '思考完成。' }),
@@ -389,12 +389,12 @@ describe('Orchestrator Pipelines & Interactions', () => {
         1500
       );
 
-      // 5. Answer chunks start arriving - now speech begins and gesture is talking
+      // 5. Answer chunks start arriving - now speech begins and gesture is neutral
       const rawAnswerChunk = { choices: [{ delta: { content: '正式回答第一句。' } }] };
       streamPipeline.onStreamChunk('正式回答第一句。', rawAnswerChunk);
       expect(mockEngines.speechEngine.beginSpeech).toHaveBeenCalled();
       expect(streamPipeline.getStreamSpeechId()).toBe(1);
-      expect(mockEngines.skinEngine.gestureName).toBe('talking');
+      expect(mockEngines.skinEngine.gestureName).toBe('neutral');
       expect(mockEngines.speechEngine.pushSpeech).toHaveBeenCalledWith(
         1,
         '正式回答第一句。'
