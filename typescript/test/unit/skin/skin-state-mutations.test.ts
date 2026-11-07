@@ -30,12 +30,12 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
         stageEl,
         gender: GENDER_MAP.female
       }) as SkinEngine;
-      expect(engine.modelUrl).toBe(DEFAULT_FEMALE_2D_MODEL_URL);
+      expect(engine.live2dUrl).toBe(DEFAULT_FEMALE_2D_MODEL_URL);
       expect(engine.vrmUrl).toBe(DEFAULT_FEMALE_3D_MODEL_URL);
 
       engine.setGender(GENDER_MAP.male);
       expect(engine.getState().gender).toBe(GENDER_MAP.male);
-      expect(engine.modelUrl).toBe(DEFAULT_MALE_2D_MODEL_URL);
+      expect(engine.live2dUrl).toBe(DEFAULT_MALE_2D_MODEL_URL);
       expect(engine.vrmUrl).toBe(DEFAULT_MALE_3D_MODEL_URL);
     });
   });
@@ -86,15 +86,15 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
 
       engine.setSkin3d({
         camera: { fov: 35, near: 0.05 },
-        model: { position: { x: 0, y: -0.5, z: 0 }, scale: 1.2 },
+        modelTransform: { position: { x: 0, y: -0.5, z: 0 }, scale: 1.2 },
         pointerLook: false
       });
 
       const updated = engine.skin3d;
       expect(updated.camera?.fov).toBe(35);
       expect(updated.camera?.near).toBe(0.05);
-      expect(updated.model?.position).toEqual({ x: 0, y: -0.5, z: 0 });
-      expect(updated.model?.scale).toBe(1.2);
+      expect(updated.modelTransform?.position).toEqual({ x: 0, y: -0.5, z: 0 });
+      expect(updated.modelTransform?.scale).toBe(1.2);
       expect(updated.pointerLook).toBe(false);
     });
   });
@@ -106,8 +106,8 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
 
       engine.setEmotion('happy');
       expect(engine.getState().emotion).toBe('happy');
-      expect(engine.emo.name).toBe('happy');
-      expect(engine.emo.target).toBe(EMOTION_TARGET_MAP.happy);
+      expect(engine.emotionBlend?.name).toBe('happy');
+      expect(engine.emotionBlend?.target).toBe(EMOTION_TARGET_MAP.happy);
 
       // 前進 2.9 秒：仍為 happy
       vi.advanceTimersByTime(2900);
@@ -199,48 +199,50 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
       expect(engine.fitMode).toBe(FIT_MODE_MAP.FULL); // DEFAULT_FIT_MODE is full
     });
 
-    it('should invoke VRMFileChangeFail, VRMFileChangeSuccess and handle emo.name branch conditions', () => {
-      const VRMFileChangeFail = vi.fn();
-      const VRMFileChangeSuccess = vi.fn();
+    it('should invoke onVrmFileChangeFail, onVrmFileChangeSuccess and handle emotionBlend.name branch conditions', () => {
+      const onVrmFileChangeFail = vi.fn();
+      const onVrmFileChangeSuccess = vi.fn();
 
       const engine: SkinEngine = initSkinEngine({
         stageEl,
-        VRMFileChangeFail,
-        VRMFileChangeSuccess
+        onVrmFileChangeFail,
+        onVrmFileChangeSuccess
       }) as SkinEngine;
 
       const mockError = new Error('VRM file invalid');
-      engine.VRMFileChangeFail?.(mockError);
-      expect(VRMFileChangeFail).toHaveBeenCalledWith(mockError);
+      engine.onVrmFileChangeFail?.(mockError);
+      expect(onVrmFileChangeFail).toHaveBeenCalledWith(mockError);
 
-      engine.VRMFileChangeSuccess?.('blob:http://localhost/new_vrm');
-      expect(VRMFileChangeSuccess).toHaveBeenCalledWith(
+      engine.onVrmFileChangeSuccess?.('blob:http://localhost/new_vrm');
+      expect(onVrmFileChangeSuccess).toHaveBeenCalledWith(
         'blob:http://localhost/new_vrm'
       );
 
-      // Test emo.name branches
-      expect(engine.emo.name).toBe('neutral');
+      // Test emotionBlend.name branches
+      expect(engine.emotionBlend?.name).toBe('neutral');
       // 1. same name
-      engine.emo.name = 'neutral';
-      expect(engine.emo.target).toBe(0);
+      if (engine.emotionBlend) {
+        engine.emotionBlend.name = 'neutral';
+        expect(engine.emotionBlend.target).toBe(0);
 
-      // 2. valid target emotion
-      engine.emo.name = 'happy';
-      expect(engine.emo.name).toBe('happy');
-      expect(engine.emo.target).toBe(EMOTION_TARGET_MAP.happy);
+        // 2. valid target emotion
+        engine.emotionBlend.name = 'happy';
+        expect(engine.emotionBlend.name).toBe('happy');
+        expect(engine.emotionBlend.target).toBe(EMOTION_TARGET_MAP.happy);
 
-      // 3. invalid emotion name (not in map and not neutral)
-      engine.emo.name = 'non_existent_emo';
-      expect(engine.emo.name).toBe('happy');
+        // 3. invalid emotion name (not in map and not neutral)
+        engine.emotionBlend.name = 'non_existent_emo';
+        expect(engine.emotionBlend.name).toBe('happy');
 
-      // 4. reset back to neutral
-      engine.emo.name = 'neutral';
-      expect(engine.emo.name).toBe('neutral');
-      expect(engine.emo.target).toBe(0);
+        // 4. reset back to neutral
+        engine.emotionBlend.name = 'neutral';
+        expect(engine.emotionBlend.name).toBe('neutral');
+        expect(engine.emotionBlend.target).toBe(0);
 
-      // 5. fallback to 'neutral' when _name is empty
-      (engine.emo as unknown as { _name: string })._name = '';
-      expect(engine.emo.name).toBe('neutral');
+        // 5. fallback to 'neutral' when _name is empty
+        (engine.emotionBlend as unknown as { _name: string })._name = '';
+        expect(engine.emotionBlend.name).toBe('neutral');
+      }
     });
   });
 });

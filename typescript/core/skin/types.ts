@@ -78,8 +78,6 @@ export interface Skin2DConfig {
   full?: Skin2DModeConfig;
   /** Tap / click motion keys triggered randomly when avatar is clicked. Default: ['tap'] */
   tapMotions?: string[];
-  /** Alias for tapMotions. */
-  tapGestures?: string[];
   /** Semantic motion mapping from action names to Live2D motion group names (supports cascade gender overrides). */
   motionMap?: SkinCascadeMap<Skin2DMotionItem>;
   /** Custom semantic expression mapping to Live2D expression names (supports cascade gender overrides). */
@@ -121,7 +119,7 @@ export interface Skin3DModeConfig {
   /** Camera configuration overrides for this mode. */
   camera?: Skin3DCameraConfig;
   /** Model transformation overrides for this mode. */
-  model?: Skin3DModelConfig;
+  modelTransform?: Skin3DModelConfig;
 }
 
 /**
@@ -207,7 +205,7 @@ export interface Skin3DConfig {
   /** Global camera configuration. */
   camera?: Skin3DCameraConfig;
   /** Global model spatial transformation. */
-  model?: Skin3DModelConfig;
+  modelTransform?: Skin3DModelConfig;
   /** Half-body mode specific overrides. */
   half?: Skin3DModeConfig;
   /** Full-body mode specific overrides. */
@@ -230,24 +228,6 @@ export interface Skin3DConfig {
     female?: Skin3DActionItem;
     male?: Skin3DActionItem;
   };
-  /** URL to bow animation file (.vrma). */
-  bow?: string;
-  /** URL to goodbye animation file (.vrma). */
-  goodbye?: string;
-  /** URL to thinking animation file (.vrma). */
-  thinking?: string;
-  /** URL to look-around animation file (.vrma). */
-  'look-around'?: string;
-  /** URL to relax / idle animation file (.vrma). */
-  relax?: string;
-  /** URL to surprised animation file (.vrma). */
-  surprised?: string;
-  /** URL to appearing animation file (.vrma). */
-  appearing?: string;
-  /** URL to liked animation file (.vrma). */
-  liked?: string;
-  /** URL to waiting animation file (.vrma). */
-  waiting?: string | { female?: string; male?: string };
   /** Root directory URL path for VRMA animation files. */
   vrmaRootPath?: string;
   /** Gesture action keys triggered randomly when 3D avatar is clicked. Default: ['goodbye', 'bow', 'waiting'] */
@@ -527,93 +507,49 @@ export interface SkinEngineOptions {
   /** HTML container element where canvas will be mounted. */
   stageEl: HTMLElement;
   /** URL to the 2D Live2D model (.model3.json). */
-  modelUrl?: string;
+  live2dUrl?: string;
+  /** URL to the 3D VRM model (.vrm). */
+  vrmUrl?: string;
   /** Initial engine rendering mode ('2d' | '3d'). */
   startMode?: EngineMode;
   /** Initial container fitting mode ('half' | 'full'). */
   fitMode?: FitMode;
-  /** 2D visual transformation configuration. */
-  skin2d?: Skin2DConfig;
-  /** Alias for skin2d.zoom. */
-  zoom?: number;
-  /** Alias for skin2d.offsetX. */
-  offsetX?: number;
-  /** Alias for skin2d.offsetY. */
-  offsetY?: number;
-  /** Alias for skin2d.anchor. */
-  anchor?: Point2D;
-  /** URL to the 3D VRM model (.vrm). */
-  vrmUrl?: string;
-  /** 3D visual and animation configuration. */
-  skin3d?: Skin3DConfig;
-  /** Alias for skin3d.camera. */
-  camera?: Skin3DCameraConfig;
-  /** Alias for skin3d.model. */
-  modelTransform?: Skin3DModelConfig;
-  /** Alias for skin3d.pointerLook. */
-  pointerLook?: boolean;
-  /** Custom 3D gesture handler or config map. */
-  gesture3D?: SkinGestureHandler | Record<string, unknown> | null;
-  /** Custom 2D gesture handler or config map. */
-  gesture2D?: SkinGestureHandler | Record<string, unknown> | null;
-  /** Function to compute mouth open amplitude for lip sync. */
-  computeMouth?: SkinComputeMouthFn | null;
-  /** Callback fired when 3D initialization encounters an error. */
-  onThreeDimensionalError?: SkinErrorCallback;
-  /** Callback fired when 2D initialization encounters an error. */
-  onTwoDimensionalError?: SkinErrorCallback;
-  /** Callback fired when loading a custom dropped VRM file fails. */
-  VRMFileChangeFail?: SkinVRMFileFailCallback;
-  /** Callback fired when loading a custom dropped VRM file succeeds. */
-  VRMFileChangeSuccess?: SkinVRMFileSuccessCallback;
-  /** Callback fired when avatar model is mounted and rendered. */
-  onMounted?: SkinMountedCallback;
   /** Default avatar gender ('female' | 'male'). */
   gender?: Gender;
+
+  /** 2D visual, transform, and motion configuration. */
+  skin2d?: Skin2DConfig;
+  /** 3D visual, camera, model transform, and gesture library configuration. */
+  skin3d?: Skin3DConfig;
+
+  /** Function to compute mouth open amplitude for lip sync. */
+  computeMouth?: SkinComputeMouthFn | null;
+  /** Global unified gesture handler interceptor. */
+  gesture?: SkinUnifiedGestureHandler | null;
+
+  // ===== Lifecycle & Error Callbacks =====
+  /** Callback fired when avatar model is mounted and rendered. */
+  onMounted?: SkinMountedCallback;
+  /** Callback fired when 3D initialization or rendering encounters an error. */
+  on3DError?: SkinErrorCallback;
+  /** Callback fired when 2D initialization or rendering encounters an error. */
+  on2DError?: SkinErrorCallback;
+  /** Callback fired when loading a custom dropped VRM file fails. */
+  onVrmFileChangeFail?: SkinVRMFileFailCallback;
+  /** Callback fired when loading a custom dropped VRM file succeeds. */
+  onVrmFileChangeSuccess?: SkinVRMFileSuccessCallback;
   /** Callback fired when a gesture starts playing. */
   onGesture?: SkinGestureCallback;
-  /** Callback fired when a gesture encounters an error. */
-  onGestureError?: SkinGestureErrorCallback;
   /** Callback fired when a gesture completes. */
   onGestureEnd?: SkinGestureCallback;
+  /** Callback fired when a gesture encounters an error. */
+  onGestureError?: SkinGestureErrorCallback;
   /** Callback fired when model mode switch begins. */
   onModelChangeStart?: SkinModelChangeStartCallback;
-  /** Alias for onModelChangeStart. */
-  onModelChange?: SkinModelChangeStartCallback;
   /** Callback fired when model mode switch finishes. */
   onModelChangeEnd?: SkinModelChangeEndCallback;
   /** Callback fired when model mode switch fails. */
   onModelChangeError?: SkinModelChangeErrorCallback;
-  /** URL to bow animation file (.vrma). */
-  bow?: string;
-  /** URL to goodbye animation file (.vrma). */
-  goodbye?: string;
-  /** URL to thinking animation file (.vrma). */
-  thinking?: string;
-  /** URL to look-around animation file (.vrma). */
-  'look-around'?: string;
-  /** URL to relax / idle animation file (.vrma). */
-  relax?: string;
-  /** URL to surprised animation file (.vrma). */
-  surprised?: string;
-  /** URL to appearing animation file (.vrma). */
-  appearing?: string;
-  /** URL to liked animation file (.vrma). */
-  liked?: string;
-  /** URL to waiting animation file (.vrma). */
-  waiting?: string;
-  /** Root directory URL path for VRMA animation files. */
-  vrmaRootPath?: string;
-  /** Global unified gesture handler interceptor. */
-  gesture?: SkinUnifiedGestureHandler | null;
-  /** List of gesture keys triggered randomly when 3D avatar is tapped. */
-  tapGestures?: string[] | Skin3DActionItem[];
-  /** List of motion keys triggered randomly when 2D avatar is tapped. */
-  tapMotions?: string[];
-  /** Semantic motion mapping from action names to Live2D motion group names. */
-  motionMap?: Record<string, string>;
-  /** Custom semantic expression mapping to expression names. */
-  expressionMap?: Record<string, string>;
 }
 
 /**
@@ -645,6 +581,8 @@ export interface SkinEngine extends SubscribableStore<SkinEngineState> {
   avatarModel?: Live2DModelInstance | null;
   /** Active renderer instance (Renderer2D or Renderer3D). */
   renderer: Renderer2D | Renderer3D | null;
+  /** Facial emotion blending state for 3D morph targets. */
+  emotionBlend?: SkinEmotionBlendState;
   /** Switches avatar gender and updates default model URLs. */
   setGender(gender: Gender): void;
   /** Loads and replaces active VRM model with a local File object. */
@@ -665,53 +603,43 @@ export interface SkinEngine extends SubscribableStore<SkinEngineState> {
   readonly skin3d: Skin3DConfig;
   /** Current gender setting. */
   readonly gender: Gender;
-  /** 2D model URL. */
-  modelUrl: string;
-  /** 3D VRM model URL. */
+  /** 2D Live2D model configuration file URL (.model3.json). */
+  live2dUrl: string;
+  /** 3D VRM model URL (.vrm). */
   vrmUrl: string;
-  /** Triggers a 3D gesture / emotion motion, or registers a custom handler. */
-  gesture3D: SkinGestureTrigger | null;
-  /** Triggers a 2D gesture / emotion motion, or registers a custom handler. */
-  gesture2D: SkinGestureTrigger | null;
-  /** Plays a gesture on the current active engine (2D or 3D). */
-  gesture?: SkinGestureTrigger | null;
   /** Plays tap gesture randomly from TAP_GESTURES on active engine. */
   playTapGesture?(): Promise<void> | void;
-  /** Plays a gesture on the current active engine (2D or 3D). */
+  /** Plays a named gesture on the current active engine (2D motion or 3D animation). */
   playGesture?(
     name: string,
     optionOverride?: Skin3DActionOption
   ): Promise<void> | void;
-  /** Current active gesture / emotion name. Setting triggers onGesture lifecycle. */
+  /** Current active gesture / emotion name. */
   gestureName: string;
   /** Initial rendering start mode. */
   startMode: EngineMode;
   /** Active fitting mode ('half' | 'full'). */
   fitMode: FitMode;
-  /** Emotion blend weight state for animation loop easing. */
-  emo: SkinEmotionBlendState;
   /** Function to compute mouth open amplitude. */
   computeMouth?: SkinComputeMouthFn;
   /** Callback fired when avatar is mounted. */
   onMounted?: SkinMountedCallback;
   /** Callback fired on 3D error. */
-  onThreeDimensionalError?: SkinErrorCallback;
+  on3DError?: SkinErrorCallback;
   /** Callback fired on 2D error. */
-  onTwoDimensionalError?: SkinErrorCallback;
+  on2DError?: SkinErrorCallback;
   /** Callback fired on VRM file load failure. */
-  VRMFileChangeFail?: SkinVRMFileFailCallback;
+  onVrmFileChangeFail?: SkinVRMFileFailCallback;
   /** Callback fired on VRM file load success. */
-  VRMFileChangeSuccess?: SkinVRMFileSuccessCallback;
+  onVrmFileChangeSuccess?: SkinVRMFileSuccessCallback;
   /** Callback fired on gesture start. */
   onGesture?: SkinGestureCallback;
-  /** Callback fired on gesture error. */
-  onGestureError?: SkinGestureErrorCallback;
   /** Callback fired on gesture end. */
   onGestureEnd?: SkinGestureCallback;
+  /** Callback fired on gesture error. */
+  onGestureError?: SkinGestureErrorCallback;
   /** Callback fired when mode change starts. */
   onModelChangeStart?: SkinModelChangeStartCallback;
-  /** Alias for onModelChangeStart. */
-  onModelChange?: SkinModelChangeStartCallback;
   /** Callback fired when mode change ends. */
   onModelChangeEnd?: SkinModelChangeEndCallback;
   /** Callback fired on mode change error. */

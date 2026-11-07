@@ -159,17 +159,15 @@ export function normalize3DActionItem(item: Skin3DActionItem): Skin3DActionOptio
  * Resolves a 3D animation gesture into a normalized Resolved3DAction object.
  * Priority order:
  * 1. User cascade gestures map: gestures[gender]?.[key] ➜ gestures?.[key]
- * 2. User direct top-level action property override (e.g. config.bow, config.salute)
- * 3. System built-in default mapping from DEFAULT_3D_GESTURE_MAP + vrmaRootPath
+ * 2. System built-in default mapping from DEFAULT_3D_GESTURE_MAP + vrmaRootPath
  *
  * @param key - Action or gesture identifier.
- * @param options - Configuration contexts including gestures cascade, custom overrides, and root path.
+ * @param options - Configuration contexts including gestures cascade and root path.
  */
 export function resolve3DAction(
   key: string,
   options?: {
     gestures?: SkinCascadeMap<string | Skin3DGestureOption>;
-    topLevelOverrides?: Record<string, unknown>;
     gender?: Gender | string;
     vrmaRootPath?: string;
   }
@@ -202,31 +200,7 @@ export function resolve3DAction(
     }
   }
 
-  // 2. Check user top-level property override (e.g. config.bow)
-  if (
-    customUrl === undefined &&
-    typeof options?.topLevelOverrides === 'object' &&
-    options?.topLevelOverrides !== null
-  ) {
-    const topVal = options.topLevelOverrides[key];
-    if (typeof topVal === 'string' && topVal !== '') {
-      customUrl = topVal;
-    } else if (typeof topVal === 'object' && topVal !== null) {
-      const topObj = topVal as { female?: string; male?: string; url?: string; pointerLook?: boolean };
-      if (options.gender === 'female' && typeof topObj.female === 'string' && topObj.female !== '') {
-        customUrl = topObj.female;
-      } else if (options.gender === 'male' && typeof topObj.male === 'string' && topObj.male !== '') {
-        customUrl = topObj.male;
-      } else if (typeof topObj.url === 'string' && topObj.url !== '') {
-        customUrl = topObj.url;
-      }
-      if (typeof topObj.pointerLook === 'boolean') {
-        customPointerLook = topObj.pointerLook;
-      }
-    }
-  }
-
-  // 3. System built-in default resolution
+  // 2. System built-in default resolution
   const defaultMeta = (DEFAULT_3D_GESTURE_MAP as Record<string, { urlSuffix: string; pointerLook: boolean }>)[key];
 
   const resolvedUrl =
@@ -263,7 +237,6 @@ export function resolve3DActionPool(
   defaultPool: readonly (string | Skin3DActionOption)[],
   options?: {
     gestures?: SkinCascadeMap<string | Skin3DGestureOption>;
-    topLevelOverrides?: Record<string, unknown>;
     gender?: Gender | string;
     vrmaRootPath?: string;
   }
@@ -311,7 +284,6 @@ export function resolveAll3DPools(
 } {
   const options = {
     gestures: config.gestures,
-    topLevelOverrides: config,
     gender,
     vrmaRootPath: config.vrmaRootPath
   };

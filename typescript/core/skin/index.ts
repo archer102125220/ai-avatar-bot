@@ -6,10 +6,6 @@ import {
   FIT_MODE_MAP,
   DEFAULT_FIT_MODE,
   DEFAULT_GENDER,
-  DEFAULT_FEMALE_2D_MODEL_URL,
-  DEFAULT_MALE_2D_MODEL_URL,
-  DEFAULT_FEMALE_3D_MODEL_URL,
-  DEFAULT_MALE_3D_MODEL_URL,
   getDefault2DModelUrl,
   getDefault3DModelUrl,
   DEFAULT_2D_OFFSET_X,
@@ -23,18 +19,20 @@ import {
 } from '@/core/constants';
 import { initSkinMode } from './canvas';
 import { defaultGesture2D, bootAvatar } from './renderer-2d';
-import { defaultGesture3D, loadVRMFile, bootVRM } from './renderer-3d';
+import { loadVRMFile, bootVRM } from './renderer-3d';
 import {
   GestureNotFoundError,
+  isRenderer2D,
+  isRenderer3D,
   type EngineMode,
   type SkinEngine,
   type SkinEngineOptions,
   type Skin2DConfig,
   type Skin3DConfig,
+  type Skin3DActionOption,
+  type SkinEmotionBlendState,
   type Renderer2D,
   type Renderer3D,
-  type SkinGestureHandler,
-  type SkinGestureTrigger,
   type SkinComputeMouthFn,
   type SkinMountedCallback,
   type SkinErrorCallback,
@@ -67,18 +65,20 @@ export interface InternalSkinStoreState {
 }
 
 interface InternalSkinEngine extends SkinEngine {
-  _modelUrl: string;
+  _live2dUrl: string;
   _renderer: Renderer2D | Renderer3D | null;
   _engineMode: string | null;
-  _gesture3D: SkinGestureHandler | null;
-  _gesture2D: SkinGestureHandler | null;
   _customUnifiedGesture?: SkinUnifiedGestureHandler | null;
   _gestureName: string;
   _vrmUrl: string;
   _switching: boolean | null;
   _lipIds: string[];
   _startMode: string;
-  playGesture: (gestureName: string) => Promise<void> | void;
+  emotionBlend: SkinEmotionBlendState;
+  playGesture: (
+    gestureName: string,
+    optionOverride?: Skin3DActionOption
+  ) => Promise<void> | void;
   playTapGesture: () => Promise<void>;
 }
 
@@ -93,18 +93,23 @@ export function initSkinEngine(
 ): SkinEngine | void {
   const {
     stageEl,
-    modelUrl = '',
+    live2dUrl = '',
     startMode = DEFAULT_START_MODE,
     fitMode = DEFAULT_FIT_MODE,
     vrmUrl = '',
-    gesture3D = null,
-    gesture2D = null,
     computeMouth = null,
-    onThreeDimensionalError,
-    onTwoDimensionalError,
-    VRMFileChangeFail,
-    VRMFileChangeSuccess,
-    onMounted
+    gesture = null,
+    on3DError,
+    on2DError,
+    onVrmFileChangeFail,
+    onVrmFileChangeSuccess,
+    onMounted,
+    onGesture,
+    onGestureEnd,
+    onGestureError,
+    onModelChangeStart,
+    onModelChangeEnd,
+    onModelChangeError
   } = setting;
 
   if (stageEl instanceof HTMLElement === false) {
@@ -112,35 +117,17 @@ export function initSkinEngine(
     return;
   }
 
-  const safeModelUrl =
-    typeof modelUrl === 'string' && modelUrl !== ''
-      ? modelUrl
+  const safeLive2dUrl =
+    typeof live2dUrl === 'string' && live2dUrl !== ''
+      ? live2dUrl
       : getDefault2DModelUrl(setting.gender || DEFAULT_GENDER);
-
-  const safeGesture2D =
-    typeof gesture2D === 'function'
-      ? gesture2D
-      : [DEFAULT_FEMALE_2D_MODEL_URL, DEFAULT_MALE_2D_MODEL_URL].includes(
-            safeModelUrl
-          )
-        ? defaultGesture2D
-        : null;
 
   const safeVrmUrl =
     typeof vrmUrl === 'string' && vrmUrl !== ''
       ? vrmUrl
-      : /\.vrm($|\?)/i.test(safeModelUrl)
-        ? safeModelUrl
+      : /\.vrm($|\?)/i.test(safeLive2dUrl)
+        ? safeLive2dUrl
         : getDefault3DModelUrl(setting.gender || DEFAULT_GENDER);
-
-  const safeGesture3D =
-    typeof gesture3D === 'function'
-      ? gesture3D
-      : [DEFAULT_FEMALE_3D_MODEL_URL, DEFAULT_MALE_3D_MODEL_URL].includes(
-            safeVrmUrl
-          )
-        ? defaultGesture3D
-        : null;
 
   const skin2dOption =
     typeof setting.skin2d === 'object' && setting.skin2d !== null
@@ -149,36 +136,21 @@ export function initSkinEngine(
 
   const initialSkin2d: Skin2DConfig = {
     ...skin2dOption,
-    zoom:
-      typeof skin2dOption.zoom === 'number' &&
-      Number.isFinite(skin2dOption.zoom)
-        ? skin2dOption.zoom
-        : typeof setting.zoom === 'number' && Number.isFinite(setting.zoom)
-          ? setting.zoom
-          : undefined,
     offsetX:
       typeof skin2dOption.offsetX === 'number' &&
       Number.isFinite(skin2dOption.offsetX)
         ? skin2dOption.offsetX
-        : typeof setting.offsetX === 'number' &&
-            Number.isFinite(setting.offsetX)
-          ? setting.offsetX
-          : DEFAULT_2D_OFFSET_X,
+        : DEFAULT_2D_OFFSET_X,
     offsetY:
       typeof skin2dOption.offsetY === 'number' &&
       Number.isFinite(skin2dOption.offsetY)
         ? skin2dOption.offsetY
-        : typeof setting.offsetY === 'number' &&
-            Number.isFinite(setting.offsetY)
-          ? setting.offsetY
-          : DEFAULT_2D_OFFSET_Y,
+        : DEFAULT_2D_OFFSET_Y,
     anchor: {
       ...(typeof skin2dOption.anchor === 'object' &&
       skin2dOption.anchor !== null
         ? skin2dOption.anchor
-        : typeof setting.anchor === 'object' && setting.anchor !== null
-          ? setting.anchor
-          : {})
+        : {})
     },
     half: {
       ...(typeof skin2dOption.half === 'object' && skin2dOption.half !== null
@@ -189,46 +161,15 @@ export function initSkinEngine(
       ...(typeof skin2dOption.full === 'object' && skin2dOption.full !== null
         ? skin2dOption.full
         : {})
-    },
-    tapMotions:
-      Array.isArray(skin2dOption.tapMotions) &&
-      skin2dOption.tapMotions.length > 0
-        ? skin2dOption.tapMotions
-        : Array.isArray(setting.tapMotions) && setting.tapMotions.length > 0
-          ? setting.tapMotions
-          : undefined,
-    tapGestures:
-      Array.isArray(skin2dOption.tapGestures) &&
-      skin2dOption.tapGestures.length > 0
-        ? skin2dOption.tapGestures
-        : Array.isArray(setting.tapGestures) && setting.tapGestures.length > 0
-          ? setting.tapGestures.map((item) =>
-              typeof item === 'string' ? item : item.name
-            )
-          : undefined,
-    motionMap:
-      typeof skin2dOption.motionMap === 'object' &&
-      skin2dOption.motionMap !== null
-        ? skin2dOption.motionMap
-        : typeof setting.motionMap === 'object' && setting.motionMap !== null
-          ? setting.motionMap
-          : undefined,
-    expressionMap:
-      typeof skin2dOption.expressionMap === 'object' &&
-      skin2dOption.expressionMap !== null
-        ? skin2dOption.expressionMap
-        : typeof setting.expressionMap === 'object' &&
-            setting.expressionMap !== null
-          ? setting.expressionMap
-          : undefined
+    }
   };
 
   const skin3dOption =
     typeof setting.skin3d === 'object' && setting.skin3d !== null
       ? setting.skin3d
       : {};
-  const cameraOption = skin3dOption.camera || setting.camera || {};
-  const modelOption = skin3dOption.model || setting.modelTransform || {};
+  const cameraOption = skin3dOption.camera || {};
+  const modelTransformOption = skin3dOption.modelTransform || {};
 
   const initialSkin3d: Skin3DConfig = {
     ...skin3dOption,
@@ -251,10 +192,10 @@ export function initSkinEngine(
       position: cameraOption.position || undefined,
       lookAt: cameraOption.lookAt || undefined
     },
-    model: {
-      position: modelOption.position || DEFAULT_3D_MODEL_POSITION,
-      scale: modelOption.scale ?? DEFAULT_3D_MODEL_SCALE,
-      rotation: modelOption.rotation || DEFAULT_3D_MODEL_ROTATION
+    modelTransform: {
+      position: modelTransformOption.position || DEFAULT_3D_MODEL_POSITION,
+      scale: modelTransformOption.scale ?? DEFAULT_3D_MODEL_SCALE,
+      rotation: modelTransformOption.rotation || DEFAULT_3D_MODEL_ROTATION
     },
     half: {
       ...(typeof skin3dOption.half === 'object' && skin3dOption.half !== null
@@ -267,39 +208,9 @@ export function initSkinEngine(
         : {})
     },
     pointerLook:
-      typeof (skin3dOption.pointerLook ?? setting.pointerLook) === 'boolean'
-        ? (skin3dOption.pointerLook ?? setting.pointerLook)
-        : DEFAULT_3D_POINTER_LOOK,
-    bow: skin3dOption.bow || setting.bow || '',
-    goodbye: skin3dOption.goodbye || setting.goodbye || '',
-    thinking: skin3dOption.thinking || setting.thinking || '',
-    'look-around': skin3dOption['look-around'] || setting['look-around'] || '',
-    relax: skin3dOption.relax || setting.relax || '',
-    surprised: skin3dOption.surprised || setting.surprised || '',
-    appearing: skin3dOption.appearing || setting.appearing || '',
-    liked: skin3dOption.liked || setting.liked || '',
-    waiting: skin3dOption.waiting || setting.waiting || '',
-    vrmaRootPath: skin3dOption.vrmaRootPath || setting.vrmaRootPath || '',
-    tapGestures:
-      Array.isArray(skin3dOption.tapGestures) &&
-      skin3dOption.tapGestures.length > 0
-        ? skin3dOption.tapGestures
-        : Array.isArray(setting.tapGestures) && setting.tapGestures.length > 0
-          ? setting.tapGestures
-          : undefined,
-    gestures:
-      typeof skin3dOption.gestures === 'object' &&
-      skin3dOption.gestures !== null
-        ? skin3dOption.gestures
-        : undefined,
-    expressionMap:
-      typeof skin3dOption.expressionMap === 'object' &&
-      skin3dOption.expressionMap !== null
-        ? skin3dOption.expressionMap
-        : typeof setting.expressionMap === 'object' &&
-            setting.expressionMap !== null
-          ? setting.expressionMap
-          : undefined
+      typeof skin3dOption.pointerLook === 'boolean'
+        ? skin3dOption.pointerLook
+        : DEFAULT_3D_POINTER_LOOK
   };
 
   const store = createBaseStore<InternalSkinStoreState>({
@@ -327,12 +238,16 @@ export function initSkinEngine(
     subscribe: store.subscribe,
     setGender: (gender: string) => {
       store.setState({ gender });
-      skinEngine.modelUrl = getDefault2DModelUrl(gender);
+      skinEngine.live2dUrl = getDefault2DModelUrl(gender);
       skinEngine.vrmUrl = getDefault3DModelUrl(gender);
     },
     setEmotion: (emotion: string) => {
       store.setState({ emotion });
-      skinEngine.gestureName = emotion;
+      skinEngine.emotionBlend.name = emotion;
+
+      if (skinEngine.engineMode === ENGINE_MODE_MAP.twoDimensional) {
+        void defaultGesture2D(skinEngine, emotion);
+      }
 
       clearEmotionAutoRestoreTimer();
       if (
@@ -406,11 +321,11 @@ export function initSkinEngine(
                 ? partialConfig.camera
                 : {})
             },
-            model: {
-              ...prevState.skin3d?.model,
-              ...(typeof partialConfig.model === 'object' &&
-              partialConfig.model !== null
-                ? partialConfig.model
+            modelTransform: {
+              ...prevState.skin3d?.modelTransform,
+              ...(typeof partialConfig.modelTransform === 'object' &&
+              partialConfig.modelTransform !== null
+                ? partialConfig.modelTransform
                 : {})
             },
             half: {
@@ -446,13 +361,13 @@ export function initSkinEngine(
       return setting.gender || DEFAULT_GENDER;
     },
 
-    _modelUrl: safeModelUrl,
-    get modelUrl(): string {
-      return this._modelUrl;
+    _live2dUrl: safeLive2dUrl,
+    get live2dUrl(): string {
+      return this._live2dUrl;
     },
-    set modelUrl(newModelUrl: string) {
-      if (typeof newModelUrl === 'string' && newModelUrl !== '') {
-        this._modelUrl = newModelUrl;
+    set live2dUrl(newLive2dUrl: string) {
+      if (typeof newLive2dUrl === 'string' && newLive2dUrl !== '') {
+        this._live2dUrl = newLive2dUrl;
       }
     },
 
@@ -478,39 +393,39 @@ export function initSkinEngine(
       };
     },
 
-    get onThreeDimensionalError(): SkinErrorCallback {
+    get on3DError(): SkinErrorCallback {
       return (...args: Parameters<SkinErrorCallback>) => {
-        if (typeof onThreeDimensionalError === 'function') {
-          return onThreeDimensionalError(...args);
+        if (typeof on3DError === 'function') {
+          return on3DError(...args);
         }
       };
     },
 
-    get onTwoDimensionalError(): SkinErrorCallback {
+    get on2DError(): SkinErrorCallback {
       return (...args: Parameters<SkinErrorCallback>) => {
-        if (typeof onTwoDimensionalError === 'function') {
-          return onTwoDimensionalError(...args);
+        if (typeof on2DError === 'function') {
+          return on2DError(...args);
         }
       };
     },
 
-    get VRMFileChangeFail(): SkinVRMFileFailCallback {
+    get onVrmFileChangeFail(): SkinVRMFileFailCallback {
       return (...args: Parameters<SkinVRMFileFailCallback>) => {
-        if (typeof VRMFileChangeFail === 'function') {
-          return VRMFileChangeFail(...args);
+        if (typeof onVrmFileChangeFail === 'function') {
+          return onVrmFileChangeFail(...args);
         }
       };
     },
 
-    get VRMFileChangeSuccess(): SkinVRMFileSuccessCallback {
+    get onVrmFileChangeSuccess(): SkinVRMFileSuccessCallback {
       return (...args: Parameters<SkinVRMFileSuccessCallback>) => {
-        if (typeof VRMFileChangeSuccess === 'function') {
-          return VRMFileChangeSuccess(...args);
+        if (typeof onVrmFileChangeSuccess === 'function') {
+          return onVrmFileChangeSuccess(...args);
         }
       };
     },
 
-    emo: {
+    emotionBlend: {
       _name: 'neutral',
       get name(): string {
         return this._name || 'neutral';
@@ -528,7 +443,7 @@ export function initSkinEngine(
         }
 
         this._name = newName;
-        this.target = newTarget || 0;
+        this.target = typeof newTarget === 'number' ? newTarget : 0;
       },
       target: 0,
       weight: 0,
@@ -536,7 +451,7 @@ export function initSkinEngine(
     },
 
     get has2D(): boolean {
-      return typeof this.modelUrl === 'string' && this.modelUrl !== '';
+      return typeof this.live2dUrl === 'string' && this.live2dUrl !== '';
     },
 
     get has3D(): boolean {
@@ -553,51 +468,44 @@ export function initSkinEngine(
 
     get onGesture(): SkinGestureCallback {
       return (...args: Parameters<SkinGestureCallback>) => {
-        if (typeof setting.onGesture === 'function') {
-          return setting.onGesture(...args);
+        if (typeof onGesture === 'function') {
+          return onGesture(...args);
         }
       };
     },
     get onGestureError(): SkinGestureErrorCallback {
       return (...args: Parameters<SkinGestureErrorCallback>) => {
-        if (typeof setting.onGestureError === 'function') {
-          return setting.onGestureError(...args);
+        if (typeof onGestureError === 'function') {
+          return onGestureError(...args);
         }
       };
     },
     get onGestureEnd(): SkinGestureCallback {
       return (...args: Parameters<SkinGestureCallback>) => {
-        if (typeof setting.onGestureEnd === 'function') {
-          return setting.onGestureEnd(...args);
+        if (typeof onGestureEnd === 'function') {
+          return onGestureEnd(...args);
         }
       };
     },
 
     get onModelChangeStart(): SkinModelChangeStartCallback {
       return (...args: Parameters<SkinModelChangeStartCallback>) => {
-        if (typeof setting.onModelChangeStart === 'function') {
-          return setting.onModelChangeStart(...args);
-        }
-      };
-    },
-    get onModelChange(): SkinModelChangeStartCallback {
-      return (...args: Parameters<SkinModelChangeStartCallback>) => {
-        if (typeof setting.onModelChange === 'function') {
-          return setting.onModelChange(...args);
+        if (typeof onModelChangeStart === 'function') {
+          return onModelChangeStart(...args);
         }
       };
     },
     get onModelChangeEnd(): SkinModelChangeEndCallback {
       return (...args: Parameters<SkinModelChangeEndCallback>) => {
-        if (typeof setting.onModelChangeEnd === 'function') {
-          return setting.onModelChangeEnd(...args);
+        if (typeof onModelChangeEnd === 'function') {
+          return onModelChangeEnd(...args);
         }
       };
     },
     get onModelChangeError(): SkinModelChangeErrorCallback {
       return (...args: Parameters<SkinModelChangeErrorCallback>) => {
-        if (typeof setting.onModelChangeError === 'function') {
-          return setting.onModelChangeError(...args);
+        if (typeof onModelChangeError === 'function') {
+          return onModelChangeError(...args);
         }
       };
     },
@@ -620,9 +528,6 @@ export function initSkinEngine(
         if (typeof this.onModelChangeStart === 'function') {
           this.onModelChangeStart(newEngineMode ?? '');
         }
-        if (typeof this.onModelChange === 'function') {
-          this.onModelChange(newEngineMode ?? '');
-        }
 
         (async () => {
           this.switching = true;
@@ -636,8 +541,8 @@ export function initSkinEngine(
           try {
             const booted =
               newEngineMode === ENGINE_MODE_MAP.threeDimensional
-                ? await bootVRM(this, setting)
-                : await bootAvatar(this, this.modelUrl);
+                ? await bootVRM(this, this.skin3d)
+                : await bootAvatar(this, this.live2dUrl);
             this.renderer = booted || null;
           } catch (error) {
             console.error(error);
@@ -657,52 +562,12 @@ export function initSkinEngine(
       }
     },
 
-    _gesture3D: safeGesture3D,
-    get gesture3D(): SkinGestureTrigger {
-      const _gesture3D: SkinGestureTrigger = (emotionName: string) => {
-        if (typeof this._gesture3D !== 'function') {
-          console.warn('3D hand movement function is not registered');
-          return () => {
-            console.warn('gesture3D is not registered');
-          };
-        }
-        return this._gesture3D.call(this, this, emotionName);
-      };
-      return _gesture3D;
-    },
-    set gesture3D(
-      newGesture3D: SkinGestureHandler | SkinGestureTrigger | null
-    ) {
-      if (typeof newGesture3D === 'function' || newGesture3D === null) {
-        this._gesture3D = newGesture3D as SkinGestureHandler | null;
-      }
-    },
+    _customUnifiedGesture: typeof gesture === 'function' ? gesture : null,
 
-    _gesture2D: safeGesture2D,
-    get gesture2D(): SkinGestureTrigger {
-      const _gesture2D: SkinGestureTrigger = (emotionName: string) => {
-        if (typeof this._gesture2D !== 'function') {
-          console.warn('2D hand movement function is not registered');
-          return () => {
-            console.warn('gesture2D is not registered');
-          };
-        }
-        return this._gesture2D.call(this, this, emotionName);
-      };
-      return _gesture2D;
-    },
-    set gesture2D(
-      newGesture2D: SkinGestureHandler | SkinGestureTrigger | null
-    ) {
-      if (typeof newGesture2D === 'function' || newGesture2D === null) {
-        this._gesture2D = newGesture2D as SkinGestureHandler | null;
-      }
-    },
-
-    _customUnifiedGesture:
-      typeof setting.gesture === 'function' ? setting.gesture : null,
-
-    playGesture(gestureName: string): Promise<void> | void {
+    async playGesture(
+      gestureName: string,
+      optionOverride?: Skin3DActionOption
+    ): Promise<void> {
       const currentMode: EngineMode | null =
         this.engineMode === ENGINE_MODE_MAP.twoDimensional
           ? '2d'
@@ -711,80 +576,71 @@ export function initSkinEngine(
             : null;
 
       if (typeof gestureName !== 'string' || gestureName === '') {
-        return Promise.reject(
-          new GestureNotFoundError(String(gestureName), currentMode)
+        const error = new GestureNotFoundError(
+          String(gestureName),
+          currentMode
         );
-      }
-
-      const context: SkinGestureContext = {
-        mode: currentMode,
-        renderer: this.renderer,
-        gesture2D: (name?: string): Promise<void> | void => {
-          const target =
-            typeof name === 'string' && name !== '' ? name : gestureName;
-          if (
-            this._gesture2D !== safeGesture2D &&
-            typeof this.gesture2D === 'function'
-          ) {
-            const gestureResult = this.gesture2D(target);
-            if (gestureResult instanceof Promise) {
-              return gestureResult;
-            }
-            return;
-          }
-          if (typeof this.renderer?.playGesture === 'function') {
-            const gestureResult = this.renderer.playGesture(target);
-            if (gestureResult instanceof Promise) {
-              return gestureResult;
-            }
-            return;
-          }
-          if (typeof this.gesture2D === 'function') {
-            const gestureResult = this.gesture2D(target);
-            if (gestureResult instanceof Promise) {
-              return gestureResult;
-            }
-            return;
-          }
-        },
-        gesture3D: (name?: string): Promise<void> | void => {
-          const target =
-            typeof name === 'string' && name !== '' ? name : gestureName;
-          if (
-            this._gesture3D !== safeGesture3D &&
-            typeof this.gesture3D === 'function'
-          ) {
-            const gestureResult = this.gesture3D(target);
-            if (gestureResult instanceof Promise) {
-              return gestureResult;
-            }
-            return;
-          }
-          if (typeof this.renderer?.playGesture === 'function') {
-            const gestureResult = this.renderer.playGesture(target);
-            if (gestureResult instanceof Promise) {
-              return gestureResult;
-            }
-            return;
-          }
-          if (typeof this.gesture3D === 'function') {
-            const gestureResult = this.gesture3D(target);
-            if (gestureResult instanceof Promise) {
-              return gestureResult;
-            }
-            return;
-          }
+        if (typeof this.onGestureError === 'function') {
+          this.onGestureError(error, String(gestureName), this);
         }
-      };
-
-      if (typeof this._customUnifiedGesture === 'function') {
-        return this._customUnifiedGesture(this, gestureName, context);
+        throw error;
       }
 
-      if (currentMode === '2d') {
-        return context.gesture2D(gestureName);
-      } else if (currentMode === '3d') {
-        return context.gesture3D(gestureName);
+      this._gestureName = gestureName;
+
+      if (typeof this.onGesture === 'function') {
+        this.onGesture(gestureName, this);
+      }
+
+      try {
+        const context: SkinGestureContext = {
+          mode: currentMode,
+          renderer: this.renderer,
+          gesture2D: (name?: string): Promise<void> | void => {
+            const target =
+              typeof name === 'string' && name !== '' ? name : gestureName;
+            if (
+              isRenderer2D(this.renderer) &&
+              typeof this.renderer.playGesture === 'function'
+            ) {
+              return this.renderer.playGesture(target);
+            }
+          },
+          gesture3D: (name?: string): Promise<void> | void => {
+            const target =
+              typeof name === 'string' && name !== '' ? name : gestureName;
+            if (
+              isRenderer3D(this.renderer) &&
+              typeof this.renderer.playGesture === 'function'
+            ) {
+              return typeof optionOverride !== 'undefined'
+                ? this.renderer.playGesture(target, optionOverride)
+                : this.renderer.playGesture(target);
+            }
+          }
+        };
+
+        if (typeof this._customUnifiedGesture === 'function') {
+          await this._customUnifiedGesture(this, gestureName, context);
+          return;
+        }
+
+        if (currentMode === '2d') {
+          await context.gesture2D(gestureName);
+        } else if (currentMode === '3d') {
+          await context.gesture3D(gestureName);
+        }
+      } catch (error) {
+        const normalizedError =
+          error instanceof Error ? error : new Error(String(error));
+        if (typeof this.onGestureError === 'function') {
+          this.onGestureError(normalizedError, gestureName, this);
+        }
+        throw normalizedError;
+      } finally {
+        if (typeof this.onGestureEnd === 'function') {
+          this.onGestureEnd(gestureName, this);
+        }
       }
     },
 
@@ -804,48 +660,19 @@ export function initSkinEngine(
       await this.playGesture(selectedGesture);
     },
 
-    get gesture(): SkinGestureTrigger | null {
-      if (this.engineMode === ENGINE_MODE_MAP.threeDimensional) {
-        return this.gesture3D;
-      } else if (this.engineMode === ENGINE_MODE_MAP.twoDimensional) {
-        return this.gesture2D;
-      }
-      return null;
-    },
-
     _gestureName: 'neutral',
     get gestureName(): string {
       return this._gestureName;
     },
     set gestureName(newGestureName: string) {
       if (typeof newGestureName === 'string' && newGestureName !== '') {
-        this.emo.name = newGestureName;
         this._gestureName = newGestureName;
-
-        (async () => {
-          try {
-            if (typeof this.onGesture === 'function') {
-              this.onGesture(newGestureName, this);
-            }
-
-            if (typeof this.playGesture === 'function') {
-              await this.playGesture(newGestureName);
-            } else if (typeof this.gesture === 'function') {
-              await this.gesture(newGestureName);
-            }
-          } catch (error) {
+        const gesturePromise = this.playGesture(newGestureName);
+        if (gesturePromise instanceof Promise) {
+          gesturePromise.catch((error: unknown) => {
             console.error(error);
-            if (typeof this.onGestureError === 'function') {
-              const normalizedError =
-                error instanceof Error ? error : new Error(String(error));
-              this.onGestureError(normalizedError, newGestureName, this);
-            }
-          } finally {
-            if (typeof this.onGestureEnd === 'function') {
-              this.onGestureEnd(newGestureName, this);
-            }
-          }
-        })();
+          });
+        }
       }
     },
 

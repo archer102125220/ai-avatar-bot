@@ -26,7 +26,6 @@ import {
   GestureNotFoundError,
   type Renderer3D,
   type SkinEngine,
-  type VRMSettings,
   Skin3DConfig,
   Skin3DModelConfig,
   SkinEngineState,
@@ -210,21 +209,10 @@ export async function defaultGesture3D(
  */
 export async function bootVRM(
   skinEngine: SkinEngine,
-  setting: VRMSettings = {}
+  skin3d: Skin3DConfig = {}
 ): Promise<Renderer3D | void> {
   const stageEl = skinEngine?.stageEl;
-  const {
-    bow = '',
-    goodbye = '',
-    thinking = '',
-    'look-around': lookAround = '',
-    relax = '',
-    surprised = '',
-    appearing = '',
-    liked = '',
-    waiting = '',
-    vrmaRootPath = ''
-  } = setting;
+  const { vrmaRootPath = '' } = skin3d;
   try {
     if (stageEl instanceof HTMLElement === false) {
       throw new Error('[aiAvatar bootVRM] stageEl is not an HTMLElement');
@@ -253,12 +241,12 @@ export async function bootVRM(
         ? skinEngine.getState().skin3d
         : typeof skinEngine.skin3d === 'object' && skinEngine.skin3d !== null
           ? skinEngine.skin3d
-          : {};
+          : skin3d;
 
     const defaultCrossfadeDuration =
-      typeof setting.crossfadeDuration === 'number' &&
-      Number.isFinite(setting.crossfadeDuration)
-        ? setting.crossfadeDuration
+      typeof skin3d.crossfadeDuration === 'number' &&
+      Number.isFinite(skin3d.crossfadeDuration)
+        ? skin3d.crossfadeDuration
         : typeof activeSkin3d.crossfadeDuration === 'number' &&
             Number.isFinite(activeSkin3d.crossfadeDuration)
           ? activeSkin3d.crossfadeDuration
@@ -269,42 +257,15 @@ export async function bootVRM(
       activeSkin3d.gestures !== null
         ? activeSkin3d.gestures
         : {}),
-      ...(typeof setting.gestures === 'object' && setting.gestures !== null
-        ? setting.gestures
+      ...(typeof skin3d.gestures === 'object' && skin3d.gestures !== null
+        ? skin3d.gestures
         : {})
     };
-    if (typeof bow === 'string' && bow !== '') rawCustomGestures.bow = bow;
-    if (typeof goodbye === 'string' && goodbye !== '')
-      rawCustomGestures.goodbye = goodbye;
-    const lookAroundVal =
-      typeof activeSkin3d['look-around'] === 'string' &&
-      activeSkin3d['look-around'] !== ''
-        ? activeSkin3d['look-around']
-        : typeof lookAround === 'string' && lookAround !== ''
-          ? lookAround
-          : undefined;
-    if (lookAroundVal !== undefined) {
-      rawCustomGestures['look-around'] = lookAroundVal;
-    }
-    if (typeof relax === 'string' && relax !== '')
-      rawCustomGestures.relax = relax;
-    if (typeof surprised === 'string' && surprised !== '')
-      rawCustomGestures.surprised = surprised;
-    if (typeof appearing === 'string' && appearing !== '')
-      rawCustomGestures.appearing = appearing;
-    if (typeof liked === 'string' && liked !== '')
-      rawCustomGestures.liked = liked;
-    if (
-      (typeof waiting === 'string' && waiting !== '') ||
-      (typeof waiting === 'object' && waiting !== null)
-    ) {
-      rawCustomGestures.waiting = waiting;
-    }
 
     const pools = resolveAll3DPools(
       {
         ...activeSkin3d,
-        ...setting,
+        ...skin3d,
         vrmaRootPath: safeVrmaRootPath,
         gestures: rawCustomGestures as SkinCascadeMap<
           string | Skin3DActionOption
@@ -392,23 +353,20 @@ export async function bootVRM(
     }
 
     const waitingUrl =
-      typeof waiting === 'string' && waiting !== ''
-        ? waiting
-        : typeof waiting === 'object' && waiting !== null
-          ? (skinEngine.gender === 'female' ? waiting.female : waiting.male) ||
-            safeVrmaRootPath + 'common/waiting.vrma'
-          : safeVrmaRootPath + 'common/waiting.vrma';
+      typeof userCustomGestures.waiting === 'string' &&
+      userCustomGestures.waiting !== ''
+        ? userCustomGestures.waiting
+        : safeVrmaRootPath + 'common/waiting.vrma';
 
     const GESTURES: Record<string, string> = {
-      goodbye: goodbye || safeVrmaRootPath + 'common/goodbye.vrma', // 雙手向斜前方伸直並揮動，接近道別的動作
-      bow: bow || safeVrmaRootPath + 'common/bow.vrma', // 彎腰90度的鞠躬
-      thinking: thinking || safeVrmaRootPath + 'common/thinking.vrma', // 單手托下巴，另一隻手叉腰，類似思考的動作
-      'look-around':
-        lookAroundVal || safeVrmaRootPath + 'common/look-around.vrma', // 左右環顧
-      relax: relax || safeVrmaRootPath + 'common/relax.vrma', // 雙手往外伸展的伸懶腰姿勢
-      surprised: surprised || safeVrmaRootPath + 'common/surprised.vrma', // 雙手往臉的旁邊靠，擺出驚訝的動作
-      appearing: appearing || safeVrmaRootPath + 'common/appearing.vrma', // 走路後轉身面向到鏡頭
-      liked: liked || safeVrmaRootPath + 'common/liked.vrma', // 單手握拳的類似表達「太好了」的動作
+      goodbye: safeVrmaRootPath + 'common/goodbye.vrma', // 雙手向斜前方伸直並揮動，接近道別的動作
+      bow: safeVrmaRootPath + 'common/bow.vrma', // 彎腰90度的鞠躬
+      thinking: safeVrmaRootPath + 'common/thinking.vrma', // 單手托下巴，另一隻手叉腰，類似思考的動作
+      'look-around': safeVrmaRootPath + 'common/look-around.vrma', // 左右環顧
+      relax: safeVrmaRootPath + 'common/relax.vrma', // 雙手往外伸展的伸懶腰姿勢
+      surprised: safeVrmaRootPath + 'common/surprised.vrma', // 雙手往臉的旁邊靠，擺出驚訝的動作
+      appearing: safeVrmaRootPath + 'common/appearing.vrma', // 走路後轉身面向到鏡頭
+      liked: safeVrmaRootPath + 'common/liked.vrma', // 單手握拳的類似表達「太好了」的動作
       waiting: waitingUrl, // 環顧四周，然後單手用手背做出類似擦嘴的動作
       'idle-1': safeVrmaRootPath + 'common/idle-1.vrma', // 自動調整站姿，頭往斜上放看，並保持呼吸起伏的動作
       'idle-2': safeVrmaRootPath + 'common/idle-2.vrma', // 頭往斜前方看，並保持呼吸起伏的動作
@@ -573,8 +531,8 @@ export async function bootVRM(
       console.error(error);
       const normalizedError =
         error instanceof Error ? error : new Error(String(error));
-      if (typeof skinEngine.VRMFileChangeFail === 'function') {
-        skinEngine.VRMFileChangeFail(normalizedError);
+      if (typeof skinEngine.onVrmFileChangeFail === 'function') {
+        skinEngine.onVrmFileChangeFail(normalizedError);
       }
       throw normalizedError;
     });
@@ -666,7 +624,8 @@ export async function bootVRM(
         ? DEFAULT_3D_HALF_CAMERA_LOOK_AT
         : DEFAULT_3D_FULL_CAMERA_LOOK_AT;
 
-      const modelConfig = modeConfig?.model || skin3d.model || {};
+      const modelConfig =
+        modeConfig?.modelTransform || skin3d.modelTransform || {};
 
       let needMatrixUpdate = false;
       const calculatedFov =
@@ -1053,9 +1012,12 @@ export async function bootVRM(
 
       if (candidateExpressions.length > 0) {
         const targetExpression = candidateExpressions[0];
-        if (typeof skinEngine.emo === 'object' && skinEngine.emo !== null) {
-          skinEngine.emo.name = targetExpression;
-          skinEngine.emo.target = 1;
+        if (
+          typeof skinEngine.emotionBlend === 'object' &&
+          skinEngine.emotionBlend !== null
+        ) {
+          skinEngine.emotionBlend.name = targetExpression;
+          skinEngine.emotionBlend.target = 1;
         }
         if (
           typeof vrm === 'object' &&
@@ -1223,49 +1185,66 @@ export async function bootVRM(
             }
           }
 
-          if (
-            skinEngine.emo.target > 0 ||
-            skinEngine.emo.weight > 0.005 ||
-            (typeof skinEngine.emo.applied === 'string' &&
-              skinEngine.emo.applied !== '')
-          ) {
+          const emotionBlend = skinEngine.emotionBlend;
+          if (typeof emotionBlend === 'object' && emotionBlend !== null) {
             if (
-              typeof skinEngine.emo.applied === 'string' &&
-              skinEngine.emo.applied !== '' &&
-              skinEngine.emo.applied !== skinEngine.emo.name
+              emotionBlend.target > 0 ||
+              emotionBlend.weight > 0.005 ||
+              (typeof emotionBlend.applied === 'string' &&
+                emotionBlend.applied !== '')
             ) {
-              try {
-                expressionManager.setValue(skinEngine.emo.applied, 0);
-              } catch (_error) {}
-              skinEngine.emo.applied = '';
-            }
-            skinEngine.emo.weight +=
-              (skinEngine.emo.target - skinEngine.emo.weight) *
-              Math.min(1, delta * 4);
-            if (skinEngine.emo.weight <= 0.005 && skinEngine.emo.target === 0) {
-              skinEngine.emo.weight = 0;
               if (
-                typeof skinEngine.emo.applied === 'string' &&
-                skinEngine.emo.applied !== ''
+                typeof emotionBlend.applied === 'string' &&
+                emotionBlend.applied !== '' &&
+                emotionBlend.applied !== emotionBlend.name
               ) {
                 try {
-                  expressionManager.setValue(skinEngine.emo.applied, 0);
+                  expressionManager.setValue(
+                    emotionBlend.applied,
+                    0
+                  );
                 } catch (_error) {}
-                skinEngine.emo.applied = '';
+                emotionBlend.applied = '';
               }
-            } else if (skinEngine.emo.name !== 'neutral') {
-              try {
-                const expression = expressionManager.getExpression
-                  ? expressionManager.getExpression(skinEngine.emo.name)
-                  : null;
-                const weight =
-                  expression?.overrideMouth &&
-                  String(expression.overrideMouth) !== 'none'
-                    ? Math.min(skinEngine.emo.weight, 0.4)
-                    : skinEngine.emo.weight;
-                expressionManager.setValue(skinEngine.emo.name, weight);
-                skinEngine.emo.applied = skinEngine.emo.name;
-              } catch (_error) {}
+              emotionBlend.weight +=
+                (emotionBlend.target - emotionBlend.weight) *
+                Math.min(1, delta * 4);
+              if (
+                emotionBlend.weight <= 0.005 &&
+                emotionBlend.target === 0
+              ) {
+                emotionBlend.weight = 0;
+                if (
+                  typeof emotionBlend.applied === 'string' &&
+                  emotionBlend.applied !== ''
+                ) {
+                  try {
+                    expressionManager.setValue(
+                      emotionBlend.applied,
+                      0
+                    );
+                  } catch (_error) {}
+                  emotionBlend.applied = '';
+                }
+              } else if (emotionBlend.name !== 'neutral') {
+                try {
+                  const expression = expressionManager.getExpression
+                    ? expressionManager.getExpression(
+                        emotionBlend.name
+                      )
+                    : null;
+                  const weight =
+                    expression?.overrideMouth &&
+                    String(expression.overrideMouth) !== 'none'
+                      ? Math.min(emotionBlend.weight, 0.4)
+                      : emotionBlend.weight;
+                  expressionManager.setValue(
+                    emotionBlend.name,
+                    weight
+                  );
+                  emotionBlend.applied = emotionBlend.name;
+                } catch (_error) {}
+              }
             }
           }
         }
@@ -1451,8 +1430,8 @@ export async function bootVRM(
     console.error(error);
     const normalizedError =
       error instanceof Error ? error : new Error(String(error));
-    if (typeof skinEngine?.onThreeDimensionalError === 'function') {
-      skinEngine.onThreeDimensionalError(normalizedError, skinEngine);
+    if (typeof skinEngine?.on3DError === 'function') {
+      skinEngine.on3DError(normalizedError, skinEngine);
     }
   }
 }
@@ -1478,8 +1457,8 @@ export function loadVRMFile(
     vrmFile instanceof window.File === false ||
     /\.vrm$/i.test(vrmFile?.name || '') === false
   ) {
-    if (typeof skinEngine?.VRMFileChangeFail === 'function') {
-      skinEngine.VRMFileChangeFail(new Error('請拖一個 .vrm 檔喔'));
+    if (typeof skinEngine?.onVrmFileChangeFail === 'function') {
+      skinEngine.onVrmFileChangeFail(new Error('請拖一個 .vrm 檔喔'));
     }
     return;
   }
@@ -1493,8 +1472,8 @@ export function loadVRMFile(
   } catch (_error) {}
   skinEngine.vrmUrl = URL.createObjectURL(vrmFile);
 
-  if (typeof skinEngine.VRMFileChangeSuccess === 'function') {
-    skinEngine.VRMFileChangeSuccess(skinEngine.vrmUrl);
+  if (typeof skinEngine.onVrmFileChangeSuccess === 'function') {
+    skinEngine.onVrmFileChangeSuccess(skinEngine.vrmUrl);
   }
   skinEngine._engineMode = null; // Force reboot even if already in 3D
   skinEngine.engineMode = ENGINE_MODE_MAP.threeDimensional;

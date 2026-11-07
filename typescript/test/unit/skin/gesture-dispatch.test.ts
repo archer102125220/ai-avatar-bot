@@ -76,40 +76,33 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
   });
 
   describe('gesture property dynamic routing & gestureName event pipeline', () => {
-    it('should route gesture getter to gesture2D in 2D mode and gesture3D in 3D mode', async () => {
-      const gesture2DMock = vi.fn();
-      const gesture3DMock = vi.fn();
+    it('should route gesture execution via unified gesture handler', async () => {
+      const unifiedGestureMock = vi.fn();
 
       const engine = initSkinEngine({
         stageEl,
         startMode: ENGINE_MODE_MAP.twoDimensional,
-        gesture2D: gesture2DMock,
-        gesture3D: gesture3DMock
-      }) as SkinEngine & {
-        _engineMode: string | null;
-        gesture: ((emotion: string) => void) | null;
-      };
+        gesture: unifiedGestureMock
+      }) as SkinEngine;
 
       expect(engine.engineMode).toBe(ENGINE_MODE_MAP.twoDimensional);
-      expect(typeof engine.gesture).toBe('function');
-      engine.gesture?.('happy');
-      expect(gesture2DMock).toHaveBeenCalledWith(engine, 'happy');
-
-      engine._engineMode = ENGINE_MODE_MAP.threeDimensional;
-      expect(typeof engine.gesture).toBe('function');
-      engine.gesture?.('goodbye');
-      expect(gesture3DMock).toHaveBeenCalledWith(engine, 'goodbye');
+      await engine.playGesture?.('happy');
+      expect(unifiedGestureMock).toHaveBeenCalledWith(
+        engine,
+        'happy',
+        expect.objectContaining({ mode: '2d' })
+      );
     });
 
     it('should trigger onGesture, execute gesture function, and trigger onGestureEnd upon setting gestureName', async () => {
       const onGesture = vi.fn();
       const onGestureEnd = vi.fn();
-      const gesture2DMock = vi.fn().mockResolvedValue(undefined);
+      const unifiedGestureMock = vi.fn().mockResolvedValue(undefined);
 
       const engine: SkinEngine = initSkinEngine({
         stageEl,
         startMode: ENGINE_MODE_MAP.twoDimensional,
-        gesture2D: gesture2DMock,
+        gesture: unifiedGestureMock,
         onGesture,
         onGestureEnd
       }) as SkinEngine;
@@ -119,9 +112,12 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
       // 等待非同步手勢管線完成
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(engine.emo.name).toBe('happy');
       expect(onGesture).toHaveBeenCalledWith('happy', engine);
-      expect(gesture2DMock).toHaveBeenCalledWith(engine, 'happy');
+      expect(unifiedGestureMock).toHaveBeenCalledWith(
+        engine,
+        'happy',
+        expect.anything()
+      );
       expect(onGestureEnd).toHaveBeenCalledWith('happy', engine);
     });
 
@@ -129,12 +125,12 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
       const onGestureError = vi.fn();
       const onGestureEnd = vi.fn();
       const gestureError = new Error('Gesture animation failed');
-      const gesture2DMock = vi.fn().mockRejectedValue(gestureError);
+      const unifiedGestureMock = vi.fn().mockRejectedValue(gestureError);
 
       const engine: SkinEngine = initSkinEngine({
         stageEl,
         startMode: ENGINE_MODE_MAP.twoDimensional,
-        gesture2D: gesture2DMock,
+        gesture: unifiedGestureMock,
         onGestureError,
         onGestureEnd
       }) as SkinEngine;
@@ -151,51 +147,17 @@ describe('Unit Test: core/skin/gesture-dispatch.js (Gesture Routing & Event Flow
       expect(onGestureEnd).toHaveBeenCalledWith('surprised', engine);
     });
 
-    it('should handle unassigned gesture2D and gesture3D warning fallbacks and null engineMode', () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
+    it('should ignore invalid gestureName setter', () => {
       const engine = initSkinEngine({ stageEl }) as unknown as SkinEngine & {
-        gesture2D: ((emotion: string) => unknown) | null;
-        gesture3D: ((emotion: string) => unknown) | null;
         _engineMode: string | null;
-        gesture: ((emotion: string) => unknown) | null;
         gestureName: string | null;
       };
-      engine.gesture2D = null;
-      engine.gesture3D = null;
 
-      // calling unassigned gesture getters
-      const g2 = (engine.gesture2D as ((emotion: string) => unknown) | null)?.(
-        'smile'
-      );
-      expect(warnSpy).toHaveBeenCalledWith(
-        '2D hand movement function is not registered'
-      );
-      if (typeof g2 === 'function') {
-        g2();
-        expect(warnSpy).toHaveBeenCalledWith('gesture2D is not registered');
-      }
-
-      const g3 = (engine.gesture3D as ((emotion: string) => unknown) | null)?.(
-        'goodbye'
-      );
-      expect(warnSpy).toHaveBeenCalledWith(
-        '3D hand movement function is not registered'
-      );
-      if (typeof g3 === 'function') {
-        g3();
-        expect(warnSpy).toHaveBeenCalledWith('gesture3D is not registered');
-      }
-
-      // null engineMode
-      engine._engineMode = null;
-      expect(engine.gesture).toBeNull();
-
-      // invalid gestureName
+      const initialGesture = engine.gestureName;
       engine.gestureName = '';
+      expect(engine.gestureName).toBe(initialGesture);
       engine.gestureName = null as unknown as string;
-
-      warnSpy.mockRestore();
+      expect(engine.gestureName).toBe(initialGesture);
     });
   });
 });

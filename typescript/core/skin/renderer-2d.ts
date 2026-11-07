@@ -223,12 +223,12 @@ export async function defaultGesture2D(
  * Initializes and boots the 2D Live2D avatar model within PIXI Application.
  *
  * @param skinEngine - Skin engine instance.
- * @param modelUrl - URL to the Live2D model configuration file (.model3.json).
+ * @param live2dUrl - URL to the Live2D model configuration file (.model3.json).
  * @returns Initialized 2D renderer instance, or void on error.
  */
 export async function bootAvatar(
   skinEngine: SkinEngine,
-  modelUrl?: string
+  live2dUrl?: string
 ): Promise<Renderer2D | void> {
   const stageEl = skinEngine?.stageEl;
   if (stageEl instanceof HTMLElement === false) {
@@ -259,7 +259,9 @@ export async function bootAvatar(
     });
 
     const targetUrl =
-      typeof modelUrl === 'string' ? modelUrl : skinEngine.modelUrl;
+      typeof live2dUrl === 'string' && live2dUrl !== ''
+        ? live2dUrl
+        : skinEngine.live2dUrl;
     skinEngine.avatarModel = await Live2DModel.from(targetUrl);
     pixiApp.stage.addChild(skinEngine.avatarModel);
 
@@ -614,12 +616,6 @@ export async function bootAvatar(
         if (Array.isArray(config.tapMotions) && config.tapMotions.length > 0) {
           return config.tapMotions;
         }
-        if (
-          Array.isArray(config.tapGestures) &&
-          config.tapGestures.length > 0
-        ) {
-          return config.tapGestures;
-        }
         return ['tap'];
       },
       playGesture,
@@ -662,8 +658,8 @@ export async function bootAvatar(
 
     const normalizedError =
       error instanceof Error ? error : new Error(String(error));
-    if (typeof skinEngine?.onTwoDimensionalError === 'function') {
-      skinEngine.onTwoDimensionalError(normalizedError, skinEngine);
+    if (typeof skinEngine?.on2DError === 'function') {
+      skinEngine.on2DError(normalizedError, skinEngine);
     }
   }
 }

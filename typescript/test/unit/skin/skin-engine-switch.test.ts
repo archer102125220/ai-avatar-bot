@@ -5,8 +5,7 @@ import * as renderer2d from '@/core/skin/renderer-2d';
 import { ENGINE_MODE_MAP } from '@/core/constants';
 import type {
   SkinEngine,
-  Renderer2D,
-  SkinGestureTrigger
+  Renderer2D
 } from '@/core/skin/types';
 
 describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM Drop)', () => {
@@ -78,11 +77,11 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
   });
 
   describe('loadVRMFile', () => {
-    it('should reject invalid non-VRM files and invoke VRMFileChangeFail', () => {
-      const VRMFileChangeFail = vi.fn();
+    it('should reject invalid non-VRM files and invoke onVrmFileChangeFail', () => {
+      const onVrmFileChangeFail = vi.fn();
       const engine: SkinEngine = initSkinEngine({
         stageEl,
-        VRMFileChangeFail
+        onVrmFileChangeFail
       }) as SkinEngine;
 
       const invalidFile = new File(['text'], 'model.txt', {
@@ -90,14 +89,14 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
       });
       loadVRMFile(engine, invalidFile);
 
-      expect(VRMFileChangeFail).toHaveBeenCalledOnce();
-      expect(VRMFileChangeFail.mock.calls[0][0].message).toContain(
+      expect(onVrmFileChangeFail).toHaveBeenCalledOnce();
+      expect(onVrmFileChangeFail.mock.calls[0][0].message).toContain(
         '請拖一個 .vrm 檔喔'
       );
     });
 
     it('should accept valid .vrm File, create Blob URL, and switch engineMode to 3D', () => {
-      const VRMFileChangeSuccess = vi.fn();
+      const onVrmFileChangeSuccess = vi.fn();
       const createObjectURLMock = vi
         .fn()
         .mockReturnValue('blob:http://localhost/mock-vrm-blob');
@@ -109,7 +108,7 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
       const engine: SkinEngine = initSkinEngine({
         stageEl,
         startMode: ENGINE_MODE_MAP.twoDimensional,
-        VRMFileChangeSuccess
+        onVrmFileChangeSuccess
       }) as SkinEngine;
 
       // 重設初始切換狀態
@@ -123,7 +122,7 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
 
       expect(createObjectURLMock).toHaveBeenCalledWith(vrmFile);
       expect(engine.vrmUrl).toBe('blob:http://localhost/mock-vrm-blob');
-      expect(VRMFileChangeSuccess).toHaveBeenCalledWith(
+      expect(onVrmFileChangeSuccess).toHaveBeenCalledWith(
         'blob:http://localhost/mock-vrm-blob'
       );
       expect(engine.engineMode).toBe(ENGINE_MODE_MAP.threeDimensional);
@@ -131,67 +130,44 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
   });
 
   describe('gesture getters, setters, and execution flow', () => {
-    it('should support gesture2D and gesture3D getters, setters, and warnings when null', () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const engine: SkinEngine = initSkinEngine({ stageEl }) as SkinEngine;
+    it('should route playGesture to unified gesture handler with context mode', async () => {
+      const mockGesture = vi.fn();
+      const engine: SkinEngine = initSkinEngine({
+        stageEl,
+        startMode: ENGINE_MODE_MAP.twoDimensional,
+        gesture: mockGesture
+      }) as SkinEngine;
 
-      // Default gesture2D and gesture3D are functions
-      expect(typeof engine.gesture2D).toBe('function');
-      expect(typeof engine.gesture3D).toBe('function');
-
-      // Custom gesture2D setter
-      const custom2D = vi.fn();
-      engine.gesture2D = custom2D;
-      engine.gesture2D('happy');
-      expect(custom2D).toHaveBeenCalled();
-
-      // Custom gesture3D setter
-      const custom3D = vi.fn();
-      engine.gesture3D = custom3D;
-      engine.gesture3D('goodbye');
-      expect(custom3D).toHaveBeenCalled();
-
-      // Set to null -> logs warning
-      engine.gesture2D = null;
-      const trigger2D = (engine as unknown as { gesture2D: SkinGestureTrigger })
-        .gesture2D;
-      const fallback2D = trigger2D('happy');
-      expect(warnSpy).toHaveBeenCalledWith(
-        '2D hand movement function is not registered'
+      await engine.playGesture?.('happy');
+      expect(mockGesture).toHaveBeenCalledWith(
+        engine,
+        'happy',
+        expect.objectContaining({ mode: '2d' })
       );
-      if (typeof fallback2D === 'function') {
-        fallback2D();
-      }
 
-      engine.gesture3D = null;
-      const trigger3D = (engine as unknown as { gesture3D: SkinGestureTrigger })
-        .gesture3D;
-      const fallback3D = trigger3D('goodbye');
-      expect(warnSpy).toHaveBeenCalledWith(
-        '3D hand movement function is not registered'
+      engine._engineMode = ENGINE_MODE_MAP.threeDimensional;
+      await engine.playGesture?.('goodbye');
+      expect(mockGesture).toHaveBeenCalledWith(
+        engine,
+        'goodbye',
+        expect.objectContaining({ mode: '3d' })
       );
-      if (typeof fallback3D === 'function') {
-        fallback3D();
-      }
-
-      warnSpy.mockRestore();
     });
 
     it('should trigger onGesture, gesture, onGestureError, and onGestureEnd on gestureName setter', async () => {
       const onGesture = vi.fn();
       const onGestureEnd = vi.fn();
       const onGestureError = vi.fn();
+      const mockGestureFn = vi.fn().mockResolvedValue(undefined);
 
       const engine: SkinEngine = initSkinEngine({
         stageEl,
         startMode: ENGINE_MODE_MAP.twoDimensional,
+        gesture: mockGestureFn,
         onGesture,
         onGestureEnd,
         onGestureError
       }) as SkinEngine;
-
-      const mockGestureFn = vi.fn().mockResolvedValue(true);
-      engine.gesture2D = mockGestureFn as unknown as SkinGestureTrigger;
 
       // Setting gestureName
       engine.gestureName = 'happy';
@@ -201,20 +177,23 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
       // Trigger error in gesture execution
       mockGestureFn.mockRejectedValueOnce(new Error('Gesture fail'));
       engine.gestureName = 'sad';
-      // Wait for microtask tick
-      await Promise.resolve();
-      await Promise.resolve();
+      await new Promise((r) => setTimeout(r, 60));
+      expect(onGestureError).toHaveBeenCalledWith(
+        expect.any(Error),
+        'sad',
+        engine
+      );
     });
 
-    it('should invoke loadVRMFile method, update modelUrl, and handle error in onModelChange', async () => {
+    it('should invoke loadVRMFile method, update live2dUrl, and handle error in onModelChange', async () => {
       const onModelChangeError = vi.fn();
-      const VRMFileChangeFail = vi.fn();
+      const onVrmFileChangeFail = vi.fn();
 
       const engine: SkinEngine = initSkinEngine({
         stageEl,
         startMode: ENGINE_MODE_MAP.twoDimensional,
         onModelChangeError,
-        VRMFileChangeFail
+        onVrmFileChangeFail
       }) as SkinEngine;
 
       // Test loadVRMFile getter method
@@ -222,11 +201,11 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
         type: 'image/png'
       });
       engine.loadVRMFile(invalidFile);
-      expect(VRMFileChangeFail).toHaveBeenCalled();
+      expect(onVrmFileChangeFail).toHaveBeenCalled();
 
-      // Test modelUrl setter
-      engine.modelUrl = 'https://models.test/avatar.model3.json';
-      expect(engine.modelUrl).toBe('https://models.test/avatar.model3.json');
+      // Test live2dUrl setter
+      engine.live2dUrl = 'https://models.test/avatar.model3.json';
+      expect(engine.live2dUrl).toBe('https://models.test/avatar.model3.json');
       // Wait for initial 2D boot to finish
       await new Promise((r) => setTimeout(r, 60));
 
@@ -245,70 +224,63 @@ describe('Unit Test: core/skin/skin-engine-switch.js (2D/3D Mode Switching & VRM
       expect(engine.engineMode).toBe(ENGINE_MODE_MAP.twoDimensional);
     });
 
-    it('should test onMounted, onThreeDimensionalError, and onTwoDimensionalError delegators', () => {
+    it('should test onMounted, on3DError, and on2DError delegators', () => {
       const onMounted = vi.fn();
-      const onThreeDimensionalError = vi.fn();
-      const onTwoDimensionalError = vi.fn();
+      const on3DError = vi.fn();
+      const on2DError = vi.fn();
 
       const engine: SkinEngine = initSkinEngine({
         stageEl,
         onMounted,
-        onThreeDimensionalError,
-        onTwoDimensionalError
+        on3DError,
+        on2DError
       }) as SkinEngine;
 
       engine.onMounted?.('arg1');
       expect(onMounted).toHaveBeenCalledWith('arg1');
 
-      engine.onThreeDimensionalError?.(new Error('3d err'));
-      expect(onThreeDimensionalError).toHaveBeenCalled();
+      engine.on3DError?.(new Error('3d err'));
+      expect(on3DError).toHaveBeenCalled();
 
-      engine.onTwoDimensionalError?.(new Error('2d err'));
-      expect(onTwoDimensionalError).toHaveBeenCalled();
+      engine.on2DError?.(new Error('2d err'));
+      expect(on2DError).toHaveBeenCalled();
 
       // When callbacks are missing
       const emptyEngine: SkinEngine = initSkinEngine({ stageEl }) as SkinEngine;
       expect(emptyEngine.onMounted?.()).toBeUndefined();
-      expect(emptyEngine.onThreeDimensionalError?.()).toBeUndefined();
-      expect(emptyEngine.onTwoDimensionalError?.()).toBeUndefined();
+      expect(emptyEngine.on3DError?.()).toBeUndefined();
+      expect(emptyEngine.on2DError?.()).toBeUndefined();
     });
 
-    it('should test gesture returning null for unknown engine mode and gestureName ignore invalid inputs', async () => {
-      const onModelChange = vi.fn();
+    it('should test gestureName setter with invalid inputs and onGestureError on failure', async () => {
+      const onModelChangeStart = vi.fn();
       const onModelChangeEnd = vi.fn();
       const onGestureError = vi.fn();
+      const mockCustomGesture = vi
+        .fn()
+        .mockRejectedValue(new Error('Async gesture failure'));
 
       const engine: SkinEngine = initSkinEngine({
         stageEl,
         startMode: ENGINE_MODE_MAP.twoDimensional,
-        onModelChange,
+        gesture: mockCustomGesture,
+        onModelChangeStart,
         onModelChangeEnd,
         onGestureError
       }) as SkinEngine;
 
-      // 1. Unknown engine mode -> gesture returns null
-      engine._engineMode = 'unknown_dimension';
-      expect(engine.gesture).toBeNull();
-
-      // 2. gestureName setter with empty or null
+      // 1. gestureName setter with empty or null
       engine.gestureName = '';
       engine.gestureName = null as unknown as string;
       expect(engine.gestureName).toBe('neutral');
 
-      // 3. onGestureError callback when gesture rejects
-      engine._engineMode = ENGINE_MODE_MAP.twoDimensional;
-      engine.gesture2D = vi
-        .fn()
-        .mockRejectedValue(
-          new Error('Async gesture failure')
-        ) as unknown as SkinGestureTrigger;
+      // 2. onGestureError callback when gesture rejects
       const consoleErrorSpy = vi
         .spyOn(console, 'error')
         .mockImplementation(() => {});
 
       engine.gestureName = 'surprised';
-      await Promise.resolve();
-      await Promise.resolve();
+      await new Promise((r) => setTimeout(r, 60));
 
       expect(onGestureError).toHaveBeenCalledWith(
         expect.any(Error),

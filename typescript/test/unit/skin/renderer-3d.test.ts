@@ -353,22 +353,22 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       consoleSpy.mockRestore();
     });
 
-    it('should trigger VRMFileChangeFail when file is not a .vrm file', () => {
-      const VRMFileChangeFail = vi.fn();
+    it('should trigger onVrmFileChangeFail when file is not a .vrm file', () => {
+      const onVrmFileChangeFail = vi.fn();
       const skinEngine = {
         stageEl,
-        VRMFileChangeFail
+        onVrmFileChangeFail
       } as unknown as SkinEngine;
 
       loadVRMFile(skinEngine, new File(['dummy'], 'model.png'));
-      expect(VRMFileChangeFail).toHaveBeenCalledWith(expect.any(Error));
+      expect(onVrmFileChangeFail).toHaveBeenCalledWith(expect.any(Error));
 
       loadVRMFile(skinEngine, null as unknown as File);
-      expect(VRMFileChangeFail).toHaveBeenCalledTimes(2);
+      expect(onVrmFileChangeFail).toHaveBeenCalledTimes(2);
     });
 
     it('should revoke previous blob url, create new object url and switch engine mode on valid .vrm file', () => {
-      const VRMFileChangeSuccess = vi.fn();
+      const onVrmFileChangeSuccess = vi.fn();
       const revokeSpy = vi
         .spyOn(URL, 'revokeObjectURL')
         .mockImplementation(() => {});
@@ -381,7 +381,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         vrmUrl: 'blob:http://localhost/old-model',
         _engineMode: 'threeDimensional',
         engineMode: null as unknown as string,
-        VRMFileChangeSuccess
+        onVrmFileChangeSuccess
       } as unknown as SkinEngine & {
         _engineMode: string;
         vrmUrl: string;
@@ -396,7 +396,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       expect(revokeSpy).toHaveBeenCalledWith('blob:http://localhost/old-model');
       expect(createSpy).toHaveBeenCalledWith(validFile);
       expect(skinEngine.vrmUrl).toBe('blob:http://localhost/new-model');
-      expect(VRMFileChangeSuccess).toHaveBeenCalledWith(
+      expect(onVrmFileChangeSuccess).toHaveBeenCalledWith(
         'blob:http://localhost/new-model'
       );
       expect(skinEngine.engineMode).toBe(ENGINE_MODE_MAP.threeDimensional);
@@ -407,15 +407,15 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
   });
 
   describe('bootVRM', () => {
-    it('should catch error and trigger onThreeDimensionalError when stageEl is missing', async () => {
-      const onThreeDimensionalError = vi.fn();
+    it('should catch error and trigger on3DError when stageEl is missing', async () => {
+      const on3DError = vi.fn();
       const skinEngine = {
         stageEl: null as unknown as HTMLElement,
-        onThreeDimensionalError
+        on3DError
       } as unknown as SkinEngine;
 
       await bootVRM(skinEngine);
-      expect(onThreeDimensionalError).toHaveBeenCalledWith(
+      expect(on3DError).toHaveBeenCalledWith(
         expect.any(Error),
         skinEngine
       );
@@ -487,23 +487,25 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         setSkin3d: vi.fn(),
         onMounted: vi.fn(),
         computeMouth: vi.fn().mockResolvedValue(0.6),
-        emo: {
+        emotionBlend: {
           target: 1.0,
           weight: 0.1,
           name: 'surprised',
           applied: ''
         }
       } as unknown as SkinEngine & {
-        emo: { target: number; weight: number; name: string; applied: string };
+        emotionBlend: { target: number; weight: number; name: string; applied: string };
         computeMouth: unknown;
       };
 
       const renderer = (await bootVRM(skinEngine as unknown as SkinEngine, {
         vrmaRootPath: 'https://custom.vrma.com/',
-        goodbye: 'https://custom.vrma.com/goodbye.vrma',
-        appearing: 'https://custom.vrma.com/appearing.vrma',
-        liked: 'https://custom.vrma.com/liked.vrma',
-        waiting: 'https://custom.vrma.com/waiting.vrma'
+        gestures: {
+          goodbye: 'https://custom.vrma.com/goodbye.vrma',
+          appearing: 'https://custom.vrma.com/appearing.vrma',
+          liked: 'https://custom.vrma.com/liked.vrma',
+          waiting: 'https://custom.vrma.com/waiting.vrma'
+        }
       })) as Required<Renderer3D>;
 
       expect(renderer).toBeDefined();
@@ -543,9 +545,9 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       currentState.isSpeaking = true;
 
       // Test emotion transition
-      skinEngine.emo.target = 0;
-      skinEngine.emo.weight = 0.002;
-      skinEngine.emo.applied = 'surprised';
+      skinEngine.emotionBlend.target = 0;
+      skinEngine.emotionBlend.weight = 0.002;
+      skinEngine.emotionBlend.applied = 'surprised';
 
       // Test setPaused
       renderer.setPaused(true);
@@ -642,14 +644,14 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
           .fn()
           .mockImplementationOnce(() => mouthPromise)
           .mockImplementation(() => 0.7),
-        emo: {
+        emotionBlend: {
           target: 0.8,
           weight: 0.001,
           name: 'surprised',
           applied: 'happy'
         }
       } as unknown as SkinEngine & {
-        emo: { target: number; weight: number; name: string; applied: string };
+        emotionBlend: { target: number; weight: number; name: string; applied: string };
         computeMouth: unknown;
       };
 
@@ -665,9 +667,9 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
       await vi.advanceTimersByTimeAsync(20);
 
       // Tick 2: test emotion reset and easing
-      skinEngine.emo.target = 0;
-      skinEngine.emo.weight = 0.002;
-      skinEngine.emo.applied = 'surprised';
+      skinEngine.emotionBlend.target = 0;
+      skinEngine.emotionBlend.weight = 0.002;
+      skinEngine.emotionBlend.applied = 'surprised';
       await vi.advanceTimersByTimeAsync(50);
 
       // Tick 3: test computeMouth rejected promise
@@ -713,14 +715,14 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         setSkin3d: vi.fn(),
         onMounted: vi.fn(),
         computeMouth: vi.fn(() => 0.4),
-        emo: {
+        emotionBlend: {
           target: 0.9,
           weight: 0.8,
           name: 'happy',
           applied: ''
         }
       } as unknown as SkinEngine & {
-        emo: { target: number; weight: number; name: string; applied: string };
+        emotionBlend: { target: number; weight: number; name: string; applied: string };
       };
 
       // Mock getBoundingClientRect on stageEl
@@ -764,13 +766,13 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
           overrideMouth: 'block'
         }));
       }
-      skinEngine.emo.target = 0.8;
-      skinEngine.emo.weight = 0.7;
-      skinEngine.emo.name = 'happy';
+      skinEngine.emotionBlend.target = 0.8;
+      skinEngine.emotionBlend.weight = 0.7;
+      skinEngine.emotionBlend.name = 'happy';
       await vi.advanceTimersByTimeAsync(50);
 
       // 3. Test emotion with name = 'neutral'
-      skinEngine.emo.name = 'neutral';
+      skinEngine.emotionBlend.name = 'neutral';
       await vi.advanceTimersByTimeAsync(50);
 
       // 4. Test speaking = false and trigger blink cycles / idleBreak
@@ -837,7 +839,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         getState: () => currentState,
         onMounted: vi.fn(),
         subscribe: vi.fn(() => vi.fn()),
-        emo: { name: 'neutral', target: 0, weight: 0, applied: '' }
+        emotionBlend: { name: 'neutral', target: 0, weight: 0, applied: '' }
       } as unknown as SkinEngine;
 
       const renderer = (await bootVRM(skinEngine, {
@@ -866,8 +868,8 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         vrm.expressionManager.setValue = vi.fn();
       }
       await renderer.playGesture('happy');
-      expect(skinEngine.emo.name).toBe('happy');
-      expect(skinEngine.emo.target).toBe(1);
+      expect(skinEngine.emotionBlend?.name).toBe('happy');
+      expect(skinEngine.emotionBlend?.target).toBe(1);
       if (vrm?.expressionManager) {
         expect(vrm.expressionManager.setValue).toHaveBeenCalledWith('happy', 1);
       }
@@ -877,7 +879,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         vrm.expressionManager.setValue = vi.fn();
       }
       await renderer.playGesture('custom_happy');
-      expect(skinEngine.emo.name).toBe('happy');
+      expect(skinEngine.emotionBlend?.name).toBe('happy');
       if (vrm?.expressionManager) {
         expect(vrm.expressionManager.setValue).toHaveBeenCalledWith('happy', 1);
 
@@ -932,7 +934,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         getState: () => currentState,
         onMounted: vi.fn(),
         subscribe: vi.fn(() => vi.fn()),
-        emo: { name: 'neutral', target: 0, weight: 0, applied: '' }
+        emotionBlend: { name: 'neutral', target: 0, weight: 0, applied: '' }
       } as unknown as SkinEngine;
 
       const renderer = (await bootVRM(skinEngine)) as Required<Renderer3D>;
@@ -1005,7 +1007,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
             return vi.fn();
           }
         ),
-        emo: { name: 'neutral', target: 0, weight: 0, applied: '' }
+        emotionBlend: { name: 'neutral', target: 0, weight: 0, applied: '' }
       } as unknown as SkinEngine;
 
       const bootPromise = bootVRM(skinEngine);
@@ -1064,7 +1066,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         getState: () => currentState,
         onMounted: vi.fn(),
         subscribe: vi.fn(() => vi.fn()),
-        emo: { name: 'neutral', target: 0, weight: 0, applied: '' }
+        emotionBlend: { name: 'neutral', target: 0, weight: 0, applied: '' }
       } as unknown as SkinEngine;
 
       const renderer = (await bootVRM(skinEngine)) as Required<Renderer3D>;
@@ -1102,7 +1104,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         getState: () => currentState,
         onMounted: vi.fn(),
         subscribe: vi.fn(() => vi.fn()),
-        emo: { name: 'neutral', target: 0, weight: 0, applied: '' }
+        emotionBlend: { name: 'neutral', target: 0, weight: 0, applied: '' }
       } as unknown as SkinEngine;
 
       const bootPromise = bootVRM(skinEngine);
@@ -1166,7 +1168,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         getState: () => currentState,
         onMounted: vi.fn(),
         subscribe: vi.fn(() => vi.fn()),
-        emo: { name: 'neutral', target: 0, weight: 0, applied: '' }
+        emotionBlend: { name: 'neutral', target: 0, weight: 0, applied: '' }
       } as unknown as SkinEngine;
 
       const bootPromise = bootVRM(skinEngine);
@@ -1241,7 +1243,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
             return vi.fn();
           }
         ),
-        emo: { name: 'neutral', target: 0, weight: 0, applied: '' }
+        emotionBlend: { name: 'neutral', target: 0, weight: 0, applied: '' }
       } as unknown as SkinEngine;
 
       const bootPromise = bootVRM(skinEngine);
@@ -1327,7 +1329,7 @@ describe('Unit Test: core/skin/renderer-3d.js', () => {
         getState: () => currentState,
         onMounted: vi.fn(),
         subscribe: vi.fn(() => vi.fn()),
-        emo: { name: 'neutral', target: 0, weight: 0, applied: '' }
+        emotionBlend: { name: 'neutral', target: 0, weight: 0, applied: '' }
       } as unknown as SkinEngine;
 
       const bootPromise = bootVRM(skinEngine);

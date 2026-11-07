@@ -183,12 +183,12 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
       pixiWin.PIXI.live2d.Live2DModel.from = origFrom;
     });
 
-    it('should handle bootAvatar error and invoke onTwoDimensionalError', async () => {
-      const onTwoDimensionalError = vi.fn();
+    it('should handle bootAvatar error and invoke on2DError', async () => {
+      const on2DError = vi.fn();
       const resNull = await bootAvatar(
         {
           stageEl: null as unknown as HTMLElement,
-          onTwoDimensionalError
+          on2DError
         } as unknown as SkinEngine,
         'model.json'
       );
@@ -204,12 +204,12 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
       const resError = await bootAvatar(
         {
           stageEl: document.createElement('div'),
-          onTwoDimensionalError
+          on2DError
         } as unknown as SkinEngine,
         'model.json'
       );
       expect(resError).toBeUndefined();
-      expect(onTwoDimensionalError).toHaveBeenCalled();
+      expect(on2DError).toHaveBeenCalled();
 
       pixiWin.PIXI.live2d.Live2DModel.from = origFrom;
     });
@@ -228,7 +228,7 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
       const nonVrmFile = new File([''], 'model.obj');
       const skinEngine = {
         stageEl,
-        VRMFileChangeFail: failSpy
+        onVrmFileChangeFail: failSpy
       } as unknown as SkinEngine;
 
       loadVRMFile(skinEngine, nonVrmFile);
@@ -247,7 +247,7 @@ describe('Unit Test: core/skin/skin-renderers-branches.test.js (2D & 3D Renderer
       const skinEngine = {
         stageEl,
         vrmUrl: 'blob:old_vrm_url',
-        VRMFileChangeSuccess: successSpy,
+        onVrmFileChangeSuccess: successSpy,
         engineMode: ENGINE_MODE_MAP.twoDimensional
       } as unknown as SkinEngine;
 

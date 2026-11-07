@@ -86,14 +86,22 @@ interface MockCapturedToolsOptions {
 }
 
 interface MockCapturedSkinOptions {
-  onThreeDimensionalError: (err: Error) => void;
-  onTwoDimensionalError: (err: Error) => void;
-  VRMFileChangeFail: (err: Error) => void;
-  VRMFileChangeSuccess: () => void;
+  on3DError: (err: Error) => void;
+  on2DError: (err: Error) => void;
+  onVrmFileChangeFail: (err: Error) => void;
+  onVrmFileChangeSuccess: () => void;
   onModelChangeStart: (...args: unknown[]) => void;
   onModelChangeEnd: (...args: unknown[]) => void;
   computeMouth: () => number;
   onMounted: () => Promise<void> | void;
+  skin2d?: {
+    tapMotions?: string[];
+    motionMap?: Record<string, string>;
+    expressionMap?: Record<string, string>;
+  };
+  skin3d?: {
+    tapGestures?: string[];
+  };
   [key: string]: unknown;
 }
 
@@ -1345,14 +1353,18 @@ describe('Orchestrator Engine Factory', () => {
       await setupSkinEngine({
         options: {
           gesture: customUnifiedGesture,
-          tapGestures: ['custom_tap'],
-          tapMotions: ['custom_motion'],
-          motionMap: { wave: 'CustomWave' },
-          expressionMap: { happy: 'CustomHappy' },
-          onThreeDimensionalError,
-          onTwoDimensionalError,
-          VRMFileChangeFail,
-          VRMFileChangeSuccess,
+          skin2d: {
+            tapMotions: ['custom_motion'],
+            motionMap: { wave: 'CustomWave' },
+            expressionMap: { happy: 'CustomHappy' }
+          },
+          skin3d: {
+            tapGestures: ['custom_tap']
+          },
+          on3DError: onThreeDimensionalError,
+          on2DError: onTwoDimensionalError,
+          onVrmFileChangeFail: VRMFileChangeFail,
+          onVrmFileChangeSuccess: VRMFileChangeSuccess,
           onModelChangeStart,
           onModelChangeEnd
         },
@@ -1365,10 +1377,10 @@ describe('Orchestrator Engine Factory', () => {
 
       // verify unified gesture options forwarded
       expect(capturedSkinOptions.gesture).toBe(customUnifiedGesture);
-      expect(capturedSkinOptions.tapGestures).toEqual(['custom_tap']);
-      expect(capturedSkinOptions.tapMotions).toEqual(['custom_motion']);
-      expect(capturedSkinOptions.motionMap).toEqual({ wave: 'CustomWave' });
-      expect(capturedSkinOptions.expressionMap).toEqual({
+      expect(capturedSkinOptions.skin3d?.tapGestures).toEqual(['custom_tap']);
+      expect(capturedSkinOptions.skin2d?.tapMotions).toEqual(['custom_motion']);
+      expect(capturedSkinOptions.skin2d?.motionMap).toEqual({ wave: 'CustomWave' });
+      expect(capturedSkinOptions.skin2d?.expressionMap).toEqual({
         happy: 'CustomHappy'
       });
 
@@ -1380,24 +1392,24 @@ describe('Orchestrator Engine Factory', () => {
       expect(mockEngines.speechEngine.spokenDisplayText).toBe('Welcome!');
       expect(mockWidget.onReady).toHaveBeenCalledWith(mockWidget);
 
-      // onThreeDimensionalError
-      capturedSkinOptions.onThreeDimensionalError(new Error('3D failed'));
+      // on3DError
+      capturedSkinOptions.on3DError(new Error('3D failed'));
       expect(mockWidget.onError).toHaveBeenCalled();
       expect(onThreeDimensionalError).toHaveBeenCalled();
 
-      // onTwoDimensionalError
-      capturedSkinOptions.onTwoDimensionalError(new Error('2D failed'));
+      // on2DError
+      capturedSkinOptions.on2DError(new Error('2D failed'));
       expect(mockUiDom.directWarnEl.textContent).toContain('2D 啟動失敗');
       expect(mockUiDom.directWarnEl.style.display).toBe('flex');
       expect(onTwoDimensionalError).toHaveBeenCalled();
 
-      // VRMFileChangeFail
-      capturedSkinOptions.VRMFileChangeFail(new Error('VRM failed'));
+      // onVrmFileChangeFail
+      capturedSkinOptions.onVrmFileChangeFail(new Error('VRM failed'));
       expect(mockEngines.speechEngine.spokenDisplayText).toBe('VRM failed');
       expect(VRMFileChangeFail).toHaveBeenCalled();
 
-      // VRMFileChangeSuccess
-      capturedSkinOptions.VRMFileChangeSuccess();
+      // onVrmFileChangeSuccess
+      capturedSkinOptions.onVrmFileChangeSuccess();
       expect(mockEngines.speechEngine.spokenDisplayText).toContain(
         '換上你的角色了'
       );
@@ -1538,9 +1550,9 @@ describe('Orchestrator Engine Factory', () => {
       const stageEl = document.createElement('div');
       await setupSkinEngine({
         options: {
-          onTwoDimensionalError,
-          VRMFileChangeFail,
-          VRMFileChangeSuccess
+          on2DError: onTwoDimensionalError,
+          onVrmFileChangeFail: VRMFileChangeFail,
+          onVrmFileChangeSuccess: VRMFileChangeSuccess
         },
         widget: mockWidget,
         rootStore,
@@ -1551,22 +1563,22 @@ describe('Orchestrator Engine Factory', () => {
 
       expect(capturedSkinOptions).toBeDefined();
 
-      // 1. onTwoDimensionalError
-      capturedSkinOptions!.onTwoDimensionalError?.(new Error('2D failed'));
+      // 1. on2DError
+      capturedSkinOptions!.on2DError?.(new Error('2D failed'));
       expect(mockUiDom.directWarnEl?.textContent).toContain('2D 啟動失敗');
       expect(mockUiDom.directWarnEl?.style.display).toBe('flex');
       expect(mockWidget.onError).toHaveBeenCalled();
       expect(onTwoDimensionalError).toHaveBeenCalled();
 
-      // 2. VRMFileChangeFail
-      capturedSkinOptions!.VRMFileChangeFail?.(new Error('VRM drop failed'));
+      // 2. onVrmFileChangeFail
+      capturedSkinOptions!.onVrmFileChangeFail?.(new Error('VRM drop failed'));
       expect(mockEngines.speechEngine?.spokenDisplayText).toBe(
         'VRM drop failed'
       );
       expect(VRMFileChangeFail).toHaveBeenCalled();
 
-      // 3. VRMFileChangeSuccess
-      capturedSkinOptions!.VRMFileChangeSuccess?.();
+      // 3. onVrmFileChangeSuccess
+      capturedSkinOptions!.onVrmFileChangeSuccess?.();
       expect(mockEngines.speechEngine?.spokenDisplayText).toBe(
         '換上你的角色了！🎭'
       );

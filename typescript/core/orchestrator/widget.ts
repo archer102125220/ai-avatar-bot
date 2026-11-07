@@ -209,13 +209,6 @@ export function createAvatarWidget({
               console.warn('[AvatarBot] widget.playGesture failed:', error);
             });
           }
-        } else if (
-          skinEngine.engineMode === ENGINE_MODE_MAP.threeDimensional &&
-          typeof skinEngine.gesture3D === 'function'
-        ) {
-          skinEngine.gesture3D(gestureName);
-        } else if (typeof skinEngine.gesture === 'function') {
-          skinEngine.gesture(gestureName);
         } else {
           skinEngine.gestureName = gestureName;
         }

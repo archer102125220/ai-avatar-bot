@@ -198,9 +198,9 @@ describe('Skin Cascade & Fallback Resolver', () => {
       });
     });
 
-    it('should allow top-level property override (e.g. config.bow, config.waiting)', () => {
+    it('should allow gestures dictionary override (e.g. gestures.bow, gestures.waiting)', () => {
       const bowAction = resolve3DAction('bow', {
-        topLevelOverrides: {
+        gestures: {
           bow: 'https://cdn.com/top-bow.vrma'
         }
       });
@@ -208,8 +208,9 @@ describe('Skin Cascade & Fallback Resolver', () => {
 
       const waitingAction = resolve3DAction('waiting', {
         gender: 'female',
-        topLevelOverrides: {
-          waiting: { female: 'girl_waiting.vrma', male: 'boy_waiting.vrma' }
+        gestures: {
+          female: { waiting: 'girl_waiting.vrma' },
+          male: { waiting: 'boy_waiting.vrma' }
         }
       });
       expect(waitingAction.url).toBe('girl_waiting.vrma');

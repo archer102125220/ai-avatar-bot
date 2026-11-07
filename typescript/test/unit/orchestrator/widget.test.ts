@@ -190,7 +190,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     expect(widget.availableModes).toContain('customMode');
   });
 
-  it('should proxy brain engine methods (buildLLMMessages, classifyEmotion, applyEmotionFromText, answerQuestion, handleUser)', () => {
+  it('should proxy brain engine methods (buildLLMMessages, classifyEmotion, applyEmotionFromText, answerQuestion, handleUser)', async () => {
     const widget = createAvatarWidget({
       options: {},
       container,
@@ -216,29 +216,25 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     expect(mockEngines.brainEngine.answerQuestion).toHaveBeenCalledWith('問題');
 
     // Test playGesture
-    const gesture3DMock = vi.fn();
-    mockEngines.skinEngine.engineMode = ENGINE_MODE_MAP.threeDimensional;
-    mockEngines.skinEngine.gesture3D = gesture3DMock;
-    widget.playGesture?.('appearing');
-    expect(gesture3DMock).toHaveBeenCalledWith('appearing');
-
-    mockEngines.skinEngine.engineMode = ENGINE_MODE_MAP.twoDimensional;
-    const gesture2DMock = vi.fn();
-    mockEngines.skinEngine.gesture = gesture2DMock;
-    widget.playGesture?.('liked');
-    expect(gesture2DMock).toHaveBeenCalledWith('liked');
-
-    // Test skinEngine.playGesture priority and error catching
-    const playGestureMock = vi
-      .fn()
-      .mockRejectedValue(new Error('Gesture failed'));
+    const playGestureMock = vi.fn().mockResolvedValue(undefined);
     mockEngines.skinEngine.playGesture = playGestureMock;
-    widget.playGesture?.('customGesture');
+    await widget.playGesture?.('appearing');
+    expect(playGestureMock).toHaveBeenCalledWith('appearing');
+
+    // Test skinEngine.playGesture error catching
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    playGestureMock.mockRejectedValueOnce(new Error('Gesture failed'));
+    await widget.playGesture?.('customGesture');
     expect(playGestureMock).toHaveBeenCalledWith('customGesture');
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[AvatarBot] widget.playGesture failed:',
+      expect.any(Error)
+    );
+    warnSpy.mockRestore();
 
     // Edge cases
-    widget.playGesture?.('');
-    expect(gesture2DMock).toHaveBeenCalledTimes(1);
+    await widget.playGesture?.('');
+    expect(playGestureMock).toHaveBeenCalledTimes(2);
 
     // Test widget.tap()
     const triggerTapMock = vi.fn();
@@ -747,7 +743,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
 
     const botWidget = await initAvatarBot({
       container,
-      modelUrl: 'https://models.test/avatar.model3.json',
+      live2dUrl: 'https://models.test/avatar.model3.json',
       welcomeText: 'Hello from Bot!',
       onReady: vi.fn()
     });

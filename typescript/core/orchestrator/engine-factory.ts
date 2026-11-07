@@ -1128,26 +1128,13 @@ export async function setupSkinEngine({
   stageEl
 }: SetupSkinParams): Promise<SkinEngine | null> {
   const {
-    modelUrl,
+    live2dUrl,
     startMode,
     fitMode,
     vrmUrl,
     skin2d,
-    zoom,
-    offsetX,
-    offsetY,
-    anchor,
     skin3d,
-    camera,
-    modelTransform,
-    pointerLook,
     gesture,
-    tapGestures,
-    tapMotions,
-    motionMap,
-    expressionMap,
-    gesture3D,
-    gesture2D,
     customEngines = {}
   } = options;
 
@@ -1194,26 +1181,13 @@ export async function setupSkinEngine({
     skinEngine =
       initSkinEngine({
         stageEl,
-        modelUrl,
+        live2dUrl,
         startMode,
         fitMode,
         skin2d,
-        zoom,
-        offsetX,
-        offsetY,
-        anchor,
         vrmUrl,
         skin3d,
-        camera,
-        modelTransform,
-        pointerLook,
         gesture,
-        tapGestures,
-        tapMotions,
-        motionMap,
-        expressionMap,
-        gesture3D,
-        gesture2D,
         get gender() {
           return rootStore.getState().skinGender || rootStore.getState().gender;
         },
@@ -1235,7 +1209,7 @@ export async function setupSkinEngine({
             widget.onReady(widget);
           }
         },
-        onThreeDimensionalError(error?: unknown, ...args: unknown[]) {
+        on3DError(error?: unknown, ...args: unknown[]) {
           if (typeof widget.onError === 'function') {
             const errObj =
               error instanceof Error ? error : new Error(String(error || ''));
@@ -1244,12 +1218,12 @@ export async function setupSkinEngine({
           return callOptionEvent(
             options,
             widget,
-            'onThreeDimensionalError',
+            'on3DError',
             error,
             ...args
           );
         },
-        onTwoDimensionalError(error?: unknown, ...args: unknown[]) {
+        on2DError(error?: unknown, ...args: unknown[]) {
           const errorMsg =
             typeof error === 'object' &&
             error !== null &&
@@ -1273,12 +1247,12 @@ export async function setupSkinEngine({
           return callOptionEvent(
             options,
             widget,
-            'onTwoDimensionalError',
+            'on2DError',
             error,
             ...args
           );
         },
-        VRMFileChangeFail(error?: unknown, ...args: unknown[]) {
+        onVrmFileChangeFail(error?: unknown, ...args: unknown[]) {
           console.error(error);
           const errorMsg =
             typeof error === 'object' &&
@@ -1298,12 +1272,12 @@ export async function setupSkinEngine({
           return callOptionEvent(
             options,
             widget,
-            'VRMFileChangeFail',
+            'onVrmFileChangeFail',
             error,
             ...args
           );
         },
-        VRMFileChangeSuccess() {
+        onVrmFileChangeSuccess() {
           const { skinEngine: currentSkin, speechEngine } = getEngines();
           const rootState = rootStore?.getState?.() || {};
           const isEngineToggleEnabled =
@@ -1321,7 +1295,7 @@ export async function setupSkinEngine({
           if (speechEngine !== null && typeof speechEngine === 'object') {
             speechEngine.spokenDisplayText = '換上你的角色了！🎭';
           }
-          callOptionEvent(options, widget, 'VRMFileChangeSuccess');
+          callOptionEvent(options, widget, 'onVrmFileChangeSuccess');
         },
         onModelChangeStart(newEngineMode: string) {
           const uiDom = getUiDom();

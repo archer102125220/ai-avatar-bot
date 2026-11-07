@@ -213,11 +213,11 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
       expect(() => renderer.fit()).not.toThrow();
     });
 
-    it('should trigger onTwoDimensionalError when bootAvatar throws', async () => {
-      const onTwoDimensionalError = vi.fn();
+    it('should trigger on2DError when bootAvatar throws', async () => {
+      const on2DError = vi.fn();
       const skinEngine = {
         stageEl,
-        onTwoDimensionalError
+        on2DError
       } as unknown as SkinEngine;
       const win = window as unknown as Record<string, unknown>;
       // Cause an error by breaking window.PIXI
@@ -225,7 +225,7 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
       win.PIXI = null;
 
       await bootAvatar(skinEngine, 'model.json');
-      expect(onTwoDimensionalError).toHaveBeenCalled();
+      expect(on2DError).toHaveBeenCalled();
 
       win.PIXI = originalPIXI;
     });
@@ -254,12 +254,11 @@ describe('Unit Test: core/skin/skin-renderers.js (Renderer Lifecycle & Teardown)
       )) as Renderer2D;
       expect(renderer.TAP_GESTURES).toEqual(['tap']);
 
-      skinEngineMock.skin2d = { tapGestures: ['tap_body', 'head_pat'] };
+      skinEngineMock.skin2d = { tapMotions: ['tap_body', 'head_pat'] };
       expect(renderer.TAP_GESTURES).toEqual(['tap_body', 'head_pat']);
 
       skinEngineMock.skin2d = {
-        tapMotions: ['tap_motion_override'],
-        tapGestures: ['tap_body']
+        tapMotions: ['tap_motion_override']
       };
       expect(renderer.TAP_GESTURES).toEqual(['tap_motion_override']);
 

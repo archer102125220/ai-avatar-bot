@@ -28,12 +28,9 @@ import type {
   SkinEngineOptions,
   Skin2DConfig,
   Skin3DConfig,
-  Skin3DCameraConfig,
-  Skin3DModelConfig,
   Renderer2D,
   Renderer3D,
-  SkinUnifiedGestureHandler,
-  Skin3DActionItem
+  SkinUnifiedGestureHandler
 } from '@/core/skin';
 import type {
   ToolsEngine,
@@ -69,8 +66,7 @@ import type {
   ReasoningChunkInfo,
   ReasoningEndInfo,
   ReasoningOptions,
-  LlmOomFallbackInfo,
-  Point2D
+  LlmOomFallbackInfo
 } from '@/core/types';
 
 /**
@@ -211,8 +207,8 @@ export interface AvatarBotOptions {
   knowledgeFilter?:
     | boolean
     | ((entry: KnowledgeEntry, question: string) => boolean);
-  /** 2D or 3D avatar model URL. */
-  modelUrl?: string;
+  /** 2D Live2D avatar model configuration file URL (.model3.json). */
+  live2dUrl?: string;
   /** Speech synthesis (TTS) API endpoint. */
   ttsEndpoint?: string;
   /** In-browser WebGPU LLM model identifier (MLC format). */
@@ -263,44 +259,18 @@ export interface AvatarBotOptions {
   fitMode?: FitMode;
   /** 2D visual transformation configuration. */
   skin2d?: Skin2DConfig;
-  /** Alias for skin2d.zoom. */
-  zoom?: number;
-  /** Alias for skin2d.offsetX. */
-  offsetX?: number;
-  /** Alias for skin2d.offsetY. */
-  offsetY?: number;
-  /** Alias for skin2d.anchor. */
-  anchor?: Point2D;
   /** 3D VRM model URL. */
   vrmUrl?: string;
   /** 3D visual and animation configuration. */
   skin3d?: Skin3DConfig;
-  /** Alias for skin3d.camera. */
-  camera?: Skin3DCameraConfig;
-  /** Alias for skin3d.model. */
-  modelTransform?: Skin3DModelConfig;
-  /** Alias for skin3d.pointerLook. */
-  pointerLook?: boolean;
   /** Whether to allow dragging and dropping .vrm files onto canvas to switch models. */
   enableModelDrop?: boolean;
   /** Alias for enableModelDrop. */
   allowModelDrop?: boolean;
   /** Whether to display 2D/3D toggle button when both models are available. */
   enableEngineToggle?: boolean;
-  /** Custom 3D gesture data. */
-  gesture3D?: Record<string, unknown>;
-  /** Custom 2D gesture data. */
-  gesture2D?: Record<string, unknown>;
   /** Global unified gesture handler interceptor. */
   gesture?: SkinUnifiedGestureHandler;
-  /** Tap gestures list for avatar random tap interactions. */
-  tapGestures?: string[] | Skin3DActionItem[];
-  /** Tap motions list for Live2D random tap interactions. */
-  tapMotions?: string[];
-  /** Custom motion name mapping for Live2D motions. */
-  motionMap?: Record<string, string>;
-  /** Custom semantic expression mapping for 2D/3D expressions. */
-  expressionMap?: Record<string, string>;
   /** Whether to start in minimal UI mode. */
   isMinimal?: boolean;
   /** Whether running inside an iframe. */
@@ -519,13 +489,13 @@ export interface AvatarBotOptions {
   /** Callback fired when audio playback is triggered. */
   onSpokenAudioPlayNow?: (text: string, ...args: unknown[]) => void;
   /** Callback fired on 3D error. */
-  onThreeDimensionalError?: (error: Error, ...args: unknown[]) => void;
+  on3DError?: (error: Error, ...args: unknown[]) => void;
   /** Callback fired on 2D error. */
-  onTwoDimensionalError?: (error: Error, ...args: unknown[]) => void;
+  on2DError?: (error: Error, ...args: unknown[]) => void;
   /** Callback fired on VRM file change failure. */
-  VRMFileChangeFail?: (error: Error, ...args: unknown[]) => void;
+  onVrmFileChangeFail?: (error: Error, ...args: unknown[]) => void;
   /** Callback fired on VRM file change success. */
-  VRMFileChangeSuccess?: (vrmUrl?: string, ...args: unknown[]) => void;
+  onVrmFileChangeSuccess?: (vrmUrl?: string, ...args: unknown[]) => void;
   /** Callback fired when 2D/3D model mode change starts. */
   onModelChangeStart?: (newMode: EngineMode, ...args: unknown[]) => void;
   /** Callback fired when 2D/3D model mode change ends. */
