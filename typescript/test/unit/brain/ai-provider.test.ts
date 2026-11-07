@@ -972,6 +972,42 @@ describe('Unit Test: core/brain/ai-provider.js', () => {
         }
       );
     });
+
+    it('should not invoke onSpokenAudioPlayNow when isStream is true in chatWithAiProvider', async () => {
+      const mockChat = vi.fn().mockResolvedValue({
+        type: 'text',
+        content: '串流回答完成',
+        finishReason: LLM_FINISH_REASON_MAP.STOP
+      });
+
+      const onSpokenAudioPlayNow = vi.fn();
+      const onStreamEnd = vi.fn();
+      const onStreamStart = vi.fn();
+      const addTurn = vi.fn();
+
+      const brainEngine = {
+        aiProvider: {
+          chat: mockChat,
+          isStream: true
+        },
+        locale: 'zh-TW',
+        memory: { enabled: true, addTurn },
+        addChatMessage: vi.fn(() => 'stream-msg-1'),
+        updateChatMessage: vi.fn(),
+        onStreamStart,
+        onStreamEnd,
+        onSpokenAudioPlayNow
+      } as unknown as BrainEngine;
+
+      const result = await chatWithAiProvider(
+        brainEngine,
+        '測試串流不重複播放'
+      );
+      expect(result).toBe('串流回答完成');
+      expect(onStreamStart).toHaveBeenCalled();
+      expect(onStreamEnd).toHaveBeenCalledWith('串流回答完成');
+      expect(onSpokenAudioPlayNow).not.toHaveBeenCalled();
+    });
   });
 
   describe('custom headers & immutability', () => {

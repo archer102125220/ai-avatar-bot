@@ -1087,7 +1087,10 @@ export async function chatWithAiProvider(
         if (typeof engine.applyEmotionFromText === 'function') {
           engine.applyEmotionFromText(accumulatedText);
         }
-        if (typeof engine.onSpokenAudioPlayNow === 'function') {
+        if (
+          engine.aiProvider?.isStream !== true &&
+          typeof engine.onSpokenAudioPlayNow === 'function'
+        ) {
           engine.onSpokenAudioPlayNow(accumulatedText);
         }
       }
@@ -1256,9 +1259,6 @@ export async function chatWithAiProvider(
       }
       if (typeof engine.applyEmotionFromText === 'function') {
         engine.applyEmotionFromText(accumulatedText);
-      }
-      if (typeof engine.onSpokenAudioPlayNow === 'function') {
-        engine.onSpokenAudioPlayNow(accumulatedText);
       }
       if (typeof engine.onStreamEnd === 'function') {
         engine.onStreamEnd(accumulatedText);
