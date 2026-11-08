@@ -1649,7 +1649,7 @@ yarn test:smoke
 
 ## 🗺️ Future Architecture Roadmap (TODOs)
 
-To maintain stability and avoid scope creep ahead of the `v1.0.0` release, three architectural milestones are tracked on the project roadmap:
+To maintain stability and avoid scope creep ahead of the `v1.0.0` release, four architectural milestones are tracked on the project roadmap:
 
 ### 📌 TODO 1: Domain-Neutral Callback Naming for Independent Brain Package
 - **Specification**: Tracked in [Domain-Neutral Brain Decoupling RFC](./docs/TODO-1-DOMAIN-NEUTRAL-BRAIN-DECOUPLING.md).
@@ -1672,6 +1672,14 @@ To maintain stability and avoid scope creep ahead of the `v1.0.0` release, three
   - **Pure Options Signature Standard**: Unified both brain instance methods and standalone functions to `updateChatMessage(engine, id, text, options?: UpdateChatMessageOptions)` (supporting `streaming`, `reasoning`, `reasoningTimeMs`, `reasoningStreaming`, and `metadata`).
   - **Metadata Merging & Fallback Propagation**: Full support for shallow merging `metadata` on existing messages and transparently passing `metadata` when creating new messages via `addChatMessage` fallback.
   - **Comprehensive Call Site & Test Migration**: Upgraded all 11 internal caller sites and all unit test assertions to options objects.
+
+### 📌 TODO 4: Speech Engine Decoupling and Dynamic Cross-Engine Coupling Registry (Active / Living RFC)
+- **Specification**: Tracked in [Domain-Neutral Speech Engine Decoupling RFC](./docs/TODO-4-SPEECH-ENGINE-CLEAN-DECOUPLING.md).
+- **Background**: The speech engine (`core/speech`) contains legacy artifacts from the monolithic origin (brain reasoning lifecycle `isProcessing`, subtitle bubble state `spokenDisplayText`, avatar tap throttle `onTapTimer`, and setter playback side-effects `spokenAudioText = ...`).
+- **Future Plan**:
+  - Complete the internal modernization and dead-code removal of the speech engine first.
+  - Track cross-engine coupling items in the dynamic registry of TODO 4, collecting concrete specifications as the Tools, I18n, and UI engines are refactored.
+  - Converge all decoupled interfaces in the orchestrator (`core/orchestrator`) alongside Brain's TODO 1 for a completely clean `v1.0.0` architecture.
 
 ---
 

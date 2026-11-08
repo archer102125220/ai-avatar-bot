@@ -1651,7 +1651,7 @@ yarn test:smoke
 
 ## 🗺️ 未來架構演進待辦事項 (Future Architecture TODOs)
 
-為避免本次 npm 發布前之重構範圍無限制蔓延（Scope Creep）並守護核心穩定性，以下三項架構演進決策正式列入後續維護追蹤清單：
+為避免本次 npm 發布前之重構範圍無限制蔓延（Scope Creep）並守護核心穩定性，以下架構演進決策正式列入後續維護追蹤清單：
 
 ### 📌 TODO 1：大腦獨立拆包時的中立化回呼名稱（語音與外觀領域解耦）
 - **規格書追蹤**：詳見 [領域中立化解耦規格書 (RFC)](./docs/TODO-1-DOMAIN-NEUTRAL-BRAIN-DECOUPLING.md)。
@@ -1674,6 +1674,14 @@ yarn test:smoke
   - **唯一收斂純 Options 簽名**：大腦實例方法與獨立函式全面收斂為 `updateChatMessage(engine, id, text, options?: UpdateChatMessageOptions)`（支援 `streaming`、`reasoning`、`reasoningTimeMs`、`reasoningStreaming` 與 `metadata`）。
   - **中繼資料合併與 Fallback 透傳**：更新既有訊息時支援 `metadata` 淺層合併；找不到目標訊息 fallback 至 `addChatMessage` 時同步透傳中繼資料。
   - **全專案調用點與單元測試升級**：專案內部 11 處調用點與所有單元測試全數遷移為 Options 物件傳參。
+
+### 📌 TODO 4：語音引擎跨領域狀態解耦與動態收集規格書（進行中 / Living RFC）
+- **規格書追蹤**：詳見 [語音引擎跨領域解耦規格書 (RFC)](./docs/TODO-4-SPEECH-ENGINE-CLEAN-DECOUPLING.md)。
+- **背景**：語音模組（`core/speech`）內部目前殘留了來自單體架構的大腦思考狀態（`isProcessing`）、UI 氣泡字幕（`spokenDisplayText` 與 6 秒計時器）、化身點擊防抖（`onTapTimer`）與賦值播放副作用（`spokenAudioText = ...`）。
+- **未來規劃**：
+  - 將語音內部純淨化（死碼剔除、STT/TTS 內部現代化）作為先行重構範圍。
+  - 跨領域項目設立為 TODO 4 動態收集看板，在後續重構工具（Tools）、國際化（I18n）與 UI 模組時，邊處理邊收集真實邊界規格。
+  - 最終在協調層（`core/orchestrator`）重構時與大腦 TODO 1 一併收網，徹底移除過渡副作用，達到 100% 現代純淨架構。
 
 ---
 

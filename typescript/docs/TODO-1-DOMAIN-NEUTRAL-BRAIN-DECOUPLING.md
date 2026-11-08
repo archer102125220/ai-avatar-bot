@@ -98,6 +98,7 @@ flowchart TD
 ### 3.4 語音與外觀引擎 (`core/speech/`、`core/skin/`)
 - **整理其他引擎型別時的注意事項**：
   - `SpeechEngine` 的 `speak(text: string)` 簽名保持純粹，不需依賴大腦的任何型別。
+  - `SpeechEngine` 應移除對大腦思考狀態（`isProcessing`）、畫面字幕狀態（`spokenDisplayText`）、點擊防抖（`onTapTimer`）等跨領域狀態的直接管理，回歸純粹的 STT / TTS 音訊控制責任。
   - `SkinEngine` 應定義清晰的情緒常態字串型別（如 `SentimentType = 'happy' | 'sad' | 'angry' | ...`），以利大腦的意圖分析做型別收斂。
 
 ---
@@ -144,7 +145,12 @@ function dispatchOutputTextReady(engine: BrainEngine, text: string) {
 
 ### 發現記錄清單：
 - [x] **耦合點 01 (ToolsEngine)**：`core/tools/index.ts` 內有 9 處 `toolsEngine.onSpokenAudioPlayNow`，在取消、確認工具執行時直接發聲，需列入中立化重構範圍。
-- [ ] **耦合點 02 (待整理補入)**：*（整理 SpeechEngine 參數型別時記錄）*
+- [x] **耦合點 02 (SpeechEngine 跨領域狀態滲透與殘留耦合)**：
+  - **大腦推理狀態洩漏 (`isProcessing`)**：`SpeechEngineState` 與 `SpeechEngine` 上掛載了 `isProcessing`，在 `pipeline-user.ts` 中由大腦推理流程強制修改，並用於 STT 判斷是否為 assistant 忙碌狀態。語音引擎理應只關心音訊狀態（`isSpeaking` / `isListening`），大腦的推論生命週期（思考中）不應直接作為語音引擎的核心屬性。
+  - **UI 氣泡與字幕狀態硬塞入語音引擎 (`spokenDisplayText` / `updateDisplay`)**：`SpeechEngineState` 與 `TTSSpeakOptions`（`updateDisplay`）內部維護了畫面上要顯示的字幕文字 `spokenDisplayText`，甚至在 `stt.ts` 中宣告了完全未使用的 `spokenDisplayText`，且由 `SpeechEngine` 內部跑 6000ms 氣泡倒數計時器。純粹的 TTS/STT 音訊引擎應專注於語音合成與辨識，字幕渲染應由 UI/Orchestrator 訂閱語音事件後處理，而不應由語音引擎承擔字幕顯示狀態。
+  - **大腦回呼直接以語音屬性作為反應式副作用觸發器 (`spokenAudioText` / `spokenAudioState`)**：大腦推論產出文字後，在 `engine-factory.ts` 中透過 `speechEngine.spokenAudioText = text` 賦值來觸發語音播放（內部轉換為 `spokenAudioState` 觸發監聽器），此設計為 `origin` 單體架構的殘留物。中立架構下，應直接呼叫 `speechEngine.speak(text)`，廢止副作用屬性賦值。
+  - **化身互動行為與防抖滲透 (`onTapTimer` / `triggerTap` / `onTapAvatar` / `preloadTapGreeting`)**：`SpeechEngine` 內部包含了化身點擊防抖標記 `onTapTimer`、點擊轉發方法 `triggerTap()`、選項回呼 `onTapAvatar`，以及將 TTS 預先快取語音命名為 `preloadTapGreeting`。點擊化身屬於 UI/皮膚層的互動概念，不應侵入語音引擎。
+  - **DOM 容器物件無效綁定 (`container` / `getContainer`)**：`SpeechEngineOptions` 定義了 `getContainer`，`SpeechEngine` 定義了 `readonly container`，但在整個語音引擎及其外部使用中均未實際讀取，為早年單體架構搬移時的死程式碼。
 - [x] **耦合點 03 (SkinEngine 跨領域耦合)**：
   - **面部表情 (Expression) 與肢體動作 (Gesture) 通道混雜**：大腦輸出的 `onEmotionChange`（中立化後為 `onSentimentChange`）傳入 `skinEngine.setEmotion` 時，目前皮膚引擎內部會強制執行 `gestureName = emotion`，把情緒當作動作檔名播放，造成面部表情與肢體動作混亂、容易打斷 normal idle/speaking 動作或觸發警告。大腦解耦後，Orchestrator 應將 `onSentimentChange` 純粹映射至模型的面部表情（Expression/Blendshape），僅在明確有動作映射時才觸發肢體動畫。
   - **`model` 參數名相撞與歧義**：大腦引擎使用 `model`（LLM 名稱），而皮膚引擎頂層配置使用 `modelUrl`（2D 模型網址）與 `modelTransform`（3D 空間變換），在上層 `WidgetOptions` 容易產生認知衝突與配置混淆。
