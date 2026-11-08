@@ -21,7 +21,7 @@
 
 ### 1.2 治理策略：分層治理與動態收集 (Two-Tier Governance)
 若現在直接對全專案的上述項目進行硬性切除，將一次波及 15+ 個管線與 UI 檔案，造成巨大的爆炸半徑。因此我們比照先前大腦重構的成功模式：
-* **語音內部純淨化（先行處理）**：死碼清理（`container`、`STTEngineState.spokenDisplayText`）、重複實例方法剔除（`drainSentences`）、STT/TTS 內部現代化（`preloadAudio`、`playbackRate`、`consecutiveNoSpeechCount`）。
+* **語音內部純淨化（Tier 1 先行處理）**：死碼與無用私有狀態清理（`container`、`STTEngineState` 之 `spokenDisplayText` / `lastRestart` / `speechStartTime`、`tts.ts` 內部 5 個死屬性、`index.ts` 內部 `_speechQueue` / `_speechBuffer` / `_speechEndedFlag`）、實例方法 `drainSentences` 標註 `@deprecated`、STT/TTS 內部現代化與快取修復（`preloadAudio`、`playbackRate`、`consecutiveNoSpeechCount`、`onSpeakStart(text)` 參數補齊、`CustomEnginesConfig.speech` 注入驗證）。
 * **跨領域強耦合項目（本 TODO 4 封存追蹤）**：建立**「跨引擎動態收集看板」**，在後續依序重構工具（Tools）、國際化（I18n）、UI 與互動層時，邊處理邊收集真實邊界規格，最後於協調層（Orchestrator）一口氣乾淨收網！
 
 ---
@@ -47,20 +47,30 @@
   * **待收集規格**：當重構 UI 模組時，將氣泡的顯示、打字動態與淡出計時完全歸回 UI 模組管理。語音模組僅需純粹拋出 `onSpeakStart(text)`、`onSpeakEnd()`、`onResult(text)`，由 UI 自行監聽更新 DOM。
   * **收集進度**：⏳ 待整理 UI 模組時記錄。
 
-- [ ] **耦合項 04（Interaction 化身點擊防抖移出）**：
-  * **現狀**：`core/orchestrator/interaction.ts` 中使用 `speechEngine.onTapTimer = true` 進行點擊化身手勢與發聲的防抖。
-  * **待收集規格**：當重構互動層時，將化身點擊防抖收斂至 interaction 模組自建閉包變數，從 `SpeechEngine` 徹底移除 `onTapTimer` 與 `triggerTap()`。
-  * **收集進度**：⏳ 待整理 Interaction 互動層時記錄。
+- [ ] **耦合項 04（Interaction 與 UI 化身點擊防抖移出）**：
+  * **現狀**：`core/orchestrator/interaction.ts` 中使用 `speechEngine.onTapTimer = true` 進行點擊化身手勢與發聲的防抖；此外 `core/ui/types.ts`（L78 `UiDom.onTapTimer`）與 `core/ui/dom.ts`（L427 `onTapTimer: false`）亦殘留了完全未使用的同名死屬性。
+  * **待收集規格**：當重構互動層與 UI 層時，將化身點擊防抖收斂至 interaction 模組自建閉包變數，從 `SpeechEngine` 徹底移除 `onTapTimer` 與 `triggerTap()`，並同步刪除 `UiDom.onTapTimer`。
+  * **收集進度**：⏳ 待整理 Interaction 互動層與 UI 模組時記錄。
 
 - [ ] **耦合項 05（BrainEngine 與管線副作用賦值徹底消除）**：
   * **現狀**：大腦輸出時，在 `engine-factory.ts`、`pipeline-user.ts` 透過 `speechEngine.spokenAudioText = text` 賦值來觸發發聲。
-  * **待收集規格**：與大腦 TODO 1 鏡像對齊。大腦推論完成觸發中立回呼 `onOutputTextReady(text)` 時，Orchestrator 直接執行 `speechEngine.speak(text)`，廢止所有屬性賦值副作用。
+  * **待收集規格**：與大腦 TODO 1 鏡像對齊。大腦推論完成觸發中立回呼 `onOutputTextReady(text)` 時，Orchestrator 直接執行 `speechEngine.speak(text)`（Tier 1 已確保 `tts.ts` 呼叫 `onSpeakStart(text)` 時會傳入 `text` 字串），廢止所有屬性賦值副作用。
   * **收集進度**：⏳ 待協調層整合時一併收網。
 
 - [ ] **耦合項 06（RootStore / Widget 全域開關名稱收斂）**：
   * **現狀**：全專案多處散落 `convoOn`（口語縮寫）與 `ttsMuted`（前綴不一致）。
   * **待收集規格**：在 Orchestrator 與 RootStore 重構時，統一將狀態屬性提升為標準的 `continuousMode` 與 `isMuted`。
   * **收集進度**：⏳ 待協調層整合時一併收網。
+
+- [ ] **耦合項 07（串流管線 `drainSentences` 純函式化與實例轉發方法移除）**：
+  * **現狀**：`core/orchestrator/pipeline-stream.ts` 內有 5 處（L208, L221, L247, L265, L284）透過 `speechEngine.drainSentences(...)` 調用實例上的包裝方法，且 `test/unit/orchestrator/pipeline.test.ts` 有 5 處 mock（Tier 1 採用方案 A 先行標註 `@deprecated` 保留以避免波及管線）。
+  * **待收集規格**：在協調層與串流管線收網時，將 `pipeline-stream.ts` 改為直接 `import { drainSentences } from '@/core/speech'` 呼叫頂層純函式，更新 `pipeline.test.ts`，並自 `SpeechEngine` 介面與實例徹底移除 `drainSentences`。
+  * **收集進度**：⏳ 待協調層整合時一併收網。
+
+- [ ] **耦合項 08（UI 與頂層 `AvatarBotOptions` 語音新舊別名全面收斂）**：
+  * **現狀**：`core/ui/events.ts` 仍讀寫舊名 `speechEngine.ttsRate`（L151–L159）與 `speechEngine.noSpeechRuns`（L90）；頂層 `AvatarBotOptions`（`core/orchestrator/types.ts` L416–L431 與 `engine-factory.ts` L819–L901）仍使用舊回呼名稱（`onSpeaking`、`onSpeakingEnd`、`onMicStateChanged`、`onVoiceStatusChanged`、`onLanguageChanged`）。
+  * **待收集規格**：在 UI 模組與協調層收網時，將 `core/ui/events.ts` 改用 `playbackRate` 與 `consecutiveNoSpeechCount`，於 `AvatarBotOptions` 對齊標準回呼命名（`onSpeakStart`、`onSpeakEnd`、`onMicStateChange`、`onVoiceStatusChange`、`onLanguageChange`），並清除 Tier 1 過渡期保留的 `@deprecated` 別名（`preloadTapGreeting`、`ttsRate`、`noSpeechRuns`）。
+  * **收集進度**：⏳ 待 UI 模組與協調層整合時一併收網。
 
 ---
 
@@ -185,12 +195,13 @@ export interface SpeechEngine extends SubscribableStore<SpeechEngineState> {
 
 當所有引擎盤點完畢、協調層執行最後收網時，逐一驗收確認：
 
-- [ ] `core/speech/` 完全清除 `spokenAudioText`、`spokenDisplayText`、`isProcessing`、`onTapTimer`。
+- [ ] `core/speech/` 完全清除 `spokenAudioText`、`spokenDisplayText`、`isProcessing`、`onTapTimer`、`triggerTap()`、實例方法 `drainSentences` 以及過渡期 `@deprecated` 別名（`preloadTapGreeting`、`ttsRate`、`noSpeechRuns`、舊式 `-ed` 回呼）。
 - [ ] `core/tools/` 徹底移除 `onSpokenAudioPlayNow`，改發送中立通知回呼。
 - [ ] `core/i18n/` 完整接管語音模組的所有提示訊息字典與語言顯示標籤。
-- [ ] `core/ui/` 完整接管字幕氣泡 DOM 生命週期與 6 秒定時器。
+- [ ] `core/ui/` 完整接管字幕氣泡 DOM 生命週期與 6 秒定時器，移除 `UiDom.onTapTimer` 死屬性，並於 `events.ts` 改用 `playbackRate` 與 `consecutiveNoSpeechCount`。
 - [ ] `core/orchestrator/interaction.ts` 自主維護點擊防抖，直接呼叫 `preloadAudio()` 與 `speak()`。
-- [ ] `core/orchestrator/pipeline-*.ts` 全面改用 `speechEngine.speak()` 與 `isMuted`。
+- [ ] `core/orchestrator/pipeline-*.ts` 全面改用 `speechEngine.speak()`、`isMuted` 與頂層純函式 `import { drainSentences } from '@/core/speech'`。
+- [ ] `core/orchestrator/types.ts`（`AvatarBotOptions`）與 `engine-factory.ts` 全面對齊標準語音回呼命名（`onSpeakStart`、`onSpeakEnd`、`onMicStateChange`、`onVoiceStatusChange`、`onLanguageChange`）。
 - [ ] 單元測試全數通過（`yarn test:unit`）且型別檢查零錯誤（`yarn test:typecheck`）。
 - [ ] `README_ZH.md` 狀態更新為 `✅ TODO 4 (Implemented)`。
 
