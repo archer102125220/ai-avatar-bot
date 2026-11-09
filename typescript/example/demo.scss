@@ -1139,6 +1139,10 @@
         background: #141424;
         color: #fff;
         border-color: var(--demo-border-neutral);
+
+        &:hover:not(:disabled) {
+          color: var(--demo-ink-dark);
+        }
       }
     }
 
