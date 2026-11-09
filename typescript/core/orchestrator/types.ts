@@ -100,6 +100,10 @@ export interface CustomEnginesConfig {
     | BrainEngine
     | ((options: BrainEngineOptions) => Promise<BrainEngine> | BrainEngine)
     | null;
+  speech?:
+    | SpeechEngine
+    | ((options: SpeechEngineOptions) => Promise<SpeechEngine> | SpeechEngine)
+    | null;
   stt?:
     | STTEngine
     | ((options: STTEngineOptions) => Promise<STTEngine> | STTEngine)

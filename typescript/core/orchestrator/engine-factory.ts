@@ -1,5 +1,5 @@
 import { initBrainEngine, validateBrainEngine } from '@/core/brain';
-import { initSpeechEngine } from '@/core/speech';
+import { initSpeechEngine, validateSpeechEngine } from '@/core/speech';
 import { initToolsEngine, validateToolsEngine } from '@/core/tools';
 import { initSkinEngine, validateSkinEngine } from '@/core/skin';
 import { createEmotionToolsPlugin } from '@/core/plugins';
@@ -17,7 +17,7 @@ import { renderHistory, initSkinModeChangeButton, type UiDom } from '@/core/ui';
 import { callOptionEvent } from './options';
 import type { I18nEngine } from '@/core/i18n';
 import type { BrainEngine, BrainCompressionOptions } from '@/core/brain';
-import type { SpeechEngine } from '@/core/speech';
+import type { SpeechEngine, SpeechEngineOptions } from '@/core/speech';
 import type { SkinEngine } from '@/core/skin';
 import type { ToolsEngine, HostTool, ToolDefinition } from '@/core/tools';
 import type { AiAvatarWidget, AvatarBotOptions, AvatarBotStore } from './types';
@@ -755,7 +755,6 @@ export interface SetupSpeechParams {
   handleUser: (text?: string) => void;
   onTapAvatar: () => void;
   streamPipeline: StreamPipeline;
-  container: HTMLElement;
   safeNeuralVoice: string;
 }
 
@@ -772,7 +771,6 @@ export async function setupSpeechEngine({
   handleUser,
   onTapAvatar,
   streamPipeline,
-  container,
   safeNeuralVoice
 }: SetupSpeechParams): Promise<SpeechEngine> {
   const {
@@ -781,7 +779,7 @@ export async function setupSpeechEngine({
     avatarMode
   } = options;
 
-  return await initSpeechEngine({
+  const speechOptions: SpeechEngineOptions = {
     customEngines: {
       tts: customEngines.tts || undefined,
       stt: customEngines.stt || undefined
@@ -851,7 +849,6 @@ export async function setupSpeechEngine({
         level
       );
     },
-    getContainer: () => container,
     onUserInput: (text: string) => {
       return handleUser(text);
     },
@@ -899,7 +896,34 @@ export async function setupSpeechEngine({
       }
       callOptionEvent(options, widget, 'onSpeakingEnd');
     }
-  });
+  };
+
+  if (
+    typeof customEngines.speech === 'function' ||
+    (typeof customEngines.speech === 'object' && customEngines.speech !== null)
+  ) {
+    try {
+      const customInstance =
+        typeof customEngines.speech === 'function'
+          ? await customEngines.speech(speechOptions)
+          : customEngines.speech;
+      const validation = validateSpeechEngine(customInstance);
+      if (validation.isValid === true) {
+        return customInstance;
+      }
+      console.error(
+        `[AvatarBot] 自訂 speechEngine 驗證失敗，缺少以下實作: ${validation.missing.join(', ')}。將退回使用預設引擎。`
+      );
+    } catch (error) {
+      console.error(
+        `[AvatarBot] 初始化自訂 speechEngine 發生錯誤:`,
+        error,
+        `將退回使用預設引擎。`
+      );
+    }
+  }
+
+  return await initSpeechEngine(speechOptions);
 }
 
 export interface SetupToolsParams {

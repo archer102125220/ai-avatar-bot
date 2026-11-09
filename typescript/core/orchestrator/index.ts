@@ -163,7 +163,6 @@ export async function initAvatarBot(
     handleUser,
     onTapAvatar,
     streamPipeline,
-    container,
     safeNeuralVoice
   });
 
