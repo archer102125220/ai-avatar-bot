@@ -1,5 +1,6 @@
 import { DEFAULT_TTS_ENDPOINT, GENDER_MAP } from '@/core/constants';
 import { createBaseStore } from '@/core/store';
+import type { Gender } from '@/core/types';
 import { getSttMessage, initDefaultSTTEngine, validateSTTEngine } from './stt';
 import { splitSentences, initDefaultTTSEngine, validateTTSEngine } from './tts';
 import type {
@@ -9,7 +10,6 @@ import type {
   STTEngine,
   TTSEngine,
   TTSSpeakOptions,
-  TTSSpeechQueueItem,
   SpokenAudioState
 } from './types';
 
@@ -24,6 +24,44 @@ export {
 };
 export * from './tts';
 export * from './stt';
+
+/**
+ * Validates whether the provided SpeechEngine instance complies with the SpeechEngine interface specification.
+ *
+ * @param engine - SpeechEngine instance to validate.
+ * @returns Object containing validation result and missing properties/methods array.
+ */
+export function validateSpeechEngine(engine: unknown): {
+  isValid: boolean;
+  missing: string[];
+} {
+  const missing: string[] = [];
+  if (typeof engine !== 'object' || engine === null) {
+    missing.push('engine instance');
+  } else {
+    const rec = engine as Record<string, unknown>;
+    [
+      'speak',
+      'stopSpeaking',
+      'computeMouth',
+      'beginSpeech',
+      'pushSpeech',
+      'endSpeech',
+      'setLocale',
+      'setGender'
+    ].forEach((methodName) => {
+      if (typeof rec[methodName] !== 'function') {
+        missing.push(`${methodName}()`);
+      }
+    });
+    ['isSpeaking', 'isListening'].forEach((propertyName) => {
+      if (!(propertyName in rec)) {
+        missing.push(propertyName);
+      }
+    });
+  }
+  return { isValid: missing.length === 0, missing };
+}
 
 /**
  * Segments a streaming sentence text buffer into ready-to-synthesize sentences.
@@ -121,11 +159,8 @@ export type InternalSpeechStoreState = SpeechEngineState;
  * Extended interface for SpeechEngine with internal helper properties.
  */
 export interface InternalSpeechEngine extends SpeechEngine {
-  _speechBuffer: string;
-  _speechBuf: string;
-  _speechQueue: TTSSpeechQueueItem[];
-  _speechEndedFlag: boolean;
   _onTTSSpeakEnd: () => void;
+  consecutiveNoSpeechCount: number;
   noSpeechRuns: number;
   onTapTimer: boolean;
 }
@@ -157,7 +192,10 @@ export async function initSpeechEngine(
     gender:
       typeof setting.getGender === 'function'
         ? setting.getGender()
-        : GENDER_MAP.female,
+        : setting.gender === GENDER_MAP.male ||
+            setting.gender === GENDER_MAP.female
+          ? setting.gender
+          : GENDER_MAP.female,
     ttsEndpoint:
       typeof ttsEndpoint === 'string' && ttsEndpoint !== ''
         ? ttsEndpoint
@@ -165,6 +203,7 @@ export async function initSpeechEngine(
     neuralVoice,
     speakSeq: 0,
     ttsMuted: false,
+    playbackRate: 1.0,
     ttsRate: 1.0,
     convoOn: false,
     isProcessing: false,
@@ -174,6 +213,58 @@ export async function initSpeechEngine(
         ? setting.locale
         : 'zh-TW'
   });
+
+  const emitSpeakStart = (audioText: string): void => {
+    if (typeof setting.onSpeakStart === 'function') {
+      setting.onSpeakStart(audioText);
+    } else if (typeof setting.onSpeaking === 'function') {
+      setting.onSpeaking(audioText);
+    }
+  };
+
+  const emitSpeakEnd = (): void => {
+    if (typeof setting.onSpeakEnd === 'function') {
+      setting.onSpeakEnd();
+    } else if (typeof setting.onSpeakingEnd === 'function') {
+      setting.onSpeakingEnd();
+    }
+  };
+
+  const emitVoiceStatusChange = (
+    convoOn: boolean,
+    text?: string,
+    state?: string,
+    level?: number
+  ): void => {
+    if (typeof speechEngine.onVoiceStatusChange === 'function') {
+      speechEngine.onVoiceStatusChange(convoOn, text, state, level);
+    } else if (typeof speechEngine.onVoiceStatusChanged === 'function') {
+      speechEngine.onVoiceStatusChanged(convoOn, text, state, level);
+    }
+  };
+
+  const emitMicStateChange = (isListening: boolean, convoOn: boolean): void => {
+    if (typeof speechEngine.onMicStateChange === 'function') {
+      speechEngine.onMicStateChange(isListening, convoOn);
+    } else if (typeof speechEngine.onMicStateChanged === 'function') {
+      speechEngine.onMicStateChanged(isListening, convoOn);
+    }
+  };
+
+  const emitLanguageChange = (
+    locale: string,
+    label: string,
+    shortLabel?: string
+  ): void => {
+    if (typeof speechEngine.onLanguageChange === 'function') {
+      speechEngine.onLanguageChange(locale, label, shortLabel);
+    } else if (typeof speechEngine.onLanguageChanged === 'function') {
+      speechEngine.onLanguageChanged(locale, label, shortLabel);
+    }
+  };
+
+  let isSpokenAudioStateDispatching = false;
+  let spokenAudioNotifiedSeq: number | null = null;
 
   let spokenDisplayTextTimer: ReturnType<typeof setTimeout> | null = null;
   store.subscribe('spokenDisplayText', (displayText: string) => {
@@ -196,7 +287,7 @@ export async function initSpeechEngine(
     }
   });
 
-  store.subscribe('gender', (newGender: string) => {
+  store.subscribe('gender', (newGender: Gender) => {
     if (ttsEngine !== null && typeof ttsEngine.setGender === 'function') {
       ttsEngine.setGender(newGender);
     }
@@ -217,8 +308,16 @@ export async function initSpeechEngine(
     }
   });
 
+  store.subscribe('playbackRate', (newRate: number) => {
+    if (ttsEngine !== null) {
+      ttsEngine.playbackRate = newRate;
+      ttsEngine.ttsRate = newRate;
+    }
+  });
+
   store.subscribe('ttsRate', (newRate: number) => {
     if (ttsEngine !== null) {
+      ttsEngine.playbackRate = newRate;
       ttsEngine.ttsRate = newRate;
     }
   });
@@ -232,15 +331,19 @@ export async function initSpeechEngine(
   store.subscribe('spokenAudioState', (audioState: SpokenAudioState) => {
     if (typeof audioState?.text === 'string' && audioState.text.trim() !== '') {
       store.setState({ spokenDisplayText: audioState.text });
-      if (typeof setting.onSpeaking === 'function') {
-        setting.onSpeaking(audioState.text);
+      emitSpeakStart(audioState.text);
+      isSpokenAudioStateDispatching = true;
+      try {
+        speechEngine.speak(
+          audioState.text,
+          typeof audioState.options === 'object' && audioState.options !== null
+            ? audioState.options
+            : { instant: true }
+        );
+        spokenAudioNotifiedSeq = speechEngine.speakSeq;
+      } finally {
+        isSpokenAudioStateDispatching = false;
       }
-      speechEngine.speak(
-        audioState.text,
-        typeof audioState.options === 'object' && audioState.options !== null
-          ? audioState.options
-          : { instant: true }
-      );
     }
   });
 
@@ -258,10 +361,15 @@ export async function initSpeechEngine(
     },
     onSpeakStart: (audioText?: string) => {
       if (
-        typeof setting.onSpeaking === 'function' &&
-        typeof audioText === 'string'
+        isSpokenAudioStateDispatching === true ||
+        (spokenAudioNotifiedSeq !== null &&
+          spokenAudioNotifiedSeq === speechEngine.speakSeq)
       ) {
-        setting.onSpeaking(audioText);
+        spokenAudioNotifiedSeq = null;
+        return;
+      }
+      if (typeof audioText === 'string' && audioText !== '') {
+        emitSpeakStart(audioText);
       }
     },
     onSpeakEnd: () => {
@@ -312,20 +420,18 @@ export async function initSpeechEngine(
     getState: store.getState,
     setState: store.setState,
 
-    get gender(): string {
+    get gender(): Gender {
       return store.getState().gender;
     },
-    setGender(newGender: string): void {
+    setGender(newGender: Gender): void {
       store.setState({ gender: newGender });
     },
-    get container(): HTMLElement | null {
-      return typeof setting.getContainer === 'function'
-        ? setting.getContainer()
-        : null;
-    },
 
+    onVoiceStatusChange: setting.onVoiceStatusChange,
     onVoiceStatusChanged: setting.onVoiceStatusChanged,
+    onMicStateChange: setting.onMicStateChange,
     onMicStateChanged: setting.onMicStateChanged,
+    onLanguageChange: setting.onLanguageChange,
     onLanguageChanged: setting.onLanguageChanged,
 
     get ttsEndpoint(): string {
@@ -363,29 +469,50 @@ export async function initSpeechEngine(
       store.setState({ ttsMuted: newTtsMuted });
     },
 
-    get ttsRate(): number {
-      return store.getState().ttsRate;
+    get playbackRate(): number {
+      return store.getState().playbackRate;
     },
-    set ttsRate(newRate: number) {
+    set playbackRate(newRate: number) {
       const safeRate =
         typeof newRate === 'number' &&
         Number.isFinite(newRate) === true &&
         newRate > 0
           ? newRate
           : 1.0;
-      store.setState({ ttsRate: safeRate });
+      store.setState({ playbackRate: safeRate, ttsRate: safeRate });
       if (ttsEngine !== null) {
+        ttsEngine.playbackRate = safeRate;
         ttsEngine.ttsRate = safeRate;
       }
     },
 
-    get noSpeechRuns(): number {
-      return sttEngine !== null ? sttEngine.noSpeechRuns : 0;
+    get ttsRate(): number {
+      return store.getState().playbackRate;
     },
-    set noSpeechRuns(value: number) {
+    set ttsRate(newRate: number) {
+      speechEngine.playbackRate = newRate;
+    },
+
+    get consecutiveNoSpeechCount(): number {
       if (sttEngine !== null) {
+        return typeof sttEngine.consecutiveNoSpeechCount === 'number'
+          ? sttEngine.consecutiveNoSpeechCount
+          : sttEngine.noSpeechRuns;
+      }
+      return 0;
+    },
+    set consecutiveNoSpeechCount(value: number) {
+      if (sttEngine !== null) {
+        sttEngine.consecutiveNoSpeechCount = value;
         sttEngine.noSpeechRuns = value;
       }
+    },
+
+    get noSpeechRuns(): number {
+      return speechEngine.consecutiveNoSpeechCount;
+    },
+    set noSpeechRuns(value: number) {
+      speechEngine.consecutiveNoSpeechCount = value;
     },
 
     onTapTimer: false,
@@ -450,7 +577,7 @@ export async function initSpeechEngine(
 
     stopSpeaking(): void {
       speechEngine.speakSeq++;
-      speechEngine._speechEndedFlag = false;
+      spokenAudioNotifiedSeq = null;
       if (ttsEngine !== null) {
         ttsEngine.stop();
       }
@@ -463,14 +590,12 @@ export async function initSpeechEngine(
       }
       speechEngine.stopSpeaking();
       speechEngine.isProcessing = false;
-      if (typeof speechEngine.onVoiceStatusChanged === 'function') {
-        speechEngine.onVoiceStatusChanged(
-          speechEngine.convoOn,
-          '已停止回答，請繼續說…',
-          'listening',
-          0
-        );
-      }
+      emitVoiceStatusChange(
+        speechEngine.convoOn,
+        '已停止回答，請繼續說…',
+        'listening',
+        0
+      );
       setTimeout(() => {
         if (
           speechEngine.convoOn === true &&
@@ -498,18 +623,14 @@ export async function initSpeechEngine(
       if (sttEngine !== null && typeof sttEngine.stopListening === 'function') {
         sttEngine.stopListening();
       }
-      if (typeof speechEngine.onVoiceStatusChanged === 'function') {
-        speechEngine.onVoiceStatusChanged(false, '', '', 0);
-      }
+      emitVoiceStatusChange(false, '', '', 0);
       if (typeof message === 'string' && message !== '') {
         speechEngine.spokenDisplayText = message;
       }
     },
 
     setMic(isListening: boolean): void {
-      if (typeof speechEngine.onMicStateChanged === 'function') {
-        speechEngine.onMicStateChanged(isListening, speechEngine.convoOn);
-      }
+      emitMicStateChange(isListening, speechEngine.convoOn);
     },
 
     startListening(): void {
@@ -527,10 +648,17 @@ export async function initSpeechEngine(
       }
     },
 
-    preloadTapGreeting(text: string): Promise<AudioBuffer | null> | void {
+    preloadAudio(text: string): Promise<AudioBuffer | null> | void {
+      if (typeof ttsEngine?.preloadAudio === 'function') {
+        return ttsEngine.preloadAudio(text);
+      }
       if (typeof ttsEngine?.preloadTapGreeting === 'function') {
         return ttsEngine.preloadTapGreeting(text);
       }
+    },
+
+    preloadTapGreeting(text: string): Promise<AudioBuffer | null> | void {
+      return speechEngine.preloadAudio(text);
     },
 
     get locale(): string {
@@ -538,34 +666,23 @@ export async function initSpeechEngine(
     },
     setLocale(locale: string): void {
       store.setState({ locale });
-      if (typeof speechEngine.onLanguageChanged === 'function') {
-        let label = '語音預設';
-        let shortLabel = '';
-        if (/en/i.test(locale)) {
-          label = '英文 (English)';
-          shortLabel = 'English';
-        } else if (/ja/i.test(locale)) {
-          label = '日文 (日本語)';
-          shortLabel = '日本語';
-        } else if (/ko/i.test(locale)) {
-          label = '韓文 (한국어)';
-          shortLabel = '한국어';
-        } else if (/zh/i.test(locale)) {
-          label = '繁體中文';
-          shortLabel = '中文';
-        }
-        speechEngine.onLanguageChanged(locale, label, shortLabel);
+      let label = '語音預設';
+      let shortLabel = '';
+      if (/en/i.test(locale)) {
+        label = '英文 (English)';
+        shortLabel = 'English';
+      } else if (/ja/i.test(locale)) {
+        label = '日文 (日本語)';
+        shortLabel = '日本語';
+      } else if (/ko/i.test(locale)) {
+        label = '韓文 (한국어)';
+        shortLabel = '한국어';
+      } else if (/zh/i.test(locale)) {
+        label = '繁體中文';
+        shortLabel = '中文';
       }
+      emitLanguageChange(locale, label, shortLabel);
     },
-
-    _speechBuffer: '',
-    get _speechBuf(): string {
-      return this._speechBuffer;
-    },
-    set _speechBuf(bufferText: string) {
-      this._speechBuffer = bufferText;
-    },
-    _speechQueue: [],
 
     drainSentences(
       state: { buf?: string; sentenceBuffer?: string },
@@ -576,8 +693,6 @@ export async function initSpeechEngine(
 
     beginSpeech(): number {
       speechEngine.stopSpeaking();
-      speechEngine._speechBuffer = '';
-      speechEngine._speechEndedFlag = false;
       if (ttsEngine !== null && typeof ttsEngine.beginSpeech === 'function') {
         speechEngine.speakSeq = ttsEngine.beginSpeech();
       } else {
@@ -594,7 +709,6 @@ export async function initSpeechEngine(
       if (speechSequenceId !== speechEngine.speakSeq) {
         return;
       }
-      speechEngine._speechBuffer += text;
 
       if (ttsEngine !== null) {
         if (typeof ttsEngine.pushSpeech === 'function') {
@@ -605,12 +719,10 @@ export async function initSpeechEngine(
       }
     },
 
-    _speechEndedFlag: false,
     endSpeech(speechSequenceId: number): void {
       if (speechSequenceId !== speechEngine.speakSeq) {
         return;
       }
-      speechEngine._speechEndedFlag = true;
       if (ttsEngine !== null) {
         if (typeof ttsEngine.endSpeech === 'function') {
           ttsEngine.endSpeech(speechSequenceId);
@@ -633,14 +745,11 @@ export async function initSpeechEngine(
           store.setState({ spokenDisplayText: '' });
         }
       }, 4000);
-      if (typeof setting.onSpeakingEnd === 'function') {
-        setting.onSpeakingEnd();
-      }
+      emitSpeakEnd();
     },
 
     onUtteranceEnd(): void {
       speechEngine.isProcessing = false;
-      speechEngine._speechEndedFlag = false;
       if (speechEngine.convoOn === true && speechEngine.isListening !== true) {
         speechEngine.startListening();
       }
@@ -676,14 +785,12 @@ export async function initSpeechEngine(
         }
       } else {
         speechEngine.spokenDisplayText = '你：' + text + '…';
-        if (typeof speechEngine.onVoiceStatusChanged === 'function') {
-          speechEngine.onVoiceStatusChanged(
-            speechEngine.convoOn,
-            '正在辨識：' + text,
-            'listening',
-            0
-          );
-        }
+        emitVoiceStatusChange(
+          speechEngine.convoOn,
+          '正在辨識：' + text,
+          'listening',
+          0
+        );
       }
     },
     onMicLevel: (
@@ -692,14 +799,7 @@ export async function initSpeechEngine(
       stateString: string,
       levelAmp: number
     ) => {
-      if (typeof speechEngine.onVoiceStatusChanged === 'function') {
-        speechEngine.onVoiceStatusChanged(
-          showVoiceUI,
-          undefined,
-          stateString,
-          levelAmp
-        );
-      }
+      emitVoiceStatusChange(showVoiceUI, undefined, stateString, levelAmp);
     },
     onBargeIn: () => {
       if (typeof speechEngine.interruptForVoice === 'function') {
@@ -710,28 +810,20 @@ export async function initSpeechEngine(
       if (isNotAllowed === true) {
         speechEngine.convoOn = false;
         speechEngine.spokenDisplayText = errorMessage;
-        if (typeof speechEngine.onVoiceStatusChanged === 'function') {
-          speechEngine.onVoiceStatusChanged(
-            speechEngine.convoOn,
-            '麥克風權限被拒絕',
-            '',
-            0
-          );
-        }
+        emitVoiceStatusChange(
+          speechEngine.convoOn,
+          '麥克風權限被拒絕',
+          '',
+          0
+        );
       } else {
         speechEngine.spokenDisplayText = errorMessage;
       }
     },
     onStatusChange: (isListening: boolean, statusMessage?: string) => {
-      if (typeof speechEngine.onMicStateChanged === 'function') {
-        speechEngine.onMicStateChanged(isListening, speechEngine.convoOn);
-      }
-      if (
-        typeof statusMessage === 'string' &&
-        statusMessage !== '' &&
-        typeof speechEngine.onVoiceStatusChanged === 'function'
-      ) {
-        speechEngine.onVoiceStatusChanged(
+      emitMicStateChange(isListening, speechEngine.convoOn);
+      if (typeof statusMessage === 'string' && statusMessage !== '') {
+        emitVoiceStatusChange(
           speechEngine.convoOn,
           statusMessage,
           isListening === true ? 'listening' : 'thinking',
