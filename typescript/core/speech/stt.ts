@@ -153,11 +153,9 @@ export interface InternalSTTEngineState extends STTEngineState {
   recognition: ISpeechRecognition | null;
   isListening: boolean;
   locale: string;
+  consecutiveNoSpeechCount: number;
   noSpeechRuns: number;
-  lastRestart: number;
-  speechStartTime: number;
   interimStartTime: number;
-  spokenDisplayText: string;
   isAborted: boolean;
 }
 
@@ -199,11 +197,9 @@ export function initDefaultSTTEngine(
     recognition: null,
     isListening: false,
     locale: initialLocale,
+    consecutiveNoSpeechCount: 0,
     noSpeechRuns: 0,
-    lastRestart: 0,
-    speechStartTime: 0,
     interimStartTime: 0,
-    spokenDisplayText: '',
     isAborted: false
   });
 
@@ -392,15 +388,29 @@ export function initDefaultSTTEngine(
       return state.isListening === true;
     },
 
+    get consecutiveNoSpeechCount(): number {
+      return typeof state.consecutiveNoSpeechCount === 'number'
+        ? state.consecutiveNoSpeechCount
+        : 0;
+    },
+
+    set consecutiveNoSpeechCount(value: number) {
+      const safeValue =
+        typeof value === 'number' &&
+        Number.isFinite(value) === true &&
+        value >= 0
+          ? Math.floor(value)
+          : 0;
+      state.consecutiveNoSpeechCount = safeValue;
+      state.noSpeechRuns = safeValue;
+    },
+
     get noSpeechRuns(): number {
-      return typeof state.noSpeechRuns === 'number' ? state.noSpeechRuns : 0;
+      return engine.consecutiveNoSpeechCount;
     },
 
     set noSpeechRuns(value: number) {
-      state.noSpeechRuns =
-        typeof value === 'number' && Number.isFinite(value) === true
-          ? value
-          : 0;
+      engine.consecutiveNoSpeechCount = value;
     },
 
     async startListening(): Promise<void> {
@@ -452,7 +462,6 @@ export function initDefaultSTTEngine(
       recognitionInstance.onstart = (): void => {
         state.isListening = true;
         store.setState({ isListening: true });
-        state.speechStartTime = performance.now();
         state.interimStartTime = 0;
         if (typeof onStatusChange === 'function') {
           onStatusChange(true, getSttMessage(engine.locale, 'listening'));
@@ -493,12 +502,10 @@ export function initDefaultSTTEngine(
         }
 
         if (recognitionError === 'no-speech') {
-          state.noSpeechRuns =
-            (typeof state.noSpeechRuns === 'number' ? state.noSpeechRuns : 0) +
-            1;
+          engine.consecutiveNoSpeechCount += 1;
           const convoOn =
             typeof getConvoOn === 'function' ? getConvoOn() : false;
-          if (state.noSpeechRuns >= 4 && convoOn === true) {
+          if (engine.consecutiveNoSpeechCount >= 4 && convoOn === true) {
             if (typeof onNoSpeechAbort === 'function') {
               onNoSpeechAbort();
             }
@@ -537,7 +544,7 @@ export function initDefaultSTTEngine(
           return;
         }
 
-        state.noSpeechRuns = 0;
+        engine.consecutiveNoSpeechCount = 0;
 
         if (isFinal === true) {
           state.interimStartTime = 0;
@@ -570,7 +577,7 @@ export function initDefaultSTTEngine(
 
       recognitionInstance.onaudiostart = (): void => {};
       recognitionInstance.onspeechstart = (): void => {
-        state.noSpeechRuns = 0;
+        engine.consecutiveNoSpeechCount = 0;
       };
       recognitionInstance.onspeechend = (): void => {};
       recognitionInstance.onaudioend = (): void => {};
