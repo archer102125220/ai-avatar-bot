@@ -59,7 +59,7 @@ describe('Unit Test: core/speech/stt.js', () => {
   });
 
   describe('initDefaultSTTEngine', () => {
-    it('should handle locale, noSpeechRuns getters/setters and unsupported speech recognition', async () => {
+    it('should handle locale, consecutiveNoSpeechCount, and noSpeechRuns getters/setters and unsupported speech recognition', async () => {
       const onError = vi.fn();
       const origRecognition = (
         window as unknown as { SpeechRecognition?: unknown }
@@ -76,11 +76,20 @@ describe('Unit Test: core/speech/stt.js', () => {
       stt.setLocale('en-US');
       expect(stt.locale).toBe('en-US');
 
+      expect(stt.consecutiveNoSpeechCount).toBe(0);
       expect(stt.noSpeechRuns).toBe(0);
+
+      stt.consecutiveNoSpeechCount = 2;
+      expect(stt.consecutiveNoSpeechCount).toBe(2);
+      expect(stt.noSpeechRuns).toBe(2);
+
       stt.noSpeechRuns = 3;
       expect(stt.noSpeechRuns).toBe(3);
+      expect(stt.consecutiveNoSpeechCount).toBe(3);
+
       stt.noSpeechRuns = 'invalid' as unknown as number;
       expect(stt.noSpeechRuns).toBe(0);
+      expect(stt.consecutiveNoSpeechCount).toBe(0);
 
       // startListening when unsupported
       await stt.startListening();

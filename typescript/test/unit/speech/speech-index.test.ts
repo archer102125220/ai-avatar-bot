@@ -1,11 +1,52 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { drainSentences, initSpeechEngine } from '@/core/speech';
+import {
+  drainSentences,
+  initSpeechEngine,
+  validateSpeechEngine
+} from '@/core/speech';
 import { GENDER_MAP } from '@/core/constants';
 import type { SpeechEngine } from '@core';
 
 describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+  });
+
+  describe('validateSpeechEngine', () => {
+    it('should report missing methods and properties for invalid engine', () => {
+      expect(validateSpeechEngine(null).isValid).toBe(false);
+      expect(validateSpeechEngine(null).missing).toContain('engine instance');
+
+      const result = validateSpeechEngine({});
+      expect(result.isValid).toBe(false);
+      expect(result.missing).toContain('speak()');
+      expect(result.missing).toContain('stopSpeaking()');
+      expect(result.missing).toContain('computeMouth()');
+      expect(result.missing).toContain('beginSpeech()');
+      expect(result.missing).toContain('pushSpeech()');
+      expect(result.missing).toContain('endSpeech()');
+      expect(result.missing).toContain('setLocale()');
+      expect(result.missing).toContain('setGender()');
+      expect(result.missing).toContain('isSpeaking');
+      expect(result.missing).toContain('isListening');
+    });
+
+    it('should pass validation for a valid SpeechEngine implementation', () => {
+      const result = validateSpeechEngine({
+        speak: vi.fn(),
+        stopSpeaking: vi.fn(),
+        computeMouth: vi.fn(),
+        beginSpeech: vi.fn(),
+        pushSpeech: vi.fn(),
+        endSpeech: vi.fn(),
+        setLocale: vi.fn(),
+        setGender: vi.fn(),
+        isSpeaking: false,
+        isListening: false
+      });
+      expect(result.isValid).toBe(true);
+      expect(result.missing).toEqual([]);
+    });
   });
 
   describe('drainSentences', () => {
@@ -60,11 +101,9 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
       const onLanguageChanged = vi.fn();
       const onMicStateChanged = vi.fn();
       const onVoiceStatusChanged = vi.fn();
-      const containerEl = document.createElement('div');
 
       const engine: SpeechEngine = await initSpeechEngine({
         getGender: () => GENDER_MAP.male,
-        getContainer: () => containerEl,
         locale: 'zh-TW',
         onSpeaking,
         onLanguageChanged,
@@ -76,10 +115,13 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
       engine.setGender(GENDER_MAP.female);
       expect(engine.gender).toBe(GENDER_MAP.female);
 
-      expect(engine.container).toBe(containerEl);
+      engine.playbackRate = 1.5;
+      expect(engine.playbackRate).toBe(1.5);
+      expect(engine.ttsRate).toBe(1.5);
 
       engine.ttsRate = 1.25;
       expect(engine.ttsRate).toBe(1.25);
+      expect(engine.playbackRate).toBe(1.25);
 
       engine.ttsMuted = true;
       expect(engine.ttsMuted).toBe(true);
@@ -91,10 +133,13 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
       engine.ttsEndpoint = 'https://tts.example.com';
       expect(engine.ttsEndpoint).toBe('https://tts.example.com');
 
-      (engine as unknown as { noSpeechRuns: number }).noSpeechRuns = 2;
-      expect((engine as unknown as { noSpeechRuns: number }).noSpeechRuns).toBe(
-        2
-      );
+      engine.consecutiveNoSpeechCount = 3;
+      expect(engine.consecutiveNoSpeechCount).toBe(3);
+      expect(engine.noSpeechRuns).toBe(3);
+
+      engine.noSpeechRuns = 2;
+      expect(engine.noSpeechRuns).toBe(2);
+      expect(engine.consecutiveNoSpeechCount).toBe(2);
 
       engine.convoOn = true;
       expect(engine.convoOn).toBe(true);
@@ -141,6 +186,68 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
       );
     });
 
+    it('should support direct gender option and standardized present-tense callbacks', async () => {
+      const onSpeakStart = vi.fn();
+      const onSpeakEnd = vi.fn();
+      const onVoiceStatusChange = vi.fn();
+      const onMicStateChange = vi.fn();
+      const onLanguageChange = vi.fn();
+      const preloadAudioSpy = vi.fn().mockResolvedValue(null);
+
+      const engine = await initSpeechEngine({
+        gender: GENDER_MAP.male,
+        onSpeakStart,
+        onSpeakEnd,
+        onVoiceStatusChange,
+        onMicStateChange,
+        onLanguageChange,
+        customEngines: {
+          tts: {
+            speak: vi.fn(),
+            stop: vi.fn(),
+            computeMouth: vi.fn(() => 0),
+            setGender: vi.fn(),
+            setLocale: vi.fn(),
+            preloadAudio: preloadAudioSpy,
+            preloadTapGreeting: vi.fn(),
+            playbackRate: 1.0,
+            ttsRate: 1.0,
+            isSpeaking: false,
+            isMuted: false,
+            locale: 'zh-TW',
+            subscribe: vi.fn(() => () => {}),
+            getState: vi.fn(() => ({ speakSeq: 1 }) as never),
+            setState: vi.fn()
+          }
+        }
+      });
+
+      expect(engine.gender).toBe(GENDER_MAP.male);
+
+      engine.setMic(true);
+      expect(onMicStateChange).toHaveBeenCalledWith(true, false);
+
+      engine.setLocale('en-US');
+      expect(onLanguageChange).toHaveBeenCalledWith(
+        'en-US',
+        expect.stringContaining('English'),
+        'English'
+      );
+
+      engine.interruptForVoice();
+      expect(onVoiceStatusChange).toHaveBeenCalled();
+
+      engine.spokenAudioText = '測試新回呼';
+      expect(onSpeakStart).toHaveBeenCalledTimes(1);
+      expect(onSpeakStart).toHaveBeenCalledWith('測試新回呼');
+
+      (engine as unknown as { _onTTSSpeakEnd: () => void })._onTTSSpeakEnd();
+      expect(onSpeakEnd).toHaveBeenCalledTimes(1);
+
+      await engine.preloadAudio('預載語音');
+      expect(preloadAudioSpy).toHaveBeenCalledWith('預載語音');
+    });
+
     it('should manage speech streaming flow: beginSpeech -> pushSpeech -> endSpeech -> onUtteranceEnd', async () => {
       const onSpeakingEnd = vi.fn();
       const onSpeechWait = vi.fn();
@@ -152,11 +259,6 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
 
       const seq = engine.beginSpeech();
       expect(typeof seq).toBe('number');
-
-      (engine as unknown as { _speechBuf: string })._speechBuf = '預留緩衝';
-      expect((engine as unknown as { _speechBuf: string })._speechBuf).toBe(
-        '預留緩衝'
-      );
 
       engine.pushSpeech(seq, '測試串流語音播放。');
       engine.endSpeech(seq);
@@ -433,30 +535,52 @@ describe('Unit Test: core/speech/index.js (Speech Coordinator)', () => {
     });
 
     it('should test pushSpeech and endSpeech mismatch guard, and sentence buffer updates', async () => {
-      const onUserInput = vi.fn();
-      const engine: SpeechEngine = await initSpeechEngine({ onUserInput });
+      const pushSpeechSpy = vi.fn();
+      const endSpeechSpy = vi.fn();
+      const engine: SpeechEngine = await initSpeechEngine({
+        customEngines: {
+          tts: {
+            speak: vi.fn(),
+            stop: vi.fn(),
+            computeMouth: vi.fn(() => 0),
+            setGender: vi.fn(),
+            setLocale: vi.fn(),
+            preloadAudio: vi.fn(),
+            preloadTapGreeting: vi.fn(),
+            beginSpeech: vi.fn(() => 10),
+            pushSpeech: pushSpeechSpy,
+            endSpeech: endSpeechSpy,
+            playbackRate: 1.0,
+            ttsRate: 1.0,
+            isSpeaking: false,
+            isMuted: false,
+            locale: 'zh-TW',
+            subscribe: vi.fn(() => () => {}),
+            getState: vi.fn(() => ({ speakSeq: 10 }) as never),
+            setState: vi.fn()
+          }
+        }
+      });
 
       // Test beginSpeech and pushSpeech
       const seq = engine.beginSpeech();
-      expect(seq).toBeGreaterThan(0);
+      expect(seq).toBe(10);
 
       // pushSpeech with correct seq
       engine.pushSpeech(seq, '測試文字');
-      expect(
-        (engine as unknown as { _speechBuffer: string })._speechBuffer
-      ).toContain('測試文字');
+      expect(pushSpeechSpy).toHaveBeenCalledWith(seq, '測試文字', {});
 
       // pushSpeech with wrong seq -> should ignore
       engine.pushSpeech(seq + 999, '略過文字');
-      expect(
-        (engine as unknown as { _speechBuffer: string })._speechBuffer
-      ).not.toContain('略過文字');
+      expect(pushSpeechSpy).toHaveBeenCalledTimes(1);
 
       // endSpeech with wrong seq -> should ignore
       engine.endSpeech(seq + 999);
-      expect(
-        (engine as unknown as { _speechEndedFlag: boolean })._speechEndedFlag
-      ).toBe(false);
+      expect(endSpeechSpy).not.toHaveBeenCalled();
+
+      // endSpeech with correct seq -> should forward
+      engine.endSpeech(seq);
+      expect(endSpeechSpy).toHaveBeenCalledWith(seq);
 
       // Test drainSentences with state having only sentenceBuffer or buf
       const state1 = { buf: '文字。' };

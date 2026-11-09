@@ -247,19 +247,28 @@ describe('Unit Test: core/speech/tts.js', () => {
   });
 
   describe('initDefaultTTSEngine', () => {
-    it('should handle isMuted and ttsRate getters and setters', () => {
+    it('should handle isMuted, playbackRate, and ttsRate getters and setters', () => {
       const tts: TTSEngine = initDefaultTTSEngine();
       expect(tts.isMuted).toBe(false);
 
       tts.isMuted = true;
       expect(tts.isMuted).toBe(true);
 
+      expect(tts.playbackRate).toBe(1.0);
       expect(tts.ttsRate).toBe(1.0);
+
+      tts.playbackRate = 1.25;
+      expect(tts.playbackRate).toBe(1.25);
+      expect(tts.ttsRate).toBe(1.25);
+
       tts.ttsRate = 1.5;
       expect(tts.ttsRate).toBe(1.5);
+      expect(tts.playbackRate).toBe(1.5);
+
       // invalid rate guard
       tts.ttsRate = -0.5;
       expect(tts.ttsRate).toBe(1.0);
+      expect(tts.playbackRate).toBe(1.0);
     });
 
     it('should early return and trigger onSpeakEnd when isMuted is true in speak()', () => {
@@ -355,42 +364,82 @@ describe('Unit Test: core/speech/tts.js', () => {
       expect(tts.getState().neuralVoice).toBe('ja-JP-NanamiNeural');
     });
 
-    it('should handle preloadTapGreeting caching and neuralDisabled state', async () => {
+    it('should handle preloadAudio and preloadTapGreeting caching, cache reuse in speak(), and neuralDisabled state', async () => {
+      const mockBufferSource = {
+        buffer: null as AudioBuffer | null,
+        playbackRate: { value: 1.0 },
+        connect: vi.fn(),
+        start: vi.fn(),
+        stop: vi.fn(),
+        onended: null as (() => void) | null
+      };
+
+      const mockAnalyser = {
+        fftSize: 2048,
+        smoothingTimeConstant: 0.8,
+        frequencyBinCount: 1024,
+        getByteFrequencyData: vi.fn(),
+        getByteTimeDomainData: vi.fn(),
+        connect: vi.fn()
+      };
+
+      const onSpeakStart = vi.fn();
       const tts: TTSEngine = initDefaultTTSEngine({
-        ttsEndpoint: 'https://tts.example.com/api'
+        ttsEndpoint: 'https://tts.example.com/api',
+        onSpeakStart
       });
 
       // neuralDisabled: true
       (
         tts as unknown as { setState: (s: Record<string, unknown>) => void }
       ).setState({ neuralDisabled: true });
-      const resNull = await tts.preloadTapGreeting('哈囉');
+      const resNull = await tts.preloadAudio('哈囉');
       expect(resNull).toBeNull();
 
       (
         tts as unknown as { setState: (s: Record<string, unknown>) => void }
       ).setState({ neuralDisabled: false });
 
-      // mock global fetch
+      // mock global fetch & AudioContext
       const mockAudioBuffer = { duration: 1.5 };
       (window as unknown as { AudioContext: unknown }).AudioContext =
         class MockAudioContext {
+          destination = {};
+          state = 'running';
+          createBufferSource() {
+            return mockBufferSource;
+          }
+          createAnalyser() {
+            return mockAnalyser;
+          }
           decodeAudioData() {
             return Promise.resolve(mockAudioBuffer);
           }
+          resume() {
+            return Promise.resolve();
+          }
         };
 
-      global.fetch = vi.fn().mockResolvedValue({
+      const fetchSpy = vi.fn().mockResolvedValue({
         ok: true,
         arrayBuffer: async () => new ArrayBuffer(1024)
       });
+      global.fetch = fetchSpy;
 
-      const buffer = await tts.preloadTapGreeting('歡迎光臨');
+      const buffer = await tts.preloadAudio('歡迎光臨');
       expect(buffer).toBe(mockAudioBuffer);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
 
-      // cached retrieval
+      // cached retrieval via deprecated alias preloadTapGreeting
       const cached = await tts.preloadTapGreeting('歡迎光臨');
       expect(cached).toBe(mockAudioBuffer);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+      // speak() should reuse cachedAudioBuffer without calling fetch again, and pass text to onSpeakStart
+      tts.speak('歡迎光臨');
+      await new Promise((r) => setTimeout(r, 30));
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(onSpeakStart).toHaveBeenCalledWith('歡迎光臨');
     });
 
     it('should trigger onvoiceschanged and playBuffer with audio context during neural speech', async () => {
@@ -437,9 +486,11 @@ describe('Unit Test: core/speech/tts.js', () => {
         arrayBuffer: async () => new ArrayBuffer(1024)
       });
 
+      const onSpeakStart = vi.fn();
       const onSpeakEnd = vi.fn();
       const tts: TTSEngine = initDefaultTTSEngine({
         ttsEndpoint: 'https://tts.example.com/api?existing=1',
+        onSpeakStart,
         onSpeakEnd
       });
 
@@ -456,6 +507,7 @@ describe('Unit Test: core/speech/tts.js', () => {
       await new Promise((r) => setTimeout(r, 50));
 
       expect(mockBufferSource.start).toHaveBeenCalled();
+      expect(onSpeakStart).toHaveBeenCalledWith('神經語音測試');
 
       // Trigger onended
       if (typeof mockBufferSource.onended === 'function') {
@@ -647,7 +699,7 @@ describe('Unit Test: core/speech/tts.js', () => {
       ).toBe(true);
     });
 
-    it('should trigger preloadTapGreeting and instant browser speak when tapGreetingBuffer is null and neural is disabled', async () => {
+    it('should trigger preloadAudio and instant browser speak when cachedAudioBuffer is null and neural is disabled', async () => {
       class MockUtterance {
         static latest: MockUtterance | null = null;
         text: string;
@@ -669,7 +721,7 @@ describe('Unit Test: core/speech/tts.js', () => {
         tts as unknown as { setState: (s: Record<string, unknown>) => void }
       ).setState({
         neuralDisabled: true,
-        tapGreetingBuffer: null
+        cachedAudioBuffer: null
       });
 
       const seq = tts.beginSpeech?.() ?? 1;

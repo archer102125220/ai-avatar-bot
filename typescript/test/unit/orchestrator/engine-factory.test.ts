@@ -66,7 +66,6 @@ interface MockCapturedSpeechOptions {
   onInterrupt: () => void;
   onSpeechWait: (id: string) => void;
   getGender: () => string;
-  getContainer: () => HTMLElement;
   [key: string]: unknown;
 }
 
@@ -887,7 +886,6 @@ describe('Orchestrator Engine Factory', () => {
     it('should initialize default speech engine and forward voice/mic status', async () => {
       const handleUser = vi.fn();
       const onTapAvatar = vi.fn();
-      const container = document.createElement('div');
 
       const speechEngine = await setupSpeechEngine({
         options: {},
@@ -899,13 +897,118 @@ describe('Orchestrator Engine Factory', () => {
         handleUser,
         onTapAvatar,
         streamPipeline: mockStreamPipeline,
-        container,
         safeNeuralVoice: 'zh-TW-HsiaoChenNeural'
       });
 
       expect(speechEngine).toBeDefined();
       expect(typeof speechEngine.speak).toBe('function');
       expect(typeof speechEngine.startListening).toBe('function');
+    });
+
+    it('should support customEngines.speech injection and fallback on invalid or throwing custom speech engine', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+      const handleUser = vi.fn();
+      const onTapAvatar = vi.fn();
+
+      const validCustomSpeechEngine = {
+        speak: vi.fn(),
+        stopSpeaking: vi.fn(),
+        computeMouth: vi.fn(() => 0),
+        beginSpeech: vi.fn(() => 1),
+        pushSpeech: vi.fn(),
+        endSpeech: vi.fn(),
+        setLocale: vi.fn(),
+        setGender: vi.fn(),
+        isSpeaking: false,
+        isListening: false
+      } as unknown as SpeechEngine;
+
+      // 1. Valid custom speech engine instance
+      const engineFromInstance = await setupSpeechEngine({
+        options: {
+          customEngines: { speech: validCustomSpeechEngine }
+        },
+        widget: mockWidget,
+        rootStore,
+        i18nEngine,
+        getEngines,
+        getUiDom,
+        handleUser,
+        onTapAvatar,
+        streamPipeline: mockStreamPipeline,
+        safeNeuralVoice: 'zh-TW-HsiaoChenNeural'
+      });
+      expect(engineFromInstance).toBe(validCustomSpeechEngine);
+
+      // 2. Valid custom speech engine factory
+      const engineFromFactory = await setupSpeechEngine({
+        options: {
+          customEngines: { speech: async () => validCustomSpeechEngine }
+        },
+        widget: mockWidget,
+        rootStore,
+        i18nEngine,
+        getEngines,
+        getUiDom,
+        handleUser,
+        onTapAvatar,
+        streamPipeline: mockStreamPipeline,
+        safeNeuralVoice: 'zh-TW-HsiaoChenNeural'
+      });
+      expect(engineFromFactory).toBe(validCustomSpeechEngine);
+
+      // 3. Invalid custom speech engine -> fallback to default
+      const engineFallbackInvalid = await setupSpeechEngine({
+        options: {
+          customEngines: {
+            speech: { invalid: true } as unknown as SpeechEngine
+          }
+        },
+        widget: mockWidget,
+        rootStore,
+        i18nEngine,
+        getEngines,
+        getUiDom,
+        handleUser,
+        onTapAvatar,
+        streamPipeline: mockStreamPipeline,
+        safeNeuralVoice: 'zh-TW-HsiaoChenNeural'
+      });
+      expect(engineFallbackInvalid).toBeDefined();
+      expect(engineFallbackInvalid).not.toBe(validCustomSpeechEngine);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('自訂 speechEngine 驗證失敗')
+      );
+
+      // 4. Throwing custom speech engine factory -> fallback to default
+      const engineFallbackThrow = await setupSpeechEngine({
+        options: {
+          customEngines: {
+            speech: () => {
+              throw new Error('Custom speech factory error');
+            }
+          }
+        },
+        widget: mockWidget,
+        rootStore,
+        i18nEngine,
+        getEngines,
+        getUiDom,
+        handleUser,
+        onTapAvatar,
+        streamPipeline: mockStreamPipeline,
+        safeNeuralVoice: 'zh-TW-HsiaoChenNeural'
+      });
+      expect(engineFallbackThrow).toBeDefined();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('初始化自訂 speechEngine 發生錯誤:'),
+        expect.any(Error),
+        expect.any(String)
+      );
+
+      consoleErrorSpy.mockRestore();
     });
 
     it('should trigger all callbacks and UI updates in setupSpeechEngine', async () => {
@@ -936,7 +1039,6 @@ describe('Orchestrator Engine Factory', () => {
       const onSpokenDisplayTextTimeout = vi.fn();
       const handleUser = vi.fn();
       const onTapAvatar = vi.fn();
-      const container = document.createElement('div');
 
       await setupSpeechEngine({
         options: {
@@ -956,12 +1058,10 @@ describe('Orchestrator Engine Factory', () => {
         handleUser,
         onTapAvatar,
         streamPipeline: mockStreamPipeline,
-        container,
         safeNeuralVoice: 'zh-TW-HsiaoChenNeural'
       });
 
       expect(typeof capturedSpeechOptions.getGender()).toBe('string');
-      expect(capturedSpeechOptions.getContainer()).toBe(container);
 
       // onSpokenDisplayTextChange
       capturedSpeechOptions.onSpokenDisplayTextChange('Hello bubble');
