@@ -87,11 +87,7 @@ function setLiveAnnouncement(message: string): void {
 
 function appendPlaygroundLog(text: string): void {
   const logEl = document.getElementById('playground-log-text');
-  if (
-    logEl instanceof HTMLElement &&
-    typeof text === 'string' &&
-    text !== ''
-  ) {
+  if (logEl instanceof HTMLElement && typeof text === 'string' && text !== '') {
     logEl.textContent = text;
   }
 }
@@ -205,9 +201,8 @@ async function copyTextWithFeedback(
 }
 
 function initInstallBar(): void {
-  const pmButtons = document.querySelectorAll<HTMLButtonElement>(
-    '[data-pm-tab]'
-  );
+  const pmButtons =
+    document.querySelectorAll<HTMLButtonElement>('[data-pm-tab]');
   const cmdCodeEl = document.getElementById('install-cmd-code');
   const copyBtn = document.getElementById('btn-copy-install');
 
@@ -311,9 +306,8 @@ function initCodeTabs(): void {
     });
   });
 
-  const copyCodeButtons = document.querySelectorAll<HTMLButtonElement>(
-    '[data-copy-target]'
-  );
+  const copyCodeButtons =
+    document.querySelectorAll<HTMLButtonElement>('[data-copy-target]');
   copyCodeButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       const targetId = btn.dataset.copyTarget ?? '';
@@ -412,7 +406,9 @@ function buildDemoTools(): ToolDefinition[] {
       if (typeof window.aiAvatarWidget?.playGesture === 'function') {
         window.aiAvatarWidget.playGesture('bow');
       }
-      appendPlaygroundLog('[Tool] 執行 perform_avatar_bow ➔ playGesture("bow")');
+      appendPlaygroundLog(
+        '[Tool] 執行 perform_avatar_bow ➔ playGesture("bow")'
+      );
       return '非常榮幸為您展示 @ai-avatar-bot/sdk，請多指教！';
     }
   };
@@ -456,7 +452,10 @@ function updateTelemetryProvider(status: string): void {
   }
 }
 
-function bindPlaygroundControls(widget: AiAvatarWidget, appEl: HTMLElement): void {
+function bindPlaygroundControls(
+  widget: AiAvatarWidget,
+  appEl: HTMLElement
+): void {
   // Hero summon button (expands widget if minimized & triggers greeting tap)
   const summonBtn = document.getElementById('btn-hero-summon');
   if (summonBtn instanceof HTMLButtonElement) {
@@ -513,7 +512,9 @@ function bindPlaygroundControls(widget: AiAvatarWidget, appEl: HTMLElement): voi
         }
         widget.gender = targetGender;
         updateActiveChips('[data-gender]', targetGender);
-        appendPlaygroundLog(`👤 切換角色性別: widget.gender = "${targetGender}"`);
+        appendPlaygroundLog(
+          `👤 切換角色性別: widget.gender = "${targetGender}"`
+        );
       });
     });
 
@@ -605,7 +606,9 @@ function bindPlaygroundControls(widget: AiAvatarWidget, appEl: HTMLElement): voi
         if (modeStatEl instanceof HTMLElement) {
           modeStatEl.textContent = modeVal;
         }
-        appendPlaygroundLog(`🧠 切換人格模式: widget.avatarMode = "${modeVal}"`);
+        appendPlaygroundLog(
+          `🧠 切換人格模式: widget.avatarMode = "${modeVal}"`
+        );
       });
     });
 
@@ -746,7 +749,9 @@ function bindPlaygroundControls(widget: AiAvatarWidget, appEl: HTMLElement): voi
 
   widget.store.subscribe('aiProviderStatus', (statusVal: unknown) => {
     if (typeof statusVal === 'string' && statusVal !== '') {
-      console.log(`[avatar] 📡 Store 狀態變更 (aiProviderStatus): ${statusVal}`);
+      console.log(
+        `[avatar] 📡 Store 狀態變更 (aiProviderStatus): ${statusVal}`
+      );
       updateTelemetryProvider(statusVal);
     }
   });
@@ -777,7 +782,8 @@ async function bootstrapDemo(): Promise<void> {
   }
 
   // Narrow mobile screens start collapsed so visitors can read the hero unobstructed first
-  const startCollapsedOnMobile = window.matchMedia('(max-width: 720px)').matches;
+  const startCollapsedOnMobile =
+    window.matchMedia('(max-width: 720px)').matches;
   app.setAttribute(
     'css-is-minimal',
     startCollapsedOnMobile === true ? 'true' : 'false'
@@ -851,10 +857,14 @@ async function bootstrapDemo(): Promise<void> {
       console.log('▶ playGesture("appearing")  // appearing.vrma');
       console.log('▶ playGesture("liked")      // liked.vrma');
       console.log('▶ playGesture("waiting")    // waiting.vrma');
-      console.log('▶ await pingAiProvider()   // 探活/重試遠端 AI Provider 連線');
+      console.log(
+        '▶ await pingAiProvider()   // 探活/重試遠端 AI Provider 連線'
+      );
 
       markTelemetryWidgetReady();
-      appendPlaygroundLog('✨ 虛擬人引擎已就緒，點擊上方按鈕或直接與右下角助理對話！');
+      appendPlaygroundLog(
+        '✨ 虛擬人引擎已就緒，點擊上方按鈕或直接與右下角助理對話！'
+      );
     },
     onModelChangeEnd() {
       const activeMode =
@@ -880,10 +890,7 @@ async function bootstrapDemo(): Promise<void> {
           : null;
       const modelName =
         typeof providerObj?.model === 'string' ? providerObj.model : '';
-      console.log(
-        '[avatar] 🧠✓ AI Provider 連線成功 (connected):',
-        modelName
-      );
+      console.log('[avatar] 🧠✓ AI Provider 連線成功 (connected):', modelName);
     },
     onAiProviderError(error) {
       console.warn('[avatar] 🧠✗ AI Provider 連線失敗 (error):', error);
@@ -949,9 +956,7 @@ async function bootstrapDemo(): Promise<void> {
       window.aiAvatarWidget.playGesture(gestureName);
       console.log(`[playGesture] 播放動作: ${gestureName}`);
     } else {
-      console.warn(
-        '[playGesture] aiAvatarWidget 尚未就緒或未提供 playGesture'
-      );
+      console.warn('[playGesture] aiAvatarWidget 尚未就緒或未提供 playGesture');
     }
   };
 
@@ -959,7 +964,9 @@ async function bootstrapDemo(): Promise<void> {
     if (typeof window.aiAvatarWidget?.pingAiProvider === 'function') {
       console.log('[pingAiProvider] 發起連線探活...');
       const ok = await window.aiAvatarWidget.pingAiProvider(fetchSetting);
-      console.log(`[pingAiProvider] 探活結果: ${ok === true ? '成功' : '失敗'}`);
+      console.log(
+        `[pingAiProvider] 探活結果: ${ok === true ? '成功' : '失敗'}`
+      );
       return ok;
     }
     console.warn('[pingAiProvider] aiAvatarWidget 尚未就緒');

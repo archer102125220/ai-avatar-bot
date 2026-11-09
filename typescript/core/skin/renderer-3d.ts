@@ -13,7 +13,7 @@ import {
   DEFAULT_3D_FULL_CAMERA_LOOK_AT,
   DEFAULT_3D_MODEL_POSITION,
   DEFAULT_3D_MODEL_SCALE,
-  DEFAULT_3D_MODEL_ROTATION,
+  getDefault3DModelRotation,
   DEFAULT_3D_POINTER_LOOK,
   DEFAULT_3D_CROSSFADE_DURATION,
   DEFAULT_3D_IDLE_VARIANT_INTERVAL,
@@ -568,6 +568,9 @@ export async function bootVRM(
         DEFAULT_3D_MODEL_POSITION
       );
       applyScale(vrm.scene.scale, modelConfig.scale, DEFAULT_3D_MODEL_SCALE);
+      const default3DModelRotation = getDefault3DModelRotation(
+        skinEngine.gender
+      );
       if (
         Array.isArray(modelConfig.rotation) === true &&
         modelConfig.rotation.length >= 3
@@ -575,13 +578,13 @@ export async function bootVRM(
         vrm.scene.rotation.set(
           typeof modelConfig.rotation[0] === 'number'
             ? modelConfig.rotation[0]
-            : DEFAULT_3D_MODEL_ROTATION.x,
+            : default3DModelRotation.x,
           typeof modelConfig.rotation[1] === 'number'
             ? modelConfig.rotation[1]
-            : DEFAULT_3D_MODEL_ROTATION.y,
+            : default3DModelRotation.y,
           typeof modelConfig.rotation[2] === 'number'
             ? modelConfig.rotation[2]
-            : DEFAULT_3D_MODEL_ROTATION.z
+            : default3DModelRotation.z
         );
       } else if (
         typeof modelConfig.rotation === 'object' &&
@@ -591,19 +594,19 @@ export async function bootVRM(
         vrm.scene.rotation.set(
           typeof modelConfig.rotation.x === 'number'
             ? modelConfig.rotation.x
-            : DEFAULT_3D_MODEL_ROTATION.x,
+            : default3DModelRotation.x,
           typeof modelConfig.rotation.y === 'number'
             ? modelConfig.rotation.y
-            : DEFAULT_3D_MODEL_ROTATION.y,
+            : default3DModelRotation.y,
           typeof modelConfig.rotation.z === 'number'
             ? modelConfig.rotation.z
-            : DEFAULT_3D_MODEL_ROTATION.z
+            : default3DModelRotation.z
         );
       } else {
         vrm.scene.rotation.set(
-          DEFAULT_3D_MODEL_ROTATION.x,
-          DEFAULT_3D_MODEL_ROTATION.y,
-          DEFAULT_3D_MODEL_ROTATION.z
+          default3DModelRotation.x,
+          default3DModelRotation.y,
+          default3DModelRotation.z
         );
       }
     }
@@ -1020,7 +1023,8 @@ export async function bootVRM(
           skinEngine.emotionBlend !== null
         ) {
           skinEngine.emotionBlend.name = targetExpression;
-          skinEngine.emotionBlend.target = targetExpression === 'neutral' ? 0 : 1;
+          skinEngine.emotionBlend.target =
+            targetExpression === 'neutral' ? 0 : 1;
         }
         if (
           typeof vrm === 'object' &&
@@ -1202,49 +1206,35 @@ export async function bootVRM(
                 emotionBlend.applied !== emotionBlend.name
               ) {
                 try {
-                  expressionManager.setValue(
-                    emotionBlend.applied,
-                    0
-                  );
+                  expressionManager.setValue(emotionBlend.applied, 0);
                 } catch (_error) {}
                 emotionBlend.applied = '';
               }
               emotionBlend.weight +=
                 (emotionBlend.target - emotionBlend.weight) *
                 Math.min(1, delta * 4);
-              if (
-                emotionBlend.weight <= 0.005 &&
-                emotionBlend.target === 0
-              ) {
+              if (emotionBlend.weight <= 0.005 && emotionBlend.target === 0) {
                 emotionBlend.weight = 0;
                 if (
                   typeof emotionBlend.applied === 'string' &&
                   emotionBlend.applied !== ''
                 ) {
                   try {
-                    expressionManager.setValue(
-                      emotionBlend.applied,
-                      0
-                    );
+                    expressionManager.setValue(emotionBlend.applied, 0);
                   } catch (_error) {}
                   emotionBlend.applied = '';
                 }
               } else if (emotionBlend.name !== 'neutral') {
                 try {
                   const expression = expressionManager.getExpression
-                    ? expressionManager.getExpression(
-                        emotionBlend.name
-                      )
+                    ? expressionManager.getExpression(emotionBlend.name)
                     : null;
                   const weight =
                     expression?.overrideMouth &&
                     String(expression.overrideMouth) !== 'none'
                       ? Math.min(emotionBlend.weight, 0.4)
                       : emotionBlend.weight;
-                  expressionManager.setValue(
-                    emotionBlend.name,
-                    weight
-                  );
+                  expressionManager.setValue(emotionBlend.name, weight);
                   emotionBlend.applied = emotionBlend.name;
                 } catch (_error) {}
               }

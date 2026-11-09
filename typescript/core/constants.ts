@@ -643,13 +643,37 @@ export const DEFAULT_3D_MODEL_SCALE = Object.freeze({
 });
 
 /**
- * Default 3D VRM model rotation angles (Euler radians).
+ * Default 3D male VRM model rotation angles (Euler radians).
  */
-export const DEFAULT_3D_MODEL_ROTATION = Object.freeze({
+export const DEFAULT_3D_MALE_MODEL_ROTATION = Object.freeze({
   x: 0,
   y: 3.1,
   z: 0
 });
+
+/**
+ * Default 3D VRM female model rotation angles (Euler radians).
+ */
+export const DEFAULT_3D_FEMALE_MODEL_ROTATION = Object.freeze({
+  x: 0,
+  y: 0,
+  z: 0
+});
+
+/**
+ * Get default 3D VRM model rotation angles (Euler radians).
+ * @param gender - Character gender ('female' | 'male').
+ * @returns 3D model URL.
+ */
+export function getDefault3DModelRotation(
+  gender: string = DEFAULT_GENDER
+):
+  | typeof DEFAULT_3D_MALE_MODEL_ROTATION
+  | typeof DEFAULT_3D_FEMALE_MODEL_ROTATION {
+  return gender === GENDER_MAP.female
+    ? DEFAULT_3D_FEMALE_MODEL_ROTATION
+    : DEFAULT_3D_MALE_MODEL_ROTATION;
+}
 
 /**
  * Default flag indicating whether 3D VRM avatar eyes track the mouse pointer.

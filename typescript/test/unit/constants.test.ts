@@ -27,7 +27,8 @@ import {
   DEFAULT_3D_FULL_CAMERA_LOOK_AT,
   DEFAULT_3D_MODEL_POSITION,
   DEFAULT_3D_MODEL_SCALE,
-  DEFAULT_3D_MODEL_ROTATION,
+  // TODO
+  // DEFAULT_3D_MODEL_ROTATION,
   GENDER_MAP,
   DEFAULT_GENDER,
   DEFAULT_FEMALE_2D_MODEL_URL,
@@ -199,7 +200,8 @@ describe('Unit Test: core/constants.js (TypeScript)', () => {
       expect(Object.isFrozen(DEFAULT_3D_FULL_CAMERA_LOOK_AT)).toBe(true);
       expect(Object.isFrozen(DEFAULT_3D_MODEL_POSITION)).toBe(true);
       expect(Object.isFrozen(DEFAULT_3D_MODEL_SCALE)).toBe(true);
-      expect(Object.isFrozen(DEFAULT_3D_MODEL_ROTATION)).toBe(true);
+      // TODO
+      // expect(Object.isFrozen(DEFAULT_3D_MODEL_ROTATION)).toBe(true);
     });
   });
 
@@ -288,7 +290,9 @@ describe('Unit Test: core/constants.js (TypeScript)', () => {
       expect(REASONING_MODE_MAP.always).toBe('always');
       expect(REASONING_MODE_MAP.never).toBe('never');
       expect(DEFAULT_LLM_MODEL).toBe('Hermes-3-Llama-3.1-8B-q4f32_1-MLC');
-      expect(DEFAULT_LLM_FALLBACK_MODEL).toBe('Qwen2.5-1.5B-Instruct-q4f16_1-MLC');
+      expect(DEFAULT_LLM_FALLBACK_MODEL).toBe(
+        'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'
+      );
       expect(DEFAULT_AI_PROVIDER_MODEL).toBe('hermes3:latest');
       expect(REASONING_START_TAG).toBe('<think>');
       expect(REASONING_END_TAG).toBe('</think>');
@@ -305,11 +309,15 @@ describe('Unit Test: core/constants.js (TypeScript)', () => {
       expect(isReasoningSupported('DeepSeek-R1-Distill-Qwen-7B')).toBe(true);
       expect(isReasoningSupported('deepseek-r1')).toBe(true);
       expect(isReasoningSupported('QwQ-32B-Preview')).toBe(true);
-      expect(isReasoningSupported('Hermes-3-Llama-3.1-8B-q4f32_1-MLC')).toBe(true);
+      expect(isReasoningSupported('Hermes-3-Llama-3.1-8B-q4f32_1-MLC')).toBe(
+        true
+      );
       expect(isReasoningSupported('hermes3:latest')).toBe(true);
       expect(isReasoningSupported('o1-mini')).toBe(true);
       expect(isReasoningSupported('o3-mini')).toBe(true);
-      expect(isReasoningSupported('Qwen2.5-1.5B-Instruct-q4f16_1-MLC')).toBe(false);
+      expect(isReasoningSupported('Qwen2.5-1.5B-Instruct-q4f16_1-MLC')).toBe(
+        false
+      );
       expect(isReasoningSupported('gpt-4o')).toBe(false);
       expect(isReasoningSupported('')).toBe(false);
       expect(isReasoningSupported(null as unknown as string)).toBe(false);

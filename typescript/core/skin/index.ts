@@ -14,8 +14,8 @@ import {
   DEFAULT_3D_CAMERA_FAR,
   DEFAULT_3D_MODEL_POSITION,
   DEFAULT_3D_MODEL_SCALE,
-  DEFAULT_3D_MODEL_ROTATION,
-  DEFAULT_3D_POINTER_LOOK
+  DEFAULT_3D_POINTER_LOOK,
+  getDefault3DModelRotation
 } from '@/core/constants';
 import { initSkinMode } from './canvas';
 import { defaultGesture2D, bootAvatar } from './renderer-2d';
@@ -195,7 +195,9 @@ export function initSkinEngine(
     modelTransform: {
       position: modelTransformOption.position || DEFAULT_3D_MODEL_POSITION,
       scale: modelTransformOption.scale ?? DEFAULT_3D_MODEL_SCALE,
-      rotation: modelTransformOption.rotation || DEFAULT_3D_MODEL_ROTATION
+      rotation:
+        modelTransformOption.rotation ||
+        getDefault3DModelRotation(setting.gender || DEFAULT_GENDER)
     },
     half: {
       ...(typeof skin3dOption.half === 'object' && skin3dOption.half !== null
