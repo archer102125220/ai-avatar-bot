@@ -89,15 +89,11 @@ export interface STTEngineState {
   /** Current language locale code (e.g. 'zh-TW', 'en-US'). */
   locale: string;
   /** Consecutive no-speech count. */
+  consecutiveNoSpeechCount: number;
+  /** @deprecated 請改用 consecutiveNoSpeechCount */
   noSpeechRuns: number;
-  /** Timestamp (ms) of the last recognition restart. */
-  lastRestart: number;
-  /** Timestamp (ms) when speech recognition started. */
-  speechStartTime: number;
   /** Timestamp (ms) when interim result was first received. */
   interimStartTime: number;
-  /** Hint / subtitle text emitted by speech recognition. */
-  spokenDisplayText: string;
   /** Whether speech recognition was intentionally aborted. */
   isAborted: boolean;
 }
@@ -148,6 +144,8 @@ export interface STTEngine extends SubscribableStore<STTEngineState> {
   /** Whether microphone is actively listening. */
   readonly isListening: boolean;
   /** Consecutive no-speech count. */
+  consecutiveNoSpeechCount: number;
+  /** @deprecated 請改用 consecutiveNoSpeechCount */
   noSpeechRuns: number;
   /** Starts microphone listening. */
   startListening(): Promise<void>;
@@ -198,6 +196,8 @@ export interface TTSEngineState {
   /** Current speech sequence ID. */
   speakSeq: number;
   /** Speech playback rate multiplier. */
+  playbackRate: number;
+  /** @deprecated 請改用 playbackRate */
   ttsRate: number;
   /** Target mouth viseme value. */
   mouthTarget: number;
@@ -242,7 +242,9 @@ export interface TTSEngine extends SubscribableStore<TTSEngineState> {
   /** Current language locale code. */
   readonly locale: string;
   /** TTS playback rate multiplier. */
-  ttsRate?: number;
+  playbackRate: number;
+  /** @deprecated 請改用 playbackRate */
+  ttsRate: number;
   /** Synthesizes and speaks the given text. */
   speak(text: string, options?: TTSSpeakOptions): void;
   /** Stops ongoing speech playback immediately. */
@@ -253,7 +255,9 @@ export interface TTSEngine extends SubscribableStore<TTSEngineState> {
   setGender(gender: Gender): void;
   /** Sets speech language locale. */
   setLocale(locale: string): void;
-  /** Preloads audio greeting for tap interaction. */
+  /** Preloads and caches audio buffer for the given text. */
+  preloadAudio(text: string): Promise<AudioBuffer | null>;
+  /** @deprecated 請改用 preloadAudio */
   preloadTapGreeting(text: string): Promise<AudioBuffer | null>;
   /** Begins a new speech sequence stream. */
   beginSpeech?(): number;
@@ -294,6 +298,8 @@ export interface SpeechEngineState {
   neuralVoice?: string;
   speakSeq: number;
   ttsMuted: boolean;
+  playbackRate: number;
+  /** @deprecated 請改用 playbackRate */
   ttsRate: number;
   convoOn: boolean;
   isProcessing: boolean;
@@ -320,11 +326,18 @@ export interface SpeechEngineOptions {
   neuralVoice?: string;
   /** Language locale code (e.g., 'zh-TW', 'en-US'). */
   locale?: string;
+  /** Initial speech voice gender ('female' | 'male'). */
+  gender?: Gender;
   /** Function to get current avatar gender. */
   getGender?: () => Gender;
-  /** Function to get avatar root container element. */
-  getContainer?: () => HTMLElement | null;
   /** Callback fired when voice recognition / conversation status changes. */
+  onVoiceStatusChange?: (
+    convoOn: boolean,
+    text?: string,
+    state?: string,
+    level?: number
+  ) => void;
+  /** @deprecated 請改用 onVoiceStatusChange */
   onVoiceStatusChanged?: (
     convoOn: boolean,
     text?: string,
@@ -332,8 +345,16 @@ export interface SpeechEngineOptions {
     level?: number
   ) => void;
   /** Callback fired when microphone listening state changes. */
+  onMicStateChange?: (isListening: boolean, convoOn: boolean) => void;
+  /** @deprecated 請改用 onMicStateChange */
   onMicStateChanged?: (isListening: boolean, convoOn: boolean) => void;
   /** Callback fired when active speech language changes. */
+  onLanguageChange?: (
+    locale: string,
+    label: string,
+    shortLabel?: string
+  ) => void;
+  /** @deprecated 請改用 onLanguageChange */
   onLanguageChanged?: (
     locale: string,
     label: string,
@@ -344,8 +365,12 @@ export interface SpeechEngineOptions {
   /** Callback fired when subtitle bubble times out. */
   onSpokenDisplayTextTimeout?: () => void;
   /** Callback fired when audio speech playback begins. */
+  onSpeakStart?: (audioText: string) => void;
+  /** @deprecated 請改用 onSpeakStart */
   onSpeaking?: (audioText: string) => void;
   /** Callback fired when audio speech playback completely ends. */
+  onSpeakEnd?: () => void;
+  /** @deprecated 請改用 onSpeakEnd */
   onSpeakingEnd?: () => void;
   /** Callback fired when speech queue is temporarily idle waiting for streaming LLM chunks. */
   onSpeechWait?: (speechSequenceId?: number) => void;
@@ -365,8 +390,6 @@ export interface SpeechEngine extends SubscribableStore<SpeechEngineState> {
   gender: Gender;
   /** Sets speech voice gender. */
   setGender(gender: Gender): void;
-  /** Root container DOM element. */
-  readonly container: HTMLElement | null;
   /** TTS synthesis endpoint. */
   ttsEndpoint: string;
   /** Neural voice identifier. */
@@ -382,8 +405,12 @@ export interface SpeechEngine extends SubscribableStore<SpeechEngineState> {
   /** Internal debounce flag for avatar tap interaction. */
   onTapTimer?: boolean;
   /** TTS playback rate multiplier (default 1.0). */
+  playbackRate: number;
+  /** @deprecated 請改用 playbackRate */
   ttsRate: number;
   /** Number of consecutive voice recognition turns without speech detected. */
+  consecutiveNoSpeechCount: number;
+  /** @deprecated 請改用 consecutiveNoSpeechCount */
   noSpeechRuns: number;
   /** Whether continuous voice conversation mode is enabled. */
   convoOn: boolean;
@@ -413,13 +440,18 @@ export interface SpeechEngine extends SubscribableStore<SpeechEngineState> {
   setMic(isListening: boolean): void;
   /** Starts microphone listening. */
   startListening(): void;
-  /** Preloads audio greeting for tap interaction. */
+  /** Preloads and caches audio buffer for the given text. */
+  preloadAudio(text: string): Promise<AudioBuffer | null> | void;
+  /** @deprecated 請改用 preloadAudio */
   preloadTapGreeting(text: string): Promise<AudioBuffer | null> | void;
   /** Active language locale. */
   locale: string;
   /** Sets speech language locale. */
   setLocale(locale: string): void;
-  /** Splits streaming sentence buffer into speakable sentences. */
+  /**
+   * Splits streaming sentence buffer into speakable sentences.
+   * @deprecated Use standalone drainSentences() function from '@ai-avatar-bot/sdk/speech' instead.
+   */
   drainSentences(
     state: { buf?: string; sentenceBuffer?: string },
     force?: boolean
@@ -437,6 +469,13 @@ export interface SpeechEngine extends SubscribableStore<SpeechEngineState> {
   /** Callback fired when an utterance ends. */
   onUtteranceEnd(): void;
   /** Callback for voice status change. */
+  onVoiceStatusChange?: (
+    convoOn: boolean,
+    text?: string,
+    state?: string,
+    level?: number
+  ) => void;
+  /** @deprecated 請改用 onVoiceStatusChange */
   onVoiceStatusChanged?: (
     convoOn: boolean,
     text?: string,
@@ -444,8 +483,16 @@ export interface SpeechEngine extends SubscribableStore<SpeechEngineState> {
     level?: number
   ) => void;
   /** Callback for mic state change. */
+  onMicStateChange?: (isListening: boolean, convoOn: boolean) => void;
+  /** @deprecated 請改用 onMicStateChange */
   onMicStateChanged?: (isListening: boolean, convoOn: boolean) => void;
   /** Callback for language change. */
+  onLanguageChange?: (
+    locale: string,
+    label: string,
+    shortLabel?: string
+  ) => void;
+  /** @deprecated 請改用 onLanguageChange */
   onLanguageChanged?: (
     locale: string,
     label: string,
