@@ -11,22 +11,17 @@ import type {
  * Extended internal state for the Text-to-Speech (TTS) engine.
  */
 export interface InternalTTSEngineState extends TTSEngineState {
-  speechController: AbortController | null;
   audioCtx: AudioContext | null;
-  audioSource: AudioBufferSourceNode | null;
-  audioAnalyser: AnalyserNode | null;
-  audioDataArray: Uint8Array | null;
-  mouthTimer: ReturnType<typeof setInterval> | number | null;
   isSpeechPlaying: boolean;
   speechEnded: boolean;
-  tapDone: boolean;
+  hasStartedSpeaking: boolean;
   speakBrowserTimer: ReturnType<typeof setTimeout> | number | null;
-  currentFps: number;
+  mouthRafId: number;
   currentSource: AudioBufferSourceNode | null;
   neuralDisabled: boolean;
-  tapGreetingCacheKey: string | null;
-  tapGreetingPrep: Promise<AudioBuffer | null> | null;
-  tapGreetingBuffer: AudioBuffer | null;
+  audioCacheKey: string | null;
+  audioPrep: Promise<AudioBuffer | null> | null;
+  cachedAudioBuffer: AudioBuffer | null;
 }
 
 /**
@@ -338,24 +333,20 @@ export function initDefaultTTSEngine(
     isSpeaking: false,
     isMuted: false,
     speechQueue: [],
-    speechController: null,
     audioCtx: null,
-    audioSource: null,
-    audioAnalyser: null,
-    audioDataArray: null,
-    mouthTimer: null,
     browserVoice: null,
     speakSeq: 0,
     isSpeechPlaying: false,
     speechEnded: false,
-    tapDone: false,
+    hasStartedSpeaking: false,
     speakBrowserTimer: 0,
-    currentFps: 0,
+    mouthRafId: 0,
     currentSource: null,
     neuralDisabled: false,
-    tapGreetingCacheKey: null,
-    tapGreetingPrep: null,
-    tapGreetingBuffer: null,
+    audioCacheKey: null,
+    audioPrep: null,
+    cachedAudioBuffer: null,
+    playbackRate: 1.0,
     ttsRate: 1.0,
     mouthTarget: 0.7,
     mouthValue: 0,
@@ -366,6 +357,16 @@ export function initDefaultTTSEngine(
   const state = store.getState();
   const activeTTSAbortControllers = new Set<AbortController>();
   let activeUtterance: SpeechSynthesisUtterance | null = null;
+
+  const buildAudioCacheKey = (targetText: string): string => {
+    const currentState = store.getState();
+    return [
+      currentState.gender,
+      currentState.locale,
+      currentState.neuralVoice || '',
+      targetText
+    ].join('\n');
+  };
 
   const engine: TTSEngine = {
     subscribe: store.subscribe,
@@ -386,25 +387,34 @@ export function initDefaultTTSEngine(
       store.setState({ isMuted: value });
     },
 
-    get ttsRate(): number {
-      return store.getState().ttsRate;
+    get playbackRate(): number {
+      return store.getState().playbackRate;
     },
-    set ttsRate(newRate: number | undefined) {
+    set playbackRate(newRate: number) {
+      const safeRate =
+        typeof newRate === 'number' &&
+        Number.isFinite(newRate) === true &&
+        newRate > 0
+          ? newRate
+          : 1.0;
       store.setState({
-        ttsRate:
-          typeof newRate === 'number' &&
-          Number.isFinite(newRate) === true &&
-          newRate > 0
-            ? newRate
-            : 1.0
+        playbackRate: safeRate,
+        ttsRate: safeRate
       });
+    },
+
+    get ttsRate(): number {
+      return engine.playbackRate;
+    },
+    set ttsRate(newRate: number) {
+      engine.playbackRate = newRate;
     },
 
     beginSpeech(): number {
       engine.stop();
       state.speechQueue = [];
       state.speechEnded = false;
-      state.tapDone = false;
+      state.hasStartedSpeaking = false;
       state.isSpeechPlaying = false;
       state.useAudioMouth = false;
       state.audioMouth = 0;
@@ -506,9 +516,9 @@ export function initDefaultTTSEngine(
         activeUtterance.onboundary = null;
         activeUtterance = null;
       }
-      if (state.currentFps > 0) {
-        cancelAnimationFrame(state.currentFps);
-        state.currentFps = 0;
+      if (state.mouthRafId > 0) {
+        cancelAnimationFrame(state.mouthRafId);
+        state.mouthRafId = 0;
       }
       if (state.currentSource !== null) {
         try {
@@ -576,36 +586,40 @@ export function initDefaultTTSEngine(
       });
     },
 
-    preloadTapGreeting(text: string): Promise<AudioBuffer | null> {
+    preloadAudio(text: string): Promise<AudioBuffer | null> {
       if (state.neuralDisabled === true) {
         return Promise.resolve(null);
       }
       const currentState = store.getState();
-      const cacheKey = currentState.neuralVoice + '\n' + text;
+      const cacheKey = buildAudioCacheKey(text);
       if (
-        currentState.tapGreetingPrep !== null &&
-        currentState.tapGreetingPrep !== undefined &&
-        currentState.tapGreetingCacheKey === cacheKey
+        currentState.audioPrep !== null &&
+        currentState.audioPrep !== undefined &&
+        currentState.audioCacheKey === cacheKey
       ) {
-        return currentState.tapGreetingPrep;
+        return currentState.audioPrep;
       }
-      currentState.tapGreetingCacheKey = cacheKey;
-      currentState.tapGreetingBuffer = null;
-      currentState.tapGreetingPrep = fetchTTSBuffer(text, true)
+      currentState.audioCacheKey = cacheKey;
+      currentState.cachedAudioBuffer = null;
+      currentState.audioPrep = fetchTTSBuffer(text, true)
         .then((audioBuffer) => {
-          if (currentState.tapGreetingCacheKey === cacheKey) {
-            currentState.tapGreetingBuffer = audioBuffer;
+          if (currentState.audioCacheKey === cacheKey) {
+            currentState.cachedAudioBuffer = audioBuffer;
           }
           return audioBuffer;
         })
         .catch((error: unknown) => {
-          if (currentState.tapGreetingCacheKey === cacheKey) {
-            currentState.tapGreetingPrep = null;
-            currentState.tapGreetingBuffer = null;
+          if (currentState.audioCacheKey === cacheKey) {
+            currentState.audioPrep = null;
+            currentState.cachedAudioBuffer = null;
           }
           throw error;
         });
-      return currentState.tapGreetingPrep;
+      return currentState.audioPrep;
+    },
+
+    preloadTapGreeting(text: string): Promise<AudioBuffer | null> {
+      return engine.preloadAudio(text);
     }
   };
 
@@ -683,19 +697,36 @@ export function initDefaultTTSEngine(
     }
     for (const queueItem of state.speechQueue.slice(0, 2)) {
       if (queueItem.prefetchPromise === null && queueItem.error === null) {
-        queueItem.prefetchPromise = fetchTTSBuffer(queueItem.text).catch(
-          (error: Error) => {
-            queueItem.error = error;
-            return null;
+        const itemCacheKey = buildAudioCacheKey(queueItem.text);
+        if (
+          state.audioCacheKey === itemCacheKey &&
+          state.audioPrep !== null &&
+          state.audioPrep !== undefined
+        ) {
+          if (queueItem.instant !== true || state.cachedAudioBuffer !== null) {
+            queueItem.prefetchPromise = state.audioPrep.catch(
+              (error: Error) => {
+                queueItem.error = error;
+                return null;
+              }
+            );
           }
-        );
+        } else {
+          queueItem.prefetchPromise = fetchTTSBuffer(queueItem.text).catch(
+            (error: Error) => {
+              queueItem.error = error;
+              return null;
+            }
+          );
+        }
       }
     }
   };
 
   const playBuffer = (
     audioBuffer: AudioBuffer,
-    onPlayCompleted?: () => void
+    onPlayCompleted?: () => void,
+    text?: string
   ): void => {
     const currentState = store.getState();
     if (currentState.audioCtx === null) {
@@ -703,8 +734,11 @@ export function initDefaultTTSEngine(
     }
     const bufferSourceNode = currentState.audioCtx.createBufferSource();
     bufferSourceNode.buffer = audioBuffer;
-    if (typeof currentState.ttsRate === 'number' && currentState.ttsRate > 0) {
-      bufferSourceNode.playbackRate.value = currentState.ttsRate;
+    if (
+      typeof currentState.playbackRate === 'number' &&
+      currentState.playbackRate > 0
+    ) {
+      bufferSourceNode.playbackRate.value = currentState.playbackRate;
     }
     const analyserNode = currentState.audioCtx.createAnalyser();
     analyserNode.fftSize = 128;
@@ -718,10 +752,10 @@ export function initDefaultTTSEngine(
     currentState.audioMouth = 0.12;
     currentState.mouthValue = Math.max(currentState.mouthValue, 0.12);
 
-    if (currentState.tapDone !== true) {
-      currentState.tapDone = true;
+    if (currentState.hasStartedSpeaking !== true) {
+      currentState.hasStartedSpeaking = true;
       if (typeof onSpeakStart === 'function') {
-        onSpeakStart();
+        onSpeakStart(typeof text === 'string' ? text : '');
       }
     }
 
@@ -744,18 +778,18 @@ export function initDefaultTTSEngine(
         1,
         Math.max(0, (rootMeanSquare - 0.006) * 5.2)
       );
-      currentState.currentFps = requestAnimationFrame(
+      currentState.mouthRafId = requestAnimationFrame(
         runAudioVisualizationLoop
       );
     }
-    currentState.currentFps = requestAnimationFrame(runAudioVisualizationLoop);
+    currentState.mouthRafId = requestAnimationFrame(runAudioVisualizationLoop);
     bufferSourceNode.onended = () => {
       if (currentState.currentSource !== bufferSourceNode) {
         return;
       }
-      if (currentState.currentFps > 0) {
-        cancelAnimationFrame(currentState.currentFps);
-        currentState.currentFps = 0;
+      if (currentState.mouthRafId > 0) {
+        cancelAnimationFrame(currentState.mouthRafId);
+        currentState.mouthRafId = 0;
       }
       store.setState({ isSpeaking: false });
       currentState.useAudioMouth = false;
@@ -828,8 +862,9 @@ export function initDefaultTTSEngine(
     }
     utterance.lang = currentVoice?.lang || currentState.locale;
     utterance.rate =
-      typeof currentState.ttsRate === 'number' && currentState.ttsRate > 0
-        ? currentState.ttsRate
+      typeof currentState.playbackRate === 'number' &&
+      currentState.playbackRate > 0
+        ? currentState.playbackRate
         : 1.0;
     utterance.pitch = 1.0;
     utterance.onboundary = () => {
@@ -871,8 +906,9 @@ export function initDefaultTTSEngine(
     };
 
     const effectiveRate =
-      typeof currentState.ttsRate === 'number' && currentState.ttsRate > 0
-        ? currentState.ttsRate
+      typeof currentState.playbackRate === 'number' &&
+      currentState.playbackRate > 0
+        ? currentState.playbackRate
         : 1.0;
     const baseDurationMs = Math.max(1200, (text.length * 200) / effectiveRate);
     const watchdogDurationMs = Math.min(
@@ -891,10 +927,10 @@ export function initDefaultTTSEngine(
       window.speechSynthesis.speak(utterance);
       store.setState({ isSpeaking: true });
       currentState.mouthTarget = 0.7;
-      if (currentState.tapDone !== true) {
-        currentState.tapDone = true;
+      if (currentState.hasStartedSpeaking !== true) {
+        currentState.hasStartedSpeaking = true;
         if (typeof onSpeakStart === 'function') {
-          onSpeakStart();
+          onSpeakStart(text);
         }
       }
       currentState.speakBrowserTimer = setTimeout(() => {
@@ -948,38 +984,51 @@ export function initDefaultTTSEngine(
       processSpeechQueue(speechSequenceId);
     };
 
-    const cachedGreetingKey =
-      typeof state.tapGreetingCacheKey === 'string'
-        ? state.tapGreetingCacheKey.split('\n')[1]
+    const itemCacheKey = buildAudioCacheKey(speechItem.text);
+    const cachedKeyText =
+      typeof state.audioCacheKey === 'string'
+        ? state.audioCacheKey.split('\n').slice(3).join('\n') ||
+          state.audioCacheKey.split('\n')[1]
         : undefined;
     if (
       speechItem.instant === true &&
-      state.tapGreetingBuffer === null &&
-      speechItem.text === cachedGreetingKey
+      state.cachedAudioBuffer === null &&
+      speechItem.text === cachedKeyText
     ) {
-      engine.preloadTapGreeting(speechItem.text);
+      engine.preloadAudio(speechItem.text);
       speakBrowserChunk(speechItem.text, speechSequenceId, handleChunkDone);
       return;
     }
 
     let audioBuffer: AudioBuffer | null = null;
     if (state.neuralDisabled !== true && speechItem.error === null) {
-      if (speechItem.prefetchPromise === null) {
-        speechItem.prefetchPromise = fetchTTSBuffer(speechItem.text).catch(
-          (error: Error) => {
+      if (
+        state.audioCacheKey === itemCacheKey &&
+        state.cachedAudioBuffer !== null
+      ) {
+        audioBuffer = state.cachedAudioBuffer;
+      } else {
+        if (speechItem.prefetchPromise === null) {
+          const existingPrep =
+            state.audioCacheKey === itemCacheKey &&
+            state.audioPrep !== null &&
+            state.audioPrep !== undefined
+              ? state.audioPrep
+              : fetchTTSBuffer(speechItem.text);
+          speechItem.prefetchPromise = existingPrep.catch((error: Error) => {
             speechItem.error = error;
             return null;
-          }
-        );
+          });
+        }
+        audioBuffer = await speechItem.prefetchPromise;
       }
-      audioBuffer = await speechItem.prefetchPromise;
     }
     if (speechSequenceId !== state.speakSeq) {
       return;
     }
     if (audioBuffer !== null) {
       prefetchSpeech(speechSequenceId);
-      playBuffer(audioBuffer, handleChunkDone);
+      playBuffer(audioBuffer, handleChunkDone, speechItem.text);
     } else {
       if (speechItem.error !== null) {
         handleNeuralVoiceError(speechItem.error);
