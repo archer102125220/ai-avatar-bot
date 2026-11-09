@@ -27,8 +27,10 @@ import {
   DEFAULT_3D_FULL_CAMERA_LOOK_AT,
   DEFAULT_3D_MODEL_POSITION,
   DEFAULT_3D_MODEL_SCALE,
-  // TODO
-  // DEFAULT_3D_MODEL_ROTATION,
+  DEFAULT_3D_MALE_MODEL_ROTATION,
+  DEFAULT_3D_FEMALE_MODEL_ROTATION,
+  DEFAULT_3D_MODEL_ROTATION,
+  getDefault3DModelRotation,
   GENDER_MAP,
   DEFAULT_GENDER,
   DEFAULT_FEMALE_2D_MODEL_URL,
@@ -200,12 +202,22 @@ describe('Unit Test: core/constants.js (TypeScript)', () => {
       expect(Object.isFrozen(DEFAULT_3D_FULL_CAMERA_LOOK_AT)).toBe(true);
       expect(Object.isFrozen(DEFAULT_3D_MODEL_POSITION)).toBe(true);
       expect(Object.isFrozen(DEFAULT_3D_MODEL_SCALE)).toBe(true);
-      // TODO
-      // expect(Object.isFrozen(DEFAULT_3D_MODEL_ROTATION)).toBe(true);
+      expect(Object.isFrozen(DEFAULT_3D_MALE_MODEL_ROTATION)).toBe(true);
+      expect(Object.isFrozen(DEFAULT_3D_FEMALE_MODEL_ROTATION)).toBe(true);
+      expect(Object.isFrozen(DEFAULT_3D_MODEL_ROTATION)).toBe(true);
     });
   });
 
   describe('Helper Functions for Resolution', () => {
+    it('getDefault3DModelRotation should return 3D model rotation based on gender', () => {
+      expect(getDefault3DModelRotation('female')).toBe(
+        DEFAULT_3D_FEMALE_MODEL_ROTATION
+      );
+      expect(getDefault3DModelRotation('male')).toBe(
+        DEFAULT_3D_MALE_MODEL_ROTATION
+      );
+      expect(getDefault3DModelRotation()).toBe(DEFAULT_3D_MODEL_ROTATION);
+    });
     it('getDefaultNeuralVoice should return voice based on gender', () => {
       expect(getDefaultNeuralVoice('female')).toBe(DEFAULT_FEMALE_NEURAL_VOICE);
       expect(getDefaultNeuralVoice('male')).toBe(DEFAULT_MALE_NEURAL_VOICE);

@@ -229,9 +229,15 @@ export async function bootVRM(
         ? vrmaRootPath
         : DEFAULT_VRMA_ROOT_PATH;
 
+    const resolvedGender =
+      typeof skinEngine.getState === 'function' &&
+      typeof skinEngine.getState()?.gender === 'string' &&
+      skinEngine.getState().gender !== ''
+        ? skinEngine.getState().gender
+        : skinEngine.gender;
     const currentGender: Gender =
-      skinEngine.gender === 'female' || skinEngine.gender === 'male'
-        ? skinEngine.gender
+      resolvedGender === 'female' || resolvedGender === 'male'
+        ? resolvedGender
         : 'common';
 
     const activeSkin3d: Skin3DConfig =
@@ -568,9 +574,14 @@ export async function bootVRM(
         DEFAULT_3D_MODEL_POSITION
       );
       applyScale(vrm.scene.scale, modelConfig.scale, DEFAULT_3D_MODEL_SCALE);
-      const default3DModelRotation = getDefault3DModelRotation(
-        skinEngine.gender
-      );
+      const currentModelGender =
+        typeof skinEngine.getState === 'function' &&
+        typeof skinEngine.getState()?.gender === 'string' &&
+        skinEngine.getState().gender !== ''
+          ? skinEngine.getState().gender
+          : skinEngine.gender;
+      const default3DModelRotation =
+        getDefault3DModelRotation(currentModelGender);
       if (
         Array.isArray(modelConfig.rotation) === true &&
         modelConfig.rotation.length >= 3

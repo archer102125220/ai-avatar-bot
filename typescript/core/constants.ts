@@ -643,6 +643,23 @@ export const DEFAULT_3D_MODEL_SCALE = Object.freeze({
 });
 
 /**
+ * Avatar gender character options mapping enum.
+ */
+export const GENDER_MAP = {
+  /** Female character. */
+  female: 'female',
+  /** Male character. */
+  male: 'male'
+} as const;
+
+export type { Gender };
+
+/**
+ * Default character gender.
+ */
+export const DEFAULT_GENDER: Gender = GENDER_MAP.female;
+
+/**
  * Default 3D male VRM model rotation angles (Euler radians).
  */
 export const DEFAULT_3D_MALE_MODEL_ROTATION = Object.freeze({
@@ -661,9 +678,21 @@ export const DEFAULT_3D_FEMALE_MODEL_ROTATION = Object.freeze({
 });
 
 /**
+ * Default 3D VRM model rotation angles (Euler radians, linked to default gender).
+ */
+export const DEFAULT_3D_MODEL_ROTATION: Readonly<{
+  x: number;
+  y: number;
+  z: number;
+}> =
+  DEFAULT_GENDER === GENDER_MAP.female
+    ? DEFAULT_3D_FEMALE_MODEL_ROTATION
+    : DEFAULT_3D_MALE_MODEL_ROTATION;
+
+/**
  * Get default 3D VRM model rotation angles (Euler radians).
  * @param gender - Character gender ('female' | 'male').
- * @returns 3D model URL.
+ * @returns Default 3D model rotation Euler angles.
  */
 export function getDefault3DModelRotation(
   gender: string = DEFAULT_GENDER
@@ -679,23 +708,6 @@ export function getDefault3DModelRotation(
  * Default flag indicating whether 3D VRM avatar eyes track the mouse pointer.
  */
 export const DEFAULT_3D_POINTER_LOOK = true;
-
-/**
- * Avatar gender character options mapping enum.
- */
-export const GENDER_MAP = {
-  /** Female character. */
-  female: 'female',
-  /** Male character. */
-  male: 'male'
-} as const;
-
-export type { Gender };
-
-/**
- * Default character gender.
- */
-export const DEFAULT_GENDER: Gender = GENDER_MAP.female;
 
 /**
  * Default female 2D Live2D model descriptor URL.

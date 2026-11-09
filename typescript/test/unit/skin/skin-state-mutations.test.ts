@@ -7,7 +7,9 @@ import {
   DEFAULT_FEMALE_2D_MODEL_URL,
   DEFAULT_FEMALE_3D_MODEL_URL,
   DEFAULT_MALE_2D_MODEL_URL,
-  DEFAULT_MALE_3D_MODEL_URL
+  DEFAULT_MALE_3D_MODEL_URL,
+  DEFAULT_3D_FEMALE_MODEL_ROTATION,
+  DEFAULT_3D_MALE_MODEL_ROTATION
 } from '@/core/constants';
 import type { SkinEngine } from '@core';
 
@@ -25,18 +27,70 @@ describe('Unit Test: core/skin/skin-state-mutations.js (State & Parameter Update
   });
 
   describe('setGender', () => {
-    it('should update gender state and synchronize 2D and 3D default model assets', () => {
+    it('should update gender state and synchronize 2D and 3D default model assets and 3D rotation', () => {
       const engine: SkinEngine = initSkinEngine({
         stageEl,
         gender: GENDER_MAP.female
       }) as SkinEngine;
+      expect(engine.gender).toBe(GENDER_MAP.female);
       expect(engine.live2dUrl).toBe(DEFAULT_FEMALE_2D_MODEL_URL);
       expect(engine.vrmUrl).toBe(DEFAULT_FEMALE_3D_MODEL_URL);
+      expect(engine.skin3d.modelTransform?.rotation).toEqual(
+        DEFAULT_3D_FEMALE_MODEL_ROTATION
+      );
 
       engine.setGender(GENDER_MAP.male);
       expect(engine.getState().gender).toBe(GENDER_MAP.male);
+      expect(engine.gender).toBe(GENDER_MAP.male);
       expect(engine.live2dUrl).toBe(DEFAULT_MALE_2D_MODEL_URL);
       expect(engine.vrmUrl).toBe(DEFAULT_MALE_3D_MODEL_URL);
+      expect(engine.skin3d.modelTransform?.rotation).toEqual(
+        DEFAULT_3D_MALE_MODEL_ROTATION
+      );
+
+      engine.setGender(GENDER_MAP.female);
+      expect(engine.getState().gender).toBe(GENDER_MAP.female);
+      expect(engine.gender).toBe(GENDER_MAP.female);
+      expect(engine.skin3d.modelTransform?.rotation).toEqual(
+        DEFAULT_3D_FEMALE_MODEL_ROTATION
+      );
+    });
+
+    it('should preserve custom modelTransform.rotation when switching gender and reload active engine when idle', () => {
+      const onModelChangeStart = vi.fn();
+      const customRotation = { x: 0, y: 1.57, z: 0 };
+      const engine: SkinEngine = initSkinEngine({
+        stageEl,
+        gender: GENDER_MAP.male,
+        skin3d: {
+          modelTransform: {
+            rotation: customRotation
+          }
+        },
+        onModelChangeStart
+      }) as SkinEngine;
+
+      expect(engine.skin3d.modelTransform?.rotation).toEqual(customRotation);
+
+      // Simulate idle state after initial boot completes
+      engine.switching = false;
+      onModelChangeStart.mockClear();
+
+      engine.setGender(GENDER_MAP.female);
+      expect(engine.skin3d.modelTransform?.rotation).toEqual(customRotation);
+      expect(onModelChangeStart).toHaveBeenCalledTimes(1);
+
+      // Updating rotation via setSkin3d should also be preserved across subsequent setGender calls
+      const runtimeCustomRotation = { x: 0.1, y: 2.0, z: 0 };
+      engine.setSkin3d({
+        modelTransform: {
+          rotation: runtimeCustomRotation
+        }
+      });
+      engine.setGender(GENDER_MAP.male);
+      expect(engine.skin3d.modelTransform?.rotation).toEqual(
+        runtimeCustomRotation
+      );
     });
   });
 

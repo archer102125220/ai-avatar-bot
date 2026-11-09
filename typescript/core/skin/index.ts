@@ -170,6 +170,8 @@ export function initSkinEngine(
       : {};
   const cameraOption = skin3dOption.camera || {};
   const modelTransformOption = skin3dOption.modelTransform || {};
+  let customModelRotation = modelTransformOption.rotation;
+  let pendingModelReload = false;
 
   const initialSkin3d: Skin3DConfig = {
     ...skin3dOption,
@@ -196,7 +198,7 @@ export function initSkinEngine(
       position: modelTransformOption.position || DEFAULT_3D_MODEL_POSITION,
       scale: modelTransformOption.scale ?? DEFAULT_3D_MODEL_SCALE,
       rotation:
-        modelTransformOption.rotation ||
+        customModelRotation ||
         getDefault3DModelRotation(setting.gender || DEFAULT_GENDER)
     },
     half: {
@@ -239,9 +241,36 @@ export function initSkinEngine(
     setState: store.setState,
     subscribe: store.subscribe,
     setGender: (gender: string) => {
-      store.setState({ gender });
+      const nextRotation =
+        typeof customModelRotation !== 'undefined'
+          ? customModelRotation
+          : getDefault3DModelRotation(gender);
+
+      store.setState((prevState) => ({
+        gender,
+        skin3d: {
+          ...prevState.skin3d,
+          modelTransform: {
+            ...prevState.skin3d?.modelTransform,
+            rotation: nextRotation
+          }
+        }
+      }));
       skinEngine.live2dUrl = getDefault2DModelUrl(gender);
       skinEngine.vrmUrl = getDefault3DModelUrl(gender);
+
+      const currentMode = skinEngine.engineMode;
+      if (
+        currentMode === ENGINE_MODE_MAP.twoDimensional ||
+        currentMode === ENGINE_MODE_MAP.threeDimensional
+      ) {
+        if (skinEngine.switching === true) {
+          pendingModelReload = true;
+        } else {
+          skinEngine._engineMode = null;
+          skinEngine.engineMode = currentMode;
+        }
+      }
     },
     setEmotion: (emotion: string) => {
       store.setState({ emotion });
@@ -312,6 +341,13 @@ export function initSkinEngine(
     },
     setSkin3d: (partialConfig: Partial<Skin3DConfig> = {}) => {
       if (typeof partialConfig === 'object' && partialConfig !== null) {
+        if (
+          typeof partialConfig.modelTransform === 'object' &&
+          partialConfig.modelTransform !== null &&
+          'rotation' in partialConfig.modelTransform
+        ) {
+          customModelRotation = partialConfig.modelTransform.rotation;
+        }
         store.setState((prevState) => ({
           skin3d: {
             ...prevState.skin3d,
@@ -360,7 +396,7 @@ export function initSkinEngine(
     },
 
     get gender(): string {
-      return setting.gender || DEFAULT_GENDER;
+      return store.getState().gender || setting.gender || DEFAULT_GENDER;
     },
 
     _live2dUrl: safeLive2dUrl,
@@ -560,6 +596,16 @@ export function initSkinEngine(
             this.onModelChangeEnd(this.renderer, newEngineMode ?? '');
           }
           this.switching = false;
+          if (
+            pendingModelReload === true &&
+            (this.engineMode === ENGINE_MODE_MAP.twoDimensional ||
+              this.engineMode === ENGINE_MODE_MAP.threeDimensional)
+          ) {
+            pendingModelReload = false;
+            const reloadMode = this.engineMode;
+            this._engineMode = null;
+            this.engineMode = reloadMode;
+          }
         })();
       }
     },
