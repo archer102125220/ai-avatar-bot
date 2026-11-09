@@ -32,15 +32,17 @@
 
 ### 發現與收集清單：
 
-- [ ] **耦合項 01（ToolsEngine 發音回呼中立化）**：
-  * **現狀**：`core/tools/index.ts` 內有 9 處直接呼叫 `toolsEngine.onSpokenAudioPlayNow`，在取消、確認工具執行時直接發聲。
-  * **待收集規格**：當重構工具引擎時，釐清工具執行完畢（或確認/取消）時需要傳遞給協調層的中立通知格式（如 `onNoticeMessage(msg: string)`），由 Orchestrator 統一調用 `speechEngine.speak()`。
-  * **收集進度**：⏳ 待整理 ToolsEngine 時記錄。
+- [x] **耦合項 01（ToolsEngine 發音回呼與持續對話狀態中立化）**：
+  * **現狀**：[`core/tools/index.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/tools/index.ts) 內共有 9 處直接呼叫 `toolsEngine.onSpokenAudioPlayNow`（L86 缺少必填參數提示、L112 取消補填參數、L140 參數驗證失敗重試提示、L193 提供多工具候選清單、L224 取消候選清單、L268 候選序號無法辨識重試提示、L375 詢問工具執行確認、L560 取消待確認工具、L636 工具執行結果朗讀），且 L556 透過 `setting.isConvoOn()`（對應 [`core/tools/types.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/tools/types.ts#L267) 與 [`core/orchestrator/engine-factory.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/orchestrator/engine-factory.ts#L1070)）讀取 `speechEngine.convoOn` 來判斷取消時是否發聲（但 L112 與 L224 同為取消卻未檢查 `isConvoOn`）。
+  * **已收集規格**：於 `ToolsEngineOptions` 引入領域中立回呼 `onNoticeMessage?: (text: string, options?: ToolNoticeOptions) => void`（保留 `onSpokenAudioPlayNow` 作為 `@deprecated` 相容別名），其中 `ToolNoticeOptions` 攜帶 `{ phase?: 'input_prompt' | 'input_retry' | 'choice_offer' | 'choice_retry' | 'confirm_offer' | 'cancel' | 'result'; onlyInContinuousMode?: boolean }`，並自 `ToolsEngine` 移除對語音狀態 `isConvoOn` 的感知；改由協調層（`engine-factory.ts`）統一依 `speechEngine.continuousMode` 與 `speechEngine.isMuted` 決定是否調用 `speechEngine.speak(text)`。
+  * **收集進度**：✅ 已於盤點 ToolsEngine 時完成規格收集（待協調層與跨引擎收網時實作）。
 
 - [ ] **耦合項 02（I18nEngine 多語系字典與標籤抽離）**：
-  * **現狀**：`stt.ts` 內部維護了 `DEFAULT_STT_MESSAGES`（四語系字典），且 `SpeechEngine.setLocale()` 內部寫死了 `'英文 (English)'`、`'日文 (日本語)'` 等中文標籤。
-  * **待收集規格**：當重構國際化模組時，規範語音錯誤提示（如麥克風拒絕、未偵測到聲音）如何改由 `i18nEngine.t('speech.*')` 統一提供，將硬編碼字串自語音模組徹底抽離。
-  * **收集進度**：⏳ 待整理 I18nEngine 時記錄。
+  * **現狀**：
+    1. `stt.ts` 內部維護了 `DEFAULT_STT_MESSAGES`（四語系字典），且 `SpeechEngine.setLocale()` 內部寫死了 `'英文 (English)'`、`'日文 (日本語)'` 等中文標籤。
+    2. 盤點 `ToolsEngine` 時同步發現：[`core/tools/index.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/tools/index.ts) 內部硬編碼了 16+ 處繁體中文提示字串與語音意圖正則（如 L46–L50 參數詢問、L102/L205/L592/L597 確認與取消正則 `/^(取消|不要|算了|cancel)$/i`、L230–L235 候選序號正則 `/(?:第一|1|一)/`、L158/L261/L360/L548/L551/L612 狀態文字），且 [`core/tools/validator.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/tools/validator.ts#L160-L249) 內部硬編碼了 11 處繁體中文驗證錯誤訊息（如 `'必須是整數'`、`'為必填'` 等），目前完全未接入 `i18nEngine`。
+  * **待收集規格**：當重構國際化模組時，一併規範語音錯誤提示（`speech.*`）與工具引擎互動/驗證提示（`tools.*`）如何由 `i18nEngine` 統一提供（或支援可配置字典），將硬編碼繁中字串自語音與工具模組抽離。
+  * **收集進度**：⏳ 待整理 I18nEngine 時記錄（已預先登錄 ToolsEngine 硬編碼字串點位）。
 
 - [ ] **耦合項 03（UI 模組氣泡字幕與 6 秒定時器解耦）**：
   * **現狀**：`SpeechEngine` 內部跑了 6 秒計時器（`spokenDisplayTextTimer`）去控制 `bubbleEl` 氣泡關閉；且 STT 與 TTS 隨時直接修改 `spokenDisplayText`。
@@ -58,8 +60,8 @@
   * **收集進度**：⏳ 待協調層整合時一併收網。
 
 - [ ] **耦合項 06（RootStore / Widget 全域開關名稱收斂）**：
-  * **現狀**：全專案多處散落 `convoOn`（口語縮寫）與 `ttsMuted`（前綴不一致）。
-  * **待收集規格**：在 Orchestrator 與 RootStore 重構時，統一將狀態屬性提升為標準的 `continuousMode` 與 `isMuted`。
+  * **現狀**：全專案多處散落 `convoOn`（口語縮寫）與 `ttsMuted`（前綴不一致），包含 `ToolsEngineOptions.isConvoOn`（[`core/tools/types.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/tools/types.ts#L267) 與 [`core/orchestrator/engine-factory.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/orchestrator/engine-factory.ts#L1070)）亦直接讀取 `speechEngine.convoOn`。
+  * **待收集規格**：在 Orchestrator 與 RootStore 重構時，統一將狀態屬性提升為標準的 `continuousMode` 與 `isMuted`，並隨耦合項 01 移除 `ToolsEngine` 的 `isConvoOn`。
   * **收集進度**：⏳ 待協調層整合時一併收網。
 
 - [ ] **耦合項 07（串流管線 `drainSentences` 純函式化與實例轉發方法移除）**：
