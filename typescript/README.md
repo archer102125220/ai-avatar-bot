@@ -568,7 +568,7 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `tools` / `hostTools` | `ToolDefinition[]` | `[]` | List of typed tools registered for Function Calling. |
+| `tools` | `ToolDefinition[]` | `[]` | List of typed tools registered for Function Calling. |
 | `enableEmotionTools` | `boolean` | `true` | Whether to enable built-in emotion and gesture tool plugin. |
 | `confirmationTimeoutMs` | `number` | `60000` | Timeout in ms for user authorization confirmations. |
 
@@ -591,7 +591,15 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `onAutoContinueEnd` | `(info: AutoContinueEndInfo) => void` | Fired when auto-continuation completes. |
 | `onAddChatMessage` | `(role: ChatRole, text: string) => void` | Fired when a chat message is added. |
 | `onMicStateChanged` | `(isListening: boolean) => void` | Fired when microphone state changes. |
-| `onToolCall` | `(toolCall: ParsedToolCall) => void` | Fired when a tool call is executed. |
+| `onToolCall` | `(pendingToolData: Record<string, unknown>, widget?: AiAvatarWidget) => void` | Fired when a tool is triggered for execution without an inline execute handler. |
+| `onToolOffer` | `(info: ToolOfferInfo, widget?: AiAvatarWidget) => void` | Fired when a tool execution is offered to the user. |
+| `onToolInputRequired` | `(info: ToolInputRequiredInfo, widget?: AiAvatarWidget) => void` | Fired when a tool requires missing parameter input from the user. |
+| `onToolAmbiguous` | `(info: ToolAmbiguousInfo, widget?: AiAvatarWidget) => void` | Fired when multiple candidate tools match with ambiguous scores. |
+| `onToolConfirm` | `(info: ToolConfirmInfo, widget?: AiAvatarWidget) => void` | Fired when a pending tool is confirmed by the user. |
+| `onToolCancel` | `(info: ToolCancelInfo, widget?: AiAvatarWidget) => void` | Fired when a pending tool is cancelled or expires. |
+| `onToolExecute` | `(info: ToolExecuteInfo, widget?: AiAvatarWidget) => void` | Fired when a tool begins execution. |
+| `onToolResult` | `(info: ToolResultData, widget?: AiAvatarWidget) => void` | Fired when a tool execution completes or yields a result. |
+| `onToolEvent` | `(event: ToolEventName, payload: unknown, widget?: AiAvatarWidget) => void` | Unified callback fired for any tool lifecycle event in `TOOL_EVENT_MAP`. |
 | `onToolNotFound` | `(info: ToolNotFoundErrorInfo, widget: AiAvatarWidget) => unknown` | Fired when AI calls an unregistered tool. |
 | `onToolError` | `(info: ToolErrorInfo, widget: AiAvatarWidget) => unknown` | Fired when tool execution fails. |
 | `onBrainFallback` | `(fromEngine: string, toEngine: string, error: unknown) => void` | Fired when brain engine falls back between tiers. |
@@ -1139,14 +1147,14 @@ Register custom tools with complete parameter schema validation:
 import { 
   initAvatarBot, 
   type ToolDefinition, 
-  type ToolExecutionParams 
+  type ToolExecutePayload 
 } from '@ai-avatar-bot/sdk';
 
 interface WeatherArgs {
   city: string;
 }
 
-const weatherTool: ToolDefinition = {
+const weatherTool: ToolDefinition<WeatherArgs> = {
   name: 'get_weather',
   label: 'Check Weather',
   description: 'Retrieve real-time weather information for a specific city.',
@@ -1164,8 +1172,8 @@ const weatherTool: ToolDefinition = {
     },
     required: ['city']
   },
-  execute: async ({ args }: ToolExecutionParams) => {
-    const { city } = args as unknown as WeatherArgs;
+  execute: async ({ args }: ToolExecutePayload<WeatherArgs>) => {
+    const { city } = args;
     const res = await fetch(`https://api.example.com/weather?city=${encodeURIComponent(city)}`);
     const data = await res.json();
     return `Current weather in ${city}: ${data.condition}, ${data.temperature}°C.`;
@@ -1418,14 +1426,14 @@ widget.speechEngine?.subscribe('isSpeaking', (speaking: boolean) => {
 ### Root Exports (`@ai-avatar-bot/sdk`)
 
 * **Orchestrator**: `AvatarBotOptions`, `AiAvatarWidget`, `AvatarBotStore`, `AvatarBotStoreState`, `CustomEnginesConfig`, `OrchestratorEngines`
-* **Sub-Engines**: `BrainEngine`, `BrainEngineOptions`, `SpeechEngine`, `SpeechEngineOptions`, `SkinEngine`, `SkinEngineOptions`, `ToolsEngine`, `ToolsEngineSetting`, `I18nEngine`, `I18nEngineOptions`, `UiDom`, `UiContext`
+* **Sub-Engines**: `BrainEngine`, `BrainEngineOptions`, `SpeechEngine`, `SpeechEngineOptions`, `SkinEngine`, `SkinEngineOptions`, `ToolsEngine`, `ToolsEngineOptions`, `I18nEngine`, `I18nEngineOptions`, `UiDom`, `UiContext`
 * **Brain & Memory**: `LLMMessage<TContent>`, `BrainCompressionOptions`, `MemoryData`, `MemoryAdapter`, `KnowledgeEntry`, `ChatLogItem`, `ParsedToolCall`, `ChatHistoryItem`, `MemoryInstance`, `PersonaProfile`, `CustomModeConfig`, `ModeMemoryBucket`, `MemoryClearTarget`, `PromptPlaceholder`, `DataFenceTag`, `PROMPT_PLACEHOLDER_MAP`, `DATA_FENCE_TAG_MAP`, `MEMORY_CLEAR_TARGET_MAP`, `CURRENT_MODE_MEMORY_VERSION`, `DEFAULT_ISOLATE_MODE_HISTORY`
 * **AI Provider**: `AiProviderFetchSettingFactory`, `AiProviderFetchPayloadFactory`, `AiProviderToolCallExtractor`, `AiProviderOptions`, `AiProviderEngine`
 * **Skin & Spatial**: `Skin2DConfig`, `Skin3DConfig`, `Skin3DCameraConfig`, `Skin3DModelConfig`, `Renderer2D`, `Renderer3D`, `Point2D`, `Vector2Coord`, `Vector2Tuple`, `Vector2Input`, `Vector3Coord`, `Vector3Tuple`, `Vector3Input`, `Vector3Scale`
-* **Tools**: `ToolDefinition`, `ToolRouteCandidate`, `ToolExecutionParams`, `PendingToolState`
-* **Extensible Literal Unions**: `AvatarMode`, `Gender`, `FitMode`, `EngineMode`, `AutoContinueMode`, `ChatRole`, `ReasoningMode`
+* **Tools**: `ToolDefinition`, `ToolRouteCandidate`, `ToolExecutePayload`, `PendingToolState`, `ToolOfferInfo`, `ToolInputRequiredInfo`, `ToolAmbiguousInfo`, `ToolConfirmInfo`, `ToolCancelInfo`, `ToolExecuteInfo`, `ToolResultData`
+* **Extensible Literal Unions**: `AvatarMode`, `Gender`, `FitMode`, `EngineMode`, `AutoContinueMode`, `ChatRole`, `ReasoningMode`, `ToolEventName`
 * **Resolvers**: `LocalizableOrResolver<T, C>`, `DynamicTextOrResolver<C>`, `AutoContinuePromptResolver`
-* **Events & Reasoning**: `AutoContinueStartInfo`, `AutoContinueResumeInfo`, `AutoContinueEndInfo`, `ToolNotFoundErrorInfo`, `ToolErrorInfo`, `LlmLoadProgressInfo`, `ReasoningOptions`, `ReasoningStartInfo`, `ReasoningChunkInfo`, `ReasoningEndInfo`, `LlmOomFallbackInfo`
+* **Events & Reasoning**: `AutoContinueStartInfo`, `AutoContinueResumeInfo`, `AutoContinueEndInfo`, `ToolNotFoundErrorInfo`, `ToolErrorInfo`, `ToolOfferInfo`, `ToolInputRequiredInfo`, `ToolAmbiguousInfo`, `ToolConfirmInfo`, `ToolCancelInfo`, `ToolExecuteInfo`, `LlmLoadProgressInfo`, `ReasoningOptions`, `ReasoningStartInfo`, `ReasoningChunkInfo`, `ReasoningEndInfo`, `LlmOomFallbackInfo`
 
 ---
 

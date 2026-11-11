@@ -58,7 +58,7 @@ export const KNOWLEDGE = [
   },
   {
     q: '怎麼使用 Function Calling 工具調用',
-    kw: '工具 外部工具 function calling tools 擴充 api 查詢 呼叫 hostTools 技能 動作 自訂工具 怎麼使用工具調用 工具調用',
+    kw: '工具 外部工具 function calling tools 擴充 api 查詢 呼叫 技能 動作 自訂工具 怎麼使用工具調用 工具調用',
     a: '在初始化選項的 tools 陣列中定義工具名稱、描述與執行函式。支援前端純關鍵字匹配、AI 語意調用與雙軌混合模式，還支援使用者授權確認彈窗。'
   },
   {

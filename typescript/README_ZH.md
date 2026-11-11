@@ -570,7 +570,7 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 
 | 選項名稱 | 型別定義 | 預設值 | 說明 |
 | :--- | :--- | :--- | :--- |
-| `tools` / `hostTools` | `ToolDefinition[]` | `[]` | 註冊至 Function Calling 引擎的型別化工具清單。 |
+| `tools` | `ToolDefinition[]` | `[]` | 註冊至 Function Calling 引擎的型別化工具清單。 |
 | `enableEmotionTools` | `boolean` | `true` | 是否啟用內建的情緒手勢動作工具外掛。 |
 | `confirmationTimeoutMs` | `number` | `60000` | 使用者授權確認對話框的超時毫秒數。 |
 
@@ -593,7 +593,15 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `onAutoContinueEnd` | `(info: AutoContinueEndInfo) => void` | 接續迴圈完全結束時觸發。 |
 | `onAddChatMessage` | `(role: ChatRole, text: string) => void` | 新對話訊息加入面板時觸發。 |
 | `onMicStateChanged` | `(isListening: boolean) => void` | 麥克風錄音狀態切換時觸發。 |
-| `onToolCall` | `(toolCall: ParsedToolCall) => void` | 工具被調用執行時觸發。 |
+| `onToolCall` | `(pendingToolData: Record<string, unknown>, widget?: AiAvatarWidget) => void` | 當工具觸發執行且未提供內聯 execute 處理函式時觸發。 |
+| `onToolOffer` | `(info: ToolOfferInfo, widget?: AiAvatarWidget) => void` | 向使用者提出工具執行提議（需確認或直接執行）時觸發。 |
+| `onToolInputRequired` | `(info: ToolInputRequiredInfo, widget?: AiAvatarWidget) => void` | 工具缺少必填參數需使用者補充輸入時觸發。 |
+| `onToolAmbiguous` | `(info: ToolAmbiguousInfo, widget?: AiAvatarWidget) => void` | 多個候選工具評分相近、呈現多選一選項時觸發。 |
+| `onToolConfirm` | `(info: ToolConfirmInfo, widget?: AiAvatarWidget) => void` | 使用者確認執行暫存工具時觸發。 |
+| `onToolCancel` | `(info: ToolCancelInfo, widget?: AiAvatarWidget) => void` | 暫存工具遭取消、超時或被新輸入覆蓋時觸發。 |
+| `onToolExecute` | `(info: ToolExecuteInfo, widget?: AiAvatarWidget) => void` | 工具正式開始執行回呼時觸發。 |
+| `onToolResult` | `(info: ToolResultData, widget?: AiAvatarWidget) => void` | 工具執行完成並產生結果資料時觸發。 |
+| `onToolEvent` | `(event: ToolEventName, payload: unknown, widget?: AiAvatarWidget) => void` | 任何 `TOOL_EVENT_MAP` 生命週期事件發生時之統一回呼。 |
 | `onToolNotFound` | `(info: ToolNotFoundErrorInfo, widget: AiAvatarWidget) => unknown` | 模型調用未註冊工具時觸發（可回傳自訂訊息給模型）。 |
 | `onToolError` | `(info: ToolErrorInfo, widget: AiAvatarWidget) => unknown` | 工具執行發生例外時觸發（可回傳自訂錯誤給模型）。 |
 | `onBrainFallback` | `(fromEngine: string, toEngine: string, error: unknown) => void` | 大腦引擎在層級之間降級切換時觸發。 |
@@ -1141,14 +1149,14 @@ const customModes: Record<string, CustomModeConfig> = {
 import { 
   initAvatarBot, 
   type ToolDefinition, 
-  type ToolExecutionParams 
+  type ToolExecutePayload 
 } from '@ai-avatar-bot/sdk';
 
 interface WeatherArgs {
   city: string;
 }
 
-const weatherTool: ToolDefinition = {
+const weatherTool: ToolDefinition<WeatherArgs> = {
   name: 'get_weather',
   label: '查詢天氣',
   description: '查詢特定城市的即時氣溫與天氣狀況。',
@@ -1166,8 +1174,8 @@ const weatherTool: ToolDefinition = {
     },
     required: ['city']
   },
-  execute: async ({ args }: ToolExecutionParams) => {
-    const { city } = args as unknown as WeatherArgs;
+  execute: async ({ args }: ToolExecutePayload<WeatherArgs>) => {
+    const { city } = args;
     const res = await fetch(`https://api.example.com/weather?city=${encodeURIComponent(city)}`);
     const data = await res.json();
     return `${city} 目前天氣：${data.condition}，氣溫 ${data.temperature}°C。`;
@@ -1420,14 +1428,14 @@ widget.speechEngine?.subscribe('isSpeaking', (speaking: boolean) => {
 ### 核心導出 (`@ai-avatar-bot/sdk`)
 
 * **協調器核心 (Orchestrator)**：`AvatarBotOptions`, `AiAvatarWidget`, `AvatarBotStore`, `AvatarBotStoreState`, `CustomEnginesConfig`, `OrchestratorEngines`
-* **各子引擎介面**：`BrainEngine`, `BrainEngineOptions`, `SpeechEngine`, `SpeechEngineOptions`, `SkinEngine`, `SkinEngineOptions`, `ToolsEngine`, `ToolsEngineSetting`, `I18nEngine`, `I18nEngineOptions`, `UiDom`, `UiContext`
+* **各子引擎介面**：`BrainEngine`, `BrainEngineOptions`, `SpeechEngine`, `SpeechEngineOptions`, `SkinEngine`, `SkinEngineOptions`, `ToolsEngine`, `ToolsEngineOptions`, `I18nEngine`, `I18nEngineOptions`, `UiDom`, `UiContext`
 * **大腦與記憶**：`LLMMessage<TContent>`, `BrainCompressionOptions`, `MemoryData`, `MemoryAdapter`, `KnowledgeEntry`, `ChatLogItem`, `ParsedToolCall`, `ChatHistoryItem`, `MemoryInstance`, `PersonaProfile`, `CustomModeConfig`, `ModeMemoryBucket`, `MemoryClearTarget`, `PromptPlaceholder`, `DataFenceTag`, `PROMPT_PLACEHOLDER_MAP`, `DATA_FENCE_TAG_MAP`, `MEMORY_CLEAR_TARGET_MAP`, `CURRENT_MODE_MEMORY_VERSION`, `DEFAULT_ISOLATE_MODE_HISTORY`
 * **AI Provider**：`AiProviderFetchSettingFactory`, `AiProviderFetchPayloadFactory`, `AiProviderToolCallExtractor`, `AiProviderOptions`, `AiProviderEngine`
 * **外觀與幾何座標**：`Skin2DConfig`, `Skin3DConfig`, `Skin3DCameraConfig`, `Skin3DModelConfig`, `Renderer2D`, `Renderer3D`, `Point2D`, `Vector2Coord`, `Vector2Tuple`, `Vector2Input`, `Vector3Coord`, `Vector3Tuple`, `Vector3Input`, `Vector3Scale`
-* **工具管理**：`ToolDefinition`, `ToolRouteCandidate`, `ToolExecutionParams`, `PendingToolState`
-* **可擴充字面量聯集**：`AvatarMode`, `Gender`, `FitMode`, `EngineMode`, `AutoContinueMode`, `ChatRole`, `ReasoningMode`
+* **工具管理**：`ToolDefinition`, `ToolRouteCandidate`, `ToolExecutePayload`, `PendingToolState`, `ToolOfferInfo`, `ToolInputRequiredInfo`, `ToolAmbiguousInfo`, `ToolConfirmInfo`, `ToolCancelInfo`, `ToolExecuteInfo`, `ToolResultData`
+* **可擴充字面量聯集**：`AvatarMode`, `Gender`, `FitMode`, `EngineMode`, `AutoContinueMode`, `ChatRole`, `ReasoningMode`, `ToolEventName`
 * **動態解析型別**：`LocalizableOrResolver<T, C>`, `DynamicTextOrResolver<C>`, `AutoContinuePromptResolver`
-* **事件 Payload 與推論**：`AutoContinueStartInfo`, `AutoContinueResumeInfo`, `AutoContinueEndInfo`, `ToolNotFoundErrorInfo`, `ToolErrorInfo`, `LlmLoadProgressInfo`, `ReasoningOptions`, `ReasoningStartInfo`, `ReasoningChunkInfo`, `ReasoningEndInfo`, `LlmOomFallbackInfo`
+* **事件 Payload 與推論**：`AutoContinueStartInfo`, `AutoContinueResumeInfo`, `AutoContinueEndInfo`, `ToolNotFoundErrorInfo`, `ToolErrorInfo`, `ToolOfferInfo`, `ToolInputRequiredInfo`, `ToolAmbiguousInfo`, `ToolConfirmInfo`, `ToolCancelInfo`, `ToolExecuteInfo`, `LlmLoadProgressInfo`, `ReasoningOptions`, `ReasoningStartInfo`, `ReasoningChunkInfo`, `ReasoningEndInfo`, `LlmOomFallbackInfo`
 
 ---
 
