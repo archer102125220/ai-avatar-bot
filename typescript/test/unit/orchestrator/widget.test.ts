@@ -145,7 +145,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
         setIsSpeaking: vi.fn()
       },
       toolsEngine: {
-        HOST_TOOLS: []
+        tools: []
       }
     };
 
@@ -713,7 +713,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
       },
       speechEngine: null,
       skinEngine: null,
-      toolsEngine: { HOST_TOOLS: [] }
+      toolsEngine: { tools: [] }
     };
 
     const widget = createAvatarWidget({
@@ -730,7 +730,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
       handleUser: mockHandleUser
     });
 
-    expect(widget.toolsEngine).toEqual({ HOST_TOOLS: [] });
+    expect(widget.toolsEngine).toEqual({ tools: [] });
     expect(widget.buildLLMMessages?.()).toEqual([
       { role: 'system', content: 'default' }
     ]);

@@ -173,14 +173,6 @@ export interface ToolDefinition<
 }
 
 /**
- * Alias for ToolDefinition representing host tools registered on the avatar bot.
- */
-export type HostTool<
-  TArgs extends Record<string, unknown> = Record<string, unknown>,
-  TResult = unknown
-> = ToolDefinition<TArgs, TResult>;
-
-/**
  * Scoring evaluation result for a tool against a user query.
  */
 export interface ToolScoreResult {
@@ -391,8 +383,6 @@ export interface ToolsEngineOptions {
 export interface ToolsEngine {
   /** Registered tool definitions. */
   tools: ToolDefinition[];
-  /** Registered host tool definitions (retained temporarily for Phase 2 orchestrator compatibility). */
-  HOST_TOOLS: ToolDefinition[];
   /** Active tool pending missing parameter input. */
   pendingToolInput: PendingToolInput | null;
   /** Active ambiguous tool choices pending user selection. */
@@ -423,8 +413,6 @@ export interface ToolsEngine {
   getToolByName(name: string): ToolDefinition | null;
   /** Routes query to the best tool candidate. */
   routeTool(queryText: string): ToolRouteResult;
-  /** Routes query to the best host tool candidate (retained temporarily for Phase 2 orchestrator compatibility). */
-  routeHostTool(queryText: string): ToolRouteResult;
   /** Gets tools available for AI model calling. */
   getAiAvailableTools(): ToolDefinition[];
   /** Converts tools to OpenAI-compatible function calling schemas. */
@@ -457,14 +445,6 @@ export interface ToolsEngine {
   chooseTool(messageId: string, choiceIndex: number): void;
   /** Offers tool execution confirmation or executes directly. */
   offerTool(
-    tool: ToolDefinition,
-    query: string,
-    routeMeta?: Record<string, unknown> | null,
-    args?: Record<string, unknown>,
-    options?: Record<string, unknown>
-  ): void;
-  /** Offers host tool execution confirmation or executes directly (retained temporarily for Phase 2 orchestrator compatibility). */
-  offerHostTool(
     tool: ToolDefinition,
     query: string,
     routeMeta?: Record<string, unknown> | null,

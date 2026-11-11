@@ -10,7 +10,6 @@ import type {
   BrainCompressionOptions,
   LLMMessage,
   ChatLogItem,
-  ParsedToolCall,
   AiProviderFetchSettingFactory,
   AiProviderFetchPayloadFactory,
   AiProviderToolCallExtractor
@@ -35,7 +34,15 @@ import type {
 import type {
   ToolsEngine,
   ToolsEngineOptions,
-  ToolDefinition
+  ToolDefinition,
+  ToolEventName,
+  ToolOfferInfo,
+  ToolInputRequiredInfo,
+  ToolAmbiguousInfo,
+  ToolConfirmInfo,
+  ToolCancelInfo,
+  ToolExecuteInfo,
+  ToolResultData
 } from '@/core/tools';
 import type { UiDom, UiContext } from '@/core/ui';
 import type { BaseStore } from '@/core/store';
@@ -316,16 +323,12 @@ export interface AvatarBotOptions {
    * @experimental AI reasoning output is currently an experimental feature and stability may vary across models and runtimes.
    */
   reasoning?: ReasoningOptions;
-  /** Alias for tools. */
-  hostTools?: ToolDefinition[];
   /** Whether to enable built-in emotion tool plugin. */
   enableEmotionTools?: boolean;
   /** Options for built-in emotion tool plugin. */
   emotionToolsOptions?: Record<string, unknown>;
   /** Tool confirmation timeout in milliseconds. */
   confirmationTimeoutMs?: number;
-  /** Alias for confirmationTimeoutMs. */
-  toolConfirmationTimeoutMs?: number;
   /** Custom message builder function for LLM inference. */
   buildLLMMessages?: (
     ...args: unknown[]
@@ -469,9 +472,59 @@ export interface AvatarBotOptions {
     error: unknown,
     ...args: unknown[]
   ) => void;
-  /** Callback fired when a tool call is executed. */
+  /** Callback fired when a tool is triggered for execution without an inline execute handler. */
   onToolCall?: (
-    toolCall: ParsedToolCall | Record<string, unknown>,
+    pendingToolData: Record<string, unknown>,
+    widget?: AiAvatarWidget,
+    ...args: unknown[]
+  ) => void;
+  /** Callback fired when a tool execution is offered. */
+  onToolOffer?: (
+    info: ToolOfferInfo,
+    widget?: AiAvatarWidget,
+    ...args: unknown[]
+  ) => void;
+  /** Callback fired when a tool requires missing parameter input from the user. */
+  onToolInputRequired?: (
+    info: ToolInputRequiredInfo,
+    widget?: AiAvatarWidget,
+    ...args: unknown[]
+  ) => void;
+  /** Callback fired when multiple candidate tools match ambiguously. */
+  onToolAmbiguous?: (
+    info: ToolAmbiguousInfo,
+    widget?: AiAvatarWidget,
+    ...args: unknown[]
+  ) => void;
+  /** Callback fired when a tool execution is confirmed by the user. */
+  onToolConfirm?: (
+    info: ToolConfirmInfo,
+    widget?: AiAvatarWidget,
+    ...args: unknown[]
+  ) => void;
+  /** Callback fired when a tool is cancelled or expires. */
+  onToolCancel?: (
+    info: ToolCancelInfo,
+    widget?: AiAvatarWidget,
+    ...args: unknown[]
+  ) => void;
+  /** Callback fired when a tool starts executing. */
+  onToolExecute?: (
+    info: ToolExecuteInfo,
+    widget?: AiAvatarWidget,
+    ...args: unknown[]
+  ) => void;
+  /** Callback fired when a tool execution completes or yields a result. */
+  onToolResult?: (
+    info: ToolResultData,
+    widget?: AiAvatarWidget,
+    ...args: unknown[]
+  ) => void;
+  /** Unified callback fired for any tool lifecycle event in TOOL_EVENT_MAP. */
+  onToolEvent?: (
+    event: ToolEventName,
+    payload: unknown,
+    widget?: AiAvatarWidget,
     ...args: unknown[]
   ) => void;
   /** Callback fired when AI requests an unregistered tool. */
@@ -716,6 +769,14 @@ export type {
   ToolsEngine,
   ToolsEngineOptions,
   ToolDefinition,
+  ToolEventName,
+  ToolOfferInfo,
+  ToolInputRequiredInfo,
+  ToolAmbiguousInfo,
+  ToolConfirmInfo,
+  ToolCancelInfo,
+  ToolExecuteInfo,
+  ToolResultData,
   UiDom,
   UiContext,
   BaseStore,

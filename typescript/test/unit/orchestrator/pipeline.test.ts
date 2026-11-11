@@ -91,7 +91,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
         continueToolConfirmation: vi.fn(() => false),
         continueToolChoice: vi.fn(() => false),
         continueToolInput: vi.fn(() => false),
-        routeHostTool: vi.fn((_text?: string) => ({
+        routeTool: vi.fn((_text?: string) => ({
           match: null as unknown,
           ambiguous: [] as unknown[]
         })),
@@ -230,7 +230,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
     it('should route tools and trigger prepareTool or offerToolChoices if matched', () => {
       // 1. Tool match
-      mockEngines.toolsEngine.routeHostTool = vi.fn(() => ({
+      mockEngines.toolsEngine.routeTool = vi.fn(() => ({
         match: { tool: { name: 'search' }, score: 0.9, reason: 'keyword' },
         ambiguous: []
       }));
@@ -245,6 +245,13 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
       handleUser('搜尋台北天氣');
       expect(mockEngines.toolsEngine.prepareTool).toHaveBeenCalled();
+      expect(mockEngines.toolsEngine.prepareTool.mock.calls[0][3]).toEqual({});
+      expect(mockEngines.toolsEngine.prepareTool.mock.calls[0][4]).toEqual(
+        expect.objectContaining({
+          skinEngine: mockEngines.skinEngine,
+          brainEngine: mockEngines.brainEngine
+        })
+      );
       expect(mockEngines.brainEngine.answerQuestion).not.toHaveBeenCalled();
 
       // Test widget fallback when getWidget is not provided
@@ -259,7 +266,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
       expect(mockEngines.toolsEngine.prepareTool).toHaveBeenCalled();
 
       // 2. Ambiguous tool choice
-      mockEngines.toolsEngine.routeHostTool = vi.fn(() => ({
+      mockEngines.toolsEngine.routeTool = vi.fn(() => ({
         match: null,
         ambiguous: [{ tool: { name: 'a' } }, { tool: { name: 'b' } }]
       }));
@@ -970,8 +977,8 @@ describe('Orchestrator Pipelines & Interactions', () => {
         '好，我把記憶都清掉了'
       );
 
-      // 2. Host tool ambiguous routing
-      mockEngines.toolsEngine.routeHostTool = vi.fn().mockReturnValue({
+      // 2. Tool ambiguous routing
+      mockEngines.toolsEngine.routeTool = vi.fn().mockReturnValue({
         ambiguous: [{ name: 'tool_1' }, { name: 'tool_2' }],
         match: null
       });
@@ -979,8 +986,8 @@ describe('Orchestrator Pipelines & Interactions', () => {
       handleUserMessage('搜尋');
       expect(mockEngines.toolsEngine.offerToolChoices).toHaveBeenCalled();
 
-      // 3. Host tool exact match routing
-      mockEngines.toolsEngine.routeHostTool = vi.fn().mockReturnValue({
+      // 3. Tool exact match routing
+      mockEngines.toolsEngine.routeTool = vi.fn().mockReturnValue({
         ambiguous: [],
         match: {
           tool: { name: 'weather_tool' },
@@ -993,7 +1000,7 @@ describe('Orchestrator Pipelines & Interactions', () => {
       expect(mockEngines.toolsEngine.prepareTool).toHaveBeenCalled();
 
       // 4. Normal question
-      mockEngines.toolsEngine.routeHostTool = vi.fn().mockReturnValue({
+      mockEngines.toolsEngine.routeTool = vi.fn().mockReturnValue({
         ambiguous: [],
         match: null
       });

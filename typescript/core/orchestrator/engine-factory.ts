@@ -16,10 +16,22 @@ import {
 import { renderHistory, initSkinModeChangeButton, type UiDom } from '@/core/ui';
 import { callOptionEvent } from './options';
 import type { I18nEngine } from '@/core/i18n';
-import type { BrainEngine, BrainCompressionOptions } from '@/core/brain';
+import type { BrainEngine, BrainCompressionOptions, UpdateChatMessageOptions } from '@/core/brain';
 import type { SpeechEngine, SpeechEngineOptions } from '@/core/speech';
 import type { SkinEngine } from '@/core/skin';
-import type { ToolsEngine, HostTool, ToolDefinition } from '@/core/tools';
+import type {
+  ToolsEngine,
+  ToolDefinition,
+  ToolOfferInfo,
+  ToolInputRequiredInfo,
+  ToolAmbiguousInfo,
+  ToolConfirmInfo,
+  ToolCancelInfo,
+  ToolExecuteInfo,
+  ToolResultData,
+  ToolEventName,
+  ToolsEngineOptions
+} from '@/core/tools';
 import type { AiAvatarWidget, AvatarBotOptions, AvatarBotStore } from './types';
 import type { StreamPipeline } from './pipeline-stream';
 
@@ -214,39 +226,58 @@ export async function setupBrainEngine({
       if (
         typeof toolsEngine === 'object' &&
         toolsEngine !== null &&
-        Array.isArray(toolsEngine.HOST_TOOLS) === true &&
-        toolsEngine.HOST_TOOLS.length > 0
+        typeof toolsEngine.getToolByName === 'function'
       ) {
-        return (
-          toolsEngine.HOST_TOOLS.find(
-            (toolItem: HostTool) => toolItem.name === toolName
-          ) || null
-        );
+        return toolsEngine.getToolByName(toolName);
       }
       return null;
     },
     offerToolConfirmation: (
-      tool: HostTool | unknown,
+      tool: ToolDefinition | unknown,
       toolArguments?: unknown,
       toolOptions?: unknown
     ) => {
-      const { toolsEngine } = getEngines();
+      const { toolsEngine, skinEngine, brainEngine, speechEngine } =
+        getEngines();
       if (
         typeof toolsEngine === 'object' &&
         toolsEngine !== null &&
-        typeof toolsEngine.offerHostTool === 'function'
+        typeof toolsEngine.offerTool === 'function'
       ) {
-        toolsEngine.offerHostTool(
-          tool as HostTool,
+        const defaultContext = {
+          skinEngine,
+          brainEngine,
+          speechEngine,
+          aiAvatarWidget: widget,
+          store: rootStore,
+          i18nEngine
+        };
+        const resolvedOptions =
+          typeof toolOptions === 'object' && toolOptions !== null
+            ? {
+                ...(toolOptions as Record<string, unknown>),
+                context: {
+                  ...defaultContext,
+                  ...(typeof (toolOptions as Record<string, unknown>).context ===
+                    'object' &&
+                  (toolOptions as Record<string, unknown>).context !== null
+                    ? ((toolOptions as Record<string, unknown>).context as Record<string, unknown>)
+                    : {})
+                }
+              }
+            : { context: defaultContext };
+
+        toolsEngine.offerTool(
+          tool as ToolDefinition,
           '',
           { confidence: 1, reason: 'ai_tool_call' },
           toolArguments as Record<string, unknown> | undefined,
-          toolOptions as Record<string, unknown> | undefined
+          resolvedOptions
         );
       }
     },
     executeTool: async (
-      tool: HostTool | unknown,
+      tool: ToolDefinition | unknown,
       toolArguments?: unknown,
       toolOptions?: Record<string, unknown> | null
     ) => {
@@ -929,6 +960,8 @@ export async function setupSpeechEngine({
 export interface SetupToolsParams {
   options: AvatarBotOptions;
   widget: AiAvatarWidget;
+  rootStore?: AvatarBotStore;
+  i18nEngine?: I18nEngine | null;
   getEngines: () => {
     brainEngine: BrainEngine | null;
     speechEngine: SpeechEngine | null;
@@ -944,24 +977,133 @@ export interface SetupToolsParams {
 export function setupToolsEngine({
   options,
   widget,
+  rootStore,
+  i18nEngine,
   getEngines,
   getUiDom
 }: SetupToolsParams): ToolsEngine | null {
   const { customEngines = {} } = options;
 
-  const toolsOptions = {
+  const customTools =
+    Array.isArray(options.tools) && options.tools.length > 0
+      ? options.tools
+      : [];
+
+  const emotionTools =
+    options.enableEmotionTools !== false
+      ? createEmotionToolsPlugin(options.emotionToolsOptions || {})
+      : [];
+
+  const initialTools = [...customTools, ...emotionTools];
+
+  const toolsOptions: ToolsEngineOptions = {
+    tools: initialTools,
+    context: () => ({
+      skinEngine: getEngines().skinEngine,
+      brainEngine: getEngines().brainEngine,
+      speechEngine: getEngines().speechEngine,
+      aiAvatarWidget: widget,
+      store: rootStore,
+      i18nEngine
+    }),
     confirmationTimeoutMs:
       typeof options.confirmationTimeoutMs === 'number'
         ? options.confirmationTimeoutMs
-        : typeof options.toolConfirmationTimeoutMs === 'number'
-          ? options.toolConfirmationTimeoutMs
-          : undefined,
-    onToolCall: (pendingToolCall: unknown, ...args: unknown[]) => {
+        : undefined,
+    onToolCall: (
+      pendingToolCall: Record<string, unknown>,
+      ...args: unknown[]
+    ) => {
       return callOptionEvent(
         options,
         widget,
         'onToolCall',
         pendingToolCall,
+        widget,
+        ...args
+      );
+    },
+    onToolOffer: (info: ToolOfferInfo, ...args: unknown[]) => {
+      return callOptionEvent(
+        options,
+        widget,
+        'onToolOffer',
+        info,
+        widget,
+        ...args
+      );
+    },
+    onToolInputRequired: (info: ToolInputRequiredInfo, ...args: unknown[]) => {
+      return callOptionEvent(
+        options,
+        widget,
+        'onToolInputRequired',
+        info,
+        widget,
+        ...args
+      );
+    },
+    onToolAmbiguous: (info: ToolAmbiguousInfo, ...args: unknown[]) => {
+      return callOptionEvent(
+        options,
+        widget,
+        'onToolAmbiguous',
+        info,
+        widget,
+        ...args
+      );
+    },
+    onToolConfirm: (info: ToolConfirmInfo, ...args: unknown[]) => {
+      return callOptionEvent(
+        options,
+        widget,
+        'onToolConfirm',
+        info,
+        widget,
+        ...args
+      );
+    },
+    onToolCancel: (info: ToolCancelInfo, ...args: unknown[]) => {
+      return callOptionEvent(
+        options,
+        widget,
+        'onToolCancel',
+        info,
+        widget,
+        ...args
+      );
+    },
+    onToolExecute: (info: ToolExecuteInfo, ...args: unknown[]) => {
+      return callOptionEvent(
+        options,
+        widget,
+        'onToolExecute',
+        info,
+        widget,
+        ...args
+      );
+    },
+    onToolResult: (info: ToolResultData, ...args: unknown[]) => {
+      return callOptionEvent(
+        options,
+        widget,
+        'onToolResult',
+        info,
+        widget,
+        ...args
+      );
+    },
+    onToolEvent: (
+      event: ToolEventName,
+      payload: unknown,
+      ...args: unknown[]
+    ) => {
+      return callOptionEvent(
+        options,
+        widget,
+        'onToolEvent',
+        event,
+        payload,
         widget,
         ...args
       );
@@ -996,16 +1138,18 @@ export function setupToolsEngine({
     onUpdateChatMessage(
       messageId: string,
       text: string,
-      append?: boolean | { streaming?: boolean; [key: string]: unknown },
+      updateOptions?: boolean | UpdateChatMessageOptions,
       ...args: unknown[]
     ) {
       const { brainEngine } = getEngines();
       if (typeof brainEngine?.updateChatMessage === 'function') {
-        const streamingOption =
-          typeof append === 'object' && append !== null
-            ? append
-            : { streaming: append };
-        return brainEngine.updateChatMessage(messageId, text, streamingOption);
+        const resolvedOptions =
+          typeof updateOptions === 'object' && updateOptions !== null
+            ? updateOptions
+            : typeof updateOptions === 'boolean'
+              ? { streaming: updateOptions }
+              : updateOptions;
+        return brainEngine.updateChatMessage(messageId, text, resolvedOptions);
       }
       callOptionEvent(
         options,
@@ -1013,7 +1157,7 @@ export function setupToolsEngine({
         'onUpdateChatMessage',
         messageId,
         text,
-        append,
+        updateOptions,
         ...args
       );
       return undefined;
@@ -1109,20 +1253,16 @@ export function setupToolsEngine({
     toolsEngine = initToolsEngine(toolsOptions);
   }
 
-  const customTools =
-    Array.isArray(options.tools) && options.tools.length > 0
-      ? options.tools
-      : Array.isArray(options.hostTools) && options.hostTools.length > 0
-        ? options.hostTools
-        : [];
-
-  const emotionTools =
-    options.enableEmotionTools !== false
-      ? createEmotionToolsPlugin(options.emotionToolsOptions || {})
-      : [];
-
-  if (Array.isArray(toolsEngine?.HOST_TOOLS) === true) {
-    toolsEngine.HOST_TOOLS = [...customTools, ...emotionTools];
+  if (toolsEngine !== null) {
+    if (
+      useCustomToolsEngine === true &&
+      Array.isArray(toolsEngine.tools) === true
+    ) {
+      const existingTools = toolsEngine.tools;
+      const existingNames = new Set(existingTools.map((t) => t.name));
+      const toolsToAdd = initialTools.filter((t) => !existingNames.has(t.name));
+      toolsEngine.tools = [...existingTools, ...toolsToAdd];
+    }
   }
 
   return toolsEngine;

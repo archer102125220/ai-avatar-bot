@@ -15,14 +15,14 @@ test.describe('Contract Track A: Tool Calling & Confirmation Flow Specifications
     await page.evaluate(() => {
       interface HarnessWidget {
         toolsEngine: {
-          HOST_TOOLS: Array<{
+          tools: Array<{
             name: string;
             label: string;
             description: string;
             requiresConfirmation: boolean;
             inputSchema: { type: string; properties: Record<string, unknown> };
           }>;
-          offerHostTool: (tool: unknown, query: string) => void;
+          offerTool: (tool: unknown, query: string) => void;
         };
       }
       const win = window as unknown as {
@@ -39,10 +39,10 @@ test.describe('Contract Track A: Tool Calling & Confirmation Flow Specifications
         requiresConfirmation: true,
         inputSchema: { type: 'object', properties: {} }
       };
-      widget.toolsEngine.HOST_TOOLS.push(tool);
+      widget.toolsEngine.tools.push(tool);
 
       // 觸發工具調用
-      widget.toolsEngine.offerHostTool(tool, '測試');
+      widget.toolsEngine.offerTool(tool, '測試');
     });
 
     // 驗證歷史紀錄面板自動展開
@@ -84,14 +84,14 @@ test.describe('Contract Track A: Tool Calling & Confirmation Flow Specifications
           onToolCall?: (pendingCall: PendingCall) => void;
         };
         toolsEngine: {
-          HOST_TOOLS: Array<{
+          tools: Array<{
             name: string;
             label: string;
             description: string;
             requiresConfirmation: boolean;
             inputSchema: { type: string; properties: Record<string, unknown> };
           }>;
-          offerHostTool: (tool: unknown, query: string) => void;
+          offerTool: (tool: unknown, query: string) => void;
           handleToolResult: (result: {
             callId: string;
             ok: boolean;
@@ -123,9 +123,9 @@ test.describe('Contract Track A: Tool Calling & Confirmation Flow Specifications
         requiresConfirmation: true,
         inputSchema: { type: 'object', properties: {} }
       };
-      widget.toolsEngine.HOST_TOOLS.push(tool);
+      widget.toolsEngine.tools.push(tool);
 
-      widget.toolsEngine.offerHostTool(tool, '笑一個');
+      widget.toolsEngine.offerTool(tool, '笑一個');
     });
 
     // 點擊「確認執行」按鈕

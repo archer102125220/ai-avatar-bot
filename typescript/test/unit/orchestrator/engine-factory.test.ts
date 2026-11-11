@@ -146,13 +146,14 @@ interface MockSkinEngine {
 
 interface MockToolsEngine {
   getAiAvailableTools: ReturnType<typeof vi.fn>;
-  HOST_TOOLS: Array<{
+  getToolByName?: ReturnType<typeof vi.fn>;
+  tools: Array<{
     name: string;
     execute: ReturnType<typeof vi.fn>;
     [key: string]: unknown;
   }>;
   executeToolDirectly: ReturnType<typeof vi.fn>;
-  offerHostTool: ReturnType<typeof vi.fn>;
+  offerTool: ReturnType<typeof vi.fn>;
   [key: string]: unknown;
 }
 
@@ -261,13 +262,18 @@ describe('Orchestrator Engine Factory', () => {
       } as unknown as MockSkinEngine,
       toolsEngine: {
         getAiAvailableTools: vi.fn(() => []),
-        HOST_TOOLS: [{ name: 'test_tool', execute: vi.fn() }],
+        getToolByName: vi.fn((name: string) =>
+          name === 'test_tool'
+            ? { name: 'test_tool', execute: vi.fn() }
+            : null
+        ),
+        tools: [{ name: 'test_tool', execute: vi.fn() }],
         executeToolDirectly: vi.fn(async (tool: unknown, args: unknown) => ({
           result: 'ok',
           tool,
           args
         })),
-        offerHostTool: vi.fn()
+        offerTool: vi.fn()
       } as unknown as MockToolsEngine
     };
   });
@@ -423,8 +429,8 @@ describe('Orchestrator Engine Factory', () => {
       });
 
       expect(capturedBrainOptions.getTools()).toEqual([]);
-      expect(capturedBrainOptions.getToolByName('test_tool')).toBe(
-        mockEngines.toolsEngine?.HOST_TOOLS[0]
+      expect(capturedBrainOptions.getToolByName('test_tool')).toEqual(
+        expect.objectContaining({ name: 'test_tool' })
       );
 
       // Test default onBrainFallback
@@ -438,7 +444,7 @@ describe('Orchestrator Engine Factory', () => {
 
       // Test offerToolConfirmation
       capturedBrainOptions.offerToolConfirmation('test_tool', { a: 1 }, {});
-      expect(mockEngines.toolsEngine?.offerHostTool).toHaveBeenCalled();
+      expect(mockEngines.toolsEngine?.offerTool).toHaveBeenCalled();
 
       const execResult = await capturedBrainOptions.executeTool(
         'test_tool',
@@ -1131,25 +1137,25 @@ describe('Orchestrator Engine Factory', () => {
       });
 
       expect(toolsEngine).toBeDefined();
-      expect(Array.isArray(toolsEngine?.HOST_TOOLS)).toBe(true);
-      const toolNames = (toolsEngine?.HOST_TOOLS || []).map(
+      expect(Array.isArray(toolsEngine?.tools)).toBe(true);
+      const toolNames = (toolsEngine?.tools || []).map(
         (t) => (t as { name?: string }).name
       );
       expect(toolNames).toContain('custom_search');
       expect(toolNames).toContain(DEFAULT_EMOTION_TOOL_NAME);
     });
 
-    it('should accept custom tools engine if valid', () => {
+    it('should accept custom tools engine if valid and merge tools', () => {
       const customTools = {
         name: 'CustomTools',
-        HOST_TOOLS: [],
-        routeHostTool: vi.fn(),
+        tools: [{ name: 'preset_tool', execute: vi.fn() }],
+        routeTool: vi.fn(),
         prepareTool: vi.fn(),
         continueToolInput: vi.fn(),
         offerToolChoices: vi.fn(),
         continueToolChoice: vi.fn(),
         chooseTool: vi.fn(),
-        offerHostTool: vi.fn(),
+        offerTool: vi.fn(),
         executePendingTool: vi.fn(),
         cancelPendingTool: vi.fn(),
         continueToolConfirmation: vi.fn(),
@@ -1158,7 +1164,9 @@ describe('Orchestrator Engine Factory', () => {
 
       const toolsEngine = setupToolsEngine({
         options: {
-          customEngines: { tools: customTools as unknown as ToolsEngine }
+          tools: [{ name: 'injected_tool' }],
+          customEngines: { tools: customTools as unknown as ToolsEngine },
+          enableEmotionTools: true
         },
         widget: mockWidget,
         getEngines,
@@ -1166,6 +1174,10 @@ describe('Orchestrator Engine Factory', () => {
       });
 
       expect(toolsEngine).toBe(customTools);
+      const toolNames = customTools.tools.map((t) => t.name);
+      expect(toolNames).toContain('preset_tool');
+      expect(toolNames).toContain('injected_tool');
+      expect(toolNames).toContain(DEFAULT_EMOTION_TOOL_NAME);
     });
 
     it('should test tools callbacks and history toggling in setupToolsEngine', () => {
@@ -1173,14 +1185,14 @@ describe('Orchestrator Engine Factory', () => {
       const customToolsFactory = vi.fn((opts: unknown) => {
         capturedToolsOptions = opts as MockCapturedToolsOptions;
         return {
-          HOST_TOOLS: [],
-          routeHostTool: vi.fn(),
+          tools: [],
+          routeTool: vi.fn(),
           prepareTool: vi.fn(),
           continueToolInput: vi.fn(),
           offerToolChoices: vi.fn(),
           continueToolChoice: vi.fn(),
           chooseTool: vi.fn(),
-          offerHostTool: vi.fn(),
+          offerTool: vi.fn(),
           executePendingTool: vi.fn(),
           cancelPendingTool: vi.fn(),
           continueToolConfirmation: vi.fn(),
@@ -1189,6 +1201,14 @@ describe('Orchestrator Engine Factory', () => {
       });
 
       const onToolCall = vi.fn();
+      const onToolOffer = vi.fn();
+      const onToolInputRequired = vi.fn();
+      const onToolAmbiguous = vi.fn();
+      const onToolConfirm = vi.fn();
+      const onToolCancel = vi.fn();
+      const onToolExecute = vi.fn();
+      const onToolResult = vi.fn();
+      const onToolEvent = vi.fn();
       const onSetHistoryOpen = vi.fn();
       const onRenderHistory = vi.fn();
       const onSpokenAudioPlayNow = vi.fn();
@@ -1203,8 +1223,16 @@ describe('Orchestrator Engine Factory', () => {
       setupToolsEngine({
         options: {
           customEngines: { tools: customToolsFactory },
-          toolConfirmationTimeoutMs: 5000,
+          confirmationTimeoutMs: 5000,
           onToolCall,
+          onToolOffer,
+          onToolInputRequired,
+          onToolAmbiguous,
+          onToolConfirm,
+          onToolCancel,
+          onToolExecute,
+          onToolResult,
+          onToolEvent,
           onSetHistoryOpen,
           onRenderHistory,
           onSpokenAudioPlayNow,
@@ -1217,9 +1245,72 @@ describe('Orchestrator Engine Factory', () => {
 
       expect(capturedToolsOptions.confirmationTimeoutMs).toBe(5000);
 
+      // context getter
+      const contextResolver = capturedToolsOptions.context as () => Record<string, unknown>;
+      const resolvedCtx = contextResolver();
+      expect(resolvedCtx.brainEngine).toBe(mockEngines.brainEngine);
+      expect(resolvedCtx.skinEngine).toBe(mockEngines.skinEngine);
+      expect(resolvedCtx.speechEngine).toBe(mockEngines.speechEngine);
+      expect(resolvedCtx.aiAvatarWidget).toBe(mockWidget);
+
       // onToolCall
       capturedToolsOptions.onToolCall({ name: 'calc' });
       expect(onToolCall).toHaveBeenCalled();
+
+      // Tool event callbacks
+      const untypedOptions = capturedToolsOptions as Record<string, (payload: unknown, extra?: unknown) => void>;
+      untypedOptions.onToolOffer({ name: 'calc', confirmation: true });
+      expect(onToolOffer).toHaveBeenCalledWith(
+        { name: 'calc', confirmation: true },
+        mockWidget
+      );
+
+      untypedOptions.onToolInputRequired({ name: 'calc', field: 'arg' });
+      expect(onToolInputRequired).toHaveBeenCalledWith(
+        { name: 'calc', field: 'arg' },
+        mockWidget
+      );
+
+      untypedOptions.onToolAmbiguous({ names: ['calc', 'time'] });
+      expect(onToolAmbiguous).toHaveBeenCalledWith(
+        { names: ['calc', 'time'] },
+        mockWidget
+      );
+
+      untypedOptions.onToolConfirm({ name: 'calc' });
+      expect(onToolConfirm).toHaveBeenCalledWith(
+        { name: 'calc' },
+        mockWidget
+      );
+
+      untypedOptions.onToolCancel({ name: 'calc', reason: 'user_cancel' });
+      expect(onToolCancel).toHaveBeenCalledWith(
+        { name: 'calc', reason: 'user_cancel' },
+        mockWidget
+      );
+
+      untypedOptions.onToolExecute({ name: 'calc', confirmation: false });
+      expect(onToolExecute).toHaveBeenCalledWith(
+        { name: 'calc', confirmation: false },
+        mockWidget
+      );
+
+      untypedOptions.onToolResult({ callId: 'c1', name: 'calc', ok: true });
+      expect(onToolResult).toHaveBeenCalledWith(
+        { callId: 'c1', name: 'calc', ok: true },
+        mockWidget
+      );
+
+      const eventCaller = capturedToolsOptions.onToolEvent as (
+        event: string,
+        payload: unknown
+      ) => void;
+      eventCaller('tool_offer', { name: 'calc' });
+      expect(onToolEvent).toHaveBeenCalledWith(
+        'tool_offer',
+        { name: 'calc' },
+        mockWidget
+      );
 
       // onAddChatMessage & onUpdateChatMessage
       capturedToolsOptions.onAddChatMessage('assistant', 'Text', {});
@@ -1229,7 +1320,9 @@ describe('Orchestrator Engine Factory', () => {
         {}
       );
 
-      capturedToolsOptions.onUpdateChatMessage('msg_1', 'New Text', false);
+      capturedToolsOptions.onUpdateChatMessage('msg_1', 'New Text', {
+        streaming: false
+      });
       expect(mockEngines.brainEngine.updateChatMessage).toHaveBeenCalledWith(
         'msg_1',
         'New Text',
@@ -1301,14 +1394,14 @@ describe('Orchestrator Engine Factory', () => {
       const customToolsFactory = vi.fn((opts: unknown) => {
         capturedToolsOptions = opts as MockCapturedToolsOptions;
         return {
-          HOST_TOOLS: [],
-          routeHostTool: vi.fn(),
+          tools: [],
+          routeTool: vi.fn(),
           prepareTool: vi.fn(),
           continueToolInput: vi.fn(),
           offerToolChoices: vi.fn(),
           continueToolChoice: vi.fn(),
           chooseTool: vi.fn(),
-          offerHostTool: vi.fn(),
+          offerTool: vi.fn(),
           executePendingTool: vi.fn(),
           cancelPendingTool: vi.fn(),
           continueToolConfirmation: vi.fn(),

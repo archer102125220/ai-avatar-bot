@@ -169,6 +169,8 @@ export async function initAvatarBot(
   toolsEngine = setupToolsEngine({
     options,
     widget: aiAvatarWidget,
+    rootStore,
+    i18nEngine,
     getEngines,
     getUiDom
   });

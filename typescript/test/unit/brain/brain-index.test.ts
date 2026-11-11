@@ -16,6 +16,7 @@ import {
   COMPRESSION_STRATEGY_MAP
 } from '@/core/constants';
 import type { BrainEngine, AiProviderEngine, KnowledgeEntry } from '@core';
+import type { ToolExecutePayload } from '@/core/tools';
 
 describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', () => {
   beforeEach(() => {
@@ -834,13 +835,82 @@ describe('Unit Test: core/brain/index.js (Brain Engine Deep Branch Coverage)', (
 
       // 4. tools static configuration support
       expect(brainEngine.getTools?.()).toHaveLength(1);
-      expect(brainEngine.getToolByName?.('calc')?.name).toBe('calc');
+      const calcTool = brainEngine.getToolByName?.('calc');
+      expect(calcTool?.name).toBe('calc');
+      expect(calcTool?.label).toBe('calc');
 
       // 5. assistantKnowledge and assistantKnowledgeUrl initialization
       expect(brainEngine.assistantKnowledge).toHaveLength(1);
       expect(brainEngine.assistantKnowledgeUrl).toBe(
         'https://example.com/assistant.json'
       );
+    });
+
+    it('should normalize static tools and provide fallback executeTool for standalone brain engine', async () => {
+      const executeMock = vi.fn(
+        async (
+          payload:
+            | ToolExecutePayload<Record<string, unknown>>
+            | Record<string, unknown>
+        ) => {
+          const args: Record<string, unknown> =
+            'args' in payload &&
+            typeof payload.args === 'object' &&
+            payload.args !== null
+              ? (payload.args as Record<string, unknown>)
+              : (payload as Record<string, unknown>);
+          const context =
+            'context' in payload && typeof payload.context === 'object'
+              ? payload.context
+              : undefined;
+          return {
+            sum: Number(args['a']) + Number(args['b']),
+            hasBrain:
+              typeof context === 'object' &&
+              context !== null &&
+              'brainEngine' in context
+          };
+        }
+      );
+
+      const standaloneBrain: BrainEngine = await initBrainEngine({
+        tools: [
+          {
+            name: 'add_numbers',
+            execute: executeMock
+          }
+        ]
+      });
+
+      const normalizedTool = standaloneBrain.getToolByName?.('add_numbers');
+      expect(normalizedTool).toBeDefined();
+      expect(normalizedTool?.name).toBe('add_numbers');
+      expect(normalizedTool?.label).toBe('add_numbers');
+
+      const resultByName = await standaloneBrain.executeTool?.(
+        'add_numbers',
+        { a: 5, b: 7 }
+      );
+      expect(executeMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: { a: 5, b: 7 },
+          context: expect.objectContaining({ brainEngine: standaloneBrain }),
+          query: ''
+        })
+      );
+      expect(resultByName).toEqual({ sum: 12, hasBrain: true });
+
+      const resultByObj = await standaloneBrain.executeTool?.(
+        normalizedTool!,
+        { a: 20, b: 30 }
+      );
+      expect(resultByObj).toEqual({ sum: 50, hasBrain: true });
+
+      const missingResult = await standaloneBrain.executeTool?.(
+        'non_existent',
+        {}
+      );
+      expect(missingResult).toBeNull();
     });
 
     it('should fire onSummarizingChange during memory background rolling summarization', async () => {

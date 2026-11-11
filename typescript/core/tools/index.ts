@@ -1030,12 +1030,6 @@ export function initToolsEngine(options: ToolsEngineOptions = {}): ToolsEngine {
     set tools(value: ToolDefinition[]) {
       registeredTools = Array.isArray(value) ? value : [];
     },
-    get HOST_TOOLS(): ToolDefinition[] {
-      return registeredTools;
-    },
-    set HOST_TOOLS(value: ToolDefinition[]) {
-      registeredTools = Array.isArray(value) ? value : [];
-    },
     pendingToolInput: null,
     pendingToolChoice: null,
     pendingToolConfirmation: null,
@@ -1071,7 +1065,6 @@ export function initToolsEngine(options: ToolsEngineOptions = {}): ToolsEngine {
 
     getToolByName,
     routeTool,
-    routeHostTool: routeTool,
     getAiAvailableTools: () => getAiAvailableTools(toolsEngine.tools),
     toOpenAiTools: () => toOpenAiTools(toolsEngine.tools),
     parameterPrompt,
@@ -1081,7 +1074,6 @@ export function initToolsEngine(options: ToolsEngineOptions = {}): ToolsEngine {
     continueToolChoice,
     chooseTool,
     offerTool,
-    offerHostTool: offerTool,
     executePendingTool,
     cancelPendingTool,
     continueToolConfirmation,
@@ -1121,24 +1113,6 @@ export function validateToolsEngine(engine: unknown): {
   ];
   const missingMethods: string[] = [];
   requiredMethods.forEach((methodName) => {
-    if (methodName === 'routeTool') {
-      if (
-        typeof engineObj.routeTool !== 'function' &&
-        typeof engineObj.routeHostTool !== 'function'
-      ) {
-        missingMethods.push(methodName);
-      }
-      return;
-    }
-    if (methodName === 'offerTool') {
-      if (
-        typeof engineObj.offerTool !== 'function' &&
-        typeof engineObj.offerHostTool !== 'function'
-      ) {
-        missingMethods.push(methodName);
-      }
-      return;
-    }
     if (typeof engineObj[methodName] !== 'function') {
       missingMethods.push(methodName);
     }

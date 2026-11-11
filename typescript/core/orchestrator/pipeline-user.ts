@@ -112,9 +112,9 @@ export function createUserPipeline({
     if (
       toolsEngine !== null &&
       typeof toolsEngine === 'object' &&
-      typeof toolsEngine.routeHostTool === 'function'
+      typeof toolsEngine.routeTool === 'function'
     ) {
-      const routedTool = toolsEngine.routeHostTool(text);
+      const routedTool = toolsEngine.routeTool(text);
       if (
         Array.isArray(routedTool.ambiguous) === true &&
         routedTool.ambiguous.length > 0
@@ -122,7 +122,14 @@ export function createUserPipeline({
         if (speechEngine !== null && typeof speechEngine === 'object') {
           speechEngine.isProcessing = false;
         }
-        toolsEngine.offerToolChoices(text, routedTool.ambiguous);
+        toolsEngine.offerToolChoices(text, routedTool.ambiguous, {
+          skinEngine,
+          brainEngine,
+          speechEngine,
+          aiAvatarWidget: resolveWidget(),
+          store: rootStore,
+          i18nEngine
+        });
         return;
       }
       if (typeof routedTool.match === 'object' && routedTool.match !== null) {
@@ -136,6 +143,7 @@ export function createUserPipeline({
             confidence: routedTool.match.score,
             reason: routedTool.match.reason
           },
+          {},
           {
             skinEngine,
             brainEngine,

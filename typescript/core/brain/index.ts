@@ -25,7 +25,7 @@ import {
   LLM_FINISH_REASON_MAP,
   FINISH_REASON_MAP
 } from '@/core/constants';
-import type { ToolDefinition } from '@/core/tools';
+import { normalizeTool, type ToolDefinition } from '@/core/tools';
 import type {
   ReasoningStartInfo,
   ReasoningChunkInfo,
@@ -288,7 +288,7 @@ export async function initBrainEngine(
   let aiProvider: AiProviderEngine | null = null;
 
   const resolvedToolsList = Array.isArray(staticTools)
-    ? staticTools
+    ? staticTools.map((toolItem) => normalizeTool(toolItem))
     : undefined;
   const resolvedGetTools =
     typeof getTools === 'function'
@@ -457,7 +457,32 @@ export async function initBrainEngine(
       typeof offerToolConfirmation === 'function'
         ? offerToolConfirmation
         : null,
-    executeTool: typeof executeTool === 'function' ? executeTool : null,
+    executeTool:
+      typeof executeTool === 'function'
+        ? executeTool
+        : async (
+            tool: ToolDefinition | string,
+            args: Record<string, unknown>,
+            _options?: unknown
+          ): Promise<unknown> => {
+            const targetTool =
+              typeof tool === 'string' &&
+              typeof resolvedGetToolByName === 'function'
+                ? resolvedGetToolByName(tool)
+                : tool;
+            if (
+              typeof targetTool === 'object' &&
+              targetTool !== null &&
+              typeof targetTool.execute === 'function'
+            ) {
+              return await targetTool.execute({
+                args,
+                context: { brainEngine },
+                query: ''
+              });
+            }
+            return null;
+          },
 
     onLlmLoading: null,
     onLlmLoadProgress: null,

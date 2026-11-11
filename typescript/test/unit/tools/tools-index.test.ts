@@ -388,7 +388,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
         getChatSeq: () => 1
       });
 
-      engine.offerHostTool(
+      engine.offerTool(
         confirmTool,
         '刪除檔案',
         { reason: 'test' },
@@ -533,7 +533,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
         inputSchema: { type: 'object', properties: {} }
       };
 
-      engine.offerHostTool(
+      engine.offerTool(
         timeoutTool,
         '危險操作',
         {},
@@ -817,14 +817,14 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
       engine.chooseTool('missing_id', 0);
       engine.chooseTool('choice_msg_1', 99);
 
-      // 6. Test offerHostTool without confirmation and with confirmation timer timeout
+      // 6. Test offerTool without confirmation and with confirmation timer timeout
       const autoTool = {
         name: 'auto_tool',
         label: '自動工具',
         requiresConfirmation: false,
         execute: vi.fn(async () => 'Done auto')
       };
-      engine.offerHostTool(
+      engine.offerTool(
         autoTool,
         '查詢',
         {},
@@ -843,7 +843,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
         requiresConfirmation: true,
         confirmationTimeoutMs: 3000
       };
-      engine.offerHostTool(
+      engine.offerTool(
         confirmTool,
         '查詢',
         {},
@@ -900,7 +900,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
         resultMode: 'direct',
         execute: vi.fn().mockResolvedValue({ val: 42 })
       };
-      engine.offerHostTool(directTool, '計算', {}, {}, { onConfirmResume });
+      engine.offerTool(directTool, '計算', {}, {}, { onConfirmResume });
       await new Promise((r) => setTimeout(r, 20));
       expect(onConfirmResume).toHaveBeenCalledWith({ val: 42 });
 
@@ -913,7 +913,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
         execute: vi.fn().mockRejectedValue(new Error('Calculation failed'))
       };
       const onConfirmErrorResume = vi.fn();
-      engine.offerHostTool(
+      engine.offerTool(
         throwingDirectTool,
         '算錯',
         {},
@@ -1133,7 +1133,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
         label: '取得時間',
         execute: vi.fn().mockResolvedValue('現在是早上 10 點')
       };
-      engine.offerHostTool(
+      engine.offerTool(
         directTool,
         '幾點',
         null,
@@ -1156,7 +1156,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
         execute: vi.fn().mockRejectedValue(new Error('硬體錯誤'))
       };
 
-      engine.offerHostTool(
+      engine.offerTool(
         failingTool,
         '執行失敗工具',
         null,
