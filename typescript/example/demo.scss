@@ -459,14 +459,19 @@
 
   /* ===== Spatial Page Layout (Reserves Dedicated Stage Lane on Wide Screens) ===== */
   .demo-layout {
+    display: flex;
+    justify-content: center;
+    flex-direction: row;
+    align-items: flex-start;
+
     max-inline-size: 1240px;
     margin-inline: auto;
     padding-inline: clamp(16px, 3vw, 28px);
     padding-block-start: clamp(24px, 4vw, 44px);
     padding-block-end: 108px;
 
-    &__main {
-      container-type: inline-size;
+    &-main {
+      // container-type: inline-size;
       max-inline-size: 800px;
       margin-inline: auto;
       display: flex;
@@ -476,6 +481,67 @@
       @media (min-width: 1180px) {
         margin-inline: 0;
         max-inline-size: 760px;
+      }
+    }
+
+    &-app {
+      --app_stage_width: min(364px, 100vw - 24px);
+      --app_stage_height: min(520px, 100dvh - 84px);
+      min-width: var(--app_stage_width);
+      min-height: var(--app_stage_height);
+
+      @media (min-width: 1180px) {
+        --app_stage_width: 24px;
+        --app_stage_height: 384px;
+      }
+
+      @media (max-width: 960px) {
+        min-width: unset;
+        min-height: unset;
+      }
+
+      /* ===== Floating / Docked Avatar Widget Stage (#app) ===== */
+      &-stage {
+        position: fixed;
+        inset-inline-end: max(12px, env(safe-area-inset-right));
+        inset-block-end: max(12px, env(safe-area-inset-bottom));
+        z-index: 1000;
+        inline-size: var(--app_stage_width, min(364px, calc(100vw - 24px)));
+        block-size: var(--app_stage_height, min(520px, calc(100dvh - 84px)));
+        border-radius: 24px;
+        color-scheme: light;
+        transition:
+          background-color 0.25s ease,
+          box-shadow 0.25s ease,
+          border-color 0.25s ease;
+
+        @media (min-width: 1180px) {
+          inset-inline-end: max(24px, calc((100vw - 1240px) / 2 + 28px));
+          inset-block-end: 24px;
+          inline-size: 384px;
+          block-size: min(580px, calc(100dvh - 104px));
+        }
+
+        &[css-stage-backdrop='card']:not([css-is-minimal='true']) {
+          background: radial-gradient(
+            circle at 50% 34%,
+            rgba(125, 120, 240, 0.26) 0%,
+            rgba(22, 24, 44, 0.72) 78%
+          );
+          border: 1px solid rgba(140, 134, 255, 0.28);
+          box-shadow: 0 20px 50px rgba(10, 12, 28, 0.34);
+          -webkit-backdrop-filter: blur(12px);
+          backdrop-filter: blur(12px);
+        }
+
+        &[css-is-minimal='true'] {
+          pointer-events: none;
+          overflow: hidden;
+
+          .aw-minimal {
+            pointer-events: auto;
+          }
+        }
       }
     }
   }
@@ -1493,50 +1559,6 @@
 
       &:hover {
         color: var(--demo-accent);
-      }
-    }
-  }
-
-  /* ===== Floating / Docked Avatar Widget Stage (#app) ===== */
-  .demo-stage {
-    position: fixed;
-    inset-inline-end: max(12px, env(safe-area-inset-right));
-    inset-block-end: max(12px, env(safe-area-inset-bottom));
-    z-index: 1000;
-    inline-size: min(364px, calc(100vw - 24px));
-    block-size: min(520px, calc(100dvh - 84px));
-    border-radius: 24px;
-    color-scheme: light;
-    transition:
-      background-color 0.25s ease,
-      box-shadow 0.25s ease,
-      border-color 0.25s ease;
-
-    @media (min-width: 1180px) {
-      inset-inline-end: max(24px, calc((100vw - 1240px) / 2 + 28px));
-      inset-block-end: 24px;
-      inline-size: 384px;
-      block-size: min(580px, calc(100dvh - 104px));
-    }
-
-    &[css-stage-backdrop='card']:not([css-is-minimal='true']) {
-      background: radial-gradient(
-        circle at 50% 34%,
-        rgba(125, 120, 240, 0.26) 0%,
-        rgba(22, 24, 44, 0.72) 78%
-      );
-      border: 1px solid rgba(140, 134, 255, 0.28);
-      box-shadow: 0 20px 50px rgba(10, 12, 28, 0.34);
-      -webkit-backdrop-filter: blur(12px);
-      backdrop-filter: blur(12px);
-    }
-
-    &[css-is-minimal='true'] {
-      pointer-events: none;
-      overflow: hidden;
-
-      .aw-minimal {
-        pointer-events: auto;
       }
     }
   }

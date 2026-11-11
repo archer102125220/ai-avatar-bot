@@ -124,7 +124,7 @@
 
     <!-- 主內容區（寬螢幕右側預留專屬虛擬人舞台走道，零遮擋） -->
     <div class="demo-layout">
-      <main class="demo-layout__main">
+      <main class="demo-layout-main">
         <!-- Hero 主視覺與三步上手指南 -->
         <section class="demo-hero">
           <div class="demo-hero__eyebrow">
@@ -1318,6 +1318,16 @@ export default defineNuxtConfig({ modules: ['@ai-avatar-bot/sdk/nuxt'] });
           </div>
         </section>
       </main>
+
+      <div class="demo-layout-app">
+        <!-- 右下角 / 右側舞台虛擬人掛載容器 -->
+        <div
+          id="app"
+          class="demo-layout-app-stage"
+          css-stage-backdrop="card"
+          css-is-minimal="false"
+        ></div>
+      </div>
     </div>
 
     <!-- 頁尾與致謝 -->
@@ -1385,14 +1395,6 @@ export default defineNuxtConfig({ modules: ['@ai-avatar-bot/sdk/nuxt'] });
         </div>
       </div>
     </footer>
-
-    <!-- 右下角 / 右側舞台虛擬人掛載容器 -->
-    <div
-      id="app"
-      class="demo-stage"
-      css-stage-backdrop="card"
-      css-is-minimal="false"
-    ></div>
 
     <script type="module" src="/example/demo.ts"></script>
   </body>
