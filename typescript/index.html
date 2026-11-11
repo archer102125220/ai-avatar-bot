@@ -600,7 +600,10 @@
                     data-engine-required="3d"
                   >
                     😌 放鬆 (relaxed)
-                    <span class="demo-playground__chip-tag demo-playground__chip-tag--3d">3D</span>
+                    <span
+                      class="demo-playground__chip-tag demo-playground__chip-tag--3d"
+                      >3D</span
+                    >
                   </button>
                   <button
                     type="button"
@@ -610,6 +613,13 @@
                     😐 恢復平靜 (neutral)
                   </button>
                 </div>
+                <p class="demo-playground__panel-note">
+                  💡 <strong>模型資產提示</strong>：表情形變需依賴 3D/2D
+                  模型資產是否定義該 BlendShape。範例 3D 男角 (Rockman)
+                  僅具備眨眼，未繪製喜怒哀樂形變及嘴巴；若欲體驗完整 3D
+                  臉部表情及語音對嘴，請切換至 3D 女角 (Miku) 或載入自有完整 VRM
+                  模型。
+                </p>
               </div>
 
               <!-- 2. 互動與觸控手勢 -->
@@ -1441,7 +1451,9 @@ export default defineNuxtConfig({ modules: ['@ai-avatar-bot/sdk/nuxt'] });
                     </td>
                     <td class="demo-license__td">
                       角色 IP 分屬 Crypton Future Media 與
-                      CAPCOM，嚴格限於個人非商業技術展示使用。
+                      CAPCOM，嚴格限於個人非商業技術展示使用。（註：洛克人 EXE
+                      範例資產僅具備對嘴與全身 VRMA 動作骨架，未定義情緒
+                      BlendShape）。
                     </td>
                   </tr>
                 </tbody>

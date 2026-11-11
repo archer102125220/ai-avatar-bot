@@ -1022,6 +1022,23 @@
       gap: 7px;
     }
 
+    &__panel-note {
+      margin: 9px 0 0 0;
+      font-size: 0.76rem;
+      line-height: 1.45;
+      color: var(--demo-ink-muted);
+      background: var(--demo-surface-subtle);
+      border: 1px solid var(--demo-border-neutral);
+      border-inline-start: 3px solid var(--demo-accent);
+      padding: 6px 10px;
+      border-radius: var(--demo-radius-sm);
+
+      strong {
+        color: var(--demo-ink);
+        font-weight: 700;
+      }
+    }
+
     &__chip {
       appearance: none;
       min-block-size: 34px;

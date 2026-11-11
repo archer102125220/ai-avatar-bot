@@ -766,6 +766,14 @@ function bindPlaygroundControls(
           appendPlaygroundLog(
             `🎭 切換臉部表情: skinEngine.setEmotion("${emotionName}")`
           );
+          if (
+            widget.skinEngine.engineMode === '3d' &&
+            widget.gender === GENDER_MAP.male
+          ) {
+            appendPlaygroundLog(
+              'ℹ️ 提示：當前範例 3D 男角 (Rockman) 資產未內建表情 BlendShape，切換至 3D 女角 (Miku) 可觀察完整表情過渡'
+            );
+          }
         }
       });
     });
