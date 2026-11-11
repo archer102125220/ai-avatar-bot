@@ -493,6 +493,8 @@
       @media (min-width: 1180px) {
         --app_stage_width: 24px;
         --app_stage_height: 384px;
+        min-width: var(--app_stage_width);
+        min-height: var(--app_stage_height);
       }
 
       @media (max-width: 960px) {
