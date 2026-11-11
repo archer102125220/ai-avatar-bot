@@ -373,7 +373,7 @@ export async function bootVRM(
       surprised: safeVrmaRootPath + 'common/surprised.vrma', // 雙手往臉的旁邊靠，擺出驚訝的動作
       appearing: safeVrmaRootPath + 'common/appearing.vrma', // 走路後轉身面向到鏡頭
       liked: safeVrmaRootPath + 'common/liked.vrma', // 單手握拳的類似表達「太好了」的動作
-      waiting: waitingUrl, // 環顧四周，然後單手用手背做出類似擦嘴的動作
+      waiting: waitingUrl, // 左右環顧，同時雙手自然左右版動，然後單手用手背做出類似擦嘴的動作
       'idle-1': safeVrmaRootPath + 'common/idle-1.vrma', // 自動調整站姿，頭往斜上放看，並保持呼吸起伏的動作
       'idle-2': safeVrmaRootPath + 'common/idle-2.vrma', // 頭往斜前方看，並保持呼吸起伏的動作
       'idle-female-1': safeVrmaRootPath + 'female/idle-female-1.vrma', // 右手抬起，並作出檢視自己指甲的動作
