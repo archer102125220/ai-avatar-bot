@@ -6,7 +6,7 @@ import {
 } from '@/core/constants';
 import type {
   ToolsEngine,
-  ToolsEngineSetting,
+  ToolsEngineOptions,
   ToolDefinition,
   ToolRouteCandidate,
   ToolRouteResult,
@@ -28,7 +28,7 @@ export * from './validator';
  * @param setting - Engine configuration options and event callbacks.
  * @returns Tools engine controller instance.
  */
-export function initToolsEngine(setting: ToolsEngineSetting = {}): ToolsEngine {
+export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
   function routeHostTool(queryText: string): ToolRouteResult {
     return route(toolsEngine.HOST_TOOLS, queryText);
   }

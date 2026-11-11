@@ -34,7 +34,7 @@ import type {
 } from '@/core/skin';
 import type {
   ToolsEngine,
-  ToolsEngineSetting,
+  ToolsEngineOptions,
   ToolDefinition
 } from '@/core/tools';
 import type { UiDom, UiContext } from '@/core/ui';
@@ -94,7 +94,7 @@ export interface CustomEnginesConfig {
     | null;
   tools?:
     | ToolsEngine
-    | ((options: ToolsEngineSetting) => Promise<ToolsEngine> | ToolsEngine)
+    | ((options: ToolsEngineOptions) => Promise<ToolsEngine> | ToolsEngine)
     | null;
   brain?:
     | BrainEngine
@@ -714,7 +714,7 @@ export type {
   SkinEngine,
   SkinEngineOptions,
   ToolsEngine,
-  ToolsEngineSetting,
+  ToolsEngineOptions,
   ToolDefinition,
   UiDom,
   UiContext,

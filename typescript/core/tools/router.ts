@@ -1,6 +1,6 @@
 import { TOOL_ROUTING_MODE_MAP } from '@/core/constants';
 import { normalizeText, similarity } from './utils';
-import { normaliseTool } from './schema';
+import { normalizeTool } from './schema';
 import type {
   ToolDefinition,
   ToolScoreResult,
@@ -9,7 +9,7 @@ import type {
 } from './types';
 
 /**
- * Evaluates and scores a tool definition against a user query string based on keywords, examples, labels, and descriptions.
+ * Evaluates and scores a tool definition against a user query string based on patterns, keywords, examples, labels, and descriptions.
  *
  * @param tool - Target tool definition to score.
  * @param query - User natural language query string.
@@ -37,6 +37,32 @@ export function scoreTool(
   }
   let totalScore = 0;
   let matchReason = '';
+
+  const patterns = Array.isArray(tool.patterns) ? tool.patterns : [];
+  patterns.forEach((pattern) => {
+    if (pattern instanceof RegExp) {
+      if (
+        (pattern.test(query) === true ||
+          pattern.test(normalizedQuery) === true) &&
+        0.9 > totalScore
+      ) {
+        totalScore = 0.9;
+        matchReason = `pattern:${pattern.source}`;
+      }
+      return;
+    }
+    if (typeof pattern === 'string' && pattern !== '') {
+      const normalizedPattern = normalizeText(pattern);
+      if (
+        normalizedPattern !== '' &&
+        normalizedQuery.includes(normalizedPattern) === true &&
+        0.88 > totalScore
+      ) {
+        totalScore = 0.88;
+        matchReason = `pattern:${pattern}`;
+      }
+    }
+  });
 
   const keywords = Array.isArray(tool.keywords) ? tool.keywords : [];
   keywords.forEach((keyword) => {
@@ -100,7 +126,7 @@ export function route(
   const candidateList: ToolRouteCandidate[] = (
     Array.isArray(tools) === true ? tools : []
   )
-    .map(normaliseTool)
+    .map(normalizeTool)
     .filter(
       (tool) =>
         tool.name !== '' && tool.routingMode !== TOOL_ROUTING_MODE_MAP.AI

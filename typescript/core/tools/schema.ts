@@ -22,7 +22,7 @@ export type { OpenAITool, OpenAIToolProperty };
  * @param schema - Raw input schema to normalize.
  * @returns Normalized JSON schema object with valid properties and required fields.
  */
-export function normaliseSchema(
+export function normalizeSchema(
   schema?: ToolSchema | Record<string, unknown> | null
 ): ToolSchema {
   if (
@@ -130,7 +130,7 @@ export function normaliseSchema(
  * @param tool - Raw tool definition object.
  * @returns Fully normalized tool definition instance.
  */
-export function normaliseTool(
+export function normalizeTool(
   tool?: ToolDefinition | Record<string, unknown> | null
 ): ToolDefinition {
   const targetTool =
@@ -160,12 +160,6 @@ export function normaliseTool(
     targetTool.confirmationTimeoutMs > 0
   ) {
     confirmationTimeoutMs = targetTool.confirmationTimeoutMs;
-  } else if (
-    typeof targetTool.timeoutMs === 'number' &&
-    Number.isFinite(targetTool.timeoutMs) === true &&
-    targetTool.timeoutMs > 0
-  ) {
-    confirmationTimeoutMs = targetTool.timeoutMs;
   }
 
   const execute =
@@ -211,6 +205,21 @@ export function normaliseTool(
                 typeof excludeItem === 'string' && excludeItem !== ''
             )
         : [],
+    patterns:
+      Array.isArray(targetTool.patterns) === true
+        ? targetTool.patterns
+            .slice(0, 20)
+            .map((patternItem: unknown): RegExp | string =>
+              patternItem instanceof RegExp
+                ? patternItem
+                : sanitizeText(patternItem, 160)
+            )
+            .filter(
+              (patternItem: RegExp | string) =>
+                patternItem instanceof RegExp ||
+                (typeof patternItem === 'string' && patternItem !== '')
+            )
+        : [],
     priority: Math.max(-10, Math.min(Number(targetTool.priority) || 0, 10)),
     routeThreshold: Math.max(
       0.15,
@@ -221,7 +230,7 @@ export function normaliseTool(
     resultMode,
     confirmationTimeoutMs,
     execute,
-    inputSchema: normaliseSchema(targetTool.inputSchema as ToolSchema)
+    inputSchema: normalizeSchema(targetTool.inputSchema as ToolSchema)
   };
 }
 
@@ -235,7 +244,7 @@ export function getAiAvailableTools(
   tools?: Array<ToolDefinition | Record<string, unknown>> | null
 ): ToolDefinition[] {
   return (Array.isArray(tools) === true ? tools : [])
-    .map(normaliseTool)
+    .map(normalizeTool)
     .filter(
       (tool) =>
         tool.name !== '' && tool.routingMode !== TOOL_ROUTING_MODE_MAP.CLIENT
@@ -300,7 +309,7 @@ export function argumentSummary(
   tool: ToolDefinition | Record<string, unknown>,
   args?: Record<string, unknown> | null
 ): string {
-  const normalizedTool = normaliseTool(tool);
+  const normalizedTool = normalizeTool(tool);
   const targetArgs = typeof args === 'object' && args !== null ? args : {};
   return Object.keys(targetArgs)
     .map((propertyName) => {

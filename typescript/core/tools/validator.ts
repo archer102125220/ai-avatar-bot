@@ -1,5 +1,5 @@
 import { sanitizeText, normalizeText, findPrefixedValue } from './utils';
-import { normaliseSchema, normaliseTool } from './schema';
+import { normalizeSchema, normalizeTool } from './schema';
 import type {
   ToolSchema,
   ToolSchemaProperty,
@@ -130,7 +130,7 @@ export function validate(
   schema?: ToolSchema | Record<string, unknown> | null,
   input?: Record<string, unknown> | null
 ): ToolValidationResult {
-  const normalizedSchema = normaliseSchema(schema);
+  const normalizedSchema = normalizeSchema(schema);
   const targetInput =
     typeof input === 'object' &&
     input !== null &&
@@ -276,7 +276,7 @@ export function extract(
   onlyNames?: string[] | null,
   allowWhole?: boolean
 ): ToolExtractResult {
-  const normalizedTool = normaliseTool(tool);
+  const normalizedTool = normalizeTool(tool);
   const existingArgs =
     typeof existing === 'object' && existing !== null ? existing : {};
   const extractedArgs: Record<string, unknown> = {};

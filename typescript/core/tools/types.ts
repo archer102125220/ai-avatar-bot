@@ -1,4 +1,83 @@
+import { TOOL_EVENT_MAP } from '@/core/constants';
 import type { PendingToolState } from '@/core/types';
+
+/**
+ * Tool lifecycle event name union type.
+ */
+export type ToolEventName =
+  (typeof TOOL_EVENT_MAP)[keyof typeof TOOL_EVENT_MAP];
+
+/**
+ * Payload emitted when a tool execution is offered (with or without confirmation).
+ */
+export interface ToolOfferInfo {
+  /** Tool identifier name. */
+  name: string;
+  /** Whether user confirmation is required before execution. */
+  confirmation: boolean;
+  /** Routing confidence score (0 to 1). */
+  confidence?: number;
+  /** Routing match reason. */
+  reason?: string;
+  /** Optional LLM tool call ID. */
+  toolCallId?: string | null;
+}
+
+/**
+ * Payload emitted when a tool requires missing parameter input from the user.
+ */
+export interface ToolInputRequiredInfo {
+  /** Tool identifier name. */
+  name: string;
+  /** Name of the missing parameter field being requested. */
+  field: string;
+}
+
+/**
+ * Payload emitted when multiple candidate tools match with ambiguous scores.
+ */
+export interface ToolAmbiguousInfo {
+  /** Array of candidate tool names. */
+  names: string[];
+  /** Candidate tool objects with scores. */
+  candidates?: ToolRouteCandidate[];
+}
+
+/**
+ * Payload emitted when a pending tool is confirmed by the user.
+ */
+export interface ToolConfirmInfo {
+  /** Tool identifier name. */
+  name: string;
+  /** Optional LLM tool call ID. */
+  toolCallId?: string | null;
+}
+
+/**
+ * Payload emitted when a pending tool is cancelled or expires.
+ */
+export interface ToolCancelInfo {
+  /** Tool identifier name. */
+  name: string;
+  /** Cancellation reason ('user_cancel' | 'timeout' | 'new_input' | 'consent_declined'). */
+  reason: string;
+  /** Optional LLM tool call ID. */
+  toolCallId?: string | null;
+}
+
+/**
+ * Payload emitted when a tool begins execution.
+ */
+export interface ToolExecuteInfo {
+  /** Tool identifier name. */
+  name: string;
+  /** Whether the execution went through user confirmation. */
+  confirmation: boolean;
+  /** Internal tool execution call ID. */
+  callId?: string;
+  /** Optional LLM tool call ID. */
+  toolCallId?: string | null;
+}
 
 /**
  * Property definition inside a tool's JSON input schema.
@@ -82,8 +161,6 @@ export interface ToolDefinition<
   resultMode?: 'ai_summary' | 'direct' | (string & {});
   /** User confirmation timeout in milliseconds (default 60000). */
   confirmationTimeoutMs?: number | null;
-  /** Legacy timeout in milliseconds. */
-  timeoutMs?: number;
   /** Regex patterns or string keywords for client-side intent routing. */
   patterns?: Array<RegExp | string>;
   /** Execution callback function. */
@@ -175,6 +252,8 @@ export interface ToolResultData {
   callId: string;
   /** Tool name. */
   name?: string;
+  /** Execution duration in milliseconds. */
+  durationMs?: number;
 }
 
 /**
@@ -191,6 +270,8 @@ export interface PendingToolInput {
   args: Record<string, unknown>;
   /** Missing required parameter names. */
   missing: string[];
+  /** Execution context dictionary preserved across multi-turn input collection. */
+  context?: Record<string, unknown>;
 }
 
 /**
@@ -201,6 +282,10 @@ export interface PendingToolChoice {
   messageId: string;
   /** Candidate choices offered to the user. */
   choices: ToolRouteCandidate[];
+  /** Original user query text preserved for standalone choice resolution. */
+  query?: string;
+  /** Execution context dictionary preserved for standalone choice resolution. */
+  context?: Record<string, unknown>;
 }
 
 export interface ToolChatMessage {
@@ -221,9 +306,13 @@ export interface ToolChatMessage {
 }
 
 /**
- * Settings for initializing the ToolsEngine.
+ * Configuration options and lifecycle callbacks for initializing the ToolsEngine.
  */
-export interface ToolsEngineSetting {
+export interface ToolsEngineOptions {
+  /** Initial array of tool definitions to register. */
+  tools?: ToolDefinition[];
+  /** Static context dictionary or dynamic getter function injected into tool extraction and execution. */
+  context?: Record<string, unknown> | (() => Record<string, unknown>);
   /** User confirmation timeout in milliseconds. */
   confirmationTimeoutMs?: number;
   /** Callback to append a chat message. */
@@ -240,33 +329,30 @@ export interface ToolsEngineSetting {
   onRenderHistory?: () => void;
   /** Callback to immediately speak dialogue audio. */
   onSpokenAudioPlayNow?: (text: string) => void;
-  /** Callback fired when a tool is triggered for execution. */
+  /** Callback fired when a tool is triggered for execution without an inline execute handler. */
   onToolCall?: (pendingToolData: Record<string, unknown>) => void;
-  /** Callback fired when a tool confirmation is offered. */
-  onToolOffer?: (offer: {
-    name: string;
-    confirmation: boolean;
-    toolCallId?: string | null;
-  }) => void;
+  /** Callback fired when a tool execution is offered. */
+  onToolOffer?: (info: ToolOfferInfo) => void;
+  /** Callback fired when a tool requires missing parameter input from the user. */
+  onToolInputRequired?: (info: ToolInputRequiredInfo) => void;
+  /** Callback fired when multiple candidate tools match ambiguously. */
+  onToolAmbiguous?: (info: ToolAmbiguousInfo) => void;
   /** Callback fired when a tool execution is confirmed by the user. */
-  onToolConfirm?: (confirm: {
-    name: string;
-    toolCallId?: string | null;
-  }) => void;
-  /** Callback fired when a tool is cancelled. */
-  onToolCancel?: (cancel: {
-    name: string;
-    reason: string;
-    toolCallId?: string | null;
-  }) => void;
+  onToolConfirm?: (info: ToolConfirmInfo) => void;
+  /** Callback fired when a tool is cancelled or expires. */
+  onToolCancel?: (info: ToolCancelInfo) => void;
+  /** Callback fired when a tool starts executing. */
+  onToolExecute?: (info: ToolExecuteInfo) => void;
+  /** Callback fired when a tool execution completes or yields a result. */
+  onToolResult?: (info: ToolResultData) => void;
+  /** Unified callback fired for any tool lifecycle event in TOOL_EVENT_MAP. */
+  onToolEvent?: (event: ToolEventName, payload: unknown) => void;
   /** Function returning current chat log array. */
   getChatLog?: () => ToolChatMessage[];
   /** Function returning current chat message sequence number. */
   getChatSeq?: () => number;
   /** Function returning whether continuous conversation mode is active. */
   isConvoOn?: () => boolean;
-  /** Callback fired when a tool execution completes or yields a result. */
-  onToolResult?: (resultData: ToolResultData) => void;
 }
 
 /**

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  normaliseSchema,
-  normaliseTool,
+  normalizeSchema,
+  normalizeTool,
   getAiAvailableTools,
   toOpenAiTools,
   argumentSummary
@@ -9,14 +9,14 @@ import {
 import { TOOL_ROUTING_MODE_MAP, TOOL_RESULT_MODE_MAP } from '@/core/constants';
 
 describe('Unit Test: core/tools/schema.js (TypeScript)', () => {
-  describe('normaliseSchema', () => {
+  describe('normalizeSchema', () => {
     it('should return empty schema object if invalid schema is passed', () => {
-      expect(normaliseSchema(null)).toEqual({
+      expect(normalizeSchema(null)).toEqual({
         type: 'object',
         properties: {},
         required: []
       });
-      expect(normaliseSchema({})).toEqual({
+      expect(normalizeSchema({})).toEqual({
         type: 'object',
         properties: {},
         required: []
@@ -46,7 +46,7 @@ describe('Unit Test: core/tools/schema.js (TypeScript)', () => {
         required: ['city', 'not_in_properties']
       };
 
-      const normalized = normaliseSchema(rawSchema);
+      const normalized = normalizeSchema(rawSchema);
 
       expect(normalized.type).toBe('object');
       expect(normalized.properties!.city).toBeDefined();
@@ -64,14 +64,14 @@ describe('Unit Test: core/tools/schema.js (TypeScript)', () => {
     });
   });
 
-  describe('normaliseTool', () => {
+  describe('normalizeTool', () => {
     it('should populate default values for tool definition', () => {
       const rawTool = {
         name: 'get_weather',
         description: '查詢天氣'
       };
 
-      const tool = normaliseTool(rawTool);
+      const tool = normalizeTool(rawTool);
       expect(tool.name).toBe('get_weather');
       expect(tool.label).toBe('get_weather');
       expect(tool.description).toBe('查詢天氣');
@@ -80,18 +80,23 @@ describe('Unit Test: core/tools/schema.js (TypeScript)', () => {
       expect(tool.requiresConfirmation).toBe(true);
       expect(tool.priority).toBe(0);
       expect(tool.routeThreshold).toBe(0.34);
+      expect(tool.patterns).toEqual([]);
+      expect(tool.confirmationTimeoutMs).toBeNull();
     });
 
-    it('should sanitize keyword arrays and enforce limits', () => {
+    it('should sanitize keyword arrays, patterns, and enforce limits', () => {
+      const regexPattern = /^查.*天氣$/;
       const rawTool = {
         name: 'search',
         keywords: ['天氣', '氣溫', ''],
+        patterns: [regexPattern, '  預報查詢  ', '', '   '],
         priority: 15, // 超過 10
         routeThreshold: 0.05 // 低於 0.15
       };
 
-      const tool = normaliseTool(rawTool);
+      const tool = normalizeTool(rawTool);
       expect(tool.keywords).toEqual(['天氣', '氣溫']);
+      expect(tool.patterns).toEqual([regexPattern, '預報查詢']);
       expect(tool.priority).toBe(10);
       expect(tool.routeThreshold).toBe(0.15);
     });
@@ -165,7 +170,7 @@ describe('Unit Test: core/tools/schema.js (TypeScript)', () => {
       expect(summary).toBe('目的地：台北、張數：2');
     });
 
-    it('should support string minimum and maximum in normaliseSchema, and timeoutMs fallback in normaliseTool', () => {
+    it('should support string minimum and maximum in normalizeSchema, and confirmationTimeoutMs in normalizeTool', () => {
       const rawSchema = {
         type: 'object',
         properties: {
@@ -177,16 +182,16 @@ describe('Unit Test: core/tools/schema.js (TypeScript)', () => {
           }
         }
       };
-      const normalized = normaliseSchema(rawSchema);
+      const normalized = normalizeSchema(rawSchema);
       expect(normalized.properties!.age.minimum).toBe(18);
       expect(normalized.properties!.age.maximum).toBe(65);
 
       const rawTool = {
         name: 'test_timeout',
-        timeoutMs: 5000,
+        confirmationTimeoutMs: 5000,
         inputSchema: rawSchema
       };
-      const normalizedTool = normaliseTool(rawTool);
+      const normalizedTool = normalizeTool(rawTool);
       expect(normalizedTool.confirmationTimeoutMs).toBe(5000);
 
       const openAiTools = toOpenAiTools([rawTool]);

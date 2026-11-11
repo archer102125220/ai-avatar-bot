@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { scoreTool, route } from '@/core/tools/router';
-import { normaliseTool } from '@/core/tools/schema';
+import { normalizeTool } from '@/core/tools/schema';
 import { TOOL_ROUTING_MODE_MAP } from '@/core/constants';
 
 describe('Unit Test: core/tools/router.js (TypeScript)', () => {
   describe('scoreTool', () => {
     it('should return score 0 if query contains excludeKeywords', () => {
-      const tool = normaliseTool({
+      const tool = normalizeTool({
         name: 'query_weather',
         keywords: ['天氣'],
         excludeKeywords: ['取消', '不要']
@@ -18,7 +18,7 @@ describe('Unit Test: core/tools/router.js (TypeScript)', () => {
     });
 
     it('should score high when keyword matches query', () => {
-      const tool = normaliseTool({
+      const tool = normalizeTool({
         name: 'query_weather',
         keywords: ['天氣', '氣溫']
       });
@@ -28,8 +28,30 @@ describe('Unit Test: core/tools/router.js (TypeScript)', () => {
       expect(result.reason).toBe('keyword:天氣');
     });
 
+    it('should score 0.9 when RegExp pattern matches query or normalizedQuery', () => {
+      const tool = normalizeTool({
+        name: 'order_status',
+        patterns: [/訂單.*(?:#|\d{4,})/i]
+      });
+
+      const result = scoreTool(tool, '幫我查訂單 #12345 的狀態');
+      expect(result.score).toBe(0.9);
+      expect(result.reason).toBe('pattern:訂單.*(?:#|\\d{4,})');
+    });
+
+    it('should score 0.88 when string pattern matches normalizedQuery', () => {
+      const tool = normalizeTool({
+        name: 'cancel_subscription',
+        patterns: ['取消訂閱']
+      });
+
+      const result = scoreTool(tool, '請問我要怎麼取消 訂閱服務？');
+      expect(result.score).toBe(0.88);
+      expect(result.reason).toBe('pattern:取消訂閱');
+    });
+
     it('should calculate similarity for examples', () => {
-      const tool = normaliseTool({
+      const tool = normalizeTool({
         name: 'open_music',
         examples: ['我想聽周杰倫的歌']
       });
@@ -40,7 +62,7 @@ describe('Unit Test: core/tools/router.js (TypeScript)', () => {
     });
 
     it('should ignore invalid or empty normalized keywords', () => {
-      const tool = normaliseTool({
+      const tool = normalizeTool({
         name: 'test_tool',
         keywords: ['', '   ', '目標']
       });
@@ -113,7 +135,7 @@ describe('Unit Test: core/tools/router.js (TypeScript)', () => {
 
     it('should score and match by label and description', () => {
       // 1. Label match
-      const toolLabel = normaliseTool({
+      const toolLabel = normalizeTool({
         name: 'booking_tool',
         label: '預約餐廳',
         keywords: []
@@ -123,7 +145,7 @@ describe('Unit Test: core/tools/router.js (TypeScript)', () => {
       expect(resLabel.reason).toBe('label');
 
       // 2. Description match
-      const toolDesc = normaliseTool({
+      const toolDesc = normalizeTool({
         name: 'traffic_tool',
         label: 'T',
         keywords: [],
@@ -138,7 +160,7 @@ describe('Unit Test: core/tools/router.js (TypeScript)', () => {
     });
 
     it('should ignore empty keywords in scoreTool (line 45)', () => {
-      const toolWithEmptyKeyword = normaliseTool({
+      const toolWithEmptyKeyword = normalizeTool({
         name: 'test_empty_kw',
         label: 'T',
         keywords: ['   ', '']
