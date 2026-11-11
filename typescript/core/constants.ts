@@ -345,7 +345,13 @@ export const EMOTION_TARGET_MAP = {
   /** Target value for surprised emotion. */
   surprised: 0.6,
   /** Target value for sad emotion. */
-  sad: 0.5
+  sad: 0.5,
+  /** Target value for thinking emotion. */
+  thinking: 0.6,
+  /** Target value for angry emotion. */
+  angry: 0.7,
+  /** Target value for relaxed emotion. */
+  relaxed: 0.5
 } as const;
 
 /**
@@ -1124,6 +1130,14 @@ export const DEFAULT_EMOTION_TOOL_NAME = 'express_emotion';
  * Default expression mapping for 2D female Live2D model (Hiyori specification).
  */
 export const DEFAULT_2D_FEMALE_EXPRESSION_MAP: Record<string, string> = {
+  // f00 微笑眨眼
+  // f01 （與f00很像）
+  // f02 困惑
+  // f03 難過
+  // f04 開心
+  // f05 驚訝
+  // f06 害羞
+  // f07 傻眼
   neutral: 'f00',
   happy: 'f04',
   sad: 'f03',
@@ -1136,6 +1150,17 @@ export const DEFAULT_2D_FEMALE_EXPRESSION_MAP: Record<string, string> = {
  * Default expression mapping for 2D male Live2D model (Mao specification).
  */
 export const DEFAULT_2D_MALE_EXPRESSION_MAP: Record<string, string> = {
+  // Normal 基礎平靜臉
+  // Smile 開心微笑
+  // Sad 悲傷微皺眉
+  // Angry 憤怒皺眉
+  // Surprised 睜大眼驚訝
+  // Blushing 害羞臉紅
+  // exp_01 微笑張嘴說話
+  // exp_02 悲傷張嘴說話
+  // exp_03 生氣張嘴說話
+  // exp_04 輕微疑惑挑眉
+  // exp_05 閉眼撇嘴無奈（倒 U 嘴）
   neutral: 'Normal',
   happy: 'Smile',
   sad: 'Sad',

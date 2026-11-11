@@ -138,7 +138,10 @@ describe('Unit Test: core/constants.js (TypeScript)', () => {
       expect(EMOTION_TARGET_MAP).toEqual({
         happy: 0.65,
         surprised: 0.6,
-        sad: 0.5
+        sad: 0.5,
+        thinking: 0.6,
+        angry: 0.7,
+        relaxed: 0.5
       });
       expect(EMO_TARGET_MAP).toBe(EMOTION_TARGET_MAP);
     });

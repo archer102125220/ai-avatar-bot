@@ -413,7 +413,46 @@ function buildDemoTools(): ToolDefinition[] {
     }
   };
 
-  return [showQuickStartTool, changeAccentTool, bowGreetingTool];
+  const expressEmotionTool: ToolDefinition = {
+    name: 'express_emotion',
+    label: '自主情緒與動作驅動',
+    description:
+      '當語境需要表達感謝、開心、思考或道別時，自主調用對應表情或動作',
+    keywords: ['謝謝', '感謝', '太厲害', '再見', '辛苦了'],
+    examples: ['太厲害了，非常感謝你的詳細解說！', '很高興認識你，辛苦了！'],
+    requiresConfirmation: false,
+    priority: 3,
+    execute: (payload) => {
+      const extractedArgs =
+        isRecord(payload) && 'args' in payload && isRecord(payload.args)
+          ? payload.args
+          : isRecord(payload)
+            ? payload
+            : {};
+      const emotion =
+        typeof extractedArgs.emotion === 'string' &&
+        extractedArgs.emotion !== ''
+          ? extractedArgs.emotion
+          : 'thankful';
+      if (typeof window.aiAvatarWidget?.skinEngine?.setEmotion === 'function') {
+        window.aiAvatarWidget.skinEngine.setEmotion('happy');
+      }
+      if (typeof window.aiAvatarWidget?.playGesture === 'function') {
+        window.aiAvatarWidget.playGesture(emotion);
+      }
+      appendPlaygroundLog(
+        `[Tool] 執行 express_emotion ➔ emotion: "${emotion}"`
+      );
+      return `收到，已為您展現由衷感謝的「${emotion}」肢體回饋！`;
+    }
+  };
+
+  return [
+    showQuickStartTool,
+    changeAccentTool,
+    bowGreetingTool,
+    expressEmotionTool
+  ];
 }
 
 function markTelemetryWidgetReady(): void {
@@ -427,12 +466,33 @@ function markTelemetryWidgetReady(): void {
   }
 }
 
+function syncGestureControlsAvailability(mode: '2d' | '3d'): void {
+  const is3D = mode === '3d';
+  const controls3D = document.querySelectorAll<HTMLButtonElement>(
+    '[data-gesture], [data-engine-required="3d"]'
+  );
+  controls3D.forEach((btn) => {
+    btn.disabled = is3D === false;
+    if (is3D === false) {
+      const isGesture = btn.hasAttribute('data-gesture');
+      btn.title =
+        isGesture === true
+          ? '此全身動作僅支援 3D VRM 引擎，請先切換至 3D 模式體驗'
+          : '此表情僅支援 3D VRM 引擎，請先切換至 3D 模式體驗';
+    } else {
+      btn.removeAttribute('title');
+    }
+  });
+}
+
 function updateTelemetryEngine(mode: string): void {
+  const normalizedMode: '2d' | '3d' = mode === '2d' ? '2d' : '3d';
   const engineStatEl = document.getElementById('stat-engine-text');
   if (engineStatEl instanceof HTMLElement) {
-    engineStatEl.textContent = mode === '2d' ? '2D Live2D' : '3D VRM';
+    engineStatEl.textContent = normalizedMode === '2d' ? '2D Live2D' : '3D VRM';
   }
-  updateActiveChips('[data-engine-mode]', mode);
+  updateActiveChips('[data-engine-mode]', normalizedMode);
+  syncGestureControlsAvailability(normalizedMode);
 }
 
 function updateTelemetryProvider(status: string): void {
@@ -627,7 +687,27 @@ function bindPlaygroundControls(
       });
     });
 
-  // 7. Gestures (playGesture)
+  // 7. Interactive Tap Gesture (btn-tap-gesture)
+  const tapGestureBtn = document.getElementById('btn-tap-gesture');
+  if (tapGestureBtn instanceof HTMLButtonElement) {
+    tapGestureBtn.addEventListener('click', () => {
+      if (widget.isMinimal === true) {
+        widget.isMinimal = false;
+      }
+      if (typeof widget.tap === 'function') {
+        widget.tap();
+      } else if (
+        typeof widget.skinEngine === 'object' &&
+        widget.skinEngine !== null &&
+        typeof widget.skinEngine.playTapGesture === 'function'
+      ) {
+        void widget.skinEngine.playTapGesture();
+      }
+      appendPlaygroundLog('👆 觸發虛擬人互動反應 (tap)');
+    });
+  }
+
+  // 8. Gestures (playGesture - 3D specific with 2D defensive feedback)
   document
     .querySelectorAll<HTMLButtonElement>('[data-gesture]')
     .forEach((btn) => {
@@ -639,6 +719,14 @@ function bindPlaygroundControls(
         if (widget.isMinimal === true) {
           widget.isMinimal = false;
         }
+        const currentMode =
+          widget.skinEngine?.engineMode === '2d' ? '2d' : '3d';
+        if (currentMode === '2d') {
+          appendPlaygroundLog(
+            `⚠️ 3D 專屬動作: "${gestureName}" 僅支援 3D VRM 引擎，請先點擊上方切換為 3D 模式`
+          );
+          return;
+        }
         if (typeof widget.playGesture === 'function') {
           widget.playGesture(gestureName);
           appendPlaygroundLog(`🎬 播放動作: playGesture("${gestureName}")`);
@@ -646,13 +734,25 @@ function bindPlaygroundControls(
       });
     });
 
-  // 8. Emotions & Voice Lip-Sync Test
+  // 9. Emotions (setEmotion - 2D & 3D Universal)
   document
     .querySelectorAll<HTMLButtonElement>('[data-emotion]')
     .forEach((btn) => {
       btn.addEventListener('click', () => {
         const emotionName = btn.dataset.emotion ?? '';
         if (emotionName === '') {
+          return;
+        }
+        const requiredEngine = btn.dataset.engineRequired ?? '';
+        if (
+          requiredEngine === '3d' &&
+          typeof widget.skinEngine === 'object' &&
+          widget.skinEngine !== null &&
+          widget.skinEngine.engineMode === '2d'
+        ) {
+          appendPlaygroundLog(
+            `⚠️ 3D 專屬表情: "${emotionName}" 僅支援 3D VRM 引擎，請先切換至 3D 模式`
+          );
           return;
         }
         if (widget.isMinimal === true) {
@@ -664,7 +764,7 @@ function bindPlaygroundControls(
         ) {
           widget.skinEngine.setEmotion(emotionName);
           appendPlaygroundLog(
-            `😊 切換表情權重: skinEngine.setEmotion("${emotionName}")`
+            `🎭 切換臉部表情: skinEngine.setEmotion("${emotionName}")`
           );
         }
       });
@@ -815,7 +915,7 @@ async function bootstrapDemo(): Promise<void> {
     companionKnowledge: COMPANION_KNOWLEDGE,
     startMode: ENGINE_MODE_MAP.threeDimensional, // 預設以 3D VRM 模式啟動展示 VRMA 動作池
     fitMode: FIT_MODE_MAP.HALF, // 半身特寫構圖
-    gender: GENDER_MAP.male,
+    gender: GENDER_MAP.female,
     enableMemory: true,
     tools: buildDemoTools(),
     modes: {

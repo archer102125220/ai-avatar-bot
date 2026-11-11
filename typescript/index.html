@@ -367,7 +367,6 @@
                     class="demo-playground__chip"
                     data-gender
                     data-value="male"
-                    css-is-active="true"
                     aria-pressed="true"
                   >
                     👦 男角 (Rockman / Natori)
@@ -377,6 +376,7 @@
                     class="demo-playground__chip"
                     data-gender
                     data-value="female"
+                    css-is-active="true"
                     aria-pressed="false"
                   >
                     👧 女角 (Miku / Haru)
@@ -543,18 +543,128 @@
                 </div>
               </div>
 
-              <!-- 動作庫與表情對嘴測試 -->
-              <div class="demo-playground__panel demo-playground__panel--wide">
+              <!-- 1. 臉部表情即時切換 (2D/3D 通用) -->
+              <div class="demo-playground__panel">
                 <div class="demo-playground__panel-head">
                   <h3 class="demo-playground__panel-title">
-                    🎬 3D VRMA 動作庫、語意表情與遠端探活
+                    🎭 臉部表情即時切換
+                    <span
+                      class="demo-playground__panel-badge demo-playground__panel-badge--universal"
+                      >2D / 3D 通用</span
+                    >
                   </h3>
                   <span class="demo-playground__panel-hint"
-                    >widget.playGesture() / setEmotion() /
-                    pingAiProvider()</span
+                    >widget.skinEngine.setEmotion()</span
                   >
                 </div>
                 <div class="demo-playground__controls">
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-emotion="happy"
+                  >
+                    😊 開心 (happy)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-emotion="surprised"
+                  >
+                    😮 驚訝 (surprised)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-emotion="thinking"
+                  >
+                    🤔 思考 (thinking)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-emotion="sad"
+                  >
+                    😢 難過 (sad)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-emotion="angry"
+                  >
+                    😠 生氣 (angry)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-emotion="relaxed"
+                    data-engine-required="3d"
+                  >
+                    😌 放鬆 (relaxed)
+                    <span class="demo-playground__chip-tag demo-playground__chip-tag--3d">3D</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip demo-playground__chip--action"
+                    data-emotion="neutral"
+                  >
+                    😐 恢復平靜 (neutral)
+                  </button>
+                </div>
+              </div>
+
+              <!-- 2. 互動與觸控手勢 -->
+              <div class="demo-playground__panel">
+                <div class="demo-playground__panel-head">
+                  <h3 class="demo-playground__panel-title">
+                    👆 互動與觸控手勢
+                  </h3>
+                  <span class="demo-playground__panel-hint"
+                    >playTapGesture() / 專屬致意</span
+                  >
+                </div>
+                <div class="demo-playground__controls">
+                  <button
+                    id="btn-tap-gesture"
+                    type="button"
+                    class="demo-playground__chip"
+                  >
+                    👆 戳一下 (tap)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-gesture="salute"
+                  >
+                    🎖️ 男角色敬禮 (salute)
+                  </button>
+                  <button
+                    type="button"
+                    class="demo-playground__chip"
+                    data-gesture="standing-greeting"
+                  >
+                    🙋‍♀️ 女角色問候 (greeting)
+                  </button>
+                </div>
+              </div>
+
+              <!-- 3. 3D VRMA 全身動作庫 -->
+              <div class="demo-playground__panel demo-playground__panel--wide">
+                <div class="demo-playground__panel-head">
+                  <h3 class="demo-playground__panel-title">
+                    🎬 3D VRMA 全身動作庫
+                    <span
+                      class="demo-playground__panel-badge demo-playground__panel-badge--3d"
+                      >3D 專屬</span
+                    >
+                  </h3>
+                  <span class="demo-playground__panel-hint"
+                    >widget.playGesture() — 2D 模式自動安全停用</span
+                  >
+                </div>
+                <div
+                  class="demo-playground__controls"
+                  id="demo-3d-gestures-group"
+                >
                   <button
                     type="button"
                     class="demo-playground__chip"
@@ -588,7 +698,7 @@
                     class="demo-playground__chip"
                     data-gesture="thinking"
                   >
-                    🤔 思考 (thinking)
+                    🤔 托腮思考 (thinking)
                   </button>
                   <button
                     type="button"
@@ -602,56 +712,56 @@
                     class="demo-playground__chip"
                     data-gesture="relax"
                   >
-                    😌 放鬆 (relax)
+                    😌 伸展放鬆 (relax)
                   </button>
                   <button
                     type="button"
                     class="demo-playground__chip"
                     data-gesture="thankful"
                   >
-                    🙏 感謝 (thankful)
+                    🤍 撫胸致謝 (thankful)
                   </button>
                   <button
                     type="button"
                     class="demo-playground__chip"
                     data-gesture="look-around"
                   >
-                    👀 張望 (look-around)
+                    👀 四處張望 (look-around)
                   </button>
                   <button
                     type="button"
                     class="demo-playground__chip"
                     data-gesture="waiting"
                   >
-                    ⏳ 等待 (waiting)
+                    ⏳ 稍候等待 (waiting)
                   </button>
-                  <button
-                    type="button"
-                    class="demo-playground__chip demo-playground__chip--action"
-                    data-emotion="happy"
+                </div>
+              </div>
+
+              <!-- 4. 語音對嘴與引擎診斷 -->
+              <div class="demo-playground__panel demo-playground__panel--wide">
+                <div class="demo-playground__panel-head">
+                  <h3 class="demo-playground__panel-title">
+                    ⚙️ 語音對嘴與引擎診斷
+                  </h3>
+                  <span class="demo-playground__panel-hint"
+                    >TTS 口型律動測試與 AI Provider 連線探活</span
                   >
-                    😊 開心表情
-                  </button>
-                  <button
-                    type="button"
-                    class="demo-playground__chip demo-playground__chip--action"
-                    data-emotion="sad"
-                  >
-                    😢 難過表情
-                  </button>
+                </div>
+                <div class="demo-playground__controls">
                   <button
                     id="btn-test-speak"
                     type="button"
                     class="demo-playground__chip demo-playground__chip--action"
                   >
-                    🗣️ 測試開口對嘴
+                    🗣️ 測試開口對嘴 (Speech Lip-Sync)
                   </button>
                   <button
                     id="btn-ping-provider"
                     type="button"
                     class="demo-playground__chip demo-playground__chip--action"
                   >
-                    📡 探活 AI Provider
+                    📡 探活 AI Provider (Health Check)
                   </button>
                 </div>
               </div>
@@ -744,6 +854,28 @@
                 data-tool-prompt="請幫我鞠躬致意"
               >
                 💬 發送：「請幫我鞠躬致意」
+              </button>
+            </article>
+
+            <article class="demo-tools__card">
+              <div class="demo-tools__card-head">
+                <code class="demo-tools__name">express_emotion</code>
+                <span class="demo-tools__badge demo-tools__badge--instant"
+                  >AI 語意激發</span
+                >
+              </div>
+              <h3 class="demo-tools__card-title">自然語言情緒與動作自主驅動</h3>
+              <p class="demo-tools__card-desc">
+                大腦根據對話語境（如使用者誇獎、感謝、安慰或道別），自動調用
+                <code>express_emotion</code>
+                驅動虛擬人展現對應的臉部表情與身體姿態。
+              </p>
+              <button
+                type="button"
+                class="demo-tools__prompt-btn"
+                data-tool-prompt="太厲害了，非常感謝你的詳細解說！"
+              >
+                💬 發送：「太厲害了，非常感謝你的詳細解說！」
               </button>
             </article>
           </div>
