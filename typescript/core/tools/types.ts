@@ -288,6 +288,32 @@ export interface PendingToolChoice {
   context?: Record<string, unknown>;
 }
 
+export interface PendingToolData {
+  /** Unique internal call ID. */
+  callId: string;
+  /** Tool identifier name. */
+  name: string;
+  /** Human-readable display label. */
+  label?: string;
+  /** Target tool definition. */
+  tool?: ToolDefinition;
+  /** Tool input context, arguments, route metadata, and history. */
+  input?: {
+    query?: string;
+    context?: Record<string, unknown>;
+    args?: Record<string, unknown>;
+    route?: Record<string, unknown>;
+    history?: Array<{ role: string; text: string }>;
+  };
+  /** Message source tag. */
+  source?: string;
+  /** Optional LLM tool call ID. */
+  toolCallId?: string | null;
+  /** Callback to resume brain flow upon confirmation or cancellation. */
+  onConfirmResume?: ((result: unknown) => void) | null;
+  [key: string]: unknown;
+}
+
 export interface ToolChatMessage {
   id?: string;
   role?: string;
@@ -322,7 +348,11 @@ export interface ToolsEngineOptions {
     options?: Record<string, unknown>
   ) => string | void;
   /** Callback to update an existing chat message. */
-  onUpdateChatMessage?: (id: string, text: string, streaming?: boolean) => void;
+  onUpdateChatMessage?: (
+    id: string,
+    text: string,
+    options?: { streaming?: boolean; [key: string]: unknown }
+  ) => void;
   /** Callback to set chat history drawer open state. */
   onSetHistoryOpen?: (isOpen: boolean) => void;
   /** Callback to re-render chat history. */
@@ -359,7 +389,9 @@ export interface ToolsEngineOptions {
  * Tools Engine instance for parameter extraction, intent routing, and function execution.
  */
 export interface ToolsEngine {
-  /** Registered host tool definitions. */
+  /** Registered tool definitions. */
+  tools: ToolDefinition[];
+  /** Registered host tool definitions (retained temporarily for Phase 2 orchestrator compatibility). */
   HOST_TOOLS: ToolDefinition[];
   /** Active tool pending missing parameter input. */
   pendingToolInput: PendingToolInput | null;
@@ -379,7 +411,7 @@ export interface ToolsEngine {
   readonly onUpdateChatMessage?: (
     id: string,
     text: string,
-    streaming?: boolean
+    options?: { streaming?: boolean; [key: string]: unknown }
   ) => void;
   /** Registered callback to set history drawer state. */
   readonly onSetHistoryOpen?: (isOpen: boolean) => void;
@@ -387,7 +419,11 @@ export interface ToolsEngine {
   readonly onRenderHistory?: () => void;
   /** Registered callback to speak dialogue audio. */
   readonly onSpokenAudioPlayNow?: (text: string) => void;
-  /** Routes query to the best host tool candidate. */
+  /** Retrieves a normalized tool definition by name while preserving its execute callback. */
+  getToolByName(name: string): ToolDefinition | null;
+  /** Routes query to the best tool candidate. */
+  routeTool(queryText: string): ToolRouteResult;
+  /** Routes query to the best host tool candidate (retained temporarily for Phase 2 orchestrator compatibility). */
   routeHostTool(queryText: string): ToolRouteResult;
   /** Gets tools available for AI model calling. */
   getAiAvailableTools(): ToolDefinition[];
@@ -404,17 +440,30 @@ export interface ToolsEngine {
     tool: ToolDefinition,
     query: string,
     routeMeta?: Record<string, unknown> | null,
-    existingArgs?: Record<string, unknown>
+    existingArgs?: Record<string, unknown>,
+    context?: Record<string, unknown>
   ): void;
   /** Continues collecting missing parameters from user input. */
   continueToolInput(inputText: string): boolean;
   /** Offers ambiguous tool choices to the user. */
-  offerToolChoices(query: string, candidates: ToolRouteCandidate[]): void;
+  offerToolChoices(
+    query: string,
+    candidates: ToolRouteCandidate[],
+    context?: Record<string, unknown>
+  ): void;
   /** Processes user response to ambiguous tool choice. */
   continueToolChoice(inputText: string): boolean;
   /** Selects a specific tool choice. */
   chooseTool(messageId: string, choiceIndex: number): void;
-  /** Offers host tool execution confirmation or executes directly. */
+  /** Offers tool execution confirmation or executes directly. */
+  offerTool(
+    tool: ToolDefinition,
+    query: string,
+    routeMeta?: Record<string, unknown> | null,
+    args?: Record<string, unknown>,
+    options?: Record<string, unknown>
+  ): void;
+  /** Offers host tool execution confirmation or executes directly (retained temporarily for Phase 2 orchestrator compatibility). */
   offerHostTool(
     tool: ToolDefinition,
     query: string,

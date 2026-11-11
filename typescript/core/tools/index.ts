@@ -2,6 +2,7 @@ import {
   CHAT_SOURCE_MAP,
   DEFAULT_TOOL_CONFIRMATION_TIMEOUT_MS,
   TOOL_CANCEL_REASON_MAP,
+  TOOL_EVENT_MAP,
   TOOL_RESULT_MODE_MAP
 } from '@/core/constants';
 import type {
@@ -10,9 +11,22 @@ import type {
   ToolDefinition,
   ToolRouteCandidate,
   ToolRouteResult,
-  ToolResultData
+  ToolResultData,
+  ToolEventName,
+  ToolOfferInfo,
+  ToolInputRequiredInfo,
+  ToolAmbiguousInfo,
+  ToolConfirmInfo,
+  ToolCancelInfo,
+  ToolExecuteInfo,
+  PendingToolData
 } from './types';
-import { getAiAvailableTools, toOpenAiTools, argumentSummary } from './schema';
+import {
+  normalizeTool,
+  getAiAvailableTools,
+  toOpenAiTools,
+  argumentSummary
+} from './schema';
 import { route } from './router';
 import { extract } from './validator';
 
@@ -23,14 +37,128 @@ export * from './router';
 export * from './validator';
 
 /**
- * Creates and initializes the Tools Engine instance for host tool routing, parameter extraction, and execution.
+ * Creates and initializes the Tools Engine instance for tool routing, parameter extraction, and execution.
  *
- * @param setting - Engine configuration options and event callbacks.
+ * @param options - Engine configuration options and event callbacks.
  * @returns Tools engine controller instance.
  */
-export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
-  function routeHostTool(queryText: string): ToolRouteResult {
-    return route(toolsEngine.HOST_TOOLS, queryText);
+export function initToolsEngine(options: ToolsEngineOptions = {}): ToolsEngine {
+  let registeredTools: ToolDefinition[] = Array.isArray(options.tools)
+    ? [...options.tools]
+    : [];
+  const pendingToolsMap = new Map<string, PendingToolData>();
+
+  function resolveContext(
+    overrideContext?: Record<string, unknown> | null
+  ): Record<string, unknown> {
+    const baseContextRaw =
+      typeof options.context === 'function'
+        ? options.context()
+        : options.context;
+    const baseContext =
+      typeof baseContextRaw === 'object' && baseContextRaw !== null
+        ? baseContextRaw
+        : {};
+    const extraContext =
+      typeof overrideContext === 'object' && overrideContext !== null
+        ? overrideContext
+        : {};
+    return {
+      ...baseContext,
+      ...extraContext
+    };
+  }
+
+  function isLikelyContextObject(
+    obj?: Record<string, unknown> | null
+  ): boolean {
+    if (typeof obj !== 'object' || obj === null) {
+      return false;
+    }
+    return (
+      'skinEngine' in obj ||
+      'brainEngine' in obj ||
+      'speechEngine' in obj ||
+      'aiAvatarWidget' in obj ||
+      'i18nEngine' in obj
+    );
+  }
+
+  function emitToolEvent(
+    eventName: ToolEventName,
+    payload:
+      | ToolOfferInfo
+      | ToolInputRequiredInfo
+      | ToolAmbiguousInfo
+      | ToolConfirmInfo
+      | ToolCancelInfo
+      | ToolExecuteInfo
+      | ToolResultData
+  ): void {
+    switch (eventName) {
+      case TOOL_EVENT_MAP.OFFER:
+        if (typeof options.onToolOffer === 'function') {
+          options.onToolOffer(payload as ToolOfferInfo);
+        }
+        break;
+      case TOOL_EVENT_MAP.INPUT_REQUIRED:
+        if (typeof options.onToolInputRequired === 'function') {
+          options.onToolInputRequired(payload as ToolInputRequiredInfo);
+        }
+        break;
+      case TOOL_EVENT_MAP.AMBIGUOUS:
+        if (typeof options.onToolAmbiguous === 'function') {
+          options.onToolAmbiguous(payload as ToolAmbiguousInfo);
+        }
+        break;
+      case TOOL_EVENT_MAP.CONFIRM:
+        if (typeof options.onToolConfirm === 'function') {
+          options.onToolConfirm(payload as ToolConfirmInfo);
+        }
+        break;
+      case TOOL_EVENT_MAP.CANCEL:
+        if (typeof options.onToolCancel === 'function') {
+          options.onToolCancel(payload as ToolCancelInfo);
+        }
+        break;
+      case TOOL_EVENT_MAP.EXECUTE:
+        if (typeof options.onToolExecute === 'function') {
+          options.onToolExecute(payload as ToolExecuteInfo);
+        }
+        break;
+      case TOOL_EVENT_MAP.RESULT:
+        if (typeof options.onToolResult === 'function') {
+          options.onToolResult(payload as ToolResultData);
+        }
+        break;
+    }
+    if (typeof options.onToolEvent === 'function') {
+      options.onToolEvent(eventName, payload);
+    }
+  }
+
+  function getToolByName(name: string): ToolDefinition | null {
+    if (typeof name !== 'string' || name.trim() === '') {
+      return null;
+    }
+    const targetName = name.trim();
+    const matchedTool = (
+      Array.isArray(toolsEngine.tools) ? toolsEngine.tools : []
+    ).find(
+      (toolItem) =>
+        typeof toolItem === 'object' &&
+        toolItem !== null &&
+        (toolItem.name === targetName ||
+          normalizeTool(toolItem).name === targetName)
+    );
+    if (typeof matchedTool !== 'object' || matchedTool === null) {
+      return null;
+    }
+    return normalizeTool(matchedTool);
+  }
+
+  function routeTool(queryText: string): ToolRouteResult {
+    return route(toolsEngine.tools, queryText);
   }
 
   function parameterPrompt(
@@ -47,20 +175,33 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
         : '';
     const errorPrefix =
       typeof errorText === 'string' && errorText !== '' ? `${errorText}。` : '';
-    return `${errorPrefix}執行「${tool.label}」前，請提供${label}${choices}。`;
+    return `${errorPrefix}執行「${tool.label || tool.name}」前，請提供${label}${choices}。`;
   }
 
   function prepareTool(
     tool: ToolDefinition,
     query: string,
     routeMeta?: Record<string, unknown> | null,
-    existingArgs?: Record<string, unknown>
+    existingArgs?: Record<string, unknown>,
+    context?: Record<string, unknown>
   ): void {
+    const isFourthArgContext =
+      context === undefined && isLikelyContextObject(existingArgs) === true;
+    const resolvedExistingArgs =
+      isFourthArgContext === true
+        ? {}
+        : typeof existingArgs === 'object' && existingArgs !== null
+          ? existingArgs
+          : {};
+    const resolvedContext = resolveContext(
+      isFourthArgContext === true ? existingArgs : context
+    );
+
     const extractedParams = extract(
       tool,
       query,
-      {},
-      existingArgs || {},
+      resolvedContext,
+      resolvedExistingArgs,
       null,
       false
     );
@@ -70,7 +211,8 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
         query,
         routeMeta: routeMeta || {},
         args: extractedParams.args,
-        missing: extractedParams.missing
+        missing: extractedParams.missing,
+        context: resolvedContext
       };
       const promptMessage = parameterPrompt(
         tool,
@@ -85,10 +227,16 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
       if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
         toolsEngine.onSpokenAudioPlayNow(promptMessage);
       }
+      emitToolEvent(TOOL_EVENT_MAP.INPUT_REQUIRED, {
+        name: tool.name,
+        field: extractedParams.missing[0]
+      });
       return;
     }
     toolsEngine.pendingToolInput = null;
-    offerHostTool(tool, query, routeMeta, extractedParams.args);
+    offerTool(tool, query, routeMeta, extractedParams.args, {
+      context: resolvedContext
+    });
   }
 
   function continueToolInput(inputText: string): boolean {
@@ -101,6 +249,7 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
     if (
       /^(取消|不要|算了|cancel)$/i.test(String(inputText || '').trim()) === true
     ) {
+      const cancelledToolName = toolsEngine.pendingToolInput.tool.name;
       toolsEngine.pendingToolInput = null;
       const cancelMessage = '好的，已取消這個操作。';
       if (typeof toolsEngine.onAddChatMessage === 'function') {
@@ -111,14 +260,20 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
       if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
         toolsEngine.onSpokenAudioPlayNow(cancelMessage);
       }
+      emitToolEvent(TOOL_EVENT_MAP.CANCEL, {
+        name: cancelledToolName,
+        reason: TOOL_CANCEL_REASON_MAP.USER_CANCEL,
+        toolCallId: null
+      });
       return true;
     }
     const pendingInput = toolsEngine.pendingToolInput;
+    const resolvedContext = resolveContext(pendingInput.context);
     const missingField = pendingInput.missing[0];
     const extractedParams = extract(
       pendingInput.tool,
       inputText,
-      {},
+      resolvedContext,
       pendingInput.args,
       [missingField],
       true
@@ -139,26 +294,33 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
       if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
         toolsEngine.onSpokenAudioPlayNow(promptMessage);
       }
+      emitToolEvent(TOOL_EVENT_MAP.INPUT_REQUIRED, {
+        name: pendingInput.tool.name,
+        field: extractedParams.missing[0]
+      });
       return true;
     }
     prepareTool(
       pendingInput.tool,
       pendingInput.query,
       pendingInput.routeMeta,
-      extractedParams.args
+      extractedParams.args,
+      resolvedContext
     );
     return true;
   }
 
   function offerToolChoices(
     query: string,
-    candidates: ToolRouteCandidate[]
+    candidates: ToolRouteCandidate[],
+    context?: Record<string, unknown>
   ): void {
     const candidateChoices = candidates.slice(0, 3);
+    const resolvedContext = resolveContext(context);
     const choiceMessage = `我找到幾個可能的操作，請選擇：${candidateChoices
       .map(
         (choiceItem, choiceIndex) =>
-          `${choiceIndex + 1}「${choiceItem.tool.label}」`
+          `${choiceIndex + 1}「${choiceItem.tool.label || choiceItem.tool.name}」`
       )
       .join('、')}`;
 
@@ -172,7 +334,7 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
 
     if (typeof messageId === 'string' && messageId !== '') {
       const chatLog =
-        typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
+        typeof options.getChatLog === 'function' ? options.getChatLog() : [];
       const chatMessage = chatLog.find(
         (entry: Record<string, unknown>) => entry.id === messageId
       );
@@ -183,7 +345,9 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
 
     toolsEngine.pendingToolChoice = {
       messageId: typeof messageId === 'string' ? messageId : '',
-      choices: candidateChoices
+      choices: candidateChoices,
+      query,
+      context: resolvedContext
     };
 
     if (typeof toolsEngine.onSetHistoryOpen === 'function') {
@@ -192,6 +356,10 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
     if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
       toolsEngine.onSpokenAudioPlayNow(choiceMessage);
     }
+    emitToolEvent(TOOL_EVENT_MAP.AMBIGUOUS, {
+      names: candidateChoices.map((choiceItem) => choiceItem.tool.name),
+      candidates: candidateChoices
+    });
   }
 
   function continueToolChoice(inputText: string): boolean {
@@ -204,8 +372,11 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
     if (
       /^(取消|不要|算了|cancel)$/i.test(String(inputText || '').trim()) === true
     ) {
+      const cancelledChoiceName = toolsEngine.pendingToolChoice.choices
+        .map((choiceItem) => choiceItem.tool.name)
+        .join(',');
       const chatLog =
-        typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
+        typeof options.getChatLog === 'function' ? options.getChatLog() : [];
       const chatMessage = chatLog.find(
         (entry: Record<string, unknown>) =>
           entry.id === toolsEngine.pendingToolChoice?.messageId
@@ -223,6 +394,11 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
       if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
         toolsEngine.onSpokenAudioPlayNow(cancelMessage);
       }
+      emitToolEvent(TOOL_EVENT_MAP.CANCEL, {
+        name: cancelledChoiceName,
+        reason: TOOL_CANCEL_REASON_MAP.USER_CANCEL,
+        toolCallId: null
+      });
       return true;
     }
 
@@ -272,53 +448,85 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
 
   function chooseTool(messageId: string, choiceIndex: number): void {
     const chatLog =
-      typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
-    const chatMessage = chatLog.find(
-      (entry: Record<string, unknown>) => entry.id === messageId
-    );
-    if (
-      typeof chatMessage !== 'object' ||
-      chatMessage === null ||
-      Array.isArray(chatMessage.pendingChoices) === false ||
-      chatMessage.pendingChoices[choiceIndex] === undefined
-    ) {
+      typeof options.getChatLog === 'function' ? options.getChatLog() : [];
+    const chatMessage =
+      typeof messageId === 'string' && messageId !== ''
+        ? chatLog.find(
+            (entry: Record<string, unknown>) => entry.id === messageId
+          )
+        : undefined;
+    const activePendingChoice =
+      typeof toolsEngine.pendingToolChoice === 'object' &&
+      toolsEngine.pendingToolChoice !== null &&
+      toolsEngine.pendingToolChoice.messageId === messageId
+        ? toolsEngine.pendingToolChoice
+        : null;
+
+    const choicesList =
+      typeof chatMessage === 'object' &&
+      chatMessage !== null &&
+      Array.isArray(chatMessage.pendingChoices) === true
+        ? chatMessage.pendingChoices
+        : activePendingChoice !== null &&
+            Array.isArray(activePendingChoice.choices) === true
+          ? activePendingChoice.choices
+          : null;
+
+    if (choicesList === null || choicesList[choiceIndex] === undefined) {
       return;
     }
-    const selectedChoice = chatMessage.pendingChoices[choiceIndex];
-    chatMessage.pendingChoices = null;
-    chatMessage.text = `已選擇「${selectedChoice.tool.label}」。`;
+
+    const selectedChoice = choicesList[choiceIndex];
+    const choiceQuery =
+      typeof chatMessage === 'object' &&
+      chatMessage !== null &&
+      typeof chatMessage.choiceQuery === 'string'
+        ? chatMessage.choiceQuery
+        : typeof activePendingChoice?.query === 'string'
+          ? activePendingChoice.query
+          : '';
+    const choiceContext = activePendingChoice?.context;
+
+    if (typeof chatMessage === 'object' && chatMessage !== null) {
+      chatMessage.pendingChoices = null;
+      chatMessage.text = `已選擇「${selectedChoice.tool.label || selectedChoice.tool.name}」。`;
+    }
     toolsEngine.pendingToolChoice = null;
     if (typeof toolsEngine.onRenderHistory === 'function') {
       toolsEngine.onRenderHistory();
     }
     prepareTool(
       selectedChoice.tool,
-      chatMessage.choiceQuery || '',
+      choiceQuery,
       { confidence: selectedChoice.score, reason: 'user_choice' },
-      {}
+      {},
+      choiceContext
     );
   }
 
-  function offerHostTool(
+  function offerTool(
     tool: ToolDefinition,
     query: string,
     routeMeta?: Record<string, unknown> | null,
     args?: Record<string, unknown>,
-    options?: {
+    offerOptions?: {
       callId?: string;
       source?: string;
       toolCallId?: string | null;
+      context?: Record<string, unknown>;
+      input?: Record<string, unknown>;
       onConfirmResume?: ((result: unknown) => void) | null;
+      [key: string]: unknown;
     }
   ): void {
     const seq =
-      typeof setting.getChatSeq === 'function' ? setting.getChatSeq() : 0;
+      typeof options.getChatSeq === 'function' ? options.getChatSeq() : 0;
     const callId =
-      typeof options?.callId === 'string' && options.callId !== ''
-        ? options.callId
+      typeof offerOptions?.callId === 'string' && offerOptions.callId !== ''
+        ? offerOptions.callId
         : `tool-${Date.now()}-${seq}`;
     const rawChatLog =
-      typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
+      typeof options.getChatLog === 'function' ? options.getChatLog() : [];
     const history = rawChatLog
       .slice(-12)
       .map((chatItem: Record<string, unknown>) => ({
@@ -331,33 +539,47 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
       );
 
     const source =
-      typeof options?.source === 'string' && options.source !== ''
-        ? options.source
+      typeof offerOptions?.source === 'string' && offerOptions.source !== ''
+        ? offerOptions.source
         : CHAT_SOURCE_MAP.TOOL;
 
-    const pendingToolData = {
+    const optionsInput =
+      typeof offerOptions?.input === 'object' && offerOptions.input !== null
+        ? offerOptions.input
+        : null;
+    const overrideContext =
+      typeof offerOptions?.context === 'object' && offerOptions.context !== null
+        ? offerOptions.context
+        : typeof optionsInput?.context === 'object' &&
+            optionsInput.context !== null
+          ? (optionsInput.context as Record<string, unknown>)
+          : null;
+    const resolvedContext = resolveContext(overrideContext);
+
+    const pendingToolData: PendingToolData = {
       callId,
       name: tool.name,
-      label: tool.label,
+      label: tool.label || tool.name,
       tool,
       input: {
         query,
-        context: {},
+        context: resolvedContext,
         args: args || {},
         route: routeMeta || {},
         history
       },
       source,
-      toolCallId: options?.toolCallId || null,
+      toolCallId: offerOptions?.toolCallId || null,
       onConfirmResume:
-        typeof options?.onConfirmResume === 'function'
-          ? options.onConfirmResume
+        typeof offerOptions?.onConfirmResume === 'function'
+          ? offerOptions.onConfirmResume
           : null
     };
     const summary = argumentSummary(tool, args || {});
 
     if (tool.requiresConfirmation === true) {
-      const confirmationMessage = `要幫你執行「${tool.label}」嗎？${summary !== '' ? '\n' + summary : ''}`;
+      pendingToolsMap.set(callId, pendingToolData);
+      const confirmationMessage = `要幫你執行「${tool.label || tool.name}」嗎？${summary !== '' ? '\n' + summary : ''}`;
       if (typeof toolsEngine.onAddChatMessage === 'function') {
         toolsEngine.onAddChatMessage('assistant', confirmationMessage, {
           id: callId,
@@ -374,32 +596,38 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
       if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
         toolsEngine.onSpokenAudioPlayNow(confirmationMessage);
       }
-      if (typeof setting.onToolOffer === 'function') {
-        setting.onToolOffer({
-          name: tool.name,
-          confirmation: true,
-          toolCallId: options?.toolCallId || null
-        });
-      }
+      emitToolEvent(TOOL_EVENT_MAP.OFFER, {
+        name: tool.name,
+        confirmation: true,
+        confidence: Number(routeMeta?.confidence || 0),
+        reason: String(routeMeta?.reason || ''),
+        toolCallId: offerOptions?.toolCallId || null
+      });
     } else {
       if (typeof toolsEngine.onAddChatMessage === 'function') {
         toolsEngine.onAddChatMessage(
           'assistant',
-          `正在執行「${tool.label}」…`,
+          `正在執行「${tool.label || tool.name}」…`,
           { id: callId, source }
         );
       }
+      emitToolEvent(TOOL_EVENT_MAP.OFFER, {
+        name: tool.name,
+        confirmation: false,
+        confidence: Number(routeMeta?.confidence || 0),
+        reason: String(routeMeta?.reason || ''),
+        toolCallId: offerOptions?.toolCallId || null
+      });
+      emitToolEvent(TOOL_EVENT_MAP.EXECUTE, {
+        name: tool.name,
+        confirmation: false,
+        callId,
+        toolCallId: offerOptions?.toolCallId || null
+      });
       if (typeof tool.execute === 'function') {
         executeToolDirectly(tool, args || {}, pendingToolData);
-      } else if (typeof setting.onToolCall === 'function') {
-        setting.onToolCall(pendingToolData);
-      }
-      if (typeof setting.onToolOffer === 'function') {
-        setting.onToolOffer({
-          name: tool.name,
-          confirmation: false,
-          toolCallId: options?.toolCallId || null
-        });
+      } else if (typeof options.onToolCall === 'function') {
+        options.onToolCall(pendingToolData);
       }
     }
   }
@@ -417,19 +645,22 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
       pendingToolData.input !== null
         ? (pendingToolData.input as Record<string, unknown>)
         : null;
-    const resolvedContext: Record<string, unknown> =
+    const rawContext =
       typeof inputObj?.context === 'object' && inputObj.context !== null
         ? (inputObj.context as Record<string, unknown>)
         : typeof pendingToolData?.context === 'object' &&
             pendingToolData.context !== null
           ? (pendingToolData.context as Record<string, unknown>)
-          : {};
+          : null;
+    const resolvedContext = resolveContext(rawContext);
     const resolvedQuery =
       typeof inputObj?.query === 'string'
         ? inputObj.query
         : typeof pendingToolData?.query === 'string'
           ? pendingToolData.query
           : '';
+    const callId = String(pendingToolData?.callId || '');
+    const startTime = Date.now();
 
     try {
       const result = await tool.execute({
@@ -437,33 +668,93 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
         context: resolvedContext,
         query: resolvedQuery
       });
+      const durationMs = Math.max(0, Date.now() - startTime);
+      const message =
+        typeof result === 'string' && result !== ''
+          ? result
+          : typeof (result as Record<string, unknown>)?.message === 'string' &&
+              (result as Record<string, unknown>).message !== ''
+            ? ((result as Record<string, unknown>).message as string)
+            : '已完成。';
 
       if (typeof pendingToolData?.onConfirmResume === 'function') {
+        if (callId !== '') {
+          const chatLog =
+            typeof options.getChatLog === 'function'
+              ? options.getChatLog()
+              : [];
+          const chatMessage = chatLog.find((msg) => msg?.id === callId);
+          if (typeof chatMessage === 'object' && chatMessage !== null) {
+            chatMessage.executed = true;
+            chatMessage.text = message;
+          }
+          if (typeof toolsEngine.onUpdateChatMessage === 'function') {
+            toolsEngine.onUpdateChatMessage(callId, message, {
+              streaming: false
+            });
+          }
+          if (typeof toolsEngine.onRenderHistory === 'function') {
+            toolsEngine.onRenderHistory();
+          }
+        }
         (
           pendingToolData.onConfirmResume as (
             toolExecutionResult: unknown
           ) => void
         )(result);
+        emitToolEvent(TOOL_EVENT_MAP.RESULT, {
+          callId,
+          name: tool.name,
+          ok: true,
+          durationMs,
+          message,
+          error: undefined
+        });
       } else if (tool.resultMode !== TOOL_RESULT_MODE_MAP.AI_SUMMARY) {
-        const message =
-          typeof result === 'string'
-            ? result
-            : typeof (result as Record<string, unknown>)?.message ===
-                  'string' && (result as Record<string, unknown>).message !== ''
-              ? ((result as Record<string, unknown>).message as string)
-              : '已完成。';
         handleToolResult({
           ok: true,
           message,
-          callId: String(pendingToolData?.callId || ''),
-          name: tool.name
+          callId,
+          name: tool.name,
+          durationMs
+        });
+      } else {
+        emitToolEvent(TOOL_EVENT_MAP.RESULT, {
+          callId,
+          name: tool.name,
+          ok: true,
+          durationMs,
+          message,
+          error: undefined
         });
       }
       return result;
     } catch (error: unknown) {
+      const durationMs = Math.max(0, Date.now() - startTime);
       const errorMessage =
         error instanceof Error ? error.message : String(error || '執行錯誤');
+      const failText = `執行失敗：${errorMessage}`;
+
       if (typeof pendingToolData?.onConfirmResume === 'function') {
+        if (callId !== '') {
+          const chatLog =
+            typeof options.getChatLog === 'function'
+              ? options.getChatLog()
+              : [];
+          const chatMessage = chatLog.find((msg) => msg?.id === callId);
+          if (typeof chatMessage === 'object' && chatMessage !== null) {
+            chatMessage.executed = true;
+            chatMessage.text = failText;
+          }
+          if (typeof toolsEngine.onUpdateChatMessage === 'function') {
+            toolsEngine.onUpdateChatMessage(callId, failText, {
+              streaming: false
+            });
+          }
+          if (typeof toolsEngine.onRenderHistory === 'function') {
+            toolsEngine.onRenderHistory();
+          }
+        }
         (
           pendingToolData.onConfirmResume as (
             toolExecutionResult: unknown
@@ -472,12 +763,30 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
           ok: false,
           error: errorMessage
         });
+        emitToolEvent(TOOL_EVENT_MAP.RESULT, {
+          callId,
+          name: tool.name,
+          ok: false,
+          durationMs,
+          message: undefined,
+          error: errorMessage
+        });
       } else if (tool.resultMode !== TOOL_RESULT_MODE_MAP.AI_SUMMARY) {
         handleToolResult({
           ok: false,
           error: errorMessage,
-          callId: String(pendingToolData?.callId || ''),
-          name: tool.name
+          callId,
+          name: tool.name,
+          durationMs
+        });
+      } else {
+        emitToolEvent(TOOL_EVENT_MAP.RESULT, {
+          callId,
+          name: tool.name,
+          ok: false,
+          durationMs,
+          message: undefined,
+          error: errorMessage
         });
       }
       return { ok: false, error: errorMessage };
@@ -487,23 +796,43 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
   function executePendingTool(messageId: string): void {
     clearConfirmationTimer();
     const chatLog =
-      typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
+      typeof options.getChatLog === 'function' ? options.getChatLog() : [];
     const chatMessage = chatLog.find((msg) => msg?.id === messageId);
-    if (
-      typeof chatMessage !== 'object' ||
-      chatMessage === null ||
-      typeof chatMessage.pendingTool !== 'object' ||
-      chatMessage.pendingTool === null
-    ) {
+    const mapPendingTool = pendingToolsMap.get(messageId);
+    const chatPendingTool =
+      typeof chatMessage === 'object' &&
+      chatMessage !== null &&
+      typeof chatMessage.pendingTool === 'object' &&
+      chatMessage.pendingTool !== null
+        ? (chatMessage.pendingTool as PendingToolData)
+        : null;
+
+    const pendingToolData = mapPendingTool || chatPendingTool;
+    if (typeof pendingToolData !== 'object' || pendingToolData === null) {
       return;
     }
-    const pendingToolData = chatMessage.pendingTool;
-    chatMessage.pendingTool = null;
+
+    pendingToolsMap.delete(messageId);
     toolsEngine.pendingToolConfirmation = '';
-    chatMessage.text = `正在執行「${pendingToolData.label}」…`;
+
+    if (typeof chatMessage === 'object' && chatMessage !== null) {
+      chatMessage.pendingTool = null;
+      chatMessage.text = `正在執行「${pendingToolData.label || pendingToolData.name}」…`;
+    }
     if (typeof toolsEngine.onRenderHistory === 'function') {
       toolsEngine.onRenderHistory();
     }
+
+    emitToolEvent(TOOL_EVENT_MAP.CONFIRM, {
+      name: pendingToolData.name as string,
+      toolCallId: pendingToolData.toolCallId
+    });
+    emitToolEvent(TOOL_EVENT_MAP.EXECUTE, {
+      name: pendingToolData.name as string,
+      confirmation: true,
+      callId: (pendingToolData.callId as string) || messageId,
+      toolCallId: pendingToolData.toolCallId
+    });
 
     if (typeof pendingToolData.tool?.execute === 'function') {
       executeToolDirectly(
@@ -511,54 +840,59 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
         pendingToolData.input?.args || {},
         pendingToolData
       );
-    } else if (typeof setting.onToolCall === 'function') {
-      setting.onToolCall(pendingToolData);
-    }
-
-    if (typeof setting.onToolConfirm === 'function') {
-      setting.onToolConfirm({
-        name: pendingToolData.name as string,
-        toolCallId: pendingToolData.toolCallId
-      });
+    } else if (typeof options.onToolCall === 'function') {
+      options.onToolCall(pendingToolData);
     }
   }
 
   function cancelPendingTool(
     messageId: string,
-    options?: { reason?: string }
+    cancelOptions?: { reason?: string }
   ): void {
     clearConfirmationTimer();
     const chatLog =
-      typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
+      typeof options.getChatLog === 'function' ? options.getChatLog() : [];
     const chatMessage = chatLog.find((msg) => msg?.id === messageId);
-    if (
-      typeof chatMessage !== 'object' ||
-      chatMessage === null ||
-      typeof chatMessage.pendingTool !== 'object' ||
-      chatMessage.pendingTool === null
-    ) {
+    const mapPendingTool = pendingToolsMap.get(messageId);
+    const chatPendingTool =
+      typeof chatMessage === 'object' &&
+      chatMessage !== null &&
+      typeof chatMessage.pendingTool === 'object' &&
+      chatMessage.pendingTool !== null
+        ? (chatMessage.pendingTool as PendingToolData)
+        : null;
+
+    const pendingToolData = mapPendingTool || chatPendingTool;
+    if (typeof pendingToolData !== 'object' || pendingToolData === null) {
       return;
     }
-    const pendingToolData = chatMessage.pendingTool;
-    const cancelReason = options?.reason || TOOL_CANCEL_REASON_MAP.USER_CANCEL;
-    chatMessage.pendingTool = null;
+
+    const cancelReason =
+      cancelOptions?.reason || TOOL_CANCEL_REASON_MAP.USER_CANCEL;
+    pendingToolsMap.delete(messageId);
     toolsEngine.pendingToolConfirmation = '';
 
-    if (cancelReason === TOOL_CANCEL_REASON_MAP.TIMEOUT) {
-      chatMessage.text = '操作已逾時失效。';
-      chatMessage.timedOut = true;
-    } else if (cancelReason === TOOL_CANCEL_REASON_MAP.NEW_INPUT) {
-      chatMessage.text = '已取消（已轉移話題）。';
-      chatMessage.cancelled = true;
-    } else {
-      chatMessage.text = '好的，已取消。';
-      if (
-        typeof setting.isConvoOn === 'function' &&
-        setting.isConvoOn() === true
-      ) {
-        if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
-          toolsEngine.onSpokenAudioPlayNow('好的，已取消。');
-        }
+    if (typeof chatMessage === 'object' && chatMessage !== null) {
+      chatMessage.pendingTool = null;
+      if (cancelReason === TOOL_CANCEL_REASON_MAP.TIMEOUT) {
+        chatMessage.text = '操作已逾時失效。';
+        chatMessage.timedOut = true;
+      } else if (cancelReason === TOOL_CANCEL_REASON_MAP.NEW_INPUT) {
+        chatMessage.text = '已取消（已轉移話題）。';
+        chatMessage.cancelled = true;
+      } else {
+        chatMessage.text = '好的，已取消。';
+      }
+    }
+
+    if (
+      cancelReason !== TOOL_CANCEL_REASON_MAP.TIMEOUT &&
+      cancelReason !== TOOL_CANCEL_REASON_MAP.NEW_INPUT &&
+      typeof options.isConvoOn === 'function' &&
+      options.isConvoOn() === true
+    ) {
+      if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
+        toolsEngine.onSpokenAudioPlayNow('好的，已取消。');
       }
     }
 
@@ -573,13 +907,11 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
       });
     }
 
-    if (typeof setting.onToolCancel === 'function') {
-      setting.onToolCancel({
-        name: pendingToolData.name as string,
-        reason: cancelReason,
-        toolCallId: pendingToolData.toolCallId
-      });
-    }
+    emitToolEvent(TOOL_EVENT_MAP.CANCEL, {
+      name: pendingToolData.name as string,
+      reason: cancelReason,
+      toolCallId: pendingToolData.toolCallId
+    });
   }
 
   function continueToolConfirmation(inputText: string): boolean {
@@ -612,17 +944,19 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
         ? `執行失敗：${String(resultData.error || '未知錯誤')}`
         : String(resultData.message || '已完成。');
     const chatLog =
-      typeof setting.getChatLog === 'function' ? setting.getChatLog() : [];
+      typeof options.getChatLog === 'function' ? options.getChatLog() : [];
     const existingMessage = chatLog.find(
       (msg) => msg?.id === resultData.callId
     );
 
     if (typeof existingMessage === 'object' && existingMessage !== null) {
+      existingMessage.executed = true;
+      existingMessage.text = messageText;
       if (typeof toolsEngine.onUpdateChatMessage === 'function') {
         toolsEngine.onUpdateChatMessage(
           existingMessage.id as string,
           messageText,
-          false
+          { streaming: false }
         );
       }
     } else {
@@ -635,13 +969,28 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
     if (typeof toolsEngine.onSpokenAudioPlayNow === 'function') {
       toolsEngine.onSpokenAudioPlayNow(messageText);
     }
+    emitToolEvent(TOOL_EVENT_MAP.RESULT, {
+      callId: String(resultData.callId || ''),
+      name: resultData.name || '',
+      ok: resultData.ok !== false,
+      durationMs:
+        typeof resultData.durationMs === 'number' &&
+        Number.isFinite(resultData.durationMs) === true
+          ? resultData.durationMs
+          : 0,
+      message: resultData.ok === false ? undefined : messageText,
+      error:
+        resultData.ok === false
+          ? String(resultData.error || '未知錯誤')
+          : resultData.error
+    });
   }
 
   let currentConfirmationTimeoutMs =
-    typeof setting.confirmationTimeoutMs === 'number' &&
-    Number.isFinite(setting.confirmationTimeoutMs) === true &&
-    setting.confirmationTimeoutMs > 0
-      ? setting.confirmationTimeoutMs
+    typeof options.confirmationTimeoutMs === 'number' &&
+    Number.isFinite(options.confirmationTimeoutMs) === true &&
+    options.confirmationTimeoutMs > 0
+      ? options.confirmationTimeoutMs
       : DEFAULT_TOOL_CONFIRMATION_TIMEOUT_MS;
 
   let confirmationTimer: ReturnType<typeof setTimeout> | null = null;
@@ -675,7 +1024,18 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
   }
 
   const toolsEngine: ToolsEngine = {
-    HOST_TOOLS: [],
+    get tools(): ToolDefinition[] {
+      return registeredTools;
+    },
+    set tools(value: ToolDefinition[]) {
+      registeredTools = Array.isArray(value) ? value : [];
+    },
+    get HOST_TOOLS(): ToolDefinition[] {
+      return registeredTools;
+    },
+    set HOST_TOOLS(value: ToolDefinition[]) {
+      registeredTools = Array.isArray(value) ? value : [];
+    },
     pendingToolInput: null,
     pendingToolChoice: null,
     pendingToolConfirmation: null,
@@ -694,31 +1054,34 @@ export function initToolsEngine(setting: ToolsEngineOptions = {}): ToolsEngine {
     },
 
     get onAddChatMessage() {
-      return setting.onAddChatMessage;
+      return options.onAddChatMessage;
     },
     get onUpdateChatMessage() {
-      return setting.onUpdateChatMessage;
+      return options.onUpdateChatMessage;
     },
     get onSetHistoryOpen() {
-      return setting.onSetHistoryOpen;
+      return options.onSetHistoryOpen;
     },
     get onRenderHistory() {
-      return setting.onRenderHistory;
+      return options.onRenderHistory;
     },
     get onSpokenAudioPlayNow() {
-      return setting.onSpokenAudioPlayNow;
+      return options.onSpokenAudioPlayNow;
     },
 
-    routeHostTool,
-    getAiAvailableTools: () => getAiAvailableTools(toolsEngine.HOST_TOOLS),
-    toOpenAiTools: () => toOpenAiTools(toolsEngine.HOST_TOOLS),
+    getToolByName,
+    routeTool,
+    routeHostTool: routeTool,
+    getAiAvailableTools: () => getAiAvailableTools(toolsEngine.tools),
+    toOpenAiTools: () => toOpenAiTools(toolsEngine.tools),
     parameterPrompt,
     prepareTool,
     continueToolInput,
     offerToolChoices,
     continueToolChoice,
     chooseTool,
-    offerHostTool,
+    offerTool,
+    offerHostTool: offerTool,
     executePendingTool,
     cancelPendingTool,
     continueToolConfirmation,
@@ -744,13 +1107,13 @@ export function validateToolsEngine(engine: unknown): {
   }
   const engineObj = engine as Record<string, unknown>;
   const requiredMethods = [
-    'routeHostTool',
+    'routeTool',
     'prepareTool',
     'continueToolInput',
     'offerToolChoices',
     'continueToolChoice',
     'chooseTool',
-    'offerHostTool',
+    'offerTool',
     'executePendingTool',
     'cancelPendingTool',
     'continueToolConfirmation',
@@ -758,6 +1121,24 @@ export function validateToolsEngine(engine: unknown): {
   ];
   const missingMethods: string[] = [];
   requiredMethods.forEach((methodName) => {
+    if (methodName === 'routeTool') {
+      if (
+        typeof engineObj.routeTool !== 'function' &&
+        typeof engineObj.routeHostTool !== 'function'
+      ) {
+        missingMethods.push(methodName);
+      }
+      return;
+    }
+    if (methodName === 'offerTool') {
+      if (
+        typeof engineObj.offerTool !== 'function' &&
+        typeof engineObj.offerHostTool !== 'function'
+      ) {
+        missingMethods.push(methodName);
+      }
+      return;
+    }
     if (typeof engineObj[methodName] !== 'function') {
       missingMethods.push(methodName);
     }

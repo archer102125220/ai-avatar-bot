@@ -6,19 +6,23 @@ import {
   type ToolsEngine,
   type ToolRouteCandidate
 } from '@/core/tools';
-import { TOOL_CANCEL_REASON_MAP, CHAT_SOURCE_MAP } from '@/core/constants';
+import {
+  TOOL_CANCEL_REASON_MAP,
+  TOOL_EVENT_MAP,
+  CHAT_SOURCE_MAP
+} from '@/core/constants';
 
 describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
   describe('validateToolsEngine', () => {
     it('should validate complete tools engine correctly', () => {
       const validEngine = {
-        routeHostTool: vi.fn(),
+        routeTool: vi.fn(),
         prepareTool: vi.fn(),
         continueToolInput: vi.fn(),
         offerToolChoices: vi.fn(),
         continueToolChoice: vi.fn(),
         chooseTool: vi.fn(),
-        offerHostTool: vi.fn(),
+        offerTool: vi.fn(),
         executePendingTool: vi.fn(),
         cancelPendingTool: vi.fn(),
         continueToolConfirmation: vi.fn(),
@@ -36,10 +40,11 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
       expect(validateToolsEngine({} as unknown as ToolsEngine).isValid).toBe(
         false
       );
-      const partial = { routeHostTool: vi.fn() };
+      const partial = { routeTool: vi.fn() };
       const res = validateToolsEngine(partial as unknown as ToolsEngine);
       expect(res.isValid).toBe(false);
       expect(res.missing).toContain('prepareTool');
+      expect(res.missing).toContain('offerTool');
     });
   });
 
@@ -76,26 +81,38 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
       expect(engine.onSpokenAudioPlayNow).toBe(onSpokenAudioPlayNow);
     });
 
-    it('should route tools and convert schemas to OpenAI tools', () => {
+    it('should initialize tools from options.tools, route tools, getToolByName, and convert schemas to OpenAI tools', () => {
+      const execFn = vi.fn(async () => '12:00');
       const engine = initToolsEngine({
+        tools: [
+          {
+            name: 'get_time',
+            description: '取得當前時間',
+            keywords: ['時間', '幾點'],
+            inputSchema: { type: 'object', properties: {} },
+            execute: execFn
+          }
+        ],
         getChatLog: () => [],
         getChatSeq: () => 1
       });
-      engine.HOST_TOOLS = [
-        {
-          name: 'get_time',
-          label: '查詢時間',
-          description: '取得當前時間',
-          keywords: ['時間', '幾點'],
-          inputSchema: { type: 'object', properties: {} }
-        }
-      ];
 
+      expect(engine.tools).toHaveLength(1);
       expect(engine.getAiAvailableTools()).toHaveLength(1);
       expect(engine.toOpenAiTools()).toHaveLength(1);
-      const routed = engine.routeHostTool('現在幾點');
+      const routed = engine.routeTool('現在幾點');
       expect(routed.match).toBeDefined();
       expect(routed.match!.tool.name).toBe('get_time');
+
+      const foundTool = engine.getToolByName('get_time');
+      expect(foundTool).not.toBeNull();
+      expect(foundTool?.name).toBe('get_time');
+      expect(foundTool?.label).toBe('get_time');
+      expect(foundTool?.requiresConfirmation).toBe(true);
+      expect(foundTool?.execute).toBe(execFn);
+
+      expect(engine.getToolByName('non_existent')).toBeNull();
+      expect(engine.getToolByName('   ')).toBeNull();
     });
   });
 
@@ -564,7 +581,7 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
       expect(onUpdateChatMessage).toHaveBeenCalledWith(
         'msg_res_1',
         '操作完成',
-        false
+        { streaming: false }
       );
       expect(onSpokenAudioPlayNow).toHaveBeenCalledWith('操作完成');
 
@@ -1123,11 +1140,13 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
         {},
         { toolCallId: 'call_time_1' }
       );
-      expect(onToolOffer).toHaveBeenCalledWith({
-        name: 'get_time',
-        confirmation: false,
-        toolCallId: 'call_time_1'
-      });
+      expect(onToolOffer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'get_time',
+          confirmation: false,
+          toolCallId: 'call_time_1'
+        })
+      );
 
       // 4. Direct execution error handling without onConfirmResume and not AI_SUMMARY (lines 467-468)
       const failingTool = {
@@ -1148,8 +1167,566 @@ describe('Unit Test: core/tools/index.js (Tools Engine) (TypeScript)', () => {
         expect(onUpdateChatMessage).toHaveBeenCalledWith(
           'call_fail_1',
           '執行失敗：硬體錯誤',
-          false
+          { streaming: false }
         );
+      });
+    });
+  });
+
+  describe('Standalone Mode (100% Independent without getChatLog or onAddChatMessage)', () => {
+    it('should complete missing parameter collection and execution in standalone mode', async () => {
+      const executeMock = vi.fn(
+        async (payload: ToolExecutePayload | Record<string, unknown>) => {
+          const args = (payload as { args?: { query?: string } })?.args;
+          return `搜尋結果：${String(args?.query || '')}`;
+        }
+      );
+      const searchTool = {
+        name: 'search_item',
+        label: '搜尋項目',
+        requiresConfirmation: false,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { title: '關鍵字', type: 'string' }
+          },
+          required: ['query']
+        },
+        execute: executeMock
+      };
+
+      const engine = initToolsEngine({
+        tools: [searchTool]
+      });
+
+      // 1. prepareTool without query -> sets pendingToolInput internally
+      engine.prepareTool(searchTool, '請幫我搜尋', { confidence: 0.95 });
+      expect(engine.pendingToolInput).not.toBeNull();
+      expect(engine.pendingToolInput?.missing).toContain('query');
+
+      // 2. continueToolInput with parameter -> resolves and executes directly without chatLog
+      const handled = engine.continueToolInput('人工智慧');
+      expect(handled).toBe(true);
+      expect(engine.pendingToolInput).toBeNull();
+      expect(executeMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: { query: '人工智慧' }
+        })
+      );
+    });
+
+    it('should resolve ambiguous choices and choose tool in standalone mode', () => {
+      const toolAlpha = {
+        name: 'alpha_tool',
+        label: '阿爾法工具',
+        inputSchema: { type: 'object', properties: {} },
+        execute: vi.fn(async () => 'alpha done')
+      };
+      const toolBeta = {
+        name: 'beta_tool',
+        label: '貝塔工具',
+        inputSchema: { type: 'object', properties: {} },
+        execute: vi.fn(async () => 'beta done')
+      };
+
+      const engine = initToolsEngine({
+        tools: [toolAlpha, toolBeta]
+      });
+
+      // 1. offerToolChoices without chatLog
+      engine.offerToolChoices('執行操作', [
+        { tool: toolAlpha, score: 0.85 },
+        { tool: toolBeta, score: 0.8 }
+      ]);
+      expect(engine.pendingToolChoice).not.toBeNull();
+      expect(engine.pendingToolChoice?.choices).toHaveLength(2);
+
+      // 2. continueToolChoice with ordinal '第二個' -> selects beta_tool and clears pendingToolChoice
+      const handled = engine.continueToolChoice('第二個');
+      expect(handled).toBe(true);
+      expect(engine.pendingToolChoice).toBeNull();
+      expect(toolBeta.execute).toHaveBeenCalled();
+    });
+
+    it('should manage confirmation, pendingToolsMap, and execution in standalone mode', async () => {
+      const execFn = vi.fn(async () => ({ ok: true, message: '操作完成' }));
+      const deleteTool = {
+        name: 'delete_record',
+        label: '刪除紀錄',
+        requiresConfirmation: true,
+        execute: execFn
+      };
+
+      const engine = initToolsEngine({
+        tools: [deleteTool]
+      });
+
+      // 1. offerTool with requiresConfirmation: true
+      engine.offerTool(
+        deleteTool,
+        '刪除',
+        { confidence: 1 },
+        { id: 'rec-101' },
+        { callId: 'standalone-confirm-call' }
+      );
+      expect(engine.pendingToolConfirmation).toBe('standalone-confirm-call');
+
+      // 2. Confirm with continueToolConfirmation('確認')
+      const confirmed = engine.continueToolConfirmation('確認');
+      expect(confirmed).toBe(true);
+      expect(engine.pendingToolConfirmation).toBe('');
+      expect(execFn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: { id: 'rec-101' }
+        })
+      );
+    });
+
+    it('should cancel pending tool via cancelPendingTool in standalone mode', () => {
+      const cancelTool = {
+        name: 'reboot_server',
+        label: '重啟伺服器',
+        requiresConfirmation: true
+      };
+
+      const onToolCancel = vi.fn();
+      const engine = initToolsEngine({
+        tools: [cancelTool],
+        onToolCancel
+      });
+
+      engine.offerTool(
+        cancelTool,
+        '重啟',
+        {},
+        {},
+        { callId: 'standalone-reboot-call' }
+      );
+      expect(engine.pendingToolConfirmation).toBe('standalone-reboot-call');
+
+      // Cancel directly via cancelPendingTool
+      engine.cancelPendingTool('standalone-reboot-call', {
+        reason: TOOL_CANCEL_REASON_MAP.USER_CANCEL
+      });
+      expect(engine.pendingToolConfirmation).toBe('');
+      expect(onToolCancel).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'reboot_server',
+          reason: TOOL_CANCEL_REASON_MAP.USER_CANCEL
+        })
+      );
+    });
+  });
+
+  describe('Context Injection & Propagation', () => {
+    it('should resolve static context and pass to tool execution', async () => {
+      const executeMock = vi.fn(async () => 'ok');
+      const testTool = {
+        name: 'test_ctx_tool',
+        label: '測試上下文工具',
+        requiresConfirmation: false,
+        execute: executeMock
+      };
+
+      const staticContext = { appId: 'bot-001', role: 'admin' };
+      const engine = initToolsEngine({
+        tools: [testTool],
+        context: staticContext
+      });
+
+      engine.offerTool(testTool, '執行', {}, { foo: 'bar' });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(executeMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: { foo: 'bar' },
+          context: expect.objectContaining({
+            appId: 'bot-001',
+            role: 'admin'
+          })
+        })
+      );
+    });
+
+    it('should resolve dynamic getter context and merge with call-level context overrides', async () => {
+      const executeMock = vi.fn(async () => 'ok');
+      const testTool = {
+        name: 'dynamic_ctx_tool',
+        label: '動態上下文工具',
+        requiresConfirmation: false,
+        execute: executeMock
+      };
+
+      let seq = 10;
+      const engine = initToolsEngine({
+        tools: [testTool],
+        context: () => ({ seq: ++seq, baseEnv: 'staging' })
+      });
+
+      // Call-level override
+      engine.offerTool(
+        testTool,
+        '執行',
+        {},
+        {},
+        { context: { overrideKey: 'custom-val' } }
+      );
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(executeMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: expect.objectContaining({
+            seq: 11,
+            baseEnv: 'staging',
+            overrideKey: 'custom-val'
+          })
+        })
+      );
+    });
+
+    it('should smart-compatibly recognize 4th argument with engine instances as context in prepareTool', async () => {
+      const executeMock = vi.fn(async () => 'ok');
+      const weatherTool = {
+        name: 'query_temp',
+        label: '查詢氣溫',
+        requiresConfirmation: false,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            city: { title: '城市', prefixes: ['在', '城市'], type: 'string' }
+          },
+          required: ['city']
+        },
+        execute: executeMock
+      };
+
+      const engine = initToolsEngine({
+        tools: [weatherTool]
+      });
+
+      const fakeEnginesContext = {
+        skinEngine: { name: 'fakeSkin' },
+        brainEngine: { name: 'fakeBrain' },
+        speechEngine: { name: 'fakeSpeech' },
+        aiAvatarWidget: { name: 'fakeWidget' }
+      };
+
+      // Pass fakeEnginesContext as 4th parameter (which historically was existingArgs)
+      engine.prepareTool(
+        weatherTool,
+        '在台北',
+        { confidence: 0.9 },
+        fakeEnginesContext
+      );
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(executeMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: { city: '台北' },
+          context: expect.objectContaining({
+            skinEngine: fakeEnginesContext.skinEngine,
+            brainEngine: fakeEnginesContext.brainEngine
+          })
+        })
+      );
+    });
+
+    it('should preserve context through multi-turn parameter collection and choices', async () => {
+      const executeMock = vi.fn(async () => 'ok');
+      const reportTool = {
+        name: 'send_report',
+        label: '發送報表',
+        requiresConfirmation: false,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            department: { title: '部門', type: 'string' }
+          },
+          required: ['department']
+        },
+        execute: executeMock
+      };
+
+      const engine = initToolsEngine({
+        tools: [reportTool],
+        context: { globalTenant: 'tenant_xyz' }
+      });
+
+      // 1. prepareTool missing parameter -> records context in pendingToolInput
+      engine.prepareTool(
+        reportTool,
+        '發送報表',
+        {},
+        {},
+        { localTraceId: 'trace-456' }
+      );
+      expect(engine.pendingToolInput?.context).toEqual(
+        expect.objectContaining({
+          globalTenant: 'tenant_xyz',
+          localTraceId: 'trace-456'
+        })
+      );
+
+      // 2. continueToolInput -> resolves and carries context into execution
+      engine.continueToolInput('研發部');
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(executeMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: { department: '研發部' },
+          context: expect.objectContaining({
+            globalTenant: 'tenant_xyz',
+            localTraceId: 'trace-456'
+          })
+        })
+      );
+    });
+  });
+
+  describe('7 Lifecycle Events & onToolEvent Dispatcher', () => {
+    it('should fire all 7 events and dispatch through unified onToolEvent', async () => {
+      const onToolOffer = vi.fn();
+      const onToolInputRequired = vi.fn();
+      const onToolAmbiguous = vi.fn();
+      const onToolConfirm = vi.fn();
+      const onToolCancel = vi.fn();
+      const onToolExecute = vi.fn();
+      const onToolResult = vi.fn();
+      const onToolEvent = vi.fn();
+
+      const mockExec = vi.fn(async () => '執行成功完成');
+      const sampleTool = {
+        name: 'sample_tool',
+        label: '範例工具',
+        requiresConfirmation: true,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            title: { title: '標題', type: 'string' }
+          },
+          required: ['title']
+        },
+        execute: mockExec
+      };
+
+      const otherTool = {
+        name: 'sample_other_tool',
+        label: '其他範例工具',
+        requiresConfirmation: true,
+        inputSchema: { type: 'object', properties: {} }
+      };
+
+      const engine = initToolsEngine({
+        tools: [sampleTool, otherTool],
+        onToolOffer,
+        onToolInputRequired,
+        onToolAmbiguous,
+        onToolConfirm,
+        onToolCancel,
+        onToolExecute,
+        onToolResult,
+        onToolEvent
+      });
+
+      // 1. onToolInputRequired (INPUT_REQUIRED)
+      engine.prepareTool(sampleTool, '請幫我執行範例');
+      expect(onToolInputRequired).toHaveBeenCalledWith({
+        name: 'sample_tool',
+        field: 'title'
+      });
+      expect(onToolEvent).toHaveBeenCalledWith(
+        TOOL_EVENT_MAP.INPUT_REQUIRED,
+        expect.objectContaining({ name: 'sample_tool', field: 'title' })
+      );
+
+      // 2. onToolCancel (CANCEL) via continueToolInput
+      engine.continueToolInput('取消');
+      expect(onToolCancel).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'sample_tool',
+          reason: TOOL_CANCEL_REASON_MAP.USER_CANCEL
+        })
+      );
+      expect(onToolEvent).toHaveBeenCalledWith(
+        TOOL_EVENT_MAP.CANCEL,
+        expect.objectContaining({ name: 'sample_tool' })
+      );
+
+      // 3. onToolAmbiguous (AMBIGUOUS)
+      engine.offerToolChoices('執行操作', [
+        { tool: sampleTool, score: 0.9 },
+        { tool: otherTool, score: 0.85 }
+      ]);
+      expect(onToolAmbiguous).toHaveBeenCalledWith(
+        expect.objectContaining({
+          names: ['sample_tool', 'sample_other_tool']
+        })
+      );
+      expect(onToolEvent).toHaveBeenCalledWith(
+        TOOL_EVENT_MAP.AMBIGUOUS,
+        expect.objectContaining({ names: expect.any(Array) })
+      );
+
+      // Cancel ambiguous choice
+      engine.continueToolChoice('取消');
+      expect(onToolCancel).toHaveBeenCalled();
+
+      // 4. onToolOffer (OFFER)
+      engine.offerTool(
+        sampleTool,
+        '執行範例',
+        { confidence: 0.92, reason: 'high_match' },
+        { title: '任務A' },
+        { callId: 'event-call-101', toolCallId: 'llm-call-999' }
+      );
+      expect(onToolOffer).toHaveBeenCalledWith({
+        name: 'sample_tool',
+        confirmation: true,
+        confidence: 0.92,
+        reason: 'high_match',
+        toolCallId: 'llm-call-999'
+      });
+      expect(onToolEvent).toHaveBeenCalledWith(
+        TOOL_EVENT_MAP.OFFER,
+        expect.objectContaining({
+          name: 'sample_tool',
+          confirmation: true,
+          toolCallId: 'llm-call-999'
+        })
+      );
+
+      // 5. onToolConfirm (CONFIRM) & onToolExecute (EXECUTE)
+      engine.executePendingTool('event-call-101');
+      expect(onToolConfirm).toHaveBeenCalledWith({
+        name: 'sample_tool',
+        toolCallId: 'llm-call-999'
+      });
+      expect(onToolExecute).toHaveBeenCalledWith({
+        name: 'sample_tool',
+        confirmation: true,
+        callId: 'event-call-101',
+        toolCallId: 'llm-call-999'
+      });
+
+      // 6. onToolResult (RESULT)
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      expect(onToolResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          callId: 'event-call-101',
+          name: 'sample_tool',
+          ok: true,
+          message: '執行成功完成',
+          durationMs: expect.any(Number)
+        })
+      );
+      expect(onToolEvent).toHaveBeenCalledWith(
+        TOOL_EVENT_MAP.RESULT,
+        expect.objectContaining({
+          callId: 'event-call-101',
+          ok: true
+        })
+      );
+    });
+  });
+
+  describe('onConfirmResume State & History Recovery Fixes', () => {
+    it('should mark chatMessage executed=true and update text with { streaming: false } on success', async () => {
+      const chatLog = [
+        {
+          id: 'confirm-resume-msg-1',
+          role: 'assistant',
+          text: '正在執行「天氣查詢」…',
+          executed: false
+        }
+      ];
+      const onUpdateChatMessage = vi.fn();
+      const onRenderHistory = vi.fn();
+      const onConfirmResume = vi.fn();
+
+      const weatherTool = {
+        name: 'weather_resume',
+        label: '天氣查詢',
+        requiresConfirmation: true,
+        execute: vi.fn(async () => '台北氣溫 26 度')
+      };
+
+      const engine = initToolsEngine({
+        tools: [weatherTool],
+        getChatLog: () => chatLog,
+        onUpdateChatMessage,
+        onRenderHistory
+      });
+
+      await engine.executeToolDirectly(
+        weatherTool,
+        { city: '台北' },
+        {
+          callId: 'confirm-resume-msg-1',
+          onConfirmResume
+        }
+      );
+
+      // Verify chat message updated
+      expect(chatLog[0].executed).toBe(true);
+      expect(chatLog[0].text).toBe('台北氣溫 26 度');
+      expect(onUpdateChatMessage).toHaveBeenCalledWith(
+        'confirm-resume-msg-1',
+        '台北氣溫 26 度',
+        { streaming: false }
+      );
+      expect(onRenderHistory).toHaveBeenCalled();
+      expect(onConfirmResume).toHaveBeenCalledWith('台北氣溫 26 度');
+    });
+
+    it('should mark chatMessage executed=true and update fail text on execute error with onConfirmResume', async () => {
+      const chatLog = [
+        {
+          id: 'confirm-resume-msg-fail',
+          role: 'assistant',
+          text: '正在執行「連線伺服器」…',
+          executed: false
+        }
+      ];
+      const onUpdateChatMessage = vi.fn();
+      const onRenderHistory = vi.fn();
+      const onConfirmResume = vi.fn();
+
+      const serverTool = {
+        name: 'server_connect',
+        label: '連線伺服器',
+        requiresConfirmation: true,
+        execute: vi.fn(async () => {
+          throw new Error('連線超時');
+        })
+      };
+
+      const engine = initToolsEngine({
+        tools: [serverTool],
+        getChatLog: () => chatLog,
+        onUpdateChatMessage,
+        onRenderHistory
+      });
+
+      await engine.executeToolDirectly(
+        serverTool,
+        {},
+        {
+          callId: 'confirm-resume-msg-fail',
+          onConfirmResume
+        }
+      );
+
+      expect(chatLog[0].executed).toBe(true);
+      expect(chatLog[0].text).toBe('執行失敗：連線超時');
+      expect(onUpdateChatMessage).toHaveBeenCalledWith(
+        'confirm-resume-msg-fail',
+        '執行失敗：連線超時',
+        { streaming: false }
+      );
+      expect(onRenderHistory).toHaveBeenCalled();
+      expect(onConfirmResume).toHaveBeenCalledWith({
+        ok: false,
+        error: '連線超時'
       });
     });
   });

@@ -996,14 +996,16 @@ export function setupToolsEngine({
     onUpdateChatMessage(
       messageId: string,
       text: string,
-      append?: boolean,
+      append?: boolean | { streaming?: boolean; [key: string]: unknown },
       ...args: unknown[]
     ) {
       const { brainEngine } = getEngines();
       if (typeof brainEngine?.updateChatMessage === 'function') {
-        return brainEngine.updateChatMessage(messageId, text, {
-          streaming: append
-        });
+        const streamingOption =
+          typeof append === 'object' && append !== null
+            ? append
+            : { streaming: append };
+        return brainEngine.updateChatMessage(messageId, text, streamingOption);
       }
       callOptionEvent(
         options,
