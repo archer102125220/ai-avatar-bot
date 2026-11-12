@@ -897,12 +897,16 @@ async function bootstrapDemo(): Promise<void> {
     startCollapsedOnMobile === true ? 'true' : 'false'
   );
 
+  const isLocal = window.location.href.includes('local');
+
   const options: AvatarBotOptions = {
     container: app,
     isMinimal: startCollapsedOnMobile,
     // 本地端 WebGPU WebLLM 旗艦模型與兩階段 OOM 降級設定
-    webLlmModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 行動設備用太高規格會死當
-    // webLlmModel: 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC', // 預設 8B 旗艦模型（支援完整 Function Calling 與推論思考鏈）
+    webLlmModel:
+      isLocal === true
+        ? 'Hermes-3-Llama-3.1-8B-q4f32_1-MLC' // 預設 8B 旗艦模型（支援完整 Function Calling 與推論思考鏈）
+        : 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 上 DEMO 時，行動設備用太高規格會死當
     webLlmFallbackModel: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', // 低配備設備（如 8GB 記憶體）自動 OOM 降級保底模型
     enableOomFallback: true, // 啟用 WebGPU 顯存不足自動降級
     aiProviderModel: 'gemma4:12b',

@@ -463,6 +463,7 @@
     justify-content: center;
     flex-direction: row;
     align-items: flex-start;
+    gap: 8px;
 
     max-inline-size: 1240px;
     margin-inline: auto;
@@ -487,6 +488,9 @@
     &-app {
       --app_stage_width: min(364px, 100vw - 24px);
       --app_stage_height: min(520px, 100dvh - 84px);
+
+      position: sticky;
+      top: 80px;
       min-width: var(--app_stage_width);
       min-height: var(--app_stage_height);
 
@@ -504,9 +508,11 @@
 
       /* ===== Floating / Docked Avatar Widget Stage (#app) ===== */
       &-stage {
-        position: fixed;
-        inset-inline-end: max(12px, env(safe-area-inset-right));
-        inset-block-end: max(12px, env(safe-area-inset-bottom));
+        // position: fixed;
+        position: absolute;
+        // inset-inline-end: max(12px, env(safe-area-inset-right));
+        // inset-block-end: max(12px, env(safe-area-inset-bottom));
+        // inset-inline-end: 0px;
         z-index: 1000;
         inline-size: var(--app_stage_width, min(364px, calc(100vw - 24px)));
         block-size: var(--app_stage_height, min(520px, calc(100dvh - 84px)));
@@ -518,8 +524,8 @@
           border-color 0.25s ease;
 
         @media (min-width: 1180px) {
-          inset-inline-end: max(24px, calc((100vw - 1240px) / 2 + 28px));
-          inset-block-end: 24px;
+          // inset-inline-end: max(24px, calc((100vw - 1240px) / 2 + 28px));
+          // inset-block-end: 24px;
           inline-size: 384px;
           block-size: min(580px, calc(100dvh - 104px));
         }

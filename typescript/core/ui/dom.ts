@@ -25,7 +25,7 @@ export function initUi(
   let currentI18nEngine = i18nEngine;
 
   if (
-    ['relative', 'absolute', 'fixed'].includes(
+    ['relative', 'absolute', 'fixed', 'sticky'].includes(
       getComputedStyle(container).position
     ) === false
   ) {
@@ -173,7 +173,10 @@ export function initUi(
 
   const llmButtonEl = document.createElement('button');
   llmButtonEl.setAttribute('id', 'btn-llm');
-  llmButtonEl.setAttribute('aria-label', '啟用瀏覽器內 AI 大腦（首次需下載模型）');
+  llmButtonEl.setAttribute(
+    'aria-label',
+    '啟用瀏覽器內 AI 大腦（首次需下載模型）'
+  );
   llmButtonEl.setAttribute('data-i18n-aria', 'ui.llm.ariaLabel');
   llmButtonEl.setAttribute('aria-pressed', 'false');
   llmButtonEl.classList.add('ctrl');
