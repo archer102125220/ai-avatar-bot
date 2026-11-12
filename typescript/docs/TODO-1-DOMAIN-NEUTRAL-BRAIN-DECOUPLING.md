@@ -163,6 +163,11 @@ function dispatchOutputTextReady(engine: BrainEngine, text: string) {
   - **`model` 參數名相撞與歧義**：大腦引擎使用 `model`（LLM 名稱），而皮膚引擎頂層配置使用 `modelUrl`（2D 模型網址）與 `modelTransform`（3D 空間變換），在上層 `WidgetOptions` 容易產生認知衝突與配置混淆。
 - [x] **耦合點 04 (Orchestrator 推理狀態硬編碼)**：
   - 在 `pipeline-stream.ts` 與 `pipeline-user.ts` 中，當大腦開始思考時，Orchestrator 硬編碼呼叫 `skinEngine.gestureName = 'thinking'` 與 `skinEngine.setEmotion('thinking')`；而在思考結束時，原先硬編碼呼叫 `skinEngine.gestureName = 'talking'`，但皮膚引擎並無單一 `talking` 手勢（說話由 `isSpeaking` 驅動動作池），導致無此手勢的模型拋出 `GestureNotFoundError`。現已將思考結束修正為平滑回歸 `neutral`。未來大腦徹底獨立拆包時，應將思考狀態正規化至標準推論生命週期事件（如 `onReasoningStart` / `onReasoningEnd`），由協調層或使用者自訂映射動作，而非直接在核心流程綁死特定字串。
+- [x] **耦合點 05 (UiEngine 與大腦引擎之強耦合與白箱存取)**：
+  - **直接變異大腦對話歷史陣列長度 (`chatLog.length = 0`)**：[`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L220) 在使用者點擊清除紀錄按鈕時，直接透過 `context.brainEngine.chatLog.length = 0` 暴力清空大腦的歷史訊息陣列，破壞封裝。大腦解耦後應提供標準方法（如 `brainEngine.clearHistory()` 或 `clearChatLog()`）供協調層與 UI 調用。
+  - **對話歷史型別依賴錯位 (`ToolChatMessage` vs `ChatLogItem`)**：[`core/ui/history.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/history.ts#L3) 反向從 `@/core/tools` 匯入 `ToolChatMessage` 來標註大腦的 `brainEngine.chatLog`（忽視了大腦本身的 `ChatLogItem` 型別定義）。中立架構下，對話歷史基礎型別應由 Brain 或頂層 Types 統一規範，工具附加屬性應以 Extension 型別疊加，避免 UI 成為工具與大腦型別混雜的受害者。
+  - **UI 控制按鈕對 WebLLM / AiProvider 內部白箱穿透存取**：[`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L236-L295) 的 `llmButtonEl.onclick` 直接刺探大腦內部私有層級：`brainEngine.aiProvider?.enabled`、`ready`、`ping()`、`model`、以及 `brainEngine.llm.supported`、`state`、`progress`、`load()`。大腦引擎獨立拆包時，應於對外實例層提供中立的大腦狀態查詢與載入門面方法（如 `brainEngine.getProviderStatus()` 或 `brainEngine.loadLocalBrain()`），而非由 UI 模組深入存取各供應商之私有狀態。
+  - **UI 硬編碼未國際化之大腦提示字串**：`events.ts` L256–L286 包含 5 處寫死之繁體中文大腦狀態提示（如 `'AI 伺服器大腦運作中'`、`'這個裝置不支援 WebGPU'` 等），完全繞過 `i18nEngine`。
 
 ---
 

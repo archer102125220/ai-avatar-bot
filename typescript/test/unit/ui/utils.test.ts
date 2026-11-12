@@ -89,19 +89,17 @@ describe('UI Utilities (updateUIStrings, copyText, initSkinModeChangeButton)', (
 
   describe('initSkinModeChangeButton', () => {
     let mockContext: {
-      uiDom: { engineButtonEl: HTMLButtonElement };
-      ENGINE_MODE_MAP: typeof ENGINE_MODE_MAP;
+      uiDom: { skinModeButtonEl: HTMLButtonElement };
       skinEngine: {
         engineMode: string;
       };
     };
-    let engineButtonEl: HTMLButtonElement;
+    let skinModeButtonEl: HTMLButtonElement;
 
     beforeEach(() => {
-      engineButtonEl = document.createElement('button');
+      skinModeButtonEl = document.createElement('button');
       mockContext = {
-        uiDom: { engineButtonEl },
-        ENGINE_MODE_MAP,
+        uiDom: { skinModeButtonEl },
         skinEngine: {
           engineMode: ENGINE_MODE_MAP.twoDimensional
         }
@@ -109,30 +107,50 @@ describe('UI Utilities (updateUIStrings, copyText, initSkinModeChangeButton)', (
     });
 
     it('should display engine toggle button only when has2D, has3D, and isEngineToggleEnabled are all true', () => {
-      initSkinModeChangeButton(mockContext as unknown as UiContext, true, true, true);
-      expect(engineButtonEl.style.display).toBe('');
-      expect(engineButtonEl.textContent).toBe('2D');
+      initSkinModeChangeButton(mockContext as unknown as UiContext, {
+        has2D: true,
+        has3D: true,
+        isEngineToggleEnabled: true
+      });
+      expect(skinModeButtonEl.style.display).toBe('');
+      expect(skinModeButtonEl.textContent).toBe('2D');
 
-      initSkinModeChangeButton(mockContext as unknown as UiContext, true, false, true);
-      expect(engineButtonEl.style.display).toBe('none');
+      initSkinModeChangeButton(mockContext as unknown as UiContext, {
+        has2D: true,
+        has3D: false,
+        isEngineToggleEnabled: true
+      });
+      expect(skinModeButtonEl.style.display).toBe('none');
 
-      initSkinModeChangeButton(mockContext as unknown as UiContext, false, true, true);
-      expect(engineButtonEl.style.display).toBe('none');
+      initSkinModeChangeButton(mockContext as unknown as UiContext, {
+        has2D: false,
+        has3D: true,
+        isEngineToggleEnabled: true
+      });
+      expect(skinModeButtonEl.style.display).toBe('none');
 
-      initSkinModeChangeButton(mockContext as unknown as UiContext, true, true, false);
-      expect(engineButtonEl.style.display).toBe('none');
+      initSkinModeChangeButton(mockContext as unknown as UiContext, {
+        has2D: true,
+        has3D: true,
+        isEngineToggleEnabled: false
+      });
+      expect(skinModeButtonEl.style.display).toBe('none');
     });
 
     it('should toggle engineMode between 2D and 3D when clicking engine button', () => {
-      initSkinModeChangeButton(mockContext as unknown as UiContext, true, true, true);
+      initSkinModeChangeButton(mockContext as unknown as UiContext, {
+        has2D: true,
+        has3D: true,
+        isEngineToggleEnabled: true
+      });
 
       // Current mode is 2D, clicking should switch to 3D
-      engineButtonEl.click();
+      skinModeButtonEl.click();
       expect(mockContext.skinEngine.engineMode).toBe(ENGINE_MODE_MAP.threeDimensional);
 
       // Now mode is 3D, clicking should switch back to 2D
       mockContext.skinEngine.engineMode = ENGINE_MODE_MAP.threeDimensional;
-      engineButtonEl.click();
+      skinModeButtonEl.click();
       expect(mockContext.skinEngine.engineMode).toBe(ENGINE_MODE_MAP.twoDimensional);
     });
   });

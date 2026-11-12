@@ -1,4 +1,3 @@
-import { AVATAR_MODE_MAP } from '@/core/constants';
 import { renderSuggestions, renderHistory, updateUIStrings } from '@/core/ui';
 import { callOptionEvent } from './options';
 import type {
@@ -44,10 +43,7 @@ export function setupStoreSubscribers({
         newAvatarMode as import('@/core/brain').AvatarMode;
 
       // 1. 模式專屬語音角色 (voice) 連動切換
-      if (
-        typeof brainEngine.modes === 'object' &&
-        brainEngine.modes !== null
-      ) {
+      if (typeof brainEngine.modes === 'object' && brainEngine.modes !== null) {
         const modeConfig = brainEngine.modes[newAvatarMode];
         if (
           typeof modeConfig === 'object' &&
@@ -55,10 +51,7 @@ export function setupStoreSubscribers({
           typeof modeConfig.voice === 'string' &&
           modeConfig.voice.trim() !== ''
         ) {
-          if (
-            typeof speechEngine === 'object' &&
-            speechEngine !== null
-          ) {
+          if (typeof speechEngine === 'object' && speechEngine !== null) {
             speechEngine.neuralVoice = modeConfig.voice.trim();
           }
         }
@@ -73,13 +66,12 @@ export function setupStoreSubscribers({
     }
 
     if (typeof uiDom?.updateMicState === 'function') {
-      const isCompanion = newAvatarMode === AVATAR_MODE_MAP.companion;
-      uiDom.updateMicState(
-        speechEngine?.isListening ?? false,
-        speechEngine?.convoOn ?? false,
-        isCompanion,
-        i18nEngine
-      );
+      uiDom.updateMicState({
+        isListening: speechEngine?.isListening ?? false,
+        continuousMode: speechEngine?.convoOn ?? false,
+        avatarMode: newAvatarMode as import('@/core/types').AvatarMode,
+        i18n: i18nEngine
+      });
     }
   });
 
@@ -333,23 +325,19 @@ export function setupI18nSubscribers({
         }
         updateUIStrings(container, i18nEngine);
         if (typeof uiDom?.updateMicState === 'function') {
-          const isCompanion =
-            rootStore.getState().avatarMode === AVATAR_MODE_MAP.companion;
-          uiDom.updateMicState(
-            speechEngine?.isListening ?? false,
-            speechEngine?.convoOn ?? false,
-            isCompanion,
-            i18nEngine
-          );
+          uiDom.updateMicState({
+            isListening: speechEngine?.isListening ?? false,
+            continuousMode: speechEngine?.convoOn ?? false,
+            avatarMode: rootStore.getState()
+              .avatarMode as import('@/core/types').AvatarMode,
+            i18n: i18nEngine
+          });
         }
         if (typeof uiDom?.updateVoiceStatus === 'function') {
-          uiDom.updateVoiceStatus(
-            speechEngine?.convoOn ?? false,
-            undefined,
-            undefined,
-            undefined,
-            i18nEngine
-          );
+          uiDom.updateVoiceStatus({
+            continuousMode: speechEngine?.convoOn ?? false,
+            i18n: i18nEngine
+          });
         }
         renderSuggestions(widget);
 

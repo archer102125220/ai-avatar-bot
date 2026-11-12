@@ -12,6 +12,7 @@ import type {
   AiAvatarWidget,
   OrchestratorEngines
 } from '@/core/orchestrator/types';
+import type { UpdateBubbleOptions } from '@/core/ui/types';
 import type { BaseStore } from '@/core/store';
 
 describe('Orchestrator Pipelines & Interactions', () => {
@@ -442,13 +443,19 @@ describe('Orchestrator Pipelines & Interactions', () => {
       const mockBubbleEl = document.createElement('p');
       const mockUiDom = {
         bubbleEl: mockBubbleEl,
-        updateBubble: vi.fn((text?: string, show?: boolean, isThinking?: boolean) => {
-          if (typeof text === 'string') mockBubbleEl.textContent = text;
-          if (show === true) mockBubbleEl.setAttribute('css-is-show', 'true');
-          else if (show === false) mockBubbleEl.removeAttribute('css-is-show');
-          if (isThinking === true) mockBubbleEl.setAttribute('css-is-thinking', 'true');
-          else if (isThinking === false) mockBubbleEl.removeAttribute('css-is-thinking');
-        })
+        updateBubble: vi.fn(
+          (text?: string, options?: UpdateBubbleOptions) => {
+            if (typeof text === 'string') mockBubbleEl.textContent = text;
+            if (typeof options?.show === 'boolean') {
+              if (options.show === true) mockBubbleEl.setAttribute('css-is-show', 'true');
+              else mockBubbleEl.removeAttribute('css-is-show');
+            }
+            if (typeof options?.isThinking === 'boolean') {
+              if (options.isThinking === true) mockBubbleEl.setAttribute('css-is-thinking', 'true');
+              else mockBubbleEl.removeAttribute('css-is-thinking');
+            }
+          }
+        )
       };
 
       const customWidget = {
@@ -472,13 +479,18 @@ describe('Orchestrator Pipelines & Interactions', () => {
       // 1. Reasoning starts -> bubble shows thinking
       streamPipeline.onStreamStart();
       streamPipeline.onReasoningStart({ model: 'Hermes-3-8B' });
-      expect(mockUiDom.updateBubble).toHaveBeenCalledWith('讓我想想…', true, true);
+      expect(mockUiDom.updateBubble).toHaveBeenCalledWith('讓我想想…', {
+        show: true,
+        isThinking: true
+      });
       expect(mockBubbleEl.getAttribute('css-is-thinking')).toBe('true');
       expect(mockBubbleEl.getAttribute('css-is-show')).toBe('true');
 
       // 2. Answering starts (onStreamChunk) -> removes css-is-thinking
       streamPipeline.onStreamChunk('答案第一句');
-      expect(mockUiDom.updateBubble).toHaveBeenCalledWith(undefined, undefined, false);
+      expect(mockUiDom.updateBubble).toHaveBeenCalledWith(undefined, {
+        isThinking: false
+      });
       expect(mockBubbleEl.getAttribute('css-is-thinking')).toBeNull();
 
       // 3. Test interrupt resets thinking attribute
@@ -523,13 +535,19 @@ describe('Orchestrator Pipelines & Interactions', () => {
       const mockBubbleEl = document.createElement('p');
       const mockUiDom = {
         bubbleEl: mockBubbleEl,
-        updateBubble: vi.fn((text?: string, show?: boolean, isThinking?: boolean) => {
-          if (typeof text === 'string') mockBubbleEl.textContent = text;
-          if (show === true) mockBubbleEl.setAttribute('css-is-show', 'true');
-          else if (show === false) mockBubbleEl.removeAttribute('css-is-show');
-          if (isThinking === true) mockBubbleEl.setAttribute('css-is-thinking', 'true');
-          else if (isThinking === false) mockBubbleEl.removeAttribute('css-is-thinking');
-        })
+        updateBubble: vi.fn(
+          (text?: string, options?: UpdateBubbleOptions) => {
+            if (typeof text === 'string') mockBubbleEl.textContent = text;
+            if (typeof options?.show === 'boolean') {
+              if (options.show === true) mockBubbleEl.setAttribute('css-is-show', 'true');
+              else mockBubbleEl.removeAttribute('css-is-show');
+            }
+            if (typeof options?.isThinking === 'boolean') {
+              if (options.isThinking === true) mockBubbleEl.setAttribute('css-is-thinking', 'true');
+              else mockBubbleEl.removeAttribute('css-is-thinking');
+            }
+          }
+        )
       };
 
       const customWidget = {
@@ -551,8 +569,10 @@ describe('Orchestrator Pipelines & Interactions', () => {
 
       expect(mockUiDom.updateBubble).toHaveBeenCalledWith(
         '這是完整的第一段。這是完整的第二段。',
-        true,
-        false
+        {
+          show: true,
+          isThinking: false
+        }
       );
       expect(mockBubbleEl.textContent).toBe('這是完整的第一段。這是完整的第二段。');
       expect(mockBubbleEl.getAttribute('css-is-show')).toBe('true');

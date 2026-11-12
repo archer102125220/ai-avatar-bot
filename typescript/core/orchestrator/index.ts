@@ -201,15 +201,15 @@ export async function initAvatarBot(
   }
 
   // Initialize UI voice status
-  uiDom.updateVoiceStatus(
-    aiAvatarWidget.speechEngine?.convoOn ?? false,
-    typeof i18nEngine?.t === 'function'
-      ? i18nEngine.t('ui.voice.standby')
-      : '即時語音待命',
-    '',
-    0,
-    i18nEngine
-  );
+  uiDom.updateVoiceStatus({
+    continuousMode: aiAvatarWidget.speechEngine?.convoOn ?? false,
+    text:
+      typeof i18nEngine?.t === 'function'
+        ? i18nEngine.t('ui.voice.standby')
+        : '即時語音待命',
+    level: 0,
+    i18n: i18nEngine
+  });
 
   if (typeof options.onReady === 'function') {
     aiAvatarWidget.onReady = options.onReady.bind(aiAvatarWidget);
@@ -220,12 +220,11 @@ export async function initAvatarBot(
       options.onMinimalTrigger.bind(aiAvatarWidget);
   }
 
-  initSkinModeChangeButton(
-    aiAvatarWidget,
-    skinEngine?.has2D === true,
-    skinEngine?.has3D === true,
+  initSkinModeChangeButton(aiAvatarWidget, {
+    has2D: skinEngine?.has2D === true,
+    has3D: skinEngine?.has3D === true,
     isEngineToggleEnabled
-  );
+  });
   renderSuggestions(aiAvatarWidget);
   bindTyping(aiAvatarWidget);
   bindUiEvent(aiAvatarWidget);

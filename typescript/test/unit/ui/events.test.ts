@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { bindTyping, bindUiEvent } from '@/core/ui/events';
 import { initUi } from '@/core/ui/dom';
 import { initI18nEngine } from '@/core/i18n';
-import { STATE_MAP } from '@/core/constants';
+import { STATE_MAP, AVATAR_MODE_MAP } from '@/core/constants';
 import type { I18nEngine } from '@core';
 import type { UiContext, UiDom } from '@/core/ui/types';
 
@@ -76,7 +76,7 @@ describe('UI Events Binding', () => {
       i18nEngine,
       isMinimal: false,
       isIframe: false,
-      avatarMode: 'assistant',
+      avatarMode: AVATAR_MODE_MAP.assistant,
       STATE_MAP,
       handleUser: vi.fn(),
       onMinimalTrigger: vi.fn(),
@@ -178,7 +178,7 @@ describe('UI Events Binding', () => {
       expect(mockContext.speechEngine.interruptForVoice).toHaveBeenCalled();
 
       // Companion mode: start listening when idle
-      mockContext.avatarMode = 'companion';
+      mockContext.avatarMode = AVATAR_MODE_MAP.companion;
       mockContext.speechEngine.isSpeaking = false;
       mockContext.speechEngine.isListening = false;
       mockContext.speechEngine.isProcessing = false;
@@ -254,7 +254,7 @@ describe('UI Events Binding', () => {
       bindUiEvent(getContext());
 
       // Companion mode active -> stop session
-      mockContext.avatarMode = 'companion';
+      mockContext.avatarMode = AVATAR_MODE_MAP.companion;
       mockContext.speechEngine.isListening = true;
       mockContext.speechEngine.isProcessing = false;
       uiDom.micButtonEl.click();
@@ -262,7 +262,7 @@ describe('UI Events Binding', () => {
       expect(mockContext.speechEngine.stopVoiceSession).toHaveBeenCalled();
 
       // Standard mode active -> stop session
-      mockContext.avatarMode = 'assistant';
+      mockContext.avatarMode = AVATAR_MODE_MAP.assistant;
       mockContext.speechEngine.isListening = true;
       uiDom.micButtonEl.click();
       expect(mockContext.speechEngine.stopVoiceSession).toHaveBeenCalled();

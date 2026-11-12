@@ -1,4 +1,5 @@
 import { resolveLocalized } from '@/core/i18n';
+import { AVATAR_MODE_MAP } from '@/core/constants';
 import type { UiContext } from './types';
 
 /**
@@ -85,7 +86,7 @@ export function renderSuggestions(context: UiContext | null = null): void {
       defaultAssistantSuggestions,
       templateContext
     );
-  } else if (context?.avatarMode === context?.AVATAR_MODE_MAP?.companion) {
+  } else if (context?.avatarMode === AVATAR_MODE_MAP.companion) {
     resolvedSuggestions = resolveLocalized<string[]>(
       context?.companionSuggestedQuestions,
       locale,
@@ -112,7 +113,7 @@ export function renderSuggestions(context: UiContext | null = null): void {
       defaultAssistantTitle,
       templateContext
     );
-  } else if (context?.avatarMode === context?.AVATAR_MODE_MAP?.companion) {
+  } else if (context?.avatarMode === AVATAR_MODE_MAP.companion) {
     titleText = resolveLocalized(
       context?.companionSuggestedTitle,
       locale,

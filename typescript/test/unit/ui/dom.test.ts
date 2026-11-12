@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { initUi } from '@/core/ui/dom';
 import { initI18nEngine } from '@/core/i18n';
+import { AVATAR_MODE_MAP } from '@/core/constants';
 import type { I18nEngine } from '@core';
 import type { UiDom } from '@/core/ui/types';
 
@@ -46,7 +47,7 @@ describe('UI DOM & Scaffolding (initUi)', () => {
     expect(uiDom.sendButtonEl.id).toBe('btn-send');
     expect(uiDom.micButtonEl.id).toBe('btn-mic');
     expect(uiDom.llmButtonEl.id).toBe('btn-llm');
-    expect(uiDom.engineButtonEl.id).toBe('btn-engine');
+    expect(uiDom.skinModeButtonEl.id).toBe('btn-engine');
     expect(uiDom.muteButtonEl.id).toBe('btn-mute');
     expect(uiDom.speedButtonEl.id).toBe('btn-speed');
     expect(uiDom.langButtonEl.id).toBe('btn-lang');
@@ -68,7 +69,13 @@ describe('UI DOM & Scaffolding (initUi)', () => {
   it('should update voice status properly via uiDom.updateVoiceStatus', () => {
     const uiDom: UiDom = initUi(container, stageEl, i18nEngine)!;
 
-    uiDom.updateVoiceStatus(true, '正在聆聽…', 'listening', 75, i18nEngine);
+    uiDom.updateVoiceStatus({
+      continuousMode: true,
+      text: '正在聆聽…',
+      state: 'listening',
+      level: 75,
+      i18n: i18nEngine,
+    });
 
     expect(uiDom.voiceLiveEl.getAttribute('css-is-active')).toBe('true');
     expect(uiDom.voiceLiveEl.getAttribute('css-state')).toBe('listening');
@@ -76,17 +83,31 @@ describe('UI DOM & Scaffolding (initUi)', () => {
     expect(uiDom.voiceLevelEl.style.width).toBe('75%');
 
     // Convo active but state is empty string -> removes css-state, empty text uses i18n standby
-    uiDom.updateVoiceStatus(true, '', '', 50);
+    uiDom.updateVoiceStatus({
+      continuousMode: true,
+      text: '',
+      state: '',
+      level: 50,
+    });
     expect(uiDom.voiceLiveEl.getAttribute('css-state')).toBeNull();
     expect(uiDom.voiceStatusEl.textContent).toBe(
       i18nEngine.t('ui.voice.standby')
     );
 
     // Negative volume level clamps to 0%
-    uiDom.updateVoiceStatus(true, '講話中', 'speaking', -10);
+    uiDom.updateVoiceStatus({
+      continuousMode: true,
+      text: '講話中',
+      state: 'speaking',
+      level: -10,
+    });
     expect(uiDom.voiceLevelEl.style.width).toBe('0%');
 
-    uiDom.updateVoiceStatus(false, undefined, undefined, 0, i18nEngine);
+    uiDom.updateVoiceStatus({
+      continuousMode: false,
+      level: 0,
+      i18n: i18nEngine,
+    });
     expect(uiDom.voiceLiveEl.getAttribute('css-is-active')).toBeNull();
     expect(uiDom.voiceLiveEl.getAttribute('css-state')).toBeNull();
   });
@@ -95,18 +116,32 @@ describe('UI DOM & Scaffolding (initUi)', () => {
     const uiDom: UiDom = initUi(container, stageEl, i18nEngine)!;
 
     // 1. Listening + companion
-    uiDom.updateMicState(true, true, true, i18nEngine);
+    uiDom.updateMicState({
+      isListening: true,
+      continuousMode: true,
+      avatarMode: AVATAR_MODE_MAP.companion,
+      i18n: i18nEngine,
+    });
     expect(uiDom.micButtonEl.getAttribute('css-state')).toBe('listening');
     expect(uiDom.micButtonEl.getAttribute('aria-pressed')).toBe('true');
     expect(uiDom.suggestionsEl.style.display).toBe('none');
 
     // 2. ConvoOn without listening
-    uiDom.updateMicState(false, true, false);
+    uiDom.updateMicState({
+      isListening: false,
+      continuousMode: true,
+      avatarMode: AVATAR_MODE_MAP.assistant,
+    });
     expect(uiDom.micButtonEl.getAttribute('css-state')).toBeNull();
     expect(uiDom.micButtonEl.getAttribute('aria-pressed')).toBe('true');
 
     // 3. Completely idle
-    uiDom.updateMicState(false, false, false, i18nEngine);
+    uiDom.updateMicState({
+      isListening: false,
+      continuousMode: false,
+      avatarMode: AVATAR_MODE_MAP.assistant,
+      i18n: i18nEngine,
+    });
     expect(uiDom.micButtonEl.getAttribute('css-state')).toBeNull();
     expect(uiDom.micButtonEl.getAttribute('aria-pressed')).toBe('false');
     expect(uiDom.suggestionsEl.style.display).toBe('flex');
@@ -126,29 +161,49 @@ describe('UI DOM & Scaffolding (initUi)', () => {
     expect(staticContainer.style.position).toBe('relative');
 
     // 1. Listening in assistant mode without i18nEngine
-    uiDom.updateMicState(true, true, false, null as unknown as I18nEngine);
+    uiDom.updateMicState({
+      isListening: true,
+      continuousMode: true,
+      avatarMode: AVATAR_MODE_MAP.assistant,
+      i18n: null,
+    });
     expect(uiDom.micButtonEl.textContent).toBe('● 聆聽中');
 
     // 2. Listening in companion mode without i18nEngine
-    uiDom.updateMicState(true, true, true, null as unknown as I18nEngine);
+    uiDom.updateMicState({
+      isListening: true,
+      continuousMode: true,
+      avatarMode: AVATAR_MODE_MAP.companion,
+      i18n: null,
+    });
     expect(uiDom.micButtonEl.textContent).toBe('● 對話中');
 
     // 3. Convo standby without i18nEngine
-    uiDom.updateMicState(false, true, false, null as unknown as I18nEngine);
+    uiDom.updateMicState({
+      isListening: false,
+      continuousMode: true,
+      avatarMode: AVATAR_MODE_MAP.assistant,
+      i18n: null,
+    });
     expect(uiDom.micButtonEl.textContent).toBe('◌ 對話中');
 
     // 4. Idle live without i18nEngine
-    uiDom.updateMicState(false, false, false, null as unknown as I18nEngine);
+    uiDom.updateMicState({
+      isListening: false,
+      continuousMode: false,
+      avatarMode: AVATAR_MODE_MAP.assistant,
+      i18n: null,
+    });
     expect(uiDom.micButtonEl.textContent).toBe('🎙️ 即時');
 
     // 5. Voice status with empty text and no i18nEngine fallback
-    uiDom.updateVoiceStatus(
-      true,
-      '',
-      'processing',
-      150,
-      null as unknown as I18nEngine
-    );
+    uiDom.updateVoiceStatus({
+      continuousMode: true,
+      text: '',
+      state: 'processing',
+      level: 150,
+      i18n: null,
+    });
     expect(uiDom.voiceStatusEl.textContent).toBe('即時語音待命');
     expect(uiDom.voiceLevelEl.style.width).toBe('100%');
   });
@@ -157,19 +212,19 @@ describe('UI DOM & Scaffolding (initUi)', () => {
     const uiDom: UiDom = initUi(container, stageEl, i18nEngine)!;
 
     // 1. Thinking state
-    uiDom.updateBubble('思考中…', true, true);
+    uiDom.updateBubble('思考中…', { show: true, isThinking: true });
     expect(uiDom.bubbleEl.textContent).toBe('思考中…');
     expect(uiDom.bubbleEl.getAttribute('css-is-show')).toBe('true');
     expect(uiDom.bubbleEl.getAttribute('css-is-thinking')).toBe('true');
 
     // 2. Answering state (remove thinking, update text)
-    uiDom.updateBubble('正式回答文字', true, false);
+    uiDom.updateBubble('正式回答文字', { show: true, isThinking: false });
     expect(uiDom.bubbleEl.textContent).toBe('正式回答文字');
     expect(uiDom.bubbleEl.getAttribute('css-is-show')).toBe('true');
     expect(uiDom.bubbleEl.getAttribute('css-is-thinking')).toBeNull();
 
     // 3. Hide bubble
-    uiDom.updateBubble(undefined, false);
+    uiDom.updateBubble(undefined, { show: false });
     expect(uiDom.bubbleEl.getAttribute('css-is-show')).toBeNull();
   });
 });

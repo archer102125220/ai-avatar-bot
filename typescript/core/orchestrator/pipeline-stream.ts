@@ -84,7 +84,7 @@ export function createStreamPipeline({
     }
     const widgetInstance = resolveWidget();
     if (typeof widgetInstance?.uiDom?.updateBubble === 'function') {
-      widgetInstance.uiDom.updateBubble(undefined, undefined, false);
+      widgetInstance.uiDom.updateBubble(undefined, { isThinking: false });
     } else if (widgetInstance?.uiDom?.bubbleEl instanceof HTMLElement) {
       widgetInstance.uiDom.bubbleEl.removeAttribute('css-is-thinking');
     }
@@ -132,15 +132,17 @@ export function createStreamPipeline({
             ? i18n.t('brain.thinking')
             : '讓我想想…';
         if (typeof widgetInstance?.uiDom?.updateBubble === 'function') {
-          widgetInstance.uiDom.updateBubble(thinkingText, true, true);
+          widgetInstance.uiDom.updateBubble(thinkingText, {
+            show: true,
+            isThinking: true
+          });
         } else if (widgetInstance?.uiDom?.bubbleEl instanceof HTMLElement) {
           widgetInstance.uiDom.bubbleEl.textContent = thinkingText;
           widgetInstance.uiDom.bubbleEl.setAttribute('css-is-show', 'true');
           widgetInstance.uiDom.bubbleEl.setAttribute('css-is-thinking', 'true');
         }
       }
-      const safeInfo =
-        typeof info === 'object' && info !== null ? info : {};
+      const safeInfo = typeof info === 'object' && info !== null ? info : {};
       callOptionEvent(options, resolveWidget(), 'onReasoningStart', safeInfo);
     },
 
@@ -173,7 +175,7 @@ export function createStreamPipeline({
       }
       const widgetInstance = resolveWidget();
       if (typeof widgetInstance?.uiDom?.updateBubble === 'function') {
-        widgetInstance.uiDom.updateBubble(undefined, undefined, false);
+        widgetInstance.uiDom.updateBubble(undefined, { isThinking: false });
       } else if (widgetInstance?.uiDom?.bubbleEl instanceof HTMLElement) {
         widgetInstance.uiDom.bubbleEl.removeAttribute('css-is-thinking');
       }
@@ -307,7 +309,10 @@ export function createStreamPipeline({
           speechEngine.spokenDisplayText = safeFullText;
         }
         if (typeof widgetInstance?.uiDom?.updateBubble === 'function') {
-          widgetInstance.uiDom.updateBubble(safeFullText, true, false);
+          widgetInstance.uiDom.updateBubble(safeFullText, {
+            show: true,
+            isThinking: false
+          });
         } else if (widgetInstance?.uiDom?.bubbleEl instanceof HTMLElement) {
           widgetInstance.uiDom.bubbleEl.textContent = safeFullText;
           widgetInstance.uiDom.bubbleEl.setAttribute('css-is-show', 'true');
@@ -319,14 +324,17 @@ export function createStreamPipeline({
           speechEngine.spokenDisplayText === '')
       ) {
         if (typeof widgetInstance?.uiDom?.updateBubble === 'function') {
-          widgetInstance.uiDom.updateBubble('', false, false);
+          widgetInstance.uiDom.updateBubble('', {
+            show: false,
+            isThinking: false
+          });
         } else if (widgetInstance?.uiDom?.bubbleEl instanceof HTMLElement) {
           widgetInstance.uiDom.bubbleEl.removeAttribute('css-is-thinking');
           widgetInstance.uiDom.bubbleEl.removeAttribute('css-is-show');
         }
       } else {
         if (typeof widgetInstance?.uiDom?.updateBubble === 'function') {
-          widgetInstance.uiDom.updateBubble(undefined, undefined, false);
+          widgetInstance.uiDom.updateBubble(undefined, { isThinking: false });
         } else if (widgetInstance?.uiDom?.bubbleEl instanceof HTMLElement) {
           widgetInstance.uiDom.bubbleEl.removeAttribute('css-is-thinking');
         }
@@ -414,7 +422,10 @@ export function createStreamPipeline({
       }
       const widgetInstance = resolveWidget();
       if (typeof widgetInstance?.uiDom?.updateBubble === 'function') {
-        widgetInstance.uiDom.updateBubble(undefined, false, false);
+        widgetInstance.uiDom.updateBubble(undefined, {
+          show: false,
+          isThinking: false
+        });
       } else if (widgetInstance?.uiDom?.bubbleEl instanceof HTMLElement) {
         widgetInstance.uiDom.bubbleEl.removeAttribute('css-is-thinking');
       }

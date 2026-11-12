@@ -1691,6 +1691,14 @@ yarn test:smoke
   - 跨領域項目設立為 TODO 4 動態收集看板，在後續重構工具（Tools）、國際化（I18n）與 UI 模組時，邊處理邊收集真實邊界規格。
   - 最終在協調層（`core/orchestrator`）重構時與大腦 TODO 1 一併收網，徹底移除過渡副作用，達到 100% 現代純淨架構。
 
+### 📌 TODO 5：UI 介面引擎獨立反應式狀態庫與跨領域解耦規格書（規格拍板 / Ready for Implementation）
+- **規格書追蹤**：詳見 [UI 介面引擎反應式解耦規格書 (RFC)](./docs/TODO-5-UI-ENGINE-REACTIVE-STORE-DECOUPLING.md)。
+- **背景**：UI 介面模組（`core/ui`）為全專案五大引擎中唯一缺乏專屬 `createBaseStore` 的模組，目前依賴區域閉包與多達 5 個位置參數之函式；且先前各控制項按鈕之視覺 Toast 回饋反向寄生於 `speechEngine.spokenDisplayText`。
+- **未來規劃**：
+  - 引入 `createBaseStore<UiEngineState>`，建立純資料驅動的 UI 響應式狀態庫（`bubbleText`、`isThinking`、`isHistoryOpen`、`voiceLive`、`mic`）。
+  - 將多位置參數之 `updateVoiceStatus`、`updateMicState`、`updateBubble` 收斂為純 Options 物件簽名並保留相容多載。
+  - 徹底斬斷對語音引擎的 Toast 寄生，並解鎖外部組件直接訂閱以支援 Vue 3 / React 自訂 Headless UI 之高階架構。
+
 ---
 
 ## 🤝 鳴謝與原作者 (Credits)

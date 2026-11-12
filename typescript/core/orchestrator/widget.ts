@@ -534,11 +534,9 @@ export function createAvatarWidget({
     },
 
     get webLlmFallbackModel(): string | null | false | undefined {
-      return (
-        options?.webLlmFallbackModel !== undefined
-          ? options.webLlmFallbackModel
-          : options?.llmFallbackModel
-      );
+      return options?.webLlmFallbackModel !== undefined
+        ? options.webLlmFallbackModel
+        : options?.llmFallbackModel;
     },
     get llmFallbackModel(): string | null | false | undefined {
       return this.webLlmFallbackModel;
@@ -598,12 +596,11 @@ export function createAvatarWidget({
       if (typeof newEnableEngineToggle === 'boolean') {
         rootStore.setState({ enableEngineToggle: newEnableEngineToggle });
         const { skinEngine } = getEngines();
-        initSkinModeChangeButton(
-          aiAvatarWidget,
-          skinEngine?.has2D === true,
-          skinEngine?.has3D === true,
-          newEnableEngineToggle
-        );
+        initSkinModeChangeButton(aiAvatarWidget, {
+          has2D: skinEngine?.has2D === true,
+          has3D: skinEngine?.has3D === true,
+          isEngineToggleEnabled: newEnableEngineToggle
+        });
       }
     },
 

@@ -1,6 +1,13 @@
 import '@/style/style.scss';
 import type { I18nEngine } from '@/core/i18n';
-import type { UiDom } from './types';
+import { DEFAULT_AVATAR_MODE, AVATAR_MODE_MAP } from '@/core/constants';
+import type {
+  UiDom,
+  VoiceStatusOptions,
+  MicStateOptions,
+  UpdateBubbleOptions
+} from './types';
+import type { AvatarMode } from '@/core/types';
 
 /**
  * Initializes and mounts UI elements (dialogue bubble, suggestions container, history panel, control dock) into the target container.
@@ -20,8 +27,8 @@ export function initUi(
   }
 
   let currentListening = false;
-  let currentConvoOn = false;
-  let currentIsCompanion = false;
+  let currentContinuousMode = false;
+  let currentAvatarMode: AvatarMode = DEFAULT_AVATAR_MODE;
   let currentI18nEngine = i18nEngine;
 
   if (
@@ -152,13 +159,13 @@ export function initUi(
       ? currentI18nEngine.t('ui.mic.live')
       : '🎙️ 即時';
 
-  const engineButtonEl = document.createElement('button');
-  engineButtonEl.setAttribute('id', 'btn-engine');
-  engineButtonEl.setAttribute('aria-label', '切換 2D / 3D 角色');
-  engineButtonEl.setAttribute('data-i18n-aria', 'ui.engine.ariaLabel');
-  engineButtonEl.classList.add('ctrl');
-  engineButtonEl.style.display = 'none';
-  engineButtonEl.textContent = '2D／3D';
+  const skinModeButtonEl = document.createElement('button');
+  skinModeButtonEl.setAttribute('id', 'btn-engine');
+  skinModeButtonEl.setAttribute('aria-label', '切換 2D / 3D 角色');
+  skinModeButtonEl.setAttribute('data-i18n-aria', 'ui.engine.ariaLabel');
+  skinModeButtonEl.classList.add('ctrl');
+  skinModeButtonEl.style.display = 'none';
+  skinModeButtonEl.textContent = '2D／3D';
 
   const muteButtonEl = document.createElement('button');
   muteButtonEl.setAttribute('id', 'btn-mute');
@@ -250,7 +257,7 @@ export function initUi(
   dockRow1El.appendChild(sendButtonEl);
   dockRow2El.appendChild(micButtonEl);
   dockRow2El.appendChild(llmButtonEl);
-  dockRow2El.appendChild(engineButtonEl);
+  dockRow2El.appendChild(skinModeButtonEl);
   dockRow2El.appendChild(muteButtonEl);
   dockRow2El.appendChild(speedButtonEl);
   dockRow2El.appendChild(langButtonEl);
@@ -281,20 +288,17 @@ export function initUi(
     get voiceLevelEl() {
       return voiceLevelEl;
     },
-    updateVoiceStatus(
-      convoOn: boolean,
-      text?: string,
-      state?: string,
-      level?: number,
-      i18n?: I18nEngine
-    ) {
-      if (typeof i18n === 'object' && i18n !== null) {
-        currentI18nEngine = i18n;
+    updateVoiceStatus(options?: VoiceStatusOptions) {
+      if (typeof options?.i18n === 'object' && options.i18n !== null) {
+        currentI18nEngine = options.i18n;
       }
-      if (convoOn === true) {
+      if (typeof options?.continuousMode === 'boolean') {
+        currentContinuousMode = options.continuousMode;
+      }
+      if (currentContinuousMode === true) {
         voiceLiveEl.setAttribute('css-is-active', 'true');
-        if (typeof state === 'string' && state !== '') {
-          voiceLiveEl.setAttribute('css-state', state);
+        if (typeof options?.state === 'string' && options.state !== '') {
+          voiceLiveEl.setAttribute('css-state', options.state);
         } else {
           voiceLiveEl.removeAttribute('css-state');
         }
@@ -302,35 +306,40 @@ export function initUi(
         voiceLiveEl.removeAttribute('css-is-active');
         voiceLiveEl.removeAttribute('css-state');
       }
-      if (voiceStatusEl instanceof HTMLElement && typeof text !== 'undefined') {
+      if (
+        voiceStatusEl instanceof HTMLElement &&
+        typeof options?.text !== 'undefined'
+      ) {
         voiceStatusEl.textContent =
-          typeof text === 'string' && text !== ''
-            ? text
+          typeof options.text === 'string' && options.text !== ''
+            ? options.text
             : typeof currentI18nEngine?.t === 'function'
               ? currentI18nEngine.t('ui.voice.standby')
               : '即時語音待命';
       }
-      if (typeof level === 'number' && voiceLevelEl instanceof HTMLElement) {
-        voiceLevelEl.style.width = Math.max(0, Math.min(100, level)) + '%';
+      if (
+        typeof options?.level === 'number' &&
+        voiceLevelEl instanceof HTMLElement
+      ) {
+        voiceLevelEl.style.width =
+          Math.max(0, Math.min(100, options.level)) + '%';
       }
     },
-    updateMicState(
-      isListening?: boolean,
-      convoOn?: boolean,
-      isCompanion?: boolean,
-      i18n?: I18nEngine
-    ) {
-      if (typeof isListening === 'boolean') {
-        currentListening = isListening;
+    updateMicState(options?: MicStateOptions) {
+      if (typeof options?.isListening === 'boolean') {
+        currentListening = options.isListening;
       }
-      if (typeof convoOn === 'boolean') {
-        currentConvoOn = convoOn;
+      if (typeof options?.continuousMode === 'boolean') {
+        currentContinuousMode = options.continuousMode;
       }
-      if (typeof isCompanion === 'boolean') {
-        currentIsCompanion = isCompanion;
+      if (
+        typeof options?.avatarMode === 'string' &&
+        options.avatarMode !== ''
+      ) {
+        currentAvatarMode = options.avatarMode;
       }
-      if (typeof i18n === 'object' && i18n !== null) {
-        currentI18nEngine = i18n;
+      if (typeof options?.i18n === 'object' && options.i18n !== null) {
+        currentI18nEngine = options.i18n;
       }
 
       if (currentListening === true) {
@@ -339,7 +348,10 @@ export function initUi(
         micButtonEl.removeAttribute('css-state');
       }
 
-      micButtonEl.setAttribute('aria-pressed', String(currentConvoOn === true));
+      micButtonEl.setAttribute(
+        'aria-pressed',
+        String(currentContinuousMode === true)
+      );
 
       const translate = (key: string, defaultValue: string) => {
         return typeof currentI18nEngine?.t === 'function'
@@ -349,33 +361,33 @@ export function initUi(
 
       micButtonEl.textContent =
         currentListening === true
-          ? currentIsCompanion === true
+          ? currentAvatarMode === AVATAR_MODE_MAP.companion
             ? translate('ui.mic.chatting', '● 對話中')
             : translate('ui.mic.listening', '● 聆聽中')
-          : currentConvoOn === true
+          : currentContinuousMode === true
             ? translate('ui.mic.convoStandby', '◌ 對話中')
             : translate('ui.mic.live', '🎙️ 即時');
 
       if (suggestionsEl instanceof HTMLElement) {
         suggestionsEl.style.display =
-          currentListening === true || currentConvoOn === true
+          currentListening === true || currentContinuousMode === true
             ? 'none'
             : 'flex';
       }
     },
-    updateBubble(text?: string, show?: boolean, isThinking?: boolean) {
+    updateBubble(text?: string, options?: UpdateBubbleOptions) {
       if (typeof text === 'string' && text !== '') {
         bubbleEl.textContent = text;
       }
-      if (typeof show === 'boolean') {
-        if (show === true) {
+      if (typeof options?.show === 'boolean') {
+        if (options.show === true) {
           bubbleEl.setAttribute('css-is-show', 'true');
         } else {
           bubbleEl.removeAttribute('css-is-show');
         }
       }
-      if (typeof isThinking === 'boolean') {
-        if (isThinking === true) {
+      if (typeof options?.isThinking === 'boolean') {
+        if (options.isThinking === true) {
           bubbleEl.setAttribute('css-is-thinking', 'true');
         } else {
           bubbleEl.removeAttribute('css-is-thinking');
@@ -400,8 +412,8 @@ export function initUi(
     get micButtonEl() {
       return micButtonEl;
     },
-    get engineButtonEl() {
-      return engineButtonEl;
+    get skinModeButtonEl() {
+      return skinModeButtonEl;
     },
     get muteButtonEl() {
       return muteButtonEl;
@@ -426,8 +438,7 @@ export function initUi(
     },
     get minimalEl() {
       return minimalEl;
-    },
-    onTapTimer: false
+    }
   };
 
   return uiDom;

@@ -44,15 +44,21 @@
   * **待收集規格**：當重構國際化模組時，一併規範語音錯誤提示（`speech.*`）與工具引擎互動/驗證提示（`tools.*`）如何由 `i18nEngine` 統一提供（或支援可配置字典），將硬編碼繁中字串自語音與工具模組抽離。
   * **收集進度**：⏳ 待整理 I18nEngine 時記錄（已預先登錄 ToolsEngine 硬編碼字串點位）。
 
-- [ ] **耦合項 03（UI 模組氣泡字幕與 6 秒定時器解耦）**：
-  * **現狀**：`SpeechEngine` 內部跑了 6 秒計時器（`spokenDisplayTextTimer`）去控制 `bubbleEl` 氣泡關閉；且 STT 與 TTS 隨時直接修改 `spokenDisplayText`。
-  * **待收集規格**：當重構 UI 模組時，將氣泡的顯示、打字動態與淡出計時完全歸回 UI 模組管理。語音模組僅需純粹拋出 `onSpeakStart(text)`、`onSpeakEnd()`、`onResult(text)`，由 UI 自行監聽更新 DOM。
-  * **收集進度**：⏳ 待整理 UI 模組時記錄。
+- [x] **耦合項 03（UI 模組氣泡字幕與 6 秒定時器解耦）**：
+  * **現狀**：
+    1. `SpeechEngine` 內部跑了 6 秒計時器（`spokenDisplayTextTimer`）去控制 `bubbleEl` 氣泡關閉；且 STT 與 TTS 隨時直接修改 `spokenDisplayText`。
+    2. **UI 跨領域反向傳聲筒反模式**：盤點 `core/ui` 時發現，UI 控制項點擊回饋（[`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L132) 靜音切換、L154 語速調整、L181 語言切換、L224 清除歷史、L254/L264/L276/L284 AI 伺服器大腦與 WebLLM 狀態）及 [`core/ui/history.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/history.ts#L234) 複製回答成功時，皆直接透過 `speechEngine.spokenDisplayText = ...` 賦值來在化身頭頂氣泡顯示短暫 Toast 訊息，導致語音引擎被當成 UI 表現層的通知管線。
+  * **已拍板規格（純資料驅動之 UI Store 提升）**：
+    1. **UI 引擎獨立 Store 化（TODO 5 對齊）**：UI 模組比照其他四大引擎引入 `createBaseStore<UiEngineState>`，建立領域專屬的 `bubbleText` 與 `isBubbleVisible` 響應式狀態，氣泡之淡出定時器與 DOM 更新完全收斂由 `uiStore.subscribe('bubbleText')` 自主維護。
+    2. **語音引擎副作用徹底切除與相容代理**：`SpeechEngine` 內部徹底移除私有屬性 `spokenDisplayText` 與 `spokenDisplayTextTimer`。對外僅保留 getter/setter 作為過渡期相容代理（轉發寫入 `uiStore.setState({ bubbleText })` 或協調層），既有呼叫點零中斷，語音核心回歸純粹的 STT / TTS 音訊職能。
+  * **收集進度**：✅ 已於盤點 UiEngine 時完成點位與規格收集（解法拍板：由 UI 專屬 Store 接管，待協調層收網時實作）。
 
-- [ ] **耦合項 04（Interaction 與 UI 化身點擊防抖移出）**：
-  * **現狀**：`core/orchestrator/interaction.ts` 中使用 `speechEngine.onTapTimer = true` 進行點擊化身手勢與發聲的防抖；此外 `core/ui/types.ts`（L78 `UiDom.onTapTimer`）與 `core/ui/dom.ts`（L427 `onTapTimer: false`）亦殘留了完全未使用的同名死屬性。
+- [x] **耦合項 04（Interaction 與 UI 化身點擊防抖移出）**：
+  * **現狀**：
+    1. `core/orchestrator/interaction.ts` 中使用 `speechEngine.onTapTimer = true` 進行點擊化身手勢與發聲的防抖。
+    2. 盤點 `core/ui` 時確認：[`core/ui/types.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/types.ts#L78)（`UiDom.onTapTimer: boolean`）與 [`core/ui/dom.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/dom.ts#L430)（`onTapTimer: false`）全專案無任何讀寫引用，為 100% 死程式碼。
   * **待收集規格**：當重構互動層與 UI 層時，將化身點擊防抖收斂至 interaction 模組自建閉包變數，從 `SpeechEngine` 徹底移除 `onTapTimer` 與 `triggerTap()`，並同步刪除 `UiDom.onTapTimer`。
-  * **收集進度**：⏳ 待整理 Interaction 互動層與 UI 模組時記錄。
+  * **收集進度**：✅ 已於盤點 UiEngine 時確認 UiDom.onTapTimer 為死屬性，排定於 UI 規格重整與協調層收網時刪除。
 
 - [ ] **耦合項 05（BrainEngine 與管線副作用賦值徹底消除）**：
   * **現狀**：大腦輸出時，在 `engine-factory.ts`、`pipeline-user.ts` 透過 `speechEngine.spokenAudioText = text` 賦值來觸發發聲。
@@ -69,10 +75,15 @@
   * **待收集規格**：在協調層與串流管線收網時，將 `pipeline-stream.ts` 改為直接 `import { drainSentences } from '@/core/speech'` 呼叫頂層純函式，更新 `pipeline.test.ts`，並自 `SpeechEngine` 介面與實例徹底移除 `drainSentences`。
   * **收集進度**：⏳ 待協調層整合時一併收網。
 
-- [ ] **耦合項 08（UI 與頂層 `AvatarBotOptions` 語音新舊別名全面收斂）**：
-  * **現狀**：`core/ui/events.ts` 仍讀寫舊名 `speechEngine.ttsRate`（L151–L159）與 `speechEngine.noSpeechRuns`（L90）；頂層 `AvatarBotOptions`（`core/orchestrator/types.ts` L416–L431 與 `engine-factory.ts` L819–L901）仍使用舊回呼名稱（`onSpeaking`、`onSpeakingEnd`、`onMicStateChanged`、`onVoiceStatusChanged`、`onLanguageChanged`）。
-  * **待收集規格**：在 UI 模組與協調層收網時，將 `core/ui/events.ts` 改用 `playbackRate` 與 `consecutiveNoSpeechCount`，於 `AvatarBotOptions` 對齊標準回呼命名（`onSpeakStart`、`onSpeakEnd`、`onMicStateChange`、`onVoiceStatusChange`、`onLanguageChange`），並清除 Tier 1 過渡期保留的 `@deprecated` 別名（`preloadTapGreeting`、`ttsRate`、`noSpeechRuns`）。
-  * **收集進度**：⏳ 待 UI 模組與協調層整合時一併收網。
+- [x] **耦合項 08（UI 與頂層 `AvatarBotOptions` 語音新舊別名全面收斂）**：
+  * **現狀**：
+    1. [`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L151-L159) 仍讀寫舊名 `speechEngine.ttsRate` 與 `speechEngine.noSpeechRuns`（L90）。
+    2. [`core/ui/dom.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/dom.ts#L285)（`updateVoiceStatus`）與 L319（`updateMicState`）、[`core/ui/types.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/types.ts#L28) 與 L37、[`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L89) 以及 [`core/ui/history.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/history.ts#L32) 仍廣泛使用舊口語縮寫 `convoOn`，需對齊語音引擎標準名 `continuousMode`。
+    3. [`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L123) 仍讀寫 `speechEngine.ttsMuted`，需對齊標準名 `isMuted`。
+    4. 頂層 `AvatarBotOptions`（`core/orchestrator/types.ts` L416–L431 與 `engine-factory.ts` L819–L901）仍使用舊回呼名稱（`onSpeaking`、`onSpeakingEnd`、`onMicStateChanged`、`onVoiceStatusChanged`、`onLanguageChanged`）。
+  * **待收集規格**：
+    - 將 `core/ui/dom.ts`、`core/ui/types.ts`、`core/ui/events.ts`、`core/ui/history.ts` 中所有語音屬性改用標準命名（`playbackRate`、`consecutiveNoSpeechCount`、`continuousMode`、`isMuted`），並於 `UiDom.updateVoiceStatus` / `UiDom.updateMicState` 支援新參數名與純 Options 物件簽名（保留舊參數別名過渡）。
+  * **收集進度**：✅ 已於盤點 UiEngine 時完成點位盤點（包含 convoOn ➔ continuousMode、ttsMuted ➔ isMuted、ttsRate ➔ playbackRate、noSpeechRuns ➔ consecutiveNoSpeechCount）。
 
 ---
 

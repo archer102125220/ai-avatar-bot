@@ -6,6 +6,60 @@ import type { BrainEngine } from '@/core/brain';
 import type { SkinEngine } from '@/core/skin';
 
 /**
+ * Options for updating voice conversation status bar and volume meter.
+ */
+export interface VoiceStatusOptions {
+  /** Real-time voice continuous conversation mode active state. */
+  continuousMode?: boolean;
+  /** Status label text. */
+  text?: string;
+  /** CSS state identifier (e.g. 'listening', 'speaking'). */
+  state?: string;
+  /** Audio volume level meter indicator (0 to 100). */
+  level?: number;
+  /** Internationalization engine instance for fallback text translation. */
+  i18n?: I18nEngine | null;
+}
+
+/**
+ * Options for updating microphone button UI state and label.
+ */
+export interface MicStateOptions {
+  /** Whether the microphone is actively listening for audio input. */
+  isListening?: boolean;
+  /** Whether real-time continuous conversation mode is active. */
+  continuousMode?: boolean;
+  /** Current avatar personality mode ('companion' | 'assistant'). */
+  avatarMode?: AvatarMode;
+  /** Internationalization engine instance for label translation. */
+  i18n?: I18nEngine | null;
+}
+
+/**
+ * Options for updating dialogue bubble visibility and thinking indicator states.
+ */
+export interface UpdateBubbleOptions {
+  /** Whether the dialogue bubble is visible. */
+  show?: boolean;
+  /** Whether to display the thinking indicator animation. */
+  isThinking?: boolean;
+  /** Optional timeout in milliseconds before auto-dismissing the bubble. */
+  autoDismissMs?: number;
+}
+
+/**
+ * Options for configuring the 2D / 3D avatar skin mode toggle button.
+ */
+export interface SkinModeToggleOptions {
+  /** Whether 2D model rendering is available. */
+  has2D?: boolean;
+  /** Whether 3D model rendering is available. */
+  has3D?: boolean;
+  /** Whether skin mode toggle is enabled in configuration. */
+  isEngineToggleEnabled?: boolean;
+}
+
+/**
  * Avatar frontend UI DOM elements and controller methods.
  */
 export interface UiDom {
@@ -24,25 +78,13 @@ export interface UiDom {
   /** Audio volume level meter indicator element. */
   readonly voiceLevelEl: HTMLElement;
   /** Updates voice conversation status bar and volume meter. */
-  updateVoiceStatus(
-    convoOn: boolean,
-    text?: string,
-    state?: string,
-    level?: number,
-    i18n?: I18nEngine | null
-  ): void;
+  updateVoiceStatus(options?: VoiceStatusOptions): void;
   /** Updates microphone button UI state and label. */
-  updateMicState(
-    isListening?: boolean,
-    convoOn?: boolean,
-    isCompanion?: boolean,
-    i18n?: I18nEngine | null
-  ): void;
+  updateMicState(options?: MicStateOptions): void;
   /** Updates dialogue bubble with optional text, visibility and thinking indicator states. */
   updateBubble(
     text?: string,
-    show?: boolean,
-    isThinking?: boolean
+    options?: UpdateBubbleOptions
   ): void;
   /** Main control bar container. */
   readonly controlBarEl: HTMLElement;
@@ -56,8 +98,8 @@ export interface UiDom {
   readonly sendButtonEl: HTMLButtonElement;
   /** Voice conversation microphone button element. */
   readonly micButtonEl: HTMLButtonElement;
-  /** 2D / 3D model engine switch button element. */
-  readonly engineButtonEl: HTMLButtonElement;
+  /** 2D / 3D model skin mode switch button element. */
+  readonly skinModeButtonEl: HTMLButtonElement;
   /** TTS mute toggle button element. */
   readonly muteButtonEl: HTMLButtonElement;
   /** In-browser WebLLM AI brain load/status button element. */
@@ -74,8 +116,6 @@ export interface UiDom {
   readonly directWarnEl: HTMLElement;
   /** Floating circular wake-up trigger button element when minimized. */
   readonly minimalEl: HTMLElement;
-  /** Tap timer tracking state. */
-  onTapTimer: boolean;
 }
 
 /**
@@ -110,12 +150,6 @@ export interface UiContext {
   assistantSuggestedTitle?: LocalizableOrResolver<string>;
   /** Current avatar personality mode ('companion' | 'assistant'). */
   avatarMode?: AvatarMode;
-  /** Avatar mode constant mapping. */
-  AVATAR_MODE_MAP?: Record<string, string>;
-  /** Engine mode constant mapping. */
-  ENGINE_MODE_MAP?: Record<string, string>;
-  /** Lifecycle state constant mapping. */
-  STATE_MAP?: Record<string, string>;
   /** Whether the widget is currently minimized. */
   isMinimal?: boolean;
   /** Whether widget is running inside an iframe embedding container. */

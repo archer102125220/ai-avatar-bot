@@ -10,13 +10,17 @@ import {
   DEFAULT_AI_PROVIDER_MAX_TOKENS,
   DEFAULT_TTS_ENDPOINT,
   ENGINE_MODE_MAP,
-  AVATAR_MODE_MAP,
   AI_PROVIDER_STATUS_MAP
 } from '@/core/constants';
+import type { AvatarMode } from '@/core/types';
 import { renderHistory, initSkinModeChangeButton, type UiDom } from '@/core/ui';
 import { callOptionEvent } from './options';
 import type { I18nEngine } from '@/core/i18n';
-import type { BrainEngine, BrainCompressionOptions, UpdateChatMessageOptions } from '@/core/brain';
+import type {
+  BrainEngine,
+  BrainCompressionOptions,
+  UpdateChatMessageOptions
+} from '@/core/brain';
 import type { SpeechEngine, SpeechEngineOptions } from '@/core/speech';
 import type { SkinEngine } from '@/core/skin';
 import type {
@@ -258,10 +262,11 @@ export async function setupBrainEngine({
                 ...(toolOptions as Record<string, unknown>),
                 context: {
                   ...defaultContext,
-                  ...(typeof (toolOptions as Record<string, unknown>).context ===
-                    'object' &&
+                  ...(typeof (toolOptions as Record<string, unknown>)
+                    .context === 'object' &&
                   (toolOptions as Record<string, unknown>).context !== null
-                    ? ((toolOptions as Record<string, unknown>).context as Record<string, unknown>)
+                    ? ((toolOptions as Record<string, unknown>)
+                        .context as Record<string, unknown>)
                     : {})
                 }
               }
@@ -849,8 +854,12 @@ export async function setupSpeechEngine({
       const uiDom = getUiDom();
       if (typeof uiDom?.updateMicState === 'function') {
         const currentAvatarMode = rootStore.getState().avatarMode || avatarMode;
-        const isCompanion = currentAvatarMode === AVATAR_MODE_MAP.companion;
-        uiDom.updateMicState(isListening, convoOn, isCompanion, i18nEngine);
+        uiDom.updateMicState({
+          isListening,
+          continuousMode: convoOn,
+          avatarMode: currentAvatarMode as AvatarMode,
+          i18n: i18nEngine
+        });
       }
       callOptionEvent(
         options,
@@ -868,7 +877,13 @@ export async function setupSpeechEngine({
     ) {
       const uiDom = getUiDom();
       if (typeof uiDom?.updateVoiceStatus === 'function') {
-        uiDom.updateVoiceStatus(convoOn, text, state, level, i18nEngine);
+        uiDom.updateVoiceStatus({
+          continuousMode: convoOn,
+          text,
+          state,
+          level,
+          i18n: i18nEngine
+        });
       }
       callOptionEvent(
         options,
@@ -1381,13 +1396,7 @@ export async function setupSkinEngine({
               error instanceof Error ? error : new Error(String(error || ''));
             widget.onError(errObj, widget);
           }
-          return callOptionEvent(
-            options,
-            widget,
-            'on3DError',
-            error,
-            ...args
-          );
+          return callOptionEvent(options, widget, 'on3DError', error, ...args);
         },
         on2DError(error?: unknown, ...args: unknown[]) {
           const errorMsg =
@@ -1410,13 +1419,7 @@ export async function setupSkinEngine({
             const errObj = error instanceof Error ? error : new Error(errorMsg);
             widget.onError(errObj, widget);
           }
-          return callOptionEvent(
-            options,
-            widget,
-            'on2DError',
-            error,
-            ...args
-          );
+          return callOptionEvent(options, widget, 'on2DError', error, ...args);
         },
         onVrmFileChangeFail(error?: unknown, ...args: unknown[]) {
           console.error(error);
@@ -1451,12 +1454,11 @@ export async function setupSkinEngine({
               ? rootState.enableEngineToggle
               : true;
 
-          initSkinModeChangeButton(
-            widget,
-            currentSkin?.has2D === true,
-            currentSkin?.has3D === true,
+          initSkinModeChangeButton(widget, {
+            has2D: currentSkin?.has2D === true,
+            has3D: currentSkin?.has3D === true,
             isEngineToggleEnabled
-          );
+          });
 
           if (speechEngine !== null && typeof speechEngine === 'object') {
             speechEngine.spokenDisplayText = '換上你的角色了！🎭';
@@ -1465,11 +1467,11 @@ export async function setupSkinEngine({
         },
         onModelChangeStart(newEngineMode: string) {
           const uiDom = getUiDom();
-          if (uiDom?.engineButtonEl instanceof HTMLElement) {
+          if (uiDom?.skinModeButtonEl instanceof HTMLElement) {
             if (newEngineMode === ENGINE_MODE_MAP.threeDimensional) {
-              uiDom.engineButtonEl.textContent = '3D';
+              uiDom.skinModeButtonEl.textContent = '3D';
             } else {
-              uiDom.engineButtonEl.textContent = '2D';
+              uiDom.skinModeButtonEl.textContent = '2D';
             }
           }
           callOptionEvent(options, widget, 'onModelChangeStart', newEngineMode);
@@ -1477,11 +1479,11 @@ export async function setupSkinEngine({
         onModelChangeEnd() {
           const uiDom = getUiDom();
           const { skinEngine: currentSkin, speechEngine } = getEngines();
-          if (uiDom?.engineButtonEl instanceof HTMLElement) {
+          if (uiDom?.skinModeButtonEl instanceof HTMLElement) {
             if (currentSkin?.engineMode === ENGINE_MODE_MAP.threeDimensional) {
-              uiDom.engineButtonEl.textContent = '3D';
+              uiDom.skinModeButtonEl.textContent = '3D';
             } else {
-              uiDom.engineButtonEl.textContent = '2D';
+              uiDom.skinModeButtonEl.textContent = '2D';
             }
           }
 

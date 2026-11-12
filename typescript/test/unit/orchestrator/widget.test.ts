@@ -98,7 +98,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
     mockUiDom = {
       stageEl,
       minimalEl: document.createElement('button'),
-      engineButtonEl: document.createElement('button'),
+      skinModeButtonEl: document.createElement('button'),
       suggestionsEl: document.createElement('div'),
       historyPanelEl: document.createElement('section'),
       updateVoiceStatus: vi.fn(),

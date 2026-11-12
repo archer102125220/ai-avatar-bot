@@ -489,12 +489,12 @@ describe('Orchestrator Store & i18n Subscribers', () => {
       // Trigger locale subscription with label only (empty shortLabel)
       capturedLocaleListener?.('fr-FR', { label: 'Français', shortLabel: '' });
       expect(customLangBtn.textContent).toBe('Français');
-      expect(testUiDom.updateMicState).toHaveBeenCalledWith(
-        false,
-        false,
-        true,
-        customI18nEngine
-      );
+      expect(testUiDom.updateMicState).toHaveBeenCalledWith({
+        isListening: false,
+        continuousMode: false,
+        avatarMode: 'companion',
+        i18n: customI18nEngine
+      });
 
       // Trigger with both empty -> fallback to newLocale
       capturedLocaleListener?.('de-DE', { label: '', shortLabel: '' });

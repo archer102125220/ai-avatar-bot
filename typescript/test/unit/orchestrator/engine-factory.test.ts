@@ -207,7 +207,7 @@ describe('Orchestrator Engine Factory', () => {
       historyPanelEl,
       historyButtonEl: document.createElement('button'),
       directWarnEl: document.createElement('p'),
-      engineButtonEl: document.createElement('button'),
+      skinModeButtonEl: document.createElement('button'),
       langButtonEl: document.createElement('button'),
       updateMicState: vi.fn(),
       updateVoiceStatus: vi.fn()
@@ -1610,13 +1610,13 @@ describe('Orchestrator Engine Factory', () => {
 
       // onModelChangeStart (3D vs 2D)
       capturedSkinOptions.onModelChangeStart(ENGINE_MODE_MAP.threeDimensional);
-      expect(mockUiDom.engineButtonEl.textContent).toBe('3D');
+      expect(mockUiDom.skinModeButtonEl.textContent).toBe('3D');
       expect(onModelChangeStart).toHaveBeenCalledWith(
         ENGINE_MODE_MAP.threeDimensional
       );
 
       capturedSkinOptions.onModelChangeStart(ENGINE_MODE_MAP.twoDimensional);
-      expect(mockUiDom.engineButtonEl.textContent).toBe('2D');
+      expect(mockUiDom.skinModeButtonEl.textContent).toBe('2D');
 
       // onModelChangeEnd in 3D mode with TAP_GESTURES
       mockEngines.skinEngine.engineMode = ENGINE_MODE_MAP.threeDimensional;
@@ -1626,7 +1626,7 @@ describe('Orchestrator Engine Factory', () => {
         playGesture: vi.fn()
       };
       capturedSkinOptions.onModelChangeEnd();
-      expect(mockUiDom.engineButtonEl.textContent).toBe('3D');
+      expect(mockUiDom.skinModeButtonEl.textContent).toBe('3D');
       expect(onModelChangeEnd).toHaveBeenCalled();
 
       // simulate pointerdown on 3D canvas (unified triggerTap)
@@ -1647,7 +1647,7 @@ describe('Orchestrator Engine Factory', () => {
         canvas: document.createElement('canvas')
       };
       capturedSkinOptions.onModelChangeEnd();
-      expect(mockUiDom.engineButtonEl.textContent).toBe('2D');
+      expect(mockUiDom.skinModeButtonEl.textContent).toBe('2D');
 
       // trigger hit handler
       expect(hitHandlers.length).toBeGreaterThan(0);
@@ -1662,10 +1662,10 @@ describe('Orchestrator Engine Factory', () => {
 
       // onModelChangeStart (3D and 2D)
       capturedSkinOptions.onModelChangeStart(ENGINE_MODE_MAP.threeDimensional);
-      expect(mockUiDom.engineButtonEl.textContent).toBe('3D');
+      expect(mockUiDom.skinModeButtonEl.textContent).toBe('3D');
 
       capturedSkinOptions.onModelChangeStart(ENGINE_MODE_MAP.twoDimensional);
-      expect(mockUiDom.engineButtonEl.textContent).toBe('2D');
+      expect(mockUiDom.skinModeButtonEl.textContent).toBe('2D');
 
       // onModelChangeEnd in 3D mode
       mockEngines.skinEngine.engineMode = ENGINE_MODE_MAP.threeDimensional;
@@ -1676,7 +1676,7 @@ describe('Orchestrator Engine Factory', () => {
         playGesture: playGestureMock
       };
       capturedSkinOptions.onModelChangeEnd();
-      expect(mockUiDom.engineButtonEl.textContent).toBe('3D');
+      expect(mockUiDom.skinModeButtonEl.textContent).toBe('3D');
 
       mockEngines.skinEngine.renderer.canvas.dispatchEvent(
         new Event('pointerdown')

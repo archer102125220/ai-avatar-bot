@@ -1,4 +1,5 @@
 import { SUPPORTED_LOCALES } from '@/core/i18n';
+import { STATE_MAP, AVATAR_MODE_MAP } from '@/core/constants';
 import { setHistoryOpen, renderHistory } from './history';
 import type { UiContext } from './types';
 
@@ -81,7 +82,7 @@ export function bindUiEvent(context: UiContext | null = null): void {
           ? context.i18nEngine.t('speech.sessionEnded')
           : '即時語音對話已結束。';
 
-      if (context.avatarMode === 'companion') {
+      if (context.avatarMode === AVATAR_MODE_MAP.companion) {
         const isIdle =
           speechEngine.isListening !== true &&
           speechEngine.isProcessing !== true;
@@ -249,7 +250,10 @@ export function bindUiEvent(context: UiContext | null = null): void {
         } else {
           llmButtonEl.removeAttribute('css-llm-on');
         }
-        llmButtonEl.setAttribute('aria-pressed', String(isServerReady === true));
+        llmButtonEl.setAttribute(
+          'aria-pressed',
+          String(isServerReady === true)
+        );
         if (speechEngine) {
           speechEngine.spokenDisplayText =
             isServerReady === true
@@ -266,12 +270,9 @@ export function bindUiEvent(context: UiContext | null = null): void {
         }
         return;
       }
-      const readyState = context.STATE_MAP?.READY;
-      const loadingState = context.STATE_MAP?.LOADING;
-      if (
-        typeof readyState === 'string' &&
-        brainEngine.llm?.state === readyState
-      ) {
+      const readyState = STATE_MAP.READY;
+      const loadingState = STATE_MAP.LOADING;
+      if (brainEngine.llm?.state === readyState) {
         if (speechEngine) {
           speechEngine.spokenDisplayText = 'AI 大腦已啟用，問我問題吧 🧠';
         }

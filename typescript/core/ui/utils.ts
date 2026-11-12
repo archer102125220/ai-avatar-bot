@@ -1,5 +1,6 @@
 import type { I18nEngine } from '@/core/i18n';
-import type { UiContext } from './types';
+import { ENGINE_MODE_MAP } from '@/core/constants';
+import type { UiContext, SkinModeToggleOptions } from './types';
 
 /**
  * Traverses and updates all elements in the container matching `data-i18n`, `data-i18n-html`, `data-i18n-placeholder`, and `data-i18n-aria`.
@@ -72,55 +73,50 @@ export function copyText(text: string): Promise<void> {
 }
 
 /**
- * Initializes and syncs the 2D / 3D model engine toggle button based on model availability and configuration.
+ * Initializes and syncs the 2D / 3D model skin mode toggle button based on model availability and configuration.
  */
 export function initSkinModeChangeButton(
   context: UiContext | null = null,
-  has2D: boolean = false,
-  has3D: boolean = false,
-  isEngineToggleEnabled: boolean = true
+  options?: SkinModeToggleOptions
 ): void {
-  const engineButtonEl = context?.uiDom?.engineButtonEl;
-  if (engineButtonEl instanceof HTMLElement === false) {
+  const skinModeButtonEl = context?.uiDom?.skinModeButtonEl;
+  if (skinModeButtonEl instanceof HTMLElement === false) {
     console.error(
-      '[aiAvatar initSkinModeChangeButton] engineButtonEl is not an HTMLElement'
+      '[aiAvatar initSkinModeChangeButton] skinModeButtonEl is not an HTMLElement'
     );
     return;
   }
+
+  const has2D = options?.has2D === true;
+  const has3D = options?.has3D === true;
+  const isEngineToggleEnabled = options?.isEngineToggleEnabled !== false;
 
   const shouldShow =
     isEngineToggleEnabled === true && has2D === true && has3D === true;
 
   if (shouldShow === true) {
-    engineButtonEl.style.display = '';
+    skinModeButtonEl.style.display = '';
     if (
-      context?.skinEngine?.engineMode ===
-      context?.ENGINE_MODE_MAP?.threeDimensional
+      context?.skinEngine?.engineMode === ENGINE_MODE_MAP.threeDimensional
     ) {
-      engineButtonEl.textContent = '3D';
+      skinModeButtonEl.textContent = '3D';
     } else {
-      engineButtonEl.textContent = '2D';
+      skinModeButtonEl.textContent = '2D';
     }
 
-    if (typeof engineButtonEl.onclick !== 'function') {
-      engineButtonEl.onclick = () => {
+    if (typeof skinModeButtonEl.onclick !== 'function') {
+      skinModeButtonEl.onclick = () => {
         const skinEngine = context?.skinEngine;
-        const engineModeMap = context?.ENGINE_MODE_MAP;
-        if (
-          typeof skinEngine === 'object' &&
-          skinEngine !== null &&
-          typeof engineModeMap === 'object' &&
-          engineModeMap !== null
-        ) {
-          if (skinEngine.engineMode === engineModeMap.threeDimensional) {
-            skinEngine.engineMode = engineModeMap.twoDimensional;
+        if (typeof skinEngine === 'object' && skinEngine !== null) {
+          if (skinEngine.engineMode === ENGINE_MODE_MAP.threeDimensional) {
+            skinEngine.engineMode = ENGINE_MODE_MAP.twoDimensional;
           } else {
-            skinEngine.engineMode = engineModeMap.threeDimensional;
+            skinEngine.engineMode = ENGINE_MODE_MAP.threeDimensional;
           }
         }
       };
     }
   } else {
-    engineButtonEl.style.display = 'none';
+    skinModeButtonEl.style.display = 'none';
   }
 }

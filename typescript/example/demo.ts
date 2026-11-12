@@ -791,7 +791,10 @@ function bindPlaygroundControls(
         widget.speechEngine !== null
       ) {
         widget.speechEngine.spokenAudioText = sampleLine;
-        widget.uiDom?.updateBubble?.(sampleLine, true, false);
+        widget.uiDom?.updateBubble?.(sampleLine, {
+          show: true,
+          isThinking: false
+        });
         appendPlaygroundLog('🗣️ 觸發語音朗讀與即時對嘴 (Lip Sync)');
       }
     });
