@@ -502,6 +502,9 @@
       // }
 
       @media (max-width: 960px) {
+        position: static;
+        top: unset;
+
         min-width: unset;
         min-height: unset;
       }
@@ -512,7 +515,6 @@
         position: absolute;
         // inset-inline-end: max(12px, env(safe-area-inset-right));
         // inset-block-end: max(12px, env(safe-area-inset-bottom));
-        // inset-inline-end: 0px;
         z-index: 1000;
         inline-size: var(--app_stage_width, min(364px, calc(100vw - 24px)));
         block-size: var(--app_stage_height, min(520px, calc(100dvh - 84px)));
@@ -528,6 +530,12 @@
           // inset-block-end: 24px;
           inline-size: 384px;
           block-size: min(580px, calc(100dvh - 104px));
+        }
+
+        @media (max-width: 960px) {
+          position: fixed;
+          inset-inline-end: max(12px, env(safe-area-inset-right));
+          inset-block-end: max(12px, env(safe-area-inset-bottom));
         }
 
         &[css-stage-backdrop='card']:not([css-is-minimal='true']) {
