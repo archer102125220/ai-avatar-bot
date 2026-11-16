@@ -44,26 +44,27 @@
   * **待收集規格**：當重構國際化模組時，一併規範語音錯誤提示（`speech.*`）與工具引擎互動/驗證提示（`tools.*`）如何由 `i18nEngine` 統一提供（或支援可配置字典），將硬編碼繁中字串自語音與工具模組抽離。
   * **收集進度**：⏳ 待整理 I18nEngine 時記錄（已預先登錄 ToolsEngine 硬編碼字串點位）。
 
-- [x] **耦合項 03（UI 模組氣泡字幕與 6 秒定時器解耦）**：
+- [x] **耦合項 03（大腦雙軌 Store 歸位與 UI 模組氣泡字幕/6 秒定時器解耦）**：
   * **現狀**：
-    1. `SpeechEngine` 內部跑了 6 秒計時器（`spokenDisplayTextTimer`）去控制 `bubbleEl` 氣泡關閉；且 STT 與 TTS 隨時直接修改 `spokenDisplayText`。
-    2. **UI 跨領域反向傳聲筒反模式**：盤點 `core/ui` 時發現，UI 控制項點擊回饋（[`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L132) 靜音切換、L154 語速調整、L181 語言切換、L224 清除歷史、L254/L264/L276/L284 AI 伺服器大腦與 WebLLM 狀態）及 [`core/ui/history.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/history.ts#L234) 複製回答成功時，皆直接透過 `speechEngine.spokenDisplayText = ...` 賦值來在化身頭頂氣泡顯示短暫 Toast 訊息，導致語音引擎被當成 UI 表現層的通知管線。
-  * **已拍板規格（純資料驅動之 UI Store 提升）**：
-    1. **UI 引擎獨立 Store 化（TODO 5 對齊）**：UI 模組比照其他四大引擎引入 `createBaseStore<UiEngineState>`，建立領域專屬的 `bubbleText` 與 `isBubbleVisible` 響應式狀態，氣泡之淡出定時器與 DOM 更新完全收斂由 `uiStore.subscribe('bubbleText')` 自主維護。
-    2. **語音引擎副作用徹底切除與相容代理**：`SpeechEngine` 內部徹底移除私有屬性 `spokenDisplayText` 與 `spokenDisplayTextTimer`。對外僅保留 getter/setter 作為過渡期相容代理（轉發寫入 `uiStore.setState({ bubbleText })` 或協調層），既有呼叫點零中斷，語音核心回歸純粹的 STT / TTS 音訊職能。
-  * **收集進度**：✅ 已於盤點 UiEngine 時完成點位與規格收集（解法拍板：由 UI 專屬 Store 接管，待協調層收網時實作）。
+    1. 當初為了區分大腦「思考過程不發聲（僅顯示文字）」與「回答朗讀發聲」，在 `SpeechEngine` 內設計了 `spokenDisplayText`（搭配 6 秒計時器 `spokenDisplayTextTimer`）與 `spokenAudioText`，導致大腦為了顯示不發聲的思考文字與靜音串流，反而必須繞道寫入 `SpeechEngine`。
+    2. **UI 控制提示借道語音引擎**：UI 控制項點擊回饋（[`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L132) 靜音切換、L154 語速調整、L181 語言切換、L224 清除歷史、L254–L284 大腦狀態）及 [`core/ui/history.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/history.ts#L234) 複製回答成功時，皆直接賦值 `speechEngine.spokenDisplayText = ...` 來觸發 6 秒氣泡。
+  * **已拍板規格（大腦雙軌分流 + UI Store 終端匯流）**：
+    1. **大腦雙軌 Store 源頭分流（TODO 1 對齊）**：於 `BrainStoreState` 建立 **`displayText`**（視覺顯示軌，供 `UIEngine` 監聽，含思考提示與串流文字）與 **`spokenText`**（語音發聲軌，供 `SpeechEngine` 監聽，僅含需朗讀之完句）。
+    2. **UI 引擎獨立 Store 化（TODO 5 對齊）**：UI 模組引入 `createBaseStore<UiEngineState>`，自主管理 `bubbleText`、`isBubbleVisible` 與專屬的 6 秒 `bubbleTimer`（匯流大腦 `displayText`、STT 預覽與 UI 自身 `toast()`）。
+    3. **語音引擎徹底移除視覺狀態**：在正式版 `v1.0.0` 前，自 `SpeechEngine` 徹底刪除 `spokenDisplayText`、`spokenDisplayTextTimer`、`onSpokenDisplayTextChange` 與 `onSpokenDisplayTextTimeout`（不留過渡期相容代理），讓語音核心 100% 回歸純粹的 STT / TTS 音訊職能。
+  * **收集進度**：✅ 已完成架構設計拍板（大腦雙軌 Store + UI 專屬 Store，待協調層收網時實作）。
 
 - [x] **耦合項 04（Interaction 與 UI 化身點擊防抖移出）**：
   * **現狀**：
     1. `core/orchestrator/interaction.ts` 中使用 `speechEngine.onTapTimer = true` 進行點擊化身手勢與發聲的防抖。
     2. 盤點 `core/ui` 時確認：[`core/ui/types.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/types.ts#L78)（`UiDom.onTapTimer: boolean`）與 [`core/ui/dom.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/dom.ts#L430)（`onTapTimer: false`）全專案無任何讀寫引用，為 100% 死程式碼。
   * **待收集規格**：當重構互動層與 UI 層時，將化身點擊防抖收斂至 interaction 模組自建閉包變數，從 `SpeechEngine` 徹底移除 `onTapTimer` 與 `triggerTap()`，並同步刪除 `UiDom.onTapTimer`。
-  * **收集進度**：✅ 已於盤點 UiEngine 時確認 UiDom.onTapTimer 為死屬性，排定於 UI 規格重整與協調層收網時刪除。
+  * **收集進度**：✅ 已移除 `UiDom.onTapTimer` 死屬性；`SpeechEngine.onTapTimer` 排定於協調層收網時刪除。
 
-- [ ] **耦合項 05（BrainEngine 與管線副作用賦值徹底消除）**：
-  * **現狀**：大腦輸出時，在 `engine-factory.ts`、`pipeline-user.ts` 透過 `speechEngine.spokenAudioText = text` 賦值來觸發發聲。
-  * **待收集規格**：與大腦 TODO 1 鏡像對齊。大腦推論完成觸發中立回呼 `onOutputTextReady(text)` 時，Orchestrator 直接執行 `speechEngine.speak(text)`（Tier 1 已確保 `tts.ts` 呼叫 `onSpeakStart(text)` 時會傳入 `text` 字串），廢止所有屬性賦值副作用。
-  * **收集進度**：⏳ 待協調層整合時一併收網。
+- [x] **耦合項 05（BrainEngine 發聲軌監聽與副作用賦值徹底消除）**：
+  * **現狀**：大腦輸出時，在 `engine-factory.ts`、`pipeline-user.ts` 透過 `speechEngine.spokenAudioText = text` 賦值（內部轉為 `spokenAudioState`）來觸發發聲。
+  * **已拍板規格**：與大腦 TODO 1 雙軌 Store 鏡像對齊。當大腦更新發聲軌 `spokenText`（觸發 `onSpokenTextChange(text)`）時，Orchestrator 監聽並直接執行 `speechEngine.speak(text)`，自 `SpeechEngine` 徹底移除 `spokenAudioText` 與 `spokenAudioState`。
+  * **收集進度**：✅ 已與 TODO 1 & TODO 5 完成雙軌規格對齊，待協調層整合時一併收網。
 
 - [ ] **耦合項 06（RootStore / Widget 全域開關名稱收斂）**：
   * **現狀**：全專案多處散落 `convoOn`（口語縮寫）與 `ttsMuted`（前綴不一致），包含 `ToolsEngineOptions.isConvoOn`（[`core/tools/types.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/tools/types.ts#L267) 與 [`core/orchestrator/engine-factory.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/orchestrator/engine-factory.ts#L1070)）亦直接讀取 `speechEngine.convoOn`。
@@ -78,58 +79,63 @@
 - [x] **耦合項 08（UI 與頂層 `AvatarBotOptions` 語音新舊別名全面收斂）**：
   * **現狀**：
     1. [`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L151-L159) 仍讀寫舊名 `speechEngine.ttsRate` 與 `speechEngine.noSpeechRuns`（L90）。
-    2. [`core/ui/dom.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/dom.ts#L285)（`updateVoiceStatus`）與 L319（`updateMicState`）、[`core/ui/types.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/types.ts#L28) 與 L37、[`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L89) 以及 [`core/ui/history.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/history.ts#L32) 仍廣泛使用舊口語縮寫 `convoOn`，需對齊語音引擎標準名 `continuousMode`。
+    2. [`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L89) 以及 [`core/ui/history.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/history.ts#L32) 仍使用舊口語縮寫 `convoOn`，需對齊語音引擎標準名 `continuousMode`。
     3. [`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L123) 仍讀寫 `speechEngine.ttsMuted`，需對齊標準名 `isMuted`。
     4. 頂層 `AvatarBotOptions`（`core/orchestrator/types.ts` L416–L431 與 `engine-factory.ts` L819–L901）仍使用舊回呼名稱（`onSpeaking`、`onSpeakingEnd`、`onMicStateChanged`、`onVoiceStatusChanged`、`onLanguageChanged`）。
-  * **待收集規格**：
-    - 將 `core/ui/dom.ts`、`core/ui/types.ts`、`core/ui/events.ts`、`core/ui/history.ts` 中所有語音屬性改用標準命名（`playbackRate`、`consecutiveNoSpeechCount`、`continuousMode`、`isMuted`），並於 `UiDom.updateVoiceStatus` / `UiDom.updateMicState` 支援新參數名與純 Options 物件簽名（保留舊參數別名過渡）。
-  * **收集進度**：✅ 已於盤點 UiEngine 時完成點位盤點（包含 convoOn ➔ continuousMode、ttsMuted ➔ isMuted、ttsRate ➔ playbackRate、noSpeechRuns ➔ consecutiveNoSpeechCount）。
+  * **已拍板規格**：
+    - `core/ui/dom.ts` 與 `core/ui/types.ts` 的 `updateVoiceStatus` / `updateMicState` 已率先完成純淨 Options 物件化（採用 `continuousMode` 與 `avatarMode`，不留舊版位置參數多載）。
+    - 後續於 Tier 2 將 `core/ui/events.ts`、`core/ui/history.ts` 中所有語音屬性改用標準命名（`playbackRate`、`consecutiveNoSpeechCount`、`continuousMode`、`isMuted`）。
+  * **收集進度**：✅ 已完成 `dom.ts` / `types.ts` 簽名淨化與全點位盤點。
 
 ---
 
 ## 🏗️ 三、受影響之跨引擎依賴矩陣 (Cross-Engine Dependency Matrix)
 
-在後續模組重構與協調層接網時，請依下列中立架構進行對齊：
+在後續模組重構與協調層接網時，請依下列「大腦雙軌分流 + UI 終端匯流」架構進行對齊：
 
 ```mermaid
 flowchart TD
-    subgraph Brain ["大腦引擎 (core/brain) - TODO 1"]
-        B1["輸出中立回呼：onOutputTextReady(text)"]
+    subgraph Brain ["🧠 大腦引擎 (core/brain) - TODO 1"]
+        B_DISPLAY["Store 軌道 1：displayText<br>(含思考提示 '讓我想想…' / 串流逐字 / 完整回答)"]
+        B_SPEECH["Store 軌道 2：spokenText<br>(僅含需發聲朗讀之回答，思考時靜默)"]
     end
 
-    subgraph Tools ["工具引擎 (core/tools)"]
+    subgraph Tools ["🛠️ 工具引擎 (core/tools)"]
         TL1["輸出中立回呼：onNoticeMessage(text)"]
     end
 
-    subgraph Speech ["語音引擎 (core/speech) - TODO 4"]
-        SP1["核心入口：speak(text, options)"]
+    subgraph Speech ["🔊 語音引擎 (core/speech) - TODO 4"]
+        SP1["核心發聲：speak(text) / pushSpeech()"]
         SP2["口型計算：computeMouth() 0~1"]
-        SP3["語音事件：onSpeakStart / onSpeakEnd"]
+        SP3["STT 語音辨識預覽事件"]
     end
 
-    subgraph Skin ["外觀引擎 (core/skin)"]
+    subgraph Skin ["🎭 外觀引擎 (core/skin)"]
         SK1["每幀調用 computeMouth() 計算嘴型 Viseme"]
         SK2["監聽 isSpeaking 驅動 talking 動作池"]
     end
 
-    subgraph UI ["介面模組 (core/ui)"]
-        UI1["監聽語音事件控制 bubbleEl 顯示與 6s 計時"]
+    subgraph UI ["🎨 介面引擎 (core/ui) - TODO 5"]
+        UI1["UiEngineStore (bubbleText + 6s 計時器)<br>匯流：大腦 displayText / STT 預覽 / UI Toast"]
         UI2["控制 continuousMode 與 isMuted 開關"]
     end
 
-    subgraph Orchestrator ["協調層 (core/orchestrator) - 終點收網"]
-        OC1["接管大腦 onOutputTextReady ➔ 轉發 speech.speak()"]
-        OC2["接管工具 onNoticeMessage ➔ 轉發 speech.speak()"]
-        OC3["獨立管理化身點擊防抖 (消滅 onTapTimer)"]
-        OC4["計算 assistantActive (消滅 speech.isProcessing)"]
+    subgraph Orchestrator ["🎛️ 協調層 (core/orchestrator) - 終點收網"]
+        OC1["監聽大腦 displayText ➔ 更新 UI bubbleText"]
+        OC2["監聽大腦 spokenText ➔ 轉發 speech.speak()"]
+        OC3["接管工具 onNoticeMessage ➔ 分發 UI 與 Speech"]
+        OC4["獨立管理化身點擊防抖 & assistantActive"]
     end
 
-    Brain -->|onOutputTextReady| Orchestrator
-    Tools -->|onNoticeMessage| Orchestrator
-    Orchestrator -->|speak(text)| Speech
-    Speech -->|computeMouth()| Skin
-    Speech -->|isSpeaking| Skin
-    Speech -->|onSpeakStart / onSpeakEnd| UI
+    B_DISPLAY ===>|"1. 視覺軌 (靜音亦正常跳字)"| OC1
+    B_SPEECH ===>|"2. 發聲軌"| OC2
+    Tools -->|onNoticeMessage| OC3
+    OC1 -->|寫入 bubbleText| UI1
+    OC2 -->|speak(text)| SP1
+    OC3 --> UI1
+    OC3 --> SP1
+    SP1 -->|computeMouth() / isSpeaking| Skin
+    SP3 -->|使用者語音預覽 '你：…'| UI1
 ```
 
 ---

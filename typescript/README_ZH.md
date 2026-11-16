@@ -1661,14 +1661,12 @@ yarn test:smoke
 
 為避免本次 npm 發布前之重構範圍無限制蔓延（Scope Creep）並守護核心穩定性，以下架構演進決策正式列入後續維護追蹤清單：
 
-### 📌 TODO 1：大腦獨立拆包時的中立化回呼名稱（語音與外觀領域解耦）
+### 📌 TODO 1：大腦雙軌 Store 輸出與獨立拆包領域解耦規格書（語音與外觀領域解耦）
 - **規格書追蹤**：詳見 [領域中立化解耦規格書 (RFC)](./docs/TODO-1-DOMAIN-NEUTRAL-BRAIN-DECOUPLING.md)。
-- **背景**：目前 `BrainEngineOptions` 中的事件回呼（如 `onSpokenAudioPlayNow`、`onSpokenDisplayTextChange`、`onEmotionChange`）直接借用了語音引擎與皮膚外觀引擎的領域名詞（`Spoken` 與 `Emotion`）。
-- **未來規劃**：未來若將大腦模組獨立拆包為純認知推論套件（如 `@ai-avatar/brain`）時：
-  - `onSpokenAudioPlayNow` ➔ 更名為 `onOutputTextReady` 或 `onFinalAnswer`
-  - `onSpokenDisplayTextChange` / `onSpokenAudioTextChange` ➔ 更名為 `onStreamChunk` 或 `onStreamTextChange`
-  - `onEmotionChange` ➔ 更名為 `onSentimentChange` 或 `onIntentChange`
-  - 在大腦內部保留雙向別名轉接，兼顧獨立使用純淨性與既有整合包的平滑過渡。
+- **背景**：目前 `BrainEngine` 中的事件回呼（如 `onSpokenAudioPlayNow`、`onSpokenDisplayTextChange`、`onEmotionChange`）直接借用了語音與外觀引擎的領域名詞，且當初為了讓「思考過程不發聲（僅顯示文字）」而衍生的 `spokenDisplayText` 誤放進了 `SpeechEngine`。
+- **未來規劃**：
+  - **大腦雙軌 Store 源頭分流**：於 `BrainStoreState` 擴充 **`displayText`**（視覺顯示軌，含思考提示與串流文字，供 `UIEngine` 監聽）與 **`spokenText`**（語音發聲軌，僅含需朗讀之完句，供 `SpeechEngine` 監聽）。
+  - **回呼純淨中立化**：於 `v1.0.0` 正式版前直接移除舊名，統一收斂為 `onDisplayTextChange`、`onSpokenTextChange` 與 `onSentimentChange`。
 
 ### ✅ TODO 2：多知識庫分層加權 RAG 檢索演算法（已落成 / Implemented）
 - **落成成果**：
@@ -1689,15 +1687,14 @@ yarn test:smoke
 - **未來規劃**：
   - 將語音內部純淨化（死碼剔除、STT/TTS 內部現代化）作為先行重構範圍。
   - 跨領域項目設立為 TODO 4 動態收集看板，在後續重構工具（Tools）、國際化（I18n）與 UI 模組時，邊處理邊收集真實邊界規格。
-  - 最終在協調層（`core/orchestrator`）重構時與大腦 TODO 1 一併收網，徹底移除過渡副作用，達到 100% 現代純淨架構。
+  - 最終在協調層（`core/orchestrator`）重構時與大腦 TODO 1、UI TODO 5 一併收網，徹底自 `SpeechEngine` 移除 `spokenDisplayText` 與 `spokenAudioText`，達到 100% 純音訊核心架構。
 
-### 📌 TODO 5：UI 介面引擎獨立反應式狀態庫與跨領域解耦規格書（規格拍板 / Ready for Implementation）
+### 📌 TODO 5：UI 介面引擎獨立反應式狀態庫與跨領域解耦規格書（Tier 1 已完成 / Tier 2 規劃就緒）
 - **規格書追蹤**：詳見 [UI 介面引擎反應式解耦規格書 (RFC)](./docs/TODO-5-UI-ENGINE-REACTIVE-STORE-DECOUPLING.md)。
-- **背景**：UI 介面模組（`core/ui`）為全專案五大引擎中唯一缺乏專屬 `createBaseStore` 的模組，目前依賴區域閉包與多達 5 個位置參數之函式；且先前各控制項按鈕之視覺 Toast 回饋反向寄生於 `speechEngine.spokenDisplayText`。
-- **未來規劃**：
-  - 引入 `createBaseStore<UiEngineState>`，建立純資料驅動的 UI 響應式狀態庫（`bubbleText`、`isThinking`、`isHistoryOpen`、`voiceLive`、`mic`）。
-  - 將多位置參數之 `updateVoiceStatus`、`updateMicState`、`updateBubble` 收斂為純 Options 物件簽名並保留相容多載。
-  - 徹底斬斷對語音引擎的 Toast 寄生，並解鎖外部組件直接訂閱以支援 Vue 3 / React 自訂 Headless UI 之高階架構。
+- **背景**：UI 介面模組（`core/ui`）為全專案五大引擎中唯一缺乏專屬 `createBaseStore` 的模組；且過去大腦不發聲文字與 UI 按鈕視覺 Toast 皆繞道借用 `speechEngine.spokenDisplayText`。
+- **階段成果與規劃**：
+  - **Tier 1（已完成 ✅）**：將多位置參數之 `updateVoiceStatus`、`updateMicState`、`updateBubble`、`initSkinModeChangeButton` 全面收斂為純淨 Options 物件簽名（移除舊多載），刪除 `onTapTimer` 死屬性，並將 `engineButtonEl` 正名為 `skinModeButtonEl`。
+  - **Tier 2 & 3（待執行 📋）**：引入 `createBaseStore<UiEngineState>`（管理 `bubbleText`、自主 6 秒 `bubbleTimer`、`isThinking`、`isHistoryOpen`、`voiceLive`、`mic`），直接監聽大腦視覺軌 `displayText` 並提供 `uiEngine.toast()`，解鎖 Vue 3 / React 自訂 Headless UI。
 
 ---
 

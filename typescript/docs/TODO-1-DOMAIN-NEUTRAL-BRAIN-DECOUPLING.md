@@ -22,120 +22,168 @@
 ### 1.2 終極解耦目標 (Target Architecture)
 未來當大腦模組獨立拆包為純認知推論套件（如 `@ai-avatar/brain`）時：
 1. **大腦成為純認知/語意推論引擎**：只負責輸入（Prompt / Context / History）與輸出（Stream Chunks、Final Answer、Sentiment/Intent Analysis），不再包含任何語音發音或 Live2D/VRM 表情模型之專有名詞。
-2. **協調層（Orchestrator）擔負領域轉接**：將大腦輸出的「中立語意結果」分發給下游客戶端（語音引擎朗讀、外觀引擎換表情、UI 氣泡更新）。
-3. **無痛相容性保證（Zero-Breaking-Change）**：透過雙向別名轉接（Aliasing），既有的完整整合包呼叫者與舊版回呼仍能無縫運行。
+2. **大腦 Store 雙軌輸出架構（Dual-Track Reactive Store）**：
+   - 回顧歷史設計，當初為了區分「思考過程不會全部唸出來（如 `'讓我想想…'`、逐字串流）」與「真正要開口朗讀的回答」，衍生出了 `spokenDisplayText` 與 `spokenAudioText`，但卻誤放進了下游的 `SpeechEngine`，導致大腦為了顯示不發聲的文字還得借道語音引擎。
+   - **重構核心**：將這兩個狀態歸還給決策源頭的 **`BrainEngine` (`BrainStoreState`)**：
+     - **視覺顯示軌 (`displayText: string`)**：供 `UIEngine` 監聽。涵蓋思考提示（`'讓我想想…'`）、串流逐字生成文字、完整回答。
+     - **語音朗讀軌 (`spokenText: string`)**：供 `SpeechEngine` 監聽。思考過程保持靜默不更新，僅在真正要發聲朗讀的回答或完句就緒時更新。
+3. **協調層（Orchestrator）擔負領域轉接**：訂閱大腦雙軌 Store 與中立事件，分別將 `displayText` 同步至 `UIEngine`、將 `spokenText` 送入 `SpeechEngine.speak()`、將 `onSentimentChange` 映射至 `SkinEngine.setEmotion()`。
+4. **正式版 (`v1.0.0`) 前徹底淨化 API**：不保留過渡期 `@deprecated` 舊別名，直接移除 `onSpokenAudioPlayNow`、`onSpokenDisplayTextChange`、`onSpokenAudioTextChange`、`onEmotionChange`，確保首發正式版參數與型別 100% 乾淨。
 
 ---
 
-## 📋 二、核心回呼名詞新舊映射表 (Event Callbacks Mapping Table)
+## 📋 二、核心雙軌 Store 屬性與回呼映射表 (Store & Callbacks Mapping Table)
 
-| 目前名稱 (Current Coupled) | 建議中立新名稱 (Domain-Neutral) | 備選名稱 (Candidates) | 語意與觸發時機說明 |
+### 2.1 大腦 Store 雙軌狀態 (`BrainStoreState` in `core/brain/internal-store.ts`)
+
+| 過去混淆位置 (Legacy in SpeechEngine) | 大腦 Store 新屬性名 (`BrainStoreState`) | 負責監聽之下游引擎 | 語意與更新時機說明 |
 | :--- | :--- | :--- | :--- |
-| **`onSpokenAudioPlayNow`** | **`onOutputTextReady`** | `onFinalAnswer`<br>`onTextReady` | 推論產出完整語意回答（或句子切片斷句），準備交付下游客戶端消費（如送入語音合成或渲染氣泡）。 |
-| **`onSpokenDisplayTextChange`** | **`onStreamTextChange`** | `onStreamProgress`<br>`onLiveTextChange` | 串流生成過程中文字累計變化（原用於語音顯示文字的實時同步）。 |
-| **`onSpokenAudioTextChange`** | **`onNormalizedTextChange`** | `onAudioTextChange`<br>`onPreparedTextChange` | 經文字正規化、標點修正或代碼塊清洗後，適合作為輸出消費的純文字。 |
-| **`onEmotionChange`** | **`onSentimentChange`** | `onIntentChange`<br>`onMoodChange` | LLM 分析使用者對話或回覆語境後輸出的情感/意圖標籤（如 `happy`、`neutral`），由外觀引擎決定如何映射至表情動作。 |
+| `speechEngine.spokenDisplayText` | **`displayText: string`** | **`UIEngine`** | **視覺顯示軌**：大腦思考中（`'讓我想想…'`）、LLM 串流逐字打字（`currentStreamText`）、最終完整回答或反問提示。與語音是否靜音完全無關。 |
+| `speechEngine.spokenAudioText`<br>`speechEngine.spokenAudioState` | **`spokenText: string`** | **`SpeechEngine`** | **語音發聲軌**：思考過程中**不更新**；僅在產出需要開口朗讀的完句、知識庫回答或反問語音時更新。 |
+
+### 2.2 大腦事件回呼中立化映射 (`BrainEngineOptions`)
+
+| 目前名稱 (Current Coupled — 預計移除) | 正式版中立新名稱 (Domain-Neutral) | 對應 Store 軌道 | 語意與觸發時機說明 |
+| :--- | :--- | :--- | :--- |
+| **`onSpokenDisplayTextChange`** | **`onDisplayTextChange`** | `displayText` | 大腦思考提示或串流生成過程中，視覺顯示文字變化時觸發（供 UI 氣泡即時渲染）。 |
+| **`onSpokenAudioPlayNow`**<br>**`onSpokenAudioTextChange`** | **`onSpokenTextChange`**<br>*(或 `onOutputTextReady`)* | `spokenText` | 推論產出需發聲朗讀的回答文字時觸發（供語音引擎合成發音）。 |
+| **`onEmotionChange`** | **`onSentimentChange`** | — | LLM 分析使用者對話或回覆語境後輸出的情感/意圖標籤（如 `happy`、`neutral`），由外觀引擎映射至表情動作。 |
 
 ---
 
 ## 🏗️ 三、受影響之跨引擎依賴矩陣 (Cross-Engine Dependency Matrix)
 
-在整理其他引擎的型別與參數時，請依下列矩陣進行檢查與更新：
+在整理其他引擎的型別與參數時，請依下列雙軌反應式矩陣進行對齊：
 
 ```mermaid
 flowchart TD
-    subgraph Brain ["大腦引擎 (core/brain)"]
-        BN1["宣告中立名稱與 @deprecated 舊別名"]
-        BN2["ai-provider 觸發中立回呼"]
+    subgraph Brain ["🧠 大腦引擎 (core/brain)"]
+        BN_STORE["BrainStoreState (createBrainStore)<br>1. displayText (視覺顯示軌：含思考/串流)<br>2. spokenText (語音發聲軌：僅含朗讀回答)"]
+        BN_EVENT["中立事件：onSentimentChange"]
     end
 
-    subgraph Orchestrator ["協調層 (core/orchestrator)"]
-        OC1["engine-factory.ts 事件轉接橋樑"]
-        OC2["WidgetOptions 雙向對齊"]
+    subgraph Orchestrator ["🎛️ 協調層 (core/orchestrator)"]
+        OC1["訂閱 brain.displayText ➔ 更新 UI 氣泡"]
+        OC2["訂閱 brain.spokenText ➔ 呼叫 speech.speak()"]
+        OC3["接管 tools.onNoticeMessage ➔ 分發 UI 與 Speech"]
     end
 
-    subgraph Speech ["語音引擎 (core/speech)"]
-        SP1["接收 text 進行 speak()"]
-        SP2[" spokenDisplayText 狀態解耦"]
+    subgraph UI ["🎨 介面引擎 (core/ui - TODO 5)"]
+        UI1["UiEngineStore (bubbleText + 6s 計時器)<br>無論是否靜音皆能正常顯示思考與串流文字"]
     end
 
-    subgraph Skin ["外觀引擎 (core/skin)"]
-        SK1["接收 sentiment 字串映射至具體模型表情/動作"]
+    subgraph Speech ["🔊 語音引擎 (core/speech - TODO 4)"]
+        SP1["純音訊核心：speak(text) / pushSpeech()<br>徹底移除 spokenDisplayText 與 6s 計時器"]
     end
 
-    subgraph Tools ["工具引擎 (core/tools)"]
-        TL1["將 toolsEngine.onSpokenAudioPlayNow<br>改為中立的 onNoticeMessage 或 onPromptOutput"]
+    subgraph Skin ["🎭 外觀引擎 (core/skin)"]
+        SK1["接收 sentiment 字串映射至模型表情"]
     end
 
-    Brain -->|onOutputTextReady| Orchestrator
-    Brain -->|onSentimentChange| Orchestrator
-    Tools -->|onNoticeMessage| Orchestrator
-    Orchestrator -->|speak()| Speech
-    Orchestrator -->|setEmotion()| Skin
+    subgraph Tools ["🛠️ 工具引擎 (core/tools)"]
+        TL1["輸出中立回呼：onNoticeMessage"]
+    end
+
+    BN_STORE ===>|"軌道 1：displayText"| OC1
+    BN_STORE ===>|"軌道 2：spokenText"| OC2
+    BN_EVENT -->|onSentimentChange| Skin
+    Tools -->|onNoticeMessage| OC3
+    OC1 -->|寫入 bubbleText| UI1
+    OC2 -->|speak()| SP1
+    OC3 --> UI1
+    OC3 --> SP1
 ```
 
 ### 3.1 大腦引擎 (`package/typescript/core/brain/`)
 - **檔案**：
-  - [`core/brain/types.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/brain/types.ts)（`BrainEngineOptions`、`BrainEngine`）
-  - [`core/brain/index.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/brain/index.ts)（實例化與預設回呼）
-  - [`core/brain/ai-provider.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/brain/ai-provider.ts)（推論生成與觸發點）
-- **重點**：實作雙向別名解析，優先呼叫新名稱，若未提供則 fallback 至舊名稱。
+  - [`core/brain/internal-store.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/brain/internal-store.ts)（擴充 `BrainStoreState` 加入 `displayText: ''` 與 `spokenText: ''`）
+  - [`core/brain/types.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/brain/types.ts)（`BrainStoreState`、`BrainEngineOptions`、`BrainEngine`）
+  - [`core/brain/index.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/brain/index.ts)、[`core/brain/ai-provider.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/brain/ai-provider.ts)、[`core/brain/web-llm.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/brain/web-llm.ts)、[`core/brain/tool-calling.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/brain/tool-calling.ts)
+- **重點**：
+  - 思考階段（`'brain.thinking'`）與串流增量階段：更新 `store.setState({ displayText })` 並觸發 `onDisplayTextChange`，**不觸發** `spokenText`。
+  - 發聲階段（回答完成或 `notClear` 提示）：同時更新 `displayText` 與 `spokenText`，並觸發 `onSpokenTextChange`。
+  - 直接移除舊名 `onSpokenAudioPlayNow`、`onSpokenDisplayTextChange`、`onSpokenAudioTextChange`、`onEmotionChange`。
 
 ### 3.2 協調器層 (`package/typescript/core/orchestrator/`)
 - **檔案**：
-  - [`core/orchestrator/engine-factory.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/orchestrator/engine-factory.ts)（約 L634 - L668、L1027 - L1043）
+  - [`core/orchestrator/engine-factory.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/orchestrator/engine-factory.ts)
+  - [`core/orchestrator/pipeline-stream.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/orchestrator/pipeline-stream.ts)
   - [`core/orchestrator/types.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/orchestrator/types.ts)
 - **職責**：
-  - 將大腦的 `onOutputTextReady` 橋接至 `speechEngine.speak()`。
+  - 訂閱大腦的 `displayText`（或 `onDisplayTextChange`），直接寫入 `uiEngine` 的 `bubbleText`，不再繞道 `speechEngine.spokenDisplayText`！
+  - 移除 [`pipeline-stream.ts#L219-L225`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/orchestrator/pipeline-stream.ts#L219-L225) 中因過去文字綁在語音引擎上而被迫寫的 `else if (speechEngine.ttsMuted === true)` 靜音特判 Hack。
+  - 訂閱大腦的 `spokenText`（或 `onSpokenTextChange`），橋接至 `speechEngine.speak()`。
   - 將大腦的 `onSentimentChange` 橋接至 `skinEngine.setEmotion()`。
 
 ### 3.3 工具引擎 (`package/typescript/core/tools/`)
 - **檔案**：
   - [`core/tools/types.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/tools/types.ts)（`onSpokenAudioPlayNow`、`isConvoOn`、`onUpdateChatMessage`、`ToolChatMessage`）
-  - [`core/tools/index.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/tools/index.ts)（共 9 處直接調用 `onSpokenAudioPlayNow`、1 處調用 `isConvoOn`、多處直接變異 `getChatLog()` 內之訊息物件）
+  - [`core/tools/index.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/tools/index.ts)
 - **調整方向**：
-  - 工具引擎不應要求使用者傳入「語音發音回呼」或感知語音持續對話狀態（`isConvoOn`），應更名為中立的 `onNoticeMessage`（或 `onPromptOutput`）並保留 `@deprecated` 舊別名。
-  - 對齊大腦 TODO 3 的 `onUpdateChatMessage` 簽名（由位置布林參數 `streaming?: boolean` 收斂為 `UpdateChatMessageOptions`），並消除 `ToolChatMessage` 與大腦 `ChatLogItem` 的型別分裂及直接陣列項目變異。
+  - 工具引擎不應要求使用者傳入「語音發音回呼」或感知語音持續對話狀態（`isConvoOn`），直接更名為中立的 `onNoticeMessage`，由協調層同時轉發給 `uiEngine`（顯示氣泡）與 `speechEngine.speak()`（若未靜音則朗讀）。
+  - 對齊大腦 TODO 3 的 `onUpdateChatMessage` 簽名（收斂為 `UpdateChatMessageOptions`），並消除 `ToolChatMessage` 與大腦 `ChatLogItem` 的型別分裂。
 
-### 3.4 語音與外觀引擎 (`core/speech/`、`core/skin/`)
+### 3.4 語音、UI 與外觀引擎 (`core/speech/`、`core/ui/`、`core/skin/`)
 - **整理其他引擎型別時的注意事項**：
-  - `SpeechEngine` 的 `speak(text: string)` 簽名保持純粹，不需依賴大腦的任何型別。
-  - `SpeechEngine` 應移除對大腦思考狀態（`isProcessing`）、畫面字幕狀態（`spokenDisplayText`）、點擊防抖（`onTapTimer`）等跨領域狀態的直接管理，回歸純粹的 STT / TTS 音訊控制責任。
-  - `SkinEngine` 應定義清晰的情緒常態字串型別（如 `SentimentType = 'happy' | 'sad' | 'angry' | ...`），以利大腦的意圖分析做型別收斂。
+  - `SpeechEngine` 的 `speak(text: string)` 簽名保持純粹，並徹底刪除 `spokenDisplayText`、`spokenAudioText`、`spokenDisplayTextTimer`、`isProcessing`、`onTapTimer`，回歸純粹的 STT / TTS 音訊控制責任。
+  - `UiEngine` 透過獨立的 `UiEngineStore` 接管畫面氣泡（`bubbleText`）與 6 秒自動淡出計時器（詳見 TODO 5）。
+  - `SkinEngine` 定義清晰的情緒常態字串型別，以利大腦的意圖分析做型別收斂。
 
 ---
 
-## 🛡️ 四、雙向相容轉接實作規範 (Aliasing Implementation Standard)
+## 🛡️ 四、大腦雙軌 Store 與純淨介面實作規範 (Clean Implementation Standard)
 
-為了確保發布 npm 後的 100% 向後相容，大腦引擎在實作中立化時需遵循以下模式：
+在 `v1.0.0` 正式版前不保留舊版過渡別名，直接實作純淨的大腦雙軌狀態與回呼：
 
 ```typescript
-// 1. 型別宣告層 (types.ts)
-export interface BrainEngineOptions {
-  /** 領域中立標準回呼：當推論文字就緒準備輸出時觸發 */
-  onOutputTextReady?: (text: string, ...args: unknown[]) => unknown;
-  /** @deprecated 請改用 onOutputTextReady。舊版語音強綁定回呼名稱 */
-  onSpokenAudioPlayNow?: (text: string, ...args: unknown[]) => unknown;
-
-  /** 領域中立標準回呼：語意情感/意圖變更通知 */
-  onSentimentChange?: (sentiment: string, ...args: unknown[]) => unknown;
-  /** @deprecated 請改用 onSentimentChange。舊版外觀強綁定回呼名稱 */
-  onEmotionChange?: (emotion: string, ...args: unknown[]) => unknown;
-
-  /** 領域中立標準回呼：串流輸出增量文字變更 */
-  onStreamTextChange?: (text: string, ...args: unknown[]) => unknown;
-  /** @deprecated 請改用 onStreamTextChange。舊版回呼名稱 */
-  onSpokenDisplayTextChange?: (text: string, ...args: unknown[]) => unknown;
+// 1. 大腦內部反應式狀態 (core/brain/types.ts & internal-store.ts)
+export interface BrainStoreState {
+  /** 是否正在執行背景對話摘要壓縮 */
+  isSummarizing: boolean;
+  /** 陪伴模式預設回覆輪詢索引 */
+  companionFallbackIndex: number;
+  /** 對話請求序號 */
+  chatSeq: number;
+  /** 軌道 1：視覺顯示文字（含思考提示、串流逐字打字、完整回覆），供 UIEngine 監聽 */
+  displayText: string;
+  /** 軌道 2：語音發聲文字（僅含需朗讀之回覆，思考時不觸發），供 SpeechEngine 監聽 */
+  spokenText: string;
 }
 
-// 2. 實例內部別名轉接層 (index.ts / ai-provider.ts)
-function dispatchOutputTextReady(engine: BrainEngine, text: string) {
-  // 優先觸發新標準回呼，若外部未傳入則呼叫舊別名
-  if (typeof engine.onOutputTextReady === 'function') {
-    engine.onOutputTextReady(text);
-  } else if (typeof engine.onSpokenAudioPlayNow === 'function') {
-    engine.onSpokenAudioPlayNow(text);
-  }
+// 2. 型別宣告層 (core/brain/types.ts)
+export interface BrainEngineOptions {
+  /** 當視覺顯示文字（思考提示、串流增量、最終回覆）變更時觸發 */
+  onDisplayTextChange?: (text: string, ...args: unknown[]) => unknown;
+
+  /** 當推論產出需發聲朗讀之文字時觸發 */
+  onSpokenTextChange?: (text: string, ...args: unknown[]) => unknown;
+
+  /** 當語意情感/意圖標籤變更時觸發 */
+  onSentimentChange?: (sentiment: string, ...args: unknown[]) => unknown;
+}
+
+// 3. 大腦推論內部更新範例 (ai-provider.ts / web-llm.ts / index.ts)
+// (A) 進入思考階段：只更新 displayText（UI 顯示「讓我想想…」，語音保持安靜）
+function notifyThinking(engine: BrainEngine) {
+  const thinkingText = getBrainMessage(engine, 'brain.thinking');
+  setBrainStoreState(engine, { displayText: thinkingText });
+  engine.onDisplayTextChange?.(thinkingText);
+}
+
+// (B) 串流逐字生成階段：即時更新 displayText 供 UI 跳字（語音由串流斷句器處理）
+function notifyStreamDelta(engine: BrainEngine, currentStreamText: string) {
+  setBrainStoreState(engine, { displayText: currentStreamText });
+  engine.onDisplayTextChange?.(currentStreamText);
+}
+
+// (C) 完整回答或語音提示就緒：同步更新 displayText 與 spokenText
+function notifyFinalAnswer(engine: BrainEngine, finalText: string) {
+  setBrainStoreState(engine, {
+    displayText: finalText,
+    spokenText: finalText
+  });
+  engine.onDisplayTextChange?.(finalText);
+  engine.onSpokenTextChange?.(finalText);
 }
 ```
 
@@ -175,12 +223,11 @@ function dispatchOutputTextReady(engine: BrainEngine, text: string) {
 
 當其他引擎皆整理完畢，準備最後收斂執行此 TODO 時，逐一勾選：
 
-- [ ] `core/brain/types.ts` 新增中立回呼並保留 `@deprecated` 別名宣告。
-- [ ] `core/brain/index.ts` 與 `core/brain/ai-provider.ts` 完成雙向別名轉發。
-- [ ] `core/tools/` 將 `onSpokenAudioPlayNow` 重構為中立名稱。
-- [ ] `core/orchestrator/engine-factory.ts` 完成事件管線的新舊相容綁定。
-- [ ] 單元測試：
-  - [ ] 驗證傳入新回呼（`onOutputTextReady`）能正確觸發。
-  - [ ] 驗證傳入舊回呼（`onSpokenAudioPlayNow`）依然能向後相容正常運作。
+- [ ] `core/brain/internal-store.ts` 與 `core/brain/types.ts` 擴充雙軌 Store 屬性：`displayText`（供 `UIEngine` 監聽）與 `spokenText`（供 `SpeechEngine` 監聽）。
+- [ ] `core/brain/types.ts` 將事件回呼全面收斂為中立名稱（`onDisplayTextChange`、`onSpokenTextChange`、`onSentimentChange`），直接移除舊版 `onSpoken*` 與 `onEmotionChange`。
+- [ ] `core/brain/index.ts`、`ai-provider.ts`、`web-llm.ts`、`tool-calling.ts` 完成思考階段（僅更新 `displayText`）與發聲階段（更新雙軌）之分流。
+- [ ] `core/tools/` 將 `onSpokenAudioPlayNow` 重構為中立名稱 `onNoticeMessage`。
+- [ ] `core/orchestrator/engine-factory.ts` 與 `pipeline-stream.ts` 完成雙軌訂閱綁定（`UIEngine` 監聽 `displayText`、`SpeechEngine` 監聽 `spokenText`），並移除 `pipeline-stream.ts` 中的靜音特判 Hack。
+- [ ] 單元測試全數更新並驗證雙軌分流（思考時不發聲、靜音時氣泡仍正常串流跳字）。
 - [ ] 範例專案與 `README_ZH.md` 狀態更新為 `✅ TODO 1 (Implemented)`。
 
