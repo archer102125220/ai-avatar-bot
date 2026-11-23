@@ -1,35 +1,41 @@
 import '@/style/style.scss';
 import type { I18nEngine } from '@/core/i18n';
-import { DEFAULT_AVATAR_MODE, AVATAR_MODE_MAP } from '@/core/constants';
+import { AVATAR_MODE_MAP, DEFAULT_BUBBLE_DISMISS_MS } from '@/core/constants';
+import { createUiStore } from './store';
 import type {
   UiDom,
   VoiceStatusOptions,
   MicStateOptions,
   UpdateBubbleOptions
 } from './types';
-import type { AvatarMode } from '@/core/types';
 
 /**
  * Initializes and mounts UI elements (dialogue bubble, suggestions container, history panel, control dock) into the target container.
  */
 export function initUi(
   container: HTMLElement,
-  stageEl: HTMLElement,
+  stageEl?: HTMLElement | null,
   i18nEngine: I18nEngine | null = null
 ): UiDom | undefined {
   if (container instanceof HTMLElement === false) {
     console.error('[aiAvatar initUi] container is not an HTMLElement');
     return;
   }
-  if (stageEl instanceof HTMLElement === false) {
+
+  let resolvedStageEl: HTMLElement;
+  if (typeof stageEl === 'undefined') {
+    resolvedStageEl = document.createElement('div');
+    resolvedStageEl.setAttribute('id', 'stage');
+  } else if (stageEl instanceof HTMLElement) {
+    resolvedStageEl = stageEl;
+  } else {
     console.error('[aiAvatar initUi] stageEl is not an HTMLElement');
     return;
   }
 
-  let currentListening = false;
-  let currentContinuousMode = false;
-  let currentAvatarMode: AvatarMode = DEFAULT_AVATAR_MODE;
+  const store = createUiStore();
   let currentI18nEngine = i18nEngine;
+  let bubbleTimer: ReturnType<typeof setTimeout> | null = null;
 
   if (
     ['relative', 'absolute', 'fixed', 'sticky'].includes(
@@ -246,10 +252,10 @@ export function initUi(
 
   container.appendChild(minimalEl);
 
-  stageEl.appendChild(bubbleEl);
-  stageEl.appendChild(suggestionsEl);
-  stageEl.appendChild(historyPanelEl);
-  stageEl.appendChild(controlBarEl);
+  resolvedStageEl.appendChild(bubbleEl);
+  resolvedStageEl.appendChild(suggestionsEl);
+  resolvedStageEl.appendChild(historyPanelEl);
+  resolvedStageEl.appendChild(controlBarEl);
   controlBarEl.appendChild(voiceLiveEl);
   controlBarEl.appendChild(dockRow1El);
   controlBarEl.appendChild(dockRow2El);
@@ -263,12 +269,15 @@ export function initUi(
   dockRow2El.appendChild(langButtonEl);
   dockRow2El.appendChild(historyButtonEl);
   dockRow2El.appendChild(closeButtonEl);
-  container.appendChild(stageEl);
+  container.appendChild(resolvedStageEl);
   container.appendChild(directWarnEl);
 
   const uiDom: UiDom = {
+    getState: store.getState,
+    setState: store.setState,
+    subscribe: store.subscribe,
     get stageEl() {
-      return stageEl;
+      return resolvedStageEl;
     },
     get bubbleEl() {
       return bubbleEl;
@@ -288,14 +297,63 @@ export function initUi(
     get voiceLevelEl() {
       return voiceLevelEl;
     },
+    get bubbleText() {
+      return store.getState().bubbleText;
+    },
+    set bubbleText(value: string) {
+      const safeText = typeof value === 'string' ? value : '';
+      bubbleEl.textContent = safeText;
+      store.setState({ bubbleText: safeText });
+    },
+    get isBubbleVisible() {
+      return store.getState().isBubbleVisible;
+    },
+    set isBubbleVisible(value: boolean) {
+      uiDom.updateBubble(undefined, { show: value === true });
+    },
+    get isThinking() {
+      return store.getState().isThinking;
+    },
+    set isThinking(value: boolean) {
+      uiDom.updateBubble(undefined, { isThinking: value === true });
+    },
+    get isHistoryOpen() {
+      return store.getState().isHistoryOpen;
+    },
+    set isHistoryOpen(value: boolean) {
+      store.setState({ isHistoryOpen: value === true });
+    },
+    get isMinimal() {
+      return store.getState().isMinimal;
+    },
+    set isMinimal(value: boolean) {
+      store.setState({ isMinimal: value === true });
+    },
+    toast(message: string, durationMs: number = DEFAULT_BUBBLE_DISMISS_MS) {
+      if (typeof message !== 'string' || message === '') {
+        return;
+      }
+      uiDom.updateBubble(message, {
+        show: true,
+        isThinking: false,
+        autoDismissMs: durationMs
+      });
+    },
     updateVoiceStatus(options?: VoiceStatusOptions) {
       if (typeof options?.i18n === 'object' && options.i18n !== null) {
         currentI18nEngine = options.i18n;
       }
-      if (typeof options?.continuousMode === 'boolean') {
-        currentContinuousMode = options.continuousMode;
-      }
-      if (currentContinuousMode === true) {
+      const prevState = store.getState();
+      const nextContinuousMode =
+        typeof options?.continuousMode === 'boolean'
+          ? options.continuousMode
+          : prevState.mic.continuousMode;
+      const nextVoiceState =
+        typeof options?.state === 'string'
+          ? options.state
+          : prevState.voiceLive.state;
+
+      if (nextContinuousMode === true) {
         voiceLiveEl.setAttribute('css-is-active', 'true');
         if (typeof options?.state === 'string' && options.state !== '') {
           voiceLiveEl.setAttribute('css-state', options.state);
@@ -306,43 +364,72 @@ export function initUi(
         voiceLiveEl.removeAttribute('css-is-active');
         voiceLiveEl.removeAttribute('css-state');
       }
+
+      let nextVoiceText = prevState.voiceLive.text;
       if (
         voiceStatusEl instanceof HTMLElement &&
         typeof options?.text !== 'undefined'
       ) {
-        voiceStatusEl.textContent =
+        nextVoiceText =
           typeof options.text === 'string' && options.text !== ''
             ? options.text
             : typeof currentI18nEngine?.t === 'function'
               ? currentI18nEngine.t('ui.voice.standby')
               : '即時語音待命';
+        voiceStatusEl.textContent = nextVoiceText;
       }
+
+      let nextVoiceLevel = prevState.voiceLive.level;
       if (
         typeof options?.level === 'number' &&
+        Number.isFinite(options.level) &&
         voiceLevelEl instanceof HTMLElement
       ) {
-        voiceLevelEl.style.width =
-          Math.max(0, Math.min(100, options.level)) + '%';
+        nextVoiceLevel = Math.max(0, Math.min(100, options.level));
+        voiceLevelEl.style.width = nextVoiceLevel + '%';
       }
+
+      store.setState({
+        mic: {
+          ...prevState.mic,
+          continuousMode: nextContinuousMode
+        },
+        voiceLive: {
+          active: nextContinuousMode,
+          text: nextVoiceText,
+          state: nextContinuousMode === true ? nextVoiceState : '',
+          level: nextVoiceLevel
+        }
+      });
     },
     updateMicState(options?: MicStateOptions) {
-      if (typeof options?.isListening === 'boolean') {
-        currentListening = options.isListening;
-      }
-      if (typeof options?.continuousMode === 'boolean') {
-        currentContinuousMode = options.continuousMode;
-      }
-      if (
-        typeof options?.avatarMode === 'string' &&
-        options.avatarMode !== ''
-      ) {
-        currentAvatarMode = options.avatarMode;
-      }
+      const prevState = store.getState();
+      const nextListening =
+        typeof options?.isListening === 'boolean'
+          ? options.isListening
+          : prevState.mic.isListening;
+      const nextContinuousMode =
+        typeof options?.continuousMode === 'boolean'
+          ? options.continuousMode
+          : prevState.mic.continuousMode;
+      const nextAvatarMode =
+        typeof options?.avatarMode === 'string' && options.avatarMode !== ''
+          ? options.avatarMode
+          : prevState.avatarMode;
+
       if (typeof options?.i18n === 'object' && options.i18n !== null) {
         currentI18nEngine = options.i18n;
       }
 
-      if (currentListening === true) {
+      store.setState({
+        avatarMode: nextAvatarMode,
+        mic: {
+          isListening: nextListening,
+          continuousMode: nextContinuousMode
+        }
+      });
+
+      if (nextListening === true) {
         micButtonEl.setAttribute('css-state', 'listening');
       } else {
         micButtonEl.removeAttribute('css-state');
@@ -350,7 +437,7 @@ export function initUi(
 
       micButtonEl.setAttribute(
         'aria-pressed',
-        String(currentContinuousMode === true)
+        String(nextContinuousMode === true)
       );
 
       const translate = (key: string, defaultValue: string) => {
@@ -360,26 +447,38 @@ export function initUi(
       };
 
       micButtonEl.textContent =
-        currentListening === true
-          ? currentAvatarMode === AVATAR_MODE_MAP.companion
+        nextListening === true
+          ? nextAvatarMode === AVATAR_MODE_MAP.companion
             ? translate('ui.mic.chatting', '● 對話中')
             : translate('ui.mic.listening', '● 聆聽中')
-          : currentContinuousMode === true
+          : nextContinuousMode === true
             ? translate('ui.mic.convoStandby', '◌ 對話中')
             : translate('ui.mic.live', '🎙️ 即時');
 
       if (suggestionsEl instanceof HTMLElement) {
         suggestionsEl.style.display =
-          currentListening === true || currentContinuousMode === true
+          nextListening === true || nextContinuousMode === true
             ? 'none'
             : 'flex';
       }
     },
     updateBubble(text?: string, options?: UpdateBubbleOptions) {
+      if (bubbleTimer !== null) {
+        clearTimeout(bubbleTimer);
+        bubbleTimer = null;
+      }
+
+      const prevState = store.getState();
+      let nextBubbleText = prevState.bubbleText;
+      let nextIsBubbleVisible = prevState.isBubbleVisible;
+      let nextIsThinking = prevState.isThinking;
+
       if (typeof text === 'string' && text !== '') {
         bubbleEl.textContent = text;
+        nextBubbleText = text;
       }
       if (typeof options?.show === 'boolean') {
+        nextIsBubbleVisible = options.show;
         if (options.show === true) {
           bubbleEl.setAttribute('css-is-show', 'true');
         } else {
@@ -387,11 +486,30 @@ export function initUi(
         }
       }
       if (typeof options?.isThinking === 'boolean') {
+        nextIsThinking = options.isThinking;
         if (options.isThinking === true) {
           bubbleEl.setAttribute('css-is-thinking', 'true');
         } else {
           bubbleEl.removeAttribute('css-is-thinking');
         }
+      }
+
+      store.setState({
+        bubbleText: nextBubbleText,
+        isBubbleVisible: nextIsBubbleVisible,
+        isThinking: nextIsThinking
+      });
+
+      if (
+        typeof options?.autoDismissMs === 'number' &&
+        Number.isFinite(options.autoDismissMs) &&
+        options.autoDismissMs > 0
+      ) {
+        bubbleTimer = setTimeout(() => {
+          bubbleTimer = null;
+          bubbleEl.removeAttribute('css-is-show');
+          store.setState({ isBubbleVisible: false });
+        }, options.autoDismissMs);
       }
     },
     get controlBarEl() {

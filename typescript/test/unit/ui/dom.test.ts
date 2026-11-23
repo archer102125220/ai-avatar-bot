@@ -226,5 +226,67 @@ describe('UI DOM & Scaffolding (initUi)', () => {
     // 3. Hide bubble
     uiDom.updateBubble(undefined, { show: false });
     expect(uiDom.bubbleEl.getAttribute('css-is-show')).toBeNull();
+    expect(uiDom.isBubbleVisible).toBe(false);
+  });
+
+  it('should automatically create default #stage when stageEl is omitted (standalone usage)', () => {
+    const uiDom: UiDom = initUi(container)!;
+
+    expect(uiDom).toBeDefined();
+    expect(uiDom.stageEl).toBeInstanceOf(HTMLElement);
+    expect(uiDom.stageEl.id).toBe('stage');
+    expect(container.contains(uiDom.stageEl)).toBe(true);
+  });
+
+  it('should synchronize reactive UiEngineState via store, getters/setters, and auto-dismiss toast timer', () => {
+    vi.useFakeTimers();
+    try {
+      const uiDom: UiDom = initUi(container, stageEl, i18nEngine)!;
+      const bubbleTextChanges: string[] = [];
+
+      const unsubscribe = uiDom.subscribe('bubbleText', (newText) => {
+        bubbleTextChanges.push(newText);
+      });
+
+      // 1. Trigger toast with 3000ms duration
+      uiDom.toast('已複製回答', 3000);
+      expect(uiDom.bubbleText).toBe('已複製回答');
+      expect(uiDom.isBubbleVisible).toBe(true);
+      expect(uiDom.isThinking).toBe(false);
+      expect(uiDom.bubbleEl.textContent).toBe('已複製回答');
+      expect(uiDom.bubbleEl.getAttribute('css-is-show')).toBe('true');
+      expect(bubbleTextChanges).toEqual(['已複製回答']);
+
+      // 2. Before timeout expires, bubble remains visible
+      vi.advanceTimersByTime(2999);
+      expect(uiDom.isBubbleVisible).toBe(true);
+      expect(uiDom.bubbleEl.getAttribute('css-is-show')).toBe('true');
+
+      // 3. After timeout expires, bubble auto-dismisses
+      vi.advanceTimersByTime(1);
+      expect(uiDom.isBubbleVisible).toBe(false);
+      expect(uiDom.bubbleEl.getAttribute('css-is-show')).toBeNull();
+
+      // 4. Reactive property setters
+      uiDom.bubbleText = '直接設定文字';
+      expect(uiDom.getState().bubbleText).toBe('直接設定文字');
+      expect(uiDom.bubbleEl.textContent).toBe('直接設定文字');
+
+      uiDom.isBubbleVisible = true;
+      expect(uiDom.bubbleEl.getAttribute('css-is-show')).toBe('true');
+
+      uiDom.isThinking = true;
+      expect(uiDom.bubbleEl.getAttribute('css-is-thinking')).toBe('true');
+
+      uiDom.isHistoryOpen = true;
+      expect(uiDom.getState().isHistoryOpen).toBe(true);
+
+      uiDom.isMinimal = true;
+      expect(uiDom.getState().isMinimal).toBe(true);
+
+      unsubscribe();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

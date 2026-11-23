@@ -775,6 +775,11 @@ export const DEFAULT_ENABLE_MODEL_DROP = false;
 export const DEFAULT_ENABLE_ENGINE_TOGGLE = true;
 
 /**
+ * Default auto-dismiss duration for dialogue bubble and toast notifications (in milliseconds).
+ */
+export const DEFAULT_BUBBLE_DISMISS_MS = 6000;
+
+/**
  * Default Text-to-Speech (TTS) API endpoint path.
  */
 export const DEFAULT_TTS_ENDPOINT = 'api/tts';

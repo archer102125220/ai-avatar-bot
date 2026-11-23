@@ -1,9 +1,59 @@
 import type { I18nEngine } from '@/core/i18n';
 import type { SpeechEngine } from '@/core/speech';
 import type { ToolsEngine } from '@/core/tools';
-import type { LocalizableOrResolver, AvatarMode } from '@/core/types';
+import type {
+  LocalizableOrResolver,
+  AvatarMode,
+  SubscribableStore
+} from '@/core/types';
 import type { BrainEngine } from '@/core/brain';
 import type { SkinEngine } from '@/core/skin';
+
+/**
+ * Reactive state model for the real-time voice conversation status bar.
+ */
+export interface UiVoiceLiveState {
+  /** Whether real-time voice continuous conversation mode is active. */
+  active: boolean;
+  /** Current status label text. */
+  text: string;
+  /** CSS state identifier (e.g. 'listening', 'speaking'). */
+  state?: string;
+  /** Audio volume level meter indicator (0 to 100). */
+  level: number;
+}
+
+/**
+ * Reactive state model for the microphone button.
+ */
+export interface UiMicState {
+  /** Whether the microphone is actively listening for audio input. */
+  isListening: boolean;
+  /** Whether real-time continuous conversation mode is active. */
+  continuousMode: boolean;
+}
+
+/**
+ * Complete reactive state model for the UI Engine store.
+ */
+export interface UiEngineState {
+  /** Text currently displayed in the dialogue bubble (dialogue subtitles or toast notifications). */
+  bubbleText: string;
+  /** Whether the dialogue bubble is currently visible. */
+  isBubbleVisible: boolean;
+  /** Whether the AI thinking indicator animation is active on the bubble. */
+  isThinking: boolean;
+  /** Whether the conversation history slide-out panel is open. */
+  isHistoryOpen: boolean;
+  /** Whether the widget is currently minimized into the floating button. */
+  isMinimal: boolean;
+  /** Current avatar personality mode ('companion' | 'assistant'). */
+  avatarMode: AvatarMode;
+  /** Real-time voice conversation status bar state. */
+  voiceLive: UiVoiceLiveState;
+  /** Microphone button state. */
+  mic: UiMicState;
+}
 
 /**
  * Options for updating voice conversation status bar and volume meter.
@@ -60,9 +110,9 @@ export interface SkinModeToggleOptions {
 }
 
 /**
- * Avatar frontend UI DOM elements and controller methods.
+ * Avatar frontend UI DOM elements, reactive store, and controller methods.
  */
-export interface UiDom {
+export interface UiDom extends SubscribableStore<UiEngineState> {
   /** 3D or 2D avatar viewport stage container element. */
   readonly stageEl: HTMLElement;
   /** Dialogue text bubble element. */
@@ -77,15 +127,24 @@ export interface UiDom {
   readonly voiceStatusEl: HTMLElement;
   /** Audio volume level meter indicator element. */
   readonly voiceLevelEl: HTMLElement;
+  /** Current text displayed in the dialogue bubble. */
+  bubbleText: string;
+  /** Whether the dialogue bubble is currently visible. */
+  isBubbleVisible: boolean;
+  /** Whether the thinking animation indicator is active on the bubble. */
+  isThinking: boolean;
+  /** Whether the conversation history drawer is open. */
+  isHistoryOpen: boolean;
+  /** Whether the widget is in minimal mode. */
+  isMinimal: boolean;
+  /** Displays a temporary toast message in the dialogue bubble with auto-dismiss timer. */
+  toast(message: string, durationMs?: number): void;
   /** Updates voice conversation status bar and volume meter. */
   updateVoiceStatus(options?: VoiceStatusOptions): void;
   /** Updates microphone button UI state and label. */
   updateMicState(options?: MicStateOptions): void;
   /** Updates dialogue bubble with optional text, visibility and thinking indicator states. */
-  updateBubble(
-    text?: string,
-    options?: UpdateBubbleOptions
-  ): void;
+  updateBubble(text?: string, options?: UpdateBubbleOptions): void;
   /** Main control bar container. */
   readonly controlBarEl: HTMLElement;
   /** Text input dock row. */
