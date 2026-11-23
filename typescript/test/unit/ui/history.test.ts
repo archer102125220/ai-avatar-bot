@@ -74,6 +74,7 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
     it('should toggle history panel open/closed attributes and accessibility states', () => {
       setHistoryOpen(getContext(), true);
 
+      expect(uiDom.isHistoryOpen).toBe(true);
       expect(uiDom.historyPanelEl.getAttribute('css-is-open')).toBe('true');
       expect(uiDom.historyPanelEl.inert).toBe(false);
       expect(uiDom.historyButtonEl.getAttribute('aria-expanded')).toBe('true');
@@ -82,6 +83,7 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
 
       setHistoryOpen(getContext(), false);
 
+      expect(uiDom.isHistoryOpen).toBe(false);
       expect(uiDom.historyPanelEl.getAttribute('css-is-open')).toBeNull();
       expect(uiDom.historyPanelEl.inert).toBe(true);
       expect(uiDom.historyButtonEl.getAttribute('aria-expanded')).toBe('false');
@@ -260,7 +262,7 @@ describe('UI Chat History (setHistoryOpen & renderHistory)', () => {
 
       copyBtn.click();
       await Promise.resolve();
-      expect(mockContext.speechEngine.spokenDisplayText).toBe('已複製回答');
+      expect(uiDom.bubbleText).toBe('已複製回答');
 
       replayBtn.click();
       expect(mockContext.speechEngine.speak).toHaveBeenCalledWith(

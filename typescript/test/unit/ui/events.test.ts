@@ -12,7 +12,8 @@ interface MockSpeechEngine {
   isProcessing: boolean;
   isSpeaking: boolean;
   ttsMuted: boolean;
-  ttsRate: number;
+  playbackRate: number;
+  consecutiveNoSpeechCount: number;
   spokenDisplayText: string;
   startListening: ReturnType<typeof vi.fn>;
   stopVoiceSession: ReturnType<typeof vi.fn>;
@@ -86,7 +87,8 @@ describe('UI Events Binding', () => {
         isProcessing: false,
         isSpeaking: false,
         ttsMuted: false,
-        ttsRate: 1.0,
+        playbackRate: 1.0,
+        consecutiveNoSpeechCount: 2,
         spokenDisplayText: '',
         startListening: vi.fn(),
         stopVoiceSession: vi.fn(),
@@ -184,6 +186,7 @@ describe('UI Events Binding', () => {
       mockContext.speechEngine.isProcessing = false;
       uiDom.micButtonEl.click();
       expect(mockContext.speechEngine.convoOn).toBe(true);
+      expect(mockContext.speechEngine.consecutiveNoSpeechCount).toBe(0);
       expect(mockContext.speechEngine.startListening).toHaveBeenCalled();
     });
 
@@ -194,26 +197,28 @@ describe('UI Events Binding', () => {
       expect(mockContext.speechEngine.ttsMuted).toBe(true);
       expect(uiDom.muteButtonEl.textContent).toBe('🔇');
       expect(mockContext.speechEngine.stopSpeaking).toHaveBeenCalled();
+      expect(uiDom.bubbleText).toBe(i18nEngine.t('ui.mute.muted'));
 
       uiDom.muteButtonEl.click();
       expect(mockContext.speechEngine.ttsMuted).toBe(false);
       expect(uiDom.muteButtonEl.textContent).toBe('🔊');
+      expect(uiDom.bubbleText).toBe(i18nEngine.t('ui.mute.unmuted'));
     });
 
     it('should cycle speech rate on speedButtonEl click', () => {
       bindUiEvent(getContext());
 
-      expect(mockContext.speechEngine.ttsRate).toBe(1.0);
+      expect(mockContext.speechEngine.playbackRate).toBe(1.0);
       uiDom.speedButtonEl.click();
-      expect(mockContext.speechEngine.ttsRate).toBe(1.2);
+      expect(mockContext.speechEngine.playbackRate).toBe(1.2);
       expect(uiDom.speedButtonEl.textContent).toBe('1.2×');
 
       uiDom.speedButtonEl.click();
-      expect(mockContext.speechEngine.ttsRate).toBe(1.4);
+      expect(mockContext.speechEngine.playbackRate).toBe(1.4);
       expect(uiDom.speedButtonEl.textContent).toBe('1.4×');
 
       uiDom.speedButtonEl.click();
-      expect(mockContext.speechEngine.ttsRate).toBe(0.9);
+      expect(mockContext.speechEngine.playbackRate).toBe(0.9);
       expect(uiDom.speedButtonEl.textContent).toBe('0.9×');
     });
 
@@ -279,26 +284,22 @@ describe('UI Events Binding', () => {
       // zh-TW -> en-US
       uiDom.langButtonEl.click();
       expect(customContext.locale).toBe('en-US');
-      expect(customContext.speechEngine.spokenDisplayText).toBe(
-        'Language: English'
-      );
+      expect(uiDom.bubbleText).toBe('Language: English');
 
       // en-US -> ja-JP
       uiDom.langButtonEl.click();
       expect(customContext.locale).toBe('ja-JP');
-      expect(customContext.speechEngine.spokenDisplayText).toBe('言語：日本語');
+      expect(uiDom.bubbleText).toBe('言語：日本語');
 
       // ja-JP -> ko-KR
       uiDom.langButtonEl.click();
       expect(customContext.locale).toBe('ko-KR');
-      expect(customContext.speechEngine.spokenDisplayText).toBe('언어: 한국어');
+      expect(uiDom.bubbleText).toBe('언어: 한국어');
 
       // ko-KR -> zh-TW
       uiDom.langButtonEl.click();
       expect(customContext.locale).toBe('zh-TW');
-      expect(customContext.speechEngine.spokenDisplayText).toBe(
-        '語言：繁體中文'
-      );
+      expect(uiDom.bubbleText).toBe('語言：繁體中文');
     });
 
     it('should handle AI provider and WebLLM readiness states on llmButtonEl click', async () => {
@@ -315,9 +316,7 @@ describe('UI Events Binding', () => {
       await uiDom.llmButtonEl.onclick?.(pointerEvent);
       expect(uiDom.llmButtonEl.textContent).toBe('🧠✓');
       expect(uiDom.llmButtonEl.getAttribute('css-llm-on')).toBe('true');
-      expect(mockContext.speechEngine.spokenDisplayText).toContain(
-        'AI 伺服器大腦運作中'
-      );
+      expect(uiDom.bubbleText).toContain('AI 伺服器大腦運作中');
 
       // 2. AI Provider enabled but not ready
       mockContext.brainEngine.aiProvider.ready = false;
@@ -327,24 +326,18 @@ describe('UI Events Binding', () => {
       await uiDom.llmButtonEl.onclick?.(pointerEvent);
       expect(uiDom.llmButtonEl.textContent).toBe('🧠✗');
       expect(uiDom.llmButtonEl.getAttribute('css-llm-on')).toBeNull();
-      expect(mockContext.speechEngine.spokenDisplayText).toContain(
-        'AI 伺服器連不上'
-      );
+      expect(uiDom.bubbleText).toContain('AI 伺服器連不上');
 
       // 3. WebLLM not supported
       mockContext.brainEngine.aiProvider = { enabled: false };
       mockContext.brainEngine.llm = { supported: false };
       await uiDom.llmButtonEl.onclick?.(pointerEvent);
-      expect(mockContext.speechEngine.spokenDisplayText).toContain(
-        '這個裝置不支援 WebGPU'
-      );
+      expect(uiDom.bubbleText).toContain('這個裝置不支援 WebGPU');
 
       // 4. WebLLM already ready
       mockContext.brainEngine.llm = { supported: true, state: STATE_MAP.READY };
       await uiDom.llmButtonEl.onclick?.(pointerEvent);
-      expect(mockContext.speechEngine.spokenDisplayText).toContain(
-        'AI 大腦已啟用'
-      );
+      expect(uiDom.bubbleText).toContain('AI 大腦已啟用');
 
       // 5. WebLLM loading
       mockContext.brainEngine.llm = {
@@ -353,7 +346,7 @@ describe('UI Events Binding', () => {
         progress: 0.45
       };
       await uiDom.llmButtonEl.onclick?.(pointerEvent);
-      expect(mockContext.speechEngine.spokenDisplayText).toContain('45%');
+      expect(uiDom.bubbleText).toContain('45%');
 
       // 6. WebLLM unloaded -> trigger load
       const loadMock = vi.fn();
@@ -397,7 +390,7 @@ describe('UI Events Binding', () => {
         btnHistoryClear.click();
         expect(mockContext.brainEngine.memory?.clear).toHaveBeenCalled();
         expect(mockContext.brainEngine.chatLog.length).toBe(0);
-        expect(mockContext.speechEngine.spokenDisplayText).toContain('清除');
+        expect(uiDom.bubbleText).toContain('清除');
       }
     });
 
@@ -410,7 +403,8 @@ describe('UI Events Binding', () => {
           isListening: false,
           isProcessing: false,
           isSpeaking: false,
-          ttsRate: 0.9,
+          playbackRate: 0.9,
+          consecutiveNoSpeechCount: 0,
           ttsMuted: false,
           spokenDisplayText: '',
           startListening: vi.fn(),
@@ -425,30 +419,30 @@ describe('UI Events Binding', () => {
 
       // 1. Speed button cycling: 0.9 -> 1.0 -> 1.2 -> 1.4 -> 0.9
       uiDom.speedButtonEl.click();
-      expect(customContext.speechEngine.ttsRate).toBe(1.0);
-      expect(customContext.speechEngine.spokenDisplayText).toBe('語速：1.0×');
+      expect(customContext.speechEngine.playbackRate).toBe(1.0);
+      expect(uiDom.bubbleText).toBe('語速：1.0×');
 
       uiDom.speedButtonEl.click();
-      expect(customContext.speechEngine.ttsRate).toBe(1.2);
-      expect(customContext.speechEngine.spokenDisplayText).toBe('語速：1.2×');
+      expect(customContext.speechEngine.playbackRate).toBe(1.2);
+      expect(uiDom.bubbleText).toBe('語速：1.2×');
 
       uiDom.speedButtonEl.click();
-      expect(customContext.speechEngine.ttsRate).toBe(1.4);
-      expect(customContext.speechEngine.spokenDisplayText).toBe('語速：1.4×');
+      expect(customContext.speechEngine.playbackRate).toBe(1.4);
+      expect(uiDom.bubbleText).toBe('語速：1.4×');
 
       uiDom.speedButtonEl.click();
-      expect(customContext.speechEngine.ttsRate).toBe(0.9);
-      expect(customContext.speechEngine.spokenDisplayText).toBe('語速：0.9×');
+      expect(customContext.speechEngine.playbackRate).toBe(0.9);
+      expect(uiDom.bubbleText).toBe('語速：0.9×');
 
       // 2. Mute button without i18nEngine
       uiDom.muteButtonEl.click();
       expect(customContext.speechEngine.ttsMuted).toBe(true);
-      expect(customContext.speechEngine.spokenDisplayText).toBe('已靜音');
+      expect(uiDom.bubbleText).toBe('已靜音');
       expect(customContext.speechEngine.stopSpeaking).toHaveBeenCalled();
 
       uiDom.muteButtonEl.click();
       expect(customContext.speechEngine.ttsMuted).toBe(false);
-      expect(customContext.speechEngine.spokenDisplayText).toBe('已開啟語音');
+      expect(uiDom.bubbleText).toBe('已開啟語音');
 
       // 3. Non-Enter keydown on input
       uiDom.questionInputEl.value = '測試按鍵';

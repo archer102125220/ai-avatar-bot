@@ -23,6 +23,7 @@ export function setHistoryOpen(context: UiContext, open: boolean): void {
     historyPanelEl.inert = open !== true;
     historyButtonEl.setAttribute('aria-expanded', String(open === true));
   }
+  context.uiDom.isHistoryOpen = open === true;
 
   if (suggestionsEl instanceof HTMLElement) {
     suggestionsEl.style.display =
@@ -230,12 +231,7 @@ export function renderHistory(context: UiContext): void {
       copyButtonEl.onclick = () => {
         if (typeof chatItem.text === 'string') {
           copyText(chatItem.text).then(() => {
-            if (context.speechEngine) {
-              context.speechEngine.spokenDisplayText = translate(
-                'ui.history.copied',
-                '已複製回答'
-              );
-            }
+            context.uiDom.toast(translate('ui.history.copied', '已複製回答'));
           });
         }
       };

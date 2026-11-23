@@ -88,7 +88,7 @@ export function bindUiEvent(context: UiContext | null = null): void {
           speechEngine.isProcessing !== true;
         if (isIdle === true) {
           speechEngine.convoOn = true;
-          speechEngine.noSpeechRuns = 0;
+          speechEngine.consecutiveNoSpeechCount = 0;
           speechEngine.startListening();
         } else {
           speechEngine.convoOn = false;
@@ -130,14 +130,15 @@ export function bindUiEvent(context: UiContext | null = null): void {
       if (speechEngine.ttsMuted === true) {
         speechEngine.stopSpeaking();
       }
-      speechEngine.spokenDisplayText =
+      uiDom.toast(
         speechEngine.ttsMuted === true
           ? typeof context.i18nEngine?.t === 'function'
             ? context.i18nEngine.t('ui.mute.muted')
             : '已靜音'
           : typeof context.i18nEngine?.t === 'function'
             ? context.i18nEngine.t('ui.mute.unmuted')
-            : '已開啟語音';
+            : '已開啟語音'
+      );
     };
   }
 
@@ -149,15 +150,17 @@ export function bindUiEvent(context: UiContext | null = null): void {
       }
       const speedButtonEl = uiDom.speedButtonEl;
       const steps = [0.9, 1.0, 1.2, 1.4];
-      speechEngine.ttsRate =
-        steps[(steps.indexOf(speechEngine.ttsRate) + 1) % steps.length] || 1.0;
-      speedButtonEl.textContent = speechEngine.ttsRate.toFixed(1) + '×';
-      speechEngine.spokenDisplayText =
+      speechEngine.playbackRate =
+        steps[(steps.indexOf(speechEngine.playbackRate) + 1) % steps.length] ||
+        1.0;
+      speedButtonEl.textContent = speechEngine.playbackRate.toFixed(1) + '×';
+      uiDom.toast(
         typeof context.i18nEngine?.t === 'function'
           ? context.i18nEngine.t('ui.speed.text', {
-              rate: speechEngine.ttsRate.toFixed(1)
+              rate: speechEngine.playbackRate.toFixed(1)
             })
-          : '語速：' + speechEngine.ttsRate.toFixed(1) + '×';
+          : '語速：' + speechEngine.playbackRate.toFixed(1) + '×'
+      );
     };
   }
 
@@ -178,18 +181,17 @@ export function bindUiEvent(context: UiContext | null = null): void {
         context.locale = nextLocale;
       }
 
-      if (context.speechEngine) {
-        context.speechEngine.spokenDisplayText =
-          typeof context.i18nEngine?.t === 'function'
-            ? context.i18nEngine.t('ui.lang.statusText')
-            : nextLocale === 'en-US'
-              ? 'Language: English'
-              : nextLocale === 'ja-JP'
-                ? '言語：日本語'
-                : nextLocale === 'ko-KR'
-                  ? '언어: 한국어'
-                  : '語言：繁體中文';
-      }
+      uiDom.toast(
+        typeof context.i18nEngine?.t === 'function'
+          ? context.i18nEngine.t('ui.lang.statusText')
+          : nextLocale === 'en-US'
+            ? 'Language: English'
+            : nextLocale === 'ja-JP'
+              ? '言語：日本語'
+              : nextLocale === 'ko-KR'
+                ? '언어: 한국어'
+                : '語言：繁體中文'
+      );
     };
   }
 
@@ -221,12 +223,11 @@ export function bindUiEvent(context: UiContext | null = null): void {
           context.brainEngine.chatLog.length = 0;
         }
         renderHistory(context);
-        if (context.speechEngine) {
-          context.speechEngine.spokenDisplayText =
-            typeof context.i18nEngine?.t === 'function'
-              ? context.i18nEngine.t('ui.history.cleared')
-              : '已清除這次的聊天紀錄';
-        }
+        uiDom.toast(
+          typeof context.i18nEngine?.t === 'function'
+            ? context.i18nEngine.t('ui.history.cleared')
+            : '已清除這次的聊天紀錄'
+        );
       };
     }
   }
@@ -235,7 +236,6 @@ export function bindUiEvent(context: UiContext | null = null): void {
   if (llmButtonEl instanceof HTMLElement) {
     llmButtonEl.onclick = async () => {
       const brainEngine = context.brainEngine;
-      const speechEngine = context.speechEngine;
       if (!brainEngine) {
         return;
       }
@@ -254,39 +254,34 @@ export function bindUiEvent(context: UiContext | null = null): void {
           'aria-pressed',
           String(isServerReady === true)
         );
-        if (speechEngine) {
-          speechEngine.spokenDisplayText =
-            isServerReady === true
-              ? 'AI 伺服器大腦運作中（' + brainEngine.aiProvider.model + '）🧠'
-              : 'AI 伺服器連不上：確認 AI 伺服器在跑、且 AI_PROVIDER_ORIGINS 已允許這個網站。';
-        }
+        uiDom.toast(
+          isServerReady === true
+            ? 'AI 伺服器大腦運作中（' + brainEngine.aiProvider.model + '）🧠'
+            : 'AI 伺服器連不上：確認 AI 伺服器在跑、且 AI_PROVIDER_ORIGINS 已允許這個網站。'
+        );
 
         return;
       }
       if (brainEngine.llm?.supported !== true) {
-        if (speechEngine) {
-          speechEngine.spokenDisplayText =
-            '這個裝置不支援 WebGPU，先用知識庫模式就好（功能一樣可用）。';
-        }
+        uiDom.toast(
+          '這個裝置不支援 WebGPU，先用知識庫模式就好（功能一樣可用）。'
+        );
         return;
       }
       const readyState = STATE_MAP.READY;
       const loadingState = STATE_MAP.LOADING;
       if (brainEngine.llm?.state === readyState) {
-        if (speechEngine) {
-          speechEngine.spokenDisplayText = 'AI 大腦已啟用，問我問題吧 🧠';
-        }
+        uiDom.toast('AI 大腦已啟用，問我問題吧 🧠');
         return;
       } else if (
         typeof loadingState === 'string' &&
         brainEngine.llm?.state === loadingState
       ) {
-        if (speechEngine) {
-          speechEngine.spokenDisplayText =
-            'AI 大腦載入中… ' +
+        uiDom.toast(
+          'AI 大腦載入中… ' +
             Math.round((brainEngine.llm.progress ?? 0) * 100) +
-            '%';
-        }
+            '%'
+        );
         return;
       }
 
