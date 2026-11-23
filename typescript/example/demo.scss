@@ -524,6 +524,7 @@
           background-color 0.25s ease,
           box-shadow 0.25s ease,
           border-color 0.25s ease;
+        overflow: hidden;
 
         @media (min-width: 1180px) {
           // inset-inline-end: max(24px, calc((100vw - 1240px) / 2 + 28px));
@@ -552,7 +553,6 @@
 
         &[css-is-minimal='true'] {
           pointer-events: none;
-          overflow: hidden;
 
           .aw-minimal {
             pointer-events: auto;
