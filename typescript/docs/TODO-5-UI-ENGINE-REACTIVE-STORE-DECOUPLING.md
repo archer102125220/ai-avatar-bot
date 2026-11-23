@@ -251,25 +251,26 @@ export interface UiEngine extends SubscribableStore<UiEngineState> {
 
 ### 階段一：清理死屬性與統一純淨 Options 介面 (Tier 1 - 已完成 ✅)
 - [x] 移除 `UiDom.onTapTimer` 100% 死屬性。
-- [x] 移除 `UiContext` 上的 `AVATAR_MODE_MAP`、`ENGINE_MODE_MAP`、`STATE_MAP` 靜態字典冗餘，改自 `@/core/constants` 引用。
+- [x] 移除 `UiContext` 上的 `AVATAR_MODE_MAP`、`ENGINE_MODE_MAP`、`STATE_MAP` 靜態字典冗餘，改自 `@/core/constants` 引用，並消除 `dom.ts` 與 `events.ts` 內的 `AvatarMode` 寫死字串（Magic Strings）。
 - [x] 為 `updateVoiceStatus`、`updateMicState`、`updateBubble`、`initSkinModeChangeButton` 實作乾淨 Options 物件介面（依指示於 v1.0.0 前直接移除多參數位置舊簽名，不留舊多載）。
-- [x] 將 `engineButtonEl` 重新命名為語意中立的 `skinModeButtonEl`。
-- [x] 全專案 42 套測試檔（707 項單元測試）、Typecheck、Lint、Build 全數綠燈通過。
+- [x] 將 `engineButtonEl` 重新命名為語意中立的 `skinModeButtonEl`，並將 `SkinModeToggleOptions.isEngineToggleEnabled` 正名為 `isSkinModeToggleEnabled`。
+- [x] 全專案 42 套測試檔、Typecheck、Lint、Build 全數綠燈通過。
 
-### 階段二：建立 `UiEngineStore` 與大腦雙軌 Store 銜接 (Tier 2 - UI 內部已完成 ✅ / 待大腦雙軌收網 📋)
-- [x] 在 `core/ui/store.ts` 以 `createBaseStore<UiEngineState>` 宣告 UI 狀態庫（管理 `bubbleText`、`isBubbleVisible`、`isThinking`、`isHistoryOpen`、`isMinimal`、`voiceLive`、`mic`），並於 `core/ui/dom.ts` 內部自建 6 秒 `bubbleTimer`（常數 `DEFAULT_BUBBLE_DISMISS_MS` 集中於 `core/constants.ts`）。
+### 階段二：建立 `UiEngineStore` 與大腦雙軌 Store 銜接 (Tier 2 - UI 內部已完成 ✅ / 待大腦與語音雙軌收網 📋)
+- [x] 在 `core/ui/store.ts` 以 `createBaseStore<UiEngineState>` 宣告 UI 狀態庫（管理 `bubbleText`、`isBubbleVisible`、`isThinking`、`isHistoryOpen`、`isMinimal`、`voiceLive`、`mic`），並於 `core/ui/dom.ts` 內部自建 6 秒 `bubbleTimer`（常數 `DEFAULT_BUBBLE_DISMISS_MS` 集中於 `core/constants.ts`，維持純函式工廠 + 閉包物件風格）。
 - [x] 將 `events.ts`（7 處）與 `history.ts`（1 處）對 `speechEngine.spokenDisplayText` 的賦值，全面改為直接呼叫 `uiDom.toast(message)`。
 - [x] 將 `events.ts` 內的 `ttsRate`、`noSpeechRuns` 遷移為語音引擎已支援的標準命名（`playbackRate`、`consecutiveNoSpeechCount`）。
 - [x] 補齊 `@ai-avatar-bot/sdk/ui` 獨立子路徑匯出、`CustomEnginesConfig.ui` 整顆引擎取代支援，並讓 `initUi(container)` 支援可選自動建立 `#stage`。
 - [ ] 配合 TODO 1，在大腦 `BrainStoreState`（[`core/brain/internal-store.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/brain/internal-store.ts)）擴充雙軌屬性：
   - **`displayText`**（視覺顯示軌，含思考提示 `'讓我想想…'` 與串流逐字打字）➔ 由 `UIEngine` 監聽並更新 `bubbleText`。
   - **`spokenText`**（語音發聲軌，僅含需朗讀之完句，思考時不觸發）➔ 由 `SpeechEngine` 監聽並觸發 `speak()`。
-- [ ] 自 `speech/index.ts` 與 `speech/types.ts` 徹底移除 `spokenDisplayText`、`spokenAudioText` 與 `spokenDisplayTextTimer`（正式版前不留舊相容代理），並移除 `pipeline-stream.ts` 的 `ttsMuted` 靜音特判 Hack。
+- [ ] 自 `speech/index.ts`、`speech/types.ts` 與 `orchestrator`（`engine-factory.ts`、`pipeline-stream.ts`、`pipeline-user.ts`）徹底移除 `spokenDisplayText`、`spokenAudioText` 與 `spokenDisplayTextTimer`（正式版前不留舊相容代理），並移除 `pipeline-stream.ts` 的 `ttsMuted` 靜音特判 Hack。
 - [ ] 配合 TODO 4 耦合項 06，將 `events.ts` 與 `history.ts` 內的 `ttsMuted`、`convoOn` 遷移為標準語音命名（`isMuted`、`continuousMode`）。
-- [ ] 補齊 `events.ts` L256–L286 內部 5 處未國際化的大腦提示字串。
+- [ ] 配合 I18nEngine 整理，補齊 `events.ts` L256–L286 內部 5 處未國際化的大腦提示字串。
 
-### 階段三：大腦封裝保護與歷史型別收斂 (Tier 3 - 待執行 📋)
-- [ ] 移除 `events.ts` L220 對 `brainEngine.chatLog.length = 0` 的暴力截斷，改呼叫大腦公開方法 `clearHistory()`。
-- [ ] 將 `history.ts` 對 `ToolChatMessage` 的依賴改回大腦基礎 `ChatLogItem` 型別。
-- [ ] 擴充單元測試（`test/unit/ui/*.test.ts` 與 `test/unit/brain/*.test.ts`），驗證大腦雙軌分流、UI Store 監聽與全引擎解耦 100% 通過。
+### 階段三：大腦封裝保護與歷史型別收斂 (Tier 3 - 待與 TODO 1 & ToolsEngine 收網時執行 📋)
+- [ ] 配合 TODO 1 耦合點 05，移除 `events.ts` L220 對 `brainEngine.chatLog.length = 0` 的直接截斷，改呼叫大腦公開方法 `clearHistory()`。
+- [ ] 配合 TODO 1 耦合點 05，將 `events.ts` L236–L295（`llmButtonEl.onclick`）對 `brainEngine.aiProvider` 與 `brainEngine.llm` 的私有狀態白箱穿透存取，收斂為大腦公開狀態查詢與載入門面方法。
+- [ ] 配合 ToolsEngine 整理，將 `history.ts` 對 `ToolChatMessage` 的依賴改回大腦基礎 `ChatLogItem` 型別。
+- [ ] 擴充跨引擎單元測試，驗證大腦雙軌分流、UI Store 監聽與全引擎解耦 100% 通過。
 

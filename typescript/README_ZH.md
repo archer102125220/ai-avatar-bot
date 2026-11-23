@@ -1689,12 +1689,15 @@ yarn test:smoke
   - 跨領域項目設立為 TODO 4 動態收集看板，在後續重構工具（Tools）、國際化（I18n）與 UI 模組時，邊處理邊收集真實邊界規格。
   - 最終在協調層（`core/orchestrator`）重構時與大腦 TODO 1、UI TODO 5 一併收網，徹底自 `SpeechEngine` 移除 `spokenDisplayText` 與 `spokenAudioText`，達到 100% 純音訊核心架構。
 
-### 📌 TODO 5：UI 介面引擎獨立反應式狀態庫與跨領域解耦規格書（Tier 1 已完成 / Tier 2 規劃就緒）
+### 📌 TODO 5：UI 介面引擎獨立反應式狀態庫與跨領域解耦規格書（UI 內部 Tier 1 & Tier 2 已完成 ✅ / 待跨引擎收網 📋）
 - **規格書追蹤**：詳見 [UI 介面引擎反應式解耦規格書 (RFC)](./docs/TODO-5-UI-ENGINE-REACTIVE-STORE-DECOUPLING.md)。
-- **背景**：UI 介面模組（`core/ui`）為全專案五大引擎中唯一缺乏專屬 `createBaseStore` 的模組；且過去大腦不發聲文字與 UI 按鈕視覺 Toast 皆繞道借用 `speechEngine.spokenDisplayText`。
+- **背景**：UI 介面模組（`core/ui`）過去為全專案唯一缺乏專屬 `createBaseStore` 的模組；且過去大腦不發聲文字與 UI 按鈕視覺 Toast 皆繞道借用 `speechEngine.spokenDisplayText`。
 - **階段成果與規劃**：
-  - **Tier 1（已完成 ✅）**：將多位置參數之 `updateVoiceStatus`、`updateMicState`、`updateBubble`、`initSkinModeChangeButton` 全面收斂為純淨 Options 物件簽名（移除舊多載），刪除 `onTapTimer` 死屬性，並將 `engineButtonEl` 正名為 `skinModeButtonEl`。
-  - **Tier 2 & 3（待執行 📋）**：引入 `createBaseStore<UiEngineState>`（管理 `bubbleText`、自主 6 秒 `bubbleTimer`、`isThinking`、`isHistoryOpen`、`voiceLive`、`mic`），直接監聽大腦視覺軌 `displayText` 並提供 `uiEngine.toast()`，解鎖 Vue 3 / React 自訂 Headless UI。
+  - **UI 內部純淨化與 Store 化（已完成 ✅）**：
+    - 將多位置參數之 `updateVoiceStatus`、`updateMicState`、`updateBubble`、`initSkinModeChangeButton` 全面收斂為純淨 Options 物件簽名（移除舊多載），刪除 `onTapTimer` 死屬性，並將 `engineButtonEl` / `isEngineToggleEnabled` 正名為 `skinModeButtonEl` / `isSkinModeToggleEnabled`。
+    - 建立 `createUiStore`（`createBaseStore<UiEngineState>`），實作 UI 自主 6 秒 `bubbleTimer`（`DEFAULT_BUBBLE_DISMISS_MS` 集中於 `core/constants.ts`）與 `uiDom.toast()`，`events.ts` 與 `history.ts` 徹底脫離 `speechEngine.spokenDisplayText`，並遷移至 `playbackRate` 與 `consecutiveNoSpeechCount`。
+    - 補齊 `@ai-avatar-bot/sdk/ui` 獨立子路徑匯出、`CustomEnginesConfig.ui` 整顆引擎取代支援與 `initUi(container)` 自動建立預設 `#stage`。
+  - **跨引擎雙軌與大腦封裝收網（待與 TODO 1 & TODO 4 一併執行 📋）**：接上大腦視覺軌 `displayText` 訂閱、遷移 `isMuted` / `continuousMode`、補齊 5 處大腦狀態 i18n 字典，並改由大腦公開方法 `clearHistory()` 與狀態門面取代白箱存取。
 
 ---
 

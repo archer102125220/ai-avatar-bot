@@ -34,7 +34,7 @@
 
 - [x] **耦合項 01（ToolsEngine 發音回呼與持續對話狀態中立化）**：
   * **現狀**：[`core/tools/index.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/tools/index.ts) 內共有 9 處直接呼叫 `toolsEngine.onSpokenAudioPlayNow`（L86 缺少必填參數提示、L112 取消補填參數、L140 參數驗證失敗重試提示、L193 提供多工具候選清單、L224 取消候選清單、L268 候選序號無法辨識重試提示、L375 詢問工具執行確認、L560 取消待確認工具、L636 工具執行結果朗讀），且 L556 透過 `setting.isConvoOn()`（對應 [`core/tools/types.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/tools/types.ts#L267) 與 [`core/orchestrator/engine-factory.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/orchestrator/engine-factory.ts#L1070)）讀取 `speechEngine.convoOn` 來判斷取消時是否發聲（但 L112 與 L224 同為取消卻未檢查 `isConvoOn`）。
-  * **已收集規格**：於 `ToolsEngineOptions` 引入領域中立回呼 `onNoticeMessage?: (text: string, options?: ToolNoticeOptions) => void`（保留 `onSpokenAudioPlayNow` 作為 `@deprecated` 相容別名），其中 `ToolNoticeOptions` 攜帶 `{ phase?: 'input_prompt' | 'input_retry' | 'choice_offer' | 'choice_retry' | 'confirm_offer' | 'cancel' | 'result'; onlyInContinuousMode?: boolean }`，並自 `ToolsEngine` 移除對語音狀態 `isConvoOn` 的感知；改由協調層（`engine-factory.ts`）統一依 `speechEngine.continuousMode` 與 `speechEngine.isMuted` 決定是否調用 `speechEngine.speak(text)`。
+  * **已收集規格**：於 `ToolsEngineOptions` 引入領域中立回呼 `onNoticeMessage?: (text: string, options?: ToolNoticeOptions) => void`（於 `v1.0.0` 正式版前直接移除舊名 `onSpokenAudioPlayNow`，不留過渡別名），其中 `ToolNoticeOptions` 攜帶 `{ phase?: 'input_prompt' | 'input_retry' | 'choice_offer' | 'choice_retry' | 'confirm_offer' | 'cancel' | 'result'; onlyInContinuousMode?: boolean }`，並自 `ToolsEngine` 移除對語音狀態 `isConvoOn` 的感知；改由協調層（`engine-factory.ts`）統一依 `speechEngine.continuousMode` 與 `speechEngine.isMuted` 決定是否調用 `speechEngine.speak(text)`。
   * **收集進度**：✅ 已於盤點 ToolsEngine 時完成規格收集（待協調層與跨引擎收網時實作）。
 
 - [ ] **耦合項 02（I18nEngine 多語系字典與標籤抽離）**：
@@ -52,7 +52,7 @@
     1. **大腦雙軌 Store 源頭分流（TODO 1 對齊）**：於 `BrainStoreState` 建立 **`displayText`**（視覺顯示軌，供 `UIEngine` 監聽，含思考提示與串流文字）與 **`spokenText`**（語音發聲軌，供 `SpeechEngine` 監聽，僅含需朗讀之完句）。
     2. **UI 引擎獨立 Store 化（TODO 5 對齊）**：UI 模組引入 `createBaseStore<UiEngineState>`，自主管理 `bubbleText`、`isBubbleVisible` 與專屬的 6 秒 `bubbleTimer`（匯流大腦 `displayText`、STT 預覽與 UI 自身 `toast()`）。
     3. **語音引擎徹底移除視覺狀態**：在正式版 `v1.0.0` 前，自 `SpeechEngine` 徹底刪除 `spokenDisplayText`、`spokenDisplayTextTimer`、`onSpokenDisplayTextChange` 與 `onSpokenDisplayTextTimeout`（不留過渡期相容代理），讓語音核心 100% 回歸純粹的 STT / TTS 音訊職能。
-  * **收集進度**：✅ 已完成架構設計拍板（大腦雙軌 Store + UI 專屬 Store，待協調層收網時實作）。
+  * **收集進度**：✅ UI 端已率先落實 `createUiStore()`、6 秒 `bubbleTimer` 與 `uiDom.toast()`（`events.ts` 與 `history.ts` 已徹底脫離 `speechEngine.spokenDisplayText`）；大腦雙軌分流與自 `SpeechEngine` 移除 `spokenDisplayText` 待協調層收網時實作。
 
 - [x] **耦合項 04（Interaction 與 UI 化身點擊防抖移出）**：
   * **現狀**：
@@ -78,14 +78,14 @@
 
 - [x] **耦合項 08（UI 與頂層 `AvatarBotOptions` 語音新舊別名全面收斂）**：
   * **現狀**：
-    1. [`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L151-L159) 仍讀寫舊名 `speechEngine.ttsRate` 與 `speechEngine.noSpeechRuns`（L90）。
-    2. [`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L89) 以及 [`core/ui/history.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/history.ts#L32) 仍使用舊口語縮寫 `convoOn`，需對齊語音引擎標準名 `continuousMode`。
-    3. [`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L123) 仍讀寫 `speechEngine.ttsMuted`，需對齊標準名 `isMuted`。
+    1. ~~[`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L151-L159) 讀寫舊名 `speechEngine.ttsRate` 與 `speechEngine.noSpeechRuns`（L90）。~~ *(已於 UI Step 3 遷移為 `playbackRate` 與 `consecutiveNoSpeechCount` ✅)*
+    2. [`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L89) 以及 [`core/ui/history.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/history.ts#L32) 仍使用舊口語縮寫 `convoOn`，需隨耦合項 06 對齊語音引擎標準名 `continuousMode`。
+    3. [`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L123) 仍讀寫 `speechEngine.ttsMuted`，需隨耦合項 06 對齊標準名 `isMuted`。
     4. 頂層 `AvatarBotOptions`（`core/orchestrator/types.ts` L416–L431 與 `engine-factory.ts` L819–L901）仍使用舊回呼名稱（`onSpeaking`、`onSpeakingEnd`、`onMicStateChanged`、`onVoiceStatusChanged`、`onLanguageChanged`）。
   * **已拍板規格**：
-    - `core/ui/dom.ts` 與 `core/ui/types.ts` 的 `updateVoiceStatus` / `updateMicState` 已率先完成純淨 Options 物件化（採用 `continuousMode` 與 `avatarMode`，不留舊版位置參數多載）。
-    - 後續於 Tier 2 將 `core/ui/events.ts`、`core/ui/history.ts` 中所有語音屬性改用標準命名（`playbackRate`、`consecutiveNoSpeechCount`、`continuousMode`、`isMuted`）。
-  * **收集進度**：✅ 已完成 `dom.ts` / `types.ts` 簽名淨化與全點位盤點。
+    - `core/ui/dom.ts`、`core/ui/types.ts` 與 `core/ui/events.ts`（`playbackRate` / `consecutiveNoSpeechCount`）已率先完成純淨化。
+    - 剩餘 `convoOn` ➔ `continuousMode`、`ttsMuted` ➔ `isMuted` 與頂層 `AvatarBotOptions` 語音回呼於協調層收網時一併完成。
+  * **收集進度**：✅ 已完成 UI 內部遷移與全點位盤點。
 
 ---
 
