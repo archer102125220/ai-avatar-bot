@@ -43,6 +43,7 @@ export default defineConfig({
         speech: resolve(import.meta.dirname, 'core/speech/index.ts'),
         tools: resolve(import.meta.dirname, 'core/tools/index.ts'),
         i18n: resolve(import.meta.dirname, 'core/i18n/index.ts'),
+        ui: resolve(import.meta.dirname, 'core/ui/index.ts'),
         plugins: resolve(import.meta.dirname, 'core/plugins/index.ts'),
         constants: resolve(import.meta.dirname, 'core/constants.ts')
       },

@@ -123,6 +123,14 @@ export interface CustomEnginesConfig {
     | I18nEngine
     | ((options: I18nEngineOptions) => Promise<I18nEngine> | I18nEngine)
     | null;
+  ui?:
+    | UiDom
+    | ((
+        container: HTMLElement,
+        stageEl: HTMLElement,
+        i18nEngine: I18nEngine
+      ) => Promise<UiDom> | UiDom)
+    | null;
 }
 
 /**

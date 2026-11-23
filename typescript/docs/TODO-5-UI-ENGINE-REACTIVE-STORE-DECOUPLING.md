@@ -256,14 +256,16 @@ export interface UiEngine extends SubscribableStore<UiEngineState> {
 - [x] 將 `engineButtonEl` 重新命名為語意中立的 `skinModeButtonEl`。
 - [x] 全專案 42 套測試檔（707 項單元測試）、Typecheck、Lint、Build 全數綠燈通過。
 
-### 階段二：建立 `UiEngineStore` 與大腦雙軌 Store 銜接 (Tier 2 - 待執行 📋)
-- [ ] 在 `core/ui/` 建立 `store.ts`，以 `createBaseStore<UiEngineState>` 宣告 UI 狀態庫（管理 `bubbleText`、`isBubbleVisible`、`isThinking` 等），並於 UI 內部自建 6 秒 `bubbleTimer`。
+### 階段二：建立 `UiEngineStore` 與大腦雙軌 Store 銜接 (Tier 2 - UI 內部已完成 ✅ / 待大腦雙軌收網 📋)
+- [x] 在 `core/ui/store.ts` 以 `createBaseStore<UiEngineState>` 宣告 UI 狀態庫（管理 `bubbleText`、`isBubbleVisible`、`isThinking`、`isHistoryOpen`、`isMinimal`、`voiceLive`、`mic`），並於 `core/ui/dom.ts` 內部自建 6 秒 `bubbleTimer`（常數 `DEFAULT_BUBBLE_DISMISS_MS` 集中於 `core/constants.ts`）。
+- [x] 將 `events.ts`（7 處）與 `history.ts`（1 處）對 `speechEngine.spokenDisplayText` 的賦值，全面改為直接呼叫 `uiDom.toast(message)`。
+- [x] 將 `events.ts` 內的 `ttsRate`、`noSpeechRuns` 遷移為語音引擎已支援的標準命名（`playbackRate`、`consecutiveNoSpeechCount`）。
+- [x] 補齊 `@ai-avatar-bot/sdk/ui` 獨立子路徑匯出、`CustomEnginesConfig.ui` 整顆引擎取代支援，並讓 `initUi(container)` 支援可選自動建立 `#stage`。
 - [ ] 配合 TODO 1，在大腦 `BrainStoreState`（[`core/brain/internal-store.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/brain/internal-store.ts)）擴充雙軌屬性：
   - **`displayText`**（視覺顯示軌，含思考提示 `'讓我想想…'` 與串流逐字打字）➔ 由 `UIEngine` 監聽並更新 `bubbleText`。
   - **`spokenText`**（語音發聲軌，僅含需朗讀之完句，思考時不觸發）➔ 由 `SpeechEngine` 監聽並觸發 `speak()`。
-- [ ] 將 `events.ts` 與 `history.ts` 內 7 處對 `speechEngine.spokenDisplayText` 的賦值，改為直接呼叫 `uiEngine.toast(message)`（或更新 `uiStore`）。
 - [ ] 自 `speech/index.ts` 與 `speech/types.ts` 徹底移除 `spokenDisplayText`、`spokenAudioText` 與 `spokenDisplayTextTimer`（正式版前不留舊相容代理），並移除 `pipeline-stream.ts` 的 `ttsMuted` 靜音特判 Hack。
-- [ ] 將 `events.ts` 與 `history.ts` 內的 `ttsMuted`、`ttsRate`、`noSpeechRuns`、`convoOn` 遷移為標準語音命名（`isMuted`、`playbackRate`、`consecutiveNoSpeechCount`、`continuousMode`）。
+- [ ] 配合 TODO 4 耦合項 06，將 `events.ts` 與 `history.ts` 內的 `ttsMuted`、`convoOn` 遷移為標準語音命名（`isMuted`、`continuousMode`）。
 - [ ] 補齊 `events.ts` L256–L286 內部 5 處未國際化的大腦提示字串。
 
 ### 階段三：大腦封裝保護與歷史型別收斂 (Tier 3 - 待執行 📋)

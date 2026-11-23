@@ -1171,4 +1171,28 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
 
     global.fetch = originalFetch;
   });
+
+  it('should support replacing the UI engine via customEngines.ui (instance or factory)', async () => {
+    const customUiInstance = uiModule.initUi(
+      container,
+      stageEl,
+      i18nEngine
+    )!;
+    const customFactorySpy = vi.fn().mockReturnValue(customUiInstance);
+
+    const botWidget = await initAvatarBot({
+      container,
+      customEngines: {
+        ui: customFactorySpy
+      }
+    });
+
+    expect(botWidget).toBeDefined();
+    expect(customFactorySpy).toHaveBeenCalledWith(
+      container,
+      expect.any(HTMLElement),
+      expect.any(Object)
+    );
+    expect(botWidget?.uiDom).toBe(customUiInstance);
+  });
 });

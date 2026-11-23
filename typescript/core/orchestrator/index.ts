@@ -56,7 +56,13 @@ export async function initAvatarBot(
 
   const stageEl = document.createElement('div');
   stageEl.setAttribute('id', 'stage');
-  const uiDom = initUi(container, stageEl, i18nEngine);
+  const customUi = options.customEngines?.ui;
+  const uiDom =
+    typeof customUi === 'function'
+      ? await customUi(container, stageEl, i18nEngine)
+      : typeof customUi === 'object' && customUi !== null
+        ? customUi
+        : initUi(container, stageEl, i18nEngine);
   if (!uiDom) {
     throw new Error('[aiAvatarBot] Failed to initialize UI DOM');
   }

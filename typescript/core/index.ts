@@ -10,7 +10,7 @@ export * from './skin';
 export * from './tools';
 export * from './plugins';
 export * from './orchestrator';
-export type { UiDom, UiContext } from './ui';
+export * from './ui';
 
 export type {
   AvatarMode,

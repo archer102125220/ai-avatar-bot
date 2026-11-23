@@ -57,6 +57,11 @@
       "import": "./dist/i18n.js",
       "require": "./dist/i18n.cjs"
     },
+    "./ui": {
+      "types": "./dist/core/ui/index.d.ts",
+      "import": "./dist/ui.js",
+      "require": "./dist/ui.cjs"
+    },
     "./plugins": {
       "types": "./dist/core/plugins/index.d.ts",
       "import": "./dist/plugins.js",
