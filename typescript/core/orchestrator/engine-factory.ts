@@ -1457,7 +1457,7 @@ export async function setupSkinEngine({
           initSkinModeChangeButton(widget, {
             has2D: currentSkin?.has2D === true,
             has3D: currentSkin?.has3D === true,
-            isEngineToggleEnabled
+            isSkinModeToggleEnabled: isEngineToggleEnabled
           });
 
           if (speechEngine !== null && typeof speechEngine === 'object') {

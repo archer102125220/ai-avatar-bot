@@ -89,10 +89,10 @@ export function initSkinModeChangeButton(
 
   const has2D = options?.has2D === true;
   const has3D = options?.has3D === true;
-  const isEngineToggleEnabled = options?.isEngineToggleEnabled !== false;
+  const isSkinModeToggleEnabled = options?.isSkinModeToggleEnabled !== false;
 
   const shouldShow =
-    isEngineToggleEnabled === true && has2D === true && has3D === true;
+    isSkinModeToggleEnabled === true && has2D === true && has3D === true;
 
   if (shouldShow === true) {
     skinModeButtonEl.style.display = '';

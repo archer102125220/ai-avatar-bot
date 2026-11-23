@@ -56,7 +56,7 @@ export interface SkinModeToggleOptions {
   /** Whether 3D model rendering is available. */
   has3D?: boolean;
   /** Whether skin mode toggle is enabled in configuration. */
-  isEngineToggleEnabled?: boolean;
+  isSkinModeToggleEnabled?: boolean;
 }
 
 /**

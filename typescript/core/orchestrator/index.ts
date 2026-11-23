@@ -223,7 +223,7 @@ export async function initAvatarBot(
   initSkinModeChangeButton(aiAvatarWidget, {
     has2D: skinEngine?.has2D === true,
     has3D: skinEngine?.has3D === true,
-    isEngineToggleEnabled
+    isSkinModeToggleEnabled: isEngineToggleEnabled
   });
   renderSuggestions(aiAvatarWidget);
   bindTyping(aiAvatarWidget);

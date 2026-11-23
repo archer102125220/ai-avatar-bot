@@ -599,7 +599,7 @@ export function createAvatarWidget({
         initSkinModeChangeButton(aiAvatarWidget, {
           has2D: skinEngine?.has2D === true,
           has3D: skinEngine?.has3D === true,
-          isEngineToggleEnabled: newEnableEngineToggle
+          isSkinModeToggleEnabled: newEnableEngineToggle
         });
       }
     },
