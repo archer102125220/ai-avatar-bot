@@ -1199,3 +1199,12 @@ export const DEFAULT_2D_MOTION_ALIASES: Record<string, string[]> = {
   surprised: ['Surprised', 'surprised', 'Shock', 'shock'],
   waiting: ['Waiting', 'waiting', 'Idle', 'idle']
 };
+
+export {
+  DEFAULT_LOCALE,
+  SUPPORTED_LOCALES,
+  LOCALE_LABELS,
+  DEFAULT_I18N_MESSAGES,
+  type LocaleLabelInfo,
+  type SupportedLocale
+} from './i18n/constants';
