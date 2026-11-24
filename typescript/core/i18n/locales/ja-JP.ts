@@ -35,7 +35,6 @@ export default {
   'ui.speed.ariaLabel': '話速調整',
   'ui.speed.text': '話速：{rate}×',
   'ui.lang.ariaLabel': '言語切り替え',
-  'ui.lang.buttonText': '日本語',
   'ui.lang.statusText': '言語：日本語',
   'ui.history.ariaLabel': 'チャット履歴を開く',
   'ui.close.ariaLabel': 'アシスタントを閉じる',

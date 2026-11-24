@@ -244,6 +244,11 @@ export interface UiEngine extends SubscribableStore<UiEngineState> {
 6. **大腦思考狀態語意分工**：
    - 大腦引擎生命週期：`onReasoningStart` / `onReasoningChunk` / `onReasoningEnd`（資料面）。
    - UI 介面表現層狀態：維持 **`isThinking`**（視覺面氣泡與動態動畫），由協調層負責事件銜接。
+7. **I18n 引擎實例注入參數命名與語系按鈕標籤對齊**：
+   - **統一 `i18nEngine` 參數名**：目前 [`core/ui/types.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/types.ts#L71-L85) 的 `VoiceStatusOptions` 與 `MicStateOptions` 使用縮寫 `i18n?: I18nEngine | null`，而 `UiContext`、`initUi`、`updateUIStrings`、`BrainEngineOptions` 與 `AiAvatarWidget` 皆命名為 `i18nEngine`，應統一對齊為 `i18nEngine`（或直接由 `initUi` 閉包內的 `currentI18nEngine` 自動提供，免除每次更新狀態時重複傳遞）。
+   - **`langButtonEl` 顯示文字雙重覆寫衝突 (`ui.lang.buttonText` vs `LOCALE_LABELS.shortLabel`)**：[`core/ui/dom.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/dom.ts#L216) 為語言按鈕綁定了 `data-i18n="ui.lang.buttonText"`（字典值為 `'中文'` / `'English'`），但在 [`core/orchestrator/index.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/orchestrator/index.ts#L237-L252) 與 [`core/orchestrator/subscribers.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/orchestrator/subscribers.ts#L326-L356) 中，每次執行 `updateUIStrings()` 後又立刻被 `i18nEngine.labels.shortLabel`（`'繁中'` / `'EN'` / `'JA'` / `'KO'`）強制覆蓋，同時 `engine-factory.ts` L916 的 `speechOptions.onLanguageChanged` 也會寫入 `langButtonEl.textContent`，需統一單一文字來源。
+   - **語言切換按鈕支援動態自訂語系輪詢**：[`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L169) 的 `langButtonEl.onclick` 目前寫死輪詢靜態常數 `SUPPORTED_LOCALES`（4 語系），若開發者透過 `i18nEngine` 註冊了額外語系（如 `'zh-CN'`、`'fr-FR'`）將無法透過按鈕切換，應改由 `i18nEngine` 提供當前可用語系清單。
+   - **`initUi` 初始化自動套用 `updateUIStrings`**：當獨立使用 `@ai-avatar-bot/sdk/ui` 的 `initUi(container, stageEl, i18nEngine)` 且傳入非 `zh-TW` 的 `i18nEngine` 時，應於 `initUi` 內部自動執行一次 `updateUIStrings(container, i18nEngine)`，避免初始 DOM 殘留寫死的繁中預設文字。
 
 ---
 

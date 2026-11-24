@@ -36,7 +36,6 @@ export default {
   'ui.speed.ariaLabel': 'Adjust voice speed',
   'ui.speed.text': 'Speed: {rate}×',
   'ui.lang.ariaLabel': 'Switch conversation language',
-  'ui.lang.buttonText': 'English',
   'ui.lang.statusText': 'Language: English',
   'ui.history.ariaLabel': 'Open chat history',
   'ui.close.ariaLabel': 'Collapse assistant',

@@ -34,7 +34,6 @@ export default {
   'ui.speed.ariaLabel': '調整語速',
   'ui.speed.text': '語速：{rate}×',
   'ui.lang.ariaLabel': '切換對話語言',
-  'ui.lang.buttonText': '中文',
   'ui.lang.statusText': '語言：繁體中文',
   'ui.history.ariaLabel': '開啟聊天紀錄',
   'ui.close.ariaLabel': '收起助理',
