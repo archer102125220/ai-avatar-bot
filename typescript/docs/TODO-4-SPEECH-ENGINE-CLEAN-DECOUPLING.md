@@ -37,12 +37,22 @@
   * **已收集規格**：於 `ToolsEngineOptions` 引入領域中立回呼 `onNoticeMessage?: (text: string, options?: ToolNoticeOptions) => void`（於 `v1.0.0` 正式版前直接移除舊名 `onSpokenAudioPlayNow`，不留過渡別名），其中 `ToolNoticeOptions` 攜帶 `{ phase?: 'input_prompt' | 'input_retry' | 'choice_offer' | 'choice_retry' | 'confirm_offer' | 'cancel' | 'result'; onlyInContinuousMode?: boolean }`，並自 `ToolsEngine` 移除對語音狀態 `isConvoOn` 的感知；改由協調層（`engine-factory.ts`）統一依 `speechEngine.continuousMode` 與 `speechEngine.isMuted` 決定是否調用 `speechEngine.speak(text)`。
   * **收集進度**：✅ 已於盤點 ToolsEngine 時完成規格收集（待協調層與跨引擎收網時實作）。
 
-- [ ] **耦合項 02（I18nEngine 多語系字典與標籤抽離）**：
+- [x] **耦合項 02（I18nEngine 多語系字典、死鍵合一與語系切換三重觸發解耦）**：
   * **現狀**：
-    1. `stt.ts` 內部維護了 `DEFAULT_STT_MESSAGES`（四語系字典），且 `SpeechEngine.setLocale()` 內部寫死了 `'英文 (English)'`、`'日文 (日本語)'` 等中文標籤。
-    2. 盤點 `ToolsEngine` 時同步發現：[`core/tools/index.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/tools/index.ts) 內部硬編碼了 16+ 處繁體中文提示字串與語音意圖正則（如 L46–L50 參數詢問、L102/L205/L592/L597 確認與取消正則 `/^(取消|不要|算了|cancel)$/i`、L230–L235 候選序號正則 `/(?:第一|1|一)/`、L158/L261/L360/L548/L551/L612 狀態文字），且 [`core/tools/validator.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/tools/validator.ts#L160-L249) 內部硬編碼了 11 處繁體中文驗證錯誤訊息（如 `'必須是整數'`、`'為必填'` 等），目前完全未接入 `i18nEngine`。
-  * **待收集規格**：當重構國際化模組時，一併規範語音錯誤提示（`speech.*`）與工具引擎互動/驗證提示（`tools.*`）如何由 `i18nEngine` 統一提供（或支援可配置字典），將硬編碼繁中字串自語音與工具模組抽離。
-  * **收集進度**：⏳ 待整理 I18nEngine 時記錄（已預先登錄 ToolsEngine 硬編碼字串點位）。
+    1. **`DEFAULT_STT_MESSAGES` 與 `core/i18n/locales/*.ts` 的 `speech.*` 雙軌字典分裂（8 個死鍵 + 4 個未入庫硬編碼字串）**：
+       - [`core/i18n/locales/`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/i18n/locales/zh-TW.ts#L45-L53) 四語系字典中雖已定義 9 個 `speech.*` 鍵，但除了 `speech.sessionEnded` 被 [`core/ui/events.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L82) 讀取外，其餘 8 個鍵（`speech.unsupported`、`speech.micError`、`speech.startFailed`、`speech.listening`、`speech.permissionDenied`、`speech.noSpeech`、`speech.bgStop`、`speech.noSpeechAbort`）在全專案 **0 次引用**！
+       - [`core/speech/stt.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/speech/stt.ts#L48-L139) 另行硬編碼了一份完全重複的 `DEFAULT_STT_MESSAGES` 與 `getSttMessage()`，且多出一個未收錄於 `locales/*.ts` 的 `requestPermission`（`'正在取得麥克風權限…'`）；此外 [`core/speech/index.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/speech/index.ts) 還硬編碼了 L595 `'已停止回答，請繼續說…'`（`interruptForVoice`）、L787 `'你：' + text + '…'`（STT 暫時預覽，未復用 `brain.userPrefix`）與 L790 `'正在辨識：' + text`。這導致開發者透過 `i18nMessages` 覆寫 `speech.*` 時，STT 引擎完全不會生效。
+    2. **`SpeechEngine.setLocale()` 語言標籤硬編碼與 `onLanguageChanged` 三重觸發衝突**：
+       - [`core/speech/index.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/speech/index.ts#L667-L685) 在 `setLocale(locale)` 內硬編碼了 `'英文 (English)'`、`shortLabel = 'English'` 等標籤並觸發 `emitLanguageChange(locale, label, shortLabel)`，與 [`core/i18n/constants.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/i18n/constants.ts#L19-L24) 的 `LOCALE_LABELS`（`{ label: 'English (US)', shortLabel: 'EN' }`）以及 `locales/*.ts` 的 `'ui.lang.buttonText'`（`'English'`）形成三套互相衝突的標籤定義。
+       - 當呼叫 `i18nEngine.setLocale()` 時，[`core/orchestrator/subscribers.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/orchestrator/subscribers.ts#L319-L364) 先執行 `rootStore.setState({ locale })`（觸發 `setupStoreSubscribers` L258 呼叫第 1 次 `speechEngine.setLocale`），接著 L324 又手動呼叫第 2 次 `speechEngine.setLocale`，最後 L357 又直接觸發第 3 次 `options.onLanguageChanged`！導致單次語系切換會連續觸發 **3 次** `onLanguageChanged`，且前兩次與第三次的 `label` / `shortLabel` 參數值完全不同。
+    3. **點擊化身問候語 `greeting.*` 未接線（3 個死鍵）**：
+       - `core/i18n/locales/*.ts` 定義了 `greeting.default`、`greeting.companion`、`greeting.assistant`，但 [`core/orchestrator/interaction.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/orchestrator/interaction.ts#L72-L181) 卻以 `if (/en/i.test(currentLocale))` 硬編碼四語系問候語，未接入 `i18nEngine`。
+    4. **工具引擎硬編碼字串**：[`core/tools/index.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/tools/index.ts) 內部硬編碼了 16+ 處繁體中文提示字串與語音意圖正則（如 L178 參數詢問、L250/L373/L924/L929 確認與取消正則 `/^(取消|不要|算了|cancel)$/i`、L406–L411 候選序號正則 `/(?:第一|1|一)/`、L254/L386/L437/L492/L582/L610/L678/L736/L820/L878/L881/L944 狀態文字），且 [`core/tools/validator.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/tools/validator.ts#L160-L249) 內部硬編碼了 11 處繁體中文驗證錯誤訊息（如 `'必須是整數'`、`'為必填'` 等），目前完全未接入 `i18nEngine`。
+  * **已收集規格**：
+    1. **語音引擎移除語言標籤推導與 `onLanguageChange` 回呼**：語音引擎僅負責將 `locale` 同步給 STT (`recognition.lang`) 與 TTS (`loadVoice` / `localeVoice`)，自 `SpeechEngine` 移除硬編碼語言名稱與 `onLanguageChange` / `onLanguageChanged`；語系變更事件與按鈕標籤統一由 `I18nEngine` / `Orchestrator` 單一來源派發，並消除 `subscribers.ts` 中 `speechEngine.setLocale` 的重複呼叫。
+    2. **收斂 `speech.*` 單一事實來源（SSOT）**：將 `speech.requestPermission`、`speech.interrupted`（`'已停止回答，請繼續說…'`）、`speech.recognizing`（`'正在辨識：{text}'`）補齊至 `core/i18n/locales/*.ts`，讓 `stt.ts` 與 `speech/index.ts` 直接對接 `i18nEngine`（或共用 `defaultLocales` fallback），徹底廢除重複的 `DEFAULT_STT_MESSAGES`。
+    3. **接通 `greeting.*` 與抽離 `tools.*` 字典**：將 `interaction.ts` 的預設問候語改由 `i18nEngine.t('greeting.*')` 讀取，並將 `ToolsEngine` 的互動提示與驗證錯誤納入 `i18nEngine` 的 `tools.*` 命名空間。
+  * **收集進度**：✅ 已於盤點 I18nEngine 時完成全量死鍵與衝突規格收集。
 
 - [x] **耦合項 03（大腦雙軌 Store 歸位與 UI 模組氣泡字幕/6 秒定時器解耦）**：
   * **現狀**：

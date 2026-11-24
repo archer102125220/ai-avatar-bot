@@ -1683,11 +1683,11 @@ yarn test:smoke
 
 ### 📌 TODO 4：語音引擎跨領域狀態解耦與動態收集規格書（進行中 / Living RFC）
 - **規格書追蹤**：詳見 [語音引擎跨領域解耦規格書 (RFC)](./docs/TODO-4-SPEECH-ENGINE-CLEAN-DECOUPLING.md)。
-- **背景**：語音模組（`core/speech`）內部目前殘留了來自單體架構的大腦思考狀態（`isProcessing`）、UI 氣泡字幕（`spokenDisplayText` 與 6 秒計時器）、化身點擊防抖（`onTapTimer`）與賦值播放副作用（`spokenAudioText = ...`）。
+- **背景**：語音模組（`core/speech`）內部目前殘留了來自單體架構的大腦思考狀態（`isProcessing`）、UI 氣泡字幕（`spokenDisplayText` 與 6 秒計時器）、化身點擊防抖（`onTapTimer`）、賦值播放副作用（`spokenAudioText = ...`）以及與 `core/i18n` 重複的 `DEFAULT_STT_MESSAGES` 字典和 `setLocale` 語言標籤推導。
 - **未來規劃**：
   - 將語音內部純淨化（死碼剔除、STT/TTS 內部現代化）作為先行重構範圍。
-  - 跨領域項目設立為 TODO 4 動態收集看板，在後續重構工具（Tools）、國際化（I18n）與 UI 模組時，邊處理邊收集真實邊界規格。
-  - 最終在協調層（`core/orchestrator`）重構時與大腦 TODO 1、UI TODO 5 一併收網，徹底自 `SpeechEngine` 移除 `spokenDisplayText` 與 `spokenAudioText`，達到 100% 純音訊核心架構。
+  - 跨領域項目設立為 TODO 4 動態收集看板，目前已陸續完成工具（Tools）、UI 介面與國際化（I18n）之跨領域邊界規格盤點（含消除 `DEFAULT_STT_MESSAGES` 與 `locales/*.ts` 的雙軌字典分裂、以及 `onLanguageChanged` 三重觸發問題）。
+  - 最終在協調層（`core/orchestrator`）重構時與大腦 TODO 1、UI TODO 5 一併收網，徹底自 `SpeechEngine` 移除 `spokenDisplayText`、`spokenAudioText` 與語言標籤推導，達到 100% 純音訊核心架構。
 
 ### 📌 TODO 5：UI 介面引擎獨立反應式狀態庫與跨領域解耦規格書（UI 內部 Tier 1 & Tier 2 已完成 ✅ / 待跨引擎收網 📋）
 - **規格書追蹤**：詳見 [UI 介面引擎反應式解耦規格書 (RFC)](./docs/TODO-5-UI-ENGINE-REACTIVE-STORE-DECOUPLING.md)。
@@ -1697,7 +1697,7 @@ yarn test:smoke
     - 將多位置參數之 `updateVoiceStatus`、`updateMicState`、`updateBubble`、`initSkinModeChangeButton` 全面收斂為純淨 Options 物件簽名（移除舊多載），刪除 `onTapTimer` 死屬性，並將 `engineButtonEl` / `isEngineToggleEnabled` 正名為 `skinModeButtonEl` / `isSkinModeToggleEnabled`。
     - 建立 `createUiStore`（`createBaseStore<UiEngineState>`），實作 UI 自主 6 秒 `bubbleTimer`（`DEFAULT_BUBBLE_DISMISS_MS` 集中於 `core/constants.ts`）與 `uiDom.toast()`，`events.ts` 與 `history.ts` 徹底脫離 `speechEngine.spokenDisplayText`，並遷移至 `playbackRate` 與 `consecutiveNoSpeechCount`。
     - 補齊 `@ai-avatar-bot/sdk/ui` 獨立子路徑匯出、`CustomEnginesConfig.ui` 整顆引擎取代支援與 `initUi(container)` 自動建立預設 `#stage`。
-  - **跨引擎雙軌與大腦封裝收網（待與 TODO 1 & TODO 4 一併執行 📋）**：接上大腦視覺軌 `displayText` 訂閱、遷移 `isMuted` / `continuousMode`、補齊 5 處大腦狀態 i18n 字典，並改由大腦公開方法 `clearHistory()` 與狀態門面取代白箱存取。
+  - **跨引擎雙軌與大腦封裝收網（待與 TODO 1 & TODO 4 一併執行 📋）**：接上大腦視覺軌 `displayText` 訂閱、遷移 `isMuted` / `continuousMode`、對齊 `i18nEngine` 參數名與 `langButtonEl` 顯示文字單一來源、補齊 5 處大腦狀態 i18n 字典，並改由大腦公開方法 `clearHistory()` 與狀態門面取代白箱存取。
 
 ---
 
