@@ -49,6 +49,7 @@ export function initUi(
   bubbleEl.setAttribute('id', 'bubble');
   const suggestionsEl = document.createElement('div');
   suggestionsEl.setAttribute('id', 'suggestions');
+  suggestionsEl.setAttribute('css-is-close', 'false');
   const historyPanelEl = document.createElement('section');
   historyPanelEl.setAttribute('id', 'history-panel');
   historyPanelEl.setAttribute('aria-label', '聊天紀錄');
@@ -456,10 +457,17 @@ export function initUi(
             : translate('ui.mic.live', '🎙️ 即時');
 
       if (suggestionsEl instanceof HTMLElement) {
-        suggestionsEl.style.display =
-          nextListening === true || nextContinuousMode === true
-            ? 'none'
-            : 'flex';
+        const suggestionsIsClose =
+          nextListening === true || nextContinuousMode === true;
+
+        if (
+          suggestionsIsClose === true &&
+          window.getComputedStyle(suggestionsEl).display !== 'none'
+        ) {
+          suggestionsEl.style.display = 'none';
+        } else {
+          suggestionsEl.style.display = '';
+        }
       }
     },
     updateBubble(text?: string, options?: UpdateBubbleOptions) {
