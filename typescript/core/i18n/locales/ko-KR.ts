@@ -36,7 +36,6 @@ export default {
   'ui.speed.ariaLabel': '말하기 속도 조절',
   'ui.speed.text': '속도: {rate}×',
   'ui.lang.ariaLabel': '대화 언어 변경',
-  'ui.lang.buttonText': '한국어',
   'ui.lang.statusText': '언어: 한국어',
   'ui.history.ariaLabel': '대화 기록 열기',
   'ui.close.ariaLabel': '어시스턴트 접기',
