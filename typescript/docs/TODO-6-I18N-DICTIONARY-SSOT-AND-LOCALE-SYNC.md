@@ -86,11 +86,48 @@
 
 ---
 
-## 🚀 五、最終驗收清單 (Final Acceptance Checklist)
+## 🛡️ 五、各子引擎獨立使用保障原則（零強制依賴與字典分片聚合架構）
+*(Standalone Sub-Engine Independence & Bottom-Up Domain Dictionary Sharding)*
 
+為確保將各引擎多語系字典收斂至單一事實來源（SSOT）後，**絕對不會妨礙開發者單獨使用任一子引擎（如 `@ai-avatar-bot/sdk/brain`、`/speech`、`/tools`、`/ui`）**，收網實作時必須嚴格遵守以下三大架構約束：
+
+### 5.1 執行期零強制依賴：`i18nEngine` 永遠為選配注入 (`Optional Injection`)
+1. **不強迫實例化 `I18nEngine`**：
+   - 各子引擎之 Options（`BrainEngineOptions`、`SpeechEngineOptions`、`ToolsEngineOptions`、`UiContext`）中，`i18nEngine?: I18nEngine` 永遠為**可選參數（Optional）**，同時保留子引擎自身的 `locale?: SupportedLocale` 設定。
+2. **雙層解析 Fallback 機制**：
+   - **統整模式（有注入 `i18nEngine`）**：優先呼叫 `i18nEngine.t(key, params)`，確保開發者於頂層配置的 `i18nMessages` 或 `addMessages()` 能 100% 覆寫所有子引擎文案。
+   - **獨立模式（未注入 `i18nEngine`）**：子引擎自動退回（Fallback）以自身的 `locale`（預設 `'zh-TW'`）查詢該領域內建預設值並完成 `{param}` 插值，開發者單獨使用子引擎時無須額外引入或初始化 `initI18nEngine()`。
+
+### 5.2 打包期零跨領域體積污染：由下而上領域字典分片聚合 (`Bottom-Up Domain Sharding`)
+1. **禁止子引擎反向載入整包全領域大字典**：
+   - 若子引擎（如 `core/speech` 或 `core/tools`）為了 Fallback 而直接引入包含所有引擎文案的 `DEFAULT_I18N_MESSAGES`，會導致開發者按需引入 `@ai-avatar-bot/sdk/speech` 時，連帶把 `Brain` 長達數百行的 System Prompt 與 RAG 模板一併打包（破壞 Subpath Tree-Shaking 與未來獨立拆包）。
+2. **按領域拆分輕量字典並由 `core/i18n` 向上匯總**：
+   - 將預設字典按領域拆分為獨立輕量分片（如 `brain`、`speech`、`tools`、`ui`），各子引擎在獨立運作時**僅引用所屬領域的預設分片**（或內建預設常數），而 `core/i18n/locales/index.ts` 的 `DEFAULT_I18N_MESSAGES` 則由各領域分片向上組合（Spread / Merge）而成：
+     ```text
+     core/brain  (僅依賴 brain 預設分片)  ─┐
+     core/speech (僅依賴 speech 預設分片) ─┼──向上聚合──> DEFAULT_I18N_MESSAGES (core/i18n)
+     core/tools  (僅依賴 tools 預設分片)  ─┤
+     core/ui     (僅依賴 ui 預設分片)     ─┘
+     ```
+   - 如此即可同時達成**「全專案唯一字典來源（SSOT，不重複維護兩套字串）」**與**「子引擎單獨打包 100% 輕量零耦合」**。
+
+### 5.3 各子引擎現行多語系抽離狀態盤點
+| 子引擎 | 目前是否已抽離至 `locales/*.ts` | 單獨使用（未傳 `i18nEngine`）時的現行 Fallback 行為 | 收網對齊目標 |
+| :--- | :--- | :--- | :--- |
+| **`core/ui`** | **已抽離約 86%**（32 個 `ui.*` / `suggestions.*` 鍵已入庫；僅剩 `events.ts` 5 句大腦按鈕提示未入庫） | **僅有繁體中文預設值**：在 `dom.ts`、`history.ts`、`events.ts`、`suggestions.ts` 內皆以 `typeof i18nEngine?.t === 'function' ? i18nEngine.t(key) : '繁中預設字'` 作為單語 Fallback。 | 補齊剩餘 5 鍵；單獨呼叫 `initUi(container, stage, i18nEngine)` 時維持無 `i18nEngine` 即以預設文案安全渲染，有 `i18nEngine` 時自動套用 `updateUIStrings`。 |
+| **`core/brain`** | **半抽離**（17 個 `brain.*` 狀態鍵已入庫並由 `getBrainMessage` 讀取；但 `prompt.*` 8 鍵與 `welcome.*` 2 鍵雖在 `locales/*.ts` 卻未接線；`compression.ts` 摘要 Prompt 未入庫） | `brain.*` 狀態鍵會 Fallback 查 `DEFAULT_I18N_MESSAGES[locale]`（四語系）；`prompt.*` 與 `welcome.*` 在 `messages.ts` 內寫死四語系 `if/else`；`compression.ts` 僅有繁中預設值。 | 讓 `prompt.*`、`welcome.*` 與摘要 Prompt 統一走 `getBrainMessage`（有 `i18nEngine` 走 `t()`，無則查 Brain 領域四語系分片）。 |
+| **`core/speech`** | **雙軌重複**（`locales/*.ts` 已有 `speech.*` 9 鍵，但 `stt.ts` 內部又重複寫了一套四語系 `DEFAULT_STT_MESSAGES`，另有 2 句僅繁中硬編碼） | `stt.ts` 固定查內部的 `DEFAULT_STT_MESSAGES[locale]`（完全忽略 `i18nEngine` 與 `i18nMessages` 覆寫）；`index.ts` 的 2 句固定輸出繁中。 | 統一 `speech.*` 鍵名分片；有 `i18nEngine`（或由協調層接手 UI 泡泡）時走 `i18nEngine.t()`，單獨使用 `SpeechEngine` 時查 `speech` 領域四語系分片。 |
+| **`core/tools`** | **尚未抽離**（`index.ts` 16 處互動提示與 `validator.ts` 11 處驗證訊息皆未入庫） | **僅有繁體中文預設值**（全數寫死繁中字串）。 | 抽離 `tools.*` 領域分片；有 `i18nEngine` 時走 `i18nEngine.t()`，單獨使用 `ToolsEngine` 時支援依 `locale` 查 `tools` 領域預設分片。 |
+| **`core/skin`** | **無內部 UI 文案**（僅 `orchestrator/engine-factory.ts` 有 2 句繁中載入/換裝提示） | 外觀引擎本體為純 WebGL 渲染，不涉及多語系文案。 | 協調層的 2 句提示納入 `skin.*` 由 `orchestrator` 的 `i18nEngine.t()` 解析。 |
+
+---
+
+## 🚀 六、最終驗收清單 (Final Acceptance Checklist)
+
+- [ ] 確立**「選配注入 (`i18nEngine?: I18nEngine`) ＋ 領域分片由下而上聚合」**機制，確保任一子引擎單獨使用（不傳 `i18nEngine`）時皆能依 `locale` 正常運作且不打包其他領域字典。
 - [ ] `core/i18n/locales/*.ts` 內 21 個死鍵（`speech.*` 8 鍵、`prompt.*` 8 鍵、`greeting.*` 3 鍵、`welcome.*` 2 鍵）全數與對應子引擎接通，零未引用死鍵。
 - [ ] `core/ui/events.ts`、`core/speech/`、`core/orchestrator/engine-factory.ts`、`core/brain/compression.ts`、`core/tools/` 內之硬編碼繁中字串全數抽離至 `locales/*.ts`。
 - [ ] `core/orchestrator/subscribers.ts` 消除 `brainEngine.setLocale` / `speechEngine.setLocale` 雙重呼叫與 `onLanguageChanged` 三重觸發。
 - [ ] `core/ui/` 完成 `i18nEngine` 參數名對齊、自訂語系按鈕輪詢與 `initUi` 自動執行 `updateUIStrings`。
 - [ ] `customEngines.i18n` 支援 `async` 工廠函式並接入 `validateI18nEngine` 驗證。
-- [ ] `README_ZH.md` 更新自訂語系擴充範例（`i18nMessages` + `localeLabels`）並將狀態標記為 `✅ TODO 6 (Implemented)`。
+- [ ] `README_ZH.md` 與 `README.md` 更新自訂語系擴充範例（`i18nMessages` + `localeLabels`）並將狀態標記為 `✅ TODO 6 (Implemented)`。
