@@ -270,7 +270,7 @@
   &-scroll_container {
     width: var(--suggestions_scroll_container_width, 100%);
     height: var(--suggestions_scroll_container_height, 110px);
-    padding: 0 20px;
+    padding: var(--suggestions_scroll_container_padding);
 
     box-sizing: border-box;
 
