@@ -5,7 +5,11 @@ import {
   REASONING_MODE_MAP,
   DATA_FENCE_TAG_MAP
 } from '@/core/constants';
-import { resolveLocalized, defaultLocales, formatParams } from '@/core/i18n';
+import {
+  resolveLocalized,
+  DEFAULT_I18N_MESSAGES,
+  formatParams
+} from '@/core/i18n';
 import type {
   BrainEngine,
   KnowledgeEntry,
@@ -35,9 +39,9 @@ export function getBrainMessage(
   }
   const locale = engine?.locale || 'zh-TW';
   const localeDictionary =
-    defaultLocales[locale] || defaultLocales['zh-TW'] || {};
+    DEFAULT_I18N_MESSAGES[locale] || DEFAULT_I18N_MESSAGES['zh-TW'] || {};
   const messageValue =
-    localeDictionary[key] || defaultLocales['zh-TW']?.[key] || key;
+    localeDictionary[key] || DEFAULT_I18N_MESSAGES['zh-TW']?.[key] || key;
   if (typeof messageValue === 'string') {
     return formatParams(messageValue, params);
   }
@@ -977,11 +981,11 @@ export function buildDefaultLLMMessages(
 
   const history =
     engine?.memory?.enabled === true
-      ? (typeof engine.memory.getHistory === 'function'
-          ? engine.memory.getHistory(currentAvatarMode)
-          : Array.isArray(engine.memory.data?.history)
-            ? [...engine.memory.data.history]
-            : [])
+      ? typeof engine.memory.getHistory === 'function'
+        ? engine.memory.getHistory(currentAvatarMode)
+        : Array.isArray(engine.memory.data?.history)
+          ? [...engine.memory.data.history]
+          : []
       : [];
 
   let safeSystemContext =

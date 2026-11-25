@@ -1,34 +1,49 @@
-import {
-  createBaseStore,
-  StoreListener,
-  PropertyListener,
-  Selector
-} from '@/core/store';
-import type { SubscribableStore } from '@/core/types';
-import {
-  DEFAULT_LOCALE,
-  SUPPORTED_LOCALES,
-  LOCALE_LABELS,
-  LocaleLabelInfo
-} from './constants';
-import zhTW from './locales/zh-TW';
-import enUS from './locales/en-US';
-import jaJP from './locales/ja-JP';
-import koKR from './locales/ko-KR';
+import { createBaseStore } from '@/core/store';
+import { DEFAULT_LOCALE, SUPPORTED_LOCALES, LOCALE_LABELS } from './constants';
+import { DEFAULT_I18N_MESSAGES } from './locales';
+import type {
+  LocaleLabelInfo,
+  SupportedLocale,
+  TranslationDictionary,
+  LocaleChangeListener,
+  I18nEngineOptions,
+  I18nEngineState,
+  I18nEngine
+} from './types';
 
+export * from './types';
 export * from './constants';
-
-export type TranslationDictionary = Record<string, unknown>;
+export * from './locales';
 
 /**
- * Built-in default dictionary mappings for standard supported locales.
+ * Deeply merges two translation dictionaries without mutating inputs.
  */
-export const defaultLocales: Record<string, TranslationDictionary> = {
-  'zh-TW': zhTW,
-  'en-US': enUS,
-  'ja-JP': jaJP,
-  'ko-KR': koKR
-};
+function deepMergeDictionary(
+  baseDict: TranslationDictionary,
+  overrideDict: TranslationDictionary
+): TranslationDictionary {
+  const result: TranslationDictionary = { ...baseDict };
+  for (const key of Object.keys(overrideDict)) {
+    const baseVal = result[key];
+    const overrideVal = overrideDict[key];
+    if (
+      typeof baseVal === 'object' &&
+      baseVal !== null &&
+      Array.isArray(baseVal) === false &&
+      typeof overrideVal === 'object' &&
+      overrideVal !== null &&
+      Array.isArray(overrideVal) === false
+    ) {
+      result[key] = deepMergeDictionary(
+        baseVal as TranslationDictionary,
+        overrideVal as TranslationDictionary
+      );
+    } else {
+      result[key] = overrideVal;
+    }
+  }
+  return result;
+}
 
 /**
  * Universal localized value resolver utility.
@@ -139,55 +154,45 @@ function getFromDictionary(
   return currentDictionary;
 }
 
-export type TranslateFunction =
-  | (<T = string>(key: string, params?: Record<string, unknown>) => T)
-  | ((key: string, params?: Record<string, unknown>) => unknown);
-
-export interface I18nEngineOptions {
-  locale?: string;
-  messages?: Record<string, TranslationDictionary>;
-  t?: TranslateFunction;
-  translate?: TranslateFunction;
-}
-
-export interface I18nEngineState extends Record<string, unknown> {
-  locale: string;
-  messages: Record<string, TranslationDictionary>;
-}
-
-export type LocaleChangeListener = (
-  newLocale: string,
-  labels: LocaleLabelInfo,
-  prevLocale: string
-) => void;
-
-export interface I18nEngine extends SubscribableStore<I18nEngineState> {
-  t: <T = string>(key: string, params?: Record<string, unknown>) => T;
-  translate: <T = string>(key: string, params?: Record<string, unknown>) => T;
-  setLocale: (newLocale: string) => void;
-  addMessages: (locale: string, newMessages: TranslationDictionary) => void;
-  formatParams: <T = string>(text: T, params?: Record<string, unknown>) => T;
-  resolveLocalized: <T = string>(
-    value?: T | Record<string, T> | ((args: Record<string, unknown>) => T),
-    fallbackValue?: T | ((args: Record<string, unknown>) => T),
-    templateContext?: Record<string, unknown>
-  ) => T;
-  locale: string;
-  messages: Record<string, TranslationDictionary>;
-  labels: LocaleLabelInfo;
-  subscribe: {
-    (key: 'locale', listener: LocaleChangeListener): () => void;
-    (listener: StoreListener<I18nEngineState>): () => void;
-    <K extends keyof I18nEngineState>(
-      key: K,
-      callback: PropertyListener<I18nEngineState[K]>
-    ): () => void;
-    <V>(
-      selector: Selector<I18nEngineState, V>,
-      callback: PropertyListener<V>
-    ): () => void;
-    (selectorOrKey: unknown, callback?: unknown): () => void;
-  };
+/**
+ * Validates whether a custom i18n engine instance satisfies the I18nEngine interface contract.
+ *
+ * @param engine - Engine instance to validate.
+ * @returns Validation result and list of missing members.
+ */
+export function validateI18nEngine(engine: unknown): {
+  isValid: boolean;
+  missing: string[];
+} {
+  const missing: string[] = [];
+  if (typeof engine !== 'object' || engine === null) {
+    missing.push('engine instance');
+    return { isValid: false, missing };
+  }
+  const record = engine as Record<string, unknown>;
+  const requiredMethods = [
+    't',
+    'translate',
+    'setLocale',
+    'addMessages',
+    'formatParams',
+    'resolveLocalized',
+    'subscribe',
+    'getState',
+    'setState'
+  ];
+  for (const methodName of requiredMethods) {
+    if (typeof record[methodName] !== 'function') {
+      missing.push(`${methodName}()`);
+    }
+  }
+  const requiredProperties = ['locale', 'messages', 'labels'];
+  for (const propName of requiredProperties) {
+    if (!(propName in record)) {
+      missing.push(propName);
+    }
+  }
+  return { isValid: missing.length === 0, missing };
 }
 
 /**
@@ -207,19 +212,71 @@ export function initI18nEngine(options: I18nEngineOptions = {}): I18nEngine {
       ? options.messages
       : {};
 
-  // Merge built-in dictionaries with user custom dictionary
+  // Deep-merge built-in dictionaries with user custom dictionary
   const mergedMessages: Record<string, TranslationDictionary> = {};
   for (const supportedLocale of SUPPORTED_LOCALES) {
-    mergedMessages[supportedLocale] = {
-      ...(defaultLocales[supportedLocale] || {}),
-      ...(customMessages[supportedLocale] || {})
-    };
+    const baseLocaleDict = DEFAULT_I18N_MESSAGES[supportedLocale] || {};
+    const customLocaleDict =
+      typeof customMessages[supportedLocale] === 'object' &&
+      customMessages[supportedLocale] !== null
+        ? customMessages[supportedLocale]
+        : {};
+    mergedMessages[supportedLocale] = deepMergeDictionary(
+      baseLocaleDict,
+      customLocaleDict
+    );
   }
 
-  // Include additional custom locales (e.g. user-defined 'fr-FR')
-  for (const customLocale in customMessages) {
-    if (SUPPORTED_LOCALES.includes(customLocale) === false) {
-      mergedMessages[customLocale] = { ...customMessages[customLocale] };
+  // Include additional custom locales (e.g. user-defined 'fr-FR', 'zh-CN')
+  for (const customLocale of Object.keys(customMessages)) {
+    if (
+      SUPPORTED_LOCALES.includes(customLocale) === false &&
+      typeof customMessages[customLocale] === 'object' &&
+      customMessages[customLocale] !== null
+    ) {
+      mergedMessages[customLocale] = deepMergeDictionary(
+        {},
+        customMessages[customLocale]
+      );
+    }
+  }
+
+  // Clone built-in LOCALE_LABELS per instance and merge custom localeLabels
+  const mergedLocaleLabels: Record<string, LocaleLabelInfo> = {};
+  for (const localeKey of Object.keys(LOCALE_LABELS)) {
+    const builtInLabel = LOCALE_LABELS[localeKey];
+    mergedLocaleLabels[localeKey] = {
+      label: builtInLabel.label,
+      shortLabel: builtInLabel.shortLabel
+    };
+  }
+  if (
+    typeof options.localeLabels === 'object' &&
+    options.localeLabels !== null
+  ) {
+    for (const localeKey of Object.keys(options.localeLabels)) {
+      const customLabel = options.localeLabels[localeKey];
+      if (typeof customLabel === 'object' && customLabel !== null) {
+        const baseLabel = mergedLocaleLabels[localeKey];
+        const resolvedLabel =
+          typeof customLabel.label === 'string' && customLabel.label !== ''
+            ? customLabel.label
+            : typeof baseLabel?.label === 'string' && baseLabel.label !== ''
+              ? baseLabel.label
+              : localeKey;
+        const resolvedShortLabel =
+          typeof customLabel.shortLabel === 'string' &&
+          customLabel.shortLabel !== ''
+            ? customLabel.shortLabel
+            : typeof baseLabel?.shortLabel === 'string' &&
+                baseLabel.shortLabel !== ''
+              ? baseLabel.shortLabel
+              : resolvedLabel;
+        mergedLocaleLabels[localeKey] = {
+          label: resolvedLabel,
+          shortLabel: resolvedShortLabel
+        };
+      }
     }
   }
 
@@ -230,9 +287,15 @@ export function initI18nEngine(options: I18nEngineOptions = {}): I18nEngine {
         ? options.translate
         : null;
 
+  let onLocaleChangeCallback: LocaleChangeListener | null =
+    typeof options.onLocaleChange === 'function'
+      ? options.onLocaleChange
+      : null;
+
   const store = createBaseStore<I18nEngineState>({
     locale: initialLocale,
-    messages: mergedMessages
+    messages: mergedMessages,
+    localeLabels: mergedLocaleLabels
   });
 
   function translate<T = string>(
@@ -244,7 +307,10 @@ export function initI18nEngine(options: I18nEngineOptions = {}): I18nEngine {
     }
 
     const state = store.getState();
-    const currentLocale = state.locale || DEFAULT_LOCALE;
+    const currentLocale =
+      typeof state.locale === 'string' && state.locale !== ''
+        ? state.locale
+        : DEFAULT_LOCALE;
     const dictionary =
       state.messages[currentLocale] || state.messages[DEFAULT_LOCALE] || {};
 
@@ -269,29 +335,59 @@ export function initI18nEngine(options: I18nEngineOptions = {}): I18nEngine {
     return messageValue as unknown as T;
   }
 
-  function setLocale(newLocale: string): void {
+  function setLocale(newLocale: SupportedLocale): void {
     if (typeof newLocale === 'string' && newLocale !== '') {
       store.setState({ locale: newLocale });
     }
   }
 
   function addMessages(
-    locale: string,
-    newMessages: TranslationDictionary
+    locale: SupportedLocale,
+    newMessages: TranslationDictionary,
+    labelInfo?: Partial<LocaleLabelInfo>
   ): void {
     if (
       typeof locale === 'string' &&
+      locale !== '' &&
       typeof newMessages === 'object' &&
       newMessages !== null
     ) {
       const state = store.getState();
       const currentLocaleDictionary = state.messages[locale] || {};
-      store.setState({
-        messages: {
-          ...state.messages,
-          [locale]: { ...currentLocaleDictionary, ...newMessages }
-        }
-      });
+      const nextMessages = {
+        ...state.messages,
+        [locale]: deepMergeDictionary(currentLocaleDictionary, newMessages)
+      };
+
+      if (typeof labelInfo === 'object' && labelInfo !== null) {
+        const baseLabel = state.localeLabels[locale];
+        const resolvedLabel =
+          typeof labelInfo.label === 'string' && labelInfo.label !== ''
+            ? labelInfo.label
+            : typeof baseLabel?.label === 'string' && baseLabel.label !== ''
+              ? baseLabel.label
+              : locale;
+        const resolvedShortLabel =
+          typeof labelInfo.shortLabel === 'string' &&
+          labelInfo.shortLabel !== ''
+            ? labelInfo.shortLabel
+            : typeof baseLabel?.shortLabel === 'string' &&
+                baseLabel.shortLabel !== ''
+              ? baseLabel.shortLabel
+              : resolvedLabel;
+        store.setState({
+          messages: nextMessages,
+          localeLabels: {
+            ...state.localeLabels,
+            [locale]: {
+              label: resolvedLabel,
+              shortLabel: resolvedShortLabel
+            }
+          }
+        });
+      } else {
+        store.setState({ messages: nextMessages });
+      }
     }
   }
 
@@ -321,42 +417,37 @@ export function initI18nEngine(options: I18nEngineOptions = {}): I18nEngine {
     },
 
     get labels(): LocaleLabelInfo {
+      const state = store.getState();
+      const currentLocale = state.locale;
       return (
-        LOCALE_LABELS[store.getState().locale] || {
-          label: store.getState().locale,
-          shortLabel: store.getState().locale
+        state.localeLabels[currentLocale] || {
+          label: currentLocale,
+          shortLabel: currentLocale
         }
       );
     },
 
-    subscribe(key: unknown, listener?: unknown): () => void {
-      if (key === 'locale' && typeof listener === 'function') {
-        return store.subscribe(
-          'locale',
-          (newLocale: unknown, prevLocale: unknown) => {
-            const locStr = String(newLocale);
-            const localeLabels = LOCALE_LABELS[locStr] || {
-              label: locStr,
-              shortLabel: locStr
-            };
-            (listener as LocaleChangeListener)(
-              locStr,
-              localeLabels,
-              String(prevLocale)
-            );
-          }
-        );
-      }
-      return (
-        store.subscribe as (
-          storeKey: unknown,
-          storeListener?: unknown
-        ) => () => void
-      )(key, listener);
+    get localeLabels(): Record<string, LocaleLabelInfo> {
+      return store.getState().localeLabels;
     },
+
+    get onLocaleChange(): LocaleChangeListener | null {
+      return onLocaleChangeCallback;
+    },
+    set onLocaleChange(listener: LocaleChangeListener | null) {
+      onLocaleChangeCallback = typeof listener === 'function' ? listener : null;
+    },
+
+    subscribe: store.subscribe,
     getState: store.getState,
     setState: store.setState
   };
+
+  store.subscribe('locale', (newLocale: string, prevLocale: string) => {
+    if (typeof onLocaleChangeCallback === 'function') {
+      onLocaleChangeCallback(newLocale, i18nEngine.labels, prevLocale);
+    }
+  });
 
   return i18nEngine;
 }

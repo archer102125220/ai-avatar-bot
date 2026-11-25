@@ -248,7 +248,9 @@ export async function initAvatarBot(
         : typeof i18nEngine.labels?.label === 'string' &&
             i18nEngine.labels.label !== ''
           ? i18nEngine.labels.label
-          : '中文';
+          : typeof i18nEngine.locale === 'string' && i18nEngine.locale !== ''
+            ? i18nEngine.locale
+            : '繁中';
   }
 
   aiAvatarWidget.speechEngine?.setMic(false);

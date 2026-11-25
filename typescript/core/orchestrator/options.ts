@@ -1,4 +1,4 @@
-import { initI18nEngine } from '@/core/i18n';
+import { initI18nEngine, type TranslationDictionary } from '@/core/i18n';
 import { sanitizeAiProviderHeaders } from '@/core/brain';
 import { createBaseStore } from '@/core/store';
 import {
@@ -139,7 +139,7 @@ export function normalizeOptions(
     const i18nFactory = customEngines.i18n as
       | ((params: {
           locale: string;
-          messages?: Record<string, Record<string, string>>;
+          messages?: Record<string, TranslationDictionary>;
         }) => I18nEngine)
       | I18nEngine;
     i18nEngine =

@@ -46,7 +46,11 @@ import type {
 } from '@/core/tools';
 import type { UiDom, UiContext } from '@/core/ui';
 import type { BaseStore } from '@/core/store';
-import type { I18nEngine, I18nEngineOptions } from '@/core/i18n';
+import type {
+  I18nEngine,
+  I18nEngineOptions,
+  TranslationDictionary
+} from '@/core/i18n';
 import {
   AI_PROVIDER_PING_STRATEGY_MAP,
   AI_PROVIDER_STATUS_MAP,
@@ -193,20 +197,13 @@ export interface AvatarBotOptions {
   companionKnowledgeUrl?: string;
   /** Preloaded knowledge base data for assistant persona. */
   assistantKnowledge?:
-    | KnowledgeEntry[]
-    | Record<string, unknown>
-    | string
-    | null;
+    KnowledgeEntry[] | Record<string, unknown> | string | null;
   /**
    * 基礎通用知識庫（跨模式共用，與 sharedKnowledge 互為別名）。
    */
   knowledge?: KnowledgeEntry[] | Record<string, unknown> | string | null;
   /** 跨模式通用共用知識庫（等同於 knowledge）。 */
-  sharedKnowledge?:
-    | KnowledgeEntry[]
-    | Record<string, unknown>
-    | string
-    | null;
+  sharedKnowledge?: KnowledgeEntry[] | Record<string, unknown> | string | null;
   /** Preloaded companion knowledge data. */
   companionKnowledge?:
     KnowledgeEntry[] | Record<string, unknown> | string | null;
@@ -224,8 +221,7 @@ export interface AvatarBotOptions {
    * 設為 false 時將跳過前端相似度過濾，將知識庫全量注入 Prompt（全權由雲端大模型推論理解）。
    */
   knowledgeFilter?:
-    | boolean
-    | ((entry: KnowledgeEntry, question: string) => boolean);
+    boolean | ((entry: KnowledgeEntry, question: string) => boolean);
   /** 2D Live2D avatar model configuration file URL (.model3.json). */
   live2dUrl?: string;
   /** Speech synthesis (TTS) API endpoint. */
@@ -297,7 +293,7 @@ export interface AvatarBotOptions {
   /** Language locale code (e.g. 'zh-TW', 'en-US', 'ja-JP', 'ko-KR'). */
   locale?: string;
   /** Custom translation dictionary messages. */
-  i18nMessages?: Record<string, Record<string, string>>;
+  i18nMessages?: Record<string, TranslationDictionary>;
   /** Default avatar gender ('female' | 'male'). */
   gender?: Gender;
   /** Brain gender persona override. */

@@ -213,9 +213,15 @@ export function initUi(
   langButtonEl.setAttribute('id', 'btn-lang');
   langButtonEl.setAttribute('aria-label', '切換對話語言');
   langButtonEl.setAttribute('data-i18n-aria', 'ui.lang.ariaLabel');
-  langButtonEl.setAttribute('data-i18n', 'ui.lang.buttonText');
   langButtonEl.classList.add('ctrl');
-  langButtonEl.textContent = '中文';
+  langButtonEl.textContent =
+    typeof currentI18nEngine?.labels?.shortLabel === 'string' &&
+    currentI18nEngine.labels.shortLabel !== ''
+      ? currentI18nEngine.labels.shortLabel
+      : typeof currentI18nEngine?.labels?.label === 'string' &&
+          currentI18nEngine.labels.label !== ''
+        ? currentI18nEngine.labels.label
+        : '繁中';
 
   const historyButtonEl = document.createElement('button');
   historyButtonEl.setAttribute('id', 'btn-history');
