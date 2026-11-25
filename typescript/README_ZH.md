@@ -198,19 +198,42 @@ import {
   type ToolDefinition 
 } from '@ai-avatar-bot/sdk/tools';
 
-// 6. 僅引入多語系模組
-import { initI18nEngine, type I18nEngine } from '@ai-avatar-bot/sdk/i18n';
+// 6. 僅引入多語系模組 (支援深層字典合併、自訂語系標籤與領域事件監聽)
+import { 
+  initI18nEngine, 
+  validateI18nEngine,
+  DEFAULT_LOCALE,
+  SUPPORTED_LOCALES,
+  LOCALE_LABELS,
+  DEFAULT_I18N_MESSAGES,
+  type I18nEngine,
+  type I18nEngineOptions,
+  type LocaleChangeListener,
+  type SupportedLocale 
+} from '@ai-avatar-bot/sdk/i18n';
 
-// 7. 僅引入常數與對應表
+// 7. 僅引入 UI 介面與響應式狀態模組
+import { 
+  initUi, 
+  createUiStore, 
+  type UiDom, 
+  type UiEngineState 
+} from '@ai-avatar-bot/sdk/ui';
+
+// 8. 僅引入常數與對應表 (亦二次導出 DEFAULT_LOCALE、DEFAULT_I18N_MESSAGES 等 i18n 常數)
 import { 
   GENDER_MAP, 
   AVATAR_MODE_MAP, 
   REASONING_MODE_MAP, 
   EMOTION_TARGET_MAP, 
-  STATE_MAP 
+  STATE_MAP,
+  DEFAULT_LOCALE,
+  SUPPORTED_LOCALES,
+  LOCALE_LABELS,
+  DEFAULT_I18N_MESSAGES
 } from '@ai-avatar-bot/sdk/constants';
 
-// 8. 僅引入型別定義
+// 9. 僅引入型別定義
 import type { 
   AvatarBotOptions, 
   AiAvatarWidget, 
@@ -470,8 +493,8 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `container` | `HTMLElement \| null` | `null` | **必填**。掛載虛擬人的 DOM 容器元素。 |
 | `avatarMode` | `AvatarMode` (`'assistant' \| 'companion' \| string`) | `'assistant'` | 人設模式：`'assistant'`（助理）或 `'companion'`（陪伴）。 |
 | `gender` | `Gender` (`'female' \| 'male' \| string`) | `'female'` | 預設角色性別。 |
-| `locale` | `string` | `'zh-TW'` | UI 介面與語音合成語系（`'zh-TW'`, `'en-US'`, `'ja-JP'`, `'ko-KR'`）。 |
-| `i18nMessages` | `Record<string, Record<string, string>>` | `{}` | 自訂多語系覆蓋文字字典。 |
+| `locale` | `SupportedLocale` (`'zh-TW' \| 'en-US' \| 'ja-JP' \| 'ko-KR' \| string`) | `'zh-TW'` | UI 介面與語音合成語系（內建 `'zh-TW'`, `'en-US'`, `'ja-JP'`, `'ko-KR'`，亦支援自訂擴充語系）。 |
+| `i18nMessages` | `Record<string, TranslationDictionary>` | `{}` | 自訂多語系覆蓋或新增文字字典（支援平面點記號鍵、字串陣列與巢狀物件深層合併）。 |
 | `isMinimal` | `boolean` | `false` | 是否以極簡/縮小懸浮球模式啟動。 |
 | `isIframe` | `boolean` | `false` | 是否運行於 Iframe 隔離環境。 |
 
@@ -527,7 +550,7 @@ copyAvatarSkin('dist/client/avatar-skin', { overwrite: true });
 | `companionSystemContextTemplate` | `DynamicTextOrResolver` | `undefined` | 陪伴模式系統提示詞範本或動態解析器。 |
 | `ragTemplate` | `DynamicTextOrResolver` | `undefined` | RAG 參考資料提示詞範本。 |
 | `customContext` | `Record<string, unknown>` | `undefined` | 附加注入至提示詞的自訂上下文物件。 |
-| `customEngines` | `CustomEnginesConfig` | `{}` | 自訂子引擎依賴注入字典（`{ skin?, tools?, brain?, stt?, tts?, i18n? }`）。 |
+| `customEngines` | `CustomEnginesConfig` | `{}` | 自訂子引擎依賴注入字典（`{ skin?, tools?, brain?, speech?, stt?, tts?, i18n?, ui? }`）。 |
 
 ### 語音與外觀渲染
 
@@ -1428,7 +1451,8 @@ widget.speechEngine?.subscribe('isSpeaking', (speaking: boolean) => {
 ### 核心導出 (`@ai-avatar-bot/sdk`)
 
 * **協調器核心 (Orchestrator)**：`AvatarBotOptions`, `AiAvatarWidget`, `AvatarBotStore`, `AvatarBotStoreState`, `CustomEnginesConfig`, `OrchestratorEngines`
-* **各子引擎介面**：`BrainEngine`, `BrainEngineOptions`, `SpeechEngine`, `SpeechEngineOptions`, `SkinEngine`, `SkinEngineOptions`, `ToolsEngine`, `ToolsEngineOptions`, `I18nEngine`, `I18nEngineOptions`, `UiDom`, `UiContext`
+* **各子引擎介面**：`BrainEngine`, `BrainEngineOptions`, `SpeechEngine`, `SpeechEngineOptions`, `SkinEngine`, `SkinEngineOptions`, `ToolsEngine`, `ToolsEngineOptions`, `I18nEngine`, `I18nEngineOptions`, `I18nEngineState`, `UiDom`, `UiEngineState`, `UiContext`
+* **多國語系與字典 (I18n)**：`SupportedLocale`, `LocaleLabelInfo`, `TranslationDictionary`, `TranslateFunction`, `LocaleChangeListener`, `DEFAULT_LOCALE`, `SUPPORTED_LOCALES`, `LOCALE_LABELS`, `DEFAULT_I18N_MESSAGES`, `validateI18nEngine`, `resolveLocalized`, `formatParams`
 * **大腦與記憶**：`LLMMessage<TContent>`, `BrainCompressionOptions`, `MemoryData`, `MemoryAdapter`, `KnowledgeEntry`, `ChatLogItem`, `ParsedToolCall`, `ChatHistoryItem`, `MemoryInstance`, `PersonaProfile`, `CustomModeConfig`, `ModeMemoryBucket`, `MemoryClearTarget`, `PromptPlaceholder`, `DataFenceTag`, `PROMPT_PLACEHOLDER_MAP`, `DATA_FENCE_TAG_MAP`, `MEMORY_CLEAR_TARGET_MAP`, `CURRENT_MODE_MEMORY_VERSION`, `DEFAULT_ISOLATE_MODE_HISTORY`
 * **AI Provider**：`AiProviderFetchSettingFactory`, `AiProviderFetchPayloadFactory`, `AiProviderToolCallExtractor`, `AiProviderOptions`, `AiProviderEngine`
 * **外觀與幾何座標**：`Skin2DConfig`, `Skin3DConfig`, `Skin3DCameraConfig`, `Skin3DModelConfig`, `Renderer2D`, `Renderer3D`, `Point2D`, `Vector2Coord`, `Vector2Tuple`, `Vector2Input`, `Vector3Coord`, `Vector3Tuple`, `Vector3Input`, `Vector3Scale`
@@ -1557,14 +1581,62 @@ export interface BrainEngine {
 
 ## 🌐 多語系支援 (i18n)
 
-支援於運行時隨時切換介面語言與發音語系：
+SDK 內建四大標準語系（`zh-TW`、`en-US`、`ja-JP`、`ko-KR`，預設字典匯總於 `DEFAULT_I18N_MESSAGES`，標籤定義於 `LOCALE_LABELS`），支援於運行時隨時切換介面語言與發音語系，亦支援獨立作為多語系引擎使用或動態擴充自訂語系：
+
+### 1. 運行時切換語系與雙翻譯方法 (`t` / `translate`)
 
 ```typescript
-widget.i18nEngine.setLocale('zh-TW'); // 繁體中文
-widget.i18nEngine.setLocale('en-US'); // 英文
-widget.i18nEngine.setLocale('ja-JP'); // 日文
-widget.i18nEngine.setLocale('ko-KR'); // 韓文
-widget.i18nEngine.setLocale('zh-CN'); // 簡體中文
+// 1. 切換內建語系（亦可直接賦值 widget.i18nEngine.locale = 'en-US'）
+widget.i18nEngine.setLocale('zh-TW'); // 繁體中文 (按鈕短標籤: '繁中')
+widget.i18nEngine.setLocale('en-US'); // 英文     (按鈕短標籤: 'EN')
+widget.i18nEngine.setLocale('ja-JP'); // 日文     (按鈕短標籤: 'JA')
+widget.i18nEngine.setLocale('ko-KR'); // 韓文     (按鈕短標籤: 'KO')
+
+// 2. 翻譯與參數插值（同時提供前端慣用簡寫 t() 與語意直觀全名 translate()）
+const speedMsg = widget.i18nEngine.t('ui.speed.text', { rate: '1.2' });
+const welcomeMsg = widget.i18nEngine.translate('brain.aiProvider.connected', { model: 'qwen2.5' });
+```
+
+### 2. 動態擴充自訂語系與深層字典合併 (`addMessages` & `localeLabels`)
+
+若需擴充內建四語系以外的語系（例如簡體中文 `'zh-CN'` 或法文 `'fr-FR'`），或局部覆寫巢狀字典，`addMessages` 支援**遞迴深層合併（Deep Merge）**並可同時註冊語系顯示標籤：
+
+```typescript
+// 動態註冊簡體中文語系字典與按鈕顯示標籤 ({ label, shortLabel })
+widget.i18nEngine.addMessages(
+  'zh-CN',
+  {
+    'ui.history.title': '聊天记录',
+    'ui.input.placeholder': '打字问我也可以…',
+    'brain.thinking': '让我想想…'
+  },
+  { label: '简体中文', shortLabel: '简中' }
+);
+
+// 切換至新註冊之自訂語系
+widget.i18nEngine.setLocale('zh-CN');
+console.log(widget.i18nEngine.labels); // { label: '简体中文', shortLabel: '简中' }
+```
+
+### 3. 監聽語系變更：領域事件 (`onLocaleChange`) vs 狀態訂閱 (`subscribe`)
+
+`I18nEngine` 將「領域事件回呼」與「`BaseStore` 狀態訂閱」清楚拆分：
+
+```typescript
+import { initI18nEngine } from '@ai-avatar-bot/sdk/i18n';
+
+const i18n = initI18nEngine({
+  locale: 'zh-TW',
+  // 方式 A：領域事件回呼 (LocaleChangeListener) — 直接獲得 (newLocale, labels, prevLocale) 三參數
+  onLocaleChange: (newLocale, labels, prevLocale) => {
+    console.log(`語系由 ${prevLocale} 切換為 ${labels.label} (${labels.shortLabel} / ${newLocale})`);
+  }
+});
+
+// 方式 B：標準 BaseStore 資料訂閱 — 嚴格對齊 (currentValue, previousValue) 二參數契約
+const unsubscribe = i18n.subscribe('locale', (newLocale, prevLocale) => {
+  console.log(`Store locale changed: ${prevLocale} -> ${newLocale}`);
+});
 ```
 
 ---

@@ -97,7 +97,7 @@ The entire SDK adopts a highly decoupled "Multi-Engine Architecture", allowing d
    * Modern out-of-the-box floating dock, chat bubbles, collapsible thought history panels, and settings drawers.
    * Supports **Headless Mode**, allowing developers to completely hide the default UI and build custom interfaces with Vue or React.
 6. 🌐 **I18n Engine**:
-   * Built-in locale dictionaries for Traditional Chinese (`zh-TW`), Simplified Chinese (`zh-CN`), English (`en-US`), Japanese (`ja-JP`), and Korean (`ko-KR`).
+   * Built-in locale dictionaries (`DEFAULT_I18N_MESSAGES`) for Traditional Chinese (`zh-TW`), English (`en-US`), Japanese (`ja-JP`), and Korean (`ko-KR`), with recursive deep merging and dynamic custom locale registration (e.g., Simplified Chinese `zh-CN`).
 
 ---
 
@@ -212,7 +212,7 @@ yarn build
   - *(Completed and archived at commit `2e4cb12a4c689d8dc98a814211279ce0cb3ebf59`)*
 - [x] **Phase 2: TypeScript Strict Porting & npm Release Hardening (`/typescript`)**
   - Complete 100% native TS porting with full declaration files
-  - Modular subpath exports (`/brain`, `/skin`, `/speech`, `/tools`, `/i18n`, `/constants`, `/types`)
+  - Modular subpath exports (`/brain`, `/skin`, `/speech`, `/tools`, `/i18n`, `/ui`, `/constants`, `/types`, `/plugins`)
   - Dual-build CDN ecosystem (ESM `+esm` and traditional `<script>` IIFE `window.AiAvatarBot`)
   - Externalized heavy dependencies & optional peerDependencies (core slimmed to 223KB, -96.9%)
   - AI Reasoning (Chain-of-Thought) and `createStreamParser` dual-track architecture

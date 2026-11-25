@@ -78,8 +78,11 @@
    - 將 [`core/ui/types.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/types.ts#L71-L85) 中 `VoiceStatusOptions.i18n` 與 `MicStateOptions.i18n` 統一正名為 `i18nEngine`（或直接由 `initUi` 閉包內的 `currentI18nEngine` 自動提供）。
    - [`core/ui/events.ts#L169`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/events.ts#L169) 的語言切換按鈕改為輪詢 `Object.keys(context.i18nEngine?.messages || {})`（fallback 至 `SUPPORTED_LOCALES`），讓開發者新增的自訂語系也能透過 UI 按鈕切換。
    - [`core/ui/dom.ts`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/dom.ts) 的 `initUi()` 在傳入 `i18nEngine` 時，於結尾自動執行一次 `updateUIStrings(container, i18nEngine)`。
+   - **評估 `ui.engine.ariaLabel` 鍵名語意對齊**：[`core/ui/dom.ts#L171`](file:///Users/parkerchen/Desktop/code/ai-avatar-bot/package/typescript/core/ui/dom.ts#L171) 的 2D/3D 外觀切換按鈕已於 TODO 5 正名為 `skinModeButtonEl`，但其無障礙屬性仍綁定舊鍵名 `data-i18n-aria="ui.engine.ariaLabel"`，收網時可評估正名為 `ui.skinMode.ariaLabel` 以消除 `engine` 歧義。
 3. **`CustomEnginesConfig.i18n` 非同步工廠與 `validateI18nEngine` 接入**：
    - 將 `customEngines.i18n` 的初始化由同步的 `normalizeOptions` 移至 `initAvatarBot` / `engine-factory.ts` 非同步流程中，支援 `await customEngines.i18n(options)` 並透過 `validateI18nEngine()` 進行介面驗證與降級保護。
+4. **`resolveLocalized` 實例方法與獨立函式調用收斂**：
+   - 目前 `core/brain/`、`core/ui/suggestions.ts`、`core/orchestrator/interaction.ts` 皆直接呼叫 4 參數獨立函式 `resolveLocalized(value, locale, fallbackValue, templateContext)`，而在已持有 `i18nEngine` 實例的場景下，可優先調用 3 參數實例方法 `i18nEngine.resolveLocalized(value, fallbackValue, templateContext)`（自動帶入當前 `i18nEngine.locale`）。
 
 ---
 

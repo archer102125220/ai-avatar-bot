@@ -97,7 +97,7 @@
    * 內建開箱即用的現代化懸浮視窗、對話氣泡、折疊式思維卡片歷史面板與設定抽屜。
    * 支援 **Headless 模式**，允許開發者隱藏預設 UI，100% 自行以 Vue/React 刻劃介面。
 6. 🌐 **多語系引擎 (I18n Engine)**：
-   * 內建繁中 (`zh-TW`)、簡中 (`zh-CN`)、英文 (`en-US`)、日文 (`ja-JP`)、韓文 (`ko-KR`) 介面與提示詞字典。
+   * 內建繁中 (`zh-TW`)、英文 (`en-US`)、日文 (`ja-JP`)、韓文 (`ko-KR`) 四大標準語系介面與提示詞字典（`DEFAULT_I18N_MESSAGES`），並支援深層字典合併與動態擴充自訂語系（如簡中 `zh-CN`）。
 
 ---
 
@@ -212,7 +212,7 @@ yarn build
   - *(已達成並封存於 commit `2e4cb12a4c689d8dc98a814211279ce0cb3ebf59`)*
 - [x] **階段二：TypeScript 嚴格型別化與 npm 發布健全化 (`/typescript`)**
   - 將完整邏輯遷移至 100% 原生 TS，建立全型別定義檔
-  - 支援模組化子路徑導出 (`/brain`, `/skin`, `/speech`, `/tools`, `/i18n`, `/constants`, `/types`)
+  - 支援模組化子路徑導出 (`/brain`, `/skin`, `/speech`, `/tools`, `/i18n`, `/ui`, `/constants`, `/types`, `/plugins`)
   - 支援雙構建 CDN 生態（ESM `+esm` 與傳統 `<script>` IIFE `window.AiAvatarBot`）
   - 大型依賴外部化與可選 Peer 依賴（核心大幅瘦身至 223KB，降幅 -96.9%）
   - AI 思維鏈推論過程 (Reasoning / Thinking) 與 `createStreamParser` 雙軌架構

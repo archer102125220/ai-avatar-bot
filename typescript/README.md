@@ -196,19 +196,42 @@ import {
   type ToolDefinition 
 } from '@ai-avatar-bot/sdk/tools';
 
-// 6. i18n Engine only
-import { initI18nEngine, type I18nEngine } from '@ai-avatar-bot/sdk/i18n';
+// 6. i18n Engine only (supports deep dictionary merging, custom locale labels, and domain event listeners)
+import { 
+  initI18nEngine, 
+  validateI18nEngine,
+  DEFAULT_LOCALE,
+  SUPPORTED_LOCALES,
+  LOCALE_LABELS,
+  DEFAULT_I18N_MESSAGES,
+  type I18nEngine,
+  type I18nEngineOptions,
+  type LocaleChangeListener,
+  type SupportedLocale 
+} from '@ai-avatar-bot/sdk/i18n';
 
-// 7. Constants and Maps
+// 7. UI Engine & Reactive State Store only
+import { 
+  initUi, 
+  createUiStore, 
+  type UiDom, 
+  type UiEngineState 
+} from '@ai-avatar-bot/sdk/ui';
+
+// 8. Constants and Maps (also re-exports i18n constants such as DEFAULT_LOCALE and DEFAULT_I18N_MESSAGES)
 import { 
   GENDER_MAP, 
   AVATAR_MODE_MAP, 
   REASONING_MODE_MAP, 
   EMOTION_TARGET_MAP, 
-  STATE_MAP 
+  STATE_MAP,
+  DEFAULT_LOCALE,
+  SUPPORTED_LOCALES,
+  LOCALE_LABELS,
+  DEFAULT_I18N_MESSAGES
 } from '@ai-avatar-bot/sdk/constants';
 
-// 8. Type Definitions only
+// 9. Type Definitions only
 import type { 
   AvatarBotOptions, 
   AiAvatarWidget, 
@@ -468,8 +491,8 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `container` | `HTMLElement \| null` | `null` | **Required**. DOM container element to mount the avatar widget. |
 | `avatarMode` | `AvatarMode` (`'assistant' \| 'companion' \| string`) | `'assistant'` | Persona mode preset or custom key. |
 | `gender` | `Gender` (`'female' \| 'male' \| string`) | `'female'` | Default character gender. |
-| `locale` | `string` | `'zh-TW'` | UI and speech language code (`'en-US'`, `'zh-TW'`, `'ja-JP'`, `'ko-KR'`). |
-| `i18nMessages` | `Record<string, Record<string, string>>` | `{}` | Custom multi-language dictionary override messages. |
+| `locale` | `SupportedLocale` (`'zh-TW' \| 'en-US' \| 'ja-JP' \| 'ko-KR' \| string`) | `'zh-TW'` | UI and speech language code (built-in 4 locales, extensible to custom locales). |
+| `i18nMessages` | `Record<string, TranslationDictionary>` | `{}` | Custom multi-language dictionary override messages (supports flat keys or recursive nested dictionary objects with deep merging). |
 | `isMinimal` | `boolean` | `false` | Whether to start in minimal/collapsed floating bubble mode. |
 | `isIframe` | `boolean` | `false` | Whether running inside an iframe. |
 
@@ -525,7 +548,7 @@ All configuration options are defined in the `AvatarBotOptions` interface:
 | `companionSystemContextTemplate` | `DynamicTextOrResolver` | `undefined` | System prompt template for companion mode. |
 | `ragTemplate` | `DynamicTextOrResolver` | `undefined` | RAG reference material template. |
 | `customContext` | `Record<string, unknown>` | `undefined` | Custom context object appended to LLM prompt. |
-| `customEngines` | `CustomEnginesConfig` | `{}` | Custom sub-engines injection (`{ skin?, tools?, brain?, stt?, tts?, i18n? }`). |
+| `customEngines` | `CustomEnginesConfig` | `{}` | Custom sub-engines injection (`{ skin?, tools?, brain?, speech?, stt?, tts?, i18n?, ui? }`). |
 
 ### Speech & Skin Rendering
 
@@ -1426,7 +1449,8 @@ widget.speechEngine?.subscribe('isSpeaking', (speaking: boolean) => {
 ### Root Exports (`@ai-avatar-bot/sdk`)
 
 * **Orchestrator**: `AvatarBotOptions`, `AiAvatarWidget`, `AvatarBotStore`, `AvatarBotStoreState`, `CustomEnginesConfig`, `OrchestratorEngines`
-* **Sub-Engines**: `BrainEngine`, `BrainEngineOptions`, `SpeechEngine`, `SpeechEngineOptions`, `SkinEngine`, `SkinEngineOptions`, `ToolsEngine`, `ToolsEngineOptions`, `I18nEngine`, `I18nEngineOptions`, `UiDom`, `UiContext`
+* **Sub-Engines**: `BrainEngine`, `BrainEngineOptions`, `SpeechEngine`, `SpeechEngineOptions`, `SkinEngine`, `SkinEngineOptions`, `ToolsEngine`, `ToolsEngineOptions`, `I18nEngine`, `I18nEngineOptions`, `I18nEngineState`, `UiDom`, `UiEngineState`, `UiContext`
+* **I18n & Dictionaries**: `SupportedLocale`, `LocaleLabelInfo`, `TranslationDictionary`, `TranslateFunction`, `LocaleChangeListener`, `DEFAULT_LOCALE`, `SUPPORTED_LOCALES`, `LOCALE_LABELS`, `DEFAULT_I18N_MESSAGES`, `validateI18nEngine`, `resolveLocalized`, `formatParams`
 * **Brain & Memory**: `LLMMessage<TContent>`, `BrainCompressionOptions`, `MemoryData`, `MemoryAdapter`, `KnowledgeEntry`, `ChatLogItem`, `ParsedToolCall`, `ChatHistoryItem`, `MemoryInstance`, `PersonaProfile`, `CustomModeConfig`, `ModeMemoryBucket`, `MemoryClearTarget`, `PromptPlaceholder`, `DataFenceTag`, `PROMPT_PLACEHOLDER_MAP`, `DATA_FENCE_TAG_MAP`, `MEMORY_CLEAR_TARGET_MAP`, `CURRENT_MODE_MEMORY_VERSION`, `DEFAULT_ISOLATE_MODE_HISTORY`
 * **AI Provider**: `AiProviderFetchSettingFactory`, `AiProviderFetchPayloadFactory`, `AiProviderToolCallExtractor`, `AiProviderOptions`, `AiProviderEngine`
 * **Skin & Spatial**: `Skin2DConfig`, `Skin3DConfig`, `Skin3DCameraConfig`, `Skin3DModelConfig`, `Renderer2D`, `Renderer3D`, `Point2D`, `Vector2Coord`, `Vector2Tuple`, `Vector2Input`, `Vector3Coord`, `Vector3Tuple`, `Vector3Input`, `Vector3Scale`
@@ -1555,14 +1579,62 @@ export interface BrainEngine {
 
 ## 🌐 Internationalization (i18n)
 
-Switch UI and speech languages dynamically at runtime:
+The SDK includes four built-in locales (`zh-TW`, `en-US`, `ja-JP`, `ko-KR`, aggregated in `DEFAULT_I18N_MESSAGES` with display labels in `LOCALE_LABELS`). You can switch UI and speech languages dynamically at runtime, use `I18nEngine` standalone, or register custom locales with deep dictionary merging:
+
+### 1. Runtime Locale Switching & Dual Translation Methods (`t` / `translate`)
 
 ```typescript
-widget.i18nEngine.setLocale('en-US'); // English
-widget.i18nEngine.setLocale('zh-TW'); // Traditional Chinese
-widget.i18nEngine.setLocale('ja-JP'); // Japanese
-widget.i18nEngine.setLocale('ko-KR'); // Korean
-widget.i18nEngine.setLocale('zh-CN'); // Simplified Chinese
+// 1. Switch built-in locales (or assign widget.i18nEngine.locale = 'en-US' directly)
+widget.i18nEngine.setLocale('zh-TW'); // Traditional Chinese (Button shortLabel: '繁中')
+widget.i18nEngine.setLocale('en-US'); // English             (Button shortLabel: 'EN')
+widget.i18nEngine.setLocale('ja-JP'); // Japanese            (Button shortLabel: 'JA')
+widget.i18nEngine.setLocale('ko-KR'); // Korean              (Button shortLabel: 'KO')
+
+// 2. Translate with parameter interpolation (provides both shorthand t() and descriptive translate())
+const speedMsg = widget.i18nEngine.t('ui.speed.text', { rate: '1.2' });
+const welcomeMsg = widget.i18nEngine.translate('brain.aiProvider.connected', { model: 'qwen2.5' });
+```
+
+### 2. Dynamic Custom Locales & Deep Dictionary Merging (`addMessages` & `localeLabels`)
+
+To add locales beyond the four built-in ones (e.g., Simplified Chinese `'zh-CN'` or French `'fr-FR'`) or partially override nested dictionary keys, `addMessages` performs **recursive deep merging** and optionally registers custom locale display labels:
+
+```typescript
+// Dynamically register Simplified Chinese dictionary and button labels ({ label, shortLabel })
+widget.i18nEngine.addMessages(
+  'zh-CN',
+  {
+    'ui.history.title': '聊天记录',
+    'ui.input.placeholder': '打字问我也可以…',
+    'brain.thinking': '让我想想…'
+  },
+  { label: '简体中文', shortLabel: '简中' }
+);
+
+// Switch to the newly registered custom locale
+widget.i18nEngine.setLocale('zh-CN');
+console.log(widget.i18nEngine.labels); // { label: '简体中文', shortLabel: '简中' }
+```
+
+### 3. Listening to Locale Changes: Domain Event (`onLocaleChange`) vs. Store Subscription (`subscribe`)
+
+`I18nEngine` cleanly separates rich domain events from standard `BaseStore` state subscriptions:
+
+```typescript
+import { initI18nEngine } from '@ai-avatar-bot/sdk/i18n';
+
+const i18n = initI18nEngine({
+  locale: 'zh-TW',
+  // Option A: Domain Event Callback (LocaleChangeListener) — receives (newLocale, labels, prevLocale)
+  onLocaleChange: (newLocale, labels, prevLocale) => {
+    console.log(`Locale changed from ${prevLocale} to ${labels.label} (${labels.shortLabel} / ${newLocale})`);
+  }
+});
+
+// Option B: Standard BaseStore Data Subscription — strictly aligned with (currentValue, previousValue)
+const unsubscribe = i18n.subscribe('locale', (newLocale, prevLocale) => {
+  console.log(`Store locale changed: ${prevLocale} -> ${newLocale}`);
+});
 ```
 
 ---
@@ -1657,16 +1729,14 @@ yarn test:smoke
 
 ## 🗺️ Future Architecture Roadmap (TODOs)
 
-To maintain stability and avoid scope creep ahead of the `v1.0.0` release, four architectural milestones are tracked on the project roadmap:
+To maintain stability and avoid scope creep ahead of the `v1.0.0` release, architectural milestones are tracked on the project roadmap:
 
-### 📌 TODO 1: Domain-Neutral Callback Naming for Independent Brain Package
+### 📌 TODO 1: Brain Dual-Track Store Output & Domain-Neutral Decoupling Specification
 - **Specification**: Tracked in [Domain-Neutral Brain Decoupling RFC](./docs/TODO-1-DOMAIN-NEUTRAL-BRAIN-DECOUPLING.md).
-- **Background**: Callbacks in `BrainEngineOptions` (`onSpokenAudioPlayNow`, `onSpokenDisplayTextChange`, `onEmotionChange`) borrow domain terms from the speech and skin engines.
-- **Future Plan**: When separating `@ai-avatar/brain` into a standalone cognitive reasoning package:
-  - `onSpokenAudioPlayNow` ➔ `onOutputTextReady` or `onFinalAnswer`
-  - `onSpokenDisplayTextChange` / `onSpokenAudioTextChange` ➔ `onStreamChunk` or `onStreamTextChange`
-  - `onEmotionChange` ➔ `onSentimentChange` or `onIntentChange`
-  - Bidirectional aliases will be maintained for smooth transition.
+- **Background**: Callbacks in `BrainEngineOptions` (`onSpokenAudioPlayNow`, `onSpokenDisplayTextChange`, `onEmotionChange`) borrow domain terms from the speech and skin engines, and silent cognitive display text (`spokenDisplayText`) was historically placed inside `SpeechEngine`.
+- **Future Plan**:
+  - **Brain Dual-Track Store Split**: Expand `BrainStoreState` with **`displayText`** (visual display track including silent thinking hints and streaming chunks, subscribed by `UIEngine`) and **`spokenText`** (audio utterance track containing only speakable sentences, subscribed by `SpeechEngine`).
+  - **Clean Domain-Neutral Callbacks**: Directly replace legacy callback names ahead of `v1.0.0` GA with `onDisplayTextChange`, `onSpokenTextChange`, and `onSentimentChange`.
 
 ### ✅ TODO 2: Tiered Multi-Knowledge RAG Retrieval (Implemented)
 - **Delivered Architecture**:
@@ -1681,13 +1751,33 @@ To maintain stability and avoid scope creep ahead of the `v1.0.0` release, four 
   - **Metadata Merging & Fallback Propagation**: Full support for shallow merging `metadata` on existing messages and transparently passing `metadata` when creating new messages via `addChatMessage` fallback.
   - **Comprehensive Call Site & Test Migration**: Upgraded all 11 internal caller sites and all unit test assertions to options objects.
 
-### 📌 TODO 4: Speech Engine Decoupling and Dynamic Cross-Engine Coupling Registry (Active / Living RFC)
+### 📌 TODO 4: Speech Engine Cross-Domain Decoupling & Dynamic Coupling Registry (Active / Living RFC)
 - **Specification**: Tracked in [Domain-Neutral Speech Engine Decoupling RFC](./docs/TODO-4-SPEECH-ENGINE-CLEAN-DECOUPLING.md).
-- **Background**: The speech engine (`core/speech`) contains legacy artifacts from the monolithic origin (brain reasoning lifecycle `isProcessing`, subtitle bubble state `spokenDisplayText`, avatar tap throttle `onTapTimer`, and setter playback side-effects `spokenAudioText = ...`).
+- **Background**: The speech engine (`core/speech`) contains legacy artifacts from the monolithic origin (brain reasoning lifecycle `isProcessing`, subtitle bubble state `spokenDisplayText` with 6s timer, avatar tap throttle `onTapTimer`, setter playback side-effects `spokenAudioText = ...`, duplicate `DEFAULT_STT_MESSAGES` dictionary, and `setLocale` display label inference).
 - **Future Plan**:
   - Complete the internal modernization and dead-code removal of the speech engine first.
-  - Track cross-engine coupling items in the dynamic registry of TODO 4, collecting concrete specifications as the Tools, I18n, and UI engines are refactored.
-  - Converge all decoupled interfaces in the orchestrator (`core/orchestrator`) alongside Brain's TODO 1 for a completely clean `v1.0.0` architecture.
+  - Track cross-engine coupling items in the dynamic registry of TODO 4 (including eliminating the dual-dictionary split between `DEFAULT_STT_MESSAGES` and `locales/*.ts`, and resolving the `onLanguageChanged` triple-firing issue).
+  - Converge all decoupled interfaces in the orchestrator (`core/orchestrator`) alongside Brain's TODO 1 and UI's TODO 5 for a 100% pure audio core architecture in `v1.0.0`.
+
+### 📌 TODO 5: UI Engine Reactive Store & Cross-Domain Decoupling Specification (UI Internal Tier 1 & Tier 2 Completed ✅ / Pending Cross-Engine Convergence 📋)
+- **Specification**: Tracked in [UI Engine Reactive Store Decoupling RFC](./docs/TODO-5-UI-ENGINE-REACTIVE-STORE-DECOUPLING.md).
+- **Background**: The UI module (`core/ui`) was previously the only engine without its own `createBaseStore`, and both silent brain display text and UI button toasts routed through `speechEngine.spokenDisplayText`.
+- **Delivered Milestones & Next Steps**:
+  - **UI Internal Purification & Reactive Store (Completed ✅)**:
+    - Converged multi-argument positional signatures (`updateVoiceStatus`, `updateMicState`, `updateBubble`, `initSkinModeChangeButton`) to pure Options objects, removed the dead `onTapTimer` property, and renamed `engineButtonEl` / `isEngineToggleEnabled` to `skinModeButtonEl` / `isSkinModeToggleEnabled`.
+    - Created `createUiStore` (`createBaseStore<UiEngineState>`), implemented UI-owned 6-second `bubbleTimer` (`DEFAULT_BUBBLE_DISMISS_MS` in `core/constants.ts`) and `uiDom.toast()`, decoupled `events.ts` and `history.ts` from `speechEngine.spokenDisplayText`, and migrated to `playbackRate` and `consecutiveNoSpeechCount`.
+    - Added the `@ai-avatar-bot/sdk/ui` subpath export, `CustomEnginesConfig.ui` custom engine replacement, and automatic default `#stage` creation in `initUi(container)`.
+  - **Cross-Engine Dual-Track & Brain Encapsulation Convergence (Pending with TODO 1 & TODO 4 📋)**: Wire up subscription to Brain's visual `displayText` track, migrate `isMuted` / `continuousMode`, align `i18nEngine` parameter names and `langButtonEl` label SSOT, add 5 brain status i18n dictionary keys, and replace white-box brain memory access with `brainEngine.clearHistory()`.
+
+### 📌 TODO 6: Cross-Engine I18n Dictionary Single Source of Truth (SSOT) & Locale Synchronization Specification (I18n Internal Tier 1 Completed ✅ / Pending Cross-Engine Convergence 📋)
+- **Specification**: Tracked in [Cross-Engine I18n Dictionary SSOT & Locale Sync RFC](./docs/TODO-6-I18N-DICTIONARY-SSOT-AND-LOCALE-SYNC.md).
+- **Background**: Auditing `core/i18n` across all five sub-engines revealed 21 unreferenced translation keys in `core/i18n/locales/*.ts` (`speech.*` 8 keys, `prompt.*` 8 keys, `greeting.*` 3 keys, `welcome.*` 2 keys) due to duplicate hardcoded strings inside sub-engines, as well as `onLanguageChanged` triple-firing and duplicate `setLocale` calls between `subscribers.ts` and `speechEngine.setLocale()`.
+- **Delivered Milestones & Next Steps**:
+  - **I18n Core Purification & Contract Alignment (Completed ✅)**:
+    - Extracted `core/i18n/types.ts` and added `validateI18nEngine()`; created `core/i18n/locales/index.ts` renaming `defaultLocales` to `DEFAULT_I18N_MESSAGES` and re-exporting it from `core/i18n/constants.ts` and top-level `core/constants.ts`.
+    - Separated pure `BaseStore` data subscription (`i18nEngine.subscribe('locale')` aligned with the standard 2-argument `(newLocale, prevLocale)` contract) from the dedicated domain event `onLocaleChange(newLocale, labels, prevLocale)`; preserved both `t` and `translate` aliases.
+    - Implemented recursive `deepMergeDictionary` and per-instance `localeLabels` state (supporting `options.localeLabels` and dynamic label registration via `addMessages`), removed the redundant `'ui.lang.buttonText'` key in favor of `LOCALE_LABELS.shortLabel`, and widened `AvatarBotOptions.i18nMessages` to `Record<string, TranslationDictionary>`.
+  - **Cross-Engine Dictionary SSOT & Locale Sync Convergence (Pending with TODO 1, TODO 4, TODO 5 📋)**: Wire up the 21 unreferenced dictionary keys, centralize remaining hardcoded Chinese strings across sub-engines (UI brain status hints, STT status messages, rolling summary prompts, Tools interactive & validation messages) into `locales/*.ts`, eliminate `onLanguageChanged` triple-firing, and integrate `validateI18nEngine` into async `customEngines.i18n` verification.
 
 ---
 
