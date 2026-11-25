@@ -460,24 +460,28 @@ describe('Orchestrator Store & i18n Subscribers', () => {
 
       rootStore.setState({ avatarMode: 'companion' });
       let capturedLocaleListener:
-        ((newLocale: string, localeLabels?: unknown) => void) | undefined;
-      const customI18nEngine = {
+        ((newLocale: string, prevLocale?: string) => void) | undefined;
+      const customI18nEngine: {
+        labels: { label?: string; shortLabel?: string } | null;
+        subscribe: (key: string, fn: unknown) => () => void;
+      } = {
+        labels: { label: 'Français', shortLabel: '' },
         subscribe: (key: string, fn: unknown) => {
           if (key === 'locale') {
             capturedLocaleListener = fn as (
               newLocale: string,
-              localeLabels?: unknown
+              prevLocale?: string
             ) => void;
           }
           return () => {};
         }
-      } as unknown as I18nEngine;
+      };
 
       setupI18nSubscribers({
         widget: mockWidget,
         options: {},
         rootStore,
-        i18nEngine: customI18nEngine,
+        i18nEngine: customI18nEngine as unknown as I18nEngine,
         container,
         getUiDom: () =>
           testUiDom as unknown as ReturnType<
@@ -487,7 +491,7 @@ describe('Orchestrator Store & i18n Subscribers', () => {
       });
 
       // Trigger locale subscription with label only (empty shortLabel)
-      capturedLocaleListener?.('fr-FR', { label: 'Français', shortLabel: '' });
+      capturedLocaleListener?.('fr-FR', 'zh-TW');
       expect(customLangBtn.textContent).toBe('Français');
       expect(testUiDom.updateMicState).toHaveBeenCalledWith({
         isListening: false,
@@ -497,17 +501,19 @@ describe('Orchestrator Store & i18n Subscribers', () => {
       });
 
       // Trigger with both empty -> fallback to newLocale
-      capturedLocaleListener?.('de-DE', { label: '', shortLabel: '' });
+      customI18nEngine.labels = { label: '', shortLabel: '' };
+      capturedLocaleListener?.('de-DE', 'fr-FR');
       expect(customLangBtn.textContent).toBe('de-DE');
 
       // Trigger with null localeLabels -> labelsObj is null
-      capturedLocaleListener?.('es-ES', null);
+      customI18nEngine.labels = null;
+      capturedLocaleListener?.('es-ES', 'de-DE');
       expect(customLangBtn.textContent).toBe('es-ES');
 
       // uiDom langButtonEl not HTMLButtonElement
       testUiDom.langButtonEl = null as unknown as HTMLButtonElement;
       expect(() => {
-        capturedLocaleListener?.('it-IT', null);
+        capturedLocaleListener?.('it-IT', 'es-ES');
       }).not.toThrow();
 
       // Defensive null i18nEngine

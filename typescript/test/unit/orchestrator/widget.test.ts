@@ -855,7 +855,7 @@ describe('Avatar Widget & Top-level Bot Orchestration (Deep Branch Coverage)', (
       container,
       customEngines: { i18n: customI18n }
     });
-    expect(bot2?.uiDom.langButtonEl.textContent).toBe('中文');
+    expect(bot2?.uiDom.langButtonEl.textContent).toBe('zh-TW');
   });
 
   it('should expose reasoning, OOM fallback, and stream chunk callback getters', () => {

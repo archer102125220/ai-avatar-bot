@@ -1699,6 +1699,16 @@ yarn test:smoke
     - 補齊 `@ai-avatar-bot/sdk/ui` 獨立子路徑匯出、`CustomEnginesConfig.ui` 整顆引擎取代支援與 `initUi(container)` 自動建立預設 `#stage`。
   - **跨引擎雙軌與大腦封裝收網（待與 TODO 1 & TODO 4 一併執行 📋）**：接上大腦視覺軌 `displayText` 訂閱、遷移 `isMuted` / `continuousMode`、對齊 `i18nEngine` 參數名與 `langButtonEl` 顯示文字單一來源、補齊 5 處大腦狀態 i18n 字典，並改由大腦公開方法 `clearHistory()` 與狀態門面取代白箱存取。
 
+### 📌 TODO 6：跨引擎國際化字典單一事實來源（SSOT）與語系同步收網規格書（I18n 本體 Tier 1 已完成 ✅ / 待跨引擎收網 📋）
+- **規格書追蹤**：詳見 [跨引擎國際化字典 SSOT 與語系同步規格書 (RFC)](./docs/TODO-6-I18N-DICTIONARY-SSOT-AND-LOCALE-SYNC.md)。
+- **背景**：盤點 `core/i18n` 與五大子引擎連動時，發現 `core/i18n/locales/*.ts` 中有 21 個翻譯鍵（`speech.*` 8 鍵、`prompt.*` 8 鍵、`greeting.*` 3 鍵、`welcome.*` 2 鍵）因各子引擎內部另外硬編碼而淪為 0 引用死鍵；且 `subscribers.ts` 與 `speechEngine.setLocale()` 存在 `onLanguageChanged` 三重觸發與雙重 `setLocale` 呼叫。
+- **階段成果與規劃**：
+  - **I18n 本體純淨化與契約對齊（已完成 ✅）**：
+    - 抽離獨立型別檔 `core/i18n/types.ts` 並新增 `validateI18nEngine()`；建立 `core/i18n/locales/index.ts` 將 `defaultLocales` 正名為 `DEFAULT_I18N_MESSAGES`，並於 `core/i18n/constants.ts` 與頂層 `core/constants.ts` 二次導出。
+    - 拆分純 `BaseStore` 資料訂閱（`i18nEngine.subscribe('locale')` 對齊標準 2 參數 `(newLocale, prevLocale)`）與專屬領域事件 `onLocaleChange(newLocale, labels, prevLocale)`；保留 `t` 與 `translate` 雙方法。
+    - 實作 `deepMergeDictionary` 深層字典合併與實例獨立 `localeLabels` 狀態（支援 `options.localeLabels` 與 `addMessages` 動態擴充標籤），移除與 `LOCALE_LABELS.shortLabel` 重複的 `'ui.lang.buttonText'`，並將 `AvatarBotOptions.i18nMessages` 型別擴展為 `Record<string, TranslationDictionary>`。
+  - **跨引擎字典 SSOT 與語系同步收網（待與 TODO 1、TODO 4、TODO 5 一併執行 📋）**：接通 21 個未引用死鍵、將各引擎剩餘硬編碼繁中字串（UI 大腦提示、STT 狀態、滾動摘要 Prompt、Tools 互動與驗證訊息）全面納管至 `locales/*.ts`，並消除 `onLanguageChanged` 三重觸發與接入 `customEngines.i18n` 非同步驗證。
+
 ---
 
 ## 🤝 鳴謝與原作者 (Credits)

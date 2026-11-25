@@ -1,11 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   initI18nEngine,
+  validateI18nEngine,
   resolveLocalized,
   formatParams,
   DEFAULT_LOCALE,
   SUPPORTED_LOCALES,
   LOCALE_LABELS,
+  DEFAULT_I18N_MESSAGES,
   type I18nEngineState
 } from '@/core/i18n';
 
@@ -176,8 +178,9 @@ describe('Unit Test: core/i18n/index.js (TypeScript)', () => {
       ]);
     });
 
-    it('should dynamically switch locale with setLocale and trigger subscription', () => {
-      const i18n = initI18nEngine({ locale: 'zh-TW' });
+    it('should dynamically switch locale with setLocale, trigger BaseStore subscription and onLocaleChange event', () => {
+      const onLocaleChange = vi.fn();
+      const i18n = initI18nEngine({ locale: 'zh-TW', onLocaleChange });
       const localeListener = vi.fn();
 
       const unsubscribe = i18n.subscribe('locale', localeListener);
@@ -185,32 +188,102 @@ describe('Unit Test: core/i18n/index.js (TypeScript)', () => {
       i18n.setLocale('ja-JP');
       expect(i18n.locale).toBe('ja-JP');
       expect(localeListener).toHaveBeenCalledTimes(1);
-      expect(localeListener).toHaveBeenCalledWith(
+      expect(localeListener).toHaveBeenCalledWith('ja-JP', 'zh-TW');
+      expect(onLocaleChange).toHaveBeenCalledTimes(1);
+      expect(onLocaleChange).toHaveBeenCalledWith(
         'ja-JP',
         LOCALE_LABELS['ja-JP'],
         'zh-TW'
       );
 
-      // Setter 支援
+      // Setter 支援與動態更換 onLocaleChange
+      const dynamicOnLocaleChange = vi.fn();
+      i18n.onLocaleChange = dynamicOnLocaleChange;
+      expect(i18n.onLocaleChange).toBe(dynamicOnLocaleChange);
+
       i18n.locale = 'en-US';
       expect(i18n.locale).toBe('en-US');
       expect(localeListener).toHaveBeenCalledTimes(2);
+      expect(localeListener).toHaveBeenLastCalledWith('en-US', 'ja-JP');
+      expect(dynamicOnLocaleChange).toHaveBeenCalledWith(
+        'en-US',
+        LOCALE_LABELS['en-US'],
+        'ja-JP'
+      );
+
+      i18n.onLocaleChange = null;
+      expect(i18n.onLocaleChange).toBeNull();
 
       unsubscribe();
       i18n.setLocale('zh-TW');
       expect(localeListener).toHaveBeenCalledTimes(2);
     });
 
-    it('should dynamically merge new messages with addMessages', () => {
-      const i18n = initI18nEngine({ locale: 'zh-TW' });
-
-      i18n.addMessages('zh-TW', {
-        customModule: {
-          action: '執行動作'
+    it('should dynamically deep-merge new messages and optional labelInfo with addMessages', () => {
+      const i18n = initI18nEngine({
+        locale: 'zh-TW',
+        messages: {
+          'zh-TW': {
+            customModule: {
+              title: '自訂模組'
+            }
+          }
+        },
+        localeLabels: {
+          'fr-FR': { label: 'Français', shortLabel: 'FR' }
         }
       });
 
+      expect(i18n.localeLabels['fr-FR']).toEqual({
+        label: 'Français',
+        shortLabel: 'FR'
+      });
+
+      i18n.addMessages(
+        'zh-TW',
+        {
+          customModule: {
+            action: '執行動作'
+          }
+        },
+        { shortLabel: '台語/繁中' }
+      );
+
+      expect(i18n.t('customModule.title')).toBe('自訂模組');
       expect(i18n.t('customModule.action')).toBe('執行動作');
+      expect(i18n.labels.shortLabel).toBe('台語/繁中');
+      expect(i18n.labels.label).toBe('繁體中文');
+    });
+
+    it('should validate I18nEngine instances via validateI18nEngine and export DEFAULT_I18N_MESSAGES', () => {
+      const i18n = initI18nEngine();
+      expect(DEFAULT_I18N_MESSAGES['zh-TW']).toBeDefined();
+      expect(DEFAULT_I18N_MESSAGES['en-US']).toBeDefined();
+      expect(validateI18nEngine(i18n)).toEqual({
+        isValid: true,
+        missing: []
+      });
+      expect(validateI18nEngine(null)).toEqual({
+        isValid: false,
+        missing: ['engine instance']
+      });
+      expect(validateI18nEngine({})).toEqual({
+        isValid: false,
+        missing: [
+          't()',
+          'translate()',
+          'setLocale()',
+          'addMessages()',
+          'formatParams()',
+          'resolveLocalized()',
+          'subscribe()',
+          'getState()',
+          'setState()',
+          'locale',
+          'messages',
+          'labels'
+        ]
+      });
     });
 
     it('should support custom translation function override', () => {
