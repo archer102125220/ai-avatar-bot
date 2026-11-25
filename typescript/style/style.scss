@@ -9,6 +9,11 @@
   --thought-border: rgba(91, 84, 232, 0.14);
   --thought-text-summary: #5c5d75;
   --thought-text-content: #44455a;
+
+  --suggestions_scroll_container_width: 100%;
+  --suggestions_scroll_container_height: 110px;
+  --suggestions_wrap_width: 150%;
+  --suggestions_wrap_height: 110px;
 }
 
 #stage {
@@ -263,10 +268,8 @@
   }
 
   &-scroll_container {
-    min-width: 0px;
-    min-height: 0px;
-    max-width: 100%;
-    max-height: 110px;
+    width: var(--suggestions_scroll_container_width, 100%);
+    height: var(--suggestions_scroll_container_height, 110px);
     padding: 0 20px;
 
     box-sizing: border-box;
@@ -276,10 +279,8 @@
     scroll-snap-type: x mandatory;
 
     &-wrap {
-      min-width: 0px;
-      min-height: 0px;
-      width: 150%;
-      height: 110px;
+      width: var(--suggestions_wrap_width, 150%);
+      height: var(--suggestions_wrap_height, 110px);
 
       &-list {
         display: flex;

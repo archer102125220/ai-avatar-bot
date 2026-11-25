@@ -26,13 +26,27 @@ export function setHistoryOpen(context: UiContext, open: boolean): void {
   context.uiDom.isHistoryOpen = open === true;
 
   if (suggestionsEl instanceof HTMLElement) {
-    suggestionsEl.style.display =
-      open === true
-        ? 'none'
-        : context.speechEngine?.isListening === true ||
-            context.speechEngine?.convoOn === true
-          ? 'none'
-          : 'flex';
+    // suggestionsEl.style.display =
+    //   open === true
+    //     ? 'none'
+    //     : context.speechEngine?.isListening === true ||
+    //         context.speechEngine?.convoOn === true
+    //       ? 'none'
+    //       : 'flex';
+
+    const suggestionsIsClose =
+      open === true ||
+      context.speechEngine?.isListening === true ||
+      context.speechEngine?.convoOn === true;
+
+    if (
+      suggestionsIsClose === true &&
+      window.getComputedStyle(suggestionsEl).display !== 'none'
+    ) {
+      suggestionsEl.style.display = 'none';
+    } else {
+      suggestionsEl.style.display = '';
+    }
   }
 
   if (bubbleEl instanceof HTMLElement) {
