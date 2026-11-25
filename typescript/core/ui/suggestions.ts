@@ -14,6 +14,10 @@ export function renderSuggestions(context: UiContext | null = null): void {
     return;
   }
 
+  if (suggestionsEl.classList.contains('suggestions') === false) {
+    suggestionsEl.classList.add('suggestions');
+  }
+
   suggestionsEl.replaceChildren();
 
   const i18n = context?.i18nEngine;
@@ -130,7 +134,7 @@ export function renderSuggestions(context: UiContext | null = null): void {
   }
 
   const titleLabelEl = document.createElement('p');
-  titleLabelEl.classList.add('sg-label');
+  titleLabelEl.classList.add('suggestions-title');
   titleLabelEl.textContent =
     typeof titleText === 'string' && titleText !== ''
       ? titleText
@@ -141,6 +145,17 @@ export function renderSuggestions(context: UiContext | null = null): void {
     Array.isArray(resolvedSuggestions) === true &&
     resolvedSuggestions.length > 0
   ) {
+    const suggestionScrollContainerEl = document.createElement('div');
+    suggestionScrollContainerEl.classList.add('suggestions-scroll_container');
+    const suggestionWrapEl = document.createElement('div');
+    suggestionWrapEl.classList.add('suggestions-scroll_container-wrap');
+    const suggestionListEl = document.createElement('div');
+    suggestionListEl.classList.add('suggestions-scroll_container-wrap-list');
+
+    suggestionScrollContainerEl.appendChild(suggestionWrapEl);
+    suggestionWrapEl.appendChild(suggestionListEl);
+    suggestionsEl.appendChild(suggestionScrollContainerEl);
+
     resolvedSuggestions.forEach((suggestion: unknown) => {
       if (typeof suggestion !== 'string' || suggestion === '') {
         return;
@@ -154,7 +169,7 @@ export function renderSuggestions(context: UiContext | null = null): void {
           context.handleUser(suggestion.replace(/？$/, ''));
         }
       };
-      suggestionsEl.appendChild(suggestionButtonEl);
+      suggestionListEl.appendChild(suggestionButtonEl);
     });
   }
 }
