@@ -32,12 +32,16 @@
 - [ ] **1.2 模型預設路徑常數與頂層參數（`live2dUrl` / `vrmUrl`）對齊**
   - **問題**：`DEFAULT_MODEL_URL` 語意過於模糊（在 AI + 2D + 3D 跨領域下易與 LLM Model 混淆）；`DEFAULT_VRM_URL` 則貼近 3D 領域與 `vrmUrl` 參數但缺乏 2D 對稱常數。
   - **已拍板決策**：移除 `DEFAULT_MODEL_URL`；保留 `DEFAULT_VRM_URL` 並新增對稱的 `DEFAULT_LIVE2D_URL = DEFAULT_2D_MODEL_URL`（同時保留 `DEFAULT_2D_MODEL_URL` / `DEFAULT_3D_MODEL_URL` 家族）。
-- [ ] **1.3 常數別名與執行期實例重複 Getter 清理**
+- [ ] **1.3 常數別名與執行期實例重複 Getter 清理（建立「靜態領域別名保留 vs 執行期實例單一純淨」規範）**
   - **問題**：存在 `*Options` vs `*Config`（`DEFAULT_REASONING_CONFIG`）、隨手縮寫（`EMO_TARGET_MAP`）、AI 領域別名（`FINISH_REASON_MAP`、`BRAIN_FALLBACK_TYPE_MAP`），且執行期實例 `widget` / `brainEngine` 重複掛載了雙份別名 Getter。
   - **已拍板決策**：
     1. `constants.ts` 移除 `DEFAULT_REASONING_CONFIG`（統一用 `*Options`）與 `EMO_TARGET_MAP`（統一用 `EMOTION_TARGET_MAP`）。
-    2. `constants.ts` 靜態匯出層保留符合 AI 領域習慣的 `FINISH_REASON_MAP` 與 `BRAIN_FALLBACK_TYPE_MAP`。
-    3. 執行期實例（`AiAvatarWidget` 與 `BrainEngine`）移除重複掛載的別名 Getter（`BRAIN_FALLBACK_TYPE_MAP`、`FINISH_REASON_MAP`）。
+    2. `constants.ts` 靜態匯出層**刻意保留 4 組跨領域直覺對稱別名**（須於 `constants.ts` JSDoc 與 `README.md` / `README_ZH.md` 明確標註對照表與設計原因，避免外部開發者或未來維護者/AI 誤認）：
+       - `DEFAULT_LIVE2D_URL` ⇄ `DEFAULT_2D_MODEL_URL`（對齊 `live2dUrl` 參數與 Live2D 領域直覺）
+       - `DEFAULT_VRM_URL` ⇄ `DEFAULT_3D_MODEL_URL`（對齊 `vrmUrl` 參數與 3D VRM 領域直覺）
+       - `FINISH_REASON_MAP` ⇄ `LLM_FINISH_REASON_MAP`（對齊 OpenAI/LLM 標準 `finish_reason` / `result.finishReason`）
+       - `BRAIN_FALLBACK_TYPE_MAP` ⇄ `BRAIN_ENGINE_TYPE_MAP`（對齊 `onBrainFallback` 回呼攔截情境）
+    3. 執行期實例（`AiAvatarWidget` 與 `BrainEngine`）移除重複掛載的別名 Getter（`BRAIN_FALLBACK_TYPE_MAP`、`FINISH_REASON_MAP`），實例層僅留唯一主名稱。
 - [ ] **1.4 2D/3D 外觀模式切換開關正名（方案 B）**
   - **問題**：UI 引擎（`TODO-5`）已正名為 `skinModeButtonEl` 與 `isSkinModeToggleEnabled`，但常數與協調器仍為 `DEFAULT_ENABLE_ENGINE_TOGGLE` / `enableEngineToggle` / `isEngineToggleEnabled`。
   - **已拍板決策**：採用方案 B，全面正名為 `DEFAULT_ENABLE_SKIN_MODE_TOGGLE`、`enableSkinModeToggle` 與 `isSkinModeToggleEnabled`。
